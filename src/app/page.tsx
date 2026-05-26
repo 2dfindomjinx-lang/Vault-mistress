@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { AdminConsole } from "@/components/AdminConsole";
 import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
@@ -460,7 +460,15 @@ export default function Home() {
   }
 
   if (status === "unauthenticated") {
-    return <LoginScreen />;
+    return <LoginScreen onLogin={() => signIn("twitter", { callbackUrl: "/" })} />;
+  }
+
+  if (status !== "authenticated") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-50">
+        Loading the vault...
+      </main>
+    );
   }
 
   const authenticatedSession = session!;
@@ -539,6 +547,12 @@ export default function Home() {
                 <div className="flex justify-between gap-4">
                   <dt className="text-zinc-500">status</dt>
                   <dd className="font-semibold text-pink-100">{status}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">session</dt>
+                  <dd className="font-semibold text-pink-100">
+                    {session ? "yes" : "no"}
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-4">
                   <dt className="text-zinc-500">name</dt>

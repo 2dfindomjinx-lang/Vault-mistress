@@ -1,8 +1,10 @@
 "use client";
 
-import { signIn } from "next-auth/react";
+type LoginScreenProps = {
+  onLogin: () => void;
+};
 
-export function LoginScreen() {
+export function LoginScreen({ onLogin }: LoginScreenProps) {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#06030a] px-4 text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(236,72,153,0.28),transparent_30%),radial-gradient(circle_at_10%_90%,rgba(168,85,247,0.2),transparent_32%),linear-gradient(180deg,#16081f,#06030a_70%)]" />
@@ -21,7 +23,7 @@ export function LoginScreen() {
 
         <button
           className="mt-8 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white shadow-[0_0_28px_rgba(236,72,153,0.35)] transition hover:scale-[1.01]"
-          onClick={() => signIn("twitter", { callbackUrl: "/" })}
+          onClick={onLogin}
           type="button"
         >
           Continue with X
