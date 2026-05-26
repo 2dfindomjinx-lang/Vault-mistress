@@ -39,6 +39,7 @@ export function FloatingDefneBubble({ message }: FloatingDefneBubbleProps) {
           alt="Defne avatar"
           className="object-cover object-top"
           fill
+          unoptimized
           sizes="56px"
           src="/character-icon.png"
         />

@@ -14,6 +14,7 @@ export function CharacterCard({ dailyMessage }: CharacterCardProps) {
             alt="Defne, a stylish SFW anime mistress character placeholder"
             className="object-cover object-top"
             fill
+            unoptimized
             priority
             sizes="(min-width: 1024px) 45vw, 100vw"
             src="/character.png"

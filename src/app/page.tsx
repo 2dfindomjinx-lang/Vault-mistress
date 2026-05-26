@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { signOut, useSession } from "next-auth/react";
 import { AdminConsole } from "@/components/AdminConsole";
 import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
@@ -19,43 +20,43 @@ type PrototypeUser = {
 const visibleGalleryItems: GalleryItem[] = [
   {
     id: "common-velvet-arrival",
-    title: "Velvet Arrival",
+    title: "Dollar Rain",
     rarity: "Common",
     unlockCost: 75,
-    tag: "Goth",
+    tag: "Pole Dancer",
     image: "/gallery/common-1.png",
     unlocked: false,
   },
   {
     id: "common-midnight-maid",
-    title: "Midnight Maid",
+    title: "Leather Eclipse",
     rarity: "Common",
     unlockCost: 75,
-    tag: "Maid",
+    tag: "Rebel",
     image: "/gallery/common-2.png",
     unlocked: false,
   },
   {
     id: "common-executive-glare",
-    title: "Executive Glare",
+    title: "Golden Seductress",
     rarity: "Common",
     unlockCost: 75,
-    tag: "Office",
+    tag: "Gorgeous",
     image: "/gallery/common-3.png",
     unlocked: false,
   },
   {
     id: "common-rose-vault",
-    title: "Rose Vault",
+    title: "Silk & Vintage",
     rarity: "Common",
     unlockCost: 75,
-    tag: "Luxury",
+    tag: "Pantyhose",
     image: "/gallery/common-4.png",
     unlocked: false,
   },
   {
     id: "rare-loyal-glimpse",
-    title: "Loyal Glimpse",
+    title: "Crimson Veil",
     rarity: "Rare",
     moodRequired: 20,
     tag: "Tease",
@@ -64,64 +65,64 @@ const visibleGalleryItems: GalleryItem[] = [
   },
   {
     id: "rare-private-smile",
-    title: "Private Smile",
+    title: "Campus Craving",
     rarity: "Rare",
     moodRequired: 25,
-    tag: "Luxury",
+    tag: "Tsundere",
     image: "/gallery/rare-2.png",
     unlocked: false,
   },
   {
     id: "rare-purple-obsession",
-    title: "Purple Obsession",
+    title: "Gym Goddess",
     rarity: "Rare",
     moodRequired: 40,
-    tag: "Goth",
+    tag: "Goddess",
     image: "/gallery/rare-3.png",
     unlocked: false,
   },
   {
     id: "rare-golden-approval",
-    title: "Golden Approval",
+    title: "Midnight Kitten",
     rarity: "Rare",
     moodRequired: 50,
-    tag: "Luxury",
+    tag: "Neko",
     image: "/gallery/rare-4.png",
     unlocked: false,
   },
   {
     id: "divine-throne-room",
-    title: "Throne Room",
+    title: "Sinful V",
     rarity: "Divine",
     moodRequired: 60,
-    tag: "Luxury",
+    tag: "Shy Kitten",
     image: "/gallery/divine-1.png",
     unlocked: false,
   },
   {
     id: "divine-goddess-mood",
-    title: "Goddess Mood",
+    title: "Leopard Fever",
     rarity: "Divine",
     moodRequired: 70,
-    tag: "Goth",
+    tag: "Pouting",
     image: "/gallery/divine-2.png",
     unlocked: false,
   },
   {
     id: "divine-final-favor",
-    title: "Final Favor",
+    title: "Naughty Present",
     rarity: "Divine",
     moodRequired: 80,
-    tag: "Tease",
+    tag: "Gift",
     image: "/gallery/divine-3.png",
     unlocked: false,
   },
   {
     id: "divine-velvet-throne",
-    title: "Velvet Throne",
+    title: "Witch's Desire",
     rarity: "Divine",
     moodRequired: 90,
-    tag: "Luxury",
+    tag: "Naughty",
     image: "/gallery/divine-4.png",
     unlocked: false,
   },
@@ -154,14 +155,14 @@ const startingTasks: TaskItem[] = [
     id: "daily-login",
     title: "Log in today",
     reward: 15,
-    completed: false,
+    completed: true,
     claimed: false,
   },
   {
     id: "x-connect",
     title: "Connect with X",
     reward: 20,
-    completed: false,
+    completed: true,
     claimed: false,
   },
   {
@@ -224,11 +225,13 @@ function getAffectionMoodLine(affection: number) {
 }
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
-  const [users, setUsers] = useState<PrototypeUser[]>([
-    { handle: "@littledevotee", coins: 100 },
-  ]);
+  const { data: session, status } = useSession();
+  const sessionName = session?.user?.name ?? "X User";
+  const currentHandle = `@${sessionName
+    .replace(/^@/, "")
+    .replace(/\s+/g, "")
+    .toLowerCase()}`;
+  const [users, setUsers] = useState<PrototypeUser[]>([]);
   const usersRef = useRef(users);
   const [affection, setAffection] = useState(10);
   const [loyaltyStreak] = useState(3);
@@ -241,7 +244,7 @@ export default function Home() {
   );
 
   const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
-  const coins = users.find((user) => user.handle === username)?.coins ?? 0;
+  const coins = users.find((user) => user.handle === currentHandle)?.coins ?? 100;
   const galleryItems =
     affection >= 100
       ? [...visibleGalleryItems, secretGalleryItem]
@@ -300,27 +303,30 @@ export default function Home() {
     );
   };
 
-  const handleLogin = () => {
-    // Future integration point: start real X OAuth here, then exchange the
-    // callback code with a backend route before trusting the user identity.
-    setIsLoggedIn(true);
-    setUsername("@littledevotee");
-    completeTask("daily-login");
-    completeTask("x-connect");
-    setMistressReply("Logged in already? Eager little thing.");
-  };
-
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername("");
     setMistressReply("Back at the gate. The vault can wait.");
+    signOut();
   };
 
   const updateUserCoins = (
     handle: string,
     update: number | ((currentCoins: number) => number),
   ) => {
-    const userFound = usersRef.current.some((user) => user.handle === handle);
+    const existingUser = usersRef.current.find((user) => user.handle === handle);
+    const userFound = Boolean(existingUser) || handle === currentHandle;
+    const getNextCoins = (currentCoins: number) =>
+      typeof update === "function" ? update(currentCoins) : currentCoins + update;
+
+    if (!existingUser && handle === currentHandle) {
+      const nextUsers = [
+        ...usersRef.current,
+        { handle, coins: getNextCoins(100) },
+      ];
+
+      usersRef.current = nextUsers;
+      setUsers(nextUsers);
+      return true;
+    }
 
     const nextUsers = usersRef.current.map((user) => {
         if (user.handle !== handle) {
@@ -329,8 +335,7 @@ export default function Home() {
 
         return {
           ...user,
-          coins:
-            typeof update === "function" ? update(user.coins) : user.coins + update,
+          coins: getNextCoins(user.coins),
         };
       });
 
@@ -342,7 +347,7 @@ export default function Home() {
 
   const handleTribute = (amount: number) => {
     const currentCoins =
-      usersRef.current.find((user) => user.handle === username)?.coins ?? 0;
+      usersRef.current.find((user) => user.handle === currentHandle)?.coins ?? 100;
 
     if (currentCoins < amount) {
       setMistressReply(
@@ -360,7 +365,7 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + affectionGain);
 
-    updateUserCoins(username, (value) => Math.max(0, value - amount));
+    updateUserCoins(currentHandle, (value) => Math.max(0, value - amount));
     setAffection(nextAffection);
     setTributeTotal((value) => value + amount);
     completeTask("tribute");
@@ -384,7 +389,7 @@ export default function Home() {
     }
 
     const currentCoins =
-      usersRef.current.find((user) => user.handle === username)?.coins ?? 0;
+      usersRef.current.find((user) => user.handle === currentHandle)?.coins ?? 100;
 
     const unlockCost = item.unlockCost ?? 75;
 
@@ -395,7 +400,7 @@ export default function Home() {
       return;
     }
 
-    updateUserCoins(username, (value) => Math.max(0, value - unlockCost));
+    updateUserCoins(currentHandle, (value) => Math.max(0, value - unlockCost));
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
@@ -418,7 +423,7 @@ export default function Home() {
       return;
     }
 
-    updateUserCoins(username, task.reward);
+    updateUserCoins(currentHandle, task.reward);
     setTasks((current) =>
       current.map((entry) =>
         entry.id === taskId ? { ...entry, claimed: true } : entry,
@@ -446,8 +451,16 @@ export default function Home() {
     tributeTotal,
   };
 
-  if (!isLoggedIn) {
-    return <LoginScreen onLogin={handleLogin} />;
+  if (status === "loading") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-50">
+        Loading the vault...
+      </main>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen />;
   }
 
   return (
@@ -463,10 +476,19 @@ export default function Home() {
               Defne&apos;s Premium Vault
             </h1>
             <p className="mt-1 text-sm text-pink-100/70">
-              Signed in as <span className="font-bold text-pink-100">{username}</span>
+              Signed in as{" "}
+              <span className="font-bold text-pink-100">{sessionName}</span>
+              <span className="ml-2 text-xs text-zinc-500">{currentHandle}</span>
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            {session.user?.image && (
+              <div
+                aria-label={`${sessionName} avatar`}
+                className="h-9 w-9 rounded-full border border-pink-200/40 bg-cover bg-center shadow-[0_0_20px_rgba(236,72,153,0.25)]"
+                style={{ backgroundImage: `url(${session.user.image})` }}
+              />
+            )}
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
               SFW Prototype
             </div>
@@ -548,7 +570,7 @@ export default function Home() {
           )}
           {activePanel === "admin" && (
             <AdminConsole
-              currentUsername={username}
+              currentUsername={currentHandle}
               onAddCoins={handleAdminAddCoins}
             />
           )}

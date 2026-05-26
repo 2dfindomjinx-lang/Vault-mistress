@@ -98,6 +98,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
                     item.unlocked ? "" : "scale-105 blur-md grayscale"
                   } ${isSecret ? "saturate-150 contrast-125" : ""}`}
                   fill
+                  unoptimized
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                   src={item.image}
                 />
@@ -144,6 +145,15 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
                 >
                   {buttonText}
                 </button>
+                {item.unlocked && (
+                  <a
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20"
+                    download
+                    href={item.image}
+                  >
+                    Download Image
+                  </a>
+                )}
               </div>
             </article>
           );

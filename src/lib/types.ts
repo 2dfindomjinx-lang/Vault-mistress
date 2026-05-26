@@ -1,6 +1,6 @@
 export type GalleryRarity = "Common" | "Rare" | "Divine" | "Secret";
 
-export type GalleryTag = "Maid" | "Office" | "Goth" | "Tease" | "Luxury";
+export type GalleryTag = string;
 
 export type GalleryItem = {
   id: string;
