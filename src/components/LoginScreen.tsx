@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import Link from "next/link";
 import { useState } from "react";
 
 type LoginScreenProps = {
@@ -9,12 +10,29 @@ type LoginScreenProps = {
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
   const { data: session, status } = useSession();
-  const [realXLoginDebug, setRealXLoginDebug] = useState("");
+  const [authClickDebug, setAuthClickDebug] = useState("");
+  const [authClickError, setAuthClickError] = useState("");
 
   const handleRealXLogin = async () => {
     console.log("Real X login clicked");
-    setRealXLoginDebug("Clicked real X login");
-    await signIn("twitter", { callbackUrl: "/" });
+    setAuthClickDebug("Clicked real X login");
+    setAuthClickError("");
+
+    const result = await signIn("twitter", {
+      callbackUrl: "/",
+      redirect: false,
+    });
+
+    console.log("signIn result", result);
+    setAuthClickDebug(JSON.stringify(result, null, 2));
+
+    if (result?.error) {
+      setAuthClickError(result.error);
+    }
+
+    if (result?.url) {
+      window.location.href = result.url;
+    }
   };
 
   return (
@@ -56,9 +74,23 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           >
             Test Real X Login
           </button>
-          {realXLoginDebug && (
-            <p className="mt-3 text-sm text-pink-100">{realXLoginDebug}</p>
+          {authClickDebug && (
+            <pre className="mt-3 max-h-40 overflow-auto rounded-2xl border border-white/10 bg-black/60 p-3 text-xs leading-5 text-pink-100">
+              {authClickDebug}
+            </pre>
           )}
+          {authClickError && (
+            <p className="mt-3 rounded-2xl border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+              {authClickError}
+            </p>
+          )}
+
+          <Link
+            className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-fuchsia-200/20 bg-white/[0.04] px-5 py-3 text-center text-sm font-bold text-fuchsia-100 transition hover:border-fuchsia-300/50"
+            href="/api/auth/signin/twitter"
+          >
+            Direct NextAuth Twitter Sign In
+          </Link>
 
           {session && (
             <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">

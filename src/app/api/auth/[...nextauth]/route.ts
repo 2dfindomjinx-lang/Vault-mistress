@@ -4,6 +4,8 @@ import Twitter from "next-auth/providers/twitter";
 const handler = NextAuth({
   providers: [
     Twitter({
+      id: "twitter",
+      name: "X",
       clientId: process.env.AUTH_TWITTER_ID!,
       clientSecret: process.env.AUTH_TWITTER_SECRET!,
     }),
