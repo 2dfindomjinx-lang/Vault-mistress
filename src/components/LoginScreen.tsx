@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isSupabaseConfigured, normalizeUsername } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 type LoginMode = "login" | "register";
 
@@ -22,7 +22,7 @@ export function LoginScreen({ error, isBusy = false, onSubmit }: LoginScreenProp
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSubmit(mode, normalizeUsername(username), password);
+    await onSubmit(mode, username, password);
   };
 
   return (

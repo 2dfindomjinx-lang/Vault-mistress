@@ -18,11 +18,44 @@ export const supabase = createClient(
   supabaseAnonKey ?? "missing-supabase-anon-key",
 );
 
-export function normalizeUsername(value: string) {
-  const cleaned = value.trim().replace(/\s+/g, "").toLowerCase();
-  return cleaned.startsWith("@") ? cleaned : `@${cleaned}`;
+export function usernameToEmail(username: string) {
+  const clean = username
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, "")
+    .replace(/[^a-z0-9_]/g, "");
+
+  return `${clean}@vault.local`;
 }
 
-export function usernameToVaultEmail(username: string) {
-  return `${normalizeUsername(username).replace(/^@/, "")}@vault.local`;
+export function validateUsername(username: string) {
+  const trimmed = username.trim().toLowerCase();
+
+  if (!trimmed.startsWith("@")) {
+    return {
+      error: "Username must start with @.",
+      username: "",
+    };
+  }
+
+  const clean = trimmed.replace(/^@/, "");
+
+  if (clean.length < 3) {
+    return {
+      error: "Username must be at least 3 characters after @.",
+      username: "",
+    };
+  }
+
+  if (!/^[a-z0-9_]+$/.test(clean)) {
+    return {
+      error: "Username can only use letters, numbers, and underscore.",
+      username: "",
+    };
+  }
+
+  return {
+    error: "",
+    username: `@${clean}`,
+  };
 }

@@ -10,9 +10,9 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
 import {
-  normalizeUsername,
   supabase,
-  usernameToVaultEmail,
+  usernameToEmail,
+  validateUsername,
   type Profile,
 } from "@/lib/supabase/client";
 import type { GalleryItem, TaskItem } from "@/lib/types";
@@ -322,7 +322,8 @@ export default function Home() {
       return;
     }
 
-    const usernameForProfile = normalizeUsername(fallbackUsername ?? "@vaultuser");
+    const validatedFallback = validateUsername(fallbackUsername ?? "@vaultuser");
+    const usernameForProfile = validatedFallback.username || "@vaultuser";
     const { data: createdProfile, error: insertError } = await supabase
       .from("profiles")
       .insert({
@@ -442,13 +443,18 @@ export default function Home() {
     rawUsername: string,
     password: string,
   ) => {
-    const nextUsername = normalizeUsername(rawUsername);
-    const email = usernameToVaultEmail(nextUsername);
+    const validatedUsername = validateUsername(rawUsername);
 
     setIsAuthBusy(true);
     setAuthError("");
 
     try {
+      if (validatedUsername.error) {
+        throw new Error(validatedUsername.error);
+      }
+
+      const nextUsername = validatedUsername.username;
+      const email = usernameToEmail(nextUsername);
       const result =
         mode === "register"
           ? await supabase.auth.signUp({ email, password })
