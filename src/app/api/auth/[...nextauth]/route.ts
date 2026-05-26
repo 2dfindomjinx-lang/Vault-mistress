@@ -1,3 +1,4 @@
+JavaScript
 import NextAuth from "next-auth";
 import TwitterProvider from "next-auth/providers/twitter";
 
@@ -13,14 +14,14 @@ const handler = NextAuth({
       authorization: {
         url: "https://twitter.com/i/oauth2/authorize",
         params: { 
-          scope: "users.read tweet.read",
+          // 💡 Artık Developer Portal'da izin verdiğimiz için 'users.read' yanına 'email.read' de ekledik
+          scope: "users.read tweet.read email.read",
         },
       },
       checks: ["pkce", "state"],
     }),
   ],
-  // 💡 DÖNGÜYÜ KIRACAK KRİTİK AYAR:
-  // Vercel ve X arasındaki çerez (cookie) uyumsuzluğunu çözer.
+  // Vercel ve X arasındaki çerez senkronizasyonunu garantiye alan ayar
   cookies: {
     pkceCodeVerifier: {
       name: `next-auth.pkce.code_verifier`,
@@ -42,8 +43,14 @@ const handler = NextAuth({
     },
   },
   callbacks: {
-    async session({ session }) {
+    async session({ session, token }) {
+      if (session?.user && token) {
+        session.user.id = token.sub;
+      }
       return session;
+    },
+    async jwt({ token, user }) {
+      return token;
     },
   },
 });
