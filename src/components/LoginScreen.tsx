@@ -21,7 +21,7 @@ export function LoginScreen() {
 
         <button
           className="mt-8 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white shadow-[0_0_28px_rgba(236,72,153,0.35)] transition hover:scale-[1.01]"
-          onClick={() => signIn("twitter")}
+          onClick={() => signIn("twitter", { callbackUrl: "/" })}
           type="button"
         >
           Continue with X

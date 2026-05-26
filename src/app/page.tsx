@@ -305,7 +305,7 @@ export default function Home() {
 
   const handleLogout = () => {
     setMistressReply("Back at the gate. The vault can wait.");
-    signOut();
+    signOut({ callbackUrl: "/" });
   };
 
   const updateUserCoins = (
@@ -459,9 +459,11 @@ export default function Home() {
     );
   }
 
-  if (!session) {
+  if (status === "unauthenticated") {
     return <LoginScreen />;
   }
+
+  const authenticatedSession = session!;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#06030a] text-white">
@@ -482,11 +484,11 @@ export default function Home() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-            {session.user?.image && (
+            {authenticatedSession.user?.image && (
               <div
                 aria-label={`${sessionName} avatar`}
                 className="h-9 w-9 rounded-full border border-pink-200/40 bg-cover bg-center shadow-[0_0_20px_rgba(236,72,153,0.25)]"
-                style={{ backgroundImage: `url(${session.user.image})` }}
+                style={{ backgroundImage: `url(${authenticatedSession.user.image})` }}
               />
             )}
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
@@ -528,6 +530,35 @@ export default function Home() {
               <p className="mt-4 text-sm leading-6 text-pink-50">
                 {scriptedMessage}
               </p>
+            </section>
+            <section className="rounded-[2rem] border border-white/10 bg-black/45 p-5 text-sm shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+              <p className="text-xs uppercase tracking-[0.28em] text-fuchsia-200/70">
+                Auth Debug
+              </p>
+              <dl className="mt-3 grid gap-2 text-zinc-300">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">status</dt>
+                  <dd className="font-semibold text-pink-100">{status}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">name</dt>
+                  <dd className="text-right text-pink-100">
+                    {authenticatedSession.user?.name ?? "none"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">email</dt>
+                  <dd className="text-right text-pink-100">
+                    {authenticatedSession.user?.email ?? "none"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-zinc-500">image</dt>
+                  <dd className="max-w-[220px] truncate text-right text-pink-100">
+                    {authenticatedSession.user?.image ?? "none"}
+                  </dd>
+                </div>
+              </dl>
             </section>
           </div>
         </section>
