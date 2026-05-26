@@ -2,17 +2,23 @@ import NextAuth from "next-auth";
 import Twitter from "next-auth/providers/twitter";
 
 const handler = NextAuth({
+  secret: process.env.NEXTAUTH_SECRET,
   providers: [
     Twitter({
       id: "twitter",
       name: "X",
-      clientId: process.env.AUTH_TWITTER_ID!,
-      clientSecret: process.env.AUTH_TWITTER_SECRET!,
+      clientId: process.env.TWITTER_CLIENT_ID!,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET!,
+      version: "2.0",
     }),
   ],
-  secret: process.env.AUTH_SECRET,
   pages: {
     signIn: "/",
+  },
+  callbacks: {
+    async session({ session }) {
+      return session;
+    },
   },
 });
 

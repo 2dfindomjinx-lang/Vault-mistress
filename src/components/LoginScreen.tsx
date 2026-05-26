@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -93,9 +94,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </Link>
 
           {session && (
-            <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">
-              Real X session detected.
-            </p>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
+              {session.user?.image && (
+                <Image
+                  alt={session.user.name ?? "X profile image"}
+                  className="rounded-full"
+                  height={40}
+                  src={session.user.image}
+                  unoptimized
+                  width={40}
+                />
+              )}
+              <div>
+                <p className="font-bold">Real X session detected.</p>
+                <p>{session.user?.name ?? "X user"}</p>
+              </div>
+            </div>
           )}
 
           <dl className="mt-4 grid gap-2 text-xs text-zinc-400">
