@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import { useState } from "react";
 
 type LoginScreenProps = {
   onLogin: () => void;
@@ -8,6 +9,13 @@ type LoginScreenProps = {
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
   const { data: session, status } = useSession();
+  const [realXLoginDebug, setRealXLoginDebug] = useState("");
+
+  const handleRealXLogin = async () => {
+    console.log("Real X login clicked");
+    setRealXLoginDebug("Clicked real X login");
+    await signIn("twitter", { callbackUrl: "/" });
+  };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#06030a] px-4 text-white">
@@ -43,11 +51,14 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           </p>
           <button
             className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20"
-            onClick={() => signIn("twitter", { callbackUrl: "/" })}
+            onClick={handleRealXLogin}
             type="button"
           >
             Test Real X Login
           </button>
+          {realXLoginDebug && (
+            <p className="mt-3 text-sm text-pink-100">{realXLoginDebug}</p>
+          )}
 
           {session && (
             <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-100">
