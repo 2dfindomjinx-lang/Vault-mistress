@@ -9,10 +9,8 @@ const handler = NextAuth({
     }),
   ],
   secret: process.env.AUTH_SECRET,
-  callbacks: {
-    async session({ session }) {
-      return session;
-    },
+  pages: {
+    signIn: "/",
   },
 });
 
