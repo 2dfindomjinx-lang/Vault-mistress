@@ -1,8 +1,7 @@
-JavaScript
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import TwitterProvider from "next-auth/providers/twitter";
 
-const handler = NextAuth({
+export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers: [
     TwitterProvider({
@@ -14,14 +13,12 @@ const handler = NextAuth({
       authorization: {
         url: "https://twitter.com/i/oauth2/authorize",
         params: { 
-          // 💡 Artık Developer Portal'da izin verdiğimiz için 'users.read' yanına 'email.read' de ekledik
           scope: "users.read tweet.read email.read",
         },
       },
       checks: ["pkce", "state"],
     }),
   ],
-  // Vercel ve X arasındaki çerez senkronizasyonunu garantiye alan ayar
   cookies: {
     pkceCodeVerifier: {
       name: `next-auth.pkce.code_verifier`,
@@ -45,14 +42,17 @@ const handler = NextAuth({
   callbacks: {
     async session({ session, token }) {
       if (session?.user && token) {
-        session.user.id = token.sub;
+        // TypeScript hata vermesin diye id'yi güvenli şekilde bağlıyoruz
+        (session.user as any).id = token.sub;
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token }) {
       return token;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
