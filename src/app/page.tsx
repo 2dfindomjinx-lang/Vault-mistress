@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminConsole } from "@/components/AdminConsole";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
@@ -9,12 +9,13 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
+import {
+  normalizeUsername,
+  supabase,
+  usernameToVaultEmail,
+  type Profile,
+} from "@/lib/supabase/client";
 import type { GalleryItem, TaskItem } from "@/lib/types";
-
-type PrototypeUser = {
-  handle: string;
-  coins: number;
-};
 
 const visibleGalleryItems: GalleryItem[] = [
   {
@@ -159,7 +160,7 @@ const startingTasks: TaskItem[] = [
   },
   {
     id: "x-connect",
-    title: "Connect with X",
+    title: "Create vault account",
     reward: 20,
     completed: true,
     claimed: false,
@@ -225,24 +226,24 @@ function getAffectionMoodLine(affection: number) {
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authError, setAuthError] = useState("");
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
-  const currentHandle = username;
-  const [users, setUsers] = useState<PrototypeUser[]>([
-    { handle: "@littledevotee", coins: 100 },
-  ]);
-  const usersRef = useRef(users);
-  const [affection, setAffection] = useState(10);
+  const [coins, setCoins] = useState(100);
+  const coinsRef = useRef(coins);
+  const [affection, setAffection] = useState(0);
   const [loyaltyStreak] = useState(3);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState(startingTasks);
-  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks" | "admin">("tribute");
+  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks">("tribute");
   const [mistressReply, setMistressReply] = useState(
     "The vault is waiting. Try to look composed.",
   );
 
   const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
-  const coins = users.find((user) => user.handle === currentHandle)?.coins ?? 100;
   const galleryItems =
     affection >= 100
       ? [...visibleGalleryItems, secretGalleryItem]
@@ -251,6 +252,140 @@ export default function Home() {
     ...item,
     unlocked: unlockedGalleryIds.includes(item.id),
   }));
+
+  useEffect(() => {
+    coinsRef.current = coins;
+  }, [coins]);
+
+  const saveProfilePatch = useCallback((patch: Partial<Pick<Profile, "coins" | "affection">>) => {
+    if (!authUserId) {
+      return;
+    }
+
+    void supabase.from("profiles").update(patch).eq("id", authUserId);
+  }, [authUserId]);
+
+  const recordCoinTransaction = useCallback((amount: number, reason: string) => {
+    if (!authUserId || amount === 0) {
+      return;
+    }
+
+    void supabase.from("coin_transactions").insert({
+      user_id: authUserId,
+      amount,
+      reason,
+    });
+  }, [authUserId]);
+
+  const recordGalleryUnlocks = useCallback((itemIds: string[]) => {
+    if (!authUserId || itemIds.length === 0) {
+      return;
+    }
+
+    void supabase.from("unlocked_gallery_items").upsert(
+      itemIds.map((itemId) => ({
+        user_id: authUserId,
+        item_id: itemId,
+      })),
+      { onConflict: "user_id,item_id" },
+    );
+  }, [authUserId]);
+
+  const applyProfile = useCallback(async (profile: Profile) => {
+    setAuthUserId(profile.id);
+    setUsername(profile.username);
+    setCoins(profile.coins);
+    setAffection(profile.affection);
+
+    const { data } = await supabase
+      .from("unlocked_gallery_items")
+      .select("item_id")
+      .eq("user_id", profile.id);
+
+    setUnlockedGalleryIds(data?.map((entry) => entry.item_id) ?? []);
+    setIsLoggedIn(true);
+  }, []);
+
+  const loadProfile = useCallback(async (userId: string, fallbackUsername?: string) => {
+    const { data: existingProfile, error } = await supabase
+      .from("profiles")
+      .select("id, username, coins, affection, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (existingProfile) {
+      await applyProfile(existingProfile);
+      return;
+    }
+
+    const usernameForProfile = normalizeUsername(fallbackUsername ?? "@vaultuser");
+    const { data: createdProfile, error: insertError } = await supabase
+      .from("profiles")
+      .insert({
+        id: userId,
+        username: usernameForProfile,
+        coins: 100,
+        affection: 0,
+      })
+      .select("id, username, coins, affection, created_at")
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    await applyProfile(createdProfile);
+  }, [applyProfile]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootSession = async () => {
+      setIsAuthLoading(true);
+      const { data } = await supabase.auth.getSession();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!data.session?.user) {
+        setIsLoggedIn(false);
+        setIsAuthLoading(false);
+        return;
+      }
+
+      try {
+        await loadProfile(data.session.user.id);
+        setMistressReply("Logged in already? Eager little thing.");
+      } catch {
+        setAuthError("Profile could not be loaded.");
+      } finally {
+        if (mounted) {
+          setIsAuthLoading(false);
+        }
+      }
+    };
+
+    void bootSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setIsLoggedIn(false);
+        setAuthUserId(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadProfile]);
 
   useEffect(() => {
     const unlockTimer = window.setTimeout(() => {
@@ -275,6 +410,7 @@ export default function Home() {
         missingIds.forEach((id) => nextIds.add(id));
         return Array.from(nextIds);
       });
+      recordGalleryUnlocks(missingIds);
 
       if (shouldAnnounceSecret) {
         setMistressReply(
@@ -286,7 +422,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(unlockTimer);
     };
-  }, [affection, unlockedGalleryIds]);
+  }, [affection, recordGalleryUnlocks, unlockedGalleryIds]);
 
   const scriptedMessage = useMemo(
     () => getAffectionMoodLine(affection),
@@ -301,57 +437,99 @@ export default function Home() {
     );
   };
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    setUsername("@littledevotee");
-    setMistressReply("Logged in already? Eager little thing.");
+  const handleAuthSubmit = async (
+    mode: "login" | "register",
+    rawUsername: string,
+    password: string,
+  ) => {
+    const nextUsername = normalizeUsername(rawUsername);
+    const email = usernameToVaultEmail(nextUsername);
+
+    setIsAuthBusy(true);
+    setAuthError("");
+
+    try {
+      const result =
+        mode === "register"
+          ? await supabase.auth.signUp({ email, password })
+          : await supabase.auth.signInWithPassword({ email, password });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      const user = result.data.user;
+
+      if (!user) {
+        throw new Error(
+          "Account created, but Supabase did not return a session. Disable email confirmation for this prototype or log in after confirming.",
+        );
+      }
+
+      if (mode === "register" && !result.data.session) {
+        throw new Error(
+          "Account created, but email confirmation is enabled in Supabase. Disable confirmation for this prototype, then log in.",
+        );
+      }
+
+      if (mode === "register") {
+        const { error } = await supabase.from("profiles").upsert(
+          {
+            id: user.id,
+            username: nextUsername,
+            coins: 100,
+            affection: 0,
+          },
+          { onConflict: "id" },
+        );
+
+        if (error) {
+          throw error;
+        }
+      }
+
+      await loadProfile(user.id, nextUsername);
+      setMistressReply("Logged in already? Eager little thing.");
+    } catch (error) {
+      setAuthError(
+        error instanceof Error
+          ? error.message
+          : "Vault login failed. Check the username and password.",
+      );
+    } finally {
+      setIsAuthBusy(false);
+      setIsAuthLoading(false);
+    }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsLoggedIn(false);
+    setAuthUserId(null);
+    setUnlockedGalleryIds([]);
+    setTasks(startingTasks);
+    setCoins(100);
+    setAffection(0);
     setMistressReply("Back at the gate. The vault can wait.");
   };
 
-  const updateUserCoins = (
-    handle: string,
+  const updateCoins = (
     update: number | ((currentCoins: number) => number),
+    reason: string,
   ) => {
-    const existingUser = usersRef.current.find((user) => user.handle === handle);
-    const userFound = Boolean(existingUser) || handle === currentHandle;
     const getNextCoins = (currentCoins: number) =>
       typeof update === "function" ? update(currentCoins) : currentCoins + update;
+    const previousCoins = coinsRef.current;
+    const nextCoins = Math.max(0, getNextCoins(previousCoins));
 
-    if (!existingUser && handle === currentHandle) {
-      const nextUsers = [
-        ...usersRef.current,
-        { handle, coins: getNextCoins(100) },
-      ];
-
-      usersRef.current = nextUsers;
-      setUsers(nextUsers);
-      return true;
-    }
-
-    const nextUsers = usersRef.current.map((user) => {
-        if (user.handle !== handle) {
-          return user;
-        }
-
-        return {
-          ...user,
-          coins: getNextCoins(user.coins),
-        };
-      });
-
-    usersRef.current = nextUsers;
-    setUsers(nextUsers);
-
-    return userFound;
+    coinsRef.current = nextCoins;
+    setCoins(nextCoins);
+    saveProfilePatch({ coins: nextCoins });
+    recordCoinTransaction(nextCoins - previousCoins, reason);
   };
 
   const handleTribute = (amount: number) => {
-    const currentCoins =
-      usersRef.current.find((user) => user.handle === currentHandle)?.coins ?? 100;
+    const currentCoins = coinsRef.current;
 
     if (currentCoins < amount) {
       setMistressReply(
@@ -369,8 +547,9 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + affectionGain);
 
-    updateUserCoins(currentHandle, (value) => Math.max(0, value - amount));
+    updateCoins((value) => Math.max(0, value - amount), "tribute");
     setAffection(nextAffection);
+    saveProfilePatch({ affection: nextAffection });
     setTributeTotal((value) => value + amount);
     completeTask("tribute");
     if (nextAffection >= 50) {
@@ -392,8 +571,7 @@ export default function Home() {
       return;
     }
 
-    const currentCoins =
-      usersRef.current.find((user) => user.handle === currentHandle)?.coins ?? 100;
+    const currentCoins = coinsRef.current;
 
     const unlockCost = item.unlockCost ?? 75;
 
@@ -404,13 +582,15 @@ export default function Home() {
       return;
     }
 
-    updateUserCoins(currentHandle, (value) => Math.max(0, value - unlockCost));
+    updateCoins((value) => Math.max(0, value - unlockCost), "common_gallery_unlock");
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
+    recordGalleryUnlocks([item.id]);
     const nextAffection = Math.min(100, affection + 8);
 
     setAffection(nextAffection);
+    saveProfilePatch({ affection: nextAffection });
     completeTask("gallery");
     if (nextAffection >= 50) {
       completeTask("affection");
@@ -427,7 +607,7 @@ export default function Home() {
       return;
     }
 
-    updateUserCoins(currentHandle, task.reward);
+    updateCoins(task.reward, `task:${task.id}`);
     setTasks((current) =>
       current.map((entry) =>
         entry.id === taskId ? { ...entry, claimed: true } : entry,
@@ -438,16 +618,6 @@ export default function Home() {
     );
   };
 
-  const handleAdminAddCoins = (handle: string, amount: number) => {
-    const added = updateUserCoins(handle, amount);
-
-    if (added) {
-      setMistressReply("Coins added. Try not to waste my generosity.");
-    }
-
-    return added;
-  };
-
   const stats = {
     coins,
     affection,
@@ -455,8 +625,24 @@ export default function Home() {
     tributeTotal,
   };
 
+  if (isAuthLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
+        <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
+          Opening the vault...
+        </div>
+      </main>
+    );
+  }
+
   if (!isLoggedIn) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return (
+      <LoginScreen
+        error={authError}
+        isBusy={isAuthBusy}
+        onSubmit={handleAuthSubmit}
+      />
+    );
   }
 
   return (
@@ -480,23 +666,18 @@ export default function Home() {
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
               SFW Prototype
             </div>
+            <Link
+              className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+              href="/admin"
+            >
+              Admin
+            </Link>
             <button
               className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
               onClick={handleLogout}
               type="button"
             >
               Logout
-            </button>
-            <button
-              className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
-                activePanel === "admin"
-                  ? "border-pink-300/50 bg-pink-500/20 text-pink-50"
-                  : "border-white/10 bg-white/[0.06] text-zinc-200 hover:border-pink-300/40 hover:text-white"
-              }`}
-              onClick={() => setActivePanel("admin")}
-              type="button"
-            >
-              Admin
             </button>
           </div>
         </header>
@@ -555,12 +736,6 @@ export default function Home() {
           )}
           {activePanel === "tasks" && (
             <TaskList tasks={tasks} onClaim={handleClaimTask} />
-          )}
-          {activePanel === "admin" && (
-            <AdminConsole
-              currentUsername={currentHandle}
-              onAddCoins={handleAdminAddCoins}
-            />
           )}
         </section>
       </div>

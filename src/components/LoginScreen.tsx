@@ -1,39 +1,28 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
-import Image from "next/image";
-import Link from "next/link";
 import { useState } from "react";
+import { isSupabaseConfigured, normalizeUsername } from "@/lib/supabase/client";
+
+type LoginMode = "login" | "register";
 
 type LoginScreenProps = {
-  onLogin: () => void;
+  error?: string;
+  isBusy?: boolean;
+  onSubmit: (
+    mode: LoginMode,
+    username: string,
+    password: string,
+  ) => Promise<void>;
 };
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
-  const { data: session, status } = useSession();
-  const [authClickDebug, setAuthClickDebug] = useState("");
-  const [authClickError, setAuthClickError] = useState("");
+export function LoginScreen({ error, isBusy = false, onSubmit }: LoginScreenProps) {
+  const [mode, setMode] = useState<LoginMode>("login");
+  const [username, setUsername] = useState("@littledevotee");
+  const [password, setPassword] = useState("");
 
-  const handleRealXLogin = async () => {
-    console.log("Real X login clicked");
-    setAuthClickDebug("Clicked real X login");
-    setAuthClickError("");
-
-    const result = await signIn("twitter", {
-      callbackUrl: "/",
-      redirect: false,
-    });
-
-    console.log("signIn result", result);
-    setAuthClickDebug(JSON.stringify(result, null, 2));
-
-    if (result?.error) {
-      setAuthClickError(result.error);
-    }
-
-    if (result?.url) {
-      window.location.href = result.url;
-    }
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await onSubmit(mode, normalizeUsername(username), password);
   };
 
   return (
@@ -48,93 +37,86 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           Vault Mistress
         </h1>
         <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-zinc-300">
-          Enter the velvet ledger with a prototype X identity. The vault remembers
-          fantasy coins only.
+          Enter the velvet ledger with your vault username. Coins, mood, and
+          unlocks are now saved through Supabase.
         </p>
 
-        <button
-          className="mt-8 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white shadow-[0_0_28px_rgba(236,72,153,0.35)] transition hover:scale-[1.01]"
-          onClick={onLogin}
-          type="button"
-        >
-          Continue with X
-        </button>
+        <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1">
+          {(["login", "register"] as LoginMode[]).map((option) => (
+            <button
+              className={`rounded-xl px-4 py-2 text-sm font-black uppercase tracking-[0.14em] transition ${
+                mode === option
+                  ? "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_18px_rgba(236,72,153,0.28)]"
+                  : "text-zinc-400 hover:text-pink-100"
+              }`}
+              key={option}
+              onClick={() => setMode(option)}
+              type="button"
+            >
+              {option === "login" ? "Login" : "Register"}
+            </button>
+          ))}
+        </div>
+
+        <form className="mt-5 grid gap-4 text-left" onSubmit={handleSubmit}>
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+              Username
+            </span>
+            <input
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="@littledevotee"
+              required
+              value={username}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+              Password
+            </span>
+            <input
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60"
+              minLength={6}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Minimum 6 characters"
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+
+          <button
+            className="mt-2 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white shadow-[0_0_28px_rgba(236,72,153,0.35)] transition enabled:hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isBusy || !isSupabaseConfigured}
+            type="submit"
+          >
+            {isBusy
+              ? "Opening Vault..."
+              : mode === "login"
+                ? "Login"
+                : "Create Account"}
+          </button>
+        </form>
+
+        {!isSupabaseConfigured && (
+          <p className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            Missing Supabase env: NEXT_PUBLIC_SUPABASE_URL and
+            NEXT_PUBLIC_SUPABASE_ANON_KEY.
+          </p>
+        )}
+
+        {error && (
+          <p className="mt-4 rounded-2xl border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {error}
+          </p>
+        )}
 
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          Prototype login stays active. Real X OAuth test is separate below.
+          Username is stored visibly; internally it becomes a private vault
+          email like littledevotee@vault.local for Supabase Auth.
         </p>
-
-        <div className="mt-6 rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4 text-left">
-          <p className="text-xs uppercase tracking-[0.28em] text-fuchsia-200/70">
-            Real X OAuth Test
-          </p>
-          <button
-            className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20"
-            onClick={handleRealXLogin}
-            type="button"
-          >
-            Test Real X Login
-          </button>
-          {authClickDebug && (
-            <pre className="mt-3 max-h-40 overflow-auto rounded-2xl border border-white/10 bg-black/60 p-3 text-xs leading-5 text-pink-100">
-              {authClickDebug}
-            </pre>
-          )}
-          {authClickError && (
-            <p className="mt-3 rounded-2xl border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-              {authClickError}
-            </p>
-          )}
-
-          <Link
-            className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-fuchsia-200/20 bg-white/[0.04] px-5 py-3 text-center text-sm font-bold text-fuchsia-100 transition hover:border-fuchsia-300/50"
-            href="/api/auth/signin/twitter"
-          >
-            Direct NextAuth Twitter Sign In
-          </Link>
-
-          {session && (
-            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-3 text-sm text-emerald-100">
-              {session.user?.image && (
-                <Image
-                  alt={session.user.name ?? "X profile image"}
-                  className="rounded-full"
-                  height={40}
-                  src={session.user.image}
-                  unoptimized
-                  width={40}
-                />
-              )}
-              <div>
-                <p className="font-bold">Real X session detected.</p>
-                <p>{session.user?.name ?? "X user"}</p>
-              </div>
-            </div>
-          )}
-
-          <dl className="mt-4 grid gap-2 text-xs text-zinc-400">
-            <div className="flex justify-between gap-4">
-              <dt>NextAuth status</dt>
-              <dd className="text-pink-100">{status}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt>session exists</dt>
-              <dd className="text-pink-100">{session ? "yes" : "no"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt>name</dt>
-              <dd className="text-right text-pink-100">
-                {session?.user?.name ?? "none"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt>image</dt>
-              <dd className="max-w-[220px] truncate text-right text-pink-100">
-                {session?.user?.image ?? "none"}
-              </dd>
-            </div>
-          </dl>
-        </div>
       </section>
     </main>
   );
