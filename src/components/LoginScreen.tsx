@@ -17,7 +17,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           Vault Mistress
         </h1>
         <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-zinc-300">
-          Enter the velvet ledger with your X account. The vault remembers
+          Enter the velvet ledger with a prototype X identity. The vault remembers
           fantasy coins only.
         </p>
 
@@ -30,7 +30,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         </button>
 
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          Real X OAuth is handled by NextAuth.
+          Prototype login - real X OAuth is disabled for now.
         </p>
       </section>
     </main>

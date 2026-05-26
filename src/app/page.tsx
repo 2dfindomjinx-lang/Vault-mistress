@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
 import { AdminConsole } from "@/components/AdminConsole";
 import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
@@ -225,13 +224,12 @@ function getAffectionMoodLine(affection: number) {
 }
 
 export default function Home() {
-  const { data: session, status } = useSession();
-  const sessionName = session?.user?.name ?? "X User";
-  const currentHandle = `@${sessionName
-    .replace(/^@/, "")
-    .replace(/\s+/g, "")
-    .toLowerCase()}`;
-  const [users, setUsers] = useState<PrototypeUser[]>([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("@littledevotee");
+  const currentHandle = username;
+  const [users, setUsers] = useState<PrototypeUser[]>([
+    { handle: "@littledevotee", coins: 100 },
+  ]);
   const usersRef = useRef(users);
   const [affection, setAffection] = useState(10);
   const [loyaltyStreak] = useState(3);
@@ -303,9 +301,15 @@ export default function Home() {
     );
   };
 
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    setUsername("@littledevotee");
+    setMistressReply("Logged in already? Eager little thing.");
+  };
+
   const handleLogout = () => {
+    setIsLoggedIn(false);
     setMistressReply("Back at the gate. The vault can wait.");
-    signOut({ callbackUrl: "/" });
   };
 
   const updateUserCoins = (
@@ -451,27 +455,9 @@ export default function Home() {
     tributeTotal,
   };
 
-  if (status === "loading") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-50">
-        Loading the vault...
-      </main>
-    );
+  if (!isLoggedIn) {
+    return <LoginScreen onLogin={handleLogin} />;
   }
-
-  if (status === "unauthenticated") {
-    return <LoginScreen onLogin={() => signIn("twitter", { callbackUrl: "/" })} />;
-  }
-
-  if (status !== "authenticated") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-50">
-        Loading the vault...
-      </main>
-    );
-  }
-
-  const authenticatedSession = session!;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#06030a] text-white">
@@ -487,18 +473,10 @@ export default function Home() {
             </h1>
             <p className="mt-1 text-sm text-pink-100/70">
               Signed in as{" "}
-              <span className="font-bold text-pink-100">{sessionName}</span>
-              <span className="ml-2 text-xs text-zinc-500">{currentHandle}</span>
+              <span className="font-bold text-pink-100">{username}</span>
             </p>
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-            {authenticatedSession.user?.image && (
-              <div
-                aria-label={`${sessionName} avatar`}
-                className="h-9 w-9 rounded-full border border-pink-200/40 bg-cover bg-center shadow-[0_0_20px_rgba(236,72,153,0.25)]"
-                style={{ backgroundImage: `url(${authenticatedSession.user.image})` }}
-              />
-            )}
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
               SFW Prototype
             </div>
@@ -538,41 +516,6 @@ export default function Home() {
               <p className="mt-4 text-sm leading-6 text-pink-50">
                 {scriptedMessage}
               </p>
-            </section>
-            <section className="rounded-[2rem] border border-white/10 bg-black/45 p-5 text-sm shadow-[0_0_28px_rgba(168,85,247,0.1)]">
-              <p className="text-xs uppercase tracking-[0.28em] text-fuchsia-200/70">
-                Auth Debug
-              </p>
-              <dl className="mt-3 grid gap-2 text-zinc-300">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-500">status</dt>
-                  <dd className="font-semibold text-pink-100">{status}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-500">session</dt>
-                  <dd className="font-semibold text-pink-100">
-                    {session ? "yes" : "no"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-500">name</dt>
-                  <dd className="text-right text-pink-100">
-                    {authenticatedSession.user?.name ?? "none"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-500">email</dt>
-                  <dd className="text-right text-pink-100">
-                    {authenticatedSession.user?.email ?? "none"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-500">image</dt>
-                  <dd className="max-w-[220px] truncate text-right text-pink-100">
-                    {authenticatedSession.user?.image ?? "none"}
-                  </dd>
-                </div>
-              </dl>
             </section>
           </div>
         </section>
