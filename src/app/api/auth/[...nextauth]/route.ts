@@ -19,6 +19,28 @@ const handler = NextAuth({
       checks: ["pkce", "state"],
     }),
   ],
+  // 💡 DÖNGÜYÜ KIRACAK KRİTİK AYAR:
+  // Vercel ve X arasındaki çerez (cookie) uyumsuzluğunu çözer.
+  cookies: {
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+      },
+    },
+    state: {
+      name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+      },
+    },
+  },
   callbacks: {
     async session({ session }) {
       return session;
