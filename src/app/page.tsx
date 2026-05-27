@@ -615,6 +615,7 @@ export default function Home() {
   );
   const lastIdleLineIndexRef = useRef(-1);
   const highLowRefreshTimerRef = useRef<number | null>(null);
+  const profileIdRef = useRef<string | null>(null);
 
   const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
   const galleryItems =
@@ -817,7 +818,28 @@ export default function Home() {
 
     const taskRows = (taskData ?? []) as UserTaskRow[];
 
-    setTasks(buildTasksFromRows(taskRows, profile.affection));
+    const rebuiltTasks = buildTasksFromRows(taskRows, profile.affection);
+    const shouldKeepLocalHighLow = profileIdRef.current === profile.id;
+
+    setTasks((current) => {
+      const currentHighLow = current.find((entry) => entry.id === "high-low");
+
+      return rebuiltTasks.map((task) =>
+        task.id === "high-low" && shouldKeepLocalHighLow && currentHighLow
+          ? {
+              ...task,
+              currentNumber: currentHighLow.currentNumber ?? task.currentNumber,
+              lastResult: currentHighLow.lastResult,
+              nextBaseRevealAt: currentHighLow.nextBaseRevealAt,
+              resultBaseNumber: currentHighLow.resultBaseNumber,
+              resultCoinDelta: currentHighLow.resultCoinDelta,
+              resultNumber: currentHighLow.resultNumber,
+              resultOutcome: currentHighLow.resultOutcome,
+            }
+          : task,
+      );
+    });
+    profileIdRef.current = profile.id;
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
     void loadLeadershipTop();
@@ -1450,9 +1472,7 @@ export default function Home() {
           completed_at: now,
           claimed_at: now,
           reward_coins: coinDelta,
-          metadata: {
-            playedAt: now,
-          },
+          metadata: {},
         },
         { onConflict: "user_id,task_id" },
       );
@@ -1743,6 +1763,7 @@ export default function Home() {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
     setAuthUserId(null);
+    profileIdRef.current = null;
     setUnlockedGalleryIds([]);
     setTasks([]);
     setLeadershipTop([]);
