@@ -14,7 +14,13 @@ export type GalleryItem = {
 };
 
 export type TaskItem = {
-  id: "daily-login" | "typing-accuracy" | "high-low" | "gallery" | "affection";
+  id:
+    | "daily-login"
+    | "typing-accuracy"
+    | "high-low"
+    | "gallery"
+    | "affection"
+    | "affection-80";
   title: string;
   reward: number;
   completed: boolean;

@@ -213,6 +213,14 @@ const startingTasks: TaskItem[] = [
     claimed: false,
     kind: "claim",
   },
+  {
+    id: "affection-80",
+    title: "Reach 80 affection",
+    reward: 25,
+    completed: false,
+    claimed: false,
+    kind: "claim",
+  },
 ];
 
 const typingSentencePool = [
@@ -490,6 +498,14 @@ function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
       return {
         ...task,
         completed: affection >= 50 || Boolean(row?.completed_at),
+        claimed: claimedForever,
+      };
+    }
+
+    if (task.id === "affection-80") {
+      return {
+        ...task,
+        completed: affection >= 80 || Boolean(row?.completed_at),
         claimed: claimedForever,
       };
     }
@@ -1482,7 +1498,7 @@ export default function Home() {
           user_id: authUserId,
           task_id: "sacrifice",
           completed_at: now,
-          claimed_at: now,
+          claimed_at: unlockedItem ? now : null,
           reward_coins: unlockedItem ? 1 : 0,
           metadata: {
             won,
@@ -1500,7 +1516,7 @@ export default function Home() {
 
       setMechanics((current) => ({
         ...current,
-        sacrificeCooldownUntil: getDailyCooldownUntil(now),
+        sacrificeCooldownUntil: unlockedItem ? getDailyCooldownUntil(now) : null,
         sacrificeLastResult: lastResult,
       }));
       setMistressReply(
@@ -1656,6 +1672,9 @@ export default function Home() {
     if (nextAffection >= 50) {
       completeTask("affection");
     }
+    if (nextAffection >= 80) {
+      completeTask("affection-80");
+    }
     setMistressReply(
       amount >= 500
         ? "Good. At least you know where your coins belong."
@@ -1706,6 +1725,9 @@ export default function Home() {
     completeTask("gallery");
     if (nextAffection >= 50) {
       completeTask("affection");
+    }
+    if (nextAffection >= 80) {
+      completeTask("affection-80");
     }
     setMistressReply(
       "You unlocked a little more of my attention.",
