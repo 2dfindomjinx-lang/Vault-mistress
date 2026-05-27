@@ -31,6 +31,11 @@ export type TaskItem = {
   sentence?: string;
   currentNumber?: number;
   lastResult?: string | null;
+  nextBaseRevealAt?: string | null;
+  resultBaseNumber?: number;
+  resultCoinDelta?: number;
+  resultNumber?: number;
+  resultOutcome?: "win" | "loss" | "tie";
 };
 
 export type MechanicsState = {

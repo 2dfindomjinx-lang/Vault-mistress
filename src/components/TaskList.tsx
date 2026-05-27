@@ -120,7 +120,11 @@ export function TaskList({
           const cooldownRemaining = task.cooldownUntil
             ? new Date(task.cooldownUntil).getTime() - now
             : 0;
+          const nextBaseRevealRemaining = task.nextBaseRevealAt
+            ? new Date(task.nextBaseRevealAt).getTime() - now
+            : 0;
           const isCoolingDown = cooldownRemaining > 0;
+          const isWaitingForNextBase = nextBaseRevealRemaining > 0;
           const isClaimable =
             task.kind === "claim" &&
             task.completed &&
@@ -197,7 +201,61 @@ export function TaskList({
                   <p className="mt-2 text-xs text-zinc-500">
                     Display starts at 2-9. Result rolls 1-10. Two minute cooldown.
                   </p>
-                  {task.lastResult && (
+                  {isWaitingForNextBase && (
+                    <p className="mt-2 text-sm font-semibold text-pink-100">
+                      Next base number in {formatRemaining(nextBaseRevealRemaining)}
+                    </p>
+                  )}
+                  {task.resultOutcome && task.resultNumber ? (
+                    <div className="mt-4 rounded-2xl border border-pink-200/25 bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.18),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.16)] animate-pulse">
+                      <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
+                        Result Reveal
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <ResultCell
+                          label="Base Number"
+                          value={task.resultBaseNumber ?? task.currentNumber ?? 0}
+                        />
+                        <ResultCell
+                          label="Result Number"
+                          value={task.resultNumber}
+                        />
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                            Outcome
+                          </p>
+                          <p
+                            className={`mt-1 text-xl font-black ${
+                              task.resultOutcome === "win"
+                                ? "text-emerald-200"
+                                : task.resultOutcome === "tie"
+                                  ? "text-yellow-100"
+                                  : "text-rose-200"
+                            }`}
+                          >
+                            {task.resultOutcome === "tie"
+                              ? "TIE"
+                              : task.resultOutcome.toUpperCase()}
+                          </p>
+                        </div>
+                        <p
+                          className={`text-lg font-black ${
+                            (task.resultCoinDelta ?? 0) > 0
+                              ? "text-emerald-200"
+                              : (task.resultCoinDelta ?? 0) < 0
+                                ? "text-rose-200"
+                                : "text-yellow-100"
+                          }`}
+                        >
+                          {task.resultOutcome === "tie"
+                            ? "Stake refunded"
+                            : `${(task.resultCoinDelta ?? 0) > 0 ? "+" : ""}${task.resultCoinDelta ?? 0} Principessa Coins`}
+                        </p>
+                      </div>
+                    </div>
+                  ) : task.lastResult && (
                     <p className="mt-2 text-sm font-semibold text-pink-100">
                       {task.lastResult}
                     </p>
@@ -251,6 +309,15 @@ export function TaskList({
         })}
       </div>
     </section>
+  );
+}
+
+function ResultCell({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
+      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-1 text-4xl font-black text-white">{value}</p>
+    </div>
   );
 }
 
