@@ -455,8 +455,15 @@ export default function Home() {
     setAuthError("");
 
     try {
+      console.info("Starting Supabase OAuth", {
+        provider: "x",
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+
       const result = await supabase.auth.signInWithOAuth({
-        provider: "twitter",
+        // Temporary Supabase provider-id test for the new "X / Twitter" dashboard label.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        provider: "x" as any,
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
