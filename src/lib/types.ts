@@ -19,4 +19,5 @@ export type TaskItem = {
   reward: number;
   completed: boolean;
   claimed: boolean;
+  cooldownUntil?: string | null;
 };

@@ -7,24 +7,52 @@ import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 export default function AdminPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [command, setCommand] = useState("/give 500 @littledevotee");
+  const [command, setCommand] = useState("/give 500 @");
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState(
     "Admin ledger ready. Be precise.",
   );
   const [isBusy, setIsBusy] = useState(false);
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
     if (!adminPassword.trim()) {
       setStatus("Enter ADMIN_PASSWORD to unlock the console.");
       return;
     }
 
-    setIsAdminLoggedIn(true);
-    setStatus("Admin console unlocked for this browser session.");
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/verify", {
+        body: JSON.stringify({ adminPassword }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setIsAdminLoggedIn(false);
+        setStatus(result.error ?? "Invalid admin password.");
+        return;
+      }
+
+      setIsAdminLoggedIn(true);
+      setStatus("Admin console unlocked for this browser session.");
+    } catch {
+      setIsAdminLoggedIn(false);
+      setStatus("Admin verification failed.");
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   const handleRunCommand = async () => {
+    if (!isAdminLoggedIn) {
+      setStatus("Unlock admin before running commands.");
+      return;
+    }
+
     setIsBusy(true);
     setStatus("");
 
@@ -87,7 +115,7 @@ export default function AdminPage() {
                 onChange={(event) => setAdminPassword(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
-                    handleAdminLogin();
+                    void handleAdminLogin();
                   }
                 }}
                 type="password"
@@ -96,10 +124,11 @@ export default function AdminPage() {
             </label>
             <button
               className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)]"
-              onClick={handleAdminLogin}
+              disabled={isBusy}
+              onClick={() => void handleAdminLogin()}
               type="button"
             >
-              Unlock Admin
+              {isBusy ? "Checking" : "Unlock Admin"}
             </button>
           </div>
         ) : (

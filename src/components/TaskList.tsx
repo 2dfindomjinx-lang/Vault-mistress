@@ -1,4 +1,5 @@
 import type { TaskItem } from "@/lib/types";
+import { useEffect, useState } from "react";
 
 type TaskListProps = {
   tasks: TaskItem[];
@@ -6,6 +7,35 @@ type TaskListProps = {
 };
 
 export function TaskList({ onClaim, tasks }: TaskListProps) {
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const formatRemaining = (milliseconds: number) => {
+    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+
+    return `${seconds}s`;
+  };
+
   return (
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div>
@@ -16,41 +46,59 @@ export function TaskList({ onClaim, tasks }: TaskListProps) {
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
-        {tasks.map((task) => (
-          <article
-            className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4"
-            key={task.id}
-          >
+        {tasks.map((task) => {
+          const cooldownRemaining = task.cooldownUntil
+            ? new Date(task.cooldownUntil).getTime() - now
+            : 0;
+          const isCoolingDown = cooldownRemaining > 0;
+          const isClaimable =
+            task.completed && !isCoolingDown && (!task.claimed || task.id === "daily-login");
+
+          return (
+            <article
+              className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4"
+              key={task.id}
+            >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-black text-white">{task.title}</h3>
                 <p className="mt-1 text-sm text-zinc-400">
                   Reward: {task.reward} Principessa Coins
                 </p>
+                {isCoolingDown && (
+                  <p className="mt-2 text-sm font-semibold text-pink-100">
+                    Available again in {formatRemaining(cooldownRemaining)}
+                  </p>
+                )}
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  task.claimed
+                  isCoolingDown
                     ? "bg-emerald-400/15 text-emerald-100"
                     : task.completed
                       ? "bg-pink-500/20 text-pink-100"
                       : "bg-white/10 text-zinc-300"
                 }`}
               >
-                {task.claimed ? "Claimed" : task.completed ? "Ready" : "Open"}
+                {isCoolingDown ? "Cooldown" : task.claimed ? "Claimed" : task.completed ? "Ready" : "Open"}
               </span>
             </div>
 
             <button
               className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!task.completed || task.claimed}
+              disabled={!isClaimable}
               onClick={() => onClaim(task.id)}
               type="button"
             >
-              {task.claimed ? "Reward Claimed" : "Claim Reward"}
+              {isCoolingDown
+                ? `Available in ${formatRemaining(cooldownRemaining)}`
+                : task.claimed
+                  ? "Reward Claimed"
+                  : "Claim Reward"}
             </button>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       <p className="mt-5 text-sm leading-6 text-zinc-400">

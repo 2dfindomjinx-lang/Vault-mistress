@@ -11,7 +11,7 @@ export function CharacterCard({ dailyMessage }: CharacterCardProps) {
       <div className="relative">
         <div className="relative min-h-[460px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/35">
           <Image
-            alt="Defne, a stylish SFW anime mistress character placeholder"
+            alt="Principessa, a stylish SFW anime mistress character placeholder"
             className="object-cover object-top"
             fill
             unoptimized
@@ -25,7 +25,7 @@ export function CharacterCard({ dailyMessage }: CharacterCardProps) {
               Your Greedy Mistress
             </p>
             <h2 className="mt-1 text-5xl font-black tracking-normal text-white">
-              Defne
+              Principessa
             </h2>
             <p className="mt-3 max-w-md rounded-2xl border border-pink-200/20 bg-black/50 p-4 text-sm leading-6 text-pink-50 shadow-[0_0_24px_rgba(236,72,153,0.18)] backdrop-blur">
               {dailyMessage}

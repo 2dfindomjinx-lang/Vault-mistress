@@ -36,7 +36,7 @@ export function FloatingDefneBubble({ message }: FloatingDefneBubbleProps) {
       </div>
       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 shadow-[0_0_28px_rgba(236,72,153,0.4)]">
         <Image
-          alt="Defne avatar"
+          alt="Principessa avatar"
           className="object-cover object-top"
           fill
           unoptimized

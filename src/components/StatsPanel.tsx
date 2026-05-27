@@ -10,7 +10,7 @@ type StatsPanelProps = {
 export function StatsPanel({ stats }: StatsPanelProps) {
   const statCards = [
     ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance"],
-    ["Affection", `${stats.affection}/100`, "Defne's current approval"],
+    ["Affection", `${stats.affection}/100`, "Principessa's current approval"],
     ["Loyalty Streak", `${stats.loyaltyStreak} days`, "Prototype daily streak"],
     ["Tribute Total", stats.tributeTotal.toLocaleString(), "Coins offered so far"],
   ];

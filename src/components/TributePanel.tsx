@@ -52,7 +52,7 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
 
       <p className="mt-5 text-sm leading-6 text-zinc-400">
         {isMaxAffection
-          ? "Defne's mood is already at its peak. Tribute is locked until a future prestige system exists."
+          ? "Principessa's mood is already at its peak. Tribute is locked until a future prestige system exists."
           : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
       </p>
 
@@ -67,7 +67,7 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
         </a>
         <p className="mt-4 text-sm leading-6 text-pink-50">
           After supporting on Throne, DM me with your app username to receive
-          coins manually. 1 USD = 20 coins.
+          coins manually. 1 USD = 100 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           Coins are fantasy points and are manually granted as supporter

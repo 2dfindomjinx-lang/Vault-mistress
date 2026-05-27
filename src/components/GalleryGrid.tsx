@@ -39,7 +39,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
           </p>
           <h2 className="text-3xl font-black">The Vault Gallery</h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Common cards use coins. Rare and Divine cards obey Defne&apos;s mood.
+            Common cards use coins. Rare and Divine cards obey Principessa&apos;s mood.
           </p>
         </div>
         <div className="text-sm text-zinc-400">

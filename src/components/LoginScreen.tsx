@@ -19,7 +19,7 @@ export function LoginScreen({
 
       <section className="relative w-full max-w-md rounded-[2rem] border border-pink-200/20 bg-black/55 p-6 text-center shadow-[0_0_60px_rgba(236,72,153,0.22)] backdrop-blur">
         <p className="text-xs uppercase tracking-[0.38em] text-fuchsia-200/70">
-          Defne
+          Principessa
         </p>
         <h1 className="mt-3 text-5xl font-black tracking-normal text-white">
           Vault Mistress

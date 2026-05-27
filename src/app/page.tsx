@@ -130,7 +130,7 @@ const visibleGalleryItems: GalleryItem[] = [
 
 const secretGalleryItem: GalleryItem = {
   id: "secret-defnes-final-favor",
-  title: "Defne's Final Favor",
+  title: "Principessa's Final Favor",
   rarity: "Secret",
   moodRequired: 100,
   tag: "Luxury",
@@ -200,32 +200,32 @@ const startingTasks: TaskItem[] = [
 
 const dailyTeases = [
   "The vault noticed you came back. Try to look useful today.",
-  "Defne is inspecting the ledger. Impress her with discipline.",
+  "Principessa is inspecting the ledger. Impress her with discipline.",
   "A little loyalty opens heavier doors. The question is whether you have any.",
 ];
 
 const affectionMoodLines = [
-  { min: 0, text: "Defne barely acknowledges you. Even the vault feels colder." },
-  { min: 5, text: "Defne notices your presence, but only enough to judge it." },
-  { min: 10, text: "Defne gives you a slow glance. Not approval. Curiosity." },
-  { min: 15, text: "Defne seems mildly amused by your persistence." },
-  { min: 20, text: "Defne's mood softens just enough to unlock a rare glance." },
-  { min: 25, text: "Defne lets the silence linger, then rewards you with attention." },
-  { min: 30, text: "Defne is entertained. That is more than most deserve." },
-  { min: 35, text: "Defne's smile looks expensive, and somehow you earned a fraction of it." },
-  { min: 40, text: "Defne is pleased enough to let you see a little more of the vault." },
-  { min: 45, text: "Defne watches you like an investment that might finally pay off." },
-  { min: 50, text: "Defne approves. Barely. But from her, barely is dangerous." },
-  { min: 55, text: "Defne's attention lingers longer than usual. Do not waste it." },
-  { min: 60, text: "Defne's mood turns divine. The vault begins to open deeper." },
-  { min: 65, text: "Defne looks satisfied, as if your loyalty is becoming useful." },
-  { min: 70, text: "Defne rewards devotion with a colder smile and a richer prize." },
-  { min: 75, text: "Defne seems almost proud. Almost." },
-  { min: 80, text: "Defne's approval feels rare, polished, and impossible to ignore." },
-  { min: 85, text: "Defne treats your devotion like property already marked as hers." },
-  { min: 90, text: "Defne's mood is dangerously high. The final divine doors open." },
-  { min: 95, text: "Defne is indulgent now, but only because you have proven useful." },
-  { min: 100, text: "Defne is fully pleased. The secret reward reveals itself." },
+  { min: 0, text: "Principessa barely acknowledges you. Even the vault feels colder." },
+  { min: 5, text: "Principessa notices your presence, but only enough to judge it." },
+  { min: 10, text: "Principessa gives you a slow glance. Not approval. Curiosity." },
+  { min: 15, text: "Principessa seems mildly amused by your persistence." },
+  { min: 20, text: "Principessa's mood softens just enough to unlock a rare glance." },
+  { min: 25, text: "Principessa lets the silence linger, then rewards you with attention." },
+  { min: 30, text: "Principessa is entertained. That is more than most deserve." },
+  { min: 35, text: "Principessa's smile looks expensive, and somehow you earned a fraction of it." },
+  { min: 40, text: "Principessa is pleased enough to let you see a little more of the vault." },
+  { min: 45, text: "Principessa watches you like an investment that might finally pay off." },
+  { min: 50, text: "Principessa approves. Barely. But from her, barely is dangerous." },
+  { min: 55, text: "Principessa's attention lingers longer than usual. Do not waste it." },
+  { min: 60, text: "Principessa's mood turns divine. The vault begins to open deeper." },
+  { min: 65, text: "Principessa looks satisfied, as if your loyalty is becoming useful." },
+  { min: 70, text: "Principessa rewards devotion with a colder smile and a richer prize." },
+  { min: 75, text: "Principessa seems almost proud. Almost." },
+  { min: 80, text: "Principessa's approval feels rare, polished, and impossible to ignore." },
+  { min: 85, text: "Principessa treats your devotion like property already marked as hers." },
+  { min: 90, text: "Principessa's mood is dangerously high. The final divine doors open." },
+  { min: 95, text: "Principessa is indulgent now, but only because you have proven useful." },
+  { min: 100, text: "Principessa is fully pleased. The secret reward reveals itself." },
 ];
 
 function getAffectionMoodLine(affection: number) {
@@ -264,17 +264,27 @@ function isWithinLast24Hours(value: string | null) {
   return Date.now() - new Date(value).getTime() < 24 * 60 * 60 * 1000;
 }
 
+function getDailyCooldownUntil(value: string | null) {
+  if (!value || !isWithinLast24Hours(value)) {
+    return null;
+  }
+
+  return new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000).toISOString();
+}
+
 function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
   return startingTasks.map((task) => {
     const row = rows.find((entry) => entry.task_id === task.id);
-    const claimedWithinCooldown = isWithinLast24Hours(row?.claimed_at ?? null);
     const claimedForever = Boolean(row?.claimed_at);
 
     if (task.id === "daily-login") {
+      const cooldownUntil = getDailyCooldownUntil(row?.claimed_at ?? null);
+
       return {
         ...task,
-        completed: !claimedWithinCooldown,
-        claimed: claimedWithinCooldown,
+        completed: !cooldownUntil,
+        claimed: Boolean(cooldownUntil),
+        cooldownUntil,
       };
     }
 
@@ -993,12 +1003,20 @@ export default function Home() {
   const handleClaimTask = async (taskId: string) => {
     const task = tasks.find((entry) => entry.id === taskId);
 
-    if (!task || !task.completed || task.claimed) {
+    if (!task) {
       return;
     }
 
     const currentCoins = coinsRef.current;
     const nextCoins = currentCoins + task.reward;
+    const dailyCooldownActive =
+      task.id === "daily-login" &&
+      Boolean(task.cooldownUntil) &&
+      new Date(task.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task.completed || (task.claimed && task.id !== "daily-login") || dailyCooldownActive) {
+      return;
+    }
 
     try {
       await persistTaskClaim(task);
@@ -1016,7 +1034,17 @@ export default function Home() {
 
     setTasks((current) =>
       current.map((entry) =>
-        entry.id === taskId ? { ...entry, claimed: true } : entry,
+        entry.id === taskId
+          ? {
+              ...entry,
+              claimed: true,
+              completed: taskId === "daily-login" ? false : entry.completed,
+              cooldownUntil:
+                taskId === "daily-login"
+                  ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                  : entry.cooldownUntil,
+            }
+          : entry,
       ),
     );
     setMistressReply(
@@ -1061,7 +1089,7 @@ export default function Home() {
               Vault Mistress
             </p>
             <h1 className="text-2xl font-semibold text-white sm:text-3xl">
-              Defne&apos;s Premium Vault
+              Principessa&apos;s Premium Vault
             </h1>
             <p className="mt-1 text-sm text-pink-100/70">
               Signed in as{" "}
@@ -1099,7 +1127,7 @@ export default function Home() {
               <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
                 Affection Read
               </p>
-              <h2 className="mt-1 text-2xl font-black">Defne&apos;s Mood</h2>
+              <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
               <p className="mt-4 text-sm leading-6 text-pink-50">
                 {scriptedMessage}
               </p>
