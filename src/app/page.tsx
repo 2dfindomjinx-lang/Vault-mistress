@@ -508,7 +508,7 @@ function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
     }
 
     if (task.id === "high-low") {
-      const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 2 * 60 * 1000);
+      const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
       const storedNextBaseRevealAt = getTaskMetadataString(
         row?.metadata,
         "nextBaseRevealAt",
@@ -1152,7 +1152,7 @@ export default function Home() {
 
     if (
       task.id === "high-low" &&
-      getCooldownUntil(existingTask?.claimed_at ?? null, 2 * 60 * 1000)
+      getCooldownUntil(existingTask?.claimed_at ?? null, 15 * 1000)
     ) {
       throw new Error("Task is still on cooldown.");
     }
@@ -1470,7 +1470,7 @@ export default function Home() {
           console.error("Failed to persist refreshed high-low display number", error);
         }
       });
-    }, 15 * 1000);
+    }, 10 * 1000);
   }, [authUserId]);
 
   const handleHighLowPlay = async (
@@ -1510,11 +1510,11 @@ export default function Home() {
     const coinDelta = outcome === "win" ? stake : outcome === "loss" ? -stake : 0;
     const nextCoins = currentCoins + coinDelta;
     const now = new Date().toISOString();
-    const nextBaseRevealAt = new Date(Date.now() + 15 * 1000).toISOString();
+    const nextBaseRevealAt = new Date(Date.now() + 10 * 1000).toISOString();
     const lastResult =
       outcome === "tie"
-        ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 15 seconds.`
-        : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${stake} coins. New number appears in 15 seconds.`;
+        ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
+        : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${stake} coins. New number appears in 10 seconds.`;
 
     try {
       await persistProfileProgress(
@@ -1564,7 +1564,7 @@ export default function Home() {
                 resultCoinDelta: coinDelta,
                 resultNumber,
                 resultOutcome: outcome,
-                cooldownUntil: getCooldownUntil(now, 2 * 60 * 1000),
+                cooldownUntil: getCooldownUntil(now, 15 * 1000),
               }
             : entry,
         ),

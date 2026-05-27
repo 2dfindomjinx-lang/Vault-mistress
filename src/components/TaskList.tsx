@@ -199,7 +199,7 @@ export function TaskList({
                     {task.currentNumber}
                   </p>
                   <p className="mt-2 text-xs text-zinc-500">
-                    Display starts at 2-9. Result rolls 1-10. Two minute cooldown.
+                    Display starts at 2-9. Result rolls 1-10. New base appears in 10s; replay cooldown is 15s.
                   </p>
                   {isWaitingForNextBase && (
                     <p className="mt-2 text-sm font-semibold text-pink-100">
