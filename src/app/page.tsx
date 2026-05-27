@@ -10,6 +10,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
+import type { LeadershipEntry } from "@/lib/leadership";
 import {
   profileUsernameFromUser,
   supabase,
@@ -598,6 +599,7 @@ export default function Home() {
   const [fullyHiddenBubbleMessage, setFullyHiddenBubbleMessage] = useState("");
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -704,6 +706,26 @@ export default function Home() {
     });
   }, [authUserId]);
 
+  const loadLeadershipTop = useCallback(async () => {
+    try {
+      const response = await fetch("/api/leadership/top", {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        leaders?: LeadershipEntry[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Leadership leaderboard could not be loaded.");
+      }
+
+      setLeadershipTop(payload.leaders ?? []);
+    } catch (error) {
+      console.error("Failed to load leadership top 3", error);
+    }
+  }, []);
+
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0) {
       return;
@@ -789,7 +811,8 @@ export default function Home() {
     setTasks(buildTasksFromRows(taskRows, profile.affection));
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
-  }, []);
+    void loadLeadershipTop();
+  }, [loadLeadershipTop]);
 
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
@@ -1010,8 +1033,11 @@ export default function Home() {
     }
 
     applyProfileStats(data);
+    if (typeof nextProfile.tribute_total === "number") {
+      void loadLeadershipTop();
+    }
     return data;
-  }, [applyProfileStats]);
+  }, [applyProfileStats, loadLeadershipTop]);
 
   const persistTaskCompletion = useCallback((taskId: string) => {
     if (!authUserId) {
@@ -1675,6 +1701,7 @@ export default function Home() {
     setAuthUserId(null);
     setUnlockedGalleryIds([]);
     setTasks([]);
+    setLeadershipTop([]);
     setCoins(100);
     setAffection(0);
     setTributeTotal(0);
@@ -1922,7 +1949,11 @@ export default function Home() {
           />
 
           <div className="flex flex-col gap-6">
-            <StatsPanel stats={stats} />
+            <StatsPanel
+              leadershipTop={leadershipTop}
+              stats={stats}
+              username={username}
+            />
             <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
               <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
                 Affection Read

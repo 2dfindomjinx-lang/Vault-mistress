@@ -8,6 +8,12 @@ export const LEADERSHIP_RANKS = [
   { min: 3000, title: "Principessa’s Property" },
 ] as const;
 
+export type LeadershipEntry = {
+  username: string;
+  tributeTotal: number;
+  rankTitle: string;
+};
+
 export function getLeadershipRank(tributeTotal: number) {
   const currentRank =
     [...LEADERSHIP_RANKS]

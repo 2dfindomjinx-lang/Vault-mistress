@@ -1,4 +1,4 @@
-import { getLeadershipRank } from "@/lib/leadership";
+import { getLeadershipRank, type LeadershipEntry } from "@/lib/leadership";
 
 type StatsPanelProps = {
   stats: {
@@ -7,9 +7,11 @@ type StatsPanelProps = {
     loyaltyStreak: number;
     tributeTotal: number;
   };
+  leadershipTop: LeadershipEntry[];
+  username: string;
 };
 
-export function StatsPanel({ stats }: StatsPanelProps) {
+export function StatsPanel({ leadershipTop, stats, username }: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
   const statCards = [
     ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance"],
@@ -59,6 +61,46 @@ export function StatsPanel({ stats }: StatsPanelProps) {
             ? `${leadership.remaining.toLocaleString()} more Tribute Total to reach ${leadership.nextRank.title}.`
             : "Maximum leadership rank reached."}
         </p>
+      </div>
+      <div className="col-span-2 rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
+            Top 3 Leadership
+          </p>
+          <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
+        </div>
+        <div className="mt-3 space-y-2">
+          {leadershipTop.length > 0 ? (
+            leadershipTop.map((leader, index) => {
+              const isCurrentUser = leader.username === username;
+
+              return (
+                <div
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                    isCurrentUser
+                      ? "border-pink-200/30 bg-pink-500/10"
+                      : "border-white/10 bg-white/[0.035]"
+                  }`}
+                  key={leader.username}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-white">
+                      #{index + 1} {leader.username}
+                    </p>
+                    <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-black text-pink-100">
+                    {leader.tributeTotal.toLocaleString()}
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
+              No leadership data yet.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
