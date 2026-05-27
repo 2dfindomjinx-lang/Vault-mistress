@@ -1,4 +1,4 @@
-export type GalleryRarity = "Common" | "Rare" | "Divine" | "Secret";
+export type GalleryRarity = "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice";
 
 export type GalleryTag = string;
 
@@ -14,10 +14,27 @@ export type GalleryItem = {
 };
 
 export type TaskItem = {
-  id: string;
+  id: "daily-login" | "typing-accuracy" | "high-low" | "gallery" | "affection";
   title: string;
   reward: number;
   completed: boolean;
   claimed: boolean;
+  kind: "claim" | "typing" | "high-low";
   cooldownUntil?: string | null;
+  attemptsRemaining?: number;
+  sentence?: string;
+  currentNumber?: number;
+  lastResult?: string | null;
+};
+
+export type MechanicsState = {
+  begCooldownUntil?: string | null;
+  sacrificeCooldownUntil?: string | null;
+  supportUnlocked: boolean;
+  sacrificeUnlockedCount: number;
+  sacrificeTotal: number;
+  sacrificeComplete: boolean;
+  allGalleryComplete: boolean;
+  sacrificeLastResult?: string | null;
+  supportLastResult?: string | null;
 };

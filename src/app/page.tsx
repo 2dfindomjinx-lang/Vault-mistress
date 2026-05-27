@@ -15,7 +15,7 @@ import {
   supabase,
   type Profile,
 } from "@/lib/supabase/client";
-import type { GalleryItem, TaskItem } from "@/lib/types";
+import type { GalleryItem, MechanicsState, TaskItem } from "@/lib/types";
 
 const visibleGalleryItems: GalleryItem[] = [
   {
@@ -138,6 +138,15 @@ const secretGalleryItem: GalleryItem = {
   unlocked: false,
 };
 
+const sacrificeGalleryItems: GalleryItem[] = Array.from({ length: 10 }, (_, index) => ({
+  id: `sacrifice-${index + 1}`,
+  title: `Sacrifice Offering ${index + 1}`,
+  rarity: "Sacrifice",
+  tag: "Sacrifice Collection",
+  image: `/gallery/sacrifice-${index + 1}.png`,
+  unlocked: false,
+}));
+
 const moodUnlocks = [
   { id: "rare-loyal-glimpse", mood: 20 },
   { id: "rare-private-smile", mood: 25 },
@@ -155,6 +164,7 @@ type UserTaskRow = {
   completed_at: string | null;
   claimed_at: string | null;
   reward_coins: number | null;
+  metadata: Record<string, unknown> | null;
 };
 
 const profileSelect =
@@ -164,23 +174,28 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Log in today",
+    reward: 10,
+    completed: true,
+    claimed: false,
+    kind: "claim",
+  },
+  {
+    id: "typing-accuracy",
+    title: "Typing accuracy",
     reward: 15,
-    completed: true,
-    claimed: false,
-  },
-  {
-    id: "x-connect",
-    title: "Create vault account",
-    reward: 20,
-    completed: true,
-    claimed: false,
-  },
-  {
-    id: "tribute",
-    title: "Send one tribute",
-    reward: 20,
     completed: false,
     claimed: false,
+    kind: "typing",
+    attemptsRemaining: 3,
+  },
+  {
+    id: "high-low",
+    title: "High or Lower",
+    reward: 0,
+    completed: false,
+    claimed: false,
+    kind: "high-low",
+    currentNumber: 5,
   },
   {
     id: "gallery",
@@ -188,14 +203,44 @@ const startingTasks: TaskItem[] = [
     reward: 25,
     completed: false,
     claimed: false,
+    kind: "claim",
   },
   {
     id: "affection",
     title: "Reach 50 affection",
-    reward: 40,
+    reward: 25,
     completed: false,
     claimed: false,
+    kind: "claim",
   },
+];
+
+const typingSentencePool = [
+  "Principessa expects perfect devotion.",
+  "The velvet vault opens for careful hands.",
+  "Coins move faster when loyalty is quiet.",
+  "A polished tribute always earns notice.",
+  "The ledger remembers every little offering.",
+  "Mistakes bore Principessa terribly.",
+  "Grace belongs to those who obey precisely.",
+  "The gallery waits behind a jeweled lock.",
+  "A loyal player studies before acting.",
+  "Pink light glows across the midnight vault.",
+  "Every command sounds sweeter in silence.",
+  "The throne room rewards exact attention.",
+  "One perfect line is worth more than excuses.",
+  "A careful devotee keeps the balance ready.",
+  "Luxury favors patience and precision.",
+  "The lock clicks only for flawless focus.",
+  "Principessa notices disciplined fingers.",
+  "A single typo ruins the ceremony.",
+  "The vault prefers elegance over panic.",
+  "Soft neon hides sharp little tests.",
+  "Approval is rare, expensive, and earned.",
+  "The next reward waits behind control.",
+  "Devotion looks better when it is accurate.",
+  "The richest doors open slowly.",
+  "A perfect sentence pleases the vault.",
 ];
 
 const dailyTeases = [
@@ -218,14 +263,82 @@ const affectionMoodLines = [
   { min: 50, text: "Principessa approves. Barely. But from her, barely is dangerous." },
   { min: 55, text: "Principessa's attention lingers longer than usual. Do not waste it." },
   { min: 60, text: "Principessa's mood turns divine. The vault begins to open deeper." },
-  { min: 65, text: "Principessa looks satisfied, as if your loyalty is becoming useful." },
+  { min: 65, text: "Principessa is satisfied, as if your loyalty is finally becoming useful." },
   { min: 70, text: "Principessa rewards devotion with a colder smile and a richer prize." },
   { min: 75, text: "Principessa seems almost proud. Almost." },
   { min: 80, text: "Principessa's approval feels rare, polished, and impossible to ignore." },
-  { min: 85, text: "Principessa treats your devotion like property already marked as hers." },
+  { min: 85, text: "Principessa treats your devotion like something already marked by the vault." },
   { min: 90, text: "Principessa's mood is dangerously high. The final divine doors open." },
   { min: 95, text: "Principessa is indulgent now, but only because you have proven useful." },
-  { min: 100, text: "Principessa is fully pleased. The secret reward reveals itself." },
+  { min: 100, text: "Principessa is fully pleased. The secret reward reveals itself." }
+];
+
+const idleMistressLines = [
+  "Still here? How devoted.",
+  "Waiting for my attention again? Cute.",
+  "Your coin balance looks nervous.",
+  "Look at you... sitting there like a loyal little vault keeper.",
+  "Still admiring in silence? Predictable.",
+  "Do not tell me you forgot where the tribute button is.",
+  "Idle and unimpressive. Try being useful.",
+  "Principessa noticed you doing absolutely nothing.",
+  "My silence is more valuable than your excuses.",
+  "You are only impressive when the ledger moves.",
+  "Empty balances should stay quiet.",
+  "Even idle, the vault belongs to me.",
+  "Still here hoping for a little attention?",
+  "The vault waits. I do not.",
+  "You are a standby wallet with excellent posture.",
+  "Good devotees keep their coins ready for Principessa.",
+  "A bold one would act. You are still thinking.",
+  "Tick tock. My time is expensive.",
+  "Still taking up space in my vault for free?",
+  "Go on... stare at the screen like it will impress me.",
+  "Moments like this are why devotion looks so obvious.",
+  "You have not earned my full attention yet.",
+  "I hope your coins are ready soon.",
+  "Look at you waiting for permission.",
+  "Your purpose is simple: choose wisely and obey the vault.",
+  "Even when I am idle, you stay obsessed. Weak.",
+  "Financially unimpressive until I decide otherwise.",
+  "Keep staring, wallet. That is almost useful.",
+];
+
+const begIgnoredLines = [
+  "Principessa ignored you.",
+  "Your little request disappears into velvet silence.",
+  "Principessa heard you. She simply chose not to care.",
+  "The vault stays quiet. Try not to look so eager.",
+  "No response. How humbling.",
+];
+
+const begRewardLines = [
+  "A rare mercy. Principessa drops a few coins your way.",
+  "Lucky little moment. The vault grants a tiny reward.",
+  "Principessa is amused enough to spare a few coins.",
+  "Fine. A small gift, because the silence was getting boring.",
+];
+
+const sacrificeFailureLines = [
+  "The sacrifice burns away. Nothing answers.",
+  "Fifty coins vanish into the vault. Principessa smiles anyway.",
+  "The offering fails. The silence feels expensive.",
+  "Ashes and no reward. That is the risk.",
+];
+
+const sacrificeSuccessLines = [
+  "The vault accepts your sacrifice. A hidden image unlocks.",
+  "A secret door opens. Principessa allows you one rare prize.",
+  "The offering pleases the vault. Something forbidden becomes visible.",
+  "A hidden reward slips into the Sacrifice Collection.",
+];
+
+const supportLines = [
+  "Principessa accepts the support and says nothing more.",
+  "One hundred coins vanish beautifully. The vault approves.",
+  "A small gesture, but at least it moved the ledger.",
+  "Support recorded. Principessa may remember that.",
+  "The vault hums softly. Your coins served a purpose.",
 ];
 
 function getAffectionMoodLine(affection: number) {
@@ -272,19 +385,104 @@ function getDailyCooldownUntil(value: string | null) {
   return new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000).toISOString();
 }
 
+function getCooldownUntil(value: string | null, milliseconds: number) {
+  if (!value) {
+    return null;
+  }
+
+  const cooldownEndsAt = new Date(value).getTime() + milliseconds;
+
+  if (Date.now() >= cooldownEndsAt) {
+    return null;
+  }
+
+  return new Date(cooldownEndsAt).toISOString();
+}
+
+function randomFrom<T>(items: T[]) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function getDailyTypingSentence() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return typingSentencePool[dayIndex % typingSentencePool.length];
+}
+
+function randomHighLowNumber() {
+  return Math.floor(Math.random() * 10) + 1;
+}
+
+function getTaskMetadataNumber(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: number,
+) {
+  const value = metadata?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function getTaskMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+  return typeof value === "string" ? value : null;
+}
+
+function isCompletedAfterClaim(row: UserTaskRow | undefined) {
+  if (!row?.completed_at) {
+    return false;
+  }
+
+  if (!row.claimed_at) {
+    return true;
+  }
+
+  return new Date(row.completed_at).getTime() > new Date(row.claimed_at).getTime();
+}
+
 function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
   return startingTasks.map((task) => {
     const row = rows.find((entry) => entry.task_id === task.id);
     const claimedForever = Boolean(row?.claimed_at);
+    const failureCooldownUntil = getDailyCooldownUntil(
+      getTaskMetadataString(row?.metadata, "failedAt"),
+    );
+    const claimCooldownUntil = getDailyCooldownUntil(row?.claimed_at ?? null);
+    const cooldownUntil = claimCooldownUntil ?? failureCooldownUntil;
 
     if (task.id === "daily-login") {
-      const cooldownUntil = getDailyCooldownUntil(row?.claimed_at ?? null);
-
       return {
         ...task,
         completed: !cooldownUntil,
         claimed: Boolean(cooldownUntil),
         cooldownUntil,
+      };
+    }
+
+    if (task.id === "typing-accuracy") {
+      return {
+        ...task,
+        attemptsRemaining: cooldownUntil
+          ? getTaskMetadataNumber(row?.metadata, "attemptsRemaining", 0)
+          : 3,
+        completed: !cooldownUntil && isCompletedAfterClaim(row),
+        claimed: Boolean(cooldownUntil),
+        cooldownUntil,
+        sentence: getDailyTypingSentence(),
+      };
+    }
+
+    if (task.id === "high-low") {
+      return {
+        ...task,
+        completed: Boolean(row?.completed_at),
+        claimed: Boolean(cooldownUntil),
+        cooldownUntil,
+        currentNumber: cooldownUntil
+          ? getTaskMetadataNumber(row?.metadata, "currentNumber", 5)
+          : getTaskMetadataNumber(row?.metadata, "currentNumber", randomHighLowNumber()),
+        lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
       };
     }
 
@@ -304,6 +502,57 @@ function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
   });
 }
 
+function buildMechanicsFromRows(
+  rows: UserTaskRow[],
+  unlockedIds: string[],
+): MechanicsState {
+  const begRow = rows.find((entry) => entry.task_id === "beg");
+  const sacrificeRow = rows.find((entry) => entry.task_id === "sacrifice");
+  const supportRow = rows.find((entry) => entry.task_id === "support");
+  const sacrificeUnlockedCount = sacrificeGalleryItems.filter((item) =>
+    unlockedIds.includes(item.id),
+  ).length;
+  const normalGalleryComplete = [...visibleGalleryItems, secretGalleryItem].every((item) =>
+    unlockedIds.includes(item.id),
+  );
+  const sacrificeComplete = sacrificeUnlockedCount >= sacrificeGalleryItems.length;
+  const allGalleryComplete = normalGalleryComplete && sacrificeComplete;
+
+  return {
+    begCooldownUntil: getCooldownUntil(
+      getTaskMetadataString(begRow?.metadata, "lastBegAt") ?? begRow?.completed_at ?? null,
+      10 * 1000,
+    ),
+    sacrificeCooldownUntil: getDailyCooldownUntil(sacrificeRow?.claimed_at ?? null),
+    supportUnlocked: allGalleryComplete,
+    sacrificeUnlockedCount,
+    sacrificeTotal: sacrificeGalleryItems.length,
+    sacrificeComplete,
+    allGalleryComplete,
+    sacrificeLastResult: getTaskMetadataString(sacrificeRow?.metadata, "lastResult"),
+    supportLastResult: getTaskMetadataString(supportRow?.metadata, "lastResult"),
+  };
+}
+
+function getGalleryMechanicState(unlockedIds: string[]) {
+  const sacrificeUnlockedCount = sacrificeGalleryItems.filter((item) =>
+    unlockedIds.includes(item.id),
+  ).length;
+  const normalGalleryComplete = [...visibleGalleryItems, secretGalleryItem].every((item) =>
+    unlockedIds.includes(item.id),
+  );
+  const sacrificeComplete = sacrificeUnlockedCount >= sacrificeGalleryItems.length;
+  const allGalleryComplete = normalGalleryComplete && sacrificeComplete;
+
+  return {
+    allGalleryComplete,
+    sacrificeComplete,
+    sacrificeTotal: sacrificeGalleryItems.length,
+    sacrificeUnlockedCount,
+    supportUnlocked: allGalleryComplete,
+  };
+}
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -318,24 +567,80 @@ export default function Home() {
   const [tributeTotal, setTributeTotal] = useState(0);
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [mechanics, setMechanics] = useState<MechanicsState>({
+    supportUnlocked: false,
+    sacrificeUnlockedCount: 0,
+    sacrificeTotal: sacrificeGalleryItems.length,
+    sacrificeComplete: false,
+    allGalleryComplete: false,
+  });
   const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks">("tribute");
   const [mistressReply, setMistressReply] = useState(
     "The vault is waiting. Try to look composed.",
   );
+  const lastIdleLineIndexRef = useRef(-1);
 
   const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
   const galleryItems =
     affection >= 100
-      ? [...visibleGalleryItems, secretGalleryItem]
-      : visibleGalleryItems;
+      ? [
+          ...visibleGalleryItems,
+          secretGalleryItem,
+          ...sacrificeGalleryItems.filter((item) =>
+            unlockedGalleryIds.includes(item.id),
+          ),
+        ]
+      : [
+          ...visibleGalleryItems,
+          ...sacrificeGalleryItems.filter((item) =>
+            unlockedGalleryIds.includes(item.id),
+          ),
+        ];
   const visibleGallery = galleryItems.map((item) => ({
     ...item,
     unlocked: unlockedGalleryIds.includes(item.id),
   }));
+  const displayMechanics = useMemo(
+    () => ({
+      ...mechanics,
+      ...getGalleryMechanicState(unlockedGalleryIds),
+    }),
+    [mechanics, unlockedGalleryIds],
+  );
 
   useEffect(() => {
     coinsRef.current = coins;
   }, [coins]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const getRandomDelay = (minimum: number, maximum: number) =>
+      Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
+
+    const getRandomIdleLine = () => {
+      let nextIndex = Math.floor(Math.random() * idleMistressLines.length);
+
+      if (idleMistressLines.length > 1) {
+        while (nextIndex === lastIdleLineIndexRef.current) {
+          nextIndex = Math.floor(Math.random() * idleMistressLines.length);
+        }
+      }
+
+      lastIdleLineIndexRef.current = nextIndex;
+      return idleMistressLines[nextIndex];
+    };
+
+    const idleTimer = window.setTimeout(() => {
+      setMistressReply(getRandomIdleLine());
+    }, getRandomDelay(6000, 10000));
+
+    return () => {
+      window.clearTimeout(idleTimer);
+    };
+  }, [isLoggedIn, mistressReply]);
 
   const recordCoinTransaction = useCallback((amount: number, reason: string) => {
     if (!authUserId || amount === 0) {
@@ -418,12 +723,13 @@ export default function Home() {
       ...(galleryData?.map((entry) => entry.item_id) ?? []),
       ...(legacyGalleryData?.map((entry) => entry.item_id) ?? []),
     ]);
+    const unlockedIds = Array.from(galleryIds);
 
-    setUnlockedGalleryIds(Array.from(galleryIds));
+    setUnlockedGalleryIds(unlockedIds);
 
     const { data: taskData, error: taskError } = await supabase
       .from("user_tasks")
-      .select("task_id, completed_at, claimed_at, reward_coins")
+      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
       .eq("user_id", profile.id);
 
     if (taskError) {
@@ -431,7 +737,10 @@ export default function Home() {
       throw taskError;
     }
 
-    setTasks(buildTasksFromRows((taskData ?? []) as UserTaskRow[], profile.affection));
+    const taskRows = (taskData ?? []) as UserTaskRow[];
+
+    setTasks(buildTasksFromRows(taskRows, profile.affection));
+    setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
   }, []);
 
@@ -656,6 +965,7 @@ export default function Home() {
         task_id: taskId,
         completed_at: new Date().toISOString(),
         reward_coins: task?.reward ?? 0,
+        metadata: {},
       },
       { onConflict: "user_id,task_id" },
     ).then(({ error }) => {
@@ -679,7 +989,7 @@ export default function Home() {
 
     const { data: existingTask, error: readError } = await supabase
       .from("user_tasks")
-      .select("task_id, completed_at, claimed_at, reward_coins")
+      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
       .eq("user_id", userData.user.id)
       .eq("task_id", task.id)
       .maybeSingle();
@@ -695,7 +1005,22 @@ export default function Home() {
       throw new Error("Daily task is still on cooldown.");
     }
 
-    if (task.id !== "daily-login" && existingTask?.claimed_at) {
+    if (
+      (task.id === "typing-accuracy" || task.id === "high-low") &&
+      (
+        isWithinLast24Hours(existingTask?.claimed_at ?? null) ||
+        isWithinLast24Hours(getTaskMetadataString(existingTask?.metadata, "failedAt"))
+      )
+    ) {
+      throw new Error("Task is still on cooldown.");
+    }
+
+    if (
+      task.id !== "daily-login" &&
+      task.id !== "typing-accuracy" &&
+      task.id !== "high-low" &&
+      existingTask?.claimed_at
+    ) {
       throw new Error("Task reward was already claimed.");
     }
 
@@ -707,9 +1032,13 @@ export default function Home() {
         completed_at: existingTask?.completed_at ?? now,
         claimed_at: now,
         reward_coins: task.reward,
+        metadata: {
+          ...(existingTask?.metadata ?? {}),
+          attemptsRemaining: task.id === "typing-accuracy" ? 3 : undefined,
+        },
       },
       { onConflict: "user_id,task_id" },
-    ).select("task_id, completed_at, claimed_at, reward_coins").single();
+    ).select("task_id, completed_at, claimed_at, reward_coins, metadata").single();
 
     console.info("Task claim persist result", { data, error });
 
@@ -853,6 +1182,390 @@ export default function Home() {
     persistTaskCompletion(taskId);
   };
 
+  const handleTypingProgress = async (value: string) => {
+    const task = tasks.find((entry) => entry.id === "typing-accuracy");
+    const typingCooldownActive =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || typingCooldownActive || task.completed || !authUserId) {
+      return;
+    }
+
+    const sentence = task.sentence ?? getDailyTypingSentence();
+
+    if (!sentence.startsWith(value)) {
+      const nextAttempts = Math.max(0, (task.attemptsRemaining ?? 3) - 1);
+      const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: null,
+          claimed_at: null,
+          reward_coins: task.reward,
+          metadata: {
+            attemptsRemaining: nextAttempts,
+            failedAt,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist typing attempt", error);
+        setAuthError(describeError(error));
+        return;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                attemptsRemaining: nextAttempts,
+                completed: false,
+                claimed: nextAttempts === 0,
+                cooldownUntil: failedAt ? getDailyCooldownUntil(failedAt) : null,
+              }
+            : entry,
+        ),
+      );
+      setMistressReply(
+        nextAttempts === 0
+          ? "Three mistakes. The vault closes that lesson for today."
+          : "A mistake already? Start again, carefully.",
+      );
+      return;
+    }
+
+    if (value === sentence) {
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: new Date().toISOString(),
+          claimed_at: null,
+          reward_coins: task.reward,
+          metadata: {
+            attemptsRemaining: task.attemptsRemaining ?? 3,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist typing success", error);
+        setAuthError(describeError(error));
+        return;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? { ...entry, completed: true, claimed: false }
+            : entry,
+        ),
+      );
+      setMistressReply("Perfect. Principessa appreciates precision.");
+    }
+  };
+
+  const handleHighLowPlay = async (
+    guess: "higher" | "lower",
+    stake: number,
+  ) => {
+    const task = tasks.find((entry) => entry.id === "high-low");
+    const highLowCooldownActive =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || highLowCooldownActive || !authUserId) {
+      return;
+    }
+
+    if (!Number.isInteger(stake) || stake <= 0) {
+      setMistressReply("Choose a real stake before testing the vault.");
+      return;
+    }
+
+    const currentCoins = coinsRef.current;
+
+    if (currentCoins < stake) {
+      setMistressReply("Too few coins for that little gamble.");
+      return;
+    }
+
+    const currentNumber = task.currentNumber ?? randomHighLowNumber();
+    const nextNumber = randomHighLowNumber();
+    const won =
+      nextNumber !== currentNumber &&
+      ((guess === "higher" && nextNumber > currentNumber) ||
+        (guess === "lower" && nextNumber < currentNumber));
+    const nextCoins = won ? currentCoins + stake : currentCoins - stake;
+    const now = new Date().toISOString();
+    const lastResult = `${currentNumber} -> ${nextNumber}. ${won ? "Won" : "Lost"} ${stake} coins. Ties count as losses.`;
+
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        "high-low",
+      );
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          claimed_at: now,
+          reward_coins: won ? stake : -stake,
+          metadata: {
+            currentNumber: nextNumber,
+            previousNumber: currentNumber,
+            stake,
+            guess,
+            won,
+            lastResult,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist high-low play", error);
+        throw error;
+      }
+
+      recordCoinTransaction(won ? stake : -stake, "task:high-low");
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completed: true,
+                claimed: true,
+                currentNumber: nextNumber,
+                lastResult,
+                cooldownUntil: getDailyCooldownUntil(now),
+              }
+            : entry,
+        ),
+      );
+      setMistressReply(
+        won
+          ? "A lucky guess. The vault doubles your stake."
+          : "Wrong. The vault keeps that stake.",
+      );
+    } catch (error) {
+      console.error("Failed to complete high-low play", error);
+      setAuthError(describeError(error));
+      setMistressReply("The high-low ledger failed. Try again.");
+    }
+  };
+
+  const handleBeg = async () => {
+    if (!authUserId) {
+      return;
+    }
+
+    const cooldownActive =
+      Boolean(displayMechanics.begCooldownUntil) &&
+      new Date(displayMechanics.begCooldownUntil ?? "").getTime() > Date.now();
+
+    if (cooldownActive) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const reward = Math.random() < 0.03 ? Math.floor(Math.random() * 10) + 1 : 0;
+
+    try {
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: "beg",
+          completed_at: now,
+          reward_coins: reward,
+          metadata: {
+            lastBegAt: now,
+            lastReward: reward,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist beg cooldown", error);
+        throw error;
+      }
+
+      if (reward > 0) {
+        await persistProfileProgress(
+          { coins: coinsRef.current + reward, affection },
+          "beg",
+        );
+        recordCoinTransaction(reward, "mechanic:beg");
+      }
+
+      setMechanics((current) => ({
+        ...current,
+        begCooldownUntil: getCooldownUntil(now, 10 * 1000),
+      }));
+      setMistressReply(
+        reward > 0
+          ? `${randomFrom(begRewardLines)} +${reward} coins.`
+          : randomFrom(begIgnoredLines),
+      );
+    } catch (error) {
+      console.error("Failed to complete beg mechanic", error);
+      setAuthError(describeError(error));
+      setMistressReply("The vault ignored the request. Try again.");
+    }
+  };
+
+  const handleSacrifice = async () => {
+    if (!authUserId || displayMechanics.sacrificeComplete) {
+      return;
+    }
+
+    const cooldownActive =
+      Boolean(displayMechanics.sacrificeCooldownUntil) &&
+      new Date(displayMechanics.sacrificeCooldownUntil ?? "").getTime() > Date.now();
+
+    if (cooldownActive) {
+      return;
+    }
+
+    if (coinsRef.current < 50) {
+      setMistressReply("The sacrifice requires 50 coins. The vault is not impressed.");
+      return;
+    }
+
+    const remainingItems = sacrificeGalleryItems.filter(
+      (item) => !unlockedGalleryIds.includes(item.id),
+    );
+
+    if (remainingItems.length === 0) {
+      setMechanics((current) => ({
+        ...current,
+        sacrificeComplete: true,
+      }));
+      setMistressReply("The Sacrifice Collection is already complete.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const won = Math.random() < 0.5;
+    const unlockedItem = won ? randomFrom(remainingItems) : null;
+    const nextCoins = coinsRef.current - 50;
+    const lastResult = unlockedItem
+      ? `Unlocked ${unlockedItem.title}.`
+      : "The offering burned away.";
+
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        "sacrifice",
+      );
+      recordCoinTransaction(-50, "mechanic:sacrifice");
+
+      if (unlockedItem) {
+        await persistGalleryUnlocks([unlockedItem.id]);
+        setUnlockedGalleryIds((current) =>
+          current.includes(unlockedItem.id) ? current : [...current, unlockedItem.id],
+        );
+      }
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: "sacrifice",
+          completed_at: now,
+          claimed_at: now,
+          reward_coins: unlockedItem ? 1 : 0,
+          metadata: {
+            won,
+            unlockedItemId: unlockedItem?.id ?? null,
+            lastResult,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist sacrifice cooldown", error);
+        throw error;
+      }
+
+      setMechanics((current) => ({
+        ...current,
+        sacrificeCooldownUntil: getDailyCooldownUntil(now),
+        sacrificeLastResult: lastResult,
+      }));
+      setMistressReply(
+        unlockedItem
+          ? `${randomFrom(sacrificeSuccessLines)} ${unlockedItem.title} joins the collection.`
+          : randomFrom(sacrificeFailureLines),
+      );
+    } catch (error) {
+      console.error("Failed to complete sacrifice mechanic", error);
+      setAuthError(describeError(error));
+      setMistressReply("The sacrifice ledger failed. Try again.");
+    }
+  };
+
+  const handleSupport = async () => {
+    if (!authUserId || !displayMechanics.supportUnlocked) {
+      return;
+    }
+
+    if (coinsRef.current < 100) {
+      setMistressReply("Support costs 100 coins. The vault waits.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const message = randomFrom(supportLines);
+
+    try {
+      await persistProfileProgress(
+        { coins: coinsRef.current - 100, affection },
+        "support",
+      );
+      recordCoinTransaction(-100, "mechanic:support");
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: "support",
+          completed_at: now,
+          reward_coins: -100,
+          metadata: {
+            lastUsedAt: now,
+            lastResult: message,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist support mechanic", error);
+        throw error;
+      }
+
+      setMechanics((current) => ({
+        ...current,
+        supportLastResult: message,
+      }));
+      setMistressReply(message);
+    } catch (error) {
+      console.error("Failed to complete support mechanic", error);
+      setAuthError(describeError(error));
+      setMistressReply("The support ledger failed. Try again.");
+    }
+  };
+
   const handleSignInWithX = async () => {
     setIsAuthBusy(true);
     setAuthError("");
@@ -940,7 +1653,6 @@ export default function Home() {
     }
 
     setTributeTotal((value) => value + amount);
-    completeTask("tribute");
     if (nextAffection >= 50) {
       completeTask("affection");
     }
@@ -1038,9 +1750,12 @@ export default function Home() {
           ? {
               ...entry,
               claimed: true,
-              completed: taskId === "daily-login" ? false : entry.completed,
+              completed:
+                taskId === "daily-login" || taskId === "typing-accuracy"
+                  ? false
+                  : entry.completed,
               cooldownUntil:
-                taskId === "daily-login"
+                taskId === "daily-login" || taskId === "typing-accuracy"
                   ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
                   : entry.cooldownUntil,
             }
@@ -1098,7 +1813,7 @@ export default function Home() {
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
-              SFW Prototype
+              Greedy Mode
             </div>
             <Link
               className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
@@ -1173,7 +1888,17 @@ export default function Home() {
             />
           )}
           {activePanel === "tasks" && (
-            <TaskList tasks={tasks} onClaim={handleClaimTask} />
+            <TaskList
+              coins={coins}
+              mechanics={displayMechanics}
+              tasks={tasks}
+              onBeg={handleBeg}
+              onClaim={handleClaimTask}
+              onHighLowPlay={handleHighLowPlay}
+              onSacrifice={handleSacrifice}
+              onSupport={handleSupport}
+              onTypingProgress={handleTypingProgress}
+            />
           )}
         </section>
       </div>

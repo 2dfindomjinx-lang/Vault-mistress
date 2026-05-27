@@ -9,23 +9,34 @@ type GalleryGridProps = {
   onUnlock: (itemId: string) => void;
 };
 
-type GalleryFilter = "All" | "Common" | "Rare" | "Divine" | "Secret";
+type GalleryFilter = "All" | "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice";
 
 const rarityStyles: Record<GalleryRarity, string> = {
   Common: "border-zinc-300/30 text-zinc-100",
   Rare: "border-fuchsia-300/40 text-fuchsia-100",
   Divine: "border-yellow-200/50 text-yellow-100",
   Secret: "border-pink-200/70 text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.28)]",
+  Sacrifice: "border-red-200/60 text-red-100 shadow-[0_0_22px_rgba(248,113,113,0.22)]",
 };
 
 export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) {
   const hasSecret = items.some((item) => item.rarity === "Secret");
+  const hasSacrifice = items.some((item) => item.rarity === "Sacrifice");
   const [filter, setFilter] = useState<GalleryFilter>("All");
 
-  const filters = useMemo<GalleryFilter[]>(
-    () => (hasSecret ? ["All", "Common", "Rare", "Divine", "Secret"] : ["All", "Common", "Rare", "Divine"]),
-    [hasSecret],
-  );
+  const filters = useMemo<GalleryFilter[]>(() => {
+    const base: GalleryFilter[] = ["All", "Common", "Rare", "Divine"];
+
+    if (hasSacrifice) {
+      base.unshift("Sacrifice");
+    }
+
+    if (hasSecret) {
+      base.push("Secret");
+    }
+
+    return base;
+  }, [hasSacrifice, hasSecret]);
 
   const filteredItems =
     filter === "All" ? items : items.filter((item) => item.rarity === filter);
@@ -61,7 +72,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
             onClick={() => setFilter(option)}
             type="button"
           >
-            {option}
+            {option === "Sacrifice" ? "Sacrifice Collection" : option}
           </button>
         ))}
       </div>
@@ -70,6 +81,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
         {filteredItems.map((item) => {
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
+          const isSacrifice = item.rarity === "Sacrifice";
           const canAfford = isCommon && coins >= (item.unlockCost ?? 0);
           const lockedText = isCommon
             ? "Locked"
@@ -85,7 +97,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
           return (
             <article
               className={`overflow-hidden rounded-[1.5rem] border bg-white/[0.045] transition hover:-translate-y-0.5 ${
-                isSecret
+                isSecret || isSacrifice
                   ? "border-pink-200/60 shadow-[0_0_34px_rgba(236,72,153,0.24)]"
                   : "border-white/10 hover:border-pink-300/30"
               }`}
@@ -96,7 +108,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
                   alt={`${item.title} gallery placeholder`}
                   className={`object-cover transition duration-500 ${
                     item.unlocked ? "" : "scale-105 blur-md grayscale"
-                  } ${isSecret ? "saturate-150 contrast-125" : ""}`}
+                  } ${isSecret || isSacrifice ? "saturate-150 contrast-125" : ""}`}
                   fill
                   unoptimized
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"

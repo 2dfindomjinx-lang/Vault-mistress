@@ -39,9 +39,13 @@ create table if not exists public.user_tasks (
   completed_at timestamp with time zone,
   claimed_at timestamp with time zone,
   reward_coins integer default 0,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamp with time zone default now(),
   unique(user_id, task_id)
 );
+
+alter table public.user_tasks
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 create table if not exists public.coin_transactions (
   id uuid primary key default gen_random_uuid(),
