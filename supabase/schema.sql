@@ -5,11 +5,15 @@ create table if not exists public.profiles (
   username text unique not null,
   coins integer not null default 100,
   affection integer not null default 0,
+  loyalty_streak integer not null default 0,
+  last_loyalty_at timestamp with time zone,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
 
 alter table public.profiles
+  add column if not exists loyalty_streak integer not null default 0,
+  add column if not exists last_loyalty_at timestamp with time zone,
   add column if not exists updated_at timestamp with time zone not null default now();
 
 create table if not exists public.unlocked_gallery_items (
@@ -18,6 +22,25 @@ create table if not exists public.unlocked_gallery_items (
   item_id text not null,
   unlocked_at timestamp with time zone not null default now(),
   unique (user_id, item_id)
+);
+
+create table if not exists public.user_gallery (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  item_id text not null,
+  unlocked_at timestamp with time zone not null default now(),
+  unique (user_id, item_id)
+);
+
+create table if not exists public.user_tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id text not null,
+  completed_at timestamp with time zone,
+  claimed_at timestamp with time zone,
+  reward_coins integer default 0,
+  created_at timestamp with time zone default now(),
+  unique(user_id, task_id)
 );
 
 create table if not exists public.coin_transactions (
@@ -30,6 +53,8 @@ create table if not exists public.coin_transactions (
 
 alter table public.profiles enable row level security;
 alter table public.unlocked_gallery_items enable row level security;
+alter table public.user_gallery enable row level security;
+alter table public.user_tasks enable row level security;
 alter table public.coin_transactions enable row level security;
 
 create policy "Users can read own profile"
@@ -72,4 +97,36 @@ create policy "Users can read own coin transactions"
 create policy "Users can create own coin transactions"
   on public.coin_transactions for insert
   to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can read own gallery"
+  on public.user_gallery for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own gallery"
+  on public.user_gallery for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own gallery"
+  on public.user_gallery for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read own tasks"
+  on public.user_tasks for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own tasks"
+  on public.user_tasks for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own tasks"
+  on public.user_tasks for update
+  to authenticated
+  using (auth.uid() = user_id)
   with check (auth.uid() = user_id);

@@ -1,9 +1,21 @@
-import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import {
+  createSupabaseAdminClient,
+  getSupabaseAdminConfigErrors,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
+  const configErrors = [
+    ...getSupabaseAdminConfigErrors(),
+    !process.env.ADMIN_PASSWORD ? "ADMIN_PASSWORD is missing" : "",
+  ].filter(Boolean);
+
   if (!isSupabaseAdminConfigured || !process.env.ADMIN_PASSWORD) {
+    console.error("Admin Supabase route is not configured", configErrors);
     return Response.json(
-      { error: "Admin Supabase environment is not configured." },
+      {
+        error: `Admin Supabase environment is not configured: ${configErrors.join(", ")}`,
+      },
       { status: 500 },
     );
   }
@@ -41,12 +53,13 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (profileError) {
+    console.error("Admin profile lookup failed", profileError);
     return Response.json({ error: profileError.message }, { status: 500 });
   }
 
   if (!profile) {
     return Response.json(
-      { error: "User not found in local prototype." },
+      { error: "User not found in Supabase profiles." },
       { status: 404 },
     );
   }
@@ -54,18 +67,23 @@ export async function POST(request: Request) {
   const nextCoins = Number(profile.coins ?? 0) + amount;
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({ coins: nextCoins })
+    .update({ coins: nextCoins, updated_at: new Date().toISOString() })
     .eq("id", profile.id);
 
   if (updateError) {
+    console.error("Admin coin update failed", updateError);
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
-  await supabase.from("coin_transactions").insert({
+  const { error: transactionError } = await supabase.from("coin_transactions").insert({
     user_id: profile.id,
     amount,
     reason: "admin:/give",
   });
+
+  if (transactionError) {
+    console.error("Admin coin transaction insert failed", transactionError);
+  }
 
   return Response.json({
     message: `Added ${amount} coins to ${profile.username}.`,

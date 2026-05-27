@@ -150,6 +150,16 @@ const moodUnlocks = [
   { id: "secret-defnes-final-favor", mood: 100 },
 ];
 
+type UserTaskRow = {
+  task_id: string;
+  completed_at: string | null;
+  claimed_at: string | null;
+  reward_coins: number | null;
+};
+
+const profileSelect =
+  "id, username, coins, affection, loyalty_streak, last_loyalty_at, created_at, updated_at";
+
 const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
@@ -246,6 +256,44 @@ function describeError(error: unknown) {
   return String(error);
 }
 
+function isWithinLast24Hours(value: string | null) {
+  if (!value) {
+    return false;
+  }
+
+  return Date.now() - new Date(value).getTime() < 24 * 60 * 60 * 1000;
+}
+
+function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
+  return startingTasks.map((task) => {
+    const row = rows.find((entry) => entry.task_id === task.id);
+    const claimedWithinCooldown = isWithinLast24Hours(row?.claimed_at ?? null);
+    const claimedForever = Boolean(row?.claimed_at);
+
+    if (task.id === "daily-login") {
+      return {
+        ...task,
+        completed: !claimedWithinCooldown,
+        claimed: claimedWithinCooldown,
+      };
+    }
+
+    if (task.id === "affection") {
+      return {
+        ...task,
+        completed: affection >= 50 || Boolean(row?.completed_at),
+        claimed: claimedForever,
+      };
+    }
+
+    return {
+      ...task,
+      completed: Boolean(row?.completed_at) || task.completed,
+      claimed: claimedForever,
+    };
+  });
+}
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -256,10 +304,10 @@ export default function Home() {
   const [coins, setCoins] = useState(100);
   const coinsRef = useRef(coins);
   const [affection, setAffection] = useState(0);
-  const [loyaltyStreak] = useState(3);
+  const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
-  const [tasks, setTasks] = useState(startingTasks);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks">("tribute");
   const [mistressReply, setMistressReply] = useState(
     "The vault is waiting. Try to look composed.",
@@ -288,21 +336,46 @@ export default function Home() {
       user_id: authUserId,
       amount,
       reason,
+    }).then(({ error }) => {
+      if (error) {
+        console.error("Failed to persist coin transaction", { amount, reason, error });
+      }
     });
   }, [authUserId]);
 
-  const recordGalleryUnlocks = useCallback((itemIds: string[]) => {
+  const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0) {
       return;
     }
 
-    void supabase.from("unlocked_gallery_items").upsert(
-      itemIds.map((itemId) => ({
-        user_id: authUserId,
-        item_id: itemId,
-      })),
+    const rows = itemIds.map((itemId) => ({
+      user_id: authUserId,
+      item_id: itemId,
+    }));
+
+    const { error: galleryError } = await supabase.from("user_gallery").upsert(rows, {
+      onConflict: "user_id,item_id",
+    });
+
+    if (galleryError) {
+      console.error("Failed to persist user_gallery unlocks", {
+        itemIds,
+        error: galleryError,
+      });
+      throw galleryError;
+    }
+
+    const { error: legacyGalleryError } = await supabase.from("unlocked_gallery_items").upsert(
+      rows,
       { onConflict: "user_id,item_id" },
     );
+
+    if (legacyGalleryError) {
+      console.warn("Failed to persist legacy gallery unlocks", {
+        itemIds,
+        error: legacyGalleryError,
+      });
+    }
   }, [authUserId]);
 
   const applyProfile = useCallback(async (profile: Profile) => {
@@ -310,13 +383,45 @@ export default function Home() {
     setUsername(profile.username);
     setCoins(profile.coins);
     setAffection(profile.affection);
+    setLoyaltyStreak(profile.loyalty_streak ?? 0);
 
-    const { data } = await supabase
+    const { data: galleryData, error: galleryError } = await supabase
+      .from("user_gallery")
+      .select("item_id")
+      .eq("user_id", profile.id);
+
+    if (galleryError) {
+      console.error("Failed to load persisted gallery unlocks", galleryError);
+      throw galleryError;
+    }
+
+    const { data: legacyGalleryData, error: legacyGalleryError } = await supabase
       .from("unlocked_gallery_items")
       .select("item_id")
       .eq("user_id", profile.id);
 
-    setUnlockedGalleryIds(data?.map((entry) => entry.item_id) ?? []);
+    if (legacyGalleryError) {
+      console.warn("Failed to load legacy gallery unlocks", legacyGalleryError);
+    }
+
+    const galleryIds = new Set([
+      ...(galleryData?.map((entry) => entry.item_id) ?? []),
+      ...(legacyGalleryData?.map((entry) => entry.item_id) ?? []),
+    ]);
+
+    setUnlockedGalleryIds(Array.from(galleryIds));
+
+    const { data: taskData, error: taskError } = await supabase
+      .from("user_tasks")
+      .select("task_id, completed_at, claimed_at, reward_coins")
+      .eq("user_id", profile.id);
+
+    if (taskError) {
+      console.error("Failed to load persisted task state", taskError);
+      throw taskError;
+    }
+
+    setTasks(buildTasksFromRows((taskData ?? []) as UserTaskRow[], profile.affection));
     setIsLoggedIn(true);
   }, []);
 
@@ -325,6 +430,7 @@ export default function Home() {
     setUsername(profile.username);
     setCoins(profile.coins);
     setAffection(profile.affection);
+    setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setIsLoggedIn(true);
   }, []);
 
@@ -349,7 +455,7 @@ export default function Home() {
           },
           { onConflict: "id", ignoreDuplicates: true },
         )
-        .select("id, username, coins, affection, created_at, updated_at")
+        .select(profileSelect)
         .single();
 
       console.info("Profile upsert result", {
@@ -399,7 +505,7 @@ export default function Home() {
 
     const { data: existingProfile, error } = await supabase
       .from("profiles")
-      .select("id, username, coins, affection, created_at, updated_at")
+      .select(profileSelect)
       .eq("id", user.id)
       .maybeSingle();
 
@@ -415,12 +521,44 @@ export default function Home() {
 
     if (existingProfile) {
       await applyProfile(existingProfile);
-      return;
+      return existingProfile as Profile;
     }
 
     const createdProfile = await createProfileForUser(user);
     await applyProfile(createdProfile);
+    return createdProfile as Profile;
   }, [applyProfile, createProfileForUser]);
+
+  const updateLoyaltyForProfile = useCallback(async (profile: Profile) => {
+    const lastLoyaltyAt = profile.last_loyalty_at;
+
+    if (lastLoyaltyAt && isWithinLast24Hours(lastLoyaltyAt)) {
+      setLoyaltyStreak(profile.loyalty_streak ?? 0);
+      return profile;
+    }
+
+    const nextLoyaltyStreak = Math.max(1, (profile.loyalty_streak ?? 0) + 1);
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        loyalty_streak: nextLoyaltyStreak,
+        last_loyalty_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", profile.id)
+      .select(profileSelect)
+      .single();
+
+    console.info("Loyalty streak update result", { data, error });
+
+    if (error) {
+      console.error("Failed to persist loyalty streak", error);
+      throw error;
+    }
+
+    setLoyaltyStreak(data.loyalty_streak ?? nextLoyaltyStreak);
+    return data as Profile;
+  }, []);
 
   const persistProfileProgress = useCallback(async (
     nextProfile: Pick<Profile, "coins" | "affection">,
@@ -453,7 +591,7 @@ export default function Home() {
       .from("profiles")
       .update(payload)
       .eq("id", userData.user.id)
-      .select("id, username, coins, affection, created_at, updated_at")
+      .select(profileSelect)
       .single();
     let data = updateResult.data as Profile | null;
     let error = updateResult.error;
@@ -467,7 +605,7 @@ export default function Home() {
           affection: nextProfile.affection,
         })
         .eq("id", userData.user.id)
-        .select("id, username, coins, affection, created_at")
+        .select(profileSelect)
         .single();
 
       data = retry.data as Profile | null;
@@ -493,6 +631,85 @@ export default function Home() {
     applyProfileStats(data);
     return data;
   }, [applyProfileStats]);
+
+  const persistTaskCompletion = useCallback((taskId: string) => {
+    if (!authUserId) {
+      console.error("Cannot persist task completion without authenticated user id", taskId);
+      return;
+    }
+
+    const task = startingTasks.find((entry) => entry.id === taskId);
+
+    void supabase.from("user_tasks").upsert(
+      {
+        user_id: authUserId,
+        task_id: taskId,
+        completed_at: new Date().toISOString(),
+        reward_coins: task?.reward ?? 0,
+      },
+      { onConflict: "user_id,task_id" },
+    ).then(({ error }) => {
+      if (error) {
+        console.error("Failed to persist task completion", { taskId, error });
+      }
+    });
+  }, [authUserId]);
+
+  const persistTaskClaim = useCallback(async (task: TaskItem) => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Failed to get authenticated user for task claim", userError);
+      throw userError;
+    }
+
+    if (!userData.user) {
+      throw new Error("Not authenticated");
+    }
+
+    const { data: existingTask, error: readError } = await supabase
+      .from("user_tasks")
+      .select("task_id, completed_at, claimed_at, reward_coins")
+      .eq("user_id", userData.user.id)
+      .eq("task_id", task.id)
+      .maybeSingle();
+
+    console.info("Task claim read result", { task, existingTask, readError });
+
+    if (readError) {
+      console.error("Failed to read task before claim", readError);
+      throw readError;
+    }
+
+    if (task.id === "daily-login" && isWithinLast24Hours(existingTask?.claimed_at ?? null)) {
+      throw new Error("Daily task is still on cooldown.");
+    }
+
+    if (task.id !== "daily-login" && existingTask?.claimed_at) {
+      throw new Error("Task reward was already claimed.");
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase.from("user_tasks").upsert(
+      {
+        user_id: userData.user.id,
+        task_id: task.id,
+        completed_at: existingTask?.completed_at ?? now,
+        claimed_at: now,
+        reward_coins: task.reward,
+      },
+      { onConflict: "user_id,task_id" },
+    ).select("task_id, completed_at, claimed_at, reward_coins").single();
+
+    console.info("Task claim persist result", { data, error });
+
+    if (error) {
+      console.error("Failed to persist task claim", error);
+      throw error;
+    }
+
+    return data;
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -526,7 +743,8 @@ export default function Home() {
       }
 
       try {
-        await loadProfile(data.user);
+        const profile = await loadProfile(data.user);
+        await updateLoyaltyForProfile(profile);
         setMistressReply("Logged in already? Eager little thing.");
       } catch (profileError) {
         console.error("Profile load/create failed", profileError);
@@ -554,7 +772,9 @@ export default function Home() {
         user: session.user,
       });
 
-      void loadProfile(session.user).catch((profileError) => {
+      void loadProfile(session.user).then((profile) =>
+        updateLoyaltyForProfile(profile),
+      ).catch((profileError) => {
         console.error("Profile load/create failed after auth change", profileError);
         setAuthError(describeError(profileError));
       });
@@ -564,7 +784,7 @@ export default function Home() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, updateLoyaltyForProfile]);
 
   useEffect(() => {
     const unlockTimer = window.setTimeout(() => {
@@ -589,7 +809,13 @@ export default function Home() {
         missingIds.forEach((id) => nextIds.add(id));
         return Array.from(nextIds);
       });
-      recordGalleryUnlocks(missingIds);
+      void persistGalleryUnlocks(missingIds).catch((error) => {
+        console.error("Failed to persist automatic mood gallery unlocks", {
+          missingIds,
+          error,
+        });
+        setAuthError(describeError(error));
+      });
 
       if (shouldAnnounceSecret) {
         setMistressReply(
@@ -601,7 +827,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(unlockTimer);
     };
-  }, [affection, recordGalleryUnlocks, unlockedGalleryIds]);
+  }, [affection, persistGalleryUnlocks, unlockedGalleryIds]);
 
   const scriptedMessage = useMemo(
     () => getAffectionMoodLine(affection),
@@ -614,6 +840,7 @@ export default function Home() {
         task.id === taskId ? { ...task, completed: true } : task,
       ),
     );
+    persistTaskCompletion(taskId);
   };
 
   const handleSignInWithX = async () => {
@@ -656,7 +883,7 @@ export default function Home() {
     setIsLoggedIn(false);
     setAuthUserId(null);
     setUnlockedGalleryIds([]);
-    setTasks(startingTasks);
+    setTasks([]);
     setCoins(100);
     setAffection(0);
     setMistressReply("Back at the gate. The vault can wait.");
@@ -742,8 +969,8 @@ export default function Home() {
         { coins: nextCoins, affection: nextAffection },
         "common_gallery_unlock",
       );
+      await persistGalleryUnlocks([item.id]);
       recordCoinTransaction(nextCoins - currentCoins, "common_gallery_unlock");
-      recordGalleryUnlocks([item.id]);
     } catch (error) {
       console.error("Failed to persist gallery unlock progress", error);
       setAuthError(describeError(error));
@@ -774,6 +1001,7 @@ export default function Home() {
     const nextCoins = currentCoins + task.reward;
 
     try {
+      await persistTaskClaim(task);
       await persistProfileProgress(
         { coins: nextCoins, affection },
         `task:${task.id}`,
