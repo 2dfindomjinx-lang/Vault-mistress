@@ -196,7 +196,6 @@ const startingTasks: TaskItem[] = [
     completed: false,
     claimed: false,
     kind: "high-low",
-    currentNumber: 5,
   },
   {
     id: "gallery",
@@ -455,14 +454,6 @@ function getTaskMetadataString(
   return typeof value === "string" ? value : null;
 }
 
-function getHighLowOutcome(
-  metadata: Record<string, unknown> | null | undefined,
-): TaskItem["resultOutcome"] {
-  const value = metadata?.outcome;
-
-  return value === "win" || value === "loss" || value === "tie" ? value : undefined;
-}
-
 function isCompletedAfterClaim(row: UserTaskRow | undefined) {
   if (!row?.completed_at) {
     return false;
@@ -509,42 +500,13 @@ function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
 
     if (task.id === "high-low") {
       const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
-      const storedNextBaseRevealAt = getTaskMetadataString(
-        row?.metadata,
-        "nextBaseRevealAt",
-      );
-      const nextBaseRevealAt =
-        storedNextBaseRevealAt &&
-        new Date(storedNextBaseRevealAt).getTime() > Date.now()
-          ? storedNextBaseRevealAt
-          : null;
-      const hasRefreshedBase = Boolean(getTaskMetadataString(row?.metadata, "refreshedAt"));
-      const hasRoundResult = typeof row?.metadata?.resultNumber === "number";
-      const storedCurrentNumber = getTaskMetadataNumber(
-        row?.metadata,
-        "currentNumber",
-        randomHighLowDisplayNumber(),
-      );
-      const currentNumber =
-        !nextBaseRevealAt && hasRoundResult && !hasRefreshedBase
-          ? randomHighLowDisplayNumber()
-          : storedCurrentNumber;
 
       return {
         ...task,
         completed: Boolean(row?.completed_at),
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
-        currentNumber:
-          currentNumber > 1 && currentNumber < 10
-            ? currentNumber
-            : randomHighLowDisplayNumber(),
-        lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
-        nextBaseRevealAt,
-        resultBaseNumber: getTaskMetadataNumber(row?.metadata, "previousNumber", 0),
-        resultCoinDelta: getTaskMetadataNumber(row?.metadata, "coinDelta", 0),
-        resultNumber: getTaskMetadataNumber(row?.metadata, "resultNumber", 0),
-        resultOutcome: getHighLowOutcome(row?.metadata),
+        currentNumber: randomHighLowDisplayNumber(),
       };
     }
 
@@ -1414,22 +1376,7 @@ export default function Home() {
     }
   };
 
-  const scheduleHighLowDisplayRefresh = useCallback((
-    playedAt: string,
-    resultData: {
-      currentNumber: number;
-      coinDelta: number;
-      resultNumber: number;
-      outcome: "win" | "loss" | "tie";
-      stake: number;
-      guess: "higher" | "lower";
-      lastResult: string;
-    },
-  ) => {
-    if (!authUserId) {
-      return;
-    }
-
+  const scheduleHighLowDisplayRefresh = useCallback(() => {
     if (highLowRefreshTimerRef.current !== null) {
       window.clearTimeout(highLowRefreshTimerRef.current);
     }
@@ -1444,34 +1391,8 @@ export default function Home() {
             : entry,
         ),
       );
-
-      void supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "high-low",
-          completed_at: playedAt,
-          claimed_at: playedAt,
-          reward_coins: resultData.coinDelta,
-          metadata: {
-            coinDelta: resultData.coinDelta,
-            currentNumber: nextDisplayNumber,
-            outcome: resultData.outcome,
-            previousNumber: resultData.currentNumber,
-            resultNumber: resultData.resultNumber,
-            stake: resultData.stake,
-            guess: resultData.guess,
-            lastResult: resultData.lastResult,
-            refreshedAt: new Date().toISOString(),
-          },
-        },
-        { onConflict: "user_id,task_id" },
-      ).then(({ error }) => {
-        if (error) {
-          console.error("Failed to persist refreshed high-low display number", error);
-        }
-      });
     }, 10 * 1000);
-  }, [authUserId]);
+  }, []);
 
   const handleHighLowPlay = async (
     guess: "higher" | "lower",
@@ -1530,15 +1451,7 @@ export default function Home() {
           claimed_at: now,
           reward_coins: coinDelta,
           metadata: {
-            coinDelta,
-            currentNumber,
-            nextBaseRevealAt,
-            outcome,
-            previousNumber: currentNumber,
-            resultNumber,
-            stake,
-            guess,
-            lastResult,
+            playedAt: now,
           },
         },
         { onConflict: "user_id,task_id" },
@@ -1569,15 +1482,7 @@ export default function Home() {
             : entry,
         ),
       );
-      scheduleHighLowDisplayRefresh(now, {
-        coinDelta,
-        currentNumber,
-        outcome,
-        resultNumber,
-        stake,
-        guess,
-        lastResult,
-      });
+      scheduleHighLowDisplayRefresh();
       setMistressReply(
         outcome === "tie"
           ? "A tie. Your stake returns, this time."
