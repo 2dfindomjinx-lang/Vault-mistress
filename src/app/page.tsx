@@ -224,6 +224,28 @@ function getAffectionMoodLine(affection: number) {
     .find((line) => affection >= line.min)?.text ?? affectionMoodLines[0].text;
 }
 
+function describeError(error: unknown) {
+  if (error instanceof Error) {
+    return error.stack || error.message;
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as { message?: unknown };
+
+    if (typeof maybeError.message === "string") {
+      return maybeError.message;
+    }
+
+    try {
+      return JSON.stringify(error, null, 2);
+    } catch {
+      return String(error);
+    }
+  }
+
+  return String(error);
+}
+
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
@@ -309,8 +331,13 @@ export default function Home() {
   const createProfileForUser = useCallback(async (user: User) => {
     const fallbackUsername = profileUsernameFromUser(user);
 
-    const createProfile = async (usernameForProfile: string) =>
-      supabase
+    const createProfile = async (usernameForProfile: string) => {
+      console.info("Creating/upserting profile", {
+        userId: user.id,
+        username: usernameForProfile,
+      });
+
+      const result = await supabase
         .from("profiles")
         .upsert(
           {
@@ -324,11 +351,28 @@ export default function Home() {
         .select("id, username, coins, affection, created_at")
         .single();
 
+      console.info("Profile upsert result", {
+        data: result.data,
+        error: result.error,
+      });
+
+      if (result.error) {
+        console.error("Profile upsert error", result.error);
+      }
+
+      return result;
+    };
+
     let { data: createdProfile, error: insertError } =
       await createProfile(fallbackUsername);
 
     if (insertError?.code === "23505") {
       const uniqueUsername = `${fallbackUsername}_${user.id.slice(0, 6)}`;
+      console.warn("Profile username collision, retrying", {
+        fallbackUsername,
+        uniqueUsername,
+        error: insertError,
+      });
       const retry = await createProfile(uniqueUsername);
 
       createdProfile = retry.data;
@@ -336,6 +380,10 @@ export default function Home() {
     }
 
     if (insertError || !createdProfile) {
+      console.error("Profile create final failure", {
+        createdProfile,
+        insertError,
+      });
       throw insertError ?? new Error("Profile could not be created.");
     }
 
@@ -343,13 +391,24 @@ export default function Home() {
   }, []);
 
   const loadProfile = useCallback(async (user: User) => {
+    console.info("Loading profile for authenticated user", {
+      id: user.id,
+      metadata: user.user_metadata,
+    });
+
     const { data: existingProfile, error } = await supabase
       .from("profiles")
       .select("id, username, coins, affection, created_at")
       .eq("id", user.id)
       .maybeSingle();
 
+    console.info("Profile select result", {
+      existingProfile,
+      error,
+    });
+
     if (error) {
+      console.error("Profile select error", error);
       throw error;
     }
 
@@ -367,7 +426,17 @@ export default function Home() {
 
     const bootSession = async () => {
       setIsAuthLoading(true);
-      const { data, error } = await supabase.auth.getUser();
+      const sessionResult = await supabase.auth.getSession();
+      console.info("Supabase auth getSession result", sessionResult);
+
+      if (sessionResult.error) {
+        console.error("Supabase auth getSession error", sessionResult.error);
+      }
+
+      const userResult = await supabase.auth.getUser();
+      console.info("Supabase auth getUser result", userResult);
+
+      const { data, error } = userResult;
 
       if (!mounted) {
         return;
@@ -388,7 +457,7 @@ export default function Home() {
         setMistressReply("Logged in already? Eager little thing.");
       } catch (profileError) {
         console.error("Profile load/create failed", profileError);
-        setAuthError("Profile could not be loaded.");
+        setAuthError(describeError(profileError));
       } finally {
         if (mounted) {
           setIsAuthLoading(false);
@@ -407,9 +476,14 @@ export default function Home() {
         return;
       }
 
+      console.info("Supabase auth state changed", {
+        event: _event,
+        user: session.user,
+      });
+
       void loadProfile(session.user).catch((profileError) => {
         console.error("Profile load/create failed after auth change", profileError);
-        setAuthError("Profile could not be loaded.");
+        setAuthError(describeError(profileError));
       });
     });
 
