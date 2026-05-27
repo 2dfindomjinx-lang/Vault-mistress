@@ -638,6 +638,10 @@ export default function Home() {
     }),
     [mechanics, unlockedGalleryIds],
   );
+  const getNextTributeTotal = useCallback(
+    (spentCoins: number) => tributeTotal + Math.max(0, spentCoins),
+    [tributeTotal],
+  );
 
   useEffect(() => {
     coinsRef.current = coins;
@@ -1362,12 +1366,13 @@ export default function Home() {
       ((guess === "higher" && nextNumber > currentNumber) ||
         (guess === "lower" && nextNumber < currentNumber));
     const nextCoins = won ? currentCoins + stake : currentCoins - stake;
+    const nextTributeTotal = getNextTributeTotal(stake);
     const now = new Date().toISOString();
     const lastResult = `${currentNumber} -> ${nextNumber}. ${won ? "Won" : "Lost"} ${stake} coins. Ties count as losses.`;
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection },
+        { coins: nextCoins, affection, tribute_total: nextTributeTotal },
         "high-low",
       );
 
@@ -1517,13 +1522,14 @@ export default function Home() {
     const won = Math.random() < 0.5;
     const unlockedItem = won ? randomFrom(remainingItems) : null;
     const nextCoins = coinsRef.current - 50;
+    const nextTributeTotal = getNextTributeTotal(50);
     const lastResult = unlockedItem
       ? `Unlocked ${unlockedItem.title}.`
       : "The offering burned away.";
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection },
+        { coins: nextCoins, affection, tribute_total: nextTributeTotal },
         "sacrifice",
       );
       recordCoinTransaction(-50, "mechanic:sacrifice");
@@ -1588,7 +1594,11 @@ export default function Home() {
 
     try {
       await persistProfileProgress(
-        { coins: coinsRef.current - 100, affection },
+        {
+          coins: coinsRef.current - 100,
+          affection,
+          tribute_total: getNextTributeTotal(100),
+        },
         "support",
       );
       recordCoinTransaction(-100, "mechanic:support");
@@ -1697,7 +1707,7 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + affectionGain);
     const nextCoins = Math.max(0, currentCoins - amount);
-    const nextTributeTotal = tributeTotal + amount;
+    const nextTributeTotal = getNextTributeTotal(amount);
 
     try {
       await persistProfileProgress(
@@ -1752,10 +1762,15 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + 8);
     const nextCoins = Math.max(0, currentCoins - unlockCost);
+    const nextTributeTotal = getNextTributeTotal(unlockCost);
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection: nextAffection },
+        {
+          coins: nextCoins,
+          affection: nextAffection,
+          tribute_total: nextTributeTotal,
+        },
         "common_gallery_unlock",
       );
       await persistGalleryUnlocks([item.id]);
