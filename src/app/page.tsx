@@ -10,9 +10,8 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
 import {
+  profileUsernameFromUser,
   supabase,
-  usernameToEmail,
-  validateUsername,
   type Profile,
 } from "@/lib/supabase/client";
 import type { GalleryItem, TaskItem } from "@/lib/types";
@@ -306,7 +305,7 @@ export default function Home() {
     setIsLoggedIn(true);
   }, []);
 
-  const loadProfile = useCallback(async (userId: string, fallbackUsername?: string) => {
+  const loadProfile = useCallback(async (userId: string, fallbackUsername: string) => {
     const { data: existingProfile, error } = await supabase
       .from("profiles")
       .select("id, username, coins, affection, created_at")
@@ -322,21 +321,31 @@ export default function Home() {
       return;
     }
 
-    const validatedFallback = validateUsername(fallbackUsername ?? "@vaultuser");
-    const usernameForProfile = validatedFallback.username || "@vaultuser";
-    const { data: createdProfile, error: insertError } = await supabase
-      .from("profiles")
-      .insert({
-        id: userId,
-        username: usernameForProfile,
-        coins: 100,
-        affection: 0,
-      })
-      .select("id, username, coins, affection, created_at")
-      .single();
+    const createProfile = async (usernameForProfile: string) =>
+      supabase
+        .from("profiles")
+        .insert({
+          id: userId,
+          username: usernameForProfile,
+          coins: 100,
+          affection: 0,
+        })
+        .select("id, username, coins, affection, created_at")
+        .single();
 
-    if (insertError) {
-      throw insertError;
+    let { data: createdProfile, error: insertError } =
+      await createProfile(fallbackUsername);
+
+    if (insertError?.code === "23505") {
+      const uniqueUsername = `${fallbackUsername}_${userId.slice(0, 6)}`;
+      const retry = await createProfile(uniqueUsername);
+
+      createdProfile = retry.data;
+      insertError = retry.error;
+    }
+
+    if (insertError || !createdProfile) {
+      throw insertError ?? new Error("Profile could not be created.");
     }
 
     await applyProfile(createdProfile);
@@ -360,7 +369,10 @@ export default function Home() {
       }
 
       try {
-        await loadProfile(data.session.user.id);
+        await loadProfile(
+          data.session.user.id,
+          profileUsernameFromUser(data.session.user),
+        );
         setMistressReply("Logged in already? Eager little thing.");
       } catch {
         setAuthError("Profile could not be loaded.");
@@ -438,72 +450,30 @@ export default function Home() {
     );
   };
 
-  const handleAuthSubmit = async (
-    mode: "login" | "register",
-    rawUsername: string,
-    password: string,
-  ) => {
-    const validatedUsername = validateUsername(rawUsername);
-
+  const handleSignInWithX = async () => {
     setIsAuthBusy(true);
     setAuthError("");
 
     try {
-      if (validatedUsername.error) {
-        throw new Error(validatedUsername.error);
-      }
-
-      const nextUsername = validatedUsername.username;
-      const email = usernameToEmail(nextUsername);
-      const result =
-        mode === "register"
-          ? await supabase.auth.signUp({ email, password })
-          : await supabase.auth.signInWithPassword({ email, password });
+      const result = await supabase.auth.signInWithOAuth({
+        provider: "twitter",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
       if (result.error) {
         throw result.error;
       }
-
-      const user = result.data.user;
-
-      if (!user) {
-        throw new Error(
-          "Account created, but Supabase did not return a session. Disable email confirmation for this prototype or log in after confirming.",
-        );
-      }
-
-      if (mode === "register" && !result.data.session) {
-        throw new Error(
-          "Account created, but email confirmation is enabled in Supabase. Disable confirmation for this prototype, then log in.",
-        );
-      }
-
-      if (mode === "register") {
-        const { error } = await supabase.from("profiles").upsert(
-          {
-            id: user.id,
-            username: nextUsername,
-            coins: 100,
-            affection: 0,
-          },
-          { onConflict: "id" },
-        );
-
-        if (error) {
-          throw error;
-        }
-      }
-
-      await loadProfile(user.id, nextUsername);
-      setMistressReply("Logged in already? Eager little thing.");
     } catch (error) {
+      console.error("Supabase X OAuth sign-in failed", error);
       setAuthError(
         error instanceof Error
           ? error.message
-          : "Vault login failed. Check the username and password.",
+          : "X sign-in failed. Check Supabase OAuth settings.",
       );
-    } finally {
       setIsAuthBusy(false);
+    } finally {
       setIsAuthLoading(false);
     }
   };
@@ -646,7 +616,7 @@ export default function Home() {
       <LoginScreen
         error={authError}
         isBusy={isAuthBusy}
-        onSubmit={handleAuthSubmit}
+        onSignInWithX={handleSignInWithX}
       />
     );
   }

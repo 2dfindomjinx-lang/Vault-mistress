@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 
 export type Profile = {
   id: string;
@@ -18,44 +18,26 @@ export const supabase = createClient(
   supabaseAnonKey ?? "missing-supabase-anon-key",
 );
 
-export function usernameToEmail(username: string) {
-  const clean = username
-    .trim()
+function cleanUsernameCandidate(value: string) {
+  return value
     .toLowerCase()
     .replace(/^@/, "")
-    .replace(/[^a-z0-9_]/g, "");
-
-  return `${clean}@vault.local`;
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
-export function validateUsername(username: string) {
-  const trimmed = username.trim().toLowerCase();
+export function profileUsernameFromUser(user: Pick<User, "id" | "user_metadata">) {
+  const metadata = user.user_metadata ?? {};
+  const candidate =
+    metadata.preferred_username ??
+    metadata.user_name ??
+    metadata.screen_name ??
+    metadata.name ??
+    metadata.full_name ??
+    `vault_${user.id.slice(0, 8)}`;
 
-  if (!trimmed.startsWith("@")) {
-    return {
-      error: "Username must start with @.",
-      username: "",
-    };
-  }
+  const clean = cleanUsernameCandidate(String(candidate));
 
-  const clean = trimmed.replace(/^@/, "");
-
-  if (clean.length < 3) {
-    return {
-      error: "Username must be at least 3 characters after @.",
-      username: "",
-    };
-  }
-
-  if (!/^[a-z0-9_]+$/.test(clean)) {
-    return {
-      error: "Username can only use letters, numbers, and underscore.",
-      username: "",
-    };
-  }
-
-  return {
-    error: "",
-    username: `@${clean}`,
-  };
+  return `@${clean.length >= 3 ? clean : `vault_${user.id.slice(0, 8)}`}`;
 }
