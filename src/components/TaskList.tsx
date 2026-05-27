@@ -69,8 +69,10 @@ export function TaskList({
     }
 
     irlWheelTimerRef.current = window.setTimeout(() => {
-      void onIrlTaskSpin(selectedIndex);
-      setIsIrlWheelSpinning(false);
+      void Promise.resolve(onIrlTaskSpin(selectedIndex)).finally(() => {
+        setIsIrlWheelSpinning(false);
+        setPendingIrlWheelIndex(null);
+      });
     }, 3600);
   };
 
@@ -472,7 +474,7 @@ function WheelSpinner({
     selectedIndex === null
       ? rotation
       : (360 - (selectedIndex * segmentDegrees + segmentDegrees / 2)) % 360;
-  const displayRotation = spinning ? rotation : settledRotation;
+  const displayRotation = rotation !== 0 ? rotation : settledRotation;
   const activeIndex = spinning ? pendingIndex : selectedIndex;
   const wheelGradient = Array.from({ length: 20 }, (_, index) => {
     const start = index * segmentDegrees;
