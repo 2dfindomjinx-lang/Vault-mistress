@@ -6,6 +6,7 @@ export type Profile = {
   username: string;
   coins: number;
   affection: number;
+  tribute_total: number;
   loyalty_streak: number;
   last_loyalty_at: string | null;
   created_at?: string;

@@ -5,6 +5,7 @@ create table if not exists public.profiles (
   username text unique not null,
   coins integer not null default 100,
   affection integer not null default 0,
+  tribute_total integer not null default 0,
   loyalty_streak integer not null default 0,
   last_loyalty_at timestamp with time zone,
   created_at timestamp with time zone not null default now(),
@@ -12,6 +13,7 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles
+  add column if not exists tribute_total integer not null default 0,
   add column if not exists loyalty_streak integer not null default 0,
   add column if not exists last_loyalty_at timestamp with time zone,
   add column if not exists updated_at timestamp with time zone not null default now();

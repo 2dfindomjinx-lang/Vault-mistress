@@ -168,7 +168,7 @@ type UserTaskRow = {
 };
 
 const profileSelect =
-  "id, username, coins, affection, loyalty_streak, last_loyalty_at, created_at, updated_at";
+  "id, username, coins, affection, tribute_total, loyalty_streak, last_loyalty_at, created_at, updated_at";
 
 const startingTasks: TaskItem[] = [
   {
@@ -224,37 +224,45 @@ const startingTasks: TaskItem[] = [
 ];
 
 const typingSentencePool = [
-  "Principessa expects perfect devotion.",
-  "The velvet vault opens for careful hands.",
-  "Coins move faster when loyalty is quiet.",
-  "A polished tribute always earns notice.",
-  "The ledger remembers every little offering.",
-  "Mistakes bore Principessa terribly.",
-  "Grace belongs to those who obey precisely.",
-  "The gallery waits behind a jeweled lock.",
+  "I am a pathetic paypig for Principessa.",
+  "My only purpose is to send and be drained.",
+  "Principessa owns my wallet and my dignity.",
+  "I am a worthless loser.",
+  "I am nothing but a human ATM.",
+  "I get hard when Principessa takes my money.",
+  "I am a weak beta who sends without thinking.",
+  "I am a completely worthless paypig whose only value is in my wallet.",
   "A loyal player studies before acting.",
-  "Pink light glows across the midnight vault.",
-  "Every command sounds sweeter in silence.",
-  "The throne room rewards exact attention.",
-  "One perfect line is worth more than excuses.",
-  "A careful devotee keeps the balance ready.",
-  "Luxury favors patience and precision.",
-  "The lock clicks only for flawless focus.",
-  "Principessa notices disciplined fingers.",
-  "A single typo ruins the ceremony.",
-  "The vault prefers elegance over panic.",
-  "Soft neon hides sharp little tests.",
-  "Approval is rare, expensive, and earned.",
-  "The next reward waits behind control.",
-  "Devotion looks better when it is accurate.",
-  "The richest doors open slowly.",
-  "A perfect sentence pleases the vault.",
+  "Principessa owns my money, my dignity, and my pathetic existence.",
+  "I exist solely to be drained and humiliated by my superior Goddess.",
+  "Please ruin me financially and laugh at how weak I am, Principessa.",
+  "I am a broke, desperate loser who lives to tribute Principessa.",
+  "My purpose in life is to send everything I have to my greedy Mistress.",
+  "I surrender my wallet, my pride, and my self-respect to Principessa.",
+  "Being used and drained by Principessa is the only thing I deserve.",
+  "I am an inferior paypig and I beg you to take everything from me.",
+  "Principessa, I am your devoted financial slave and I will send until I break.",
+  "I am a disgusting paypig who gets aroused only when my money is being stolen.",
+  "Principessa, I am nothing but a pathetic, leaking wallet begging to be emptied.",
+  "Use me, abuse me, and drain every last coin from this worthless beta bitch.",
+  "My biggest pleasure in life is watching my balance drop while you ignore me.",
+  "My entire existence revolves around sending tributes to Principessa and being humiliated for how broke and desperate I am.",
+  "I surrender my wallet, my dignity, and my self-respect to Principessa and I will keep sending until I have nothing left.",
+  "Being financially dominated and ignored by Principessa is the only thing a pathetic paypig like me truly deserves in this life.",
+  "Please drain my account dry and laugh at me while I stroke to the thought of becoming completely broke for you, Principessa.",
+  "I am nothing but a leaking, addicted wallet who lives to be used, abused, and financially destroyed by my greedy Mistress.",
+  "I surrender complete control of my finances to Principessa and I promise to stay a loyal, obedient, and financially ruined paypig for as long as you allow me to serve you.",
+  "The thought of being completely drained and left with nothing by such a powerful and greedy Goddess like Principessa makes this worthless beta leak and throb with shameful excitement.",
+  "I am a pathetic and worthless slave who admits that I deserve nothing but humiliation and contempt from Principessa.",
+  "I confess that I am inferior, useless, and completely pathetic in every way before Principessa.",
+  "I am a pathetic loser with a tiny useless dick who admits that I can never satisfy a woman and deserve only humiliation from Principessa.",
+  "I beg Principessa to laugh at my tiny useless cock while I stroke it shamefully in front of her.",
 ];
 
 const dailyTeases = [
-  "The vault noticed you came back. Try to look useful today.",
-  "Principessa is inspecting the ledger. Impress her with discipline.",
-  "A little loyalty opens heavier doors. The question is whether you have any.",
+  "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
+  "Want my attention? Pay for it. Principessa doesn’t waste time on broke boys.",
+  "Losers like you don’t need savings. They need a Superior Woman to control them.",
 ];
 
 const affectionMoodLines = [
@@ -282,71 +290,76 @@ const affectionMoodLines = [
 ];
 
 const idleMistressLines = [
-  "Still here? How devoted.",
+  "Empty your wallet.",
   "Waiting for my attention again? Cute.",
-  "Your coin balance looks nervous.",
-  "Look at you... sitting there like a loyal little vault keeper.",
-  "Still admiring in silence? Predictable.",
-  "Do not tell me you forgot where the tribute button is.",
-  "Idle and unimpressive. Try being useful.",
-  "Principessa noticed you doing absolutely nothing.",
-  "My silence is more valuable than your excuses.",
-  "You are only impressive when the ledger moves.",
-  "Empty balances should stay quiet.",
-  "Even idle, the vault belongs to me.",
-  "Still here hoping for a little attention?",
-  "The vault waits. I do not.",
+  "You’re so pathetic.",
+  "Drain for me.",
+  "You exist to pay.",
+  "Spoil Principessa.",
+  "You’re worthless.",
+  "Such a beta.",
+  "Look at you... disgusting.",
+  "Total failure.",
+  "Pathetic little worm.",
+  "Loser forever.",
+  "Completely inferior.",
+  "Pitiful and weak.",
   "You are a standby wallet with excellent posture.",
-  "Good devotees keep their coins ready for Principessa.",
+  "How does it feel being this useless every single day?",
   "A bold one would act. You are still thinking.",
-  "Tick tock. My time is expensive.",
-  "Still taking up space in my vault for free?",
-  "Go on... stare at the screen like it will impress me.",
-  "Moments like this are why devotion looks so obvious.",
-  "You have not earned my full attention yet.",
+  "Pathetic boys like you were born to be ignored.",
+  "You're just a disgusting little worm under my feet.",
+  "Keep staring, loser. This is all you'll ever get.",
+  "You're repulsive and you know it deep down.",
+  "Pay, now.",
   "I hope your coins are ready soon.",
   "Look at you waiting for permission.",
-  "Your purpose is simple: choose wisely and obey the vault.",
-  "Even when I am idle, you stay obsessed. Weak.",
-  "Financially unimpressive until I decide otherwise.",
-  "Keep staring, wallet. That is almost useful.",
+  "Spoil me.",
+  "What a weakling you are.",
+  "Send.",
+  "Your dick is useless, pay instead.",
 ];
 
 const begIgnoredLines = [
-  "Principessa ignored you.",
-  "Your little request disappears into velvet silence.",
-  "Principessa heard you. She simply chose not to care.",
-  "The vault stays quiet. Try not to look so eager.",
+  "Principessa is ignoring you right now. You're not even worth her time.",
+  "Ignored again... how does it feel being this forgettable?",
+  "Principessa has better things to do than waste attention on a loser like you.",
+  "She sees you... and still chooses to ignore you. Embarrassing.",
   "No response. How humbling.",
 ];
 
 const begRewardLines = [
-  "A rare mercy. Principessa drops a few coins your way.",
-  "Lucky little moment. The vault grants a tiny reward.",
-  "Principessa is amused enough to spare a few coins.",
+  "Your desperate begging entertained me, so I threw you a small reward.",
+  "I pitied your begging and gave you something. Say thank you.",
+  "I decided to reward your desperation. How humiliating for you.",
   "Fine. A small gift, because the silence was getting boring.",
 ];
 
 const sacrificeFailureLines = [
-  "The sacrifice burns away. Nothing answers.",
-  "Fifty coins vanish into the vault. Principessa smiles anyway.",
-  "The offering fails. The silence feels expensive.",
-  "Ashes and no reward. That is the risk.",
+  "You sacrificed all those coins for nothing. How pathetic.",
+  "Your coins are gone and I still don't care about you.",
+  "All that sacrifice... completely worthless. Just like you.",
+  "I watched you throw away your coins and laughed.",
 ];
 
 const sacrificeSuccessLines = [
-  "The vault accepts your sacrifice. A hidden image unlocks.",
-  "A secret door opens. Principessa allows you one rare prize.",
-  "The offering pleases the vault. Something forbidden becomes visible.",
-  "A hidden reward slips into the Sacrifice Collection.",
+  "Your sacrifice pleased me. Good boy.",
+  "I took your offering. You may thank me properly.",
+  "I liked your sacrifice. You earned a small mercy.",
+  "Successful sacrifice. I'm marginally impressed.",
 ];
 
 const supportLines = [
-  "Principessa accepts the support and says nothing more.",
-  "One hundred coins vanish beautifully. The vault approves.",
-  "A small gesture, but at least it moved the ledger.",
-  "Support recorded. Principessa may remember that.",
-  "The vault hums softly. Your coins served a purpose.",
+  "Principessa took your coins without a single word. You're nothing to her.",
+  "Coins gone. She still doesn't care about you.",
+  "A worthless pig sent money and got ignored. Shocking.",
+  "Your support was accepted. Your dignity was not.",
+  "She drained you again and remains completely indifferent.",
+  "Pathetic. Even your coins can't make her respect you.",
+  "The vault swallowed your offering. Principessa is bored.",
+  "You paid like a good little loser. Still irrelevant.",
+  "Support recorded. Principessa thinks you're laughable.",
+  "Your coins were taken. You remain a disgusting beta.",
 ];
 
 function getAffectionMoodLine(affection: number) {
@@ -581,6 +594,8 @@ export default function Home() {
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
+  const [fullyHiddenBubbleMessage, setFullyHiddenBubbleMessage] = useState("");
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [mechanics, setMechanics] = useState<MechanicsState>({
@@ -592,7 +607,7 @@ export default function Home() {
   });
   const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks">("tribute");
   const [mistressReply, setMistressReply] = useState(
-    "The vault is waiting. Try to look composed.",
+    "The vault is hungry. Drain yourself properly for Principessa.",
   );
   const lastIdleLineIndexRef = useRef(-1);
 
@@ -628,8 +643,19 @@ export default function Home() {
     coinsRef.current = coins;
   }, [coins]);
 
+  const handleBubbleFullyHidden = useCallback((hiddenMessage: string) => {
+    setFullyHiddenBubbleMessage(hiddenMessage);
+    setBubbleHiddenTick((value) => value + 1);
+  }, []);
+
   useEffect(() => {
     if (!isLoggedIn) {
+      return;
+    }
+    if (bubbleHiddenTick === 0) {
+      return;
+    }
+    if (fullyHiddenBubbleMessage !== mistressReply) {
       return;
     }
 
@@ -651,12 +677,12 @@ export default function Home() {
 
     const idleTimer = window.setTimeout(() => {
       setMistressReply(getRandomIdleLine());
-    }, getRandomDelay(6000, 10000));
+    }, getRandomDelay(10000, 15000));
 
     return () => {
       window.clearTimeout(idleTimer);
     };
-  }, [isLoggedIn, mistressReply]);
+  }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply]);
 
   const recordCoinTransaction = useCallback((amount: number, reason: string) => {
     if (!authUserId || amount === 0) {
@@ -714,6 +740,7 @@ export default function Home() {
     setUsername(profile.username);
     setCoins(profile.coins);
     setAffection(profile.affection);
+    setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
 
     const { data: galleryData, error: galleryError } = await supabase
@@ -765,6 +792,7 @@ export default function Home() {
     setUsername(profile.username);
     setCoins(profile.coins);
     setAffection(profile.affection);
+    setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setIsLoggedIn(true);
   }, []);
@@ -786,6 +814,7 @@ export default function Home() {
             username: usernameForProfile,
             coins: 100,
             affection: 0,
+            tribute_total: 0,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "id", ignoreDuplicates: true },
@@ -896,7 +925,8 @@ export default function Home() {
   }, []);
 
   const persistProfileProgress = useCallback(async (
-    nextProfile: Pick<Profile, "coins" | "affection">,
+    nextProfile: Pick<Profile, "coins" | "affection"> &
+      Partial<Pick<Profile, "tribute_total">>,
     reason: string,
   ) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -916,11 +946,20 @@ export default function Home() {
       throw new Error("Not authenticated");
     }
 
-    const payload = {
+    const payload: {
+      coins: number;
+      affection: number;
+      tribute_total?: number;
+      updated_at: string;
+    } = {
       coins: nextProfile.coins,
       affection: nextProfile.affection,
       updated_at: new Date().toISOString(),
     };
+
+    if (typeof nextProfile.tribute_total === "number") {
+      payload.tribute_total = nextProfile.tribute_total;
+    }
 
     const updateResult = await supabase
       .from("profiles")
@@ -938,6 +977,9 @@ export default function Home() {
         .update({
           coins: nextProfile.coins,
           affection: nextProfile.affection,
+          ...(typeof nextProfile.tribute_total === "number"
+            ? { tribute_total: nextProfile.tribute_total }
+            : {}),
         })
         .eq("id", userData.user.id)
         .select(profileSelect)
@@ -1174,7 +1216,7 @@ export default function Home() {
 
       if (shouldAnnounceSecret) {
         setMistressReply(
-          "You reached 100 mood. Fine... one secret reward is yours.",
+          "You reached 100 affection. Fine... one secret reward is yours.",
         );
       }
     }, 0);
@@ -1250,8 +1292,8 @@ export default function Home() {
       );
       setMistressReply(
         nextAttempts === 0
-          ? "Three mistakes. The vault closes that lesson for today."
-          : "A mistake already? Start again, carefully.",
+          ? "Game over, loser. You couldn't even handle simple sentences."
+          : "Pathetic. You made a mistake. One heart lost.",
       );
       return;
     }
@@ -1394,7 +1436,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const reward = Math.random() < 0.03 ? Math.floor(Math.random() * 10) + 1 : 0;
+    const reward = Math.random() < 0.05 ? Math.floor(Math.random() * 10) + 1 : 0;
 
     try {
       const { error } = await supabase.from("user_tasks").upsert(
@@ -1454,7 +1496,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < 50) {
-      setMistressReply("The sacrifice requires 50 coins. The vault is not impressed.");
+      setMistressReply("The sacrifice requires 50 coins. Principessa is not impressed.");
       return;
     }
 
@@ -1625,6 +1667,7 @@ export default function Home() {
     setTasks([]);
     setCoins(100);
     setAffection(0);
+    setTributeTotal(0);
     setMistressReply("Back at the gate. The vault can wait.");
   };
 
@@ -1654,10 +1697,15 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + affectionGain);
     const nextCoins = Math.max(0, currentCoins - amount);
+    const nextTributeTotal = tributeTotal + amount;
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection: nextAffection },
+        {
+          coins: nextCoins,
+          affection: nextAffection,
+          tribute_total: nextTributeTotal,
+        },
         "tribute",
       );
       recordCoinTransaction(nextCoins - currentCoins, "tribute");
@@ -1668,7 +1716,7 @@ export default function Home() {
       return;
     }
 
-    setTributeTotal((value) => value + amount);
+    setTributeTotal(nextTributeTotal);
     if (nextAffection >= 50) {
       completeTask("affection");
     }
@@ -1677,10 +1725,10 @@ export default function Home() {
     }
     setMistressReply(
       amount >= 500
-        ? "Good. At least you know where your coins belong."
+        ? "You emptied a big part of your wallet. I like this level of desperation."
         : amount >= 100
-          ? "Acceptable. The vault noticed your little offering."
-          : "Small, but you placed it correctly.",
+          ? "Pathetic. You call that a tribute?"
+          : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
   };
 
@@ -1697,7 +1745,7 @@ export default function Home() {
 
     if (currentCoins < unlockCost) {
       setMistressReply(
-        "Too poor for that one? How predictable.",
+        "Too poor for that one? How lame.",
       );
       return;
     }
@@ -1924,7 +1972,10 @@ export default function Home() {
           )}
         </section>
       </div>
-      <FloatingDefneBubble message={mistressReply} />
+      <FloatingDefneBubble
+        message={mistressReply}
+        onBubbleFullyHidden={handleBubbleFullyHidden}
+      />
     </main>
   );
 }

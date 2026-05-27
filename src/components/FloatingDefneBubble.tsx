@@ -3,9 +3,15 @@ import { useEffect, useState } from "react";
 
 type FloatingDefneBubbleProps = {
   message: string;
+  onBubbleFullyHidden?: (message: string) => void;
 };
 
-export function FloatingDefneBubble({ message }: FloatingDefneBubbleProps) {
+const fadeDuration = 2000;
+
+export function FloatingDefneBubble({
+  message,
+  onBubbleFullyHidden,
+}: FloatingDefneBubbleProps) {
   const [bubbleVisible, setBubbleVisible] = useState(true);
   const [lastMessage, setLastMessage] = useState(message);
 
@@ -19,11 +25,15 @@ export function FloatingDefneBubble({ message }: FloatingDefneBubbleProps) {
     const hideTimer = window.setTimeout(() => {
       setBubbleVisible(false);
     }, visibleDuration);
+    const hiddenTimer = window.setTimeout(() => {
+      onBubbleFullyHidden?.(message);
+    }, visibleDuration + fadeDuration);
 
     return () => {
       window.clearTimeout(hideTimer);
+      window.clearTimeout(hiddenTimer);
     };
-  }, [message]);
+  }, [message, onBubbleFullyHidden]);
 
   return (
     <aside className="fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-end gap-3 sm:bottom-6 sm:right-6 sm:max-w-md">

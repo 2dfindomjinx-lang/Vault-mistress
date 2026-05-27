@@ -25,11 +25,13 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
   const [filter, setFilter] = useState<GalleryFilter>("All");
 
   const filters = useMemo<GalleryFilter[]>(() => {
-    const base: GalleryFilter[] = ["All", "Common", "Rare", "Divine"];
+    const base: GalleryFilter[] = ["All"];
 
     if (hasSacrifice) {
-      base.unshift("Sacrifice");
+      base.push("Sacrifice");
     }
+
+    base.push("Common", "Rare", "Divine");
 
     if (hasSecret) {
       base.push("Secret");
