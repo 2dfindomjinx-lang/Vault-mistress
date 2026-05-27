@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 type TaskListProps = {
@@ -8,7 +8,7 @@ type TaskListProps = {
   onBeg: () => void;
   onClaim: (taskId: string) => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
-  onIrlTaskSpin: () => void;
+  onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTypingProgress: (value: string) => void;
@@ -29,6 +29,10 @@ export function TaskList({
   const [now, setNow] = useState(0);
   const [typingValue, setTypingValue] = useState("");
   const [stake, setStake] = useState(10);
+  const [irlWheelRotation, setIrlWheelRotation] = useState(0);
+  const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
+  const [pendingIrlWheelIndex, setPendingIrlWheelIndex] = useState<number | null>(null);
+  const irlWheelTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -37,8 +41,38 @@ export function TaskList({
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
+      if (irlWheelTimerRef.current) {
+        window.clearTimeout(irlWheelTimerRef.current);
+      }
     };
   }, []);
+
+  const handleIrlWheelSpinClick = () => {
+    if (isIrlWheelSpinning) {
+      return;
+    }
+
+    const selectedIndex = Math.floor(Math.random() * 20);
+    const segmentDegrees = 360 / 20;
+    const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
+    const currentRotation = ((irlWheelRotation % 360) + 360) % 360;
+    const targetRotation = (360 - selectedCenter) % 360;
+    const rotationDelta = (targetRotation - currentRotation + 360) % 360;
+    const finalRotation = irlWheelRotation + 360 * 6 + rotationDelta;
+
+    setPendingIrlWheelIndex(selectedIndex);
+    setIsIrlWheelSpinning(true);
+    setIrlWheelRotation(finalRotation);
+
+    if (irlWheelTimerRef.current) {
+      window.clearTimeout(irlWheelTimerRef.current);
+    }
+
+    irlWheelTimerRef.current = window.setTimeout(() => {
+      void onIrlTaskSpin(selectedIndex);
+      setIsIrlWheelSpinning(false);
+    }, 3600);
+  };
 
   const formatRemaining = (milliseconds: number) => {
     const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
@@ -309,7 +343,13 @@ export function TaskList({
                     your assigned IRL task.
                   </p>
                   <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
-                    <div className="mx-auto grid max-w-[18rem] grid-cols-5 gap-2">
+                    <WheelSpinner
+                      pendingIndex={pendingIrlWheelIndex}
+                      rotation={irlWheelRotation}
+                      selectedIndex={task.assignedIrlWheelIndex ?? null}
+                      spinning={isIrlWheelSpinning}
+                    />
+                    <div className="hidden">
                       {Array.from({ length: 20 }, (_, index) => {
                         const isSelected = task.assignedIrlWheelIndex === index;
 
@@ -359,6 +399,11 @@ export function TaskList({
                       <p className="mt-2 text-lg font-black text-white">
                         {task.assignedIrlTask}
                       </p>
+                      {task.assignedIrlTaskDescription && (
+                        <p className="mt-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-zinc-200">
+                          {task.assignedIrlTaskDescription}
+                        </p>
+                      )}
                       <p className="mt-2 text-sm leading-6 text-pink-50">
                         DM this task result to @Principessa2dfd with your app username.
                       </p>
@@ -373,14 +418,15 @@ export function TaskList({
                   <button
                     className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={
+                      isIrlWheelSpinning ||
                       coins < 1000 ||
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
                     }
-                    onClick={onIrlTaskSpin}
+                    onClick={handleIrlWheelSpinClick}
                     type="button"
                   >
-                    {task.assignedIrlTask
+                    {isIrlWheelSpinning ? "Spinning..." : task.assignedIrlTask
                       ? "Awaiting Admin Review"
                       : coins < 1000
                         ? "Need 1000 Coins"
@@ -408,6 +454,75 @@ export function TaskList({
         })}
       </div>
     </section>
+  );
+}
+
+function WheelSpinner({
+  pendingIndex,
+  rotation,
+  selectedIndex,
+  spinning,
+}: {
+  pendingIndex: number | null;
+  rotation: number;
+  selectedIndex: number | null;
+  spinning: boolean;
+}) {
+  const segmentDegrees = 360 / 20;
+  const settledRotation =
+    selectedIndex === null
+      ? rotation
+      : (360 - (selectedIndex * segmentDegrees + segmentDegrees / 2)) % 360;
+  const displayRotation = spinning ? rotation : settledRotation;
+  const activeIndex = spinning ? pendingIndex : selectedIndex;
+  const wheelGradient = Array.from({ length: 20 }, (_, index) => {
+    const start = index * segmentDegrees;
+    const end = (index + 1) * segmentDegrees;
+    const color =
+      index % 2 === 0
+        ? "rgba(236,72,153,0.78)"
+        : "rgba(126,34,206,0.82)";
+
+    return `${color} ${start}deg ${end}deg`;
+  }).join(", ");
+
+  return (
+    <div className="relative mx-auto flex max-w-[20rem] flex-col items-center">
+      <div className="absolute -top-1 z-20 h-0 w-0 border-x-[12px] border-t-[22px] border-x-transparent border-t-pink-100 drop-shadow-[0_0_10px_rgba(244,114,182,0.9)]" />
+      <div
+        className="relative aspect-square w-full max-w-[18rem] rounded-full border border-pink-100/35 shadow-[0_0_34px_rgba(236,72,153,0.28)] transition-transform duration-[3600ms] ease-out"
+        style={{
+          background: `conic-gradient(from -9deg, ${wheelGradient})`,
+          transform: `rotate(${displayRotation}deg)`,
+        }}
+      >
+        <div className="absolute inset-2 rounded-full border border-black/35" />
+        <div className="absolute inset-[42%] rounded-full border border-pink-100/40 bg-black shadow-[0_0_18px_rgba(0,0,0,0.6)]" />
+        {Array.from({ length: 20 }, (_, index) => {
+          const angle = index * segmentDegrees + segmentDegrees / 2;
+          const isActive = activeIndex === index;
+
+          return (
+            <span
+              className={`absolute left-1/2 top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-black ${
+                isActive
+                  ? "bg-white text-pink-600 shadow-[0_0_14px_rgba(255,255,255,0.9)]"
+                  : "bg-black/35 text-pink-50"
+              }`}
+              key={index}
+              style={{
+                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-6.45rem) rotate(${-angle}deg)`,
+              }}
+            >
+              {index + 1}
+            </span>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-center text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+        {spinning ? "Wheel Spinning" : "20-Segment IRL Wheel"}
+      </p>
+    </div>
   );
 }
 

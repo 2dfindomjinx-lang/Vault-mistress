@@ -8,6 +8,7 @@ type AdminIrlTask = {
   id: string;
   username: string;
   task_label: string;
+  task_description: string | null;
   wheel_index: number;
   cost_coins: number;
   status: string;
@@ -332,6 +333,11 @@ export default function AdminPage() {
                             <p className="mt-1 text-sm leading-6 text-pink-50">
                               {task.task_label}
                             </p>
+                            {task.task_description && (
+                              <p className="mt-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm leading-6 text-zinc-300">
+                                {task.task_description}
+                              </p>
+                            )}
                             <p className="mt-1 text-xs text-zinc-500">
                               Segment #{task.wheel_index + 1} · {task.cost_coins} coins · {new Date(task.assigned_at).toLocaleString()}
                             </p>

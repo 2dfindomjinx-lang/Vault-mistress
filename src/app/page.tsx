@@ -176,6 +176,7 @@ type UserTaskRow = {
 
 type UserIrlTaskRow = {
   task_label: string;
+  task_description: string | null;
   wheel_index: number;
   status: string;
   due_at: string | null;
@@ -533,6 +534,7 @@ function buildTasksFromRows(
       return {
         ...task,
         assignedIrlTask: assignedIrlTask?.task_label ?? null,
+        assignedIrlTaskDescription: assignedIrlTask?.task_description ?? null,
         assignedIrlTaskStatus: assignedIrlTask?.status ?? null,
         assignedIrlWheelIndex: assignedIrlTask?.wheel_index ?? null,
         assignedIrlDueAt: assignedIrlTask?.due_at ?? null,
@@ -872,7 +874,7 @@ export default function Home() {
     const taskRows = (taskData ?? []) as UserTaskRow[];
       const { data: irlTaskData, error: irlTaskError } = await supabase
         .from("user_irl_tasks")
-        .select("task_label, wheel_index, status, due_at, penalty_timeout_minutes")
+        .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
         .eq("user_id", profile.id)
         .eq("status", "assigned")
         .order("assigned_at", { ascending: false })
@@ -1591,7 +1593,7 @@ export default function Home() {
     }
   };
 
-  const handleIrlTaskSpin = async () => {
+  const handleIrlTaskSpin = async (wheelIndex: number) => {
     if (!authUserId) {
       return;
     }
@@ -1619,8 +1621,13 @@ export default function Home() {
       return;
     }
 
-    const wheelIndex = Math.floor(Math.random() * irlTaskWheelSegments.length);
     const assignedTask = irlTaskWheelSegments[wheelIndex];
+
+    if (!assignedTask) {
+      console.error("Invalid IRL wheel index", { wheelIndex });
+      setMistressReply("The wheel landed outside the vault. Try again.");
+      return;
+    }
     const durationMinutes = getRandomIrlTaskDurationMinutes();
     const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
     const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
@@ -1634,7 +1641,8 @@ export default function Home() {
 
       const { error } = await supabase.from("user_irl_tasks").insert({
         user_id: authUserId,
-        task_label: assignedTask,
+        task_label: assignedTask.title,
+        task_description: assignedTask.description,
         wheel_index: wheelIndex,
         cost_coins: IRL_TASK_WHEEL_COST,
         status: "assigned",
@@ -1653,7 +1661,8 @@ export default function Home() {
           entry.id === "irl-task-wheel"
             ? {
                 ...entry,
-                assignedIrlTask: assignedTask,
+                assignedIrlTask: assignedTask.title,
+                assignedIrlTaskDescription: assignedTask.description,
                 assignedIrlTaskStatus: "assigned",
                 assignedIrlWheelIndex: wheelIndex,
                 assignedIrlDueAt: dueAt,
@@ -2158,16 +2167,9 @@ export default function Home() {
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-          <CharacterCard
-            dailyMessage={dailyMessage}
-          />
-
           <div className="flex flex-col gap-6">
-            <StatsPanel
-              leadershipTop={leadershipTop}
-              shameTop={shameTop}
-              stats={stats}
-              username={username}
+            <CharacterCard
+              dailyMessage={dailyMessage}
             />
             <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
               <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
@@ -2178,6 +2180,15 @@ export default function Home() {
                 {scriptedMessage}
               </p>
             </section>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <StatsPanel
+              leadershipTop={leadershipTop}
+              shameTop={shameTop}
+              stats={stats}
+              username={username}
+            />
           </div>
         </section>
 

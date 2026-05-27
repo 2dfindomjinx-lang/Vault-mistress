@@ -26,6 +26,7 @@ create table if not exists public.user_irl_tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   task_label text not null,
+  task_description text,
   wheel_index integer not null,
   cost_coins integer not null default 1000,
   status text not null default 'assigned',
@@ -39,6 +40,7 @@ create table if not exists public.user_irl_tasks (
 );
 
 alter table public.user_irl_tasks
+  add column if not exists task_description text,
   add column if not exists due_at timestamp with time zone,
   add column if not exists penalty_timeout_minutes integer not null default 30,
   add column if not exists completed_at timestamp with time zone,

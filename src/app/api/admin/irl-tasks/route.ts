@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("user_irl_tasks")
-    .select("id, user_id, task_label, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at")
+    .select("id, user_id, task_label, task_description, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at")
     .order("assigned_at", { ascending: false })
     .limit(100);
 

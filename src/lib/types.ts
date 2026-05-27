@@ -37,6 +37,7 @@ export type TaskItem = {
   resultNumber?: number;
   resultOutcome?: "win" | "loss" | "tie";
   assignedIrlTask?: string | null;
+  assignedIrlTaskDescription?: string | null;
   assignedIrlTaskStatus?: string | null;
   assignedIrlWheelIndex?: number | null;
   assignedIrlDueAt?: string | null;
