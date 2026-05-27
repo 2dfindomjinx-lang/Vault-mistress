@@ -512,6 +512,13 @@ export default function Home() {
   };
 
   const handleTribute = (amount: number) => {
+    if (affection >= 100) {
+      setMistressReply(
+        "My mood is already at its peak. Your coins can wait.",
+      );
+      return;
+    }
+
     const currentCoins = coinsRef.current;
 
     if (currentCoins < amount) {
@@ -707,7 +714,11 @@ export default function Home() {
 
         <section className="pb-10">
           {activePanel === "tribute" && (
-            <TributePanel coins={coins} onTribute={handleTribute} />
+            <TributePanel
+              affection={affection}
+              coins={coins}
+              onTribute={handleTribute}
+            />
           )}
           {activePanel === "gallery" && (
             <GalleryGrid
