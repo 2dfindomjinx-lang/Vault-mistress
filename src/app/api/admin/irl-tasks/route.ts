@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     adminPassword?: string;
-    action?: "approve" | "excuse";
+    action?: "approve" | "clearReviewed" | "excuse";
     taskId?: string;
   };
 
@@ -30,6 +30,22 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+
+  if (body.action === "clearReviewed") {
+    const { error: clearError } = await supabase
+      .from("user_irl_tasks")
+      .delete()
+      .not("reviewed_at", "is", null);
+
+    if (clearError) {
+      console.error("Admin IRL reviewed task manual clear failed", clearError);
+      return Response.json({ error: clearError.message }, { status: 500 });
+    }
+
+    return Response.json({
+      message: "Reviewed IRL task logs cleared. Pending tasks were kept.",
+    });
+  }
 
   if (body.action) {
     if (!body.taskId) {
