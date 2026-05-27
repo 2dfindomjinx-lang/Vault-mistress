@@ -38,8 +38,7 @@ export function CharacterCard({ dailyMessage }: CharacterCardProps) {
             Vault Status
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Earn slowly, choose carefully, and spend fantasy coins to raise
-            affection or unlock SFW gallery cards.
+            Earn it slowly like a good boy, choose carefully, and bleed your fantasy coins to raise my affection or unlock my NSFW/SFW 				gallery cards. Don’t keep me waiting.
           </p>
         </div>
       </div>
