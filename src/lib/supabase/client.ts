@@ -1,4 +1,5 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 
 export type Profile = {
   id: string;
@@ -13,7 +14,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = createClient(
+export const supabase = createBrowserClient(
   supabaseUrl ?? "https://missing-supabase-url.supabase.co",
   supabaseAnonKey ?? "missing-supabase-anon-key",
 );

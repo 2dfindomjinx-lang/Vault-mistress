@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
@@ -305,11 +306,47 @@ export default function Home() {
     setIsLoggedIn(true);
   }, []);
 
-  const loadProfile = useCallback(async (userId: string, fallbackUsername: string) => {
+  const createProfileForUser = useCallback(async (user: User) => {
+    const fallbackUsername = profileUsernameFromUser(user);
+
+    const createProfile = async (usernameForProfile: string) =>
+      supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            username: usernameForProfile,
+            coins: 100,
+            affection: 0,
+          },
+          { onConflict: "id", ignoreDuplicates: true },
+        )
+        .select("id, username, coins, affection, created_at")
+        .single();
+
+    let { data: createdProfile, error: insertError } =
+      await createProfile(fallbackUsername);
+
+    if (insertError?.code === "23505") {
+      const uniqueUsername = `${fallbackUsername}_${user.id.slice(0, 6)}`;
+      const retry = await createProfile(uniqueUsername);
+
+      createdProfile = retry.data;
+      insertError = retry.error;
+    }
+
+    if (insertError || !createdProfile) {
+      throw insertError ?? new Error("Profile could not be created.");
+    }
+
+    return createdProfile;
+  }, []);
+
+  const loadProfile = useCallback(async (user: User) => {
     const { data: existingProfile, error } = await supabase
       .from("profiles")
       .select("id, username, coins, affection, created_at")
-      .eq("id", userId)
+      .eq("id", user.id)
       .maybeSingle();
 
     if (error) {
@@ -321,60 +358,36 @@ export default function Home() {
       return;
     }
 
-    const createProfile = async (usernameForProfile: string) =>
-      supabase
-        .from("profiles")
-        .insert({
-          id: userId,
-          username: usernameForProfile,
-          coins: 100,
-          affection: 0,
-        })
-        .select("id, username, coins, affection, created_at")
-        .single();
-
-    let { data: createdProfile, error: insertError } =
-      await createProfile(fallbackUsername);
-
-    if (insertError?.code === "23505") {
-      const uniqueUsername = `${fallbackUsername}_${userId.slice(0, 6)}`;
-      const retry = await createProfile(uniqueUsername);
-
-      createdProfile = retry.data;
-      insertError = retry.error;
-    }
-
-    if (insertError || !createdProfile) {
-      throw insertError ?? new Error("Profile could not be created.");
-    }
-
+    const createdProfile = await createProfileForUser(user);
     await applyProfile(createdProfile);
-  }, [applyProfile]);
+  }, [applyProfile, createProfileForUser]);
 
   useEffect(() => {
     let mounted = true;
 
     const bootSession = async () => {
       setIsAuthLoading(true);
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getUser();
 
       if (!mounted) {
         return;
       }
 
-      if (!data.session?.user) {
+      if (error) {
+        console.error("Supabase auth user lookup failed", error);
+      }
+
+      if (!data.user) {
         setIsLoggedIn(false);
         setIsAuthLoading(false);
         return;
       }
 
       try {
-        await loadProfile(
-          data.session.user.id,
-          profileUsernameFromUser(data.session.user),
-        );
+        await loadProfile(data.user);
         setMistressReply("Logged in already? Eager little thing.");
-      } catch {
+      } catch (profileError) {
+        console.error("Profile load/create failed", profileError);
         setAuthError("Profile could not be loaded.");
       } finally {
         if (mounted) {
@@ -391,7 +404,13 @@ export default function Home() {
       if (!session?.user) {
         setIsLoggedIn(false);
         setAuthUserId(null);
+        return;
       }
+
+      void loadProfile(session.user).catch((profileError) => {
+        console.error("Profile load/create failed after auth change", profileError);
+        setAuthError("Profile could not be loaded.");
+      });
     });
 
     return () => {
