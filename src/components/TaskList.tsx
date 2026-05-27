@@ -195,7 +195,7 @@ export function TaskList({
                     {task.currentNumber}
                   </p>
                   <p className="mt-2 text-xs text-zinc-500">
-                    Ties count as losses. One play per 24 hours.
+                    Display starts at 2-9. Result rolls 1-10. Two minute cooldown.
                   </p>
                   {task.lastResult && (
                     <p className="mt-2 text-sm font-semibold text-pink-100">
