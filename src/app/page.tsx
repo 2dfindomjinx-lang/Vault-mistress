@@ -1475,13 +1475,12 @@ export default function Home() {
       ((guess === "higher" && resultNumber > currentNumber) ||
         (guess === "lower" && resultNumber < currentNumber));
     const nextCoins = won ? currentCoins + stake : currentCoins - stake;
-    const nextTributeTotal = getNextTributeTotal(stake);
     const now = new Date().toISOString();
     const lastResult = `${currentNumber} -> ${resultNumber}. ${won ? "Won" : "Lost"} ${stake} coins. New number appears in 10 seconds.`;
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection, tribute_total: nextTributeTotal },
+        { coins: nextCoins, affection },
         "high-low",
       );
 
@@ -1559,7 +1558,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const reward = Math.random() < 0.05 ? Math.floor(Math.random() * 10) + 1 : 0;
+    const reward = Math.random() < 0.07 ? 25 : 0;
 
     try {
       const { error } = await supabase.from("user_tasks").upsert(
@@ -1881,15 +1880,10 @@ export default function Home() {
 
     const nextAffection = Math.min(100, affection + 8);
     const nextCoins = Math.max(0, currentCoins - unlockCost);
-    const nextTributeTotal = getNextTributeTotal(unlockCost);
 
     try {
       await persistProfileProgress(
-        {
-          coins: nextCoins,
-          affection: nextAffection,
-          tribute_total: nextTributeTotal,
-        },
+        { coins: nextCoins, affection: nextAffection },
         "common_gallery_unlock",
       );
       await persistGalleryUnlocks([item.id]);

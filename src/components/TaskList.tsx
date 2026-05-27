@@ -82,7 +82,7 @@ export function TaskList({
         <MechanicCard
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
-          description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 1-10 coins."
+          description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 25 coins."
           onAction={onBeg}
           title="Beg"
           now={now}
