@@ -66,8 +66,8 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
           Get Coins / Tribute on Throne
         </a>
         <p className="mt-4 text-sm leading-6 text-pink-50">
-          After supporting on Throne, DM me with your app username to receive
-          coins manually. 1 USD = 100 coins.
+          After supporting on Throne, DM @Principessa2dfd with your app username
+          to receive coins manually. 1 USD = 100 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           Coins are fantasy points and are manually granted as supporter
