@@ -116,8 +116,18 @@ export async function POST(request: Request) {
     }
 
     return Response.json({
-      message: "Task cleared via Throne support. No affection added.",
+      message: "Task cleared via Throne support. No affection added and no timeout applied.",
     });
+  }
+
+  const cleanupBefore = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { error: cleanupError } = await supabase
+    .from("user_irl_tasks")
+    .delete()
+    .lt("reviewed_at", cleanupBefore);
+
+  if (cleanupError) {
+    console.error("Admin IRL reviewed task cleanup failed", cleanupError);
   }
 
   const { data, error } = await supabase

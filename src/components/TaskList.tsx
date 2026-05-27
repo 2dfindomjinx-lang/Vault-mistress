@@ -408,10 +408,9 @@ export function TaskList({
                         DM this task result to @Principessa2dfd with your app username.
                       </p>
                       <p className="mt-2 text-xs leading-5 text-rose-100/80">
-                        If this task is not completed in time, admin may apply a{" "}
-                        {task.assignedIrlPenaltyMinutes ?? 30} minute timeout.
-                        Throne support can be reviewed manually to clear the task
-                        without affection gain.
+                        If this task is not completed in time, admin may apply a
+                        manual timeout. Throne support can be reviewed manually
+                        to clear the task without affection gain.
                       </p>
                     </div>
                   )}

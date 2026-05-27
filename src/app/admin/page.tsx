@@ -74,13 +74,15 @@ export default function AdminPage() {
     }
   };
 
-  const loadIrlTasks = async () => {
+  const loadIrlTasks = async ({ keepStatus = false } = {}) => {
     if (!adminPassword) {
       return;
     }
 
     setIsBusy(true);
-    setStatus("");
+    if (!keepStatus) {
+      setStatus("");
+    }
 
     try {
       const response = await fetch("/api/admin/irl-tasks", {
@@ -174,9 +176,9 @@ export default function AdminPage() {
       setDefneMessage(
         action === "approve"
           ? "Approved. A little affection has been granted."
-          : "Cleared through Throne. No affection, no punishment.",
+          : "Cleared through Throne. No affection and no timeout.",
       );
-      await loadIrlTasks();
+      await loadIrlTasks({ keepStatus: true });
     } catch (error) {
       setStatus(
         error instanceof Error ? error.message : "IRL task review failed.",
@@ -343,8 +345,7 @@ export default function AdminPage() {
                             </p>
                             {task.due_at && (
                               <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-100">
-                                Due {new Date(task.due_at).toLocaleString()} · penalty{" "}
-                                {task.penalty_timeout_minutes ?? 30} min timeout
+                                Due {new Date(task.due_at).toLocaleString()} · manual timeout if needed
                               </p>
                             )}
                             {task.reviewed_at && (
@@ -382,7 +383,9 @@ export default function AdminPage() {
                             </button>
                           </div>
                         )}
-                        {task.timeout_until && new Date(task.timeout_until).getTime() > adminNow && (
+                        {task.status === "assigned" &&
+                          task.timeout_until &&
+                          new Date(task.timeout_until).getTime() > adminNow && (
                           <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-100">
                             Timeout until {new Date(task.timeout_until).toLocaleString()}
                           </p>
