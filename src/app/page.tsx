@@ -10,7 +10,13 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
-import type { LeadershipEntry } from "@/lib/leadership";
+import {
+  getRandomIrlTaskDurationMinutes,
+  getRandomIrlTaskPenaltyMinutes,
+  IRL_TASK_WHEEL_COST,
+  irlTaskWheelSegments,
+} from "@/lib/irl-task-wheel";
+import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import {
   profileUsernameFromUser,
   supabase,
@@ -168,8 +174,16 @@ type UserTaskRow = {
   metadata: Record<string, unknown> | null;
 };
 
+type UserIrlTaskRow = {
+  task_label: string;
+  wheel_index: number;
+  status: string;
+  due_at: string | null;
+  penalty_timeout_minutes: number | null;
+};
+
 const profileSelect =
-  "id, username, coins, affection, tribute_total, loyalty_streak, last_loyalty_at, created_at, updated_at";
+  "id, username, coins, affection, tribute_total, shame_count, loyalty_streak, last_loyalty_at, timeout_until, created_at, updated_at";
 
 const startingTasks: TaskItem[] = [
   {
@@ -198,12 +212,12 @@ const startingTasks: TaskItem[] = [
     kind: "high-low",
   },
   {
-    id: "gallery",
-    title: "Unlock one gallery image",
-    reward: 25,
+    id: "irl-task-wheel",
+    title: "IRL Task Wheel",
+    reward: 0,
     completed: false,
     claimed: false,
-    kind: "claim",
+    kind: "irl-wheel",
   },
   {
     id: "affection",
@@ -466,7 +480,12 @@ function isCompletedAfterClaim(row: UserTaskRow | undefined) {
   return new Date(row.completed_at).getTime() > new Date(row.claimed_at).getTime();
 }
 
-function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
+function buildTasksFromRows(
+  rows: UserTaskRow[],
+  affection: number,
+  assignedIrlTask: UserIrlTaskRow | null,
+  timeoutUntil: string | null,
+) {
   return startingTasks.map((task) => {
     const row = rows.find((entry) => entry.task_id === task.id);
     const claimedForever = Boolean(row?.claimed_at);
@@ -507,6 +526,19 @@ function buildTasksFromRows(rows: UserTaskRow[], affection: number) {
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
+      };
+    }
+
+    if (task.id === "irl-task-wheel") {
+      return {
+        ...task,
+        assignedIrlTask: assignedIrlTask?.task_label ?? null,
+        assignedIrlTaskStatus: assignedIrlTask?.status ?? null,
+        assignedIrlWheelIndex: assignedIrlTask?.wheel_index ?? null,
+        assignedIrlDueAt: assignedIrlTask?.due_at ?? null,
+        assignedIrlPenaltyMinutes: assignedIrlTask?.penalty_timeout_minutes ?? null,
+        completed: Boolean(assignedIrlTask),
+        timeoutUntil,
       };
     }
 
@@ -602,6 +634,7 @@ export default function Home() {
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
+  const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -736,6 +769,26 @@ export default function Home() {
     }
   }, []);
 
+  const loadShameTop = useCallback(async () => {
+    try {
+      const response = await fetch("/api/shame/top", {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as {
+        shame?: ShameEntry[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Public shame board could not be loaded.");
+      }
+
+      setShameTop(payload.shame ?? []);
+    } catch (error) {
+      console.error("Failed to load public shame board", error);
+    }
+  }, []);
+
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0) {
       return;
@@ -817,8 +870,28 @@ export default function Home() {
     }
 
     const taskRows = (taskData ?? []) as UserTaskRow[];
+      const { data: irlTaskData, error: irlTaskError } = await supabase
+        .from("user_irl_tasks")
+        .select("task_label, wheel_index, status, due_at, penalty_timeout_minutes")
+        .eq("user_id", profile.id)
+        .eq("status", "assigned")
+        .order("assigned_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const rebuiltTasks = buildTasksFromRows(taskRows, profile.affection);
+    if (irlTaskError) {
+      console.error("Failed to load assigned IRL task", irlTaskError);
+      throw irlTaskError;
+    }
+
+      const latestIrlTask = irlTaskData as UserIrlTaskRow | null;
+
+    const rebuiltTasks = buildTasksFromRows(
+      taskRows,
+      profile.affection,
+      latestIrlTask,
+      profile.timeout_until ?? null,
+    );
     const shouldKeepLocalHighLow = profileIdRef.current === profile.id;
 
     setTasks((current) => {
@@ -843,7 +916,8 @@ export default function Home() {
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
     void loadLeadershipTop();
-  }, [loadLeadershipTop]);
+    void loadShameTop();
+  }, [loadLeadershipTop, loadShameTop]);
 
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
@@ -1517,6 +1591,86 @@ export default function Home() {
     }
   };
 
+  const handleIrlTaskSpin = async () => {
+    if (!authUserId) {
+      return;
+    }
+
+    const task = tasks.find((entry) => entry.id === "irl-task-wheel");
+    const timeoutActive =
+      Boolean(task?.timeoutUntil) &&
+      new Date(task?.timeoutUntil ?? "").getTime() > Date.now();
+    const hasActiveAssignment = Boolean(task?.assignedIrlTask);
+
+    if (timeoutActive) {
+      setMistressReply("Timeout is active. The wheel is not available yet.");
+      return;
+    }
+
+    if (hasActiveAssignment) {
+      setMistressReply("Finish your assigned task first. The wheel is locked until admin review.");
+      return;
+    }
+
+    const currentCoins = coinsRef.current;
+
+    if (currentCoins < IRL_TASK_WHEEL_COST) {
+      setMistressReply("The wheel costs 1000 coins. Come back richer.");
+      return;
+    }
+
+    const wheelIndex = Math.floor(Math.random() * irlTaskWheelSegments.length);
+    const assignedTask = irlTaskWheelSegments[wheelIndex];
+    const durationMinutes = getRandomIrlTaskDurationMinutes();
+    const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
+    const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
+    const nextCoins = currentCoins - IRL_TASK_WHEEL_COST;
+
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        "irl_task_wheel",
+      );
+
+      const { error } = await supabase.from("user_irl_tasks").insert({
+        user_id: authUserId,
+        task_label: assignedTask,
+        wheel_index: wheelIndex,
+        cost_coins: IRL_TASK_WHEEL_COST,
+        status: "assigned",
+        due_at: dueAt,
+        penalty_timeout_minutes: penaltyMinutes,
+      });
+
+      if (error) {
+        console.error("Failed to assign IRL wheel task", error);
+        throw error;
+      }
+
+      recordCoinTransaction(-IRL_TASK_WHEEL_COST, "task:irl_task_wheel");
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === "irl-task-wheel"
+            ? {
+                ...entry,
+                assignedIrlTask: assignedTask,
+                assignedIrlTaskStatus: "assigned",
+                assignedIrlWheelIndex: wheelIndex,
+                assignedIrlDueAt: dueAt,
+                assignedIrlPenaltyMinutes: penaltyMinutes,
+                completed: true,
+              }
+            : entry,
+        ),
+      );
+      setMistressReply("Task assigned. DM @Principessa2dfd when it is done.");
+    } catch (error) {
+      console.error("Failed to spin IRL task wheel", error);
+      setAuthError(describeError(error));
+      setMistressReply("The task wheel jammed. Try again.");
+    }
+  };
+
   const handleBeg = async () => {
     if (!authUserId) {
       return;
@@ -1767,6 +1921,7 @@ export default function Home() {
     setUnlockedGalleryIds([]);
     setTasks([]);
     setLeadershipTop([]);
+    setShameTop([]);
     setCoins(100);
     setAffection(0);
     setTributeTotal(0);
@@ -1872,7 +2027,6 @@ export default function Home() {
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
-    completeTask("gallery");
     if (nextAffection >= 50) {
       completeTask("affection");
     }
@@ -2011,6 +2165,7 @@ export default function Home() {
           <div className="flex flex-col gap-6">
             <StatsPanel
               leadershipTop={leadershipTop}
+              shameTop={shameTop}
               stats={stats}
               username={username}
             />
@@ -2071,6 +2226,7 @@ export default function Home() {
               onBeg={handleBeg}
               onClaim={handleClaimTask}
               onHighLowPlay={handleHighLowPlay}
+              onIrlTaskSpin={handleIrlTaskSpin}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
               onTypingProgress={handleTypingProgress}

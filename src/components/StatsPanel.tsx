@@ -1,4 +1,8 @@
-import { getLeadershipRank, type LeadershipEntry } from "@/lib/leadership";
+import {
+  getLeadershipRank,
+  type LeadershipEntry,
+  type ShameEntry,
+} from "@/lib/leadership";
 
 type StatsPanelProps = {
   stats: {
@@ -8,10 +12,16 @@ type StatsPanelProps = {
     tributeTotal: number;
   };
   leadershipTop: LeadershipEntry[];
+  shameTop: ShameEntry[];
   username: string;
 };
 
-export function StatsPanel({ leadershipTop, stats, username }: StatsPanelProps) {
+export function StatsPanel({
+  leadershipTop,
+  shameTop,
+  stats,
+  username,
+}: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
   const statCards = [
     ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance"],
@@ -98,6 +108,43 @@ export function StatsPanel({ leadershipTop, stats, username }: StatsPanelProps) 
           ) : (
             <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
               No leadership data yet.
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="col-span-2 rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">
+            Public Shame Board
+          </p>
+          <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
+        </div>
+        <div className="mt-3 space-y-2">
+          {shameTop.length > 0 ? (
+            shameTop.map((entry, index) => {
+              const isCurrentUser = entry.username === username;
+
+              return (
+                <div
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                    isCurrentUser
+                      ? "border-rose-200/30 bg-rose-500/10"
+                      : "border-white/10 bg-white/[0.035]"
+                  }`}
+                  key={entry.username}
+                >
+                  <p className="min-w-0 truncate text-sm font-black text-white">
+                    #{index + 1} {entry.username}
+                  </p>
+                  <p className="shrink-0 text-sm font-black text-rose-100">
+                    {entry.shameCount} shame
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
+              Nobody has failed the wheel yet.
             </p>
           )}
         </div>

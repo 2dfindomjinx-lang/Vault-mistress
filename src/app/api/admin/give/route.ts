@@ -31,19 +31,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Incorrect admin password." }, { status: 401 });
   }
 
-  const match = body.command
-    ?.trim()
-    .match(/^\/give\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
+  const command = body.command?.trim() ?? "";
+  const giveMatch = command.match(/^\/give\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
+  const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
 
-  if (!match) {
+  if (!giveMatch && !timeoutMatch) {
     return Response.json(
-      { error: "Invalid command. Use: /give 500 @username" },
+      { error: "Invalid command. Use: /give 500 @username or /timeout @username 30" },
       { status: 400 },
     );
   }
 
-  const amount = Number(match[1]);
-  const username = match[2].toLowerCase();
+  const amount = giveMatch ? Number(giveMatch[1]) : Number(timeoutMatch?.[2]);
+  const username = (giveMatch?.[2] ?? timeoutMatch?.[1] ?? "").toLowerCase();
   const supabase = createSupabaseAdminClient();
 
   const { data: profile, error: profileError } = await supabase
@@ -62,6 +62,26 @@ export async function POST(request: Request) {
       { error: "User not found in Supabase profiles." },
       { status: 404 },
     );
+  }
+
+  if (timeoutMatch) {
+    const timeoutMinutes = Number(timeoutMatch[2]);
+    const timeoutUntil = new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString();
+    const { error: timeoutError } = await supabase
+      .from("profiles")
+      .update({ timeout_until: timeoutUntil, updated_at: new Date().toISOString() })
+      .eq("id", profile.id);
+
+    if (timeoutError) {
+      console.error("Admin timeout update failed", timeoutError);
+      return Response.json({ error: timeoutError.message }, { status: 500 });
+    }
+
+    return Response.json({
+      message: `${profile.username} timed out for ${timeoutMinutes} minutes.`,
+      username: profile.username,
+      timeoutUntil,
+    });
   }
 
   const nextCoins = Number(profile.coins ?? 0) + amount;

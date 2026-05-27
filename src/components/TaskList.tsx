@@ -8,6 +8,7 @@ type TaskListProps = {
   onBeg: () => void;
   onClaim: (taskId: string) => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
+  onIrlTaskSpin: () => void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTypingProgress: (value: string) => void;
@@ -19,6 +20,7 @@ export function TaskList({
   onBeg,
   onClaim,
   onHighLowPlay,
+  onIrlTaskSpin,
   onSacrifice,
   onSupport,
   onTypingProgress,
@@ -60,12 +62,22 @@ export function TaskList({
       className={`rounded-full px-3 py-1 text-xs font-bold ${
         isCoolingDown
           ? "bg-yellow-400/15 text-yellow-100"
+          : task.kind === "irl-wheel" && task.assignedIrlTask
+            ? "bg-yellow-400/15 text-yellow-100"
           : task.completed
             ? "bg-pink-500/20 text-pink-100"
             : "bg-emerald-400/15 text-emerald-100"
       }`}
     >
-      {isCoolingDown ? "Cooldown" : task.claimed ? "Claimed" : task.completed ? "Ready" : "Open"}
+      {isCoolingDown
+        ? "Cooldown"
+        : task.kind === "irl-wheel" && task.assignedIrlTask
+          ? "Pending Review"
+          : task.claimed
+            ? "Claimed"
+            : task.completed
+              ? "Ready"
+              : "Open"}
     </span>
   );
 
@@ -290,6 +302,93 @@ export function TaskList({
                 </div>
               )}
 
+              {task.kind === "irl-wheel" && (
+                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                  <p className="text-sm leading-6 text-zinc-400">
+                    Spin the wheel for 1000 Principessa Coins. The result becomes
+                    your assigned IRL task.
+                  </p>
+                  <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
+                    <div className="mx-auto grid max-w-[18rem] grid-cols-5 gap-2">
+                      {Array.from({ length: 20 }, (_, index) => {
+                        const isSelected = task.assignedIrlWheelIndex === index;
+
+                        return (
+                          <div
+                            className={`aspect-square rounded-full border text-center text-[0.65rem] font-black leading-8 transition ${
+                              isSelected
+                                ? "border-pink-200 bg-pink-500 text-white shadow-[0_0_18px_rgba(236,72,153,0.65)]"
+                                : "border-white/10 bg-black/45 text-pink-100/60"
+                            }`}
+                            key={index}
+                          >
+                            {index + 1}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-3 text-center text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+                      20-Segment IRL Wheel
+                    </p>
+                  </div>
+                  {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                      Timeout active: {formatRemaining(new Date(task.timeoutUntil).getTime() - now)}
+                    </p>
+                  )}
+                  {task.assignedIrlTask && (
+                    <div className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+                        Assigned Task
+                      </p>
+                      {typeof task.assignedIrlWheelIndex === "number" && (
+                        <p className="mt-1 text-xs font-semibold text-pink-100/70">
+                          Wheel segment #{task.assignedIrlWheelIndex + 1}
+                        </p>
+                      )}
+                      {task.assignedIrlDueAt && (
+                        <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                          Complete before{" "}
+                          {new Date(task.assignedIrlDueAt).toLocaleString()}
+                          <br />
+                          {new Date(task.assignedIrlDueAt).getTime() > now
+                            ? `${formatRemaining(new Date(task.assignedIrlDueAt).getTime() - now)} remaining`
+                            : "Time is up. Await admin review."}
+                        </p>
+                      )}
+                      <p className="mt-2 text-lg font-black text-white">
+                        {task.assignedIrlTask}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-pink-50">
+                        DM this task result to @Principessa2dfd with your app username.
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-rose-100/80">
+                        If this task is not completed in time, admin may apply a{" "}
+                        {task.assignedIrlPenaltyMinutes ?? 30} minute timeout.
+                        Throne support can be reviewed manually to clear the task
+                        without affection gain.
+                      </p>
+                    </div>
+                  )}
+                  <button
+                    className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={
+                      coins < 1000 ||
+                      Boolean(task.assignedIrlTask) ||
+                      Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
+                    }
+                    onClick={onIrlTaskSpin}
+                    type="button"
+                  >
+                    {task.assignedIrlTask
+                      ? "Awaiting Admin Review"
+                      : coins < 1000
+                        ? "Need 1000 Coins"
+                        : "Spin — 1000 Coins"}
+                  </button>
+                </div>
+              )}
+
               {task.kind === "claim" && (
                 <button
                   className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
@@ -355,7 +454,7 @@ function MechanicCard({
           <p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>
         </div>
         {isCoolingDown && (
-          <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-100">
+          <span className="rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-bold text-yellow-100">
             Cooldown
           </span>
         )}

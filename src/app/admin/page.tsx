@@ -1,18 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+
+type AdminIrlTask = {
+  id: string;
+  username: string;
+  task_label: string;
+  wheel_index: number;
+  cost_coins: number;
+  status: string;
+  due_at: string | null;
+  penalty_timeout_minutes: number | null;
+  completed_at: string | null;
+  reviewed_at: string | null;
+  shamed_at: string | null;
+  assigned_at: string;
+  timeout_until: string | null;
+};
 
 export default function AdminPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [command, setCommand] = useState("/give 500 @");
+  const [activeTab, setActiveTab] = useState<"console" | "irlTasks">("console");
+  const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState(
     "Admin ledger ready. Be precise.",
   );
   const [isBusy, setIsBusy] = useState(false);
+  const [adminNow, setAdminNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAdminNow(Date.now()), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleAdminLogin = async () => {
     if (!adminPassword.trim()) {
@@ -39,9 +64,41 @@ export default function AdminPage() {
 
       setIsAdminLoggedIn(true);
       setStatus("Admin console unlocked for this browser session.");
+      void loadIrlTasks();
     } catch {
       setIsAdminLoggedIn(false);
       setStatus("Admin verification failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const loadIrlTasks = async () => {
+    if (!adminPassword) {
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/irl-tasks", {
+        body: JSON.stringify({ adminPassword }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        tasks?: AdminIrlTask[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "IRL task list failed.");
+      }
+
+      setIrlTasks(result.tasks ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "IRL task list failed.");
     } finally {
       setIsBusy(false);
     }
@@ -69,12 +126,59 @@ export default function AdminPage() {
       }
 
       setStatus(result.message ?? "Command completed.");
-      setDefneMessage("Coins added. Try not to waste my generosity.");
+      setDefneMessage(
+        command.trim().startsWith("/timeout")
+          ? "Timeout applied. Discipline looks good in the ledger."
+          : "Coins added. Try not to waste my generosity.",
+      );
+      if (command.trim().startsWith("/timeout")) {
+        void loadIrlTasks();
+      }
     } catch (error) {
       setStatus(
         error instanceof Error
           ? error.message
           : "Invalid command. Use: /give 500 @username",
+      );
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleIrlTaskReview = async (
+    taskId: string,
+    action: "approve" | "excuse",
+  ) => {
+    if (!isAdminLoggedIn) {
+      setStatus("Unlock admin before reviewing tasks.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/irl-tasks", {
+        body: JSON.stringify({ action, adminPassword, taskId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "IRL task review failed.");
+      }
+
+      setStatus(result.message ?? "IRL task reviewed.");
+      setDefneMessage(
+        action === "approve"
+          ? "Approved. A little affection has been granted."
+          : "Cleared through Throne. No affection, no punishment.",
+      );
+      await loadIrlTasks();
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "IRL task review failed.",
       );
     } finally {
       setIsBusy(false);
@@ -132,37 +236,161 @@ export default function AdminPage() {
             </button>
           </div>
         ) : (
-          <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
-            <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
-              Command Console
-            </p>
-            <p className="mt-2 text-xs text-zinc-500">
-              Available command: /give amount @username
-            </p>
-            <div className="mt-4 flex flex-col gap-3 md:flex-row">
-              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
-                <span className="text-fuchsia-300">&gt;</span>
-                <input
-                  className="min-w-0 flex-1 bg-transparent text-pink-50 outline-none placeholder:text-zinc-600"
-                  onChange={(event) => setCommand(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      void handleRunCommand();
+          <div className="mt-6">
+            <div className="flex flex-wrap gap-2">
+              {([
+                ["console", "Command Console"],
+                ["irlTasks", "IRL Tasks"],
+              ] as const).map(([key, label]) => (
+                <button
+                  className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
+                    activeTab === key
+                      ? "bg-pink-500/20 text-pink-50"
+                      : "border border-white/10 bg-black/35 text-zinc-300"
+                  }`}
+                  key={key}
+                  onClick={() => {
+                    setActiveTab(key);
+                    if (key === "irlTasks") {
+                      void loadIrlTasks();
                     }
                   }}
-                  placeholder="/give 500 @username"
-                  value={command}
-                />
-              </label>
-              <button
-                className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isBusy}
-                onClick={() => void handleRunCommand()}
-                type="button"
-              >
-                {isBusy ? "Running" : "Run"}
-              </button>
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {activeTab === "console" && (
+              <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+                  Command Console
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Available commands: /give amount @username, /timeout @username minutes
+                </p>
+                <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                  <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
+                    <span className="text-fuchsia-300">&gt;</span>
+                    <input
+                      className="min-w-0 flex-1 bg-transparent text-pink-50 outline-none placeholder:text-zinc-600"
+                      onChange={(event) => setCommand(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void handleRunCommand();
+                        }
+                      }}
+                      placeholder="/give 500 @ or /timeout @user 30"
+                      value={command}
+                    />
+                  </label>
+                  <button
+                    className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isBusy}
+                    onClick={() => void handleRunCommand()}
+                    type="button"
+                  >
+                    {isBusy ? "Running" : "Run"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "irlTasks" && (
+              <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+                    Assigned IRL Tasks
+                  </p>
+                  <button
+                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                    disabled={isBusy}
+                    onClick={() => void loadIrlTasks()}
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3">
+                  {irlTasks.length > 0 ? (
+                    irlTasks.map((task) => (
+                      <article
+                        className="rounded-2xl border border-white/10 bg-black/35 p-3"
+                        key={task.id}
+                      >
+                        {task.status === "assigned" &&
+                          task.due_at &&
+                          new Date(task.due_at).getTime() <= adminNow && (
+                            <p className="mb-3 rounded-2xl border border-rose-200/25 bg-rose-500/10 px-3 py-2 text-sm font-black text-rose-100">
+                              ! Deadline expired. Shame +1 is shown on the public board.
+                            </p>
+                          )}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-white">{task.username}</p>
+                            <p className="mt-1 text-sm leading-6 text-pink-50">
+                              {task.task_label}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Segment #{task.wheel_index + 1} · {task.cost_coins} coins · {new Date(task.assigned_at).toLocaleString()}
+                            </p>
+                            {task.due_at && (
+                              <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-100">
+                                Due {new Date(task.due_at).toLocaleString()} · penalty{" "}
+                                {task.penalty_timeout_minutes ?? 30} min timeout
+                              </p>
+                            )}
+                            {task.reviewed_at && (
+                              <p className="mt-2 text-xs text-zinc-500">
+                                Reviewed {new Date(task.reviewed_at).toLocaleString()}
+                              </p>
+                            )}
+                            {task.shamed_at && (
+                              <p className="mt-2 text-xs font-semibold text-rose-100/80">
+                                Public shame added {new Date(task.shamed_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                          <span className="rounded-full bg-pink-500/15 px-3 py-1 text-xs font-bold text-pink-100">
+                            {task.status}
+                          </span>
+                        </div>
+                        {task.status === "assigned" && (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <button
+                              className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleIrlTaskReview(task.id, "approve")}
+                              type="button"
+                            >
+                              Approve +10 Affection
+                            </button>
+                            <button
+                              className="rounded-2xl border border-fuchsia-200/20 bg-fuchsia-400/10 px-3 py-2 text-xs font-black text-fuchsia-100 transition hover:border-fuchsia-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleIrlTaskReview(task.id, "excuse")}
+                              type="button"
+                            >
+                              Clear via Throne
+                            </button>
+                          </div>
+                        )}
+                        {task.timeout_until && new Date(task.timeout_until).getTime() > adminNow && (
+                          <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-100">
+                            Timeout until {new Date(task.timeout_until).toLocaleString()}
+                          </p>
+                        )}
+                      </article>
+                    ))
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No assigned IRL tasks yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

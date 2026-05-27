@@ -18,14 +18,14 @@ export type TaskItem = {
     | "daily-login"
     | "typing-accuracy"
     | "high-low"
-    | "gallery"
+    | "irl-task-wheel"
     | "affection"
     | "affection-80";
   title: string;
   reward: number;
   completed: boolean;
   claimed: boolean;
-  kind: "claim" | "typing" | "high-low";
+  kind: "claim" | "typing" | "high-low" | "irl-wheel";
   cooldownUntil?: string | null;
   attemptsRemaining?: number;
   sentence?: string;
@@ -36,6 +36,12 @@ export type TaskItem = {
   resultCoinDelta?: number;
   resultNumber?: number;
   resultOutcome?: "win" | "loss" | "tie";
+  assignedIrlTask?: string | null;
+  assignedIrlTaskStatus?: string | null;
+  assignedIrlWheelIndex?: number | null;
+  assignedIrlDueAt?: string | null;
+  assignedIrlPenaltyMinutes?: number | null;
+  timeoutUntil?: string | null;
 };
 
 export type MechanicsState = {

@@ -7,8 +7,10 @@ export type Profile = {
   coins: number;
   affection: number;
   tribute_total: number;
+  shame_count: number;
   loyalty_streak: number;
   last_loyalty_at: string | null;
+  timeout_until: string | null;
   created_at?: string;
   updated_at?: string;
 };

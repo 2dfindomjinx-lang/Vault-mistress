@@ -14,6 +14,11 @@ export type LeadershipEntry = {
   rankTitle: string;
 };
 
+export type ShameEntry = {
+  username: string;
+  shameCount: number;
+};
+
 export function getLeadershipRank(tributeTotal: number) {
   const currentRank =
     [...LEADERSHIP_RANKS]
