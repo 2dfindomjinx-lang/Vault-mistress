@@ -7,6 +7,7 @@ export type Profile = {
   coins: number;
   affection: number;
   created_at?: string;
+  updated_at?: string;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -12,7 +12,7 @@ export function TaskList({ onClaim, tasks }: TaskListProps) {
         <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
           Daily Tasks
         </p>
-        <h2 className="text-3xl font-black">Earn Vault Coins</h2>
+        <h2 className="text-3xl font-black">Earn Principessa Coins</h2>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -25,7 +25,7 @@ export function TaskList({ onClaim, tasks }: TaskListProps) {
               <div>
                 <h3 className="text-lg font-black text-white">{task.title}</h3>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Reward: {task.reward} fake coins
+                  Reward: {task.reward} Principessa Coins
                 </p>
               </div>
               <span

@@ -279,14 +279,6 @@ export default function Home() {
     coinsRef.current = coins;
   }, [coins]);
 
-  const saveProfilePatch = useCallback((patch: Partial<Pick<Profile, "coins" | "affection">>) => {
-    if (!authUserId) {
-      return;
-    }
-
-    void supabase.from("profiles").update(patch).eq("id", authUserId);
-  }, [authUserId]);
-
   const recordCoinTransaction = useCallback((amount: number, reason: string) => {
     if (!authUserId || amount === 0) {
       return;
@@ -328,6 +320,14 @@ export default function Home() {
     setIsLoggedIn(true);
   }, []);
 
+  const applyProfileStats = useCallback((profile: Profile) => {
+    setAuthUserId(profile.id);
+    setUsername(profile.username);
+    setCoins(profile.coins);
+    setAffection(profile.affection);
+    setIsLoggedIn(true);
+  }, []);
+
   const createProfileForUser = useCallback(async (user: User) => {
     const fallbackUsername = profileUsernameFromUser(user);
 
@@ -345,10 +345,11 @@ export default function Home() {
             username: usernameForProfile,
             coins: 100,
             affection: 0,
+            updated_at: new Date().toISOString(),
           },
           { onConflict: "id", ignoreDuplicates: true },
         )
-        .select("id, username, coins, affection, created_at")
+        .select("id, username, coins, affection, created_at, updated_at")
         .single();
 
       console.info("Profile upsert result", {
@@ -398,7 +399,7 @@ export default function Home() {
 
     const { data: existingProfile, error } = await supabase
       .from("profiles")
-      .select("id, username, coins, affection, created_at")
+      .select("id, username, coins, affection, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -420,6 +421,78 @@ export default function Home() {
     const createdProfile = await createProfileForUser(user);
     await applyProfile(createdProfile);
   }, [applyProfile, createProfileForUser]);
+
+  const persistProfileProgress = useCallback(async (
+    nextProfile: Pick<Profile, "coins" | "affection">,
+    reason: string,
+  ) => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    console.info("Persist profile progress auth user", {
+      reason,
+      userData,
+      userError,
+    });
+
+    if (userError) {
+      console.error("Failed to get authenticated user for profile update", userError);
+      throw userError;
+    }
+
+    if (!userData.user) {
+      throw new Error("Not authenticated");
+    }
+
+    const payload = {
+      coins: nextProfile.coins,
+      affection: nextProfile.affection,
+      updated_at: new Date().toISOString(),
+    };
+
+    const updateResult = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userData.user.id)
+      .select("id, username, coins, affection, created_at, updated_at")
+      .single();
+    let data = updateResult.data as Profile | null;
+    let error = updateResult.error;
+
+    if (error?.code === "42703" && error.message.includes("updated_at")) {
+      console.warn("profiles.updated_at is missing; retrying progress update without it.");
+      const retry = await supabase
+        .from("profiles")
+        .update({
+          coins: nextProfile.coins,
+          affection: nextProfile.affection,
+        })
+        .eq("id", userData.user.id)
+        .select("id, username, coins, affection, created_at")
+        .single();
+
+      data = retry.data as Profile | null;
+      error = retry.error;
+    }
+
+    console.info("Persist profile progress result", {
+      reason,
+      payload,
+      data,
+      error,
+    });
+
+    if (error) {
+      console.error("Failed to persist profile progress", error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("Profile update returned no data.");
+    }
+
+    applyProfileStats(data);
+    return data;
+  }, [applyProfileStats]);
 
   useEffect(() => {
     let mounted = true;
@@ -589,22 +662,7 @@ export default function Home() {
     setMistressReply("Back at the gate. The vault can wait.");
   };
 
-  const updateCoins = (
-    update: number | ((currentCoins: number) => number),
-    reason: string,
-  ) => {
-    const getNextCoins = (currentCoins: number) =>
-      typeof update === "function" ? update(currentCoins) : currentCoins + update;
-    const previousCoins = coinsRef.current;
-    const nextCoins = Math.max(0, getNextCoins(previousCoins));
-
-    coinsRef.current = nextCoins;
-    setCoins(nextCoins);
-    saveProfilePatch({ coins: nextCoins });
-    recordCoinTransaction(nextCoins - previousCoins, reason);
-  };
-
-  const handleTribute = (amount: number) => {
+  const handleTribute = async (amount: number) => {
     if (affection >= 100) {
       setMistressReply(
         "My mood is already at its peak. Your coins can wait.",
@@ -629,10 +687,21 @@ export default function Home() {
     const affectionGain = tributeGains[amount] ?? 0;
 
     const nextAffection = Math.min(100, affection + affectionGain);
+    const nextCoins = Math.max(0, currentCoins - amount);
 
-    updateCoins((value) => Math.max(0, value - amount), "tribute");
-    setAffection(nextAffection);
-    saveProfilePatch({ affection: nextAffection });
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection: nextAffection },
+        "tribute",
+      );
+      recordCoinTransaction(nextCoins - currentCoins, "tribute");
+    } catch (error) {
+      console.error("Failed to persist tribute progress", error);
+      setAuthError(describeError(error));
+      setMistressReply("The ledger refused that tribute. Try again.");
+      return;
+    }
+
     setTributeTotal((value) => value + amount);
     completeTask("tribute");
     if (nextAffection >= 50) {
@@ -647,7 +716,7 @@ export default function Home() {
     );
   };
 
-  const handleUnlock = (itemId: string) => {
+  const handleUnlock = async (itemId: string) => {
     const item = visibleGalleryItems.find((entry) => entry.id === itemId);
 
     if (!item || item.rarity !== "Common" || unlockedGalleryIds.includes(item.id)) {
@@ -665,15 +734,26 @@ export default function Home() {
       return;
     }
 
-    updateCoins((value) => Math.max(0, value - unlockCost), "common_gallery_unlock");
+    const nextAffection = Math.min(100, affection + 8);
+    const nextCoins = Math.max(0, currentCoins - unlockCost);
+
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection: nextAffection },
+        "common_gallery_unlock",
+      );
+      recordCoinTransaction(nextCoins - currentCoins, "common_gallery_unlock");
+      recordGalleryUnlocks([item.id]);
+    } catch (error) {
+      console.error("Failed to persist gallery unlock progress", error);
+      setAuthError(describeError(error));
+      setMistressReply("The vault ledger rejected that unlock. Try again.");
+      return;
+    }
+
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
-    recordGalleryUnlocks([item.id]);
-    const nextAffection = Math.min(100, affection + 8);
-
-    setAffection(nextAffection);
-    saveProfilePatch({ affection: nextAffection });
     completeTask("gallery");
     if (nextAffection >= 50) {
       completeTask("affection");
@@ -683,14 +763,29 @@ export default function Home() {
     );
   };
 
-  const handleClaimTask = (taskId: string) => {
+  const handleClaimTask = async (taskId: string) => {
     const task = tasks.find((entry) => entry.id === taskId);
 
     if (!task || !task.completed || task.claimed) {
       return;
     }
 
-    updateCoins(task.reward, `task:${task.id}`);
+    const currentCoins = coinsRef.current;
+    const nextCoins = currentCoins + task.reward;
+
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        `task:${task.id}`,
+      );
+      recordCoinTransaction(task.reward, `task:${task.id}`);
+    } catch (error) {
+      console.error("Failed to persist task reward", error);
+      setAuthError(describeError(error));
+      setMistressReply("The reward ledger failed. Try again.");
+      return;
+    }
+
     setTasks((current) =>
       current.map((entry) =>
         entry.id === taskId ? { ...entry, claimed: true } : entry,

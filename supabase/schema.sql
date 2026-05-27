@@ -5,8 +5,12 @@ create table if not exists public.profiles (
   username text unique not null,
   coins integer not null default 100,
   affection integer not null default 0,
-  created_at timestamp with time zone not null default now()
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
 );
+
+alter table public.profiles
+  add column if not exists updated_at timestamp with time zone not null default now();
 
 create table if not exists public.unlocked_gallery_items (
   id uuid primary key default gen_random_uuid(),
@@ -30,34 +34,42 @@ alter table public.coin_transactions enable row level security;
 
 create policy "Users can read own profile"
   on public.profiles for select
+  to authenticated
   using (auth.uid() = id);
 
 create policy "Users can create own profile"
   on public.profiles for insert
+  to authenticated
   with check (auth.uid() = id);
 
 create policy "Users can update own profile"
   on public.profiles for update
+  to authenticated
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
 create policy "Users can read own gallery unlocks"
   on public.unlocked_gallery_items for select
+  to authenticated
   using (auth.uid() = user_id);
 
 create policy "Users can create own gallery unlocks"
   on public.unlocked_gallery_items for insert
+  to authenticated
   with check (auth.uid() = user_id);
 
 create policy "Users can update own gallery unlocks"
   on public.unlocked_gallery_items for update
+  to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 create policy "Users can read own coin transactions"
   on public.coin_transactions for select
+  to authenticated
   using (auth.uid() = user_id);
 
 create policy "Users can create own coin transactions"
   on public.coin_transactions for insert
+  to authenticated
   with check (auth.uid() = user_id);
