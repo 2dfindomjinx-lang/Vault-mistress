@@ -52,8 +52,8 @@ export function LoginScreen({
         )}
 
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          No email or password is collected by this app. Configure the X provider
-          in Supabase Auth and allow /auth/callback as a redirect URL.
+          Passwords are not collected by this app. X account data is handled by
+          Supabase Auth for login and account management.
         </p>
       </section>
     </main>

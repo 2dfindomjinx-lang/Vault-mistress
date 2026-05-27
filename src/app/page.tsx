@@ -174,7 +174,7 @@ const profileSelect =
 const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
-    title: "Log in today",
+    title: "Login everyday",
     reward: 25,
     completed: true,
     claimed: false,
@@ -553,7 +553,7 @@ function buildMechanicsFromRows(
   return {
     begCooldownUntil: getCooldownUntil(
       getTaskMetadataString(begRow?.metadata, "lastBegAt") ?? begRow?.completed_at ?? null,
-      10 * 1000,
+      60 * 1000,
     ),
     sacrificeCooldownUntil: getDailyCooldownUntil(sacrificeRow?.claimed_at ?? null),
     supportUnlocked: allGalleryComplete,
@@ -1563,7 +1563,7 @@ export default function Home() {
 
       setMechanics((current) => ({
         ...current,
-        begCooldownUntil: getCooldownUntil(now, 10 * 1000),
+        begCooldownUntil: getCooldownUntil(now, 60 * 1000),
       }));
       setMistressReply(
         reward > 0

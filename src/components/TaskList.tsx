@@ -59,10 +59,10 @@ export function TaskList({
     <span
       className={`rounded-full px-3 py-1 text-xs font-bold ${
         isCoolingDown
-          ? "bg-emerald-400/15 text-emerald-100"
+          ? "bg-yellow-400/15 text-yellow-100"
           : task.completed
             ? "bg-pink-500/20 text-pink-100"
-            : "bg-white/10 text-zinc-300"
+            : "bg-emerald-400/15 text-emerald-100"
       }`}
     >
       {isCoolingDown ? "Cooldown" : task.claimed ? "Claimed" : task.completed ? "Ready" : "Open"}
