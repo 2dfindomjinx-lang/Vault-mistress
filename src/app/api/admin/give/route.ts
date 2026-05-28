@@ -54,21 +54,26 @@ export async function POST(request: Request) {
 
   const command = body.command?.trim() ?? "";
   const giveMatch = command.match(/^\/give\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
+  const addMatch = command.match(/^\/add\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
 
-  if (!giveMatch && !timeoutMatch && !timeoutRemoveMatch) {
+  if (!giveMatch && !addMatch && !timeoutMatch && !timeoutRemoveMatch) {
     return Response.json(
       {
         error:
-          "Invalid command. Use: /give 500 @username, /timeout @username 30, or /timeout remove @username",
+          "Invalid command. Use: /give 500 @username, /add 500 @username, /timeout @username 30, or /timeout remove @username",
       },
       { status: 400 },
     );
   }
 
-  const amount = giveMatch ? Number(giveMatch[1]) : Number(timeoutMatch?.[2]);
-  const username = (giveMatch?.[2] ?? timeoutMatch?.[1] ?? timeoutRemoveMatch?.[1] ?? "")
+  const amount = giveMatch
+    ? Number(giveMatch[1])
+    : addMatch
+      ? Number(addMatch[1])
+      : Number(timeoutMatch?.[2]);
+  const username = (giveMatch?.[2] ?? addMatch?.[2] ?? timeoutMatch?.[1] ?? timeoutRemoveMatch?.[1] ?? "")
     .toLowerCase();
   const supabase = createSupabaseAdminClient();
 
@@ -139,12 +144,13 @@ export async function POST(request: Request) {
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
+  const transactionReason = giveMatch ? "tribute" : "admin:add";
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
     .insert({
       user_id: profile.id,
       amount,
-      reason: "tribute",
+      reason: transactionReason,
     })
     .select("id, amount, reason, created_at")
     .single();
@@ -154,7 +160,9 @@ export async function POST(request: Request) {
   }
 
   return Response.json({
-    message: `Added ${amount} coins to ${profile.username}.`,
+    message: giveMatch
+      ? `Added ${amount} tribute coins to ${profile.username}.`
+      : `Added ${amount} coins to ${profile.username}.`,
     username: profile.username,
     coins: nextCoins,
     transaction,

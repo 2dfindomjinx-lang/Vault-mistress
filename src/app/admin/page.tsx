@@ -234,6 +234,8 @@ export default function AdminPage() {
           ? "Timeout removed. The ledger is clean for now."
           : trimmedCommand.startsWith("/timeout")
             ? "Timeout applied. Discipline looks good in the ledger."
+            : trimmedCommand.startsWith("/add")
+              ? "Coins added quietly. No tribute spectacle."
             : "Coins added. Try not to waste my generosity.",
       );
 
@@ -467,7 +469,7 @@ export default function AdminPage() {
                 Command Console
               </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /timeout @username minutes, /timeout remove @username
+                Available commands: /give amount @username, /add amount @username, /timeout @username minutes, /timeout remove @username
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
