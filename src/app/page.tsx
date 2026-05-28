@@ -196,6 +196,7 @@ const MAX_TIMEOUT_DAYS = 3;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
 const SAFE_REWARD = 25;
 const SACRIFICE_COST = 250;
+const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_PROFIT_LOCK = 1000;
@@ -822,7 +823,10 @@ function buildMechanicsFromRows(
       getTaskMetadataString(begRow?.metadata, "lastBegAt") ?? begRow?.completed_at ?? null,
       60 * 1000,
     ),
-    sacrificeCooldownUntil: getDailyCooldownUntil(sacrificeRow?.claimed_at ?? null),
+    sacrificeCooldownUntil: getCooldownUntil(
+      sacrificeRow?.claimed_at ?? null,
+      SACRIFICE_SUCCESS_COOLDOWN_MS,
+    ),
     supportUnlocked: allGalleryComplete,
     sacrificeUnlockedCount,
     sacrificeTotal: sacrificeGalleryItems.length,
@@ -2712,7 +2716,9 @@ export default function Home() {
 
       setMechanics((current) => ({
         ...current,
-        sacrificeCooldownUntil: unlockedItem ? getDailyCooldownUntil(now) : null,
+        sacrificeCooldownUntil: unlockedItem
+          ? getCooldownUntil(now, SACRIFICE_SUCCESS_COOLDOWN_MS)
+          : null,
         sacrificeLastResult: lastResult,
       }));
       setMistressReply(

@@ -30,6 +30,14 @@ type TimedOutUser = {
   shame_count: number | null;
 };
 
+type MaxAffectionUser = {
+  id: string;
+  username: string;
+  affection: number;
+  tribute_total: number;
+  updated_at: string | null;
+};
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -52,9 +60,12 @@ export default function AdminPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
-  const [activeTab, setActiveTab] = useState<"console" | "irlTasks" | "timeouts">("console");
+  const [activeTab, setActiveTab] = useState<
+    "console" | "irlTasks" | "timeouts" | "maxAffection"
+  >("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
+  const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
@@ -133,6 +144,41 @@ export default function AdminPage() {
     }
   };
 
+  const loadMaxAffectionUsers = async ({
+    keepStatus = false,
+  }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/max-affection", {
+        body: JSON.stringify({}),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        users?: MaxAffectionUser[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Max affection list failed.");
+      }
+
+      setMaxAffectionUsers(result.users ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Max affection list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -200,6 +246,7 @@ export default function AdminPage() {
     const timer = window.setTimeout(() => {
       void loadIrlTasks({ keepStatus: true });
       void loadTimeouts({ keepStatus: true });
+      void loadMaxAffectionUsers({ keepStatus: true });
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -439,6 +486,7 @@ export default function AdminPage() {
               ["console", "Command Console"],
               ["irlTasks", "IRL Tasks"],
               ["timeouts", "Active Timeouts"],
+              ["maxAffection", "100 Affection"],
             ] as const).map(([key, label]) => (
               <button
                 className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
@@ -454,6 +502,9 @@ export default function AdminPage() {
                   }
                   if (key === "timeouts") {
                     void loadTimeouts();
+                  }
+                  if (key === "maxAffection") {
+                    void loadMaxAffectionUsers();
                   }
                 }}
                 type="button"
@@ -687,6 +738,64 @@ export default function AdminPage() {
                     No active timeouts.
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "maxAffection" && (
+            <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+                    100 Affection Users
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Profiles that reached Principessa&apos;s maximum mood.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadMaxAffectionUsers()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="mt-4 max-h-[28rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                <div className="grid gap-3">
+                  {maxAffectionUsers.length > 0 ? (
+                    maxAffectionUsers.map((user) => (
+                      <article
+                        className="rounded-2xl border border-fuchsia-200/15 bg-black/35 p-3"
+                        key={user.id}
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-white">{user.username}</p>
+                            <p className="mt-1 text-xs text-zinc-400">
+                              Tribute Total {Number(user.tribute_total ?? 0).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-pink-200/25 bg-pink-500/15 px-3 py-1 text-xs font-black text-pink-100">
+                              {user.affection} affection
+                            </span>
+                            {user.updated_at && (
+                              <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs text-zinc-300">
+                                {new Date(user.updated_at).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No users at 100 affection yet.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
