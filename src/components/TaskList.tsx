@@ -63,7 +63,6 @@ export function TaskList({
   const [stake, setStake] = useState(10);
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
-  const [pendingIrlWheelIndex, setPendingIrlWheelIndex] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -92,7 +91,6 @@ export function TaskList({
     const rotationDelta = (targetRotation - currentRotation + 360) % 360;
     const finalRotation = irlWheelRotation + 360 * 6 + rotationDelta;
 
-    setPendingIrlWheelIndex(selectedIndex);
     setIsIrlWheelSpinning(true);
     setIrlWheelRotation(finalRotation);
 
@@ -103,7 +101,6 @@ export function TaskList({
     irlWheelTimerRef.current = window.setTimeout(() => {
       void Promise.resolve(onIrlTaskSpin(selectedIndex)).finally(() => {
         setIsIrlWheelSpinning(false);
-        setPendingIrlWheelIndex(null);
       });
     }, 3600);
   };
@@ -357,7 +354,6 @@ export function TaskList({
                       </p>
                       <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
                         <WheelSpinner
-                          pendingIndex={pendingIrlWheelIndex}
                           rotation={irlWheelRotation}
                           selectedIndex={irlTask.assignedIrlWheelIndex ?? null}
                           spinning={isIrlWheelSpinning}
@@ -756,7 +752,6 @@ export function TaskList({
                   </p>
                   <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
                     <WheelSpinner
-                      pendingIndex={pendingIrlWheelIndex}
                       rotation={irlWheelRotation}
                       selectedIndex={task.assignedIrlWheelIndex ?? null}
                       spinning={isIrlWheelSpinning}
@@ -849,12 +844,10 @@ export function TaskList({
 }
 
 function WheelSpinner({
-  pendingIndex,
   rotation,
   selectedIndex,
   spinning,
 }: {
-  pendingIndex: number | null;
   rotation: number;
   selectedIndex: number | null;
   spinning: boolean;
@@ -865,7 +858,7 @@ function WheelSpinner({
       ? rotation
       : (360 - (selectedIndex * segmentDegrees + segmentDegrees / 2)) % 360;
   const displayRotation = rotation !== 0 ? rotation : settledRotation;
-  const activeIndex = spinning ? pendingIndex : selectedIndex;
+  const activeIndex = spinning ? null : selectedIndex;
   const wheelGradient = Array.from({ length: 20 }, (_, index) => {
     const start = index * segmentDegrees;
     const end = (index + 1) * segmentDegrees;
