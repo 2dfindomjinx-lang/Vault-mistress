@@ -5,6 +5,14 @@ import type { MechanicsState, TaskItem } from "@/lib/types";
 const SACRIFICE_COST = 250;
 const SUPPORT_COST = 1000;
 
+function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
+  return kind === expected;
+}
+
+function isGroupedWheelLayoutKind(kind: TaskItem["kind"]): boolean {
+  return kind === "wait-obediently" || kind === "irl-wheel";
+}
+
 type TaskListProps = {
   coins: number;
   disabled?: boolean;
@@ -218,6 +226,217 @@ export function TaskList({
             task.completed &&
             !isCoolingDown &&
             (!task.claimed || task.id === "daily-login");
+
+          if (isTaskKind(task.kind, "timeout-risk")) {
+            const waitTask = tasks.find((entry) => entry.kind === "wait-obediently");
+            const irlTask = tasks.find((entry) => entry.kind === "irl-wheel");
+            const waitCooldownRemaining = waitTask?.cooldownUntil
+              ? new Date(waitTask.cooldownUntil).getTime() - now
+              : 0;
+            const isWaitCoolingDown = waitCooldownRemaining > 0;
+            const irlCooldownRemaining = irlTask?.cooldownUntil
+              ? new Date(irlTask.cooldownUntil).getTime() - now
+              : 0;
+            const isIrlCoolingDown = irlCooldownRemaining > 0;
+
+            return (
+              <div
+                className="grid gap-3 md:col-span-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch"
+                key="risk-wheel-layout"
+              >
+                <div className="flex min-h-full flex-col gap-3">
+                  <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-black text-white">{task.title}</h3>
+                        <p className="mt-1 text-sm text-zinc-400">
+                          Reward: {task.reward} Principessa Coins
+                        </p>
+                      </div>
+                      {renderStatus(task, false)}
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
+                      <p className="text-sm leading-6 text-zinc-300">
+                        Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
+                        to receive +1 day timeout,{" "}
+                        {Math.round((1 - timeoutRiskChance) * 100)}% chance to win{" "}
+                        {timeoutRiskReward} Principessa Coins.
+                      </p>
+                      {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
+                        <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                          Current timeout:{" "}
+                          {formatRemaining(new Date(task.timeoutUntil).getTime() - now)}
+                        </p>
+                      )}
+                      <p className="mt-3 text-xs leading-5 text-zinc-500">
+                        Partial remaining days count as full days. Maximum effective timeout is{" "}
+                        {timeoutRiskMaxDays} days.
+                      </p>
+                      {task.lastResult && (
+                        <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
+                          {task.lastResult}
+                        </p>
+                      )}
+                      {task.completed && (
+                        <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                          Daily safe win limit reached. Come back tomorrow.
+                        </p>
+                      )}
+                      <button
+                        className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={task.completed || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                        onClick={onTimeoutRisk}
+                        type="button"
+                      >
+                        {task.completed
+                          ? "Daily limit reached"
+                          : timeoutRiskEffectiveDays >= timeoutRiskMaxDays
+                            ? "Maximum timeout reached."
+                            : "Attempt Risk"}
+                      </button>
+                    </div>
+                  </article>
+
+                  {waitTask && (
+                    <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-black text-white">{waitTask.title}</h3>
+                          <p className="mt-1 text-sm text-zinc-400">
+                            Reward: {waitTask.reward} Principessa Coins
+                          </p>
+                          {isWaitCoolingDown && (
+                            <p className="mt-2 text-sm font-semibold text-pink-100">
+                              Available again in {formatRemaining(waitCooldownRemaining)}
+                            </p>
+                          )}
+                          {disabled && (
+                            <p className="mt-2 text-sm font-semibold text-yellow-100">
+                              Timeout active. This task is locked.
+                            </p>
+                          )}
+                        </div>
+                        {renderStatus(waitTask, isWaitCoolingDown)}
+                      </div>
+                      <WaitObedientlyPanel
+                        cooldownRemaining={waitCooldownRemaining}
+                        formatRemaining={formatRemaining}
+                        isCoolingDown={isWaitCoolingDown}
+                        isGloballyDisabled={disabled}
+                        onComplete={onWaitObedientlyComplete}
+                        onFail={onWaitObedientlyFail}
+                        onStart={onWaitObedientlyStart}
+                        task={waitTask}
+                      />
+                    </article>
+                  )}
+                </div>
+
+                {irlTask && (
+                  <article className="flex min-h-full flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-black text-white">{irlTask.title}</h3>
+                        {isIrlCoolingDown && (
+                          <p className="mt-2 text-sm font-semibold text-pink-100">
+                            Available again in {formatRemaining(irlCooldownRemaining)}
+                          </p>
+                        )}
+                        {disabled && (
+                          <p className="mt-2 text-sm font-semibold text-yellow-100">
+                            Timeout active. This task is locked.
+                          </p>
+                        )}
+                      </div>
+                      {renderStatus(irlTask, isIrlCoolingDown)}
+                    </div>
+                    <div className="mt-4 flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                      <p className="text-sm leading-6 text-zinc-400">
+                        Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
+                        your assigned IRL task.
+                      </p>
+                      <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
+                        <WheelSpinner
+                          pendingIndex={pendingIrlWheelIndex}
+                          rotation={irlWheelRotation}
+                          selectedIndex={irlTask.assignedIrlWheelIndex ?? null}
+                          spinning={isIrlWheelSpinning}
+                        />
+                      </div>
+                      {irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now && (
+                        <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                          Timeout active:{" "}
+                          {formatRemaining(new Date(irlTask.timeoutUntil).getTime() - now)}
+                        </p>
+                      )}
+                      {irlTask.assignedIrlTask && (
+                        <div className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+                            Assigned Task
+                          </p>
+                          {typeof irlTask.assignedIrlWheelIndex === "number" && (
+                            <p className="mt-1 text-xs font-semibold text-pink-100/70">
+                              Wheel segment #{irlTask.assignedIrlWheelIndex + 1}
+                            </p>
+                          )}
+                          {irlTask.assignedIrlDueAt && (
+                            <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                              Complete before{" "}
+                              {new Date(irlTask.assignedIrlDueAt).toLocaleString()}
+                              <br />
+                              {new Date(irlTask.assignedIrlDueAt).getTime() > now
+                                ? `${formatRemaining(new Date(irlTask.assignedIrlDueAt).getTime() - now)} remaining`
+                                : "Time is up. Await admin review."}
+                            </p>
+                          )}
+                          <p className="mt-2 text-lg font-black text-white">
+                            {irlTask.assignedIrlTask}
+                          </p>
+                          {irlTask.assignedIrlTaskDescription && (
+                            <p className="mt-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-zinc-200">
+                              {irlTask.assignedIrlTaskDescription}
+                            </p>
+                          )}
+                          <p className="mt-2 text-sm leading-6 text-pink-50">
+                            DM this task result to @Principessa2dfd with your app username.
+                          </p>
+                          <p className="mt-2 text-xs leading-5 text-rose-100/80">
+                            If this task is not completed in time, admin may apply a
+                            manual timeout. Throne support can be reviewed manually
+                            to clear the task without affection gain.
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        className="mt-auto w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={
+                          isIrlWheelSpinning ||
+                          disabled ||
+                          coins < IRL_TASK_WHEEL_COST ||
+                          Boolean(irlTask.assignedIrlTask) ||
+                          Boolean(irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now)
+                        }
+                        onClick={handleIrlWheelSpinClick}
+                        type="button"
+                      >
+                        {isIrlWheelSpinning
+                          ? "Spinning..."
+                          : irlTask.assignedIrlTask
+                            ? "Awaiting Admin Review"
+                            : coins < IRL_TASK_WHEEL_COST
+                              ? `Need ${IRL_TASK_WHEEL_COST} Coins`
+                              : `Spin — ${IRL_TASK_WHEEL_COST} Coins`}
+                      </button>
+                    </div>
+                  </article>
+                )}
+              </div>
+            );
+          }
+
+          if (isGroupedWheelLayoutKind(task.kind)) {
+            return null;
+          }
 
           return (
             <article

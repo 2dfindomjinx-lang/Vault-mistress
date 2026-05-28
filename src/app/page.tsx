@@ -853,6 +853,7 @@ export default function Home() {
   const lastIdleLineIndexRef = useRef(-1);
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const profileIdRef = useRef<string | null>(null);
+  const timeoutUntilRef = useRef<string | null>(null);
 
   const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
   const galleryItems =
@@ -894,7 +895,10 @@ export default function Home() {
     "You are in timeout. Vault actions are locked until the timer ends. You can support $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
 
   const blockIfTimedOut = () => {
-    if (!isTimeoutActive) {
+    const activeTimeout = timeoutUntilRef.current;
+    const active = Boolean(activeTimeout && new Date(activeTimeout).getTime() > Date.now());
+
+    if (!active) {
       return false;
     }
 
@@ -905,6 +909,10 @@ export default function Home() {
   useEffect(() => {
     coinsRef.current = coins;
   }, [coins]);
+
+  useEffect(() => {
+    timeoutUntilRef.current = timeoutUntil;
+  }, [timeoutUntil]);
 
   useEffect(() => () => {
     if (highLowRefreshTimerRef.current !== null) {
@@ -1198,11 +1206,49 @@ export default function Home() {
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    timeoutUntilRef.current = profile.timeout_until ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setIsLoggedIn(true);
     const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
     setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
   }, []);
+
+  useEffect(() => {
+    if (!authUserId) {
+      return;
+    }
+
+    const refreshTimeout = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(profileSelect)
+        .eq("id", authUserId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to refresh profile timeout on focus", error);
+        return;
+      }
+
+      if (data) {
+        applyProfileStats(data as Profile);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshTimeout();
+      }
+    };
+
+    window.addEventListener("focus", refreshTimeout);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshTimeout);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [applyProfileStats, authUserId]);
 
   const createProfileForUser = useCallback(async (user: User) => {
     const fallbackUsername = profileUsernameFromUser(user);
@@ -1679,8 +1725,11 @@ export default function Home() {
   }, [affection, persistGalleryUnlocks, unlockedGalleryIds]);
 
   const scriptedMessage = useMemo(
-    () => getAffectionMoodLine(affection),
-    [affection],
+    () =>
+      isTimeoutActive
+        ? "You angered Principessa. The vault is locked until your timeout ends."
+        : getAffectionMoodLine(affection),
+    [affection, isTimeoutActive],
   );
 
   const completeTask = (taskId: string) => {
@@ -2229,6 +2278,9 @@ export default function Home() {
         const nextTimeoutUntil = new Date(baseMs + DAY_MS).toISOString();
         const now = new Date().toISOString();
 
+        timeoutUntilRef.current = nextTimeoutUntil;
+        setTimeoutUntil(nextTimeoutUntil);
+        setCurrentTime(Date.now());
         await persistTimeoutUntil(nextTimeoutUntil);
         const { error } = await supabase.from("user_tasks").upsert(
           {

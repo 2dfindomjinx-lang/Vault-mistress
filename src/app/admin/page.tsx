@@ -186,7 +186,9 @@ export default function AdminPage() {
 
       setStatus(result.message ?? "Command completed.");
       setDefneMessage(
-        command.trim().startsWith("/timeout")
+        command.trim().startsWith("/timeout remove")
+          ? "Timeout removed. The ledger is clean for now."
+          : command.trim().startsWith("/timeout")
           ? "Timeout applied. Discipline looks good in the ledger."
           : "Coins added. Try not to waste my generosity.",
       );
@@ -397,7 +399,7 @@ export default function AdminPage() {
                   Command Console
                 </p>
                 <p className="mt-2 text-xs text-zinc-500">
-                  Available commands: /give amount @username, /timeout @username minutes
+                  Available commands: /give amount @username, /timeout @username minutes, /timeout remove @username
                 </p>
                 <div className="mt-4 flex flex-col gap-3 md:flex-row">
                   <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
@@ -410,7 +412,7 @@ export default function AdminPage() {
                           void handleRunCommand();
                         }
                       }}
-                      placeholder="/give 500 @ or /timeout @user 30"
+                      placeholder="/give 500 @ or /timeout remove @user"
                       value={command}
                     />
                   </label>

@@ -65,16 +65,21 @@ export async function POST(request: Request) {
   const command = body.command?.trim() ?? "";
   const giveMatch = command.match(/^\/give\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
+  const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
 
-  if (!giveMatch && !timeoutMatch) {
+  if (!giveMatch && !timeoutMatch && !timeoutRemoveMatch) {
     return Response.json(
-      { error: "Invalid command. Use: /give 500 @username or /timeout @username 30" },
+      {
+        error:
+          "Invalid command. Use: /give 500 @username, /timeout @username 30, or /timeout remove @username",
+      },
       { status: 400 },
     );
   }
 
   const amount = giveMatch ? Number(giveMatch[1]) : Number(timeoutMatch?.[2]);
-  const username = (giveMatch?.[2] ?? timeoutMatch?.[1] ?? "").toLowerCase();
+  const username = (giveMatch?.[2] ?? timeoutMatch?.[1] ?? timeoutRemoveMatch?.[1] ?? "")
+    .toLowerCase();
   const supabase = createSupabaseAdminClient();
 
   const { data: profile, error: profileError } = await supabase
@@ -112,6 +117,24 @@ export async function POST(request: Request) {
       message: `${profile.username} timed out for ${timeoutMinutes} minutes.`,
       username: profile.username,
       timeoutUntil,
+    });
+  }
+
+  if (timeoutRemoveMatch) {
+    const { error: timeoutError } = await supabase
+      .from("profiles")
+      .update({ timeout_until: null, updated_at: new Date().toISOString() })
+      .eq("id", profile.id);
+
+    if (timeoutError) {
+      console.error("Admin timeout remove command failed", timeoutError);
+      return Response.json({ error: timeoutError.message }, { status: 500 });
+    }
+
+    return Response.json({
+      message: `${profile.username} timeout removed.`,
+      username: profile.username,
+      timeoutUntil: null,
     });
   }
 
