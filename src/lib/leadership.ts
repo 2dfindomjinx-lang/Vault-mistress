@@ -1,11 +1,11 @@
 export const LEADERSHIP_RANKS = [
   { min: 0, title: "Worthless Worm" },
-  { min: 100, title: "Useless Loser" },
-  { min: 250, title: "Broke Beta" },
-  { min: 500, title: "Desperate Drainer" },
-  { min: 1500, title: "Pathetic Paypig" },
-  { min: 2000, title: "Elite Pet" },
-  { min: 3000, title: "Principessa’s Property" },
+  { min: 600, title: "Useless Loser" },
+  { min: 1500, title: "Broke Beta" },
+  { min: 3000, title: "Desperate Drainer" },
+  { min: 9000, title: "Pathetic Paypig" },
+  { min: 12000, title: "Elite Pet" },
+  { min: 18000, title: "Principessa's Property" },
 ] as const;
 
 export type LeadershipEntry = {

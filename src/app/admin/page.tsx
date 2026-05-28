@@ -26,7 +26,7 @@ type AdminIrlTask = {
 export default function AdminPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [command, setCommand] = useState("/give 500 @");
+  const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<"console" | "irlTasks">("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [status, setStatus] = useState("");
@@ -412,7 +412,7 @@ export default function AdminPage() {
                           void handleRunCommand();
                         }
                       }}
-                      placeholder="/give 500 @ or /timeout remove @user"
+                      placeholder="/"
                       value={command}
                     />
                   </label>
