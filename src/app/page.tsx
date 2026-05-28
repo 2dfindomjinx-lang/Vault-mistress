@@ -213,6 +213,22 @@ const startingTasks: TaskItem[] = [
     kind: "high-low",
   },
   {
+    id: "number-pick",
+    title: "Number Pick",
+    reward: 25,
+    completed: false,
+    claimed: false,
+    kind: "number-pick",
+  },
+  {
+    id: "wait-obediently",
+    title: "Wait Obediently",
+    reward: 25,
+    completed: false,
+    claimed: false,
+    kind: "wait-obediently",
+  },
+  {
     id: "irl-task-wheel",
     title: "IRL Task Wheel",
     reward: 0,
@@ -452,6 +468,36 @@ function randomHighLowDisplayNumber() {
   return Math.floor(Math.random() * 8) + 2;
 }
 
+function generateNumberPickOptions(seed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))) {
+  const options = new Set<number>();
+  let step = 0;
+
+  while (options.size < 3) {
+    const raw = Math.sin(seed * 997 + step * 37) * 10000;
+    options.add(Math.floor((raw - Math.floor(raw)) * 99) + 1);
+    step += 1;
+  }
+
+  return [...options];
+}
+
+function getTaskMetadataNumberArray(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const numbers = value.filter(
+    (entry): entry is number => typeof entry === "number" && Number.isFinite(entry),
+  );
+
+  return numbers.length === value.length ? numbers : null;
+}
+
 function getTaskMetadataNumber(
   metadata: Record<string, unknown> | null | undefined,
   key: string,
@@ -527,6 +573,48 @@ function buildTasksFromRows(
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
+      };
+    }
+
+    if (task.id === "number-pick") {
+      const options =
+        getTaskMetadataNumberArray(row?.metadata, "options") ?? generateNumberPickOptions();
+      const selected = getTaskMetadataNumber(row?.metadata, "selected", Number.NaN);
+      const correct = getTaskMetadataNumber(row?.metadata, "correct", Number.NaN);
+      const rawResult = getTaskMetadataString(row?.metadata, "result");
+      const result: "win" | "loss" | null =
+        rawResult === "win" || rawResult === "loss" ? rawResult : null;
+
+      return {
+        ...task,
+        claimed: Boolean(cooldownUntil),
+        completed: result === "win",
+        cooldownUntil,
+        numberPickCorrect: Number.isFinite(correct) ? correct : undefined,
+        numberPickOptions: options,
+        numberPickResult: result,
+        numberPickSelected: Number.isFinite(selected) ? selected : null,
+      };
+    }
+
+    if (task.id === "wait-obediently") {
+      const status = getTaskMetadataString(row?.metadata, "status");
+      const waitState: TaskItem["waitState"] = cooldownUntil
+        ? "cooldown"
+        : status === "completed"
+          ? "completed"
+          : status === "failed"
+            ? "failed"
+            : "ready";
+
+      return {
+        ...task,
+        claimed: Boolean(cooldownUntil),
+        completed: status === "completed",
+        cooldownUntil,
+        waitCountdownEndsAt: getTaskMetadataString(row?.metadata, "countdownEndsAt"),
+        waitEndsAt: getTaskMetadataString(row?.metadata, "waitEndsAt"),
+        waitState,
       };
     }
 
@@ -1639,6 +1727,248 @@ export default function Home() {
     }
   };
 
+  const handleNumberPick = async (selectedNumber: number) => {
+    const task = tasks.find((entry) => entry.id === "number-pick");
+    const isCoolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || isCoolingDown || !authUserId) {
+      return;
+    }
+
+    const options =
+      task.numberPickOptions && task.numberPickOptions.length === 3
+        ? task.numberPickOptions
+        : generateNumberPickOptions();
+
+    if (!options.includes(selectedNumber)) {
+      return;
+    }
+
+    const correctNumber = randomFrom(options);
+    const result = selectedNumber === correctNumber ? "win" : "loss";
+    const now = new Date().toISOString();
+    const cooldownUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    try {
+      if (result === "win") {
+        await persistProfileProgress(
+          { coins: coinsRef.current + task.reward, affection },
+          "task:number-pick",
+        );
+        recordCoinTransaction(task.reward, "task:number-pick");
+      }
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          claimed_at: now,
+          reward_coins: result === "win" ? task.reward : 0,
+          metadata: {
+            correct: correctNumber,
+            options,
+            result,
+            selected: selectedNumber,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist number pick result", error);
+        throw error;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                claimed: true,
+                completed: result === "win",
+                cooldownUntil,
+                numberPickCorrect: correctNumber,
+                numberPickOptions: options,
+                numberPickResult: result,
+                numberPickSelected: selectedNumber,
+              }
+            : entry,
+        ),
+      );
+      setMistressReply(
+        result === "win"
+          ? "Lucky pick. The vault grants you 25 coins."
+          : "Wrong number. The vault gives you nothing today.",
+      );
+    } catch (error) {
+      console.error("Failed to complete number pick task", error);
+      setAuthError(describeError(error));
+      setMistressReply("The number ledger failed. Try again.");
+    }
+  };
+
+  const handleWaitObedientlyStart = async () => {
+    const task = tasks.find((entry) => entry.id === "wait-obediently");
+    const isCoolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || isCoolingDown || !authUserId) {
+      return;
+    }
+
+    const now = new Date();
+    const countdownEndsAt = new Date(now.getTime() + 3 * 1000).toISOString();
+    const waitEndsAt = new Date(now.getTime() + 63 * 1000).toISOString();
+    const cooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+    try {
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now.toISOString(),
+          claimed_at: now.toISOString(),
+          reward_coins: 0,
+          metadata: {
+            countdownEndsAt,
+            status: "countdown",
+            waitEndsAt,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist wait obediently start", error);
+        throw error;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                claimed: true,
+                completed: false,
+                cooldownUntil,
+                waitCountdownEndsAt: countdownEndsAt,
+                waitEndsAt,
+                waitState: "countdown",
+              }
+            : entry,
+        ),
+      );
+      setMistressReply("Now wait. One mistake and the vault closes.");
+    } catch (error) {
+      console.error("Failed to start wait obediently task", error);
+      setAuthError(describeError(error));
+      setMistressReply("The waiting task failed to start.");
+    }
+  };
+
+  const handleWaitObedientlyFail = async () => {
+    const task = tasks.find((entry) => entry.id === "wait-obediently");
+
+    if (!task || !authUserId) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: new Date().toISOString(),
+          claimed_at: new Date().toISOString(),
+          reward_coins: 0,
+          metadata: {
+            status: "failed",
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist wait obediently failure", error);
+        throw error;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completed: false,
+                waitState: "failed",
+              }
+            : entry,
+        ),
+      );
+      setMistressReply("You moved. Failed.");
+    } catch (error) {
+      console.error("Failed to fail wait obediently task", error);
+      setAuthError(describeError(error));
+    }
+  };
+
+  const handleWaitObedientlyComplete = async () => {
+    const task = tasks.find((entry) => entry.id === "wait-obediently");
+
+    if (!task || !authUserId) {
+      return;
+    }
+
+    try {
+      await persistProfileProgress(
+        { coins: coinsRef.current + task.reward, affection },
+        "task:wait-obediently",
+      );
+      recordCoinTransaction(task.reward, "task:wait-obediently");
+
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: new Date().toISOString(),
+          claimed_at: task.cooldownUntil
+            ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
+            : new Date().toISOString(),
+          reward_coins: task.reward,
+          metadata: {
+            status: "completed",
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist wait obediently completion", error);
+        throw error;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completed: true,
+                waitState: "completed",
+              }
+            : entry,
+        ),
+      );
+      setMistressReply("Good. Stillness earned you 25 coins.");
+    } catch (error) {
+      console.error("Failed to complete wait obediently task", error);
+      setAuthError(describeError(error));
+      setMistressReply("The waiting reward failed to save.");
+    }
+  };
+
   const handleIrlTaskSpin = async (wheelIndex: number) => {
     if (!authUserId) {
       return;
@@ -2003,9 +2333,9 @@ export default function Home() {
     }
 
     const tributeGains: Record<number, number> = {
-      25: 1,
-      100: 5,
-      500: 30,
+      50: 1,
+      200: 5,
+      1000: 30,
     };
     const affectionGain = tributeGains[amount] ?? 0;
 
@@ -2040,7 +2370,7 @@ export default function Home() {
     setMistressReply(
       amount >= 500
         ? "You emptied a big part of your wallet. I like this level of desperation."
-        : amount >= 100
+        : amount >= 200
           ? "Pathetic. You call that a tribute?"
           : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
@@ -2293,9 +2623,13 @@ export default function Home() {
               onClaim={handleClaimTask}
               onHighLowPlay={handleHighLowPlay}
               onIrlTaskSpin={handleIrlTaskSpin}
+              onNumberPick={handleNumberPick}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
               onTypingProgress={handleTypingProgress}
+              onWaitObedientlyComplete={handleWaitObedientlyComplete}
+              onWaitObedientlyFail={handleWaitObedientlyFail}
+              onWaitObedientlyStart={handleWaitObedientlyStart}
             />
           )}
         </section>

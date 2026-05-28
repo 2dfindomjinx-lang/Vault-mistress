@@ -18,6 +18,8 @@ export type TaskItem = {
     | "daily-login"
     | "typing-accuracy"
     | "high-low"
+    | "number-pick"
+    | "wait-obediently"
     | "irl-task-wheel"
     | "affection"
     | "affection-80";
@@ -25,7 +27,13 @@ export type TaskItem = {
   reward: number;
   completed: boolean;
   claimed: boolean;
-  kind: "claim" | "typing" | "high-low" | "irl-wheel";
+  kind:
+    | "claim"
+    | "typing"
+    | "high-low"
+    | "number-pick"
+    | "wait-obediently"
+    | "irl-wheel";
   cooldownUntil?: string | null;
   attemptsRemaining?: number;
   sentence?: string;
@@ -36,6 +44,19 @@ export type TaskItem = {
   resultCoinDelta?: number;
   resultNumber?: number;
   resultOutcome?: "win" | "loss" | "tie";
+  numberPickCorrect?: number;
+  numberPickOptions?: number[];
+  numberPickResult?: "win" | "loss" | null;
+  numberPickSelected?: number | null;
+  waitState?:
+    | "ready"
+    | "countdown"
+    | "waiting"
+    | "failed"
+    | "completed"
+    | "cooldown";
+  waitCountdownEndsAt?: string | null;
+  waitEndsAt?: string | null;
   assignedIrlTask?: string | null;
   assignedIrlTaskDescription?: string | null;
   assignedIrlTaskStatus?: string | null;

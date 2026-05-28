@@ -10,9 +10,13 @@ type TaskListProps = {
   onClaim: (taskId: string) => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
+  onNumberPick: (selectedNumber: number) => void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTypingProgress: (value: string) => void;
+  onWaitObedientlyComplete: () => void;
+  onWaitObedientlyFail: () => void;
+  onWaitObedientlyStart: () => void;
 };
 
 export function TaskList({
@@ -22,9 +26,13 @@ export function TaskList({
   onClaim,
   onHighLowPlay,
   onIrlTaskSpin,
+  onNumberPick,
   onSacrifice,
   onSupport,
   onTypingProgress,
+  onWaitObedientlyComplete,
+  onWaitObedientlyFail,
+  onWaitObedientlyStart,
   tasks,
 }: TaskListProps) {
   const [now, setNow] = useState(0);
@@ -110,6 +118,12 @@ export function TaskList({
         ? "Cooldown"
         : task.kind === "irl-wheel" && task.assignedIrlTask
           ? "Pending Review"
+          : task.kind === "wait-obediently" && task.waitState === "countdown"
+            ? "Countdown"
+          : task.kind === "wait-obediently" && task.waitState === "waiting"
+            ? "Waiting"
+          : task.kind === "wait-obediently" && task.waitState === "failed"
+            ? "Failed"
           : task.kind === "high-low"
             ? "Open"
           : task.claimed
@@ -124,9 +138,9 @@ export function TaskList({
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div>
         <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-          Daily Tasks
+          Tasks & Games
         </p>
-        <h2 className="text-3xl font-black">Earn Principessa Coins</h2>
+        <h2 className="text-3xl font-black">Play the Vault</h2>
       </div>
 
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
@@ -341,6 +355,58 @@ export function TaskList({
                 </div>
               )}
 
+              {task.kind === "number-pick" && (
+                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                  <p className="text-sm leading-6 text-zinc-400">
+                    Pick one number. One hidden choice pays 25 Principessa Coins.
+                  </p>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {(task.numberPickOptions ?? []).map((option) => {
+                      const isSelected = task.numberPickSelected === option;
+                      const isCorrect = task.numberPickCorrect === option;
+                      const hasResult = Boolean(task.numberPickResult);
+
+                      return (
+                        <button
+                          className={`rounded-2xl border px-4 py-5 text-2xl font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                            hasResult && isCorrect
+                              ? "border-emerald-200/50 bg-emerald-400/15 text-emerald-100"
+                              : hasResult && isSelected
+                                ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
+                                : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
+                          }`}
+                          disabled={isCoolingDown || hasResult}
+                          key={option}
+                          onClick={() => onNumberPick(option)}
+                          type="button"
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {task.numberPickResult && (
+                    <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-semibold text-pink-50">
+                      {task.numberPickResult === "win"
+                        ? `Correct. ${task.reward} Principessa Coins added.`
+                        : `Wrong. Correct number was ${task.numberPickCorrect}.`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {task.kind === "wait-obediently" && (
+                <WaitObedientlyPanel
+                  cooldownRemaining={cooldownRemaining}
+                  formatRemaining={formatRemaining}
+                  isCoolingDown={isCoolingDown}
+                  onComplete={onWaitObedientlyComplete}
+                  onFail={onWaitObedientlyFail}
+                  onStart={onWaitObedientlyStart}
+                  task={task}
+                />
+              )}
+
               {task.kind === "irl-wheel" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
@@ -514,6 +580,179 @@ function ResultCell({ label, value }: { label: string; value: number }) {
     <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
       <p className="mt-1 text-4xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function WaitObedientlyPanel({
+  cooldownRemaining,
+  formatRemaining,
+  isCoolingDown,
+  onComplete,
+  onFail,
+  onStart,
+  task,
+}: {
+  cooldownRemaining: number;
+  formatRemaining: (milliseconds: number) => string;
+  isCoolingDown: boolean;
+  onComplete: () => void;
+  onFail: () => void;
+  onStart: () => void;
+  task: TaskItem;
+}) {
+  const [phase, setPhase] = useState<
+    "ready" | "countdown" | "waiting" | "failed" | "completed"
+  >("ready");
+  const [countdown, setCountdown] = useState(3);
+  const [waitRemaining, setWaitRemaining] = useState(60);
+  const finishedRef = useRef(false);
+
+  const startChallenge = () => {
+    if (isCoolingDown || phase === "countdown" || phase === "waiting") {
+      return;
+    }
+
+    finishedRef.current = false;
+    setCountdown(3);
+    setWaitRemaining(60);
+    setPhase("countdown");
+    onStart();
+  };
+
+  useEffect(() => {
+    if (phase !== "countdown") {
+      return;
+    }
+
+    const countdownEndsAt = Date.now() + 3 * 1000;
+    const interval = window.setInterval(() => {
+      setCountdown(Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000)));
+    }, 200);
+    const timer = window.setTimeout(() => {
+      setWaitRemaining(60);
+      setPhase("waiting");
+    }, 3 * 1000);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timer);
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "waiting") {
+      return;
+    }
+
+    const waitEndsAt = Date.now() + 60 * 1000;
+    const fail = () => {
+      if (finishedRef.current) {
+        return;
+      }
+
+      finishedRef.current = true;
+      setPhase("failed");
+      onFail();
+    };
+    const interval = window.setInterval(() => {
+      setWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
+    }, 250);
+    const timer = window.setTimeout(() => {
+      if (finishedRef.current) {
+        return;
+      }
+
+      finishedRef.current = true;
+      setWaitRemaining(0);
+      setPhase("completed");
+      onComplete();
+    }, 60 * 1000);
+    const events: Array<keyof WindowEventMap> = [
+      "click",
+      "keydown",
+      "mousedown",
+      "mousemove",
+      "scroll",
+      "touchstart",
+      "wheel",
+    ];
+
+    events.forEach((eventName) => {
+      window.addEventListener(eventName, fail);
+    });
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timer);
+      events.forEach((eventName) => {
+        window.removeEventListener(eventName, fail);
+      });
+    };
+  }, [onComplete, onFail, phase]);
+
+  const displayPhase = isCoolingDown && phase === "ready" ? "cooldown" : phase;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+      <p className="text-sm leading-6 text-zinc-400">
+        Press Ready, survive a 3 second countdown, then avoid every input for 1 minute.
+      </p>
+      <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
+        <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+          State
+        </p>
+        <p
+          className={`mt-1 text-2xl font-black ${
+            displayPhase === "completed"
+              ? "text-emerald-200"
+              : displayPhase === "failed"
+                ? "text-rose-200"
+                : displayPhase === "cooldown"
+                  ? "text-yellow-100"
+                  : "text-white"
+          }`}
+        >
+          {displayPhase === "cooldown"
+            ? "Cooldown"
+            : displayPhase === "countdown"
+              ? `Countdown ${countdown}`
+              : displayPhase === "waiting"
+                ? `Waiting ${waitRemaining}s`
+                : displayPhase === "completed"
+                  ? "Completed"
+                  : displayPhase === "failed"
+                    ? "Failed"
+                    : "Ready"}
+        </p>
+        {displayPhase === "cooldown" && (
+          <p className="mt-2 text-sm font-semibold text-pink-100">
+            Available again in {formatRemaining(cooldownRemaining)}
+          </p>
+        )}
+        {phase === "completed" && (
+          <p className="mt-2 text-sm font-semibold text-emerald-100">
+            Stillness rewarded. {task.reward} Principessa Coins added.
+          </p>
+        )}
+        {phase === "failed" && (
+          <p className="mt-2 text-sm font-semibold text-rose-100">
+            Input detected. No reward today.
+          </p>
+        )}
+      </div>
+      <button
+        className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={isCoolingDown || phase === "countdown" || phase === "waiting"}
+        onClick={startChallenge}
+        type="button"
+      >
+        {displayPhase === "cooldown"
+          ? `Available in ${formatRemaining(cooldownRemaining)}`
+          : phase === "countdown" || phase === "waiting"
+            ? "Do Not Move"
+            : "Ready"}
+      </button>
     </div>
   );
 }

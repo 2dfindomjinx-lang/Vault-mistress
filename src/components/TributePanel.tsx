@@ -5,9 +5,9 @@ type TributePanelProps = {
 };
 
 const tributeOptions = [
-  { amount: 25, label: "Velvet Coin Drop", boost: "+1 affection" },
-  { amount: 100, label: "Gilded Offering", boost: "+5 affection" },
-  { amount: 500, label: "Vault Tribute", boost: "+30 affection" },
+  { amount: 50, label: "Velvet Coin Drop", boost: "+1 affection" },
+  { amount: 200, label: "Gilded Offering", boost: "+5 affection" },
+  { amount: 1000, label: "Vault Tribute", boost: "+30 affection" },
 ];
 
 export function TributePanel({ affection, coins, onTribute }: TributePanelProps) {
@@ -67,7 +67,7 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
         </a>
         <p className="mt-4 text-sm leading-6 text-pink-50">
           After supporting on Throne, DM @Principessa2dfd with your app username
-          to receive coins manually. 1 USD = 100 coins.
+          to receive coins manually. 1 USD = 200 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           Coins are fantasy points and are manually granted as supporter
