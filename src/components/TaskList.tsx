@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
+const SACRIFICE_COST = 250;
+const SUPPORT_COST = 1000;
+
 type TaskListProps = {
   coins: number;
+  disabled?: boolean;
   mechanics: MechanicsState;
   tasks: TaskItem[];
   onBeg: () => void;
@@ -13,7 +17,12 @@ type TaskListProps = {
   onNumberPick: (selectedNumber: number) => void;
   onSacrifice: () => void;
   onSupport: () => void;
+  onTimeoutRisk: () => void;
   onTypingProgress: (value: string) => void;
+  timeoutRiskChance: number;
+  timeoutRiskEffectiveDays: number;
+  timeoutRiskMaxDays: number;
+  timeoutRiskReward: number;
   onWaitObedientlyComplete: () => void;
   onWaitObedientlyFail: () => void;
   onWaitObedientlyStart: () => void;
@@ -21,6 +30,7 @@ type TaskListProps = {
 
 export function TaskList({
   coins,
+  disabled = false,
   mechanics,
   onBeg,
   onClaim,
@@ -29,7 +39,12 @@ export function TaskList({
   onNumberPick,
   onSacrifice,
   onSupport,
+  onTimeoutRisk,
   onTypingProgress,
+  timeoutRiskChance,
+  timeoutRiskEffectiveDays,
+  timeoutRiskMaxDays,
+  timeoutRiskReward,
   onWaitObedientlyComplete,
   onWaitObedientlyFail,
   onWaitObedientlyStart,
@@ -57,7 +72,7 @@ export function TaskList({
   }, []);
 
   const handleIrlWheelSpinClick = () => {
-    if (isIrlWheelSpinning) {
+    if (disabled || isIrlWheelSpinning) {
       return;
     }
 
@@ -118,6 +133,8 @@ export function TaskList({
         ? "Cooldown"
         : task.kind === "irl-wheel" && task.assignedIrlTask
           ? "Pending Review"
+          : task.kind === "timeout-risk"
+            ? "Risk"
           : task.kind === "wait-obediently" && task.waitState === "countdown"
             ? "Countdown"
           : task.kind === "wait-obediently" && task.waitState === "waiting"
@@ -148,16 +165,21 @@ export function TaskList({
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
           description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 25 coins."
+          disabled={disabled}
           onAction={onBeg}
           title="Beg"
           now={now}
           formatRemaining={formatRemaining}
         />
         <MechanicCard
-          actionLabel={mechanics.sacrificeComplete ? "Collection Complete" : "Sacrifice 50 Coins"}
+          actionLabel={
+            mechanics.sacrificeComplete
+              ? "Collection Complete"
+              : `Sacrifice ${SACRIFICE_COST} Coins`
+          }
           cooldownUntil={mechanics.sacrificeCooldownUntil}
-          description={`Burn 50 coins for a 50% chance to unlock a hidden Sacrifice Collection image. ${mechanics.sacrificeUnlockedCount}/${mechanics.sacrificeTotal} unlocked.`}
-          disabled={mechanics.sacrificeComplete || coins < 50}
+          description={`Burn ${SACRIFICE_COST} coins for a 50% chance to unlock a hidden Sacrifice Collection image. ${mechanics.sacrificeUnlockedCount}/${mechanics.sacrificeTotal} unlocked.`}
+          disabled={disabled || mechanics.sacrificeComplete || coins < SACRIFICE_COST}
           lastResult={mechanics.sacrificeLastResult}
           onAction={onSacrifice}
           title="Sacrifice"
@@ -165,13 +187,13 @@ export function TaskList({
           formatRemaining={formatRemaining}
         />
         <MechanicCard
-          actionLabel="Support 100 Coins"
+          actionLabel={`Support ${SUPPORT_COST} Coins`}
           description={
             mechanics.supportUnlocked
-              ? "Spend 100 coins for a special dialogue moment. More rewards can be attached later."
+              ? `Spend ${SUPPORT_COST} coins for a special dialogue moment. More rewards can be attached later.`
               : "Unlock every normal and Sacrifice Collection image to open this endgame mechanic."
           }
-          disabled={!mechanics.supportUnlocked || coins < 100}
+          disabled={disabled || !mechanics.supportUnlocked || coins < SUPPORT_COST}
           lastResult={mechanics.supportLastResult}
           onAction={onSupport}
           title="Support"
@@ -182,6 +204,7 @@ export function TaskList({
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {tasks.map((task) => {
+          const isTimeoutRisk = task.kind === "timeout-risk";
           const cooldownRemaining = task.cooldownUntil
             ? new Date(task.cooldownUntil).getTime() - now
             : 0;
@@ -214,6 +237,11 @@ export function TaskList({
                       Available again in {formatRemaining(cooldownRemaining)}
                     </p>
                   )}
+                  {disabled && !isTimeoutRisk && (
+                    <p className="mt-2 text-sm font-semibold text-yellow-100">
+                      Timeout active. This task is locked.
+                    </p>
+                  )}
                 </div>
                 {renderStatus(task, isCoolingDown)}
               </div>
@@ -229,7 +257,7 @@ export function TaskList({
                   </p>
                   <input
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={isCoolingDown || task.completed}
+                    disabled={disabled || isCoolingDown || task.completed}
                     onChange={(event) => {
                       const nextValue = event.target.value;
                       setTypingValue(nextValue);
@@ -244,7 +272,8 @@ export function TaskList({
                   />
                   {task.completed && !task.claimed && (
                     <button
-                      className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
+                      className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={disabled}
                       onClick={() => {
                         setTypingValue("");
                         onClaim(task.id);
@@ -325,13 +354,57 @@ export function TaskList({
                       {task.lastResult}
                     </p>
                   )}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                        Daily Profit
+                      </p>
+                      <p
+                        className={`mt-1 text-lg font-black ${
+                          (task.highLowDailyProfit ?? 0) > 0
+                            ? "text-emerald-200"
+                            : (task.highLowDailyProfit ?? 0) < 0
+                              ? "text-rose-200"
+                              : "text-pink-50"
+                        }`}
+                      >
+                        {(task.highLowDailyProfit ?? 0) > 0 ? "+" : ""}
+                        {task.highLowDailyProfit ?? 0}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                        Wins Today
+                      </p>
+                      <p className="mt-1 text-lg font-black text-pink-50">
+                        {task.highLowDailyWins ?? 0}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                        Lock
+                      </p>
+                      <p
+                        className={`mt-1 text-lg font-black ${
+                          task.highLowDailyLocked ? "text-yellow-100" : "text-emerald-200"
+                        }`}
+                      >
+                        {task.highLowDailyLocked ? "Locked" : "Open"}
+                      </p>
+                    </div>
+                  </div>
+                  {task.highLowDailyLocked && (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                      Daily Higher or Lower win limit reached.
+                    </p>
+                  )}
                   <label className="mt-3 block">
                     <span className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
                       Stake
                     </span>
                     <input
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={isCoolingDown}
+                    disabled={disabled || isCoolingDown || task.highLowDailyLocked}
                       min={1}
                       max={coins}
                       onChange={(event) => setStake(Number(event.target.value))}
@@ -343,7 +416,13 @@ export function TaskList({
                     {(["higher", "lower"] as const).map((guess) => (
                       <button
                       className="rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={isCoolingDown || stake <= 0 || stake > coins}
+                        disabled={
+                          disabled ||
+                          isCoolingDown ||
+                          task.highLowDailyLocked ||
+                          stake <= 0 ||
+                          stake > coins
+                        }
                         key={guess}
                         onClick={() => onHighLowPlay(guess, stake)}
                         type="button"
@@ -375,7 +454,7 @@ export function TaskList({
                                 ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
                                 : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
                           }`}
-                          disabled={isCoolingDown || hasResult}
+                          disabled={disabled || isCoolingDown || hasResult}
                           key={option}
                           onClick={() => onNumberPick(option)}
                           type="button"
@@ -400,11 +479,54 @@ export function TaskList({
                   cooldownRemaining={cooldownRemaining}
                   formatRemaining={formatRemaining}
                   isCoolingDown={isCoolingDown}
+                  isGloballyDisabled={disabled}
                   onComplete={onWaitObedientlyComplete}
                   onFail={onWaitObedientlyFail}
                   onStart={onWaitObedientlyStart}
                   task={task}
                 />
+              )}
+
+              {task.kind === "timeout-risk" && (
+                <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
+                  <p className="text-sm leading-6 text-zinc-300">
+                    Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
+                    to receive +1 day timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
+                    chance to win {timeoutRiskReward} Principessa Coins.
+                  </p>
+                  {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                      Current timeout:{" "}
+                      {formatRemaining(new Date(task.timeoutUntil).getTime() - now)}
+                    </p>
+                  )}
+                  <p className="mt-3 text-xs leading-5 text-zinc-500">
+                    Partial remaining days count as full days. Maximum effective timeout is{" "}
+                    {timeoutRiskMaxDays} days.
+                  </p>
+                  {task.lastResult && (
+                    <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
+                      {task.lastResult}
+                    </p>
+                  )}
+                  {task.completed && (
+                    <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                      Daily safe win limit reached. Come back tomorrow.
+                    </p>
+                  )}
+                  <button
+                    className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={task.completed || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                    onClick={onTimeoutRisk}
+                    type="button"
+                  >
+                    {task.completed
+                      ? "Daily limit reached"
+                      : timeoutRiskEffectiveDays >= timeoutRiskMaxDays
+                      ? "Maximum timeout reached."
+                      : "Attempt Risk"}
+                  </button>
+                </div>
               )}
 
               {task.kind === "irl-wheel" && (
@@ -468,6 +590,7 @@ export function TaskList({
                     className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={
                       isIrlWheelSpinning ||
+                      disabled ||
                       coins < IRL_TASK_WHEEL_COST ||
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
@@ -487,7 +610,7 @@ export function TaskList({
               {task.kind === "claim" && (
                 <button
                   className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={!isClaimable}
+                  disabled={disabled || !isClaimable}
                   onClick={() => onClaim(task.id)}
                   type="button"
                 >
@@ -587,6 +710,7 @@ function ResultCell({ label, value }: { label: string; value: number }) {
 function WaitObedientlyPanel({
   cooldownRemaining,
   formatRemaining,
+  isGloballyDisabled,
   isCoolingDown,
   onComplete,
   onFail,
@@ -595,6 +719,7 @@ function WaitObedientlyPanel({
 }: {
   cooldownRemaining: number;
   formatRemaining: (milliseconds: number) => string;
+  isGloballyDisabled: boolean;
   isCoolingDown: boolean;
   onComplete: () => void;
   onFail: () => void;
@@ -609,7 +734,7 @@ function WaitObedientlyPanel({
   const finishedRef = useRef(false);
 
   const startChallenge = () => {
-    if (isCoolingDown || phase === "countdown" || phase === "waiting") {
+    if (isGloballyDisabled || isCoolingDown || phase === "countdown" || phase === "waiting") {
       return;
     }
 
@@ -741,9 +866,16 @@ function WaitObedientlyPanel({
           </p>
         )}
       </div>
+      {isGloballyDisabled && (
+        <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+          Timeout active. Waiting challenge is locked.
+        </p>
+      )}
       <button
         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={isCoolingDown || phase === "countdown" || phase === "waiting"}
+        disabled={
+          isGloballyDisabled || isCoolingDown || phase === "countdown" || phase === "waiting"
+        }
         onClick={startChallenge}
         type="button"
       >

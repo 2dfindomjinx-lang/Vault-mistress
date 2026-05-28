@@ -5,6 +5,7 @@ import type { GalleryItem, GalleryRarity } from "@/lib/types";
 type GalleryGridProps = {
   items: GalleryItem[];
   coins: number;
+  disabled?: boolean;
   mood: number;
   onUnlock: (itemId: string) => void;
 };
@@ -19,7 +20,13 @@ const rarityStyles: Record<GalleryRarity, string> = {
   Sacrifice: "border-red-200/60 text-red-100 shadow-[0_0_22px_rgba(248,113,113,0.22)]",
 };
 
-export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) {
+export function GalleryGrid({
+  coins,
+  disabled = false,
+  items,
+  mood,
+  onUnlock,
+}: GalleryGridProps) {
   const hasSecret = items.some((item) => item.rarity === "Secret");
   const hasSacrifice = items.some((item) => item.rarity === "Sacrifice");
   const [filter, setFilter] = useState<GalleryFilter>("All");
@@ -52,7 +59,9 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
           </p>
           <h2 className="text-3xl font-black">The Vault Gallery</h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Common cards use coins. Rare and Divine cards obey Principessa&apos;s mood.
+            {disabled
+              ? "Timeout is active. Gallery unlocks are locked until the timer ends."
+              : "Common cards use coins. Rare and Divine cards obey Principessa's mood."}
           </p>
         </div>
         <div className="text-sm text-zinc-400">
@@ -90,6 +99,8 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
             : `Requires Mood ${item.moodRequired}`;
           const buttonText = item.unlocked
             ? "Unlocked"
+            : disabled && isCommon
+              ? "Timeout Active"
             : isCommon
               ? canAfford
                 ? `Unlock — ${item.unlockCost} coins`
@@ -153,7 +164,7 @@ export function GalleryGrid({ coins, items, mood, onUnlock }: GalleryGridProps) 
                         ? "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_0_22px_rgba(236,72,153,0.35)]"
                         : "border border-white/10 bg-white/[0.04] text-zinc-400"
                   }`}
-                  disabled={item.unlocked || !isCommon || !canAfford}
+                  disabled={disabled || item.unlocked || !isCommon || !canAfford}
                   onClick={() => onUnlock(item.id)}
                   type="button"
                 >

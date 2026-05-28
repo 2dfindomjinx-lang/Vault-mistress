@@ -36,9 +36,9 @@ export function FloatingDefneBubble({
   }, [message, onBubbleFullyHidden]);
 
   return (
-    <aside className="fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-end gap-5 sm:bottom-6 sm:right-6 sm:max-w-2xl">
+    <aside className="fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-4 sm:bottom-6 sm:right-6 sm:max-w-3xl sm:gap-5">
       <div
-        className={`rounded-[2rem] border border-pink-200/30 bg-black/80 px-6 py-5 text-lg leading-8 text-pink-50 shadow-[0_0_44px_rgba(236,72,153,0.34)] backdrop-blur transition-opacity duration-[2000ms] ${
+        className={`flex min-h-24 items-center rounded-[2rem] border border-pink-200/30 bg-black/80 px-6 py-5 text-xl font-semibold leading-8 text-pink-50 shadow-[0_0_44px_rgba(236,72,153,0.34)] backdrop-blur transition-opacity duration-[2000ms] sm:min-h-28 sm:px-7 sm:py-6 sm:text-2xl sm:leading-9 ${
           bubbleVisible ? "opacity-100" : "opacity-0"
         }`}
       >

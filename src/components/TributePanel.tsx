@@ -1,16 +1,22 @@
 type TributePanelProps = {
   affection: number;
   coins: number;
+  disabled?: boolean;
   onTribute: (amount: number) => void;
 };
 
 const tributeOptions = [
-  { amount: 50, label: "Velvet Coin Drop", boost: "+1 affection" },
-  { amount: 200, label: "Gilded Offering", boost: "+5 affection" },
-  { amount: 1000, label: "Vault Tribute", boost: "+30 affection" },
+  { amount: 250, label: "Velvet Coin Drop", boost: "+1 affection" },
+  { amount: 1000, label: "Gilded Offering", boost: "+5 affection" },
+  { amount: 5000, label: "Vault Tribute", boost: "+30 affection" },
 ];
 
-export function TributePanel({ affection, coins, onTribute }: TributePanelProps) {
+export function TributePanel({
+  affection,
+  coins,
+  disabled = false,
+  onTribute,
+}: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
   return (
@@ -31,7 +37,7 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
         {tributeOptions.map((option) => (
           <button
             className="group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={isMaxAffection || coins < option.amount}
+            disabled={disabled || isMaxAffection || coins < option.amount}
             key={option.amount}
             onClick={() => onTribute(option.amount)}
             type="button"
@@ -53,6 +59,8 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
       <p className="mt-5 text-sm leading-6 text-zinc-400">
         {isMaxAffection
           ? "Principessa's mood is already at its peak. Tribute is locked until a future prestige system exists."
+          : disabled
+            ? "Timeout is active. Tribute actions are locked until the timer ends."
           : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
       </p>
 
@@ -67,7 +75,7 @@ export function TributePanel({ affection, coins, onTribute }: TributePanelProps)
         </a>
         <p className="mt-4 text-sm leading-6 text-pink-50">
           After supporting on Throne, DM @Principessa2dfd with your app username
-          to receive coins manually. 1 USD = 200 coins.
+          to receive coins manually. 1 USD = 1000 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           Coins are fantasy points and are manually granted as supporter

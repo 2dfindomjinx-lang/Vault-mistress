@@ -20,6 +20,7 @@ export type TaskItem = {
     | "high-low"
     | "number-pick"
     | "wait-obediently"
+    | "timeout-risk"
     | "irl-task-wheel"
     | "affection"
     | "affection-80";
@@ -33,11 +34,16 @@ export type TaskItem = {
     | "high-low"
     | "number-pick"
     | "wait-obediently"
+    | "timeout-risk"
     | "irl-wheel";
   cooldownUntil?: string | null;
   attemptsRemaining?: number;
   sentence?: string;
   currentNumber?: number;
+  highLowDailyDate?: string | null;
+  highLowDailyLocked?: boolean;
+  highLowDailyProfit?: number;
+  highLowDailyWins?: number;
   lastResult?: string | null;
   nextBaseRevealAt?: string | null;
   resultBaseNumber?: number;

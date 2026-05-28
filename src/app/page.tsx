@@ -29,7 +29,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-velvet-arrival",
     title: "Dollar Rain",
     rarity: "Common",
-    unlockCost: 75,
+    unlockCost: 300,
     tag: "Pole Dancer",
     image: "/gallery/common-1.png",
     unlocked: false,
@@ -38,7 +38,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-midnight-maid",
     title: "Leather Eclipse",
     rarity: "Common",
-    unlockCost: 75,
+    unlockCost: 300,
     tag: "Rebel",
     image: "/gallery/common-2.png",
     unlocked: false,
@@ -47,7 +47,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-executive-glare",
     title: "Golden Seductress",
     rarity: "Common",
-    unlockCost: 75,
+    unlockCost: 300,
     tag: "Gorgeous",
     image: "/gallery/common-3.png",
     unlocked: false,
@@ -56,7 +56,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-rose-vault",
     title: "Silk & Vintage",
     rarity: "Common",
-    unlockCost: 75,
+    unlockCost: 300,
     tag: "Pantyhose",
     image: "/gallery/common-4.png",
     unlocked: false,
@@ -186,6 +186,27 @@ type UserIrlTaskRow = {
 const profileSelect =
   "id, username, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, timeout_until, created_at, updated_at";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_TIMEOUT_DAYS = 3;
+const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
+const SAFE_REWARD = 25;
+const SACRIFICE_COST = 250;
+const SUPPORT_COST = 1000;
+const TIMEOUT_RISK_CHANCE = 0.2;
+const HIGH_LOW_PROFIT_LOCK = 1000;
+const HIGH_LOW_PROFIT_LOCK_MIN_WINS = 2;
+const HIGH_LOW_LOW_PROFIT_WIN_LOCK = 5;
+const BASE_NUMBER_WEIGHTS = [
+  { value: 2, weight: 1 },
+  { value: 3, weight: 2 },
+  { value: 4, weight: 4 },
+  { value: 5, weight: 5 },
+  { value: 6, weight: 4 },
+  { value: 7, weight: 2 },
+  { value: 8, weight: 1 },
+  { value: 9, weight: 1 },
+];
+
 const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
@@ -221,12 +242,12 @@ const startingTasks: TaskItem[] = [
     kind: "number-pick",
   },
   {
-    id: "wait-obediently",
-    title: "Wait Obediently",
-    reward: 25,
+    id: "timeout-risk",
+    title: "Risk My Freedom",
+    reward: SAFE_REWARD,
     completed: false,
     claimed: false,
-    kind: "wait-obediently",
+    kind: "timeout-risk",
   },
   {
     id: "irl-task-wheel",
@@ -235,6 +256,14 @@ const startingTasks: TaskItem[] = [
     completed: false,
     claimed: false,
     kind: "irl-wheel",
+  },
+  {
+    id: "wait-obediently",
+    title: "Wait Obediently",
+    reward: 25,
+    completed: false,
+    claimed: false,
+    kind: "wait-obediently",
   },
   {
     id: "affection",
@@ -451,6 +480,37 @@ function getCooldownUntil(value: string | null, milliseconds: number) {
   return new Date(cooldownEndsAt).toISOString();
 }
 
+function getEffectiveTimeoutDays(timeoutValue: string | null, now = Date.now()) {
+  if (!timeoutValue) {
+    return 0;
+  }
+
+  const remainingMs = new Date(timeoutValue).getTime() - now;
+
+  if (remainingMs <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(remainingMs / DAY_MS);
+}
+
+function formatDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${seconds}s`;
+}
+
 function randomFrom<T>(items: T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
@@ -465,7 +525,29 @@ function randomHighLowNumber() {
 }
 
 function randomHighLowDisplayNumber() {
-  return Math.floor(Math.random() * 8) + 2;
+  const totalWeight = BASE_NUMBER_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const entry of BASE_NUMBER_WEIGHTS) {
+    roll -= entry.weight;
+
+    if (roll <= 0) {
+      return entry.value;
+    }
+  }
+
+  return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
+}
+
+function getDailyKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isHighLowLocked(dailyProfit: number, dailyWins: number) {
+  return (
+    (dailyProfit >= HIGH_LOW_PROFIT_LOCK && dailyWins >= HIGH_LOW_PROFIT_LOCK_MIN_WINS) ||
+    (dailyProfit < HIGH_LOW_PROFIT_LOCK && dailyWins >= HIGH_LOW_LOW_PROFIT_WIN_LOCK)
+  );
 }
 
 function generateNumberPickOptions(seed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))) {
@@ -566,6 +648,16 @@ function buildTasksFromRows(
 
     if (task.id === "high-low") {
       const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
+      const dailyDate = getTaskMetadataString(row?.metadata, "higherLowerDailyDate");
+      const today = getDailyKey();
+      const dailyProfit =
+        dailyDate === today
+          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
+          : 0;
+      const dailyWins =
+        dailyDate === today
+          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0)
+          : 0;
 
       return {
         ...task,
@@ -573,6 +665,10 @@ function buildTasksFromRows(
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
+        highLowDailyDate: today,
+        highLowDailyLocked: isHighLowLocked(dailyProfit, dailyWins),
+        highLowDailyProfit: dailyProfit,
+        highLowDailyWins: dailyWins,
       };
     }
 
@@ -615,6 +711,20 @@ function buildTasksFromRows(
         waitCountdownEndsAt: getTaskMetadataString(row?.metadata, "countdownEndsAt"),
         waitEndsAt: getTaskMetadataString(row?.metadata, "waitEndsAt"),
         waitState,
+      };
+    }
+
+    if (task.id === "timeout-risk") {
+      const resetAt = getTaskMetadataString(row?.metadata, "resetAt");
+      const safeWins = resetAt && new Date(resetAt).getTime() > Date.now()
+        ? getTaskMetadataNumber(row?.metadata, "safeWins", 0)
+        : 0;
+
+      return {
+        ...task,
+        completed: safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+        lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
+        timeoutUntil,
       };
     }
 
@@ -719,6 +829,8 @@ export default function Home() {
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
   const [fullyHiddenBubbleMessage, setFullyHiddenBubbleMessage] = useState("");
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
@@ -773,6 +885,22 @@ export default function Home() {
     (spentCoins: number) => tributeTotal + Math.max(0, spentCoins),
     [tributeTotal],
   );
+  const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
+  const isTimeoutActive = timeoutRemaining > 0;
+  const effectiveTimeoutDays = currentTime > 0
+    ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
+    : 0;
+  const timeoutMessage =
+    "You are in timeout. Vault actions are locked until the timer ends. You can support $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
+
+  const blockIfTimedOut = () => {
+    if (!isTimeoutActive) {
+      return false;
+    }
+
+    setMistressReply("Timeout is active. The vault is locked.");
+    return true;
+  };
 
   useEffect(() => {
     coinsRef.current = coins;
@@ -782,6 +910,16 @@ export default function Home() {
     if (highLowRefreshTimerRef.current !== null) {
       window.clearTimeout(highLowRefreshTimerRef.current);
     }
+  }, []);
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => setCurrentTime(Date.now()), 0);
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const handleBubbleFullyHidden = useCallback((hiddenMessage: string) => {
@@ -1060,6 +1198,7 @@ export default function Home() {
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    setTimeoutUntil(profile.timeout_until ?? null);
     setIsLoggedIn(true);
     const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
     setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
@@ -1279,6 +1418,41 @@ export default function Home() {
     }
     return data;
   }, [applyProfileStats, loadLeadershipTop]);
+
+  const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Failed to get authenticated user for timeout update", userError);
+      throw userError;
+    }
+
+    if (!userData.user) {
+      throw new Error("Not authenticated");
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        timeout_until: nextTimeoutUntil,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userData.user.id)
+      .select(profileSelect)
+      .single();
+
+    if (error) {
+      console.error("Failed to persist timeout", error);
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error("Timeout update returned no profile.");
+    }
+
+    applyProfileStats(data as Profile);
+    return data as Profile;
+  }, [applyProfileStats]);
 
   const persistTaskCompletion = useCallback((taskId: string) => {
     if (!authUserId) {
@@ -1519,6 +1693,10 @@ export default function Home() {
   };
 
   const handleTypingProgress = async (value: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = tasks.find((entry) => entry.id === "typing-accuracy");
     const typingCooldownActive =
       Boolean(task?.cooldownUntil) &&
@@ -1630,12 +1808,20 @@ export default function Home() {
     guess: "higher" | "lower",
     stake: number,
   ) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = tasks.find((entry) => entry.id === "high-low");
     const highLowCooldownActive =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+    const highLowLocked = Boolean(task?.highLowDailyLocked);
 
-    if (!task || highLowCooldownActive || !authUserId) {
+    if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
+      if (highLowLocked) {
+        setMistressReply("Daily Higher or Lower win limit reached.");
+      }
       return;
     }
 
@@ -1663,6 +1849,15 @@ export default function Home() {
     const coinDelta = outcome === "win" ? stake : outcome === "loss" ? -stake : 0;
     const nextCoins = currentCoins + coinDelta;
     const now = new Date().toISOString();
+    const today = getDailyKey();
+    const currentDailyDate = task.highLowDailyDate === today ? task.highLowDailyDate : today;
+    const currentDailyProfit =
+      task.highLowDailyDate === today ? task.highLowDailyProfit ?? 0 : 0;
+    const currentDailyWins =
+      task.highLowDailyDate === today ? task.highLowDailyWins ?? 0 : 0;
+    const nextDailyProfit = currentDailyProfit + coinDelta;
+    const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
+    const nextDailyLocked = isHighLowLocked(nextDailyProfit, nextDailyWins);
     const nextBaseRevealAt = new Date(Date.now() + 10 * 1000).toISOString();
     const lastResult =
       outcome === "tie"
@@ -1682,7 +1877,11 @@ export default function Home() {
           completed_at: now,
           claimed_at: now,
           reward_coins: coinDelta,
-          metadata: {},
+          metadata: {
+            higherLowerDailyDate: currentDailyDate,
+            higherLowerDailyProfit: nextDailyProfit,
+            higherLowerDailyWins: nextDailyWins,
+          },
         },
         { onConflict: "user_id,task_id" },
       );
@@ -1701,6 +1900,10 @@ export default function Home() {
                 completed: true,
                 claimed: true,
                 currentNumber,
+                highLowDailyDate: currentDailyDate,
+                highLowDailyLocked: nextDailyLocked,
+                highLowDailyProfit: nextDailyProfit,
+                highLowDailyWins: nextDailyWins,
                 lastResult,
                 nextBaseRevealAt,
                 resultBaseNumber: currentNumber,
@@ -1728,6 +1931,10 @@ export default function Home() {
   };
 
   const handleNumberPick = async (selectedNumber: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = tasks.find((entry) => entry.id === "number-pick");
     const isCoolingDown =
       Boolean(task?.cooldownUntil) &&
@@ -1811,6 +2018,10 @@ export default function Home() {
   };
 
   const handleWaitObedientlyStart = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = tasks.find((entry) => entry.id === "wait-obediently");
     const isCoolingDown =
       Boolean(task?.cooldownUntil) &&
@@ -1969,7 +2180,150 @@ export default function Home() {
     }
   };
 
+  const handleTimeoutRisk = async () => {
+    if (!authUserId) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    const activeTimeoutUntil = timeoutUntil && new Date(timeoutUntil).getTime() > nowMs
+      ? timeoutUntil
+      : null;
+    const effectiveDays = getEffectiveTimeoutDays(activeTimeoutUntil, nowMs);
+
+    if (effectiveDays >= MAX_TIMEOUT_DAYS) {
+      setMistressReply("Maximum timeout reached. The risk table refuses you.");
+      return;
+    }
+
+    const hitTimeout = Math.random() < TIMEOUT_RISK_CHANCE;
+
+    try {
+      const { data: existingTask, error: readError } = await supabase
+        .from("user_tasks")
+        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+        .eq("user_id", authUserId)
+        .eq("task_id", "timeout-risk")
+        .maybeSingle();
+
+      if (readError) {
+        console.error("Failed to read timeout-risk task", readError);
+        throw readError;
+      }
+
+      const resetAt = getTaskMetadataString(existingTask?.metadata, "resetAt");
+      const dailyWindowActive = Boolean(resetAt && new Date(resetAt).getTime() > Date.now());
+      const currentSafeWins = dailyWindowActive
+        ? getTaskMetadataNumber(existingTask?.metadata, "safeWins", 0)
+        : 0;
+
+      if (currentSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
+        setMistressReply("You already survived twice today. The risk table is closed.");
+        return;
+      }
+
+      if (hitTimeout) {
+        const baseMs = activeTimeoutUntil
+          ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
+          : nowMs;
+        const nextTimeoutUntil = new Date(baseMs + DAY_MS).toISOString();
+        const now = new Date().toISOString();
+
+        await persistTimeoutUntil(nextTimeoutUntil);
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: "timeout-risk",
+            completed_at: now,
+            claimed_at: existingTask?.claimed_at ?? null,
+            reward_coins: 0,
+            metadata: {
+              ...(existingTask?.metadata ?? {}),
+              lastResult: "timeout",
+              resetAt: dailyWindowActive ? resetAt : new Date(Date.now() + DAY_MS).toISOString(),
+              safeWins: currentSafeWins,
+            },
+          },
+          { onConflict: "user_id,task_id" },
+        );
+
+        if (error) {
+          console.error("Failed to persist timeout-risk timeout result", error);
+          throw error;
+        }
+
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === "timeout-risk"
+              ? {
+                  ...entry,
+                  lastResult: "Timeout hit. +1 day added.",
+                  timeoutUntil: nextTimeoutUntil,
+                }
+              : entry.id === "irl-task-wheel"
+                ? { ...entry, timeoutUntil: nextTimeoutUntil }
+              : entry,
+          ),
+        );
+        setMistressReply("Bad roll. One day of timeout has been added.");
+        return;
+      }
+
+      await persistProfileProgress(
+        { coins: coinsRef.current + SAFE_REWARD, affection },
+        "task:timeout-risk",
+      );
+      recordCoinTransaction(SAFE_REWARD, "task:timeout-risk");
+      const nextSafeWins = currentSafeWins + 1;
+      const nextResetAt = dailyWindowActive
+        ? resetAt
+        : new Date(Date.now() + DAY_MS).toISOString();
+      const { error } = await supabase.from("user_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: "timeout-risk",
+          completed_at: new Date().toISOString(),
+          claimed_at: existingTask?.claimed_at ?? null,
+          reward_coins: SAFE_REWARD,
+          metadata: {
+            ...(existingTask?.metadata ?? {}),
+            lastResult: "safe",
+            resetAt: nextResetAt,
+            safeWins: nextSafeWins,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist timeout-risk safe result", error);
+        throw error;
+      }
+
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === "timeout-risk"
+            ? {
+                ...entry,
+                completed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+                lastResult: `Safe wins today: ${nextSafeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
+              }
+            : entry,
+        ),
+      );
+      setMistressReply(`Safe roll. ${SAFE_REWARD} coins added.`);
+    } catch (error) {
+      console.error("Failed to complete timeout-risk task", error);
+      setAuthError(describeError(error));
+      setMistressReply("The risk ledger failed. Try again.");
+    }
+  };
+
   const handleIrlTaskSpin = async (wheelIndex: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!authUserId) {
       return;
     }
@@ -1993,7 +2347,7 @@ export default function Home() {
     const currentCoins = coinsRef.current;
 
     if (currentCoins < IRL_TASK_WHEEL_COST) {
-      setMistressReply("The wheel costs 1000 coins. Come back richer.");
+      setMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
       return;
     }
 
@@ -2057,6 +2411,10 @@ export default function Home() {
   };
 
   const handleBeg = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!authUserId) {
       return;
     }
@@ -2117,6 +2475,10 @@ export default function Home() {
   };
 
   const handleSacrifice = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!authUserId || displayMechanics.sacrificeComplete) {
       return;
     }
@@ -2129,8 +2491,10 @@ export default function Home() {
       return;
     }
 
-    if (coinsRef.current < 50) {
-      setMistressReply("The sacrifice requires 50 coins. Principessa is not impressed.");
+    if (coinsRef.current < SACRIFICE_COST) {
+      setMistressReply(
+        `The sacrifice requires ${SACRIFICE_COST} coins. Principessa is not impressed.`,
+      );
       return;
     }
 
@@ -2150,8 +2514,8 @@ export default function Home() {
     const now = new Date().toISOString();
     const won = Math.random() < 0.5;
     const unlockedItem = won ? randomFrom(remainingItems) : null;
-    const nextCoins = coinsRef.current - 50;
-    const nextTributeTotal = getNextTributeTotal(50);
+    const nextCoins = coinsRef.current - SACRIFICE_COST;
+    const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
     const lastResult = unlockedItem
       ? `Unlocked ${unlockedItem.title}.`
       : "The offering burned away.";
@@ -2161,7 +2525,7 @@ export default function Home() {
         { coins: nextCoins, affection, tribute_total: nextTributeTotal },
         "sacrifice",
       );
-      recordCoinTransaction(-50, "mechanic:sacrifice");
+      recordCoinTransaction(-SACRIFICE_COST, "mechanic:sacrifice");
 
       if (unlockedItem) {
         await persistGalleryUnlocks([unlockedItem.id]);
@@ -2209,12 +2573,16 @@ export default function Home() {
   };
 
   const handleSupport = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!authUserId || !displayMechanics.supportUnlocked) {
       return;
     }
 
-    if (coinsRef.current < 100) {
-      setMistressReply("Support costs 100 coins. The vault waits.");
+    if (coinsRef.current < SUPPORT_COST) {
+      setMistressReply(`Support costs ${SUPPORT_COST} coins. The vault waits.`);
       return;
     }
 
@@ -2224,20 +2592,20 @@ export default function Home() {
     try {
       await persistProfileProgress(
         {
-          coins: coinsRef.current - 100,
+          coins: coinsRef.current - SUPPORT_COST,
           affection,
-          tribute_total: getNextTributeTotal(100),
+          tribute_total: getNextTributeTotal(SUPPORT_COST),
         },
         "support",
       );
-      recordCoinTransaction(-100, "mechanic:support");
+      recordCoinTransaction(-SUPPORT_COST, "mechanic:support");
 
       const { error } = await supabase.from("user_tasks").upsert(
         {
           user_id: authUserId,
           task_id: "support",
           completed_at: now,
-          reward_coins: -100,
+          reward_coins: -SUPPORT_COST,
           metadata: {
             lastUsedAt: now,
             lastResult: message,
@@ -2316,6 +2684,10 @@ export default function Home() {
   };
 
   const handleTribute = async (amount: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (affection >= 100) {
       setMistressReply(
         "My mood is already at its peak. Your coins can wait.",
@@ -2333,9 +2705,9 @@ export default function Home() {
     }
 
     const tributeGains: Record<number, number> = {
-      50: 1,
-      200: 5,
-      1000: 30,
+      250: 1,
+      1000: 5,
+      5000: 30,
     };
     const affectionGain = tributeGains[amount] ?? 0;
 
@@ -2368,15 +2740,19 @@ export default function Home() {
       completeTask("affection-80");
     }
     setMistressReply(
-      amount >= 500
+      amount >= 5000
         ? "You emptied a big part of your wallet. I like this level of desperation."
-        : amount >= 200
+        : amount >= 1000
           ? "Pathetic. You call that a tribute?"
           : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
   };
 
   const handleUnlock = async (itemId: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const item = visibleGalleryItems.find((entry) => entry.id === itemId);
 
     if (!item || item.rarity !== "Common" || unlockedGalleryIds.includes(item.id)) {
@@ -2385,7 +2761,7 @@ export default function Home() {
 
     const currentCoins = coinsRef.current;
 
-    const unlockCost = item.unlockCost ?? 75;
+    const unlockCost = item.unlockCost ?? 300;
 
     if (currentCoins < unlockCost) {
       setMistressReply(
@@ -2426,6 +2802,10 @@ export default function Home() {
   };
 
   const handleClaimTask = async (taskId: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = tasks.find((entry) => entry.id === taskId);
 
     if (!task) {
@@ -2551,6 +2931,29 @@ export default function Home() {
           </div>
         </header>
 
+        {isTimeoutActive && (
+          <section className="rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(250,204,21,0.14)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-100">
+                  Timeout Active
+                </p>
+                <p className="mt-2 text-sm leading-6 text-yellow-50">
+                  {timeoutMessage}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-yellow-100/70">
+                  Time Remaining
+                </p>
+                <p className="mt-1 text-2xl font-black text-yellow-50">
+                  {formatDuration(timeoutRemaining)}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
           <div className="flex flex-col gap-6">
             <CharacterCard
@@ -2603,6 +3006,7 @@ export default function Home() {
             <TributePanel
               affection={affection}
               coins={coins}
+              disabled={isTimeoutActive}
               onTribute={handleTribute}
             />
           )}
@@ -2610,6 +3014,7 @@ export default function Home() {
             <GalleryGrid
               items={visibleGallery}
               coins={coins}
+              disabled={isTimeoutActive}
               mood={affection}
               onUnlock={handleUnlock}
             />
@@ -2617,6 +3022,7 @@ export default function Home() {
           {activePanel === "tasks" && (
             <TaskList
               coins={coins}
+              disabled={isTimeoutActive}
               mechanics={displayMechanics}
               tasks={tasks}
               onBeg={handleBeg}
@@ -2626,7 +3032,12 @@ export default function Home() {
               onNumberPick={handleNumberPick}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
+              onTimeoutRisk={handleTimeoutRisk}
               onTypingProgress={handleTypingProgress}
+              timeoutRiskChance={TIMEOUT_RISK_CHANCE}
+              timeoutRiskEffectiveDays={effectiveTimeoutDays}
+              timeoutRiskMaxDays={MAX_TIMEOUT_DAYS}
+              timeoutRiskReward={SAFE_REWARD}
               onWaitObedientlyComplete={handleWaitObedientlyComplete}
               onWaitObedientlyFail={handleWaitObedientlyFail}
               onWaitObedientlyStart={handleWaitObedientlyStart}
