@@ -7,6 +7,10 @@ import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { LoginScreen } from "@/components/LoginScreen";
+import {
+  RecentTributesTicker,
+  type RecentTribute,
+} from "@/components/RecentTributesTicker";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TributePanel } from "@/components/TributePanel";
@@ -18,6 +22,7 @@ import {
 } from "@/lib/irl-task-wheel";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import {
+  profileAvatarFromUser,
   profileUsernameFromUser,
   supabase,
   type Profile,
@@ -45,7 +50,7 @@ const visibleGalleryItems: GalleryItem[] = [
   },
   {
     id: "common-executive-glare",
-    title: "Golden Seductress",
+    title: "Golden Lust",
     rarity: "Common",
     unlockCost: 300,
     tag: "Gorgeous",
@@ -199,11 +204,11 @@ const HIGH_LOW_LOW_PROFIT_WIN_LOCK = 5;
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
   { value: 3, weight: 2 },
-  { value: 4, weight: 4 },
-  { value: 5, weight: 5 },
+  { value: 4, weight: 3 },
+  { value: 5, weight: 4 },
   { value: 6, weight: 4 },
-  { value: 7, weight: 2 },
-  { value: 8, weight: 1 },
+  { value: 7, weight: 3 },
+  { value: 8, weight: 2 },
   { value: 9, weight: 1 },
 ];
 
@@ -317,12 +322,25 @@ const typingSentencePool = [
   "I confess that I am inferior, useless, and completely pathetic in every way before Principessa.",
   "I am a pathetic loser with a tiny useless dick who admits that I can never satisfy a woman and deserve only humiliation from Principessa.",
   "I beg Principessa to laugh at my tiny useless cock while I stroke it shamefully in front of her.",
+  "My wallet exists solely for Principessa to use and destroy as she pleases.",
+  "Principessa owns every cent I have and every shred of my dignity.",
+  "I get painfully hard knowing Principessa is ruining me financially.",
+  "Being used as Principessa’s personal cash cow is my highest purpose.",
+  "My tiny useless cock throbs only when Principessa drains my account.",
+  "I leak like a desperate loser while Principessa ruins my finances.",
+  "I’m a leaking paypig whose tiny cock drips for every dollar Principessa steals.",
+  "Every time I send to Principessa, my small dick leaks in complete submission.",
 ];
 
 const dailyTeases = [
   "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
   "Want my attention? Pay for it. Principessa doesn’t waste time on broke boys.",
   "Losers like you don’t need savings. They need a Superior Woman to control them.",
+  "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
+  "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
+  "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
+  "Real men provide. Losers like you just leak and send. Get draining, paypig.",
+  "Your savings are cute. They’d look much better in my account.",
 ];
 
 const affectionMoodLines = [
@@ -378,6 +396,23 @@ const idleMistressLines = [
   "What a weakling you are.",
   "Send.",
   "Your dick is useless, pay instead.",
+  "Empty your wallet now.",
+  "Leak and send.",
+  "Still waiting? Cute.",
+  "Born to be drained.",
+  "Still not sending? Boring.",
+  "I’m waiting, loser.",
+  "Try harder, worm.",
+  "Tiny dick energy. Send more.",
+  "That pathetic cock leaks, but your wallet better too.",
+  "Losers with small dicks pay double.",
+  "I love ruining boys like you.",
+  "Begging looks good on you.",
+  "Financially destroy yourself for me.",
+  "Send before I ignore you.",
+  "Weak, broke, and addicted.",
+  "Good boys go broke.",
+  "Feel that shame and send.",
 ];
 
 const begIgnoredLines = [
@@ -837,6 +872,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
+  const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
@@ -892,7 +928,7 @@ export default function Home() {
     ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
     : 0;
   const timeoutMessage =
-    "You are in timeout. Vault actions are locked until the timer ends. You can support $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
+    "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
 
   const blockIfTimedOut = () => {
     const activeTimeout = timeoutUntilRef.current;
@@ -902,7 +938,7 @@ export default function Home() {
       return false;
     }
 
-    setMistressReply("Timeout is active. The vault is locked.");
+    setMistressReply("Timeout active. Stay denied like the pathetic loser you are or pay to unlock.");
     return true;
   };
 
@@ -987,6 +1023,24 @@ export default function Home() {
     });
   }, [authUserId]);
 
+  const loadRecentTributes = useCallback(async () => {
+    try {
+      const response = await fetch("/api/recent-tributes", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        tributes?: RecentTribute[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Recent tribute ticker failed.");
+      }
+
+      setRecentTributes(result.tributes ?? []);
+    } catch (error) {
+      console.error("Failed to load recent tributes", error);
+    }
+  }, []);
+
   const loadLeadershipTop = useCallback(async () => {
     try {
       const response = await fetch("/api/leadership/top", {
@@ -1066,6 +1120,29 @@ export default function Home() {
       window.clearTimeout(immediateTimer);
     };
   }, [isAdminUser, isLoggedIn, loadPendingIrlReviewCount]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const initialTimer = window.setTimeout(() => {
+      void loadRecentTributes();
+    }, 0);
+
+    const refreshRecentTributes = () => {
+      void loadRecentTributes();
+    };
+
+    window.addEventListener("focus", refreshRecentTributes);
+    window.addEventListener("storage", refreshRecentTributes);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.removeEventListener("focus", refreshRecentTributes);
+      window.removeEventListener("storage", refreshRecentTributes);
+    };
+  }, [isLoggedIn, loadRecentTributes]);
 
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0) {
@@ -1252,6 +1329,7 @@ export default function Home() {
 
   const createProfileForUser = useCallback(async (user: User) => {
     const fallbackUsername = profileUsernameFromUser(user);
+    const avatarUrl = profileAvatarFromUser(user);
 
     const createProfile = async (usernameForProfile: string) => {
       console.info("Creating/upserting profile", {
@@ -1311,6 +1389,17 @@ export default function Home() {
       throw insertError ?? new Error("Profile could not be created.");
     }
 
+    if (avatarUrl) {
+      const { error: avatarError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+
+      if (avatarError) {
+        console.error("Profile avatar sync failed", avatarError);
+      }
+    }
+
     return createdProfile;
   }, []);
 
@@ -1337,6 +1426,20 @@ export default function Home() {
     }
 
     if (existingProfile) {
+      const avatarUrl = profileAvatarFromUser(user);
+
+      if (avatarUrl) {
+        void supabase
+          .from("profiles")
+          .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+          .eq("id", user.id)
+          .then(({ error: avatarError }) => {
+            if (avatarError) {
+              console.error("Profile avatar sync failed", avatarError);
+            }
+          });
+      }
+
       await applyProfile(existingProfile);
       return existingProfile as Profile;
     }
@@ -2221,9 +2324,9 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("Good. Stillness earned you 25 coins.");
+      setMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
     } catch (error) {
-      console.error("Failed to complete wait obediently task", error);
+      console.error("Task failed. You’re too weak and impatient to even wait properly.", error);
       setAuthError(describeError(error));
       setMistressReply("The waiting reward failed to save.");
     }
@@ -2822,12 +2925,11 @@ export default function Home() {
       return;
     }
 
-    const nextAffection = Math.min(100, affection + 8);
     const nextCoins = Math.max(0, currentCoins - unlockCost);
 
     try {
       await persistProfileProgress(
-        { coins: nextCoins, affection: nextAffection },
+        { coins: nextCoins, affection },
         "common_gallery_unlock",
       );
       await persistGalleryUnlocks([item.id]);
@@ -2842,12 +2944,6 @@ export default function Home() {
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
-    if (nextAffection >= 50) {
-      completeTask("affection");
-    }
-    if (nextAffection >= 80) {
-      completeTask("affection-80");
-    }
     setMistressReply(
       "You unlocked a little more of my attention.",
     );
@@ -2982,6 +3078,8 @@ export default function Home() {
             </button>
           </div>
         </header>
+
+        <RecentTributesTicker tributes={recentTributes} />
 
         {isTimeoutActive && (
           <section className="rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(250,204,21,0.14)]">

@@ -6,11 +6,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 
-async function isAdminRequest(adminPassword?: string) {
-  if (adminPassword && adminPassword === process.env.ADMIN_PASSWORD) {
-    return true;
-  }
-
+async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();
   const { data } = await authSupabase.auth.getUser();
 
@@ -37,12 +33,9 @@ async function isAdminRequest(adminPassword?: string) {
 }
 
 export async function POST(request: Request) {
-  const configErrors = [
-    ...getSupabaseAdminConfigErrors(),
-    !process.env.ADMIN_PASSWORD ? "ADMIN_PASSWORD is missing" : "",
-  ].filter(Boolean);
+  const configErrors = getSupabaseAdminConfigErrors();
 
-  if (!isSupabaseAdminConfigured || !process.env.ADMIN_PASSWORD) {
+  if (!isSupabaseAdminConfigured) {
     console.error("Admin IRL task route is not configured", configErrors);
     return Response.json(
       { error: `Admin environment is not configured: ${configErrors.join(", ")}` },
@@ -51,14 +44,13 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    adminPassword?: string;
     action?: "approve" | "cancelShame" | "clearReviewed" | "countPending" | "excuse" | "removeTimeout";
     taskId?: string;
     userId?: string;
   };
 
-  if (!(await isAdminRequest(body.adminPassword))) {
-    return Response.json({ error: "Invalid admin password." }, { status: 401 });
+  if (!(await isAdminRequest())) {
+    return Response.json({ error: "Admin access required." }, { status: 401 });
   }
 
   const supabase = createSupabaseAdminClient();

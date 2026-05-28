@@ -5,11 +5,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-async function isAdminRequest(adminPassword?: string) {
-  if (adminPassword && adminPassword === process.env.ADMIN_PASSWORD) {
-    return true;
-  }
-
+async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();
   const { data } = await authSupabase.auth.getUser();
 
@@ -36,12 +32,9 @@ async function isAdminRequest(adminPassword?: string) {
 }
 
 export async function POST(request: Request) {
-  const configErrors = [
-    ...getSupabaseAdminConfigErrors(),
-    !process.env.ADMIN_PASSWORD ? "ADMIN_PASSWORD is missing" : "",
-  ].filter(Boolean);
+  const configErrors = getSupabaseAdminConfigErrors();
 
-  if (!isSupabaseAdminConfigured || !process.env.ADMIN_PASSWORD) {
+  if (!isSupabaseAdminConfigured) {
     console.error("Admin Supabase route is not configured", configErrors);
     return Response.json(
       {
@@ -52,14 +45,11 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    adminPassword?: string;
     command?: string;
   };
 
-  // MVP only: replace shared env-password admin access with secure backend auth
-  // before production.
-  if (!(await isAdminRequest(body.adminPassword))) {
-    return Response.json({ error: "Incorrect admin password." }, { status: 401 });
+  if (!(await isAdminRequest())) {
+    return Response.json({ error: "Admin access required." }, { status: 401 });
   }
 
   const command = body.command?.trim() ?? "";
@@ -149,11 +139,15 @@ export async function POST(request: Request) {
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
-  const { error: transactionError } = await supabase.from("coin_transactions").insert({
-    user_id: profile.id,
-    amount,
-    reason: "admin:/give",
-  });
+  const { data: transaction, error: transactionError } = await supabase
+    .from("coin_transactions")
+    .insert({
+      user_id: profile.id,
+      amount,
+      reason: "tribute",
+    })
+    .select("id, amount, reason, created_at")
+    .single();
 
   if (transactionError) {
     console.error("Admin coin transaction insert failed", transactionError);
@@ -163,5 +157,6 @@ export async function POST(request: Request) {
     message: `Added ${amount} coins to ${profile.username}.`,
     username: profile.username,
     coins: nextCoins,
+    transaction,
   });
 }

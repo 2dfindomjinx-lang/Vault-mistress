@@ -3,6 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
+  avatar_url text,
   coins integer not null default 100,
   affection integer not null default 0,
   tribute_total integer not null default 0,
@@ -16,6 +17,7 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles
+  add column if not exists avatar_url text,
   add column if not exists tribute_total integer not null default 0,
   add column if not exists shame_count integer not null default 0,
   add column if not exists is_admin boolean not null default false,

@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 export type Profile = {
   id: string;
   username: string;
+  avatar_url?: string | null;
   coins: number;
   affection: number;
   tribute_total: number;
@@ -48,4 +49,18 @@ export function profileUsernameFromUser(user: Pick<User, "id" | "user_metadata">
   const clean = cleanUsernameCandidate(String(candidate));
 
   return `@${clean.length >= 3 ? clean : `vault_${user.id.slice(0, 8)}`}`;
+}
+
+export function profileAvatarFromUser(user: Pick<User, "user_metadata">) {
+  const metadata = user.user_metadata ?? {};
+  const avatar =
+    metadata.avatar_url ??
+    metadata.picture ??
+    metadata.image ??
+    metadata.profile_image_url ??
+    metadata.profile_image_url_https;
+
+  return typeof avatar === "string" && avatar.trim().length > 0
+    ? avatar
+    : null;
 }
