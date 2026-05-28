@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 type TaskListProps = {
@@ -109,6 +110,8 @@ export function TaskList({
         ? "Cooldown"
         : task.kind === "irl-wheel" && task.assignedIrlTask
           ? "Pending Review"
+          : task.kind === "high-low"
+            ? "Open"
           : task.claimed
             ? "Claimed"
             : task.completed
@@ -314,7 +317,7 @@ export function TaskList({
                     </span>
                     <input
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={isCoolingDown || task.claimed}
+                      disabled={isCoolingDown}
                       min={1}
                       max={coins}
                       onChange={(event) => setStake(Number(event.target.value))}
@@ -341,7 +344,7 @@ export function TaskList({
               {task.kind === "irl-wheel" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
-                    Spin the wheel for 1000 Principessa Coins. The result becomes
+                    Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
                     your assigned IRL task.
                   </p>
                   <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
@@ -351,27 +354,6 @@ export function TaskList({
                       selectedIndex={task.assignedIrlWheelIndex ?? null}
                       spinning={isIrlWheelSpinning}
                     />
-                    <div className="hidden">
-                      {Array.from({ length: 20 }, (_, index) => {
-                        const isSelected = task.assignedIrlWheelIndex === index;
-
-                        return (
-                          <div
-                            className={`aspect-square rounded-full border text-center text-[0.65rem] font-black leading-8 transition ${
-                              isSelected
-                                ? "border-pink-200 bg-pink-500 text-white shadow-[0_0_18px_rgba(236,72,153,0.65)]"
-                                : "border-white/10 bg-black/45 text-pink-100/60"
-                            }`}
-                            key={index}
-                          >
-                            {index + 1}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-3 text-center text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
-                      20-Segment IRL Wheel
-                    </p>
                   </div>
                   {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
@@ -420,7 +402,7 @@ export function TaskList({
                     className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={
                       isIrlWheelSpinning ||
-                      coins < 1000 ||
+                      coins < IRL_TASK_WHEEL_COST ||
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
                     }
@@ -429,9 +411,9 @@ export function TaskList({
                   >
                     {isIrlWheelSpinning ? "Spinning..." : task.assignedIrlTask
                       ? "Awaiting Admin Review"
-                      : coins < 1000
-                        ? "Need 1000 Coins"
-                        : "Spin — 1000 Coins"}
+                        : coins < IRL_TASK_WHEEL_COST
+                          ? `Need ${IRL_TASK_WHEEL_COST} Coins`
+                          : `Spin — ${IRL_TASK_WHEEL_COST} Coins`}
                   </button>
                 </div>
               )}

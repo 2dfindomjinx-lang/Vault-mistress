@@ -7,6 +7,7 @@ create table if not exists public.profiles (
   affection integer not null default 0,
   tribute_total integer not null default 0,
   shame_count integer not null default 0,
+  is_admin boolean not null default false,
   loyalty_streak integer not null default 0,
   last_loyalty_at timestamp with time zone,
   timeout_until timestamp with time zone,
@@ -17,6 +18,7 @@ create table if not exists public.profiles (
 alter table public.profiles
   add column if not exists tribute_total integer not null default 0,
   add column if not exists shame_count integer not null default 0,
+  add column if not exists is_admin boolean not null default false,
   add column if not exists loyalty_streak integer not null default 0,
   add column if not exists last_loyalty_at timestamp with time zone,
   add column if not exists timeout_until timestamp with time zone,

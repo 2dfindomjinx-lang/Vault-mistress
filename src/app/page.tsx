@@ -184,7 +184,7 @@ type UserIrlTaskRow = {
 };
 
 const profileSelect =
-  "id, username, coins, affection, tribute_total, shame_count, loyalty_streak, last_loyalty_at, timeout_until, created_at, updated_at";
+  "id, username, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, timeout_until, created_at, updated_at";
 
 const startingTasks: TaskItem[] = [
   {
@@ -637,6 +637,8 @@ export default function Home() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -791,6 +793,46 @@ export default function Home() {
     }
   }, []);
 
+  const loadPendingIrlReviewCount = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/irl-tasks", {
+        body: JSON.stringify({ action: "countPending" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        count?: number;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Pending IRL review count failed.");
+      }
+
+      setPendingIrlReviewCount(payload.count ?? 0);
+    } catch (error) {
+      console.error("Failed to load pending IRL review count", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdminUser || !isLoggedIn) {
+      return;
+    }
+
+    const immediateTimer = window.setTimeout(() => {
+      void loadPendingIrlReviewCount();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadPendingIrlReviewCount();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(immediateTimer);
+    };
+  }, [isAdminUser, isLoggedIn, loadPendingIrlReviewCount]);
+
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0) {
       return;
@@ -833,6 +875,8 @@ export default function Home() {
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
+    setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
 
     const { data: galleryData, error: galleryError } = await supabase
       .from("user_gallery")
@@ -929,6 +973,8 @@ export default function Home() {
     setTributeTotal(profile.tribute_total ?? 0);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setIsLoggedIn(true);
+    const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
+    setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
   }, []);
 
   const createProfileForUser = useCallback(async (user: User) => {
@@ -1931,6 +1977,8 @@ export default function Home() {
     setTasks([]);
     setLeadershipTop([]);
     setShameTop([]);
+    setIsAdminUser(false);
+    setPendingIrlReviewCount(0);
     setCoins(100);
     setAffection(0);
     setTributeTotal(0);
@@ -2150,12 +2198,19 @@ export default function Home() {
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
               Greedy Mode
             </div>
-            <Link
-              className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
-              href="/admin"
-            >
-              Admin
-            </Link>
+            {isAdminUser && (
+              <Link
+                className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+                href="/admin"
+              >
+                Admin
+                {pendingIrlReviewCount > 0 && (
+                  <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
+                    {pendingIrlReviewCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <button
               className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
               onClick={handleLogout}

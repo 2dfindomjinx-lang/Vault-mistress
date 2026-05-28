@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+import { supabase } from "@/lib/supabase/client";
 
 type AdminIrlTask = {
   id: string;
+  user_id: string;
   username: string;
   task_label: string;
   task_description: string | null;
@@ -64,6 +66,7 @@ export default function AdminPage() {
       }
 
       setIsAdminLoggedIn(true);
+      window.sessionStorage.setItem("vault_admin_password", adminPassword);
       setStatus("Admin console unlocked for this browser session.");
       void loadIrlTasks();
     } catch {
@@ -74,8 +77,14 @@ export default function AdminPage() {
     }
   };
 
-  const loadIrlTasks = async ({ keepStatus = false } = {}) => {
-    if (!adminPassword) {
+  const loadIrlTasks = async ({
+    allowPasswordless = false,
+    keepStatus = false,
+    passwordOverride,
+  }: { allowPasswordless?: boolean; keepStatus?: boolean; passwordOverride?: string } = {}) => {
+    const resolvedPassword = passwordOverride ?? adminPassword;
+
+    if (!resolvedPassword && !allowPasswordless && !isAdminLoggedIn) {
       return;
     }
 
@@ -86,7 +95,7 @@ export default function AdminPage() {
 
     try {
       const response = await fetch("/api/admin/irl-tasks", {
-        body: JSON.stringify({ adminPassword }),
+        body: JSON.stringify({ adminPassword: resolvedPassword }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -106,6 +115,53 @@ export default function AdminPage() {
       setIsBusy(false);
     }
   };
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const storedPassword = window.sessionStorage.getItem("vault_admin_password");
+
+      if (storedPassword) {
+        setAdminPassword(storedPassword);
+        setIsAdminLoggedIn(true);
+        void loadIrlTasks({ passwordOverride: storedPassword });
+        return;
+      }
+
+      void (async () => {
+        const { data } = await supabase.auth.getUser();
+
+        if (!data.user) {
+          return;
+        }
+
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("username, is_admin")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Admin profile check failed", error);
+          return;
+        }
+
+        const isProfileAdmin =
+          Boolean(profile?.is_admin) ||
+          String(profile?.username ?? "").toLowerCase() === "@principessa2dfd";
+
+        if (isProfileAdmin) {
+          setIsAdminLoggedIn(true);
+          setStatus("Admin access unlocked from Supabase profile.");
+          void loadIrlTasks({ allowPasswordless: true, passwordOverride: "" });
+        }
+      })();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+    // The initial unlock check should run once; loadIrlTasks reads the current
+    // session/password path inside that one-shot bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRunCommand = async () => {
     if (!isAdminLoggedIn) {
@@ -150,7 +206,7 @@ export default function AdminPage() {
 
   const handleIrlTaskReview = async (
     taskId: string,
-    action: "approve" | "excuse",
+    action: "approve" | "cancelShame" | "excuse",
   ) => {
     if (!isAdminLoggedIn) {
       setStatus("Unlock admin before reviewing tasks.");
@@ -176,13 +232,50 @@ export default function AdminPage() {
       setDefneMessage(
         action === "approve"
           ? "Approved. A little affection has been granted."
-          : "Cleared through Throne. No affection and no timeout.",
+          : action === "cancelShame"
+            ? "Task cancelled. Shame has been recorded."
+            : "Cleared through Throne. No affection and no timeout.",
       );
       await loadIrlTasks({ keepStatus: true });
     } catch (error) {
       setStatus(
         error instanceof Error ? error.message : "IRL task review failed.",
       );
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRemoveTimeout = async (userId: string) => {
+    if (!isAdminLoggedIn) {
+      setStatus("Unlock admin before removing timeouts.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/irl-tasks", {
+        body: JSON.stringify({
+          action: "removeTimeout",
+          adminPassword,
+          userId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Timeout removal failed.");
+      }
+
+      setStatus(result.message ?? "Timeout removed.");
+      setDefneMessage("Timeout removed. The ledger is clean for now.");
+      await loadIrlTasks({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Timeout removal failed.");
     } finally {
       setIsBusy(false);
     }
@@ -407,7 +500,7 @@ export default function AdminPage() {
                           </span>
                         </div>
                         {task.status === "assigned" && (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
                             <button
                               className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={isBusy}
@@ -424,14 +517,32 @@ export default function AdminPage() {
                             >
                               Clear via Throne
                             </button>
+                            <button
+                              className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleIrlTaskReview(task.id, "cancelShame")}
+                              type="button"
+                            >
+                              Cancel Task + Shame
+                            </button>
                           </div>
                         )}
                         {task.status === "assigned" &&
                           task.timeout_until &&
                           new Date(task.timeout_until).getTime() > adminNow && (
-                          <p className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-semibold text-yellow-100">
-                            Timeout until {new Date(task.timeout_until).toLocaleString()}
-                          </p>
+                          <div className="mt-2 rounded-xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2">
+                            <p className="text-xs font-semibold text-yellow-100">
+                              Timeout until {new Date(task.timeout_until).toLocaleString()}
+                            </p>
+                            <button
+                              className="mt-2 rounded-full border border-yellow-100/20 bg-black/25 px-3 py-1 text-xs font-black text-yellow-50 transition hover:border-yellow-100/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleRemoveTimeout(task.user_id)}
+                              type="button"
+                            >
+                              Remove Timeout
+                            </button>
+                          </div>
                         )}
                       </article>
                     ))

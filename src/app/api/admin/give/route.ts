@@ -3,6 +3,37 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+
+async function isAdminRequest(adminPassword?: string) {
+  if (adminPassword && adminPassword === process.env.ADMIN_PASSWORD) {
+    return true;
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data } = await authSupabase.auth.getUser();
+
+  if (!data.user) {
+    return false;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("username, is_admin")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Admin command auth profile lookup failed", error);
+    return false;
+  }
+
+  return (
+    Boolean(profile?.is_admin) ||
+    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
+  );
+}
 
 export async function POST(request: Request) {
   const configErrors = [
@@ -27,7 +58,7 @@ export async function POST(request: Request) {
 
   // MVP only: replace shared env-password admin access with secure backend auth
   // before production.
-  if (body.adminPassword !== process.env.ADMIN_PASSWORD) {
+  if (!(await isAdminRequest(body.adminPassword))) {
     return Response.json({ error: "Incorrect admin password." }, { status: 401 });
   }
 

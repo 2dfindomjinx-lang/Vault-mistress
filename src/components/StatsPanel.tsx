@@ -4,6 +4,8 @@ import {
   type ShameEntry,
 } from "@/lib/leadership";
 
+const THRONE_URL = "https://throne.com/principessa2dfd";
+
 type StatsPanelProps = {
   stats: {
     coins: number;
@@ -44,6 +46,20 @@ export function StatsPanel({
             {value}
           </p>
           <p className="mt-1 text-xs text-zinc-400">{hint}</p>
+          {label === "Coins" && (
+            <p className="mt-3 text-xs leading-5 text-pink-100">
+              Need more Principessa Coins? Tribute through{" "}
+              <a
+                className="font-black uppercase tracking-[0.14em] text-pink-200 underline decoration-pink-300/50 underline-offset-4 transition hover:text-white"
+                href={THRONE_URL}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Throne
+              </a>
+              .
+            </p>
+          )}
         </div>
       ))}
       <div className="col-span-2 rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)]">

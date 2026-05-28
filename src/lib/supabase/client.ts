@@ -8,6 +8,7 @@ export type Profile = {
   affection: number;
   tribute_total: number;
   shame_count: number;
+  is_admin: boolean;
   loyalty_streak: number;
   last_loyalty_at: string | null;
   timeout_until: string | null;

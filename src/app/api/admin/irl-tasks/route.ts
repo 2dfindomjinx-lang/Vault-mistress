@@ -3,7 +3,38 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
+
+async function isAdminRequest(adminPassword?: string) {
+  if (adminPassword && adminPassword === process.env.ADMIN_PASSWORD) {
+    return true;
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data } = await authSupabase.auth.getUser();
+
+  if (!data.user) {
+    return false;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("username, is_admin")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Admin auth profile lookup failed", error);
+    return false;
+  }
+
+  return (
+    Boolean(profile?.is_admin) ||
+    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
+  );
+}
 
 export async function POST(request: Request) {
   const configErrors = [
@@ -21,15 +52,30 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     adminPassword?: string;
-    action?: "approve" | "clearReviewed" | "excuse";
+    action?: "approve" | "cancelShame" | "clearReviewed" | "countPending" | "excuse" | "removeTimeout";
     taskId?: string;
+    userId?: string;
   };
 
-  if (body.adminPassword !== process.env.ADMIN_PASSWORD) {
+  if (!(await isAdminRequest(body.adminPassword))) {
     return Response.json({ error: "Invalid admin password." }, { status: 401 });
   }
 
   const supabase = createSupabaseAdminClient();
+
+  if (body.action === "countPending") {
+    const { count, error } = await supabase
+      .from("user_irl_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "assigned");
+
+    if (error) {
+      console.error("Admin IRL pending count failed", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    return Response.json({ count: count ?? 0 });
+  }
 
   if (body.action === "clearReviewed") {
     const { error: clearError } = await supabase
@@ -45,6 +91,41 @@ export async function POST(request: Request) {
     return Response.json({
       message: "Reviewed IRL task logs cleared. Pending tasks were kept.",
     });
+  }
+
+  if (body.action === "removeTimeout") {
+    let userId = body.userId;
+
+    if (!userId && body.taskId) {
+      const { data: task, error: taskError } = await supabase
+        .from("user_irl_tasks")
+        .select("user_id")
+        .eq("id", body.taskId)
+        .maybeSingle();
+
+      if (taskError) {
+        console.error("Admin timeout removal task lookup failed", taskError);
+        return Response.json({ error: taskError.message }, { status: 500 });
+      }
+
+      userId = task?.user_id;
+    }
+
+    if (!userId) {
+      return Response.json({ error: "Missing user id." }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ timeout_until: null, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("Admin timeout removal failed", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    return Response.json({ message: "Timeout removed." });
   }
 
   if (body.action) {
@@ -118,6 +199,80 @@ export async function POST(request: Request) {
 
       return Response.json({
         message: `Approved ${profile.username}. +${IRL_TASK_APPROVAL_AFFECTION_GAIN} affection.`,
+      });
+    }
+
+    if (body.action === "cancelShame") {
+      const { data: taskDetails, error: detailError } = await supabase
+        .from("user_irl_tasks")
+        .select("id, user_id, penalty_timeout_minutes")
+        .eq("id", task.id)
+        .maybeSingle();
+
+      if (detailError) {
+        console.error("Admin IRL cancel/shame lookup failed", detailError);
+        return Response.json({ error: detailError.message }, { status: 500 });
+      }
+
+      if (!taskDetails) {
+        return Response.json({ error: "IRL task not found." }, { status: 404 });
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, username, shame_count")
+        .eq("id", taskDetails.user_id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Admin IRL cancel/shame profile lookup failed", profileError);
+        return Response.json({ error: profileError.message }, { status: 500 });
+      }
+
+      if (!profile) {
+        return Response.json({ error: "Profile not found." }, { status: 404 });
+      }
+
+      const penaltyMinutes = Number(taskDetails.penalty_timeout_minutes ?? 0);
+      const timeoutUntil =
+        penaltyMinutes > 0
+          ? new Date(Date.now() + penaltyMinutes * 60 * 1000).toISOString()
+          : null;
+      const profilePatch: {
+        shame_count: number;
+        timeout_until?: string;
+        updated_at: string;
+      } = {
+        shame_count: Number(profile.shame_count ?? 0) + 1,
+        updated_at: now,
+      };
+
+      if (timeoutUntil) {
+        profilePatch.timeout_until = timeoutUntil;
+      }
+
+      const { error: profileUpdateError } = await supabase
+        .from("profiles")
+        .update(profilePatch)
+        .eq("id", profile.id);
+
+      if (profileUpdateError) {
+        console.error("Admin IRL cancel/shame profile update failed", profileUpdateError);
+        return Response.json({ error: profileUpdateError.message }, { status: 500 });
+      }
+
+      const { error: taskUpdateError } = await supabase
+        .from("user_irl_tasks")
+        .update({ reviewed_at: now, shamed_at: now, status: "cancelled_shamed" })
+        .eq("id", task.id);
+
+      if (taskUpdateError) {
+        console.error("Admin IRL cancel/shame task update failed", taskUpdateError);
+        return Response.json({ error: taskUpdateError.message }, { status: 500 });
+      }
+
+      return Response.json({
+        message: `Cancelled task and added +1 shame to ${profile.username}.`,
       });
     }
 
