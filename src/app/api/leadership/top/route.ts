@@ -21,6 +21,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("profiles")
     .select("username, tribute_total")
+    .eq("hide_from_leaderboard", false)
     .order("tribute_total", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(3);

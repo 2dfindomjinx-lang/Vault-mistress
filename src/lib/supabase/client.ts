@@ -10,6 +10,7 @@ export type Profile = {
   tribute_total: number;
   shame_count: number;
   is_admin: boolean;
+  hide_from_leaderboard?: boolean;
   loyalty_streak: number;
   last_loyalty_at: string | null;
   timeout_until: string | null;
