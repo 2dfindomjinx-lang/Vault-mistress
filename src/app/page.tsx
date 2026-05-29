@@ -1114,29 +1114,31 @@ function buildTasksFromRows(
     }
 
     if (task.id === "number-pick") {
-      const options =
-        getTaskMetadataNumberArray(row?.metadata, "options") ?? generateNumberPickOptions();
-      const selected = getTaskMetadataNumber(row?.metadata, "selected", Number.NaN);
-      const correct = getTaskMetadataNumber(row?.metadata, "correct", Number.NaN);
-      const attemptsRemaining = getTaskMetadataNumber(row?.metadata, "attemptsRemaining", 2);
-      const wrongSelections = getTaskMetadataNumberArray(row?.metadata, "wrongSelections") ?? [];
-      const rawResult = getTaskMetadataString(row?.metadata, "result");
-      const result: "win" | "loss" | null =
-        rawResult === "win" || rawResult === "loss" ? rawResult : null;
+	  const metadata = cooldownUntil ? row?.metadata : {};
 
-      return {
-        ...task,
-        claimed: Boolean(cooldownUntil),
-        completed: result === "win",
-        cooldownUntil,
-        numberPickAttemptsRemaining: cooldownUntil ? 0 : attemptsRemaining,
-        numberPickCorrect: Number.isFinite(correct) ? correct : undefined,
-        numberPickOptions: options,
-        numberPickResult: result,
-        numberPickSelected: Number.isFinite(selected) ? selected : null,
-        numberPickWrongSelections: wrongSelections,
-      };
-    }
+	  const options =
+		getTaskMetadataNumberArray(metadata, "options") ?? generateNumberPickOptions();
+	  const selected = getTaskMetadataNumber(metadata, "selected", Number.NaN);
+	  const correct = getTaskMetadataNumber(metadata, "correct", Number.NaN);
+	  const attemptsRemaining = getTaskMetadataNumber(metadata, "attemptsRemaining", 2);
+	  const wrongSelections = getTaskMetadataNumberArray(metadata, "wrongSelections") ?? [];
+	  const rawResult = getTaskMetadataString(metadata, "result");
+	  const result: "win" | "loss" | null =
+		rawResult === "win" || rawResult === "loss" ? rawResult : null;
+
+	  return {
+		...task,
+		claimed: Boolean(cooldownUntil),
+		completed: result === "win",
+		cooldownUntil,
+		numberPickAttemptsRemaining: cooldownUntil ? 0 : attemptsRemaining,
+		numberPickCorrect: Number.isFinite(correct) ? correct : undefined,
+		numberPickOptions: options,
+		numberPickResult: result,
+		numberPickSelected: Number.isFinite(selected) ? selected : null,
+		numberPickWrongSelections: wrongSelections,
+	  };
+	}
 
     if (task.id === "wait-obediently") {
       const status = getTaskMetadataString(row?.metadata, "status");
