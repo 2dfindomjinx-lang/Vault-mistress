@@ -2121,9 +2121,9 @@ export default function Home() {
     }
 
     applyProfileStats(data as Profile);
-    if (typeof patch.pet_score === "number" || typeof patch.tribute_total === "number") {
-      void loadLeadershipTop();
-    }
+    if (typeof patch.tribute_total === "number") {
+ 	 void loadLeadershipTop();
+	}
     return data as Profile;
   }, [applyProfileStats, authUserId, loadLeadershipTop]);
 

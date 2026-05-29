@@ -19,10 +19,10 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
-    .from("profiles")
-    .select("username, tribute_total, pet_score, created_at")
-    .eq("hide_from_leaderboard", false)
-    .limit(100);
+  .from("profiles")
+  .select("username, tribute_total, created_at")
+  .eq("hide_from_leaderboard", false)
+  .limit(100);
 
   if (error) {
     console.error("Failed to load leadership leaderboard", error);
@@ -32,8 +32,7 @@ export async function GET() {
   return Response.json({
     leaders: (data ?? [])
       .map((profile) => {
-        const tributeTotal =
-          Number(profile.tribute_total ?? 0)
+        const tributeTotal = Number(profile.tribute_total ?? 0);
 
         return {
           createdAt: String(profile.created_at ?? ""),
