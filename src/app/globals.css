@@ -56,13 +56,25 @@ button:disabled {
     transform: translateX(0);
   }
 
+  40% {
+    transform: translateX(-37rem);
+  }
+
+  60% {
+    transform: translateX(-49rem);
+  }
+
+  80% {
+    transform: translateX(-58rem);
+  }
+
   100% {
-    transform: translateX(-62rem);
+    transform: translateX(-65rem);
   }
 }
 
 .animate-pet-case-roll {
-  animation: petCaseRoll 8s cubic-bezier(0.08, 0.72, 0.28, 0.92) both;
+  animation: petCaseRoll 10s linear both;
   will-change: transform;
 }
 

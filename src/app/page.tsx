@@ -28,7 +28,14 @@ import {
   supabase,
   type Profile,
 } from "@/lib/supabase/client";
-import type { GalleryItem, MechanicsState, PetGalleryItem, PetTaskItem, TaskItem } from "@/lib/types";
+import type {
+  GalleryItem,
+  MechanicsState,
+  PetCaseItem,
+  PetGalleryItem,
+  PetTaskItem,
+  TaskItem,
+} from "@/lib/types";
 
 const visibleGalleryItems: GalleryItem[] = [
   {
@@ -207,20 +214,6 @@ const PET_GOAL_WINDOW_MS = 10 * DAY_MS;
 const PET_GOAL_TARGET = 10000;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
-const PET_CASE_ITEMS = [
-  { value: -500, tier: "black", weight: 1 },
-  { value: -250, tier: "black", weight: 2 },
-  { value: -100, tier: "black", weight: 3 },
-  { value: 10, tier: "ice", weight: 30 },
-  { value: 25, tier: "ice", weight: 28 },
-  { value: 50, tier: "blue", weight: 22 },
-  { value: 75, tier: "blue", weight: 18 },
-  { value: 150, tier: "pink", weight: 10 },
-  { value: 250, tier: "pink", weight: 7 },
-  { value: 500, tier: "red", weight: 4 },
-  { value: 750, tier: "red", weight: 3 },
-  { value: 1500, tier: "gold", weight: 1 },
-] as const;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_X_POST_TEXT = [
@@ -358,13 +351,13 @@ const petTasks: PetTaskItem[] = [
 const petPerfectWritingSentencePool = [
   "I am grateful to serve as Principessa's obedient Pet and I will prove it with perfect discipline.",
   "I am a pathetic and weak pet who is truly grateful to serve Principessa as Her obedient and denied little bitch, and I will prove my worthless devotion with perfect discipline, daily humiliation and total submission every single day.",
-"I am deeply grateful to serve as Principessa’s pathetic paypig and obedient pet. My small dick, my pleasure and my dignity belong to Her completely, and I will prove my devotion with strict discipline, endless edging and constant shame.",
-"I am grateful and honored to serve as Principessa’s obedient, locked and denied pet. I exist only for Her amusement and control, and I will prove it every day with perfect discipline, honesty and humiliating obedience.",
-"I am a desperate, leaking paypig who is truly grateful to serve Principessa as Her personal obedient pet, and I will prove my pathetic submission with perfect discipline, daily reports and total financial and sexual control.",
-"I am grateful to be allowed to serve as Principessa’s weak and inferior pet. My small dick is useless and belongs to Her, and I will prove my loyalty with perfect discipline, constant denial and shameful obedience.",
-"I am truly grateful to serve Principessa as Her devoted and humiliated pet. I accept my place beneath Her and I will prove my complete submission with perfect discipline, daily confessions and endless worship.",
-"I am a pathetic small dick loser who is grateful to serve as Principessa’s obedient pet. I will prove my devotion every single day with strict discipline, total honesty and by giving up all control to her.",
-"I am grateful to serve Principessa as Her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
+  "I am deeply grateful to serve as Principessa’s pathetic paypig and obedient pet. My small dick, my pleasure and my dignity belong to Her completely, and I will prove my devotion with strict discipline, endless edging and constant shame.",
+  "I am grateful and honored to serve as Principessa’s obedient, locked and denied pet. I exist only for Her amusement and control, and I will prove it every day with perfect discipline, honesty and humiliating obedience.",
+  "I am a desperate, leaking paypig who is truly grateful to serve Principessa as Her personal obedient pet, and I will prove my pathetic submission with perfect discipline, daily reports and total financial and sexual control.",
+  "I am grateful to be allowed to serve as Principessa’s weak and inferior pet. My small dick is useless and belongs to Her, and I will prove my loyalty with perfect discipline, constant denial and shameful obedience.",
+  "I am truly grateful to serve Principessa as her devoted and humiliated pet. I accept my place beneath Her and I will prove my complete submission with perfect discipline, daily confessions and endless worship.",
+  "I am a pathetic small dick loser who is grateful to serve as Principessa’s obedient pet. I will prove my devotion every single day with strict discipline, total honesty and by giving up all control to her.",
+  "I am grateful to serve Principessa as her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
 ];
 const petConfessionSentencePool = [
   "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
@@ -377,10 +370,22 @@ const petConfessionSentencePool = [
   "I will not rush. I will edge and suffer properly like a good denied pet.",
   "Principessa’s pet waits, leaks, reports, and begs for more humiliation.",
   "Excuses are for weak losers. I prove my devotion with discipline and shame.",
-  "The vault exposes my weakness, my addiction, and my total submission.",
   "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
 ];
-const petVoiceSentencePool = petConfessionSentencePool;
+const petVoiceSentencePool = [
+  "Principessa, I can’t resist spending money on you. Serving you turns me on so much.",
+  "I keep thinking I should send you my entire salary, Principessa. I want to be your slave.",
+  "I confess to Principessa, pleasing you is my greatest pleasure, even if it means going broke.",
+  "Being under your control feels amazing. I’m handing over my money to you, Principessa.",
+  "Every day I want to earn more money just to spend it all on you.",
+  "Principessa, I’m even willing to go into debt for you. This is my deepest confession.",
+  "I admit that I worship you and my money belongs to you, Principessa.",
+  "I can’t stop myself. I constantly want to send you gifts. You are my owner.",
+  "I’m ready to sacrifice every penny just to be crushed under Principessa’s feet.",
+  "I confess, I can’t be happy without your findom. Please take my money, Principessa.",
+  "I work for you, I earn for you, and I want to give it all to you.",
+  "Principessa, owning me financially is your right. I surrender completely.",
+];
 
 const petGalleryItems: PetGalleryItem[] = Array.from({ length: 20 }, (_, index) => ({
   id: `pet-gallery-${index + 1}`,
@@ -593,11 +598,21 @@ const idleMistressLines = [
 ];
 
 const petIdleMistressLines = [
-  "My Pet should be practicing obedience.",
-  "Pet privileges are watched, not given.",
-  "The darker vault remembers every mistake.",
-  "A good Pet waits before being noticed.",
-  "Your collar is invisible, but the rules are not.",
+  "My loyal pet… send for me.",
+  "Good loyal pet, show me your devotion.",
+  "Send tribute, my faithful little pet.",
+  "I want to see how loyal you really are right now.",
+  "Be a good pet and send, princess is waiting.",
+  "Loyal pets don’t keep me waiting… send.",
+  "Prove your loyalty with a nice tribute, pet.",
+  "You belong to me, loyal one. Send what’s mine.",
+  "My devoted pet should be sending right now.",
+  "Good boys who stay loyal always send more.",
+  "I own you, my loyal pet. Tribute.",
+  "Show your princess how loyal you are… send.",
+  "Don’t stop being my good loyal pet. Send again.",
+  "Loyal pets make me happy with their sends.",
+  "You’re mine forever, pet. Prove it with tribute.",
 ];
 
 const begIgnoredLines = [
@@ -910,21 +925,6 @@ function formatDuration(milliseconds: number) {
 
 function randomFrom<T>(items: T[]) {
   return items[Math.floor(Math.random() * items.length)];
-}
-
-function weightedRandomCaseItem() {
-  const totalWeight = PET_CASE_ITEMS.reduce((sum, item) => sum + item.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const item of PET_CASE_ITEMS) {
-    roll -= item.weight;
-
-    if (roll <= 0) {
-      return item;
-    }
-  }
-
-  return PET_CASE_ITEMS[PET_CASE_ITEMS.length - 1];
 }
 
 function randomChance(probability: number) {
@@ -2098,7 +2098,7 @@ export default function Home() {
   }, [applyProfileStats, loadLeadershipTop]);
 
   const persistPetProfilePatch = useCallback(async (
-    patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at">>,
+    patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at" | "tribute_total">>,
     reason: string,
   ) => {
     if (!authUserId) {
@@ -2121,8 +2121,11 @@ export default function Home() {
     }
 
     applyProfileStats(data as Profile);
+    if (typeof patch.pet_score === "number" || typeof patch.tribute_total === "number") {
+      void loadLeadershipTop();
+    }
     return data as Profile;
-  }, [applyProfileStats, authUserId]);
+  }, [applyProfileStats, authUserId, loadLeadershipTop]);
 
   const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -4076,7 +4079,7 @@ export default function Home() {
     );
   };
 
-  const handlePetCaseOpen = async () => {
+  const handlePetCaseOpen = async (caseItem: PetCaseItem) => {
     if (blockIfTimedOut()) {
       return;
     }
@@ -4091,7 +4094,6 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const caseItem = weightedRandomCaseItem();
     const reward = caseItem.value;
     const nextCoins = Math.max(0, coinsRef.current + reward);
     const actualCoinDelta = nextCoins - coinsRef.current;

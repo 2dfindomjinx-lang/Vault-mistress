@@ -20,11 +20,9 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("username, tribute_total")
+    .select("username, tribute_total, pet_score, created_at")
     .eq("hide_from_leaderboard", false)
-    .order("tribute_total", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(3);
+    .limit(100);
 
   if (error) {
     console.error("Failed to load leadership leaderboard", error);
@@ -32,14 +30,30 @@ export async function GET() {
   }
 
   return Response.json({
-    leaders: (data ?? []).map((profile) => {
-      const tributeTotal = Number(profile.tribute_total ?? 0);
+    leaders: (data ?? [])
+      .map((profile) => {
+        const tributeTotal =
+          Number(profile.tribute_total ?? 0) + Number(profile.pet_score ?? 0);
 
-      return {
-        username: profile.username,
-        tributeTotal,
-        rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
-      };
-    }),
+        return {
+          createdAt: String(profile.created_at ?? ""),
+          rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
+          tributeTotal,
+          username: profile.username,
+        };
+      })
+      .sort((first, second) => {
+        if (second.tributeTotal !== first.tributeTotal) {
+          return second.tributeTotal - first.tributeTotal;
+        }
+
+        return first.createdAt.localeCompare(second.createdAt);
+      })
+      .slice(0, 3)
+      .map((leader) => ({
+        rankTitle: leader.rankTitle,
+        tributeTotal: leader.tributeTotal,
+        username: leader.username,
+      })),
   });
 }

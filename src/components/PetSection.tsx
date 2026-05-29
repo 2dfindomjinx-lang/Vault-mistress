@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import type { PetGalleryItem, PetTaskItem } from "@/lib/types";
+import type { PetCaseItem, PetGalleryItem, PetTaskItem } from "@/lib/types";
 
 const PET_RANKS = [
   { min: 0, title: "Unclaimed Stray" },
   { min: 100, title: "Collared Pet" },
   { min: 250, title: "Obedient Darling" },
-  { min: 500, title: "Velvet Property" },
+  { min: 500, title: "Principessa's Property" },
   { min: 750, title: "Royal Favorite" },
   { min: 1000, title: "Principessa's Perfect Pet" },
 ];
@@ -52,15 +52,15 @@ function formatRemaining(target: string | null, now: number) {
 
 const PET_CASE_DISPLAY_POOL = [
   { value: -500, tier: "black", weight: 1 },
-  { value: -250, tier: "black", weight: 2 },
-  { value: -100, tier: "black", weight: 3 },
-  { value: 10, tier: "ice", weight: 30 },
-  { value: 25, tier: "ice", weight: 28 },
-  { value: 50, tier: "blue", weight: 22 },
-  { value: 75, tier: "blue", weight: 18 },
-  { value: 150, tier: "pink", weight: 10 },
-  { value: 250, tier: "pink", weight: 7 },
-  { value: 500, tier: "red", weight: 4 },
+  { value: -250, tier: "black", weight: 1 },
+  { value: -100, tier: "black", weight: 1 },
+  { value: 10, tier: "ice", weight: 84 },
+  { value: 25, tier: "ice", weight: 78 },
+  { value: 50, tier: "blue", weight: 54 },
+  { value: 75, tier: "blue", weight: 42 },
+  { value: 150, tier: "pink", weight: 22 },
+  { value: 250, tier: "pink", weight: 12 },
+  { value: 500, tier: "red", weight: 5 },
   { value: 750, tier: "red", weight: 3 },
   { value: 1500, tier: "gold", weight: 1 },
 ];
@@ -68,6 +68,10 @@ const PET_CASE_DISPLAY_POOL = [
 const PET_CASE_DISPLAY_ITEMS = PET_CASE_DISPLAY_POOL.flatMap((item) =>
   Array.from({ length: item.weight }, () => ({ value: item.value, tier: item.tier })),
 );
+
+function randomCaseDisplayItem() {
+  return PET_CASE_DISPLAY_ITEMS[Math.floor(Math.random() * PET_CASE_DISPLAY_ITEMS.length)];
+}
 
 function getCaseTierClass(tier: string) {
   switch (tier) {
@@ -124,7 +128,7 @@ export function PetSection({
   onDepositGoal: (amount: number) => void;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
-  onOpenCase: () => void;
+  onOpenCase: (caseItem: PetCaseItem) => void;
   onPayWeeklyTax: () => void;
   onPetEvilWaitComplete: () => void;
   onPetEvilWaitFail: () => void;
@@ -139,6 +143,12 @@ export function PetSection({
 }) {
   const [now, setNow] = useState(0);
   const [caseRolling, setCaseRolling] = useState(false);
+  const [caseTrack, setCaseTrack] = useState<PetCaseItem[]>(() =>
+    Array.from({ length: 34 }, () => randomCaseDisplayItem()),
+  );
+  const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
+    Array<{ id: number; left: string; rotate: string; text: string; top: string }>
+  >([]);
   const [favorRevealing, setFavorRevealing] = useState(false);
   const [evilCountdown, setEvilCountdown] = useState(3);
   const [evilWaitRemaining, setEvilWaitRemaining] = useState(120);
@@ -252,6 +262,22 @@ export function PetSection({
     const teaseInterval = window.setInterval(() => {
       setEvilTeaseIndex((value) => value + 1);
     }, 5000);
+    const floatingTeaseInterval = window.setInterval(() => {
+      const id = Date.now();
+      setEvilFloatingBoxes((boxes) => [
+        ...boxes.slice(-2),
+        {
+          id,
+          left: `${Math.floor(Math.random() * 72) + 8}%`,
+          rotate: `${Math.floor(Math.random() * 28) - 14}deg`,
+          text: Math.random() > 0.35 ? "Confirm obedience" : "I accept",
+          top: `${Math.floor(Math.random() * 58) + 16}%`,
+        },
+      ]);
+      window.setTimeout(() => {
+        setEvilFloatingBoxes((boxes) => boxes.filter((box) => box.id !== id));
+      }, 4200);
+    }, 13000);
     const timer = window.setTimeout(() => {
       if (evilWaitFinishedRef.current) {
         return;
@@ -275,6 +301,7 @@ export function PetSection({
     return () => {
       window.clearInterval(interval);
       window.clearInterval(teaseInterval);
+      window.clearInterval(floatingTeaseInterval);
       window.clearTimeout(timer);
       events.forEach((eventName) => window.removeEventListener(eventName, fail));
     };
@@ -316,11 +343,19 @@ export function PetSection({
   }
 
   function handleCaseOpen() {
+    const selectedCaseItem = randomCaseDisplayItem();
+    const nextTrack = [
+      ...Array.from({ length: 10 }, () => randomCaseDisplayItem()),
+      selectedCaseItem,
+      ...Array.from({ length: 4 }, () => randomCaseDisplayItem()),
+    ];
+
+    setCaseTrack(nextTrack);
     setCaseRolling(true);
     window.setTimeout(() => {
-      onOpenCase();
+      onOpenCase(selectedCaseItem);
       setCaseRolling(false);
-    }, 8000);
+    }, 10000);
   }
 
   function handleFavorPick(index: number) {
@@ -336,7 +371,9 @@ export function PetSection({
 
   const evilTeaseBoxes = [
     { left: "7%", top: "12%", text: "Confirm obedience" },
+    { left: "42%", top: "35%", text: "Confirm obedience" },
     { left: "58%", top: "18%", text: "Download image" },
+    { left: "27%", top: "48%", text: "Confirm obedience" },
     { left: "18%", top: "62%", text: "Almost yours" },
     { left: "63%", top: "66%", text: "Click to prove it" },
   ];
@@ -348,6 +385,20 @@ export function PetSection({
           Guest mode: Pet progression is local-only for development testing.
         </p>
       )}
+
+      {evilFloatingBoxes.map((box) => (
+        <div
+          className="pointer-events-none fixed z-50 rounded-2xl border border-pink-100/40 bg-black/78 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-pink-50 shadow-[0_0_26px_rgba(236,72,153,0.42)] animate-[fadeOut_4.2s_linear_both]"
+          key={box.id}
+          style={{
+            left: box.left,
+            top: box.top,
+            transform: `rotate(${box.rotate})`,
+          }}
+        >
+          {box.text}
+        </div>
+      ))}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <div className="space-y-4">
@@ -656,10 +707,7 @@ export function PetSection({
                         <div
                           className={`flex gap-2 px-3 ${caseRolling ? "animate-pet-case-roll" : ""}`}
                         >
-                          {[
-                            ...PET_CASE_DISPLAY_ITEMS,
-                            ...PET_CASE_DISPLAY_ITEMS,
-                          ].map((item, index) => (
+                          {caseTrack.map((item, index) => (
                             <span
                               className={`min-w-24 rounded-xl border px-3 py-2 text-center text-sm font-black ${getCaseTierClass(item.tier)}`}
                               key={`${item.value}-${index}`}

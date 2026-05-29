@@ -136,3 +136,8 @@ export type PetGalleryItem = {
   image: string;
   unlockCost: number;
 };
+
+export type PetCaseItem = {
+  tier: string;
+  value: number;
+};
