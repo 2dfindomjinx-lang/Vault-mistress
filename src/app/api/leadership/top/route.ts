@@ -33,7 +33,7 @@ export async function GET() {
     leaders: (data ?? [])
       .map((profile) => {
         const tributeTotal =
-          Number(profile.tribute_total ?? 0) + Number(profile.pet_score ?? 0);
+          Number(profile.tribute_total ?? 0)
 
         return {
           createdAt: String(profile.created_at ?? ""),
