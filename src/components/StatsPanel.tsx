@@ -131,7 +131,7 @@ export function StatsPanel({
       <div className="col-span-2 rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)]">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">
-            Public Shame Board
+            Public Fail Board
           </p>
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
         </div>
@@ -153,7 +153,7 @@ export function StatsPanel({
                     #{index + 1} {entry.username}
                   </p>
                   <p className="shrink-0 text-sm font-black text-rose-100">
-                    {entry.shameCount} shame
+                    {entry.shameCount} fail
                   </p>
                 </div>
               );

@@ -202,7 +202,7 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (detailError) {
-        console.error("Admin IRL cancel/shame lookup failed", detailError);
+        console.error("Admin IRL cancel/fail lookup failed", detailError);
         return Response.json({ error: detailError.message }, { status: 500 });
       }
 
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (profileError) {
-        console.error("Admin IRL cancel/shame profile lookup failed", profileError);
+        console.error("Admin IRL cancel/fail profile lookup failed", profileError);
         return Response.json({ error: profileError.message }, { status: 500 });
       }
 
@@ -249,22 +249,22 @@ export async function POST(request: Request) {
         .eq("id", profile.id);
 
       if (profileUpdateError) {
-        console.error("Admin IRL cancel/shame profile update failed", profileUpdateError);
+        console.error("Admin IRL cancel/fail profile update failed", profileUpdateError);
         return Response.json({ error: profileUpdateError.message }, { status: 500 });
       }
 
       const { error: taskUpdateError } = await supabase
         .from("user_irl_tasks")
-        .update({ reviewed_at: now, shamed_at: now, status: "cancelled_shamed" })
+        .update({ reviewed_at: now, shamed_at: now, status: "cancelled_failed" })
         .eq("id", task.id);
 
       if (taskUpdateError) {
-        console.error("Admin IRL cancel/shame task update failed", taskUpdateError);
+        console.error("Admin IRL cancel/fail task update failed", taskUpdateError);
         return Response.json({ error: taskUpdateError.message }, { status: 500 });
       }
 
       return Response.json({
-        message: `Cancelled task and added +1 shame to ${profile.username}.`,
+        message: `Cancelled task and added +1 fail to ${profile.username}.`,
       });
     }
 

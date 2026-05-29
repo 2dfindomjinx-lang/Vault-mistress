@@ -382,7 +382,7 @@ export default function AdminPage() {
         action === "approve"
           ? "Approved. A little affection has been granted."
           : action === "cancelShame"
-            ? "Task cancelled. Shame has been recorded."
+            ? "Task failed manually. The fail count has been recorded."
             : "Cleared through Throne. No affection and no timeout.",
       );
       await loadIrlTasks({ keepStatus: true });
@@ -676,7 +676,7 @@ export default function AdminPage() {
                         task.due_at &&
                         new Date(task.due_at).getTime() <= adminNow && (
                           <p className="mb-3 rounded-2xl border border-rose-200/25 bg-rose-500/10 px-3 py-2 text-sm font-black text-rose-100">
-                            ! Deadline expired. Shame +1 is shown on the public board.
+                            ! Deadline expired. No fail is added unless you apply it manually.
                           </p>
                         )}
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -705,7 +705,7 @@ export default function AdminPage() {
                           )}
                           {task.shamed_at && (
                             <p className="mt-2 text-xs font-semibold text-rose-100/80">
-                              Public shame added {new Date(task.shamed_at).toLocaleString()}
+                              Fail recorded {new Date(task.shamed_at).toLocaleString()}
                             </p>
                           )}
                         </div>
@@ -737,7 +737,7 @@ export default function AdminPage() {
                             onClick={() => void handleIrlTaskReview(task.id, "cancelShame")}
                             type="button"
                           >
-                            Cancel Task + Shame
+                            Cancel Task + Fail
                           </button>
                         </div>
                       )}
@@ -781,7 +781,7 @@ export default function AdminPage() {
                             Remaining {formatRemaining(user.timeout_until, adminNow)}
                           </p>
                           <p className="mt-1 text-xs text-zinc-400">
-                            Until {new Date(user.timeout_until).toLocaleString()} - shame {user.shame_count ?? 0}
+                            Until {new Date(user.timeout_until).toLocaleString()} - fail {user.shame_count ?? 0}
                           </p>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row">
