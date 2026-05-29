@@ -22,7 +22,9 @@ export async function GET() {
   .from("profiles")
   .select("username, tribute_total, created_at")
   .eq("hide_from_leaderboard", false)
-  .limit(100);
+  .order("tribute_total", { ascending: false })
+  .order("created_at", { ascending: true })
+  .limit(3);
 
   if (error) {
     console.error("Failed to load leadership leaderboard", error);
