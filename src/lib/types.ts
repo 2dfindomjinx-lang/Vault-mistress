@@ -51,9 +51,11 @@ export type TaskItem = {
   resultNumber?: number;
   resultOutcome?: "win" | "loss" | "tie";
   numberPickCorrect?: number;
+  numberPickAttemptsRemaining?: number;
   numberPickOptions?: number[];
   numberPickResult?: "win" | "loss" | null;
   numberPickSelected?: number | null;
+  numberPickWrongSelections?: number[];
   waitState?:
     | "ready"
     | "countdown"
@@ -82,4 +84,55 @@ export type MechanicsState = {
   allGalleryComplete: boolean;
   sacrificeLastResult?: string | null;
   supportLastResult?: string | null;
+};
+
+export type PetTaskItem = {
+  id: string;
+  title: string;
+  description: string;
+  reward: number;
+  actionLabel?: string;
+  actionUrl?: string;
+  kind:
+    | "review"
+    | "confession-writing"
+    | "perfect-writing"
+    | "weekly-tax"
+    | "coin-goal"
+    | "case-open"
+    | "evil-wait"
+    | "randomized-rules"
+    | "false-hope"
+    | "favor-roulette";
+  status?: "available" | "pending" | "approved" | "rejected" | "failed";
+  cooldownUntil?: string | null;
+  completedAt?: string | null;
+  caseReward?: number | null;
+  caseSpunAt?: string | null;
+  confessionCount?: number;
+  deadlineAt?: string | null;
+  falseHopeProgress?: number;
+  falseHopeStage?: number;
+  falseHopeExpectedKey?: "a" | "d";
+  goalDeposited?: number;
+  goalTarget?: number;
+  favorPickedIndex?: number | null;
+  favorResult?: "win" | "loss" | "empty-day" | null;
+  favorWinningIndex?: number | null;
+  ruleAcknowledged?: boolean;
+  ruleBannedMechanics?: string[];
+  sentence?: string;
+  attemptsRemaining?: number;
+  reviewedAt?: string | null;
+  voiceSentence?: string;
+  waitCountdownEndsAt?: string | null;
+  waitEndsAt?: string | null;
+  waitState?: "ready" | "countdown" | "waiting" | "failed" | "completed" | "cooldown";
+};
+
+export type PetGalleryItem = {
+  id: string;
+  title: string;
+  image: string;
+  unlockCost: number;
 };

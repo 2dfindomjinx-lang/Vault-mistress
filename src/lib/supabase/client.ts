@@ -11,6 +11,10 @@ export type Profile = {
   shame_count: number;
   is_admin: boolean;
   hide_from_leaderboard?: boolean;
+  pet_score?: number;
+  pet_unlocked_at?: string | null;
+  last_pet_decay_at?: string | null;
+  last_pet_tax_at?: string | null;
   loyalty_streak: number;
   last_loyalty_at: string | null;
   timeout_until: string | null;

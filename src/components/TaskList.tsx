@@ -255,7 +255,7 @@ export function TaskList({
                     <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
                       <p className="text-sm leading-6 text-zinc-300">
                         Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
-                        to receive +1 day timeout,{" "}
+                        to receive 12 hours timeout,{" "}
                         {Math.round((1 - timeoutRiskChance) * 100)}% chance to win{" "}
                         {timeoutRiskReward} Principessa Coins.
                       </p>
@@ -267,7 +267,7 @@ export function TaskList({
                       )}
                       <p className="mt-3 text-xs leading-5 text-zinc-500">
                         Partial remaining days count as full days. Maximum effective timeout is{" "}
-                        {timeoutRiskMaxDays} days.
+                        {timeoutRiskMaxDays} day.
                       </p>
                       {task.lastResult && (
                         <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
@@ -444,7 +444,9 @@ export function TaskList({
                   <h3 className="text-lg font-black text-white">{task.title}</h3>
                   {task.reward > 0 && (
                     <p className="mt-1 text-sm text-zinc-400">
-                      Reward: {task.reward} Principessa Coins
+                      {task.kind === "number-pick"
+                        ? "Reward: 50 / 25 Principessa Coins"
+                        : `Reward: ${task.reward} Principessa Coins`}
                     </p>
                   )}
                   {isCoolingDown && (
@@ -652,24 +654,28 @@ export function TaskList({
               {task.kind === "number-pick" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
-                    Pick one number. One hidden choice pays 25 Principessa Coins.
+                    First correct pick pays 50 Principessa Coins. If you miss, the wrong number
+                    locks red and one final pick can still pay 25.
                   </p>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(task.numberPickOptions ?? []).map((option) => {
                       const isSelected = task.numberPickSelected === option;
                       const isCorrect = task.numberPickCorrect === option;
                       const hasResult = Boolean(task.numberPickResult);
+                      const isWrongSelection = (task.numberPickWrongSelections ?? []).includes(
+                        option,
+                      );
 
                       return (
                         <button
                           className={`rounded-2xl border px-4 py-5 text-2xl font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
                             hasResult && isCorrect
                               ? "border-emerald-200/50 bg-emerald-400/15 text-emerald-100"
-                              : hasResult && isSelected
+                              : isWrongSelection || (hasResult && isSelected)
                                 ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
                                 : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
                           }`}
-                          disabled={disabled || isCoolingDown || hasResult}
+                          disabled={disabled || isCoolingDown || hasResult || isWrongSelection}
                           key={option}
                           onClick={() => onNumberPick(option)}
                           type="button"
@@ -682,10 +688,17 @@ export function TaskList({
                   {task.numberPickResult && (
                     <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-semibold text-pink-50">
                       {task.numberPickResult === "win"
-                        ? `Correct. ${task.reward} Principessa Coins added.`
+                        ? "Correct. Principessa Coins added."
                         : `Wrong. Correct number was ${task.numberPickCorrect}.`}
                     </p>
                   )}
+                  {!task.numberPickResult &&
+                    (task.numberPickAttemptsRemaining ?? 2) < 2 &&
+                    (task.numberPickWrongSelections ?? []).length > 0 && (
+                      <p className="mt-3 rounded-2xl border border-rose-200/20 bg-rose-400/10 px-3 py-2 text-sm font-semibold text-rose-100">
+                        Wrong. One chance remains. Pick between the remaining numbers.
+                      </p>
+                    )}
                 </div>
               )}
 
@@ -706,7 +719,7 @@ export function TaskList({
                 <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
                   <p className="text-sm leading-6 text-zinc-300">
                     Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
-                    to receive +1 day timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
+                    to receive 12 hours timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
                     chance to win {timeoutRiskReward} Principessa Coins.
                   </p>
                   {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
@@ -717,7 +730,7 @@ export function TaskList({
                   )}
                   <p className="mt-3 text-xs leading-5 text-zinc-500">
                     Partial remaining days count as full days. Maximum effective timeout is{" "}
-                    {timeoutRiskMaxDays} days.
+                    {timeoutRiskMaxDays} day.
                   </p>
                   {task.lastResult && (
                     <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">

@@ -50,3 +50,72 @@ button:disabled {
 .animate-tribute-slide-in {
   animation: tribute-slide-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+@keyframes petCaseRoll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-62rem);
+  }
+}
+
+.animate-pet-case-roll {
+  animation: petCaseRoll 8s cubic-bezier(0.08, 0.72, 0.28, 0.92) both;
+  will-change: transform;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes pet-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+    filter: saturate(1);
+  }
+
+  12% {
+    transform: translateX(-8px) rotate(-0.8deg);
+    filter: saturate(1.4);
+  }
+
+  24% {
+    transform: translateX(8px) rotate(0.8deg);
+  }
+
+  36% {
+    transform: translateX(-7px) rotate(-0.5deg);
+  }
+
+  48% {
+    transform: translateX(7px) rotate(0.5deg);
+  }
+
+  60% {
+    transform: translateX(-4px);
+  }
+
+  72% {
+    transform: translateX(4px);
+  }
+}

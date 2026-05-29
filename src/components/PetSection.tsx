@@ -1,0 +1,968 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import type { PetGalleryItem, PetTaskItem } from "@/lib/types";
+
+const PET_RANKS = [
+  { min: 0, title: "Unclaimed Stray" },
+  { min: 100, title: "Collared Pet" },
+  { min: 250, title: "Obedient Darling" },
+  { min: 500, title: "Velvet Property" },
+  { min: 750, title: "Royal Favorite" },
+  { min: 1000, title: "Principessa's Perfect Pet" },
+];
+
+const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
+  ...rank,
+  image: `/pet-ranks/rank-${index + 1}.png`,
+}));
+
+function getPetRank(score: number) {
+  const current = [...PET_RANKS].reverse().find((rank) => score >= rank.min) ?? PET_RANKS[0];
+  const next = PET_RANKS.find((rank) => rank.min > score) ?? null;
+  const nextMin = next?.min ?? 1000;
+  const progress = next === null
+    ? 100
+    : Math.min(100, ((score - current.min) / (nextMin - current.min)) * 100);
+
+  return { current, next, progress };
+}
+
+function formatRemaining(target: string | null, now: number) {
+  if (!target || now <= 0) {
+    return "Not scheduled";
+  }
+
+  const totalMinutes = Math.max(0, Math.ceil((new Date(target).getTime() - now) / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
+}
+
+const PET_CASE_DISPLAY_POOL = [
+  { value: -500, tier: "black", weight: 1 },
+  { value: -250, tier: "black", weight: 2 },
+  { value: -100, tier: "black", weight: 3 },
+  { value: 10, tier: "ice", weight: 30 },
+  { value: 25, tier: "ice", weight: 28 },
+  { value: 50, tier: "blue", weight: 22 },
+  { value: 75, tier: "blue", weight: 18 },
+  { value: 150, tier: "pink", weight: 10 },
+  { value: 250, tier: "pink", weight: 7 },
+  { value: 500, tier: "red", weight: 4 },
+  { value: 750, tier: "red", weight: 3 },
+  { value: 1500, tier: "gold", weight: 1 },
+];
+
+const PET_CASE_DISPLAY_ITEMS = PET_CASE_DISPLAY_POOL.flatMap((item) =>
+  Array.from({ length: item.weight }, () => ({ value: item.value, tier: item.tier })),
+);
+
+function getCaseTierClass(tier: string) {
+  switch (tier) {
+    case "black":
+      return "border-zinc-600/40 bg-black text-zinc-200 shadow-[0_0_14px_rgba(0,0,0,0.55)]";
+    case "ice":
+      return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
+    case "blue":
+      return "border-blue-300/35 bg-blue-500/15 text-blue-50";
+    case "pink":
+      return "border-pink-300/40 bg-pink-500/18 text-pink-50";
+    case "red":
+      return "border-red-300/40 bg-red-600/18 text-red-50";
+    case "gold":
+      return "border-yellow-200/60 bg-yellow-300/20 text-yellow-50 shadow-[0_0_20px_rgba(250,204,21,0.3)]";
+    default:
+      return "border-pink-200/20 bg-pink-500/10 text-pink-50";
+  }
+}
+
+export function PetSection({
+  affection,
+  coins,
+  galleryItems,
+  isGuest,
+  nextTaxDueAt,
+  onClaimAffection,
+  onConfessionSubmit,
+  onCompleteTask,
+  onDepositGoal,
+  onFalseHopeKey,
+  onFavorPick,
+  onOpenCase,
+  onPayWeeklyTax,
+  onPetEvilWaitComplete,
+  onPetEvilWaitFail,
+  onPetEvilWaitStart,
+  onPerfectWritingProgress,
+  onRulesAcknowledge,
+  petGalleryUnlockedIds,
+  petScore,
+  petAffectionClaimed,
+  tasks,
+  weeklyTaxCost,
+}: {
+  affection: number;
+  coins: number;
+  galleryItems: PetGalleryItem[];
+  isGuest?: boolean;
+  nextTaxDueAt: string | null;
+  onClaimAffection: () => void;
+  onConfessionSubmit: (value: string) => void;
+  onCompleteTask: (taskId: string) => void;
+  onDepositGoal: (amount: number) => void;
+  onFalseHopeKey: (key: "a" | "d") => void;
+  onFavorPick: (index: number) => void;
+  onOpenCase: () => void;
+  onPayWeeklyTax: () => void;
+  onPetEvilWaitComplete: () => void;
+  onPetEvilWaitFail: () => void;
+  onPetEvilWaitStart: () => void;
+  onPerfectWritingProgress: (value: string) => void;
+  onRulesAcknowledge: (text: string) => void;
+  petGalleryUnlockedIds: string[];
+  petScore: number;
+  petAffectionClaimed: boolean;
+  tasks: PetTaskItem[];
+  weeklyTaxCost: number;
+}) {
+  const [now, setNow] = useState(0);
+  const [caseRolling, setCaseRolling] = useState(false);
+  const [favorRevealing, setFavorRevealing] = useState(false);
+  const [evilCountdown, setEvilCountdown] = useState(3);
+  const [evilWaitRemaining, setEvilWaitRemaining] = useState(120);
+  const [evilTeaseIndex, setEvilTeaseIndex] = useState(0);
+  const [ruleInput, setRuleInput] = useState("");
+  const [confessionInput, setConfessionInput] = useState("");
+  const [perfectInput, setPerfectInput] = useState("");
+  const [goalDeposit, setGoalDeposit] = useState("");
+  const [falseHopeShaking, setFalseHopeShaking] = useState(false);
+  const evilWaitFinishedRef = useRef(false);
+  const previousFalseHopeStageRef = useRef<number | null>(null);
+  const rank = getPetRank(petScore);
+  const approvedCount = tasks.filter((task) => task.status === "approved").length;
+  const canClaimAffection = approvedCount >= 5 && affection < 100 && !petAffectionClaimed;
+  const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
+  const weeklyTaxCoolingDown =
+    Boolean(weeklyTaxTask?.cooldownUntil) &&
+    new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
+  const goalTask = tasks.find((task) => task.kind === "coin-goal");
+  const regularTasks = tasks.filter(
+    (task) => task.kind !== "coin-goal" && task.kind !== "weekly-tax",
+  );
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+
+      if (key !== "a" && key !== "d") {
+        return;
+      }
+
+      if (falseHopeTask?.status === "approved" || falseHopeTask?.cooldownUntil) {
+        return;
+      }
+
+      onFalseHopeKey(key);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onFalseHopeKey, tasks]);
+
+  useEffect(() => {
+    const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
+    const stage = falseHopeTask?.falseHopeStage ?? 1;
+
+    if (
+      previousFalseHopeStageRef.current !== null &&
+      stage > previousFalseHopeStageRef.current
+    ) {
+      setFalseHopeShaking(true);
+      const timer = window.setTimeout(() => setFalseHopeShaking(false), 1600);
+      previousFalseHopeStageRef.current = stage;
+      return () => window.clearTimeout(timer);
+    }
+
+    previousFalseHopeStageRef.current = stage;
+  }, [tasks]);
+
+  useEffect(() => {
+    const task = tasks.find((entry) => entry.kind === "evil-wait");
+
+    if (task?.waitState !== "countdown") {
+      return;
+    }
+
+    const endsAt = new Date(task.waitCountdownEndsAt ?? Date.now() + 3000).getTime();
+    const interval = window.setInterval(() => {
+      setEvilCountdown(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)));
+    }, 200);
+
+    return () => window.clearInterval(interval);
+  }, [tasks]);
+
+  useEffect(() => {
+    const task = tasks.find((entry) => entry.kind === "evil-wait");
+
+    const countdownOver =
+      task?.waitState === "countdown" &&
+      Boolean(task.waitCountdownEndsAt) &&
+      new Date(task.waitCountdownEndsAt ?? "").getTime() <= Date.now();
+
+    if (task?.waitState !== "waiting" && !countdownOver) {
+      return;
+    }
+
+    evilWaitFinishedRef.current = false;
+    const waitEndsAt = new Date(task.waitEndsAt ?? Date.now() + 120000).getTime();
+    const fail = () => {
+      if (evilWaitFinishedRef.current) {
+        return;
+      }
+
+      evilWaitFinishedRef.current = true;
+      onPetEvilWaitFail();
+    };
+    const interval = window.setInterval(() => {
+      setEvilWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
+    }, 250);
+    const teaseInterval = window.setInterval(() => {
+      setEvilTeaseIndex((value) => value + 1);
+    }, 5000);
+    const timer = window.setTimeout(() => {
+      if (evilWaitFinishedRef.current) {
+        return;
+      }
+
+      evilWaitFinishedRef.current = true;
+      onPetEvilWaitComplete();
+    }, Math.max(0, waitEndsAt - Date.now()));
+    const events: Array<keyof WindowEventMap> = [
+      "click",
+      "keydown",
+      "mousedown",
+      "mousemove",
+      "scroll",
+      "touchstart",
+      "wheel",
+    ];
+
+    events.forEach((eventName) => window.addEventListener(eventName, fail));
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearInterval(teaseInterval);
+      window.clearTimeout(timer);
+      events.forEach((eventName) => window.removeEventListener(eventName, fail));
+    };
+  }, [now, onPetEvilWaitComplete, onPetEvilWaitFail, tasks]);
+
+  useEffect(() => {
+    const task = tasks.find((entry) => entry.kind === "evil-wait");
+
+    if (task?.waitState !== "countdown") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setEvilWaitRemaining(120);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [tasks]);
+
+  function handlePerfectInput(value: string, sentence: string) {
+    if (!sentence.startsWith(value)) {
+      setPerfectInput("");
+      onPerfectWritingProgress(value);
+      return;
+    }
+
+    setPerfectInput(value);
+    onPerfectWritingProgress(value);
+
+    if (value === sentence) {
+      window.setTimeout(() => setPerfectInput(""), 0);
+    }
+  }
+
+  function handleGoalDeposit() {
+    const amount = Number(goalDeposit);
+    onDepositGoal(amount);
+    setGoalDeposit("");
+  }
+
+  function handleCaseOpen() {
+    setCaseRolling(true);
+    window.setTimeout(() => {
+      onOpenCase();
+      setCaseRolling(false);
+    }, 8000);
+  }
+
+  function handleFavorPick(index: number) {
+    setFavorRevealing(true);
+    onFavorPick(index);
+    window.setTimeout(() => setFavorRevealing(false), 900);
+  }
+
+  function handleConfessionSubmit() {
+    onConfessionSubmit(confessionInput);
+    setConfessionInput("");
+  }
+
+  const evilTeaseBoxes = [
+    { left: "7%", top: "12%", text: "Confirm obedience" },
+    { left: "58%", top: "18%", text: "Download image" },
+    { left: "18%", top: "62%", text: "Almost yours" },
+    { left: "63%", top: "66%", text: "Click to prove it" },
+  ];
+
+  return (
+    <section className="rounded-[2rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-4 shadow-[0_0_54px_rgba(190,18,60,0.18)]">
+      {isGuest && (
+        <p className="mb-4 rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
+          Guest mode: Pet progression is local-only for development testing.
+        </p>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+        <div className="space-y-4">
+          <div className="relative min-h-[24rem] overflow-hidden rounded-[1.5rem] border border-rose-200/15 bg-black">
+            <Image
+              alt="Evil Principessa"
+              className="object-cover object-top opacity-82"
+              fill
+              sizes="(min-width: 1024px) 42vw, 100vw"
+              src="/evil-principessa.png"
+              unoptimized
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02),rgba(0,0,0,0.82))]" />
+            <div className="absolute bottom-0 left-0 right-0 p-5">
+              <p className="text-xs uppercase tracking-[0.3em] text-rose-100/70">
+                Principessa&apos;s Pet
+              </p>
+              <h2 className="mt-2 text-3xl font-black text-white">The darker vault opens.</h2>
+            </div>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
+              Principessa&apos;s Thoughts
+            </p>
+            <p className="mt-3 text-sm leading-6 text-rose-50/80">
+              A Pet is not promoted by noise. A Pet is shaped by proof, consistency,
+              and review.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
+                  Pet Rank
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">{rank.current.title}</h3>
+              </div>
+              <p className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-xs font-black text-rose-50">
+                {petScore}/1000
+              </p>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/70">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-rose-700 via-pink-500 to-fuchsia-400 shadow-[0_0_20px_rgba(244,63,94,0.65)]"
+                style={{ width: `${rank.progress}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">
+              {rank.next
+                ? `${Math.max(0, rank.next.min - petScore)} Pet Score to reach ${rank.next.title}.`
+                : "Maximum Pet rank reached."}
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
+                Rank Icons
+              </p>
+              <p className="text-xs font-semibold text-zinc-500">Download by rank</p>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
+              {PET_RANK_REWARDS.map((reward) => {
+                const unlocked = petScore >= reward.min;
+
+                return (
+                  <a
+                    aria-disabled={!unlocked}
+                    className={`group overflow-hidden rounded-2xl border bg-black/55 transition ${
+                      unlocked
+                        ? "border-pink-200/35 hover:border-pink-200/70 hover:shadow-[0_0_18px_rgba(236,72,153,0.22)]"
+                        : "pointer-events-none border-white/10 opacity-45"
+                    }`}
+                    download
+                    href={unlocked ? reward.image : undefined}
+                    key={reward.title}
+                    title={unlocked ? `${reward.title} icon` : `Requires ${reward.min} Pet Score`}
+                  >
+                    <div className="relative aspect-square">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        alt=""
+                        className={`h-full w-full object-cover ${unlocked ? "" : "blur-sm grayscale"}`}
+                        src={reward.image}
+                      />
+                      {!unlocked && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-[10px] font-black uppercase tracking-[0.12em] text-rose-50">
+                          {reward.min}
+                        </div>
+                      )}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+        <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
+              Pet Gallery
+            </p>
+            <p className="text-xs font-semibold text-zinc-500">1 unlock per 50 Pet Score</p>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3">
+            {galleryItems.map((item) => {
+              const unlocked = petGalleryUnlockedIds.includes(item.id) || petScore >= item.unlockCost;
+
+              return (
+                <article
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/45"
+                  key={item.id}
+                >
+                  <div className="relative aspect-[3/4] bg-black">
+                    <Image
+                      alt=""
+                      className={`object-cover ${unlocked ? "" : "blur-md opacity-45"}`}
+                      fill
+                      sizes="180px"
+                      src={item.image}
+                      unoptimized
+                    />
+                    {!unlocked && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-xs font-black uppercase tracking-[0.14em] text-rose-50">
+                        <span>Locked</span>
+                        <span className="mt-2 text-[10px] text-rose-100/70">
+                          {item.unlockCost} score
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-black text-white">{item.title}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {unlocked ? "Unlocked" : `${item.unlockCost} Pet Score`}
+                    </p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-[1.5rem] border border-yellow-200/15 bg-yellow-400/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-yellow-100/70">
+                  Weekly Tax
+                </p>
+                <p className="mt-1 text-sm text-yellow-50">
+                  Due in: {formatRemaining(nextTaxDueAt, now)}
+                </p>
+              </div>
+              <span className="rounded-full border border-yellow-100/20 bg-yellow-300/10 px-3 py-1 text-xs font-black text-yellow-50">
+                +{weeklyTaxTask?.reward ?? 0} Pet Score
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-yellow-100/70">
+              Pay {weeklyTaxCost} Principessa Coins within the daily window. Missing it may reduce affection.
+            </p>
+            <button
+              className="mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={weeklyTaxCoolingDown || coins < weeklyTaxCost}
+              onClick={onPayWeeklyTax}
+              type="button"
+            >
+              {weeklyTaxCoolingDown
+                ? "Tax Paid"
+                : coins < weeklyTaxCost
+                  ? `Need ${weeklyTaxCost} Coins`
+                  : `Pay ${weeklyTaxCost} Coins`}
+            </button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {regularTasks.map((task) => {
+              const coolingDown =
+                Boolean(task.cooldownUntil) &&
+                new Date(task.cooldownUntil ?? "").getTime() > now;
+              const pending = task.status === "pending";
+              const approved = task.status === "approved";
+              const failed = task.status === "failed";
+              const sentence = task.sentence ?? "";
+
+              return (
+                <article
+                  className="flex min-h-[22rem] flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]"
+                  key={task.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-black text-white">{task.title}</h3>
+                    <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                      {pending
+                        ? "Review"
+                        : approved
+                          ? "Approved"
+                          : failed
+                            ? "Failed"
+                            : task.kind === "confession-writing"
+                              ? "Repetition"
+                              : task.kind === "perfect-writing"
+                                ? "Precision"
+                                : task.kind === "case-open"
+                                  ? "Case"
+                                  : task.kind === "evil-wait"
+                                    ? "Stillness"
+                                    : task.kind === "randomized-rules"
+                                      ? "Rules"
+                                      : task.kind === "false-hope"
+                                        ? "Sequence"
+                                        : task.kind === "favor-roulette"
+                                          ? "Roulette"
+                                        : "Task"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
+                  <p className="mt-3 text-xs font-bold text-red-100">
+                    {task.kind === "review"
+                      ? `Admin approve reward: +${task.reward} Pet Score`
+                      : `Completion reward: +${task.reward} Pet Score`}
+                  </p>
+                  {task.voiceSentence && (
+                    <p className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                      {task.voiceSentence}
+                    </p>
+                  )}
+                  {task.actionUrl && (
+                    <a
+                      className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-sky-200/25 bg-sky-500/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-200/55 hover:bg-sky-500/20"
+                      href={task.actionUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {task.actionLabel ?? "Open Link"}
+                    </a>
+                  )}
+                  {coolingDown && (
+                    <p className="mt-2 text-xs text-yellow-100">
+                      Available in {formatRemaining(task.cooldownUntil ?? null, now)}
+                    </p>
+                  )}
+
+                  {task.kind === "confession-writing" && (
+                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                        {task.sentence}
+                      </p>
+                      <div className="h-2 overflow-hidden rounded-full bg-black/70">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
+                          style={{ width: `${((task.confessionCount ?? 0) / 5) * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-bold text-red-100">
+                        {task.confessionCount ?? 0}/5 exact repetitions
+                      </p>
+                      <input
+                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || task.status === "approved"}
+                        onChange={(event) => setConfessionInput(event.target.value)}
+                        placeholder="Type the sentence exactly..."
+                        value={confessionInput}
+                      />
+                      <button
+                        className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || task.status === "approved" || confessionInput.length === 0}
+                        onClick={handleConfessionSubmit}
+                        type="button"
+                      >
+                        Submit Line
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "perfect-writing" && (
+                    <div className="mt-auto space-y-3">
+                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                        {sentence}
+                      </p>
+                      <p className="text-sm" aria-label="attempts remaining">
+                        {Array.from({ length: Math.max(0, task.attemptsRemaining ?? 1) })
+                          .map(() => "❤️")
+                          .join("") || "No hearts"}
+                      </p>
+                      <input
+                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || pending}
+                        onChange={(event) => handlePerfectInput(event.target.value, sentence)}
+                        placeholder="Type perfectly..."
+                        value={perfectInput}
+                      />
+                    </div>
+                  )}
+
+                  {task.kind === "case-open" && (
+                    <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/50 py-3">
+                        <div
+                          className={`flex gap-2 px-3 ${caseRolling ? "animate-pet-case-roll" : ""}`}
+                        >
+                          {[
+                            ...PET_CASE_DISPLAY_ITEMS,
+                            ...PET_CASE_DISPLAY_ITEMS,
+                          ].map((item, index) => (
+                            <span
+                              className={`min-w-24 rounded-xl border px-3 py-2 text-center text-sm font-black ${getCaseTierClass(item.tier)}`}
+                              key={`${item.value}-${index}`}
+                            >
+                              {item.value > 0 ? `+${item.value}` : item.value}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {task.caseReward && (
+                        <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                          Last case: {task.caseReward > 0 ? "+" : ""}{task.caseReward} Principessa Coins
+                        </p>
+                      )}
+                      <button
+                        className="mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={caseRolling || coolingDown}
+                        onClick={handleCaseOpen}
+                        type="button"
+                      >
+                        {caseRolling ? "Opening..." : coolingDown ? "Cooldown" : "Open Case"}
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "evil-wait" && (
+                    <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      <p className="text-sm leading-6 text-zinc-300">
+                        Three second countdown, then 2 minutes with no input.
+                      </p>
+                      {(task.waitState === "waiting" ||
+                        (task.waitState === "countdown" &&
+                          task.waitCountdownEndsAt &&
+                          new Date(task.waitCountdownEndsAt).getTime() <= now)) && (
+                        <div className="relative mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-red-200/15 bg-black">
+                          <Image
+                            alt="Evil wait"
+                            className="object-cover"
+                            fill
+                            sizes="360px"
+                            src="/pet-wait-reveal.png"
+                            unoptimized
+                          />
+                          {evilTeaseBoxes.map((box, index) => {
+                            const activeBox = evilTeaseIndex % evilTeaseBoxes.length;
+                            const showDownload =
+                              evilWaitRemaining <= 25 && box.text === "Download image";
+
+                            if (index !== activeBox && !showDownload) {
+                              return null;
+                            }
+
+                            return (
+                              <div
+                                className="pointer-events-none absolute rounded-2xl border border-pink-100/40 bg-black/75 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-pink-50 shadow-[0_0_20px_rgba(236,72,153,0.35)] animate-[fadeOut_5s_linear_both]"
+                                key={`${box.text}-${evilTeaseIndex}`}
+                                style={{ left: box.left, top: box.top }}
+                              >
+                                {box.text}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-black text-red-50">
+                        {task.waitState === "countdown"
+                          ? new Date(task.waitCountdownEndsAt ?? "").getTime() <= now
+                            ? `Waiting ${evilWaitRemaining}s`
+                            : `Countdown ${evilCountdown}`
+                          : task.waitState === "waiting"
+                            ? `Waiting ${evilWaitRemaining}s`
+                            : task.waitState === "failed"
+                              ? "Failed"
+                              : task.waitState === "completed"
+                                ? "Completed"
+                                : coolingDown
+                                  ? "Cooldown"
+                                  : "Ready"}
+                      </p>
+                      <button
+                        className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || task.waitState === "countdown" || task.waitState === "waiting"}
+                        onClick={onPetEvilWaitStart}
+                        type="button"
+                      >
+                        {coolingDown ? "Cooldown" : "Ready"}
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "randomized-rules" && (
+                    <div className="mt-auto rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-red-100/70">
+                        Forbidden Today
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(task.ruleBannedMechanics ?? []).map((mechanic) => (
+                          <span
+                            className="rounded-full border border-red-200/20 bg-red-500/15 px-3 py-1 text-xs font-black text-red-50"
+                            key={mechanic}
+                          >
+                            {mechanic}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-xs leading-5 text-zinc-400">
+                        Type exactly I understand. If you use a forbidden mechanic before accepting,
+                        this task fails. After accepting, those mechanics stay locked until reset.
+                      </p>
+                      <input
+                        className="mt-3 w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || task.ruleAcknowledged}
+                        onChange={(event) => setRuleInput(event.target.value)}
+                        placeholder="I understand"
+                        value={ruleInput}
+                      />
+                      <button
+                        className="mt-3 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={coolingDown || task.ruleAcknowledged || ruleInput !== "I understand"}
+                        onClick={() => {
+                          onRulesAcknowledge(ruleInput);
+                          setRuleInput("");
+                        }}
+                        type="button"
+                      >
+                        {task.ruleAcknowledged ? "Locked Until Reset" : "Submit"}
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "false-hope" && (
+                    <div
+                      className={`mt-auto rounded-2xl border border-red-200/15 bg-black/35 p-3 ${
+                        falseHopeShaking ? "animate-[pet-shake_1.4s_ease-in-out_both]" : ""
+                      }`}
+                    >
+                      <div className="h-3 overflow-hidden rounded-full bg-black/70">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
+                          style={{ width: `${task.falseHopeProgress ?? 0}%` }}
+                        />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-xs text-red-100/80">
+                        <span>{task.falseHopeProgress ?? 0}%</span>
+                        <span>Next: {(task.falseHopeExpectedKey ?? "a").toUpperCase()}</span>
+                      </div>
+                      {falseHopeShaking && (
+                        <p className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-2 text-sm font-black text-pink-50">
+                          So close. Did you really think it would be that easy?
+                        </p>
+                      )}
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        {(["a", "d"] as const).map((key) => (
+                          <button
+                            className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={coolingDown || task.status === "approved"}
+                            key={key}
+                            onClick={() => onFalseHopeKey(key)}
+                            type="button"
+                          >
+                            {key}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {task.kind === "favor-roulette" && (
+                    <div className="mt-auto rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                      <div className="grid grid-cols-5 gap-2">
+                        {Array.from({ length: 5 }, (_, index) => {
+                          const revealed = typeof task.favorPickedIndex === "number" && task.favorPickedIndex >= 0;
+                          const picked = task.favorPickedIndex === index;
+                          const winning = task.favorWinningIndex === index && task.favorResult !== "empty-day";
+                          const label = !revealed
+                            ? "?"
+                            : winning
+                              ? "Special Favor"
+                              : "Disappointment";
+
+                          return (
+                            <button
+                              className={`min-h-24 rounded-2xl border px-2 py-3 transition ${
+                                picked && task.favorResult === "win"
+                                  ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
+                                  : picked
+                                    ? "border-pink-200/45 bg-pink-500/15"
+                                    : revealed
+                                      ? "border-white/10 bg-black/45"
+                                      : "border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(88,28,135,0.24))] hover:border-pink-200/55"
+                              } ${favorRevealing && picked ? "scale-105" : ""}`}
+                              disabled={coolingDown || revealed}
+                              key={index}
+                              onClick={() => handleFavorPick(index)}
+                              type="button"
+                            >
+                              <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {task.favorResult && (
+                        <p
+                          className={`mt-3 rounded-2xl border px-3 py-2 text-sm font-semibold ${
+                            task.favorResult === "win"
+                              ? "border-yellow-200/30 bg-yellow-300/10 text-yellow-50"
+                              : "border-rose-200/20 bg-rose-500/10 text-rose-100"
+                          }`}
+                        >
+                          {task.favorResult === "win"
+                            ? `Special Favor. +${task.reward} Pet Score.`
+                            : task.favorResult === "empty-day"
+                              ? "No winning card existed today."
+                              : "Disappointment."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {task.kind === "review" && (
+                    <button
+                      className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={coolingDown || pending}
+                      onClick={() => onCompleteTask(task.id)}
+                      type="button"
+                    >
+                      {pending ? "Pending Review" : coolingDown ? "Cooldown" : "Submit for Review"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+
+          {goalTask && (
+            <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-black text-white">{goalTask.title}</h3>
+                <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                  One Time
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{goalTask.description}</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/60">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-yellow-300"
+                  style={{
+                    width: `${Math.min(100, ((goalTask.goalDeposited ?? 0) / (goalTask.goalTarget ?? 10000)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-red-50/80">
+                <span>
+                  {goalTask.goalDeposited ?? 0}/{goalTask.goalTarget ?? 10000} Coins deposited
+                </span>
+                <span>
+                  Deadline: {formatRemaining(goalTask.deadlineAt ?? null, now)}
+                </span>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={goalTask.status === "approved"}
+                  inputMode="numeric"
+                  onChange={(event) => setGoalDeposit(event.target.value)}
+                  placeholder="Amount"
+                  value={goalDeposit}
+                />
+                <button
+                  className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={goalTask.status === "approved"}
+                  onClick={handleGoalDeposit}
+                  type="button"
+                >
+                  {goalTask.status === "approved" ? "Complete" : "Deposit"}
+                </button>
+              </div>
+            </article>
+          )}
+
+          <div className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+              Pet Milestone
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              If at least 5 Pet tasks are approved and affection is below 100,
+              claim +10 affection.
+            </p>
+            <button
+              className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canClaimAffection}
+              onClick={onClaimAffection}
+              type="button"
+            >
+              {petAffectionClaimed
+                ? "Already Claimed"
+                : canClaimAffection
+                  ? "Claim +10 Affection"
+                  : `${approvedCount}/5 approved`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

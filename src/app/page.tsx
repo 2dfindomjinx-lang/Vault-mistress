@@ -7,6 +7,7 @@ import { CharacterCard } from "@/components/CharacterCard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { LoginScreen } from "@/components/LoginScreen";
+import { PetSection } from "@/components/PetSection";
 import {
   RecentTributesTicker,
   type RecentTribute,
@@ -27,7 +28,7 @@ import {
   supabase,
   type Profile,
 } from "@/lib/supabase/client";
-import type { GalleryItem, MechanicsState, TaskItem } from "@/lib/types";
+import type { GalleryItem, MechanicsState, PetGalleryItem, PetTaskItem, TaskItem } from "@/lib/types";
 
 const visibleGalleryItems: GalleryItem[] = [
   {
@@ -188,11 +189,63 @@ type UserIrlTaskRow = {
   penalty_timeout_minutes: number | null;
 };
 
+type UserPetTaskRow = {
+  task_id: string;
+  completed_at: string | null;
+  reward_score: number | null;
+  status?: string | null;
+  reviewed_at?: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
 const profileSelect =
-  "id, username, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, timeout_until, created_at, updated_at";
+  "id, username, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, timeout_until, pet_score, pet_unlocked_at, last_pet_decay_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_TIMEOUT_DAYS = 3;
+const WEEK_MS = 7 * DAY_MS;
+const PET_GOAL_WINDOW_MS = 10 * DAY_MS;
+const PET_GOAL_TARGET = 10000;
+const PET_WEEKLY_TAX_COST = 5000;
+const PET_TASK_REWARD = 10;
+const PET_CASE_ITEMS = [
+  { value: -500, tier: "black", weight: 1 },
+  { value: -250, tier: "black", weight: 2 },
+  { value: -100, tier: "black", weight: 3 },
+  { value: 10, tier: "ice", weight: 30 },
+  { value: 25, tier: "ice", weight: 28 },
+  { value: 50, tier: "blue", weight: 22 },
+  { value: 75, tier: "blue", weight: 18 },
+  { value: 150, tier: "pink", weight: 10 },
+  { value: 250, tier: "pink", weight: 7 },
+  { value: 500, tier: "red", weight: 4 },
+  { value: 750, tier: "red", weight: 3 },
+  { value: 1500, tier: "gold", weight: 1 },
+] as const;
+const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
+const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
+const PET_X_POST_TEXT = [
+  "I belong to Principessa.",
+  "My small dick is completely hers.",
+  "Every night I’m forced to fill my mandatory humiliation report like the pathetic paypig I am.",
+  "Every day I return for discipline, attention, and control.",
+  "Craving the same shame and control?",
+  "Click Here",
+  "https://vault-mistress.vercel.app",
+  "Weak. Leaking. Addicted."
+].join("\n");
+const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20Principessa.%20My%20small%20dick%20is%20completely%20Hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20paypig%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
+void PET_X_POST_TEXT;
+const PET_RULE_MECHANICS = [
+  { id: "tribute", label: "Tribute" },
+  { id: "gallery", label: "Gallery Unlock" },
+  { id: "beg", label: "Beg" },
+  { id: "sacrifice", label: "Sacrifice" },
+  { id: "support", label: "Support" },
+  { id: "higher-lower", label: "Higher or Lower" },
+  { id: "number-pick", label: "Number Pick" },
+];
+const MAX_TIMEOUT_DAYS = 1;
+const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
 const SAFE_REWARD = 25;
 const SACRIFICE_COST = 250;
@@ -213,11 +266,134 @@ const BASE_NUMBER_WEIGHTS = [
   { value: 9, weight: 1 },
 ];
 
+const petTasks: PetTaskItem[] = [
+  {
+    id: "pet-confession-dm",
+    title: "Confession Repetition",
+    description: "Type the fixed confession sentence exactly 5 times.",
+    reward: PET_TASK_REWARD,
+    kind: "confession-writing",
+  },
+  {
+    id: "pet-daily-report",
+    title: "Small Dick Touching Journal",
+    description: "Report in full detail how many times you touched and played with your small dick today. Include the exact number of sessions, how long each one lasted, and the times they occurred.",
+    reward: PET_TASK_REWARD,
+    kind: "review",
+  },
+  {
+    id: "pet-twitter-post",
+    title: "X Post Assignment",
+    description: "Open the prepared X post, publish it, then submit for review.",
+    reward: PET_TASK_REWARD,
+    actionLabel: "Open X Post",
+    actionUrl: PET_X_POST_URL,
+    kind: "review",
+  },
+  {
+    id: "pet-weekly-throne-tax",
+    title: "Weekly Throne Tax",
+    description: "Send weekly Throne tax proof by DM.",
+    reward: PET_TASK_REWARD,
+    kind: "weekly-tax",
+  },
+  {
+    id: "pet-voice-proof",
+    title: "Voice Proof",
+    description: "Send a voice recording saying today's required Pet phrase by DM.",
+    reward: PET_TASK_REWARD,
+    kind: "review",
+  },
+  {
+    id: "pet-perfect-writing",
+    title: "Perfect Pet Writing",
+    description: "Write the longer gratitude sentence with no mistakes. One attempt only; DM proof for review.",
+    reward: PET_TASK_REWARD,
+    kind: "perfect-writing",
+  },
+  {
+    id: "pet-case-opening",
+    title: "Pet Case Opening",
+    description: "Open a luxury case and let the vault decide your random coin reward.",
+    reward: PET_TASK_REWARD,
+    kind: "case-open",
+  },
+  {
+    id: "pet-evil-wait",
+    title: "Evil Wait Obediently",
+    description: "After a 3 second countdown, do nothing for 2 minutes while distractions appear.",
+    reward: PET_TASK_REWARD,
+    kind: "evil-wait",
+  },
+  {
+    id: "pet-randomized-rules",
+    title: "Randomized Rules",
+    description: "Daily forbidden mechanics. Type I understand to lock the rule until reset.",
+    reward: PET_TASK_REWARD,
+    kind: "randomized-rules",
+  },
+  {
+    id: "pet-false-hope",
+    title: "Obedience Sequence",
+    description: "Alternate A and D to keep the signal stable. Wrong order pulls progress back.",
+    reward: PET_TASK_REWARD,
+    kind: "false-hope",
+  },
+  {
+    id: "pet-favor-roulette",
+    title: "Favor Roulette",
+    description: "Choose one hidden card. One may hold a Special Favor; the rest are disappointments.",
+    reward: PET_TASK_REWARD,
+    kind: "favor-roulette",
+  },
+  {
+    id: "pet-coin-goal",
+    title: "10,000 Coin Goal",
+    description: "Reach 10,000 tribute coins within one week to unlock a downloadable special avatar later.",
+    reward: PET_TASK_REWARD,
+    kind: "coin-goal",
+  },
+];
+
+const petPerfectWritingSentencePool = [
+  "I am grateful to serve as Principessa's obedient Pet and I will prove it with perfect discipline.",
+  "I am a pathetic and weak pet who is truly grateful to serve Principessa as Her obedient and denied little bitch, and I will prove my worthless devotion with perfect discipline, daily humiliation and total submission every single day.",
+"I am deeply grateful to serve as Principessa’s pathetic paypig and obedient pet. My small dick, my pleasure and my dignity belong to Her completely, and I will prove my devotion with strict discipline, endless edging and constant shame.",
+"I am grateful and honored to serve as Principessa’s obedient, locked and denied pet. I exist only for Her amusement and control, and I will prove it every day with perfect discipline, honesty and humiliating obedience.",
+"I am a desperate, leaking paypig who is truly grateful to serve Principessa as Her personal obedient pet, and I will prove my pathetic submission with perfect discipline, daily reports and total financial and sexual control.",
+"I am grateful to be allowed to serve as Principessa’s weak and inferior pet. My small dick is useless and belongs to Her, and I will prove my loyalty with perfect discipline, constant denial and shameful obedience.",
+"I am truly grateful to serve Principessa as Her devoted and humiliated pet. I accept my place beneath Her and I will prove my complete submission with perfect discipline, daily confessions and endless worship.",
+"I am a pathetic small dick loser who is grateful to serve as Principessa’s obedient pet. I will prove my devotion every single day with strict discipline, total honesty and by giving up all control to her.",
+"I am grateful to serve Principessa as Her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
+];
+const petConfessionSentencePool = [
+  "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
+  "Principessa owns my small dick, my mind, my money, and my dignity.",
+  "I crawl back to the vault because I’m too weak to resist Principessa’s control.",
+  "I’m grateful to be trained and humiliated as Principessa’s obedient paypig.",
+  "Principessa’s approval is everything. I will degrade myself daily to earn it.",
+  "I accept my place: locked, denied, and used for Principessa’s amusement.",
+  "My pathetic Pet score and my tiny dick belong entirely to Principessa.",
+  "I will not rush. I will edge and suffer properly like a good denied pet.",
+  "Principessa’s pet waits, leaks, reports, and begs for more humiliation.",
+  "Excuses are for weak losers. I prove my devotion with discipline and shame.",
+  "The vault exposes my weakness, my addiction, and my total submission.",
+  "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
+];
+const petVoiceSentencePool = petConfessionSentencePool;
+
+const petGalleryItems: PetGalleryItem[] = Array.from({ length: 20 }, (_, index) => ({
+  id: `pet-gallery-${index + 1}`,
+  title: `Pet Vault ${index + 1}`,
+  image: `/gallery/pet-${index + 1}.png`,
+  unlockCost: (index + 1) * 50,
+}));
+
 const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login everyday",
-    reward: 25,
+    reward: 100,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -225,7 +401,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "typing-accuracy",
     title: "Typing accuracy",
-    reward: 25,
+    reward: 50,
     completed: false,
     claimed: false,
     kind: "typing",
@@ -416,6 +592,14 @@ const idleMistressLines = [
   "Feel that shame and send.",
 ];
 
+const petIdleMistressLines = [
+  "My Pet should be practicing obedience.",
+  "Pet privileges are watched, not given.",
+  "The darker vault remembers every mistake.",
+  "A good Pet waits before being noticed.",
+  "Your collar is invisible, but the rules are not.",
+];
+
 const begIgnoredLines = [
   "Principessa is ignoring you right now. You're not even worth her time.",
   "Ignored again... how does it feel being this forgettable?",
@@ -516,6 +700,183 @@ function getCooldownUntil(value: string | null, milliseconds: number) {
   return new Date(cooldownEndsAt).toISOString();
 }
 
+function getPetTaskCooldownUntil(value: string | null) {
+  return getCooldownUntil(value, DAY_MS);
+}
+
+function buildPetTasksFromRows(rows: UserPetTaskRow[], petUnlockedAt?: string | null) {
+  return petTasks.map((task) => {
+    const row = rows.find((entry) => entry.task_id === task.id);
+    const baseStatus = (row?.status as PetTaskItem["status"]) ?? "available";
+    const completedAt = row?.completed_at ?? null;
+
+    if (task.kind === "perfect-writing") {
+      const failedAt = getTaskMetadataString(row?.metadata, "failedAt");
+      const cooldownUntil = getPetTaskCooldownUntil(completedAt ?? failedAt);
+
+      return {
+        ...task,
+        attemptsRemaining: cooldownUntil ? 0 : 1,
+        completedAt,
+        cooldownUntil,
+        reviewedAt: row?.reviewed_at ?? null,
+        sentence: getDailyPetPerfectWritingSentence(),
+        status: cooldownUntil ? baseStatus : "available",
+      };
+    }
+
+    if (task.kind === "confession-writing") {
+      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+
+      return {
+        ...task,
+        completedAt,
+        confessionCount: cooldownUntil ? 5 : getTaskMetadataNumber(row?.metadata, "count", 0),
+        cooldownUntil,
+        reviewedAt: row?.reviewed_at ?? null,
+        sentence: getDailyPetConfessionSentence(),
+        status: cooldownUntil ? baseStatus : "available",
+      };
+    }
+
+    if (task.kind === "weekly-tax") {
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil: getCooldownUntil(completedAt, WEEK_MS),
+        reviewedAt: row?.reviewed_at ?? null,
+        status: baseStatus,
+      };
+    }
+
+    if (task.kind === "coin-goal") {
+      const deposited = getTaskMetadataNumber(row?.metadata, "deposited", 0);
+      const deadlineAt =
+        getTaskMetadataString(row?.metadata, "deadlineAt") ??
+        (petUnlockedAt ? new Date(new Date(petUnlockedAt).getTime() + PET_GOAL_WINDOW_MS).toISOString() : null);
+
+      return {
+        ...task,
+        completedAt,
+        deadlineAt,
+        goalDeposited: deposited,
+        goalTarget: PET_GOAL_TARGET,
+        reviewedAt: row?.reviewed_at ?? null,
+        status: deposited >= PET_GOAL_TARGET ? "approved" : baseStatus,
+      };
+    }
+
+    if (task.kind === "case-open") {
+      return {
+        ...task,
+        caseReward: getTaskMetadataNumber(row?.metadata, "reward", 0) || null,
+        caseSpunAt: completedAt,
+        completedAt,
+        cooldownUntil: getPetTaskCooldownUntil(completedAt),
+        reviewedAt: row?.reviewed_at ?? null,
+        status: baseStatus,
+      };
+    }
+
+    if (task.kind === "evil-wait") {
+      const status = getTaskMetadataString(row?.metadata, "status");
+      const waitState: PetTaskItem["waitState"] = getPetTaskCooldownUntil(row?.completed_at ?? null)
+        ? "cooldown"
+        : status === "completed"
+          ? "completed"
+          : status === "failed"
+            ? "failed"
+            : status === "waiting"
+              ? "waiting"
+              : status === "countdown"
+                ? "countdown"
+                : "ready";
+
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil: getPetTaskCooldownUntil(row?.completed_at ?? null),
+        reviewedAt: row?.reviewed_at ?? null,
+        status: baseStatus,
+        waitCountdownEndsAt: getTaskMetadataString(row?.metadata, "countdownEndsAt"),
+        waitEndsAt: getTaskMetadataString(row?.metadata, "waitEndsAt"),
+        waitState,
+      };
+    }
+
+    if (task.kind === "randomized-rules") {
+      const dailyRules = getDailyPetRuleMechanics();
+      const metadataDate = getTaskMetadataString(row?.metadata, "date");
+      const isToday = metadataDate === getDailyKey();
+      const ruleAcknowledged = isToday && getTaskMetadataString(row?.metadata, "acknowledged") === "true";
+
+      return {
+        ...task,
+        completedAt: isToday ? completedAt : null,
+        cooldownUntil: isToday && completedAt ? getPetTaskCooldownUntil(completedAt) : null,
+        reviewedAt: row?.reviewed_at ?? null,
+        ruleAcknowledged,
+        ruleBannedMechanics: dailyRules.map((rule) => rule.id),
+        status: isToday ? baseStatus : "available",
+      };
+    }
+
+    if (task.kind === "false-hope") {
+      const progress = getTaskMetadataNumber(row?.metadata, "progress", 0);
+      const stage = getTaskMetadataNumber(row?.metadata, "stage", 1);
+      const expectedKeyRaw = getTaskMetadataString(row?.metadata, "expectedKey");
+      const expectedKey: "a" | "d" = expectedKeyRaw === "d" ? "d" : "a";
+
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil: getPetTaskCooldownUntil(completedAt),
+        falseHopeExpectedKey: expectedKey,
+        falseHopeProgress: progress,
+        falseHopeStage: stage,
+        reviewedAt: row?.reviewed_at ?? null,
+        status: baseStatus,
+      };
+    }
+
+    if (task.kind === "favor-roulette") {
+      const result = getTaskMetadataString(row?.metadata, "result");
+      const typedResult: PetTaskItem["favorResult"] =
+        result === "win" || result === "loss" || result === "empty-day" ? result : null;
+
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil: getPetTaskCooldownUntil(completedAt),
+        favorPickedIndex: getTaskMetadataNumber(row?.metadata, "pickedIndex", -1),
+        favorResult: typedResult,
+        favorWinningIndex: getTaskMetadataNumber(row?.metadata, "winningIndex", -1),
+        reviewedAt: row?.reviewed_at ?? null,
+        status: baseStatus,
+      };
+    }
+
+    if (task.id === "pet-voice-proof") {
+      return {
+        ...task,
+        status: baseStatus,
+        completedAt,
+        reviewedAt: row?.reviewed_at ?? null,
+        cooldownUntil: getPetTaskCooldownUntil(completedAt),
+        voiceSentence: getDailyPetVoiceSentence(),
+      };
+    }
+
+    return {
+      ...task,
+      status: baseStatus,
+      completedAt,
+      reviewedAt: row?.reviewed_at ?? null,
+      cooldownUntil: getPetTaskCooldownUntil(completedAt),
+    };
+  });
+}
+
 function getEffectiveTimeoutDays(timeoutValue: string | null, now = Date.now()) {
   if (!timeoutValue) {
     return 0;
@@ -551,9 +912,53 @@ function randomFrom<T>(items: T[]) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
+function weightedRandomCaseItem() {
+  const totalWeight = PET_CASE_ITEMS.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const item of PET_CASE_ITEMS) {
+    roll -= item.weight;
+
+    if (roll <= 0) {
+      return item;
+    }
+  }
+
+  return PET_CASE_ITEMS[PET_CASE_ITEMS.length - 1];
+}
+
+function randomChance(probability: number) {
+  return Math.random() < probability;
+}
+
+function getDailyPetRuleMechanics() {
+  const dayKey = getDailyKey();
+  const seed = dayKey.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const first = seed % PET_RULE_MECHANICS.length;
+  const second = (seed * 3 + 2) % PET_RULE_MECHANICS.length;
+  const indexes = Array.from(new Set([first, second]));
+
+  return indexes.map((index) => PET_RULE_MECHANICS[index]);
+}
+
 function getDailyTypingSentence() {
   const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
   return typingSentencePool[dayIndex % typingSentencePool.length];
+}
+
+function getDailyPetVoiceSentence() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return petVoiceSentencePool[dayIndex % petVoiceSentencePool.length];
+}
+
+function getDailyPetPerfectWritingSentence() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return petPerfectWritingSentencePool[dayIndex % petPerfectWritingSentencePool.length];
+}
+
+function getDailyPetConfessionSentence() {
+  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  return petConfessionSentencePool[dayIndex % petConfessionSentencePool.length];
 }
 
 function randomHighLowNumber() {
@@ -713,6 +1118,8 @@ function buildTasksFromRows(
         getTaskMetadataNumberArray(row?.metadata, "options") ?? generateNumberPickOptions();
       const selected = getTaskMetadataNumber(row?.metadata, "selected", Number.NaN);
       const correct = getTaskMetadataNumber(row?.metadata, "correct", Number.NaN);
+      const attemptsRemaining = getTaskMetadataNumber(row?.metadata, "attemptsRemaining", 2);
+      const wrongSelections = getTaskMetadataNumberArray(row?.metadata, "wrongSelections") ?? [];
       const rawResult = getTaskMetadataString(row?.metadata, "result");
       const result: "win" | "loss" | null =
         rawResult === "win" || rawResult === "loss" ? rawResult : null;
@@ -722,10 +1129,12 @@ function buildTasksFromRows(
         claimed: Boolean(cooldownUntil),
         completed: result === "win",
         cooldownUntil,
+        numberPickAttemptsRemaining: cooldownUntil ? 0 : attemptsRemaining,
         numberPickCorrect: Number.isFinite(correct) ? correct : undefined,
         numberPickOptions: options,
         numberPickResult: result,
         numberPickSelected: Number.isFinite(selected) ? selected : null,
+        numberPickWrongSelections: wrongSelections,
       };
     }
 
@@ -858,6 +1267,7 @@ function getGalleryMechanicState(unlockedIds: string[]) {
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -868,6 +1278,12 @@ export default function Home() {
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [petScore, setPetScore] = useState(0);
+  const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
+  const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
+  const [petTaskState, setPetTaskState] = useState<PetTaskItem[]>(petTasks);
+  const [petAffectionClaimed, setPetAffectionClaimed] = useState(false);
+  const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
   const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
@@ -886,7 +1302,7 @@ export default function Home() {
     sacrificeComplete: false,
     allGalleryComplete: false,
   });
-  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks">("tribute");
+  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks" | "pet">("tribute");
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
@@ -933,6 +1349,11 @@ export default function Home() {
     : 0;
   const timeoutMessage =
     "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
+  const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
+  const isPetUnlocked = affection >= 100 || (petEverUnlocked && affection >= 85);
+  const nextPetTaxDueAt = petUnlockedAt
+    ? new Date(new Date(lastPetTaxAt ?? petUnlockedAt).getTime() + WEEK_MS).toISOString()
+    : null;
 
   const blockIfTimedOut = () => {
     const activeTimeout = timeoutUntilRef.current;
@@ -990,16 +1411,19 @@ export default function Home() {
       Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 
     const getRandomIdleLine = () => {
-      let nextIndex = Math.floor(Math.random() * idleMistressLines.length);
+      const availableLines = petEverUnlocked
+        ? [...idleMistressLines, ...petIdleMistressLines]
+        : idleMistressLines;
+      let nextIndex = Math.floor(Math.random() * availableLines.length);
 
-      if (idleMistressLines.length > 1) {
+      if (availableLines.length > 1) {
         while (nextIndex === lastIdleLineIndexRef.current) {
-          nextIndex = Math.floor(Math.random() * idleMistressLines.length);
+          nextIndex = Math.floor(Math.random() * availableLines.length);
         }
       }
 
       lastIdleLineIndexRef.current = nextIndex;
-      return idleMistressLines[nextIndex];
+      return availableLines[nextIndex];
     };
 
     const idleTimer = window.setTimeout(() => {
@@ -1009,7 +1433,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(idleTimer);
     };
-  }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply]);
+  }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply, petEverUnlocked]);
 
   const recordCoinTransaction = useCallback((amount: number, reason: string) => {
     if (!authUserId || amount === 0) {
@@ -1189,6 +1613,9 @@ export default function Home() {
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setPetScore(profile.pet_score ?? 0);
+    setPetUnlockedAt(profile.pet_unlocked_at ?? null);
+    setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
     setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
@@ -1219,6 +1646,34 @@ export default function Home() {
     const unlockedIds = Array.from(galleryIds);
 
     setUnlockedGalleryIds(unlockedIds);
+
+    const { data: petGalleryData, error: petGalleryError } = await supabase
+      .from("user_pet_gallery")
+      .select("item_id")
+      .eq("user_id", profile.id);
+
+    if (petGalleryError) {
+      console.warn("Failed to load pet gallery unlocks", petGalleryError);
+      setPetGalleryUnlockedIds([]);
+    } else {
+      setPetGalleryUnlockedIds(petGalleryData?.map((entry) => entry.item_id) ?? []);
+    }
+
+    const { data: petTaskData, error: petTaskError } = await supabase
+      .from("user_pet_tasks")
+      .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+      .eq("user_id", profile.id);
+
+    if (petTaskError) {
+      console.warn("Failed to load pet task state", petTaskError);
+      setPetTaskState(petTasks);
+    } else {
+      const petRows = (petTaskData ?? []) as UserPetTaskRow[];
+      setPetTaskState(buildPetTasksFromRows(petRows, profile.pet_unlocked_at));
+      setPetAffectionClaimed(
+        petRows.some((entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved"),
+      );
+    }
 
     const { data: taskData, error: taskError } = await supabase
       .from("user_tasks")
@@ -1286,6 +1741,9 @@ export default function Home() {
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setPetScore(profile.pet_score ?? 0);
+    setPetUnlockedAt(profile.pet_unlocked_at ?? null);
+    setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     timeoutUntilRef.current = profile.timeout_until ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
@@ -1295,7 +1753,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!authUserId) {
+    if (!authUserId || isGuestMode) {
       return;
     }
 
@@ -1329,7 +1787,7 @@ export default function Home() {
       window.removeEventListener("focus", refreshTimeout);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [applyProfileStats, authUserId]);
+  }, [applyProfileStats, authUserId, isGuestMode]);
 
   const createProfileForUser = useCallback(async (user: User) => {
     const fallbackUsername = profileUsernameFromUser(user);
@@ -1350,6 +1808,7 @@ export default function Home() {
             coins: 100,
             affection: 0,
             tribute_total: 0,
+            pet_score: 0,
             updated_at: new Date().toISOString(),
           },
           { onConflict: "id", ignoreDuplicates: true },
@@ -1407,6 +1866,70 @@ export default function Home() {
     return createdProfile;
   }, []);
 
+  const applyPetMaintenance = useCallback(async (profile: Profile) => {
+    if (isGuestMode) {
+      return profile;
+    }
+
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+    const patch: Partial<Profile> & { updated_at?: string } = {};
+    let nextAffection = profile.affection;
+    let nextPetUnlockedAt = profile.pet_unlocked_at ?? null;
+    let nextLastDecayAt = profile.last_pet_decay_at ?? null;
+    let nextLastTaxAt = profile.last_pet_tax_at ?? null;
+
+    if (!nextPetUnlockedAt && profile.affection >= 100) {
+      nextPetUnlockedAt = nowIso;
+      nextLastDecayAt = nowIso;
+      nextLastTaxAt = nextLastTaxAt ?? nowIso;
+      patch.pet_unlocked_at = nextPetUnlockedAt;
+      patch.last_pet_decay_at = nextLastDecayAt;
+      patch.last_pet_tax_at = nextLastTaxAt;
+    }
+
+    if (nextPetUnlockedAt) {
+      const decayBase = new Date(nextLastDecayAt ?? nextPetUnlockedAt).getTime();
+      const elapsedDecayDays = Math.floor((now - decayBase) / DAY_MS);
+
+      if (elapsedDecayDays > 0) {
+        nextAffection = Math.max(0, nextAffection - elapsedDecayDays * 5);
+        nextLastDecayAt = nowIso;
+        patch.affection = nextAffection;
+        patch.last_pet_decay_at = nextLastDecayAt;
+      }
+
+      const taxBase = new Date(nextLastTaxAt ?? nextPetUnlockedAt).getTime();
+      const missedTaxWeeks = Math.floor((now - taxBase) / WEEK_MS);
+
+      if (missedTaxWeeks > 0) {
+        nextAffection = Math.max(0, nextAffection - missedTaxWeeks * 10);
+        nextLastTaxAt = nowIso;
+        patch.affection = nextAffection;
+        patch.last_pet_tax_at = nextLastTaxAt;
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return profile;
+    }
+
+    patch.updated_at = nowIso;
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(patch)
+      .eq("id", profile.id)
+      .select(profileSelect)
+      .single();
+
+    if (error) {
+      console.error("Failed to persist Pet maintenance", error);
+      return profile;
+    }
+
+    return data as Profile;
+  }, [isGuestMode]);
+
   const loadProfile = useCallback(async (user: User) => {
     console.info("Loading profile for authenticated user", {
       id: user.id,
@@ -1444,14 +1967,16 @@ export default function Home() {
           });
       }
 
-      await applyProfile(existingProfile);
-      return existingProfile as Profile;
+      const maintainedProfile = await applyPetMaintenance(existingProfile as Profile);
+      await applyProfile(maintainedProfile);
+      return maintainedProfile as Profile;
     }
 
     const createdProfile = await createProfileForUser(user);
-    await applyProfile(createdProfile);
-    return createdProfile as Profile;
-  }, [applyProfile, createProfileForUser]);
+    const maintainedProfile = await applyPetMaintenance(createdProfile as Profile);
+    await applyProfile(maintainedProfile);
+    return maintainedProfile as Profile;
+  }, [applyPetMaintenance, applyProfile, createProfileForUser]);
 
   const updateLoyaltyForProfile = useCallback(async (profile: Profile) => {
     const lastLoyaltyAt = profile.last_loyalty_at;
@@ -1571,6 +2096,33 @@ export default function Home() {
     }
     return data;
   }, [applyProfileStats, loadLeadershipTop]);
+
+  const persistPetProfilePatch = useCallback(async (
+    patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at">>,
+    reason: string,
+  ) => {
+    if (!authUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        ...patch,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authUserId)
+      .select(profileSelect)
+      .single();
+
+    if (error) {
+      console.error("Failed to persist Pet profile patch", { reason, error });
+      throw error;
+    }
+
+    applyProfileStats(data as Profile);
+    return data as Profile;
+  }, [applyProfileStats, authUserId]);
 
   const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -1856,7 +2408,7 @@ export default function Home() {
     const task = tasks.find((entry) => entry.id === "typing-accuracy");
     const typingCooldownActive =
       Boolean(task?.cooldownUntil) &&
-      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
 
     if (!task || typingCooldownActive || task.completed || !authUserId) {
       return;
@@ -1967,11 +2519,14 @@ export default function Home() {
     if (blockIfTimedOut()) {
       return;
     }
+    if (await markPetRulesFailed("higher-lower")) {
+      return;
+    }
 
     const task = tasks.find((entry) => entry.id === "high-low");
     const highLowCooldownActive =
       Boolean(task?.cooldownUntil) &&
-      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
     const highLowLocked = Boolean(task?.highLowDailyLocked);
 
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
@@ -2014,7 +2569,7 @@ export default function Home() {
     const nextDailyProfit = currentDailyProfit + coinDelta;
     const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
     const nextDailyLocked = isHighLowLocked(nextDailyProfit, nextDailyWins);
-    const nextBaseRevealAt = new Date(Date.now() + 10 * 1000).toISOString();
+    const nextBaseRevealAt = new Date(new Date().getTime() + 10 * 1000).toISOString();
     const lastResult =
       outcome === "tie"
         ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
@@ -2090,11 +2645,14 @@ export default function Home() {
     if (blockIfTimedOut()) {
       return;
     }
+    if (await markPetRulesFailed("number-pick")) {
+      return;
+    }
 
     const task = tasks.find((entry) => entry.id === "number-pick");
     const isCoolingDown =
       Boolean(task?.cooldownUntil) &&
-      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
 
     if (!task || isCoolingDown || !authUserId) {
       return;
@@ -2109,32 +2667,48 @@ export default function Home() {
       return;
     }
 
-    const correctNumber = randomFrom(options);
-    const result = selectedNumber === correctNumber ? "win" : "loss";
+    if ((task.numberPickWrongSelections ?? []).includes(selectedNumber)) {
+      return;
+    }
+
+    const existingCorrect = task.numberPickCorrect;
+    const correctNumber = typeof existingCorrect === "number" ? existingCorrect : randomFrom(options);
+    const previousWrongSelections = task.numberPickWrongSelections ?? [];
+    const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
+    const isCorrect = selectedNumber === correctNumber;
+    const reward = isCorrect ? (attemptsRemaining >= 2 ? 50 : 25) : 0;
+    const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
+    const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
+    const result: "win" | "loss" | null = finalAttempt ? (isCorrect ? "win" : "loss") : null;
+    const wrongSelections = isCorrect
+      ? previousWrongSelections
+      : Array.from(new Set([...previousWrongSelections, selectedNumber]));
     const now = new Date().toISOString();
-    const cooldownUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const cooldownUntil = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString();
 
     try {
-      if (result === "win") {
+      if (reward > 0) {
         await persistProfileProgress(
-          { coins: coinsRef.current + task.reward, affection },
+          { coins: coinsRef.current + reward, affection },
           "task:number-pick",
         );
-        recordCoinTransaction(task.reward, "task:number-pick");
+        recordCoinTransaction(reward, "task:number-pick");
       }
 
       const { error } = await supabase.from("user_tasks").upsert(
         {
           user_id: authUserId,
           task_id: task.id,
-          completed_at: now,
-          claimed_at: now,
-          reward_coins: result === "win" ? task.reward : 0,
+          completed_at: finalAttempt ? now : task.completed ? now : null,
+          claimed_at: finalAttempt ? now : null,
+          reward_coins: reward,
           metadata: {
+            attemptsRemaining: nextAttemptsRemaining,
             correct: correctNumber,
             options,
             result,
             selected: selectedNumber,
+            wrongSelections,
           },
         },
         { onConflict: "user_id,task_id" },
@@ -2149,22 +2723,26 @@ export default function Home() {
         current.map((entry) =>
           entry.id === task.id
             ? {
-                ...entry,
-                claimed: true,
+              ...entry,
+                claimed: finalAttempt,
                 completed: result === "win",
-                cooldownUntil,
+                cooldownUntil: finalAttempt ? cooldownUntil : entry.cooldownUntil,
+                numberPickAttemptsRemaining: nextAttemptsRemaining,
                 numberPickCorrect: correctNumber,
                 numberPickOptions: options,
                 numberPickResult: result,
                 numberPickSelected: selectedNumber,
+                numberPickWrongSelections: wrongSelections,
               }
             : entry,
         ),
       );
       setMistressReply(
         result === "win"
-          ? "Lucky pick. The vault grants you 25 coins."
-          : "Wrong number. The vault gives you nothing today.",
+          ? `Lucky pick. The vault grants you ${reward} coins.`
+          : result === "loss"
+            ? "Wrong again. The vault gives you nothing today."
+            : "Wrong number. One chance remains.",
       );
     } catch (error) {
       console.error("Failed to complete number pick task", error);
@@ -2382,7 +2960,7 @@ export default function Home() {
         const baseMs = activeTimeoutUntil
           ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
           : nowMs;
-        const nextTimeoutUntil = new Date(baseMs + DAY_MS).toISOString();
+        const nextTimeoutUntil = new Date(baseMs + TIMEOUT_RISK_TIMEOUT_MS).toISOString();
         const now = new Date().toISOString();
 
         timeoutUntilRef.current = nextTimeoutUntil;
@@ -2416,7 +2994,7 @@ export default function Home() {
             entry.id === "timeout-risk"
               ? {
                   ...entry,
-                  lastResult: "Timeout hit. +1 day added.",
+                  lastResult: "Timeout hit. +12 hours added.",
                   timeoutUntil: nextTimeoutUntil,
                 }
               : entry.id === "irl-task-wheel"
@@ -2424,7 +3002,7 @@ export default function Home() {
               : entry,
           ),
         );
-        setMistressReply("Bad roll. One day of timeout has been added.");
+        setMistressReply("Bad roll. 12 hours of timeout have been added.");
         return;
       }
 
@@ -2573,6 +3151,9 @@ export default function Home() {
     if (blockIfTimedOut()) {
       return;
     }
+    if (await markPetRulesFailed("beg")) {
+      return;
+    }
 
     if (!authUserId) {
       return;
@@ -2580,14 +3161,14 @@ export default function Home() {
 
     const cooldownActive =
       Boolean(displayMechanics.begCooldownUntil) &&
-      new Date(displayMechanics.begCooldownUntil ?? "").getTime() > Date.now();
+      new Date(displayMechanics.begCooldownUntil ?? "").getTime() > new Date().getTime();
 
     if (cooldownActive) {
       return;
     }
 
     const now = new Date().toISOString();
-    const reward = Math.random() < 0.07 ? 25 : 0;
+    const reward = randomChance(0.07) ? 25 : 0;
 
     try {
       const { error } = await supabase.from("user_tasks").upsert(
@@ -2637,6 +3218,9 @@ export default function Home() {
     if (blockIfTimedOut()) {
       return;
     }
+    if (await markPetRulesFailed("sacrifice")) {
+      return;
+    }
 
     if (!authUserId || displayMechanics.sacrificeComplete) {
       return;
@@ -2644,7 +3228,7 @@ export default function Home() {
 
     const cooldownActive =
       Boolean(displayMechanics.sacrificeCooldownUntil) &&
-      new Date(displayMechanics.sacrificeCooldownUntil ?? "").getTime() > Date.now();
+      new Date(displayMechanics.sacrificeCooldownUntil ?? "").getTime() > new Date().getTime();
 
     if (cooldownActive) {
       return;
@@ -2671,7 +3255,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const won = Math.random() < 0.5;
+    const won = randomChance(0.5);
     const unlockedItem = won ? randomFrom(remainingItems) : null;
     const nextCoins = coinsRef.current - SACRIFICE_COST;
     const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
@@ -2735,6 +3319,9 @@ export default function Home() {
 
   const handleSupport = async () => {
     if (blockIfTimedOut()) {
+      return;
+    }
+    if (await markPetRulesFailed("support")) {
       return;
     }
 
@@ -2829,6 +3416,7 @@ export default function Home() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setIsGuestMode(false);
     setIsLoggedIn(false);
     setAuthUserId(null);
     profileIdRef.current = null;
@@ -2841,11 +3429,20 @@ export default function Home() {
     setCoins(100);
     setAffection(0);
     setTributeTotal(0);
+    setPetScore(0);
+    setPetUnlockedAt(null);
+    setLastPetTaxAt(null);
+    setPetTaskState(petTasks);
+    setPetAffectionClaimed(false);
+    setPetGalleryUnlockedIds([]);
     setMistressReply("Back at the gate. The vault can wait.");
   };
 
   const handleTribute = async (amount: number) => {
     if (blockIfTimedOut()) {
+      return;
+    }
+    if (await markPetRulesFailed("tribute")) {
       return;
     }
 
@@ -2886,6 +3483,25 @@ export default function Home() {
         "tribute",
       );
       recordCoinTransaction(nextCoins - currentCoins, "tribute");
+      if (!isGuestMode && nextAffection >= 100 && !petUnlockedAt && authUserId) {
+        const now = new Date().toISOString();
+        const { error: petUnlockError } = await supabase
+          .from("profiles")
+          .update({
+            pet_unlocked_at: now,
+            last_pet_decay_at: now,
+            last_pet_tax_at: now,
+            updated_at: now,
+          })
+          .eq("id", authUserId);
+
+        if (petUnlockError) {
+          console.error("Failed to persist Pet unlock", petUnlockError);
+        } else {
+          setPetUnlockedAt(now);
+          setLastPetTaxAt(now);
+        }
+      }
     } catch (error) {
       console.error("Failed to persist tribute progress", error);
       setAuthError(describeError(error));
@@ -2911,6 +3527,9 @@ export default function Home() {
 
   const handleUnlock = async (itemId: string) => {
     if (blockIfTimedOut()) {
+      return;
+    }
+    if (await markPetRulesFailed("gallery")) {
       return;
     }
 
@@ -3012,6 +3631,1075 @@ export default function Home() {
     setMistressReply(
       `Fine. ${task.reward} coins added. Spend them carefully.`,
     );
+  };
+
+  const handlePetTaskComplete = async (taskId: string) => {
+    if (!isPetUnlocked) {
+      setMistressReply("Principessa's Pet is locked.");
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === taskId);
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown || task.status === "pending") {
+      return;
+    }
+
+    if (task.kind !== "review") {
+      setMistressReply("This Pet task has its own rules. Use its task controls.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    if (!isGuestMode && authUserId) {
+      const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "pending",
+          metadata: {},
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (taskError) {
+        console.error("Failed to persist pet task", taskError);
+        setAuthError(describeError(taskError));
+        return;
+      }
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              status: "pending",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(
+      isGuestMode
+        ? "Guest Pet task submitted for review. Pet Score waits for approval."
+        : "Pet task submitted for admin review.",
+    );
+  };
+
+  const handlePetPerfectWritingProgress = async (value: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-perfect-writing");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+    const sentence = task?.sentence ?? getDailyPetPerfectWritingSentence();
+
+    if (!task || coolingDown || task.status === "pending") {
+      return;
+    }
+
+    if (!sentence.startsWith(value)) {
+      const now = new Date().toISOString();
+
+      if (!isGuestMode && authUserId) {
+        const { error } = await supabase.from("user_pet_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: now,
+            reward_score: task.reward,
+            status: "failed",
+            reviewed_at: now,
+            metadata: {
+              attemptsRemaining: 0,
+              failedAt: now,
+            },
+          },
+          { onConflict: "user_id,task_id" },
+        );
+
+        if (error) {
+          console.error("Failed to persist Pet perfect writing failure", error);
+          setAuthError(describeError(error));
+          return;
+        }
+      }
+
+      setPetTaskState((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                attemptsRemaining: 0,
+                completedAt: now,
+                cooldownUntil: getPetTaskCooldownUntil(now),
+                status: "failed",
+              }
+            : entry,
+        ),
+      );
+      setMistressReply("One mistake. Start over tomorrow.");
+      return;
+    }
+
+    if (value !== sentence) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextPetScore = Math.min(1000, petScore + task.reward);
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-perfect-writing");
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "approved",
+          reviewed_at: now,
+          metadata: {
+            attemptsRemaining: 1,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet perfect writing success", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              attemptsRemaining: 1,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              reviewedAt: now,
+              status: "approved",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(`Perfect. +${task.reward} Pet Score.`);
+  };
+
+  const handlePetConfessionSubmit = async (value: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-confession-dm");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
+    const sentence = task?.sentence ?? getDailyPetConfessionSentence();
+
+    if (!task || coolingDown || task.status === "approved") {
+      return;
+    }
+
+    if (value.trim() !== sentence) {
+      setMistressReply("Exact words only. Start that line again.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextCount = Math.min(5, (task.confessionCount ?? 0) + 1);
+    const completed = nextCount >= 5;
+    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+
+    if (!isGuestMode && authUserId) {
+      if (completed) {
+        try {
+          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-confession");
+        } catch (error) {
+          setAuthError(describeError(error));
+          return;
+        }
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: completed ? now : task.completedAt,
+          reward_score: task.reward,
+          status: completed ? "approved" : "available",
+          reviewed_at: completed ? now : task.reviewedAt,
+          metadata: {
+            count: nextCount,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet confession progress", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else if (completed) {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              confessionCount: nextCount,
+              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              reviewedAt: completed ? now : entry.reviewedAt,
+              status: completed ? "approved" : "available",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(
+      completed
+        ? `Confession accepted. +${task.reward} Pet Score.`
+        : `Good. ${nextCount}/5 confessions complete.`,
+    );
+  };
+
+  const handlePetWeeklyTax = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-weekly-throne-tax");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown) {
+      return;
+    }
+
+    if (coinsRef.current < PET_WEEKLY_TAX_COST) {
+      setMistressReply(`Weekly tax requires ${PET_WEEKLY_TAX_COST} Principessa Coins.`);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST;
+    const nextPetScore = Math.min(1000, petScore + task.reward);
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch(
+          {
+            coins: nextCoins,
+            pet_score: nextPetScore,
+            last_pet_tax_at: now,
+          },
+          "pet-weekly-tax",
+        );
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      recordCoinTransaction(-PET_WEEKLY_TAX_COST, "pet:weekly-tax");
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "approved",
+          reviewed_at: now,
+          metadata: {
+            cost: PET_WEEKLY_TAX_COST,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet weekly tax", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setCoins(nextCoins);
+      setPetScore(nextPetScore);
+      setLastPetTaxAt(now);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getCooldownUntil(now, WEEK_MS),
+              reviewedAt: now,
+              status: "approved",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score.`);
+  };
+
+  const handlePetGoalDeposit = async (amount: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-coin-goal");
+    const cleanAmount = Math.floor(amount);
+
+    if (!task || task.status === "approved") {
+      return;
+    }
+
+    if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) {
+      setMistressReply("Enter a valid coin amount for the goal.");
+      return;
+    }
+
+    if (cleanAmount > coinsRef.current) {
+      setMistressReply("You do not have enough Principessa Coins for that deposit.");
+      return;
+    }
+
+    const deadlineAt =
+      task.deadlineAt ??
+      (petUnlockedAt ? new Date(new Date(petUnlockedAt).getTime() + PET_GOAL_WINDOW_MS).toISOString() : null);
+
+    if (deadlineAt && new Date(deadlineAt).getTime() < Date.now()) {
+      setMistressReply("The 10 day Pet goal window has already closed.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const currentDeposited = task.goalDeposited ?? 0;
+    const nextDeposited = Math.min(PET_GOAL_TARGET, currentDeposited + cleanAmount);
+    const completed = nextDeposited >= PET_GOAL_TARGET;
+    const nextCoins = coinsRef.current - cleanAmount;
+    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch(
+          {
+            coins: nextCoins,
+            ...(completed ? { pet_score: nextPetScore } : {}),
+          },
+          "pet-coin-goal",
+        );
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      recordCoinTransaction(-cleanAmount, "pet:coin-goal");
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: completed ? now : task.completedAt,
+          reward_score: task.reward,
+          status: completed ? "approved" : "available",
+          reviewed_at: completed ? now : task.reviewedAt,
+          metadata: {
+            deposited: nextDeposited,
+            deadlineAt,
+            target: PET_GOAL_TARGET,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet coin goal deposit", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setCoins(nextCoins);
+      if (completed) {
+        setPetScore(nextPetScore);
+      }
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              deadlineAt,
+              goalDeposited: nextDeposited,
+              goalTarget: PET_GOAL_TARGET,
+              reviewedAt: completed ? now : entry.reviewedAt,
+              status: completed ? "approved" : "available",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(
+      completed
+        ? `Goal complete. +${task.reward} Pet Score.`
+        : `${nextDeposited}/${PET_GOAL_TARGET} coins deposited toward the Pet goal.`,
+    );
+  };
+
+  const handlePetCaseOpen = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-case-opening");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const caseItem = weightedRandomCaseItem();
+    const reward = caseItem.value;
+    const nextCoins = Math.max(0, coinsRef.current + reward);
+    const actualCoinDelta = nextCoins - coinsRef.current;
+    const nextPetScore = Math.min(1000, petScore + task.reward);
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch(
+          { coins: nextCoins, pet_score: nextPetScore },
+          "pet-case-opening",
+        );
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      recordCoinTransaction(actualCoinDelta, "pet:case-opening");
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "approved",
+          reviewed_at: now,
+          metadata: { reward, tier: caseItem.tier },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet case opening", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setCoins(nextCoins);
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              caseReward: reward,
+              caseSpunAt: now,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              reviewedAt: now,
+              status: "approved",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(
+      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward} coins. +${task.reward} Pet Score.`,
+    );
+  };
+
+  const handlePetEvilWaitStart = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown) {
+      return;
+    }
+
+    const now = new Date();
+    const countdownEndsAt = new Date(now.getTime() + 3000).toISOString();
+    const waitEndsAt = new Date(now.getTime() + 3000 + PET_EVIL_WAIT_MS).toISOString();
+
+    if (!isGuestMode && authUserId) {
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now.toISOString(),
+          reward_score: task.reward,
+          status: "available",
+          metadata: {
+            countdownEndsAt,
+            status: "countdown",
+            waitEndsAt,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet evil wait start", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now.toISOString(),
+              waitCountdownEndsAt: countdownEndsAt,
+              waitEndsAt,
+              waitState: "countdown",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply("Do not move. Principessa is watching.");
+  };
+
+  const handlePetEvilWaitFail = async () => {
+    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+
+    if (!task) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    if (!isGuestMode && authUserId) {
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "failed",
+          reviewed_at: now,
+          metadata: { status: "failed" },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet evil wait failure", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              status: "failed",
+              waitState: "failed",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply("You moved. Evil Pet task failed.");
+  };
+
+  const handlePetEvilWaitComplete = async () => {
+    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+
+    if (!task) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextPetScore = Math.min(1000, petScore + task.reward);
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-evil-wait");
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "approved",
+          reviewed_at: now,
+          metadata: { status: "completed" },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet evil wait completion", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              reviewedAt: now,
+              status: "approved",
+              waitState: "completed",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(`Stillness accepted. +${task.reward} Pet Score.`);
+  };
+
+  const handlePetRulesAcknowledge = async (text: string) => {
+    const task = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
+
+    if (!task || text.trim() !== "I understand") {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const banned = task.ruleBannedMechanics ?? getDailyPetRuleMechanics().map((rule) => rule.id);
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetProfilePatch(
+          { pet_score: Math.min(1000, petScore + task.reward) },
+          "pet-randomized-rules",
+        );
+      } catch (error) {
+        setAuthError(describeError(error));
+        return;
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "approved",
+          reviewed_at: now,
+          metadata: {
+            acknowledged: "true",
+            banned,
+            date: getDailyKey(),
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet randomized rules", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else {
+      setPetScore((value) => Math.min(1000, value + task.reward));
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              reviewedAt: now,
+              ruleAcknowledged: true,
+              status: "approved",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply("Rules accepted. Locked until reset.");
+  };
+
+  const markPetRulesFailed = async (mechanicId: string) => {
+    const task = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
+    const banned = task?.ruleBannedMechanics ?? [];
+
+    if (!task || !banned.includes(mechanicId)) {
+      return false;
+    }
+
+    const label = PET_RULE_MECHANICS.find((entry) => entry.id === mechanicId)?.label ?? mechanicId;
+
+    if (task.ruleAcknowledged) {
+      setMistressReply(`${label} is forbidden today. Randomized Rules locked it.`);
+      return true;
+    }
+
+    const now = new Date().toISOString();
+
+    if (!isGuestMode && authUserId) {
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "failed",
+          reviewed_at: now,
+          metadata: {
+            acknowledged: "false",
+            banned,
+            date: getDailyKey(),
+            failedBy: mechanicId,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet randomized rules failure", error);
+        setAuthError(describeError(error));
+        return true;
+      }
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              status: "failed",
+            }
+          : entry,
+      ),
+    );
+    setMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
+    return true;
+  };
+
+  const handlePetFalseHopeKey = async (key: "a" | "d") => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-false-hope");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown || task.status === "approved") {
+      return;
+    }
+
+    const expectedKey = task.falseHopeExpectedKey ?? "a";
+    const currentProgress = task.falseHopeProgress ?? 0;
+    const currentStage = task.falseHopeStage ?? 1;
+    const correct = key === expectedKey;
+    let nextProgress = Math.max(0, currentProgress + (correct ? 2 : -1));
+    let nextStage = currentStage;
+    let completed = false;
+    const nextExpectedKey = expectedKey === "a" ? "d" : "a";
+
+    if (nextProgress >= 99 && currentStage === 1) {
+      nextProgress = 0;
+      nextStage = 2;
+      setMistressReply("So close. Did you really think it would be that easy?");
+    } else if (nextProgress >= 100 && currentStage >= 2) {
+      nextProgress = 100;
+      completed = true;
+    }
+
+    const now = new Date().toISOString();
+    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+
+    if (!isGuestMode && authUserId) {
+      if (completed) {
+        try {
+          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-false-hope");
+        } catch (error) {
+          setAuthError(describeError(error));
+          return;
+        }
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: completed ? now : task.completedAt,
+          reward_score: task.reward,
+          status: completed ? "approved" : "available",
+          reviewed_at: completed ? now : task.reviewedAt,
+          metadata: {
+            expectedKey: nextExpectedKey,
+            progress: nextProgress,
+            stage: nextStage,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet false hope progress", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else if (completed) {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              falseHopeExpectedKey: nextExpectedKey,
+              falseHopeProgress: nextProgress,
+              falseHopeStage: nextStage,
+              reviewedAt: completed ? now : entry.reviewedAt,
+              status: completed ? "approved" : "available",
+            }
+          : entry,
+      ),
+    );
+
+    if (completed) {
+      setMistressReply(`Sequence completed. +${task.reward} Pet Score.`);
+    } else if (!(nextProgress === 0 && nextStage === 2)) {
+      setMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
+    }
+  };
+
+  const handlePetFavorPick = async (pickedIndex: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskState.find((entry) => entry.id === "pet-favor-roulette");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
+
+    if (!task || coolingDown || task.favorResult) {
+      return;
+    }
+
+    if (pickedIndex < 0 || pickedIndex > 4) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const emptyDay = randomChance(PET_FAVOR_EMPTY_DAY_CHANCE);
+    const winningIndex = emptyDay ? -1 : Math.floor(Math.random() * 5);
+    const won = !emptyDay && pickedIndex === winningIndex;
+    const result: NonNullable<PetTaskItem["favorResult"]> = emptyDay
+      ? "empty-day"
+      : won
+        ? "win"
+        : "loss";
+    const nextPetScore = won ? Math.min(1000, petScore + task.reward) : petScore;
+
+    if (!isGuestMode && authUserId) {
+      if (won) {
+        try {
+          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-favor-roulette");
+        } catch (error) {
+          setAuthError(describeError(error));
+          return;
+        }
+      }
+
+      const { error } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: won ? "approved" : "failed",
+          reviewed_at: now,
+          metadata: {
+            emptyDay,
+            pickedIndex,
+            result,
+            winningIndex,
+          },
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (error) {
+        console.error("Failed to persist Pet favor roulette", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    } else if (won) {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskState((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: getPetTaskCooldownUntil(now),
+              favorPickedIndex: pickedIndex,
+              favorResult: result,
+              favorWinningIndex: winningIndex,
+              reviewedAt: now,
+              status: won ? "approved" : "failed",
+            }
+          : entry,
+      ),
+    );
+
+    setMistressReply(
+      result === "win"
+        ? "Special Favor. Rare mercy, little Pet. Do not get used to it."
+        : result === "empty-day"
+          ? "How adorable. Today, none of them were winners."
+          : "Disappointment. Naturally.",
+    );
+  };
+
+  useEffect(() => {
+    if (!isPetUnlocked) {
+      return;
+    }
+
+    const thresholdIds = petGalleryItems
+      .filter((item) => petScore >= item.unlockCost)
+      .map((item) => item.id)
+      .filter((id) => !petGalleryUnlockedIds.includes(id));
+
+    if (thresholdIds.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setPetGalleryUnlockedIds((current) => Array.from(new Set([...current, ...thresholdIds])));
+    }, 0);
+
+    if (isGuestMode || !authUserId) {
+      return () => window.clearTimeout(timer);
+    }
+
+    void supabase.from("user_pet_gallery").upsert(
+      thresholdIds.map((itemId) => ({ user_id: authUserId, item_id: itemId })),
+      { onConflict: "user_id,item_id" },
+    ).then(({ error }) => {
+      if (error) {
+        console.error("Failed to persist automatic pet gallery unlocks", error);
+      }
+    });
+
+    return () => window.clearTimeout(timer);
+  }, [authUserId, isGuestMode, isPetUnlocked, petGalleryUnlockedIds, petScore]);
+
+  const handlePetAffectionClaim = async () => {
+    const approvedCount = petTaskState.filter((task) => task.status === "approved").length;
+
+    if (approvedCount < 5 || affection >= 100 || petAffectionClaimed) {
+      return;
+    }
+
+    const nextAffection = Math.min(100, affection + 10);
+
+    if (!isGuestMode && authUserId) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ affection: nextAffection, updated_at: new Date().toISOString() })
+        .eq("id", authUserId);
+
+      if (error) {
+        console.error("Failed to persist Pet affection claim", error);
+        setAuthError(describeError(error));
+        return;
+      }
+
+      const { error: claimError } = await supabase.from("user_pet_tasks").upsert(
+        {
+          user_id: authUserId,
+          task_id: "pet-affection-claim",
+          completed_at: new Date().toISOString(),
+          reward_score: 0,
+          status: "approved",
+          reviewed_at: new Date().toISOString(),
+          metadata: {},
+        },
+        { onConflict: "user_id,task_id" },
+      );
+
+      if (claimError) {
+        console.error("Failed to persist Pet affection claim marker", claimError);
+      }
+    }
+
+    setAffection(nextAffection);
+    setPetAffectionClaimed(true);
+    setMistressReply("Pet milestone claimed. +10 affection.");
   };
 
   const stats = {
@@ -3136,23 +4824,30 @@ export default function Home() {
           </div>
         </section>
 
-        <nav className="grid grid-cols-3 gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_28px_rgba(236,72,153,0.1)]">
+        <nav className="grid grid-cols-2 gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_28px_rgba(236,72,153,0.1)] md:grid-cols-4">
           {[
             ["tribute", "Tribute"],
             ["gallery", "Gallery"],
             ["tasks", "Tasks"],
+            ["pet", "Principessa's Pet"],
           ].map(([key, label]) => (
             <button
               className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                 activePanel === key
                   ? "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_22px_rgba(236,72,153,0.35)]"
-                  : "border border-white/10 bg-black/40 text-pink-100 hover:border-pink-300/40"
+                  : key === "pet" && !isPetUnlocked
+                    ? "border border-rose-200/10 bg-black/30 text-rose-100/45"
+                    : "border border-white/10 bg-black/40 text-pink-100 hover:border-pink-300/40"
               }`}
+              disabled={key === "pet" && !isPetUnlocked}
               key={key}
               onClick={() => setActivePanel(key as typeof activePanel)}
               type="button"
             >
               {label}
+              {key === "pet" && !isPetUnlocked && (
+                <span className="ml-2 text-xs text-rose-100/60">Locked</span>
+              )}
             </button>
           ))}
         </nav>
@@ -3197,6 +4892,33 @@ export default function Home() {
               onWaitObedientlyComplete={handleWaitObedientlyComplete}
               onWaitObedientlyFail={handleWaitObedientlyFail}
               onWaitObedientlyStart={handleWaitObedientlyStart}
+            />
+          )}
+          {activePanel === "pet" && isPetUnlocked && (
+            <PetSection
+              affection={affection}
+              coins={coins}
+              galleryItems={petGalleryItems}
+              isGuest={isGuestMode}
+              nextTaxDueAt={nextPetTaxDueAt}
+              petGalleryUnlockedIds={petGalleryUnlockedIds}
+              petScore={petScore}
+              petAffectionClaimed={petAffectionClaimed}
+              tasks={petTaskState}
+              weeklyTaxCost={PET_WEEKLY_TAX_COST}
+              onClaimAffection={handlePetAffectionClaim}
+              onConfessionSubmit={handlePetConfessionSubmit}
+              onCompleteTask={handlePetTaskComplete}
+              onDepositGoal={handlePetGoalDeposit}
+              onFalseHopeKey={handlePetFalseHopeKey}
+              onFavorPick={handlePetFavorPick}
+              onOpenCase={handlePetCaseOpen}
+              onPayWeeklyTax={handlePetWeeklyTax}
+              onPetEvilWaitComplete={handlePetEvilWaitComplete}
+              onPetEvilWaitFail={handlePetEvilWaitFail}
+              onPetEvilWaitStart={handlePetEvilWaitStart}
+              onPerfectWritingProgress={handlePetPerfectWritingProgress}
+              onRulesAcknowledge={handlePetRulesAcknowledge}
             />
           )}
         </section>

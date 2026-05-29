@@ -10,6 +10,10 @@ create table if not exists public.profiles (
   shame_count integer not null default 0,
   is_admin boolean not null default false,
   hide_from_leaderboard boolean not null default false,
+  pet_score integer not null default 0,
+  pet_unlocked_at timestamp with time zone,
+  last_pet_decay_at timestamp with time zone,
+  last_pet_tax_at timestamp with time zone,
   loyalty_streak integer not null default 0,
   last_loyalty_at timestamp with time zone,
   timeout_until timestamp with time zone,
@@ -23,6 +27,10 @@ alter table public.profiles
   add column if not exists shame_count integer not null default 0,
   add column if not exists is_admin boolean not null default false,
   add column if not exists hide_from_leaderboard boolean not null default false,
+  add column if not exists pet_score integer not null default 0,
+  add column if not exists pet_unlocked_at timestamp with time zone,
+  add column if not exists last_pet_decay_at timestamp with time zone,
+  add column if not exists last_pet_tax_at timestamp with time zone,
   add column if not exists loyalty_streak integer not null default 0,
   add column if not exists last_loyalty_at timestamp with time zone,
   add column if not exists timeout_until timestamp with time zone,
@@ -84,6 +92,32 @@ create table if not exists public.user_tasks (
 alter table public.user_tasks
   add column if not exists metadata jsonb not null default '{}'::jsonb;
 
+create table if not exists public.user_pet_tasks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id text not null,
+  completed_at timestamp with time zone,
+  reward_score integer default 0,
+  status text not null default 'pending',
+  reviewed_at timestamp with time zone,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamp with time zone default now(),
+  unique(user_id, task_id)
+);
+
+create table if not exists public.user_pet_gallery (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  item_id text not null,
+  unlocked_at timestamp with time zone not null default now(),
+  unique(user_id, item_id)
+);
+
+alter table public.user_pet_tasks
+  add column if not exists status text not null default 'pending',
+  add column if not exists reviewed_at timestamp with time zone,
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
 create table if not exists public.coin_transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -96,6 +130,8 @@ alter table public.profiles enable row level security;
 alter table public.unlocked_gallery_items enable row level security;
 alter table public.user_gallery enable row level security;
 alter table public.user_tasks enable row level security;
+alter table public.user_pet_tasks enable row level security;
+alter table public.user_pet_gallery enable row level security;
 alter table public.coin_transactions enable row level security;
 alter table public.user_irl_tasks enable row level security;
 
@@ -171,6 +207,32 @@ create policy "Users can update own tasks"
   on public.user_tasks for update
   to authenticated
   using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read own pet tasks"
+  on public.user_pet_tasks for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own pet tasks"
+  on public.user_pet_tasks for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own pet tasks"
+  on public.user_pet_tasks for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read own pet gallery"
+  on public.user_pet_gallery for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own pet gallery"
+  on public.user_pet_gallery for insert
+  to authenticated
   with check (auth.uid() = user_id);
 
 create policy "Users can read own irl tasks"
