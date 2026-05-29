@@ -232,15 +232,17 @@ const PET_RULE_MECHANICS = [
   { id: "tribute", label: "Tribute" },
   { id: "gallery", label: "Gallery Unlock" },
   { id: "beg", label: "Beg" },
-  { id: "sacrifice", label: "Sacrifice" },
-  { id: "support", label: "Support" },
   { id: "higher-lower", label: "Higher or Lower" },
   { id: "number-pick", label: "Number Pick" },
+    { id: "typing-accuracy", label: "Typing accuracy" },
+    { id: "wait-obediently", label: "Wait Obediently" },
+    { id: "timeout-risk", label: "Risk My Freedom" },
+    { id: "daily-login", label: "Login everyday" },
 ];
 const MAX_TIMEOUT_DAYS = 1;
 const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
-const SAFE_REWARD = 25;
+const SAFE_REWARD = 50;
 const SACRIFICE_COST = 250;
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SUPPORT_COST = 1000;
@@ -252,8 +254,8 @@ const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
   { value: 3, weight: 2 },
   { value: 4, weight: 3 },
-  { value: 5, weight: 4 },
-  { value: 6, weight: 4 },
+  { value: 5, weight: 3 },
+  { value: 6, weight: 3 },
   { value: 7, weight: 3 },
   { value: 8, weight: 2 },
   { value: 9, weight: 1 },
