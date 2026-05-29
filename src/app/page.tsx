@@ -398,7 +398,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login everyday",
-    reward: 100,
+    reward: 200,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -406,7 +406,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "typing-accuracy",
     title: "Typing accuracy",
-    reward: 50,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "typing",
@@ -447,7 +447,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "wait-obediently",
     title: "Wait Obediently",
-    reward: 25,
+    reward: 50,
     completed: false,
     claimed: false,
     kind: "wait-obediently",
@@ -455,7 +455,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "affection",
     title: "Reach 50 affection",
-    reward: 25,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "claim",
@@ -463,7 +463,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "affection-80",
     title: "Reach 80 affection",
-    reward: 25,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "claim",
