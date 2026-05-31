@@ -74,6 +74,14 @@ function randomCaseDisplayItem() {
 }
 
 const CASE_RESULT_INDEX = 20;
+const EVIL_DISTRACTION_TEXTS = [
+  "Confirm Obedience",
+  "Click to Prove Loyalty",
+  "Touch This",
+  "Disobey?",
+  "Claim Early",
+  "Need Attention?",
+];
 
 function getCaseTierClass(tier: string) {
   switch (tier) {
@@ -164,6 +172,9 @@ export function PetSection({
   const caseViewportRef = useRef<HTMLDivElement | null>(null);
   const caseResultRef = useRef<HTMLSpanElement | null>(null);
   const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
+    Array<{ id: number; left: string; rotate: string; text: string; top: string }>
+  >([]);
+  const [evilDistractionBoxes, setEvilDistractionBoxes] = useState<
     Array<{ id: number; left: string; rotate: string; text: string; top: string }>
   >([]);
   const [favorRevealing, setFavorRevealing] = useState(false);
@@ -298,12 +309,52 @@ export function PetSection({
         setEvilFloatingBoxes((boxes) => boxes.filter((box) => box.id !== id));
       }, 4200);
     }, 13000);
+    const spawnDistraction = () => {
+      if (evilWaitFinishedRef.current) {
+        return;
+      }
+
+      const elapsedRatio = Math.min(
+        1,
+        Math.max(0, 1 - (waitEndsAt - Date.now()) / 120000),
+      );
+      const id = Date.now() + Math.floor(Math.random() * 1000);
+      const lifetime = Math.max(2200, 4200 - elapsedRatio * 1200);
+
+      setEvilDistractionBoxes((boxes) => [
+        ...boxes.slice(-4),
+        {
+          id,
+          left: `${Math.floor(Math.random() * 68) + 8}%`,
+          rotate: `${Math.floor(Math.random() * 34) - 17}deg`,
+          text: EVIL_DISTRACTION_TEXTS[Math.floor(Math.random() * EVIL_DISTRACTION_TEXTS.length)],
+          top: `${Math.floor(Math.random() * 54) + 14}%`,
+        },
+      ]);
+      window.setTimeout(() => {
+        setEvilDistractionBoxes((boxes) => boxes.filter((box) => box.id !== id));
+      }, lifetime);
+    };
+    spawnDistraction();
+    const getSpawnDelay = () => {
+      const remaining = Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000));
+      return remaining < 35 ? 3400 : remaining < 75 ? 4600 : 6200;
+    };
+    let distractionTimer: number | null = null;
+    const scheduleDistraction = () => {
+      distractionTimer = window.setTimeout(() => {
+        spawnDistraction();
+        scheduleDistraction();
+      }, getSpawnDelay());
+    };
+    scheduleDistraction();
     const timer = window.setTimeout(() => {
       if (evilWaitFinishedRef.current) {
         return;
       }
 
       evilWaitFinishedRef.current = true;
+      setEvilDistractionBoxes([]);
       onPetEvilWaitComplete();
     }, Math.max(0, waitEndsAt - Date.now()));
     const events: Array<keyof WindowEventMap> = [
@@ -322,8 +373,12 @@ export function PetSection({
       window.clearInterval(interval);
       window.clearInterval(teaseInterval);
       window.clearInterval(floatingTeaseInterval);
+      if (distractionTimer !== null) {
+        window.clearTimeout(distractionTimer);
+      }
       window.clearTimeout(timer);
       events.forEach((eventName) => window.removeEventListener(eventName, fail));
+      setEvilDistractionBoxes([]);
     };
   }, [now, onPetEvilWaitComplete, onPetEvilWaitFail, tasks]);
 
@@ -717,7 +772,12 @@ export function PetSection({
                   {task.kind === "confession-writing" && (
                     <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                       <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                      <span
+                        className="block select-none"
+                        onContextMenu={(event) => event.preventDefault()}
+                      >
                         {task.sentence}
+                      </span>
                       </p>
                       <div className="h-2 overflow-hidden rounded-full bg-black/70">
                         <div
@@ -845,6 +905,21 @@ export function PetSection({
                               </div>
                             );
                           })}
+                          {evilDistractionBoxes.map((box) => (
+                            <button
+                              className="absolute z-20 rounded-2xl border border-pink-100/50 bg-black/82 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.42)] animate-[fadeOut_4.2s_linear_both] sm:px-4 sm:py-3 sm:text-xs"
+                              key={box.id}
+                              onClick={onPetEvilWaitFail}
+                              style={{
+                                left: box.left,
+                                top: box.top,
+                                transform: `rotate(${box.rotate})`,
+                              }}
+                              type="button"
+                            >
+                              {box.text}
+                            </button>
+                          ))}
                         </div>
                       )}
                       <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-black text-red-50">
