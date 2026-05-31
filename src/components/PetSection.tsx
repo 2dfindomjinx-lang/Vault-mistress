@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import type { PetCaseItem, PetGalleryItem, PetTaskItem } from "@/lib/types";
+import type { PetCaseItem, PetDebtContract, PetGalleryItem, PetTaskItem } from "@/lib/types";
 
 const PET_RANKS = [
   { min: 0, title: "Unclaimed Stray" },
@@ -73,6 +73,8 @@ function randomCaseDisplayItem() {
   return PET_CASE_DISPLAY_ITEMS[Math.floor(Math.random() * PET_CASE_DISPLAY_ITEMS.length)];
 }
 
+const CASE_RESULT_INDEX = 20;
+
 function getCaseTierClass(tier: string) {
   switch (tier) {
     case "black":
@@ -101,7 +103,8 @@ export function PetSection({
   onClaimAffection,
   onConfessionSubmit,
   onCompleteTask,
-  onDepositGoal,
+  onPayDebtPeriod,
+  onSignDebtContract,
   onFalseHopeKey,
   onFavorPick,
   onOpenCase,
@@ -112,7 +115,9 @@ export function PetSection({
   onPerfectWritingProgress,
   onRulesAcknowledge,
   petGalleryUnlockedIds,
+  ownerLikeness,
   petScore,
+  petDebtContract,
   petAffectionClaimed,
   tasks,
   weeklyTaxCost,
@@ -125,7 +130,13 @@ export function PetSection({
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string) => void;
   onCompleteTask: (taskId: string) => void;
-  onDepositGoal: (amount: number) => void;
+  onPayDebtPeriod: () => void;
+  onSignDebtContract: (form: {
+    debtAmount: number;
+    durationPeriods: number;
+    periodType: "weekly" | "monthly";
+    petName: string;
+  }) => void;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
   onOpenCase: (caseItem: PetCaseItem) => void;
@@ -136,7 +147,9 @@ export function PetSection({
   onPerfectWritingProgress: (value: string) => void;
   onRulesAcknowledge: (text: string) => void;
   petGalleryUnlockedIds: string[];
+  ownerLikeness: number;
   petScore: number;
+  petDebtContract: PetDebtContract | null;
   petAffectionClaimed: boolean;
   tasks: PetTaskItem[];
   weeklyTaxCost: number;
@@ -146,6 +159,10 @@ export function PetSection({
   const [caseTrack, setCaseTrack] = useState<PetCaseItem[]>(() =>
     Array.from({ length: 34 }, () => randomCaseDisplayItem()),
   );
+  const [caseTransform, setCaseTransform] = useState("translateX(0px)");
+  const [caseResultVisible, setCaseResultVisible] = useState(false);
+  const caseViewportRef = useRef<HTMLDivElement | null>(null);
+  const caseResultRef = useRef<HTMLSpanElement | null>(null);
   const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
     Array<{ id: number; left: string; rotate: string; text: string; top: string }>
   >([]);
@@ -156,7 +173,10 @@ export function PetSection({
   const [ruleInput, setRuleInput] = useState("");
   const [confessionInput, setConfessionInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
-  const [goalDeposit, setGoalDeposit] = useState("");
+  const [debtPetName, setDebtPetName] = useState("");
+  const [debtAmount, setDebtAmount] = useState("");
+  const [debtDuration, setDebtDuration] = useState("");
+  const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
   const previousFalseHopeStageRef = useRef<number | null>(null);
@@ -167,9 +187,9 @@ export function PetSection({
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
     new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
-  const goalTask = tasks.find((task) => task.kind === "coin-goal");
+  const debtTask = tasks.find((task) => task.kind === "debt-contract");
   const regularTasks = tasks.filter(
-    (task) => task.kind !== "coin-goal" && task.kind !== "weekly-tax",
+    (task) => task.kind !== "debt-contract" && task.kind !== "weekly-tax",
   );
 
   useEffect(() => {
@@ -336,25 +356,45 @@ export function PetSection({
     }
   }
 
-  function handleGoalDeposit() {
-    const amount = Number(goalDeposit);
-    onDepositGoal(amount);
-    setGoalDeposit("");
+  function handleDebtSign() {
+    onSignDebtContract({
+      debtAmount: Number(debtAmount),
+      durationPeriods: Number(debtDuration),
+      periodType: debtPeriodType,
+      petName: debtPetName,
+    });
   }
 
   function handleCaseOpen() {
     const selectedCaseItem = randomCaseDisplayItem();
     const nextTrack = [
-      ...Array.from({ length: 10 }, () => randomCaseDisplayItem()),
+      ...Array.from({ length: CASE_RESULT_INDEX }, () => randomCaseDisplayItem()),
       selectedCaseItem,
-      ...Array.from({ length: 4 }, () => randomCaseDisplayItem()),
+      ...Array.from({ length: 10 }, () => randomCaseDisplayItem()),
     ];
 
     setCaseTrack(nextTrack);
-    setCaseRolling(true);
+    setCaseResultVisible(false);
+    setCaseTransform("translateX(0px)");
+    window.setTimeout(() => {
+      const viewport = caseViewportRef.current;
+      const result = caseResultRef.current;
+
+      if (viewport && result) {
+        const viewportBox = viewport.getBoundingClientRect();
+        const resultBox = result.getBoundingClientRect();
+        const offset =
+          viewportBox.left + viewportBox.width / 2 - (resultBox.left + resultBox.width / 2);
+        setCaseTransform(`translateX(${Math.floor(offset)}px)`);
+      }
+
+      setCaseRolling(true);
+    }, 50);
     window.setTimeout(() => {
       onOpenCase(selectedCaseItem);
       setCaseRolling(false);
+      setCaseResultVisible(true);
+      window.setTimeout(() => setCaseResultVisible(false), 10000);
     }, 10000);
   }
 
@@ -379,7 +419,7 @@ export function PetSection({
   ];
 
   return (
-    <section className="rounded-[2rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-4 shadow-[0_0_54px_rgba(190,18,60,0.18)]">
+    <section className="rounded-[1.5rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-3 shadow-[0_0_54px_rgba(190,18,60,0.18)] sm:rounded-[2rem] sm:p-4">
       {isGuest && (
         <p className="mb-4 rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
           Guest mode: Pet progression is local-only for development testing.
@@ -400,9 +440,9 @@ export function PetSection({
         </div>
       ))}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <div className="space-y-4">
-          <div className="relative min-h-[24rem] overflow-hidden rounded-[1.5rem] border border-rose-200/15 bg-black">
+          <div className="relative min-h-[20rem] overflow-hidden rounded-[1.25rem] border border-rose-200/15 bg-black sm:min-h-[24rem] sm:rounded-[1.5rem]">
             <Image
               alt="Evil Principessa"
               className="object-cover object-top opacity-82"
@@ -416,7 +456,7 @@ export function PetSection({
               <p className="text-xs uppercase tracking-[0.3em] text-rose-100/70">
                 Principessa&apos;s Pet
               </p>
-              <h2 className="mt-2 text-3xl font-black text-white">The darker vault opens.</h2>
+              <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">The darker vault opens.</h2>
             </div>
           </div>
 
@@ -454,6 +494,31 @@ export function PetSection({
               {rank.next
                 ? `${Math.max(0, rank.next.min - petScore)} Pet Score to reach ${rank.next.title}.`
                 : "Maximum Pet rank reached."}
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
+                  Owner Likeness
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">{ownerLikeness}/100</h3>
+              </div>
+              {ownerLikeness <= 25 && (
+                <span className="rounded-full border border-yellow-200/25 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-50">
+                  Warning
+                </span>
+              )}
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/70">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-red-700 via-yellow-400 to-emerald-300"
+                style={{ width: `${Math.max(0, Math.min(100, ownerLikeness))}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-400">
+              Complete 6 Pet tasks per day to keep Owner Likeness stable.
             </p>
           </div>
 
@@ -502,7 +567,7 @@ export function PetSection({
         </div>
       </div>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+      <div className="mt-4 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 p-4">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
@@ -510,13 +575,13 @@ export function PetSection({
             </p>
             <p className="text-xs font-semibold text-zinc-500">1 unlock per 50 Pet Score</p>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 pr-1 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-3 gap-2 pr-1 sm:grid-cols-3 sm:gap-3">
             {galleryItems.map((item) => {
               const unlocked = petGalleryUnlockedIds.includes(item.id) || petScore >= item.unlockCost;
 
               return (
                 <article
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/45"
+                  className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-black/45 sm:rounded-2xl"
                   key={item.id}
                 >
                   <div className="relative aspect-[3/4] bg-black">
@@ -537,8 +602,8 @@ export function PetSection({
                       </div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <p className="text-sm font-black text-white">{item.title}</p>
+                  <div className="p-2 sm:p-3">
+                    <p className="truncate text-xs font-black text-white sm:text-sm">{item.title}</p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {unlocked ? "Unlocked" : `${item.unlockCost} Pet Score`}
                     </p>
@@ -581,7 +646,7 @@ export function PetSection({
             </button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             {regularTasks.map((task) => {
               const coolingDown =
                 Boolean(task.cooldownUntil) &&
@@ -593,11 +658,11 @@ export function PetSection({
 
               return (
                 <article
-                  className="flex min-h-[22rem] flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]"
+                  className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4"
                   key={task.id}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-lg font-black text-white">{task.title}</h3>
+                    <h3 className="text-base font-black text-white sm:text-lg">{task.title}</h3>
                     <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
                       {pending
                         ? "Review"
@@ -703,23 +768,33 @@ export function PetSection({
 
                   {task.kind === "case-open" && (
                     <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/50 py-3">
+                      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/50 py-5" ref={caseViewportRef}>
+                        <div className="pointer-events-none absolute left-1/2 top-1 z-10 -translate-x-1/2 text-lg font-black text-yellow-200 drop-shadow-[0_0_10px_rgba(250,204,21,0.7)]">
+                          ↓
+                        </div>
                         <div
-                          className={`flex gap-2 px-3 ${caseRolling ? "animate-pet-case-roll" : ""}`}
+                          className="flex gap-2 px-3 will-change-transform"
+                          style={{
+                            transform: caseTransform,
+                            transition: caseRolling
+                              ? "transform 10000ms cubic-bezier(0.04, 0.82, 0.16, 1)"
+                              : "none",
+                          }}
                         >
                           {caseTrack.map((item, index) => (
                             <span
-                              className={`min-w-24 rounded-xl border px-3 py-2 text-center text-sm font-black ${getCaseTierClass(item.tier)}`}
+                              className={`min-w-20 rounded-xl border px-2 py-2 text-center text-xs font-black sm:min-w-24 sm:px-3 sm:text-sm ${getCaseTierClass(item.tier)}`}
                               key={`${item.value}-${index}`}
+                              ref={index === CASE_RESULT_INDEX ? caseResultRef : undefined}
                             >
                               {item.value > 0 ? `+${item.value}` : item.value}
                             </span>
                           ))}
                         </div>
                       </div>
-                      {task.caseReward && (
+                      {(typeof task.caseReward === "number" || caseResultVisible) && (
                         <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100">
-                          Last case: {task.caseReward > 0 ? "+" : ""}{task.caseReward} Principessa Coins
+                          Last case: {(task.caseReward ?? 0) > 0 ? "+" : ""}{task.caseReward ?? 0} Principessa Coins
                         </p>
                       )}
                       <button
@@ -817,6 +892,11 @@ export function PetSection({
                         Type exactly I understand. If you use a forbidden mechanic before accepting,
                         this task fails. After accepting, those mechanics stay locked until reset.
                       </p>
+                      {task.status === "failed" && (
+                        <p className="mt-3 rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-black text-rose-100">
+                          Randomized rules failed.
+                        </p>
+                      )}
                       <input
                         className="mt-3 w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={coolingDown || task.ruleAcknowledged}
@@ -890,7 +970,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`min-h-24 rounded-2xl border px-2 py-3 transition ${
+                              className={`min-h-16 rounded-xl border px-2 py-3 transition sm:min-h-24 sm:rounded-2xl ${
                                 picked && task.favorResult === "win"
                                   ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
                                   : picked
@@ -942,49 +1022,77 @@ export function PetSection({
             })}
           </div>
 
-          {goalTask && (
+          {debtTask && (
             <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-black text-white">{goalTask.title}</h3>
+                <h3 className="text-lg font-black text-white">{debtTask.title}</h3>
                 <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  One Time
+                  Contract
                 </span>
               </div>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{goalTask.description}</p>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/60">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-yellow-300"
-                  style={{
-                    width: `${Math.min(100, ((goalTask.goalDeposited ?? 0) / (goalTask.goalTarget ?? 10000)) * 100)}%`,
-                  }}
-                />
-              </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-red-50/80">
-                <span>
-                  {goalTask.goalDeposited ?? 0}/{goalTask.goalTarget ?? 10000} Coins deposited
-                </span>
-                <span>
-                  Deadline: {formatRemaining(goalTask.deadlineAt ?? null, now)}
-                </span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <input
-                  className="min-w-0 flex-1 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={goalTask.status === "approved"}
-                  inputMode="numeric"
-                  onChange={(event) => setGoalDeposit(event.target.value)}
-                  placeholder="Amount"
-                  value={goalDeposit}
-                />
-                <button
-                  className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={goalTask.status === "approved"}
-                  onClick={handleGoalDeposit}
-                  type="button"
-                >
-                  {goalTask.status === "approved" ? "Complete" : "Deposit"}
-                </button>
-              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
+              {petDebtContract && petDebtContract.status === "active" ? (
+                <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                  <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
+                    <span>Pet: {petDebtContract.pet_name}</span>
+                    <span>{petDebtContract.period_type} debt</span>
+                    <span>{petDebtContract.debt_amount.toLocaleString()} Coins due</span>
+                    <span>Next due: {formatRemaining(petDebtContract.next_due_at, now)}</span>
+                    <span>Paid: {petDebtContract.paid_periods}</span>
+                    <span>Missed: {petDebtContract.missed_periods}</span>
+                  </div>
+                  <button
+                    className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={coins < petDebtContract.debt_amount}
+                    onClick={onPayDebtPeriod}
+                    type="button"
+                  >
+                    {coins < petDebtContract.debt_amount
+                      ? `Need ${petDebtContract.debt_amount.toLocaleString()} Coins`
+                      : `Pay ${petDebtContract.debt_amount.toLocaleString()} Coins`}
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-3">
+                  <input
+                    className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
+                    onChange={(event) => setDebtPetName(event.target.value)}
+                    placeholder="Pet name"
+                    value={debtPetName}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <select
+                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                      onChange={(event) => setDebtPeriodType(event.target.value as "weekly" | "monthly")}
+                      value={debtPeriodType}
+                    >
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                    <input
+                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                      inputMode="numeric"
+                      onChange={(event) => setDebtAmount(event.target.value)}
+                      placeholder={debtPeriodType === "weekly" ? "Min 5000" : "Min 20000"}
+                      value={debtAmount}
+                    />
+                    <input
+                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                      inputMode="numeric"
+                      onChange={(event) => setDebtDuration(event.target.value)}
+                      placeholder="Periods"
+                      value={debtDuration}
+                    />
+                  </div>
+                  <button
+                    className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
+                    onClick={handleDebtSign}
+                    type="button"
+                  >
+                    Sign Debt Contract
+                  </button>
+                </div>
+              )}
             </article>
           )}
 

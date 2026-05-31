@@ -98,12 +98,12 @@ export type PetTaskItem = {
     | "confession-writing"
     | "perfect-writing"
     | "weekly-tax"
-    | "coin-goal"
     | "case-open"
     | "evil-wait"
     | "randomized-rules"
     | "false-hope"
-    | "favor-roulette";
+    | "favor-roulette"
+    | "debt-contract";
   status?: "available" | "pending" | "approved" | "rejected" | "failed";
   cooldownUntil?: string | null;
   completedAt?: string | null;
@@ -114,8 +114,7 @@ export type PetTaskItem = {
   falseHopeProgress?: number;
   falseHopeStage?: number;
   falseHopeExpectedKey?: "a" | "d";
-  goalDeposited?: number;
-  goalTarget?: number;
+  debtContract?: PetDebtContract | null;
   favorPickedIndex?: number | null;
   favorResult?: "win" | "loss" | "empty-day" | null;
   favorWinningIndex?: number | null;
@@ -128,6 +127,23 @@ export type PetTaskItem = {
   waitCountdownEndsAt?: string | null;
   waitEndsAt?: string | null;
   waitState?: "ready" | "countdown" | "waiting" | "failed" | "completed" | "cooldown";
+};
+
+export type PetDebtContract = {
+  id: string;
+  user_id: string;
+  pet_name: string;
+  period_type: "weekly" | "monthly";
+  debt_amount: number;
+  duration_periods: number;
+  paid_periods: number;
+  missed_periods: number;
+  status: "active" | "expired" | "completed" | "cancelled";
+  started_at: string;
+  next_due_at: string;
+  ends_at: string;
+  created_at: string;
+  updated_at?: string | null;
 };
 
 export type PetGalleryItem = {

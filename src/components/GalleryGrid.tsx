@@ -51,13 +51,13 @@ export function GalleryGrid({
     filter === "All" ? items : items.filter((item) => item.rarity === filter);
 
   return (
-    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
             Gallery Unlock
           </p>
-          <h2 className="text-3xl font-black">The Vault Gallery</h2>
+          <h2 className="text-2xl font-black sm:text-3xl">The Vault Gallery</h2>
           <p className="mt-2 text-sm text-zinc-400">
             {disabled
               ? "Timeout is active. Gallery unlocks are locked until the timer ends."
@@ -74,7 +74,7 @@ export function GalleryGrid({
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((option) => (
           <button
-            className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition ${
               filter === option
                 ? "border-pink-300/50 bg-pink-500/20 text-pink-50"
                 : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-300/40"
@@ -88,7 +88,7 @@ export function GalleryGrid({
         ))}
       </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
         {filteredItems.map((item) => {
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
@@ -109,7 +109,7 @@ export function GalleryGrid({
 
           return (
             <article
-              className={`overflow-hidden rounded-[1.5rem] border bg-white/[0.045] transition hover:-translate-y-0.5 ${
+              className={`min-w-0 overflow-hidden rounded-[1.1rem] border bg-white/[0.045] transition hover:-translate-y-0.5 sm:rounded-[1.5rem] ${
                 isSecret || isSacrifice
                   ? "border-pink-200/60 shadow-[0_0_34px_rgba(236,72,153,0.24)]"
                   : "border-white/10 hover:border-pink-300/30"
@@ -142,13 +142,13 @@ export function GalleryGrid({
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-black text-white">
+                    <h3 className="text-sm font-black text-white sm:text-lg">
                       {item.title}
                     </h3>
-                    <p className="mt-1 text-sm text-zinc-400">{item.tag}</p>
+                    <p className="mt-1 text-xs text-zinc-400 sm:text-sm">{item.tag}</p>
                   </div>
                   <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-bold ${
+                    className={`rounded-full border px-2 py-1 text-[10px] font-bold sm:px-2.5 sm:text-xs ${
                       rarityStyles[item.rarity]
                     }`}
                   >
@@ -157,7 +157,7 @@ export function GalleryGrid({
                 </div>
 
                 <button
-                  className={`mt-4 w-full rounded-2xl px-4 py-3 text-sm font-bold transition ${
+                  className={`mt-4 w-full rounded-xl px-3 py-3 text-xs font-bold transition sm:rounded-2xl sm:px-4 sm:text-sm ${
                     item.unlocked
                       ? "border border-emerald-200/20 bg-emerald-400/10 text-emerald-100"
                       : isCommon && canAfford
@@ -172,7 +172,7 @@ export function GalleryGrid({
                 </button>
                 {item.unlocked && (
                   <a
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-pink-200/20 bg-pink-500/10 px-3 py-3 text-xs font-bold text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20 sm:rounded-2xl sm:px-4 sm:text-sm"
                     download
                     href={item.image}
                   >

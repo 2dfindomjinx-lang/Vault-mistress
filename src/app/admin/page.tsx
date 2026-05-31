@@ -51,6 +51,22 @@ type AdminPetTask = {
   pet_score: number;
 };
 
+type AdminDebtContract = {
+  id: string;
+  user_id: string;
+  username: string;
+  pet_name: string;
+  period_type: "weekly" | "monthly";
+  debt_amount: number;
+  duration_periods: number;
+  paid_periods: number;
+  missed_periods: number;
+  status: string;
+  started_at: string;
+  next_due_at: string;
+  ends_at: string;
+};
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -74,10 +90,11 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<
-    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks"
+    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt"
   >("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
+  const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
@@ -226,6 +243,39 @@ export default function AdminPage() {
     }
   };
 
+  const loadDebtContracts = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/debt-contracts", {
+        body: JSON.stringify({ action: "expireOverdue" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        contracts?: AdminDebtContract[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Debt contract list failed.");
+      }
+
+      setDebtContracts(result.contracts ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Debt contract list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -295,6 +345,7 @@ export default function AdminPage() {
       void loadPetTasks({ keepStatus: true });
       void loadTimeouts({ keepStatus: true });
       void loadMaxAffectionUsers({ keepStatus: true });
+      void loadDebtContracts({ keepStatus: true });
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -565,6 +616,12 @@ export default function AdminPage() {
           >
             Dashboard
           </Link>
+          <Link
+            className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
+            href="/admin/analytics"
+          >
+            Analytics
+          </Link>
         </div>
 
         <div className="mt-6">
@@ -573,6 +630,7 @@ export default function AdminPage() {
               ["console", "Command Console"],
               ["irlTasks", "IRL Tasks"],
               ["petTasks", "Pet Tasks"],
+              ["debt", "Debt"],
               ["timeouts", "Active Timeouts"],
               ["maxAffection", "100 Affection"],
             ] as const).map(([key, label]) => (
@@ -590,6 +648,9 @@ export default function AdminPage() {
                   }
                   if (key === "petTasks") {
                     void loadPetTasks();
+                  }
+                  if (key === "debt") {
+                    void loadDebtContracts();
                   }
                   if (key === "timeouts") {
                     void loadTimeouts();
@@ -829,6 +890,65 @@ export default function AdminPage() {
                     No active timeouts.
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "debt" && (
+            <div className="mt-4 rounded-[1.5rem] border border-red-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(220,38,38,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">
+                    Debt Contracts
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Active and expired Pet debt schedules.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadDebtContracts()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                <div className="grid gap-3">
+                  {debtContracts.length > 0 ? (
+                    debtContracts.map((contract) => (
+                      <article
+                        className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
+                        key={contract.id}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-white">
+                              {contract.username} - {contract.pet_name}
+                            </p>
+                            <p className="mt-1 text-sm text-red-50">
+                              {contract.period_type} / {contract.debt_amount.toLocaleString()} coins
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Duration {contract.duration_periods} periods - paid {contract.paid_periods} - missed {contract.missed_periods}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                            {contract.status}
+                          </span>
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No debt contracts yet.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

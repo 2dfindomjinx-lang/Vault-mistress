@@ -5,12 +5,12 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-async function isAdminRequest() {
+async function getAdminUserId() {
   const authSupabase = await createSupabaseServerClient();
   const { data } = await authSupabase.auth.getUser();
 
   if (!data.user) {
-    return false;
+    return null;
   }
 
   const supabase = createSupabaseAdminClient();
@@ -22,13 +22,14 @@ async function isAdminRequest() {
 
   if (error) {
     console.error("Admin command auth profile lookup failed", error);
-    return false;
+    return null;
   }
 
-  return (
+  const allowed =
     Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
-  );
+    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd";
+
+  return allowed ? data.user.id : null;
 }
 
 export async function POST(request: Request) {
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
     command?: string;
   };
 
-  if (!(await isAdminRequest())) {
+  const adminUserId = await getAdminUserId();
+
+  if (!adminUserId) {
     return Response.json({ error: "Admin access required." }, { status: 401 });
   }
 
@@ -134,6 +137,7 @@ export async function POST(request: Request) {
   }
 
   const nextCoins = Number(profile.coins ?? 0) + amount;
+  const previousCoins = Number(profile.coins ?? 0);
   const { error: updateError } = await supabase
     .from("profiles")
     .update({ coins: nextCoins, updated_at: new Date().toISOString() })
@@ -149,8 +153,14 @@ export async function POST(request: Request) {
     .from("coin_transactions")
     .insert({
       user_id: profile.id,
+      admin_user_id: adminUserId,
       amount,
       reason: transactionReason,
+      balance_before: previousCoins,
+      balance_after: nextCoins,
+      metadata: {
+        command: giveMatch ? "give" : "add",
+      },
     })
     .select("id, amount, reason, created_at")
     .single();

@@ -32,6 +32,7 @@ import type {
   GalleryItem,
   MechanicsState,
   PetCaseItem,
+  PetDebtContract,
   PetGalleryItem,
   PetTaskItem,
   TaskItem,
@@ -206,12 +207,10 @@ type UserPetTaskRow = {
 };
 
 const profileSelect =
-  "id, username, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, timeout_until, pet_score, pet_unlocked_at, last_pet_decay_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
-const PET_GOAL_WINDOW_MS = 10 * DAY_MS;
-const PET_GOAL_TARGET = 10000;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
@@ -342,11 +341,11 @@ const petTasks: PetTaskItem[] = [
     kind: "favor-roulette",
   },
   {
-    id: "pet-coin-goal",
-    title: "10,000 Coin Goal",
-    description: "Reach 10,000 tribute coins within one week to unlock a downloadable special avatar later.",
+    id: "pet-debt-contract",
+    title: "Debt Contract",
+    description: "Sign a recurring debt contract and pay the selected amount each period.",
     reward: PET_TASK_REWARD,
-    kind: "coin-goal",
+    kind: "debt-contract",
   },
 ];
 
@@ -721,7 +720,7 @@ function getPetTaskCooldownUntil(value: string | null) {
   return getCooldownUntil(value, DAY_MS);
 }
 
-function buildPetTasksFromRows(rows: UserPetTaskRow[], petUnlockedAt?: string | null) {
+function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
   return petTasks.map((task) => {
     const row = rows.find((entry) => entry.task_id === task.id);
     const baseStatus = (row?.status as PetTaskItem["status"]) ?? "available";
@@ -766,20 +765,12 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], petUnlockedAt?: string | 
       };
     }
 
-    if (task.kind === "coin-goal") {
-      const deposited = getTaskMetadataNumber(row?.metadata, "deposited", 0);
-      const deadlineAt =
-        getTaskMetadataString(row?.metadata, "deadlineAt") ??
-        (petUnlockedAt ? new Date(new Date(petUnlockedAt).getTime() + PET_GOAL_WINDOW_MS).toISOString() : null);
-
+    if (task.kind === "debt-contract") {
       return {
         ...task,
         completedAt,
-        deadlineAt,
-        goalDeposited: deposited,
-        goalTarget: PET_GOAL_TARGET,
         reviewedAt: row?.reviewed_at ?? null,
-        status: deposited >= PET_GOAL_TARGET ? "approved" : baseStatus,
+        status: baseStatus,
       };
     }
 
@@ -860,16 +851,18 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], petUnlockedAt?: string | 
       const result = getTaskMetadataString(row?.metadata, "result");
       const typedResult: PetTaskItem["favorResult"] =
         result === "win" || result === "loss" || result === "empty-day" ? result : null;
+      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const isCoolingDown = Boolean(cooldownUntil);
 
       return {
         ...task,
-        completedAt,
-        cooldownUntil: getPetTaskCooldownUntil(completedAt),
-        favorPickedIndex: getTaskMetadataNumber(row?.metadata, "pickedIndex", -1),
-        favorResult: typedResult,
-        favorWinningIndex: getTaskMetadataNumber(row?.metadata, "winningIndex", -1),
-        reviewedAt: row?.reviewed_at ?? null,
-        status: baseStatus,
+        completedAt: isCoolingDown ? completedAt : null,
+        cooldownUntil,
+        favorPickedIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "pickedIndex", -1) : null,
+        favorResult: isCoolingDown ? typedResult : null,
+        favorWinningIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "winningIndex", -1) : null,
+        reviewedAt: isCoolingDown ? row?.reviewed_at ?? null : null,
+        status: isCoolingDown ? baseStatus : "available",
       };
     }
 
@@ -1283,8 +1276,10 @@ export default function Home() {
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [petScore, setPetScore] = useState(0);
+  const [ownerLikeness, setOwnerLikeness] = useState(100);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
+  const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
   const [petTaskState, setPetTaskState] = useState<PetTaskItem[]>(petTasks);
   const [petAffectionClaimed, setPetAffectionClaimed] = useState(false);
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
@@ -1439,15 +1434,28 @@ export default function Home() {
     };
   }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply, petEverUnlocked]);
 
-  const recordCoinTransaction = useCallback((amount: number, reason: string) => {
+  const recordCoinTransaction = useCallback((
+    amount: number,
+    reason: string,
+    balanceBefore?: number,
+    balanceAfter?: number,
+    metadata: Record<string, unknown> = {},
+  ) => {
     if (!authUserId || amount === 0) {
       return;
     }
+
+    const resolvedAfter = typeof balanceAfter === "number" ? balanceAfter : coinsRef.current;
+    const resolvedBefore =
+      typeof balanceBefore === "number" ? balanceBefore : resolvedAfter - amount;
 
     void supabase.from("coin_transactions").insert({
       user_id: authUserId,
       amount,
       reason,
+      balance_before: resolvedBefore,
+      balance_after: resolvedAfter,
+      metadata,
     }).then(({ error }) => {
       if (error) {
         console.error("Failed to persist coin transaction", { amount, reason, error });
@@ -1515,8 +1523,8 @@ export default function Home() {
 
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
-      const response = await fetch("/api/admin/irl-tasks", {
-        body: JSON.stringify({ action: "countPending" }),
+      const response = await fetch("/api/admin/notifications", {
+        body: JSON.stringify({}),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -1618,6 +1626,7 @@ export default function Home() {
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setPetScore(profile.pet_score ?? 0);
+    setOwnerLikeness(profile.owner_likeness ?? 100);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
@@ -1663,6 +1672,22 @@ export default function Home() {
       setPetGalleryUnlockedIds(petGalleryData?.map((entry) => entry.item_id) ?? []);
     }
 
+    const { data: debtData, error: debtError } = await supabase
+      .from("pet_debt_contracts")
+      .select("*")
+      .eq("user_id", profile.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (debtError) {
+      console.warn("Failed to load Pet debt contract", debtError);
+      setPetDebtContract(null);
+    } else {
+      setPetDebtContract((debtData as PetDebtContract | null) ?? null);
+    }
+
     const { data: petTaskData, error: petTaskError } = await supabase
       .from("user_pet_tasks")
       .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
@@ -1673,7 +1698,7 @@ export default function Home() {
       setPetTaskState(petTasks);
     } else {
       const petRows = (petTaskData ?? []) as UserPetTaskRow[];
-      setPetTaskState(buildPetTasksFromRows(petRows, profile.pet_unlocked_at));
+      setPetTaskState(buildPetTasksFromRows(petRows));
       setPetAffectionClaimed(
         petRows.some((entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved"),
       );
@@ -1746,6 +1771,7 @@ export default function Home() {
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setPetScore(profile.pet_score ?? 0);
+    setOwnerLikeness(profile.owner_likeness ?? 100);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
@@ -1809,10 +1835,13 @@ export default function Home() {
           {
             id: user.id,
             username: usernameForProfile,
+            email: user.email ?? null,
             coins: 100,
             affection: 0,
             tribute_total: 0,
             pet_score: 0,
+            owner_likeness: 100,
+            last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },
           { onConflict: "id", ignoreDuplicates: true },
@@ -1859,11 +1888,29 @@ export default function Home() {
     if (avatarUrl) {
       const { error: avatarError } = await supabase
         .from("profiles")
-        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .update({
+          avatar_url: avatarUrl,
+          email: user.email ?? null,
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", user.id);
 
       if (avatarError) {
         console.error("Profile avatar sync failed", avatarError);
+      }
+    } else {
+      const { error: loginError } = await supabase
+        .from("profiles")
+        .update({
+          email: user.email ?? null,
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (loginError) {
+        console.error("Profile login timestamp sync failed", loginError);
       }
     }
 
@@ -1880,35 +1927,56 @@ export default function Home() {
     const patch: Partial<Profile> & { updated_at?: string } = {};
     let nextAffection = profile.affection;
     let nextPetUnlockedAt = profile.pet_unlocked_at ?? null;
-    let nextLastDecayAt = profile.last_pet_decay_at ?? null;
+    let nextOwnerLikeness = profile.owner_likeness ?? 100;
+    let nextLastOwnerLikenessAt = profile.last_owner_likeness_at ?? null;
     let nextLastTaxAt = profile.last_pet_tax_at ?? null;
 
     if (!nextPetUnlockedAt && profile.affection >= 100) {
       nextPetUnlockedAt = nowIso;
-      nextLastDecayAt = nowIso;
+      nextLastOwnerLikenessAt = nowIso;
       nextLastTaxAt = nextLastTaxAt ?? nowIso;
       patch.pet_unlocked_at = nextPetUnlockedAt;
-      patch.last_pet_decay_at = nextLastDecayAt;
+      patch.last_owner_likeness_at = nextLastOwnerLikenessAt;
       patch.last_pet_tax_at = nextLastTaxAt;
+      patch.owner_likeness = nextOwnerLikeness;
     }
 
     if (nextPetUnlockedAt) {
-      const decayBase = new Date(nextLastDecayAt ?? nextPetUnlockedAt).getTime();
-      const elapsedDecayDays = Math.floor((now - decayBase) / DAY_MS);
+      const likenessBase = new Date(nextLastOwnerLikenessAt ?? nextPetUnlockedAt).getTime();
+      const elapsedLikenessDays = Math.floor((now - likenessBase) / DAY_MS);
 
-      if (elapsedDecayDays > 0) {
-        nextAffection = Math.max(0, nextAffection - elapsedDecayDays * 5);
-        nextLastDecayAt = nowIso;
-        patch.affection = nextAffection;
-        patch.last_pet_decay_at = nextLastDecayAt;
-      }
+      if (elapsedLikenessDays > 0) {
+        const dayStart = new Date(now - DAY_MS);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart.getTime() + DAY_MS);
+        const { count, error: countError } = await supabase
+          .from("user_pet_tasks")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", profile.id)
+          .eq("status", "approved")
+          .gte("completed_at", dayStart.toISOString())
+          .lt("completed_at", dayEnd.toISOString());
 
-      const taxBase = new Date(nextLastTaxAt ?? nextPetUnlockedAt).getTime();
-      const missedTaxWeeks = Math.floor((now - taxBase) / WEEK_MS);
+        if (countError) {
+          console.error("Failed to count daily Pet tasks for Owner Likeness", countError);
+        }
 
-      if (missedTaxWeeks > 0) {
-        nextAffection = Math.max(0, nextAffection - missedTaxWeeks * 10);
-        nextLastTaxAt = nowIso;
+        if ((count ?? 0) >= 6) {
+          nextOwnerLikeness = Math.min(100, nextOwnerLikeness + 10);
+        } else {
+          nextOwnerLikeness = Math.max(0, nextOwnerLikeness - 25);
+        }
+
+        if (nextOwnerLikeness <= 0) {
+          nextAffection = Math.max(0, nextAffection - 30);
+          nextOwnerLikeness = 100;
+          patch.affection = nextAffection;
+        }
+
+        nextLastOwnerLikenessAt = nowIso;
+        patch.owner_likeness = nextOwnerLikeness;
+        patch.last_owner_likeness_at = nextLastOwnerLikenessAt;
+        nextLastTaxAt = nextLastTaxAt ?? nowIso;
         patch.affection = nextAffection;
         patch.last_pet_tax_at = nextLastTaxAt;
       }
@@ -1962,11 +2030,30 @@ export default function Home() {
       if (avatarUrl) {
         void supabase
           .from("profiles")
-          .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+          .update({
+            avatar_url: avatarUrl,
+            email: user.email ?? null,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", user.id)
           .then(({ error: avatarError }) => {
             if (avatarError) {
               console.error("Profile avatar sync failed", avatarError);
+            }
+          });
+      } else {
+        void supabase
+          .from("profiles")
+          .update({
+            email: user.email ?? null,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id)
+          .then(({ error: loginError }) => {
+            if (loginError) {
+              console.error("Profile login timestamp sync failed", loginError);
             }
           });
       }
@@ -2018,6 +2105,7 @@ export default function Home() {
       Partial<Pick<Profile, "tribute_total">>,
     reason: string,
   ) => {
+    const previousCoins = coinsRef.current;
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     console.info("Persist profile progress auth user", {
@@ -2094,12 +2182,14 @@ export default function Home() {
       throw new Error("Profile update returned no data.");
     }
 
+    const coinDelta = data.coins - previousCoins;
+    recordCoinTransaction(coinDelta, reason, previousCoins, data.coins);
     applyProfileStats(data);
     if (typeof nextProfile.tribute_total === "number") {
       void loadLeadershipTop();
     }
     return data;
-  }, [applyProfileStats, loadLeadershipTop]);
+  }, [applyProfileStats, loadLeadershipTop, recordCoinTransaction]);
 
   const persistPetProfilePatch = useCallback(async (
     patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at" | "tribute_total">>,
@@ -2109,6 +2199,7 @@ export default function Home() {
       throw new Error("Not authenticated");
     }
 
+    const previousCoins = coinsRef.current;
     const { data, error } = await supabase
       .from("profiles")
       .update({
@@ -2124,12 +2215,15 @@ export default function Home() {
       throw error;
     }
 
+    const updatedProfile = data as Profile;
+    const coinDelta = updatedProfile.coins - previousCoins;
+    recordCoinTransaction(coinDelta, reason, previousCoins, updatedProfile.coins);
     applyProfileStats(data as Profile);
     if (typeof patch.tribute_total === "number") {
  	 void loadLeadershipTop();
 	}
     return data as Profile;
-  }, [applyProfileStats, authUserId, loadLeadershipTop]);
+  }, [applyProfileStats, authUserId, loadLeadershipTop, recordCoinTransaction]);
 
   const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -2609,7 +2703,6 @@ export default function Home() {
         throw error;
       }
 
-      recordCoinTransaction(coinDelta, "task:high-low");
       setTasks((current) =>
         current.map((entry) =>
           entry.id === task.id
@@ -2699,7 +2792,6 @@ export default function Home() {
           { coins: coinsRef.current + reward, affection },
           "task:number-pick",
         );
-        recordCoinTransaction(reward, "task:number-pick");
       }
 
       const { error } = await supabase.from("user_tasks").upsert(
@@ -2879,8 +2971,6 @@ export default function Home() {
         { coins: coinsRef.current + task.reward, affection },
         "task:wait-obediently",
       );
-      recordCoinTransaction(task.reward, "task:wait-obediently");
-
       const { error } = await supabase.from("user_tasks").upsert(
         {
           user_id: authUserId,
@@ -3017,7 +3107,6 @@ export default function Home() {
         { coins: coinsRef.current + SAFE_REWARD, affection },
         "task:timeout-risk",
       );
-      recordCoinTransaction(SAFE_REWARD, "task:timeout-risk");
       const nextSafeWins = currentSafeWins + 1;
       const nextResetAt = dailyWindowActive
         ? resetAt
@@ -3129,7 +3218,6 @@ export default function Home() {
         throw error;
       }
 
-      recordCoinTransaction(-IRL_TASK_WHEEL_COST, "task:irl_task_wheel");
       setTasks((current) =>
         current.map((entry) =>
           entry.id === "irl-task-wheel"
@@ -3202,7 +3290,6 @@ export default function Home() {
           { coins: coinsRef.current + reward, affection },
           "beg",
         );
-        recordCoinTransaction(reward, "mechanic:beg");
       }
 
       setMechanics((current) => ({
@@ -3275,8 +3362,6 @@ export default function Home() {
         { coins: nextCoins, affection, tribute_total: nextTributeTotal },
         "sacrifice",
       );
-      recordCoinTransaction(-SACRIFICE_COST, "mechanic:sacrifice");
-
       if (unlockedItem) {
         await persistGalleryUnlocks([unlockedItem.id]);
         setUnlockedGalleryIds((current) =>
@@ -3353,8 +3438,6 @@ export default function Home() {
         },
         "support",
       );
-      recordCoinTransaction(-SUPPORT_COST, "mechanic:support");
-
       const { error } = await supabase.from("user_tasks").upsert(
         {
           user_id: authUserId,
@@ -3437,8 +3520,10 @@ export default function Home() {
     setAffection(0);
     setTributeTotal(0);
     setPetScore(0);
+    setOwnerLikeness(100);
     setPetUnlockedAt(null);
     setLastPetTaxAt(null);
+    setPetDebtContract(null);
     setPetTaskState(petTasks);
     setPetAffectionClaimed(false);
     setPetGalleryUnlockedIds([]);
@@ -3489,15 +3574,15 @@ export default function Home() {
         },
         "tribute",
       );
-      recordCoinTransaction(nextCoins - currentCoins, "tribute");
       if (!isGuestMode && nextAffection >= 100 && !petUnlockedAt && authUserId) {
         const now = new Date().toISOString();
         const { error: petUnlockError } = await supabase
           .from("profiles")
           .update({
             pet_unlocked_at: now,
-            last_pet_decay_at: now,
+            last_owner_likeness_at: now,
             last_pet_tax_at: now,
+            owner_likeness: 100,
             updated_at: now,
           })
           .eq("id", authUserId);
@@ -3507,6 +3592,7 @@ export default function Home() {
         } else {
           setPetUnlockedAt(now);
           setLastPetTaxAt(now);
+          setOwnerLikeness(100);
         }
       }
     } catch (error) {
@@ -3565,7 +3651,6 @@ export default function Home() {
         "common_gallery_unlock",
       );
       await persistGalleryUnlocks([item.id]);
-      recordCoinTransaction(nextCoins - currentCoins, "common_gallery_unlock");
     } catch (error) {
       console.error("Failed to persist gallery unlock progress", error);
       setAuthError(describeError(error));
@@ -3609,7 +3694,6 @@ export default function Home() {
         { coins: nextCoins, affection },
         `task:${task.id}`,
       );
-      recordCoinTransaction(task.reward, `task:${task.id}`);
     } catch (error) {
       console.error("Failed to persist task reward", error);
       setAuthError(describeError(error));
@@ -3934,8 +4018,6 @@ export default function Home() {
         return;
       }
 
-      recordCoinTransaction(-PET_WEEKLY_TAX_COST, "pet:weekly-tax");
-
       const { error } = await supabase.from("user_pet_tasks").upsert(
         {
           user_id: authUserId,
@@ -3978,108 +4060,196 @@ export default function Home() {
     setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score.`);
   };
 
-  const handlePetGoalDeposit = async (amount: number) => {
+  const handleDebtContractSign = async ({
+    debtAmount,
+    durationPeriods,
+    periodType,
+    petName,
+  }: {
+    debtAmount: number;
+    durationPeriods: number;
+    periodType: "weekly" | "monthly";
+    petName: string;
+  }) => {
     if (blockIfTimedOut()) {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-coin-goal");
-    const cleanAmount = Math.floor(amount);
+    const cleanAmount = Math.floor(debtAmount);
+    const cleanDuration = Math.floor(durationPeriods);
+    const cleanPetName = petName.trim();
+    const minimum = periodType === "weekly" ? 5000 : 20000;
 
-    if (!task || task.status === "approved") {
+    if (petDebtContract?.status === "active") {
       return;
     }
 
-    if (!Number.isFinite(cleanAmount) || cleanAmount <= 0) {
-      setMistressReply("Enter a valid coin amount for the goal.");
+    if (cleanPetName.length < 2) {
+      setMistressReply("Choose a clear Pet name before signing.");
       return;
     }
 
-    if (cleanAmount > coinsRef.current) {
-      setMistressReply("You do not have enough Principessa Coins for that deposit.");
+    if (
+      !Number.isInteger(cleanAmount) ||
+      cleanAmount < minimum ||
+      cleanAmount % 1000 !== 0
+    ) {
+      setMistressReply(
+        periodType === "weekly"
+          ? "Weekly debt must be at least 5000 coins and a multiple of 1000."
+          : "Monthly debt must be at least 20000 coins and a multiple of 1000.",
+      );
       return;
     }
 
-    const deadlineAt =
-      task.deadlineAt ??
-      (petUnlockedAt ? new Date(new Date(petUnlockedAt).getTime() + PET_GOAL_WINDOW_MS).toISOString() : null);
+    if (!Number.isInteger(cleanDuration) || cleanDuration <= 0 || cleanDuration > 52) {
+      setMistressReply("Contract duration must be between 1 and 52 periods.");
+      return;
+    }
 
-    if (deadlineAt && new Date(deadlineAt).getTime() < Date.now()) {
-      setMistressReply("The 10 day Pet goal window has already closed.");
+    if (!authUserId) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    const periodMs = periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
+    const nextDueAt = new Date(nowMs + periodMs).toISOString();
+    const endsAt = new Date(nowMs + periodMs * cleanDuration).toISOString();
+
+    if (!isGuestMode && authUserId) {
+      const { data, error } = await supabase
+        .from("pet_debt_contracts")
+        .insert({
+          user_id: authUserId,
+          pet_name: cleanPetName,
+          period_type: periodType,
+          debt_amount: cleanAmount,
+          duration_periods: cleanDuration,
+          next_due_at: nextDueAt,
+          ends_at: endsAt,
+          status: "active",
+        })
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Failed to create debt contract", error);
+        setAuthError(describeError(error));
+        return;
+      }
+
+      setPetDebtContract(data as PetDebtContract);
+    }
+
+    setMistressReply("Debt Contract signed. The schedule is now active.");
+  };
+
+  const handleDebtContractPayment = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (!petDebtContract || petDebtContract.status !== "active") {
+      return;
+    }
+
+    if (coinsRef.current < petDebtContract.debt_amount) {
+      setMistressReply("You do not have enough Principessa Coins for this debt payment.");
       return;
     }
 
     const now = new Date().toISOString();
-    const currentDeposited = task.goalDeposited ?? 0;
-    const nextDeposited = Math.min(PET_GOAL_TARGET, currentDeposited + cleanAmount);
-    const completed = nextDeposited >= PET_GOAL_TARGET;
-    const nextCoins = coinsRef.current - cleanAmount;
-    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+    const nextCoins = coinsRef.current - petDebtContract.debt_amount;
+    const nextPaidPeriods = petDebtContract.paid_periods + 1;
+    const completed = nextPaidPeriods >= petDebtContract.duration_periods;
+    const periodMs = petDebtContract.period_type === "weekly" ? WEEK_MS : 30 * DAY_MS;
+    const overduePeriods = Math.max(
+      0,
+      Math.floor((Date.now() - new Date(petDebtContract.next_due_at).getTime()) / periodMs),
+    );
+    const nextMissedPeriods = Math.min(
+      petDebtContract.duration_periods,
+      petDebtContract.missed_periods + overduePeriods,
+    );
+    const nextDueAt = new Date(Date.now() + periodMs).toISOString();
 
     if (!isGuestMode && authUserId) {
       try {
         await persistPetProfilePatch(
-          {
-            coins: nextCoins,
-            ...(completed ? { pet_score: nextPetScore } : {}),
-          },
-          "pet-coin-goal",
+          { coins: nextCoins, tribute_total: getNextTributeTotal(petDebtContract.debt_amount) },
+          "pet:debt-contract",
         );
       } catch (error) {
         setAuthError(describeError(error));
         return;
       }
 
-      recordCoinTransaction(-cleanAmount, "pet:coin-goal");
+      const { data, error } = await supabase
+        .from("pet_debt_contracts")
+        .update({
+          paid_periods: nextPaidPeriods,
+          missed_periods: nextMissedPeriods,
+          next_due_at: completed ? petDebtContract.next_due_at : nextDueAt,
+          status: completed ? "completed" : "active",
+          updated_at: now,
+        })
+        .eq("id", petDebtContract.id)
+        .select("*")
+        .single();
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      if (error) {
+        console.error("Failed to persist debt contract payment", error);
+        setAuthError(describeError(error));
+        return;
+      }
+
+      const task = petTaskState.find((entry) => entry.id === "pet-debt-contract");
+      if (task) {
+        const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
         {
           user_id: authUserId,
-          task_id: task.id,
-          completed_at: completed ? now : task.completedAt,
-          reward_score: task.reward,
-          status: completed ? "approved" : "available",
-          reviewed_at: completed ? now : task.reviewedAt,
+            task_id: task.id,
+            completed_at: now,
+            reward_score: task.reward,
+            status: "approved",
+            reviewed_at: now,
           metadata: {
-            deposited: nextDeposited,
-            deadlineAt,
-            target: PET_GOAL_TARGET,
+              contractId: petDebtContract.id,
+              paidPeriods: nextPaidPeriods,
           },
         },
         { onConflict: "user_id,task_id" },
       );
 
-      if (error) {
-        console.error("Failed to persist Pet coin goal deposit", error);
-        setAuthError(describeError(error));
-        return;
+        if (taskError) {
+          console.error("Failed to persist debt contract Pet task", taskError);
+        }
       }
+
+      setPetDebtContract(completed ? null : (data as PetDebtContract));
     } else {
       setCoins(nextCoins);
       if (completed) {
-        setPetScore(nextPetScore);
+        setPetDebtContract(null);
       }
     }
 
     setPetTaskState((current) =>
       current.map((entry) =>
-        entry.id === task.id
+        entry.id === "pet-debt-contract"
           ? {
               ...entry,
-              completedAt: completed ? now : entry.completedAt,
-              deadlineAt,
-              goalDeposited: nextDeposited,
-              goalTarget: PET_GOAL_TARGET,
-              reviewedAt: completed ? now : entry.reviewedAt,
-              status: completed ? "approved" : "available",
+              completedAt: now,
+              reviewedAt: now,
+              status: "approved",
             }
           : entry,
       ),
     );
     setMistressReply(
       completed
-        ? `Goal complete. +${task.reward} Pet Score.`
-        : `${nextDeposited}/${PET_GOAL_TARGET} coins deposited toward the Pet goal.`,
+        ? "Debt Contract completed. You may sign another."
+        : `Debt payment accepted. ${nextPaidPeriods}/${petDebtContract.duration_periods} periods paid.`,
     );
   };
 
@@ -4100,7 +4270,6 @@ export default function Home() {
     const now = new Date().toISOString();
     const reward = caseItem.value;
     const nextCoins = Math.max(0, coinsRef.current + reward);
-    const actualCoinDelta = nextCoins - coinsRef.current;
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -4113,8 +4282,6 @@ export default function Home() {
         setAuthError(describeError(error));
         return;
       }
-
-      recordCoinTransaction(actualCoinDelta, "pet:case-opening");
 
       const { error } = await supabase.from("user_pet_tasks").upsert(
         {
@@ -4423,7 +4590,7 @@ export default function Home() {
       if (error) {
         console.error("Failed to persist Pet randomized rules failure", error);
         setAuthError(describeError(error));
-        return true;
+        return false;
       }
     }
 
@@ -4440,7 +4607,7 @@ export default function Home() {
       ),
     );
     setMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
-    return true;
+    return false;
   };
 
   const handlePetFalseHopeKey = async (key: "a" | "d") => {
@@ -4757,17 +4924,25 @@ export default function Home() {
               Greedy Mode
             </div>
             {isAdminUser && (
-              <Link
-                className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
-                href="/admin"
-              >
-                Admin
-                {pendingIrlReviewCount > 0 && (
-                  <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
-                    {pendingIrlReviewCount}
-                  </span>
-                )}
-              </Link>
+              <>
+                <Link
+                  className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+                  href="/admin"
+                >
+                  Admin
+                  {pendingIrlReviewCount > 0 && (
+                    <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
+                      {pendingIrlReviewCount}
+                    </span>
+                  )}
+                </Link>
+                <Link
+                  className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
+                  href="/admin/analytics"
+                >
+                  Analytics
+                </Link>
+              </>
             )}
             <button
               className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
@@ -4907,6 +5082,8 @@ export default function Home() {
               galleryItems={petGalleryItems}
               isGuest={isGuestMode}
               nextTaxDueAt={nextPetTaxDueAt}
+              ownerLikeness={ownerLikeness}
+              petDebtContract={petDebtContract}
               petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
@@ -4915,16 +5092,17 @@ export default function Home() {
               onClaimAffection={handlePetAffectionClaim}
               onConfessionSubmit={handlePetConfessionSubmit}
               onCompleteTask={handlePetTaskComplete}
-              onDepositGoal={handlePetGoalDeposit}
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={handlePetFavorPick}
               onOpenCase={handlePetCaseOpen}
+              onPayDebtPeriod={handleDebtContractPayment}
               onPayWeeklyTax={handlePetWeeklyTax}
               onPetEvilWaitComplete={handlePetEvilWaitComplete}
               onPetEvilWaitFail={handlePetEvilWaitFail}
               onPetEvilWaitStart={handlePetEvilWaitStart}
               onPerfectWritingProgress={handlePetPerfectWritingProgress}
               onRulesAcknowledge={handlePetRulesAcknowledge}
+              onSignDebtContract={handleDebtContractSign}
             />
           )}
         </section>

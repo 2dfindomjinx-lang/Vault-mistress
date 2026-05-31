@@ -34,7 +34,7 @@ export async function GET() {
     .eq("reason", "tribute")
     .gt("amount", 0)
     .order("created_at", { ascending: false })
-    .limit(12);
+    .limit(10);
 
   if (transactionError) {
     console.error("Recent tribute transaction lookup failed", transactionError);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 export type RecentTribute = {
   id: string;
   username: string;
@@ -54,6 +56,41 @@ function getGlowClass(amount: number) {
 }
 
 export function RecentTributesTicker({ tributes }: { tributes: RecentTribute[] }) {
+  const visibleTributes = useMemo(() => {
+    const sorted = [...tributes].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    const kept: RecentTribute[] = [];
+    let smallRemovedBeforeLarge = 0;
+
+    sorted.forEach((tribute) => {
+      if (kept.length < 10) {
+        kept.push(tribute);
+        return;
+      }
+
+      const lowestIndex = kept
+        .map((entry, index) => ({ amount: entry.amount, index }))
+        .filter((entry) => entry.index >= 6)
+        .sort((a, b) => a.amount - b.amount)[0]?.index;
+
+      if (
+        lowestIndex !== undefined &&
+        tribute.amount > kept[lowestIndex].amount &&
+        (tribute.amount < 10000 || smallRemovedBeforeLarge >= 3)
+      ) {
+        if (kept[lowestIndex].amount < 10000) {
+          smallRemovedBeforeLarge += 1;
+        }
+        kept[lowestIndex] = tribute;
+      }
+    });
+
+    return kept
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+  }, [tributes]);
+
   return (
     <section className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 px-3 py-3 shadow-[0_0_34px_rgba(217,70,239,0.1)] backdrop-blur">
       <div className="mb-2 flex items-center justify-between gap-3 px-1">
@@ -71,8 +108,8 @@ export function RecentTributesTicker({ tributes }: { tributes: RecentTribute[] }
       </div>
       <div className="overflow-hidden">
         <div className="flex touch-pan-x gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {tributes.length > 0 ? (
-            tributes.map((tribute, index) => (
+          {visibleTributes.length > 0 ? (
+            visibleTributes.map((tribute, index) => (
               <article
                 className={`flex min-w-[210px] items-center gap-3 rounded-2xl border px-3 py-2 transition ${getGlowClass(tribute.amount)} ${
                   index === 0 ? "animate-tribute-slide-in" : ""

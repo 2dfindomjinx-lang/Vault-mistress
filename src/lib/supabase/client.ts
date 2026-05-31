@@ -5,6 +5,7 @@ export type Profile = {
   id: string;
   username: string;
   avatar_url?: string | null;
+  email?: string | null;
   coins: number;
   affection: number;
   tribute_total: number;
@@ -12,11 +13,14 @@ export type Profile = {
   is_admin: boolean;
   hide_from_leaderboard?: boolean;
   pet_score?: number;
+  owner_likeness?: number;
   pet_unlocked_at?: string | null;
   last_pet_decay_at?: string | null;
+  last_owner_likeness_at?: string | null;
   last_pet_tax_at?: string | null;
   loyalty_streak: number;
   last_loyalty_at: string | null;
+  last_login_at?: string | null;
   timeout_until: string | null;
   created_at?: string;
   updated_at?: string;
