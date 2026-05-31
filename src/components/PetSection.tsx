@@ -193,7 +193,7 @@ export function PetSection({
   const previousFalseHopeStageRef = useRef<number | null>(null);
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => task.status === "approved").length;
-  const canClaimAffection = approvedCount >= 5 && affection < 100 && !petAffectionClaimed;
+ const canClaimAffection = approvedCount >= 5 &&!petAffectionClaimed;
   const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
