@@ -31,7 +31,7 @@ export async function GET() {
   const { data: transactions, error: transactionError } = await supabase
     .from("coin_transactions")
     .select("id, user_id, amount, created_at")
-    .eq("reason", "tribute")
+    .in("reason", ["tribute", "live_gift", "admin_grant"])
     .gt("amount", 0)
     .order("created_at", { ascending: false })
     .limit(10);

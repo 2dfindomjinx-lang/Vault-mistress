@@ -151,7 +151,7 @@ export async function POST(request: Request) {
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
-  const transactionReason = giveMatch ? "admin_grant" : "admin:add";
+  const transactionReason = giveMatch ? "live_gift" : "admin_add";
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
     .insert({
