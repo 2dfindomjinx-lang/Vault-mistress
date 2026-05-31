@@ -5024,49 +5024,49 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [authUserId, isGuestMode, isPetUnlocked, petGalleryUnlockedIds, petScore]);
 
-  const handlePetAffectionClaim = async () => {
-    const approvedCount = petTaskState.filter((task) => task.status === "approved").length;
+    const handlePetAffectionClaim = async () => {
+        const approvedCount = petTaskState.filter((task) => task.status === "approved").length;
 
-    if (approvedCount < 5 || affection >= 100 || petAffectionClaimed) {
-      return;
-    }
+        if (approvedCount < 5 || petAffectionClaimed) {
+            return;
+        }
 
-    const nextAffection = Math.min(100, affection + 10);
+        const nextPetScore = petScore + 10;
 
-    if (!isGuestMode && authUserId) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ affection: nextAffection, updated_at: new Date().toISOString() })
-        .eq("id", authUserId);
+        if (!isGuestMode && authUserId) {
+            const { error } = await supabase
+                .from("profiles")
+                .update({ pet_score: nextPetScore, updated_at: new Date().toISOString() })
+                .eq("id", authUserId);
 
-      if (error) {
-        console.error("Failed to persist Pet affection claim", error);
-        setAuthError(describeError(error));
-        return;
-      }
+            if (error) {
+                console.error("Failed to persist Pet score claim", error);
+                setAuthError(describeError(error));
+                return;
+            }
 
-      const { error: claimError } = await supabase.from("user_pet_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "pet-affection-claim",
-          completed_at: new Date().toISOString(),
-          reward_score: 0,
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-          metadata: {},
-        },
-        { onConflict: "user_id,task_id" },
-      );
+            const { error: claimError } = await supabase.from("user_pet_tasks").upsert(
+                {
+                    user_id: authUserId,
+                    task_id: "pet-affection-claim",
+                    completed_at: new Date().toISOString(),
+                    reward_score: 10,
+                    status: "approved",
+                    reviewed_at: new Date().toISOString(),
+                    metadata: {},
+                },
+                { onConflict: "user_id,task_id" },
+            );
 
-      if (claimError) {
-        console.error("Failed to persist Pet affection claim marker", claimError);
-      }
-    }
+            if (claimError) {
+                console.error("Failed to persist Pet score claim marker", claimError);
+            }
+        }
 
-    setAffection(nextAffection);
-    setPetAffectionClaimed(true);
-    setMistressReply("Pet milestone claimed. +10 affection.");
-  };
+        setPetScore(nextPetScore);
+        setPetAffectionClaimed(true);
+        setMistressReply("Pet milestone claimed. +10 Pet Score.");
+    };
 
   const stats = {
     coins,

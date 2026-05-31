@@ -1176,9 +1176,9 @@ export function PetSection({
               Pet Milestone
             </p>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              If at least 5 Pet tasks are approved and affection is below 100,
-              claim +10 affection.
-            </p>
+  		If at least 5 Pet tasks are approved,
+  		claim +10 Pet Score.
+		</p>
             <button
               className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!canClaimAffection}
@@ -1186,10 +1186,10 @@ export function PetSection({
               type="button"
             >
               {petAffectionClaimed
-                ? "Already Claimed"
-                : canClaimAffection
-                  ? "Claim +10 Affection"
-                  : `${approvedCount}/5 approved`}
+  		? "Already Claimed"
+  		: canClaimAffection
+   		 ? "Claim +10 Pet Score"
+   		 : `${approvedCount}/5 approved`}
             </button>
           </div>
         </div>
