@@ -140,7 +140,10 @@ export async function POST(request: Request) {
   const previousCoins = Number(profile.coins ?? 0);
   const { error: updateError } = await supabase
     .from("profiles")
-    .update({ coins: nextCoins, updated_at: new Date().toISOString() })
+    .update({
+      coins: nextCoins,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", profile.id);
 
   if (updateError) {
@@ -148,7 +151,7 @@ export async function POST(request: Request) {
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
-  const transactionReason = giveMatch ? "tribute" : "admin:add";
+  const transactionReason = giveMatch ? "admin_grant" : "admin:add";
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
     .insert({
@@ -160,6 +163,7 @@ export async function POST(request: Request) {
       balance_after: nextCoins,
       metadata: {
         command: giveMatch ? "give" : "add",
+        tributeTotalChanged: false,
       },
     })
     .select("id, amount, reason, created_at")
@@ -171,7 +175,7 @@ export async function POST(request: Request) {
 
   return Response.json({
     message: giveMatch
-      ? `Added ${amount} tribute coins to ${profile.username}.`
+      ? `Granted ${amount} coins to ${profile.username}.`
       : `Added ${amount} coins to ${profile.username}.`,
     username: profile.username,
     coins: nextCoins,

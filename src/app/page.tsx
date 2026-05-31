@@ -248,8 +248,13 @@ const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_PROFIT_LOCK = 1000;
-const HIGH_LOW_PROFIT_LOCK_MIN_WINS = 2;
-const HIGH_LOW_LOW_PROFIT_WIN_LOCK = 5;
+const STREAK_BONUSES = [
+  { id: "streak-bonus-1", milestone: 1, reward: 50, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 150, title: "3 day streak bonus" },
+  { id: "streak-bonus-7", milestone: 7, reward: 400, title: "7 day streak bonus" },
+  { id: "streak-bonus-15", milestone: 15, reward: 1000, title: "15 day streak bonus" },
+  { id: "streak-bonus-30", milestone: 30, reward: 2500, title: "30 day streak bonus" },
+] as const;
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
   { value: 3, weight: 2 },
@@ -405,6 +410,14 @@ const startingTasks: TaskItem[] = [
     claimed: false,
     kind: "claim",
   },
+  ...STREAK_BONUSES.map((bonus) => ({
+    id: bonus.id,
+    title: bonus.title,
+    reward: bonus.reward,
+    completed: false,
+    claimed: false,
+    kind: "claim" as const,
+  })),
   {
     id: "typing-accuracy",
     title: "Typing accuracy",
@@ -931,10 +944,17 @@ function getDailyPetRuleMechanics() {
   const dayKey = getDailyKey();
   const seed = dayKey.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const first = seed % PET_RULE_MECHANICS.length;
-  const second = (seed * 3 + 2) % PET_RULE_MECHANICS.length;
-  const indexes = Array.from(new Set([first, second]));
+  let second = (seed * 3 + 2) % PET_RULE_MECHANICS.length;
 
-  return indexes.map((index) => PET_RULE_MECHANICS[index]);
+  if (second === first) {
+    second = (second + 1) % PET_RULE_MECHANICS.length;
+  }
+
+  return [PET_RULE_MECHANICS[first], PET_RULE_MECHANICS[second]];
+}
+
+function getPetRuleMechanicLabel(mechanicId: string) {
+  return PET_RULE_MECHANICS.find((entry) => entry.id === mechanicId)?.label ?? mechanicId;
 }
 
 function getDailyTypingSentence() {
@@ -980,11 +1000,18 @@ function getDailyKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isHighLowLocked(dailyProfit: number, dailyWins: number) {
-  return (
-    (dailyProfit >= HIGH_LOW_PROFIT_LOCK && dailyWins >= HIGH_LOW_PROFIT_LOCK_MIN_WINS) ||
-    (dailyProfit < HIGH_LOW_PROFIT_LOCK && dailyWins >= HIGH_LOW_LOW_PROFIT_WIN_LOCK)
-  );
+function isHighLowLocked(dailyWinnings: number) {
+  return dailyWinnings >= HIGH_LOW_PROFIT_LOCK;
+}
+
+function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
+  if (!lastLoyaltyAt || streak <= 0) {
+    return null;
+  }
+
+  const cycleStart = new Date(lastLoyaltyAt);
+  cycleStart.setUTCDate(cycleStart.getUTCDate() - (streak - 1));
+  return cycleStart.toISOString().slice(0, 10);
 }
 
 function generateNumberPickOptions(seed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))) {
@@ -1049,6 +1076,8 @@ function isCompletedAfterClaim(row: UserTaskRow | undefined) {
 function buildTasksFromRows(
   rows: UserTaskRow[],
   affection: number,
+  loyaltyStreak: number,
+  lastLoyaltyAt: string | null,
   assignedIrlTask: UserIrlTaskRow | null,
   timeoutUntil: string | null,
 ) {
@@ -1070,6 +1099,20 @@ function buildTasksFromRows(
       };
     }
 
+    const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+
+    if (streakBonus) {
+      const cycleKey = getStreakCycleKey(loyaltyStreak, lastLoyaltyAt);
+      const claimedCycleKey = getTaskMetadataString(row?.metadata, "cycleKey");
+      const claimed = Boolean(row?.claimed_at && cycleKey && claimedCycleKey === cycleKey);
+
+      return {
+        ...task,
+        completed: loyaltyStreak >= streakBonus.milestone,
+        claimed,
+      };
+    }
+
     if (task.id === "typing-accuracy") {
       return {
         ...task,
@@ -1087,9 +1130,13 @@ function buildTasksFromRows(
       const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
       const dailyDate = getTaskMetadataString(row?.metadata, "higherLowerDailyDate");
       const today = getDailyKey();
-      const dailyProfit =
+      const dailyWinnings =
         dailyDate === today
-          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
+          ? getTaskMetadataNumber(
+              row?.metadata,
+              "higherLowerDailyWinnings",
+              Math.max(0, getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)),
+            )
           : 0;
       const dailyWins =
         dailyDate === today
@@ -1103,8 +1150,8 @@ function buildTasksFromRows(
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
         highLowDailyDate: today,
-        highLowDailyLocked: isHighLowLocked(dailyProfit, dailyWins),
-        highLowDailyProfit: dailyProfit,
+        highLowDailyLocked: isHighLowLocked(dailyWinnings),
+        highLowDailyProfit: dailyWinnings,
         highLowDailyWins: dailyWins,
       };
     }
@@ -1275,6 +1322,7 @@ export default function Home() {
   const coinsRef = useRef(coins);
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
+  const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [petScore, setPetScore] = useState(0);
   const [ownerLikeness, setOwnerLikeness] = useState(100);
@@ -1434,6 +1482,42 @@ export default function Home() {
       window.clearTimeout(idleTimer);
     };
   }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply, petEverUnlocked]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !isPetUnlocked) {
+      return;
+    }
+
+    const rulesTask = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
+
+    if (!rulesTask) {
+      return;
+    }
+
+    const dailyKey = getDailyKey();
+    const storageKey = `vault_randomized_rules_bubble_${authUserId ?? username}_${dailyKey}`;
+
+    if (window.localStorage.getItem(storageKey) === "shown") {
+      return;
+    }
+
+    const bannedNames = (rulesTask.ruleBannedMechanics ?? getDailyPetRuleMechanics().map((rule) => rule.id))
+      .map(getPetRuleMechanicLabel)
+      .slice(0, 2);
+
+    if (bannedNames.length === 0) {
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, "shown");
+    const timer = window.setTimeout(() => {
+      setMistressReply(
+        `Today's forbidden tasks: ${bannedNames.join(" and ")}. Break them and the rules fail.`,
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [authUserId, isLoggedIn, isPetUnlocked, petTaskState, username]);
 
   const recordCoinTransaction = useCallback((
     amount: number,
@@ -1631,6 +1715,7 @@ export default function Home() {
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
     setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
 
@@ -1735,6 +1820,8 @@ export default function Home() {
     const rebuiltTasks = buildTasksFromRows(
       taskRows,
       profile.affection,
+      profile.loyalty_streak ?? 0,
+      profile.last_loyalty_at ?? null,
       latestIrlTask,
       profile.timeout_until ?? null,
     );
@@ -1776,6 +1863,7 @@ export default function Home() {
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     timeoutUntilRef.current = profile.timeout_until ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setIsLoggedIn(true);
@@ -2075,15 +2163,28 @@ export default function Home() {
 
     if (lastLoyaltyAt && isWithinLast24Hours(lastLoyaltyAt)) {
       setLoyaltyStreak(profile.loyalty_streak ?? 0);
+      setLastLoyaltyAt(lastLoyaltyAt);
+      setTasks((current) =>
+        current.map((entry) => {
+          const bonus = STREAK_BONUSES.find((item) => item.id === entry.id);
+
+          return bonus
+            ? { ...entry, completed: (profile.loyalty_streak ?? 0) >= bonus.milestone }
+            : entry;
+        }),
+      );
       return profile;
     }
 
-    const nextLoyaltyStreak = Math.max(1, (profile.loyalty_streak ?? 0) + 1);
+    const lastLoyaltyTime = lastLoyaltyAt ? new Date(lastLoyaltyAt).getTime() : 0;
+    const streakExpired = !lastLoyaltyTime || Date.now() - lastLoyaltyTime > 48 * 60 * 60 * 1000;
+    const nextLoyaltyAt = new Date().toISOString();
+    const nextLoyaltyStreak = streakExpired ? 1 : Math.max(1, (profile.loyalty_streak ?? 0) + 1);
     const { data, error } = await supabase
       .from("profiles")
       .update({
         loyalty_streak: nextLoyaltyStreak,
-        last_loyalty_at: new Date().toISOString(),
+        last_loyalty_at: nextLoyaltyAt,
         updated_at: new Date().toISOString(),
       })
       .eq("id", profile.id)
@@ -2098,6 +2199,16 @@ export default function Home() {
     }
 
     setLoyaltyStreak(data.loyalty_streak ?? nextLoyaltyStreak);
+    setLastLoyaltyAt(data.last_loyalty_at ?? nextLoyaltyAt);
+    setTasks((current) =>
+      current.map((entry) => {
+        const bonus = STREAK_BONUSES.find((item) => item.id === entry.id);
+
+        return bonus
+          ? { ...entry, completed: (data.loyalty_streak ?? nextLoyaltyStreak) >= bonus.milestone }
+          : entry;
+      }),
+    );
     return data as Profile;
   }, []);
 
@@ -2105,6 +2216,7 @@ export default function Home() {
     nextProfile: Pick<Profile, "coins" | "affection"> &
       Partial<Pick<Profile, "tribute_total">>,
     reason: string,
+    metadata: Record<string, unknown> = {},
   ) => {
     const previousCoins = coinsRef.current;
     const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -2184,7 +2296,10 @@ export default function Home() {
     }
 
     const coinDelta = data.coins - previousCoins;
-    recordCoinTransaction(coinDelta, reason, previousCoins, data.coins);
+    recordCoinTransaction(coinDelta, reason, previousCoins, data.coins, {
+      ...metadata,
+      tributeTotalChanged: typeof nextProfile.tribute_total === "number",
+    });
     applyProfileStats(data);
     if (typeof nextProfile.tribute_total === "number") {
       void loadLeadershipTop();
@@ -2195,6 +2310,7 @@ export default function Home() {
   const persistPetProfilePatch = useCallback(async (
     patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at" | "tribute_total">>,
     reason: string,
+    metadata: Record<string, unknown> = {},
   ) => {
     if (!authUserId) {
       throw new Error("Not authenticated");
@@ -2218,7 +2334,10 @@ export default function Home() {
 
     const updatedProfile = data as Profile;
     const coinDelta = updatedProfile.coins - previousCoins;
-    recordCoinTransaction(coinDelta, reason, previousCoins, updatedProfile.coins);
+    recordCoinTransaction(coinDelta, reason, previousCoins, updatedProfile.coins, {
+      ...metadata,
+      tributeTotalChanged: typeof patch.tribute_total === "number",
+    });
     applyProfileStats(data as Profile);
     if (typeof patch.tribute_total === "number") {
  	 void loadLeadershipTop();
@@ -2326,22 +2445,31 @@ export default function Home() {
     }
 
     if (
-      task.id === "high-low" &&
-      getCooldownUntil(existingTask?.claimed_at ?? null, 15 * 1000)
-    ) {
-      throw new Error("Task is still on cooldown.");
-    }
-
-    if (
       task.id !== "daily-login" &&
       task.id !== "typing-accuracy" &&
       task.id !== "high-low" &&
+      !STREAK_BONUSES.some((bonus) => bonus.id === task.id) &&
       existingTask?.claimed_at
     ) {
       throw new Error("Task reward was already claimed.");
     }
 
     const now = new Date().toISOString();
+    const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+    const streakCycleKey = getStreakCycleKey(loyaltyStreak, lastLoyaltyAt);
+
+    if (streakBonus) {
+      const claimedCycleKey = getTaskMetadataString(existingTask?.metadata, "cycleKey");
+
+      if (loyaltyStreak < streakBonus.milestone) {
+        throw new Error("Streak milestone is not reached.");
+      }
+
+      if (existingTask?.claimed_at && claimedCycleKey === streakCycleKey) {
+        throw new Error("Streak bonus already claimed for this cycle.");
+      }
+    }
+
     const { data, error } = await supabase.from("user_tasks").upsert(
       {
         user_id: userData.user.id,
@@ -2352,6 +2480,10 @@ export default function Home() {
         metadata: {
           ...(existingTask?.metadata ?? {}),
           attemptsRemaining: task.id === "typing-accuracy" ? 3 : undefined,
+          ...(streakBonus ? {
+            cycleKey: streakCycleKey,
+            milestone: streakBonus.milestone,
+          } : {}),
         },
       },
       { onConflict: "user_id,task_id" },
@@ -2365,7 +2497,7 @@ export default function Home() {
     }
 
     return data;
-  }, []);
+  }, [lastLoyaltyAt, loyaltyStreak]);
 
   useEffect(() => {
     let mounted = true;
@@ -2633,7 +2765,9 @@ export default function Home() {
 
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
       if (highLowLocked) {
-        setMistressReply("Daily Higher or Lower win limit reached.");
+        setMistressReply("Higher or Lower winnings limit reached for today.");
+      } else if (highLowCooldownActive) {
+        setMistressReply("Wait 15 seconds before playing Higher or Lower again.");
       }
       return;
     }
@@ -2664,13 +2798,14 @@ export default function Home() {
     const now = new Date().toISOString();
     const today = getDailyKey();
     const currentDailyDate = task.highLowDailyDate === today ? task.highLowDailyDate : today;
-    const currentDailyProfit =
+    const currentDailyWinnings =
       task.highLowDailyDate === today ? task.highLowDailyProfit ?? 0 : 0;
     const currentDailyWins =
       task.highLowDailyDate === today ? task.highLowDailyWins ?? 0 : 0;
-    const nextDailyProfit = currentDailyProfit + coinDelta;
+    const winAmount = outcome === "win" ? coinDelta : 0;
+    const nextDailyWinnings = currentDailyWinnings + winAmount;
     const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-    const nextDailyLocked = isHighLowLocked(nextDailyProfit, nextDailyWins);
+    const nextDailyLocked = isHighLowLocked(nextDailyWinnings);
     const nextBaseRevealAt = new Date(new Date().getTime() + 10 * 1000).toISOString();
     const lastResult =
       outcome === "tie"
@@ -2680,7 +2815,13 @@ export default function Home() {
     try {
       await persistProfileProgress(
         { coins: nextCoins, affection },
-        "high-low",
+        outcome === "win" ? "game:higher-lower:win" : outcome === "loss" ? "game:higher-lower:loss" : "game:higher-lower:tie",
+        {
+          baseNumber: currentNumber,
+          resultNumber,
+          stake,
+          outcome,
+        },
       );
 
       const { error } = await supabase.from("user_tasks").upsert(
@@ -2692,7 +2833,7 @@ export default function Home() {
           reward_coins: coinDelta,
           metadata: {
             higherLowerDailyDate: currentDailyDate,
-            higherLowerDailyProfit: nextDailyProfit,
+            higherLowerDailyWinnings: nextDailyWinnings,
             higherLowerDailyWins: nextDailyWins,
           },
         },
@@ -2710,11 +2851,11 @@ export default function Home() {
             ? {
                 ...entry,
                 completed: true,
-                claimed: true,
+                claimed: false,
                 currentNumber,
                 highLowDailyDate: currentDailyDate,
                 highLowDailyLocked: nextDailyLocked,
-                highLowDailyProfit: nextDailyProfit,
+                highLowDailyProfit: nextDailyWinnings,
                 highLowDailyWins: nextDailyWins,
                 lastResult,
                 nextBaseRevealAt,
@@ -3200,7 +3341,7 @@ export default function Home() {
     try {
       await persistProfileProgress(
         { coins: nextCoins, affection },
-        "irl_task_wheel",
+        "spend:irl-task-wheel",
       );
 
       const { error } = await supabase.from("user_irl_tasks").insert({
@@ -3361,7 +3502,11 @@ export default function Home() {
     try {
       await persistProfileProgress(
         { coins: nextCoins, affection, tribute_total: nextTributeTotal },
-        "sacrifice",
+        "tribute:sacrifice",
+        {
+          prestigeSource: "sacrifice",
+          spendAmount: SACRIFICE_COST,
+        },
       );
       if (unlockedItem) {
         await persistGalleryUnlocks([unlockedItem.id]);
@@ -3437,7 +3582,11 @@ export default function Home() {
           affection,
           tribute_total: getNextTributeTotal(SUPPORT_COST),
         },
-        "support",
+        "tribute:support",
+        {
+          prestigeSource: "support",
+          spendAmount: SUPPORT_COST,
+        },
       );
       const { error } = await supabase.from("user_tasks").upsert(
         {
@@ -3519,6 +3668,7 @@ export default function Home() {
     setPendingIrlReviewCount(0);
     setCoins(100);
     setAffection(0);
+    setLastLoyaltyAt(null);
     setTributeTotal(0);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -3573,7 +3723,12 @@ export default function Home() {
           affection: nextAffection,
           tribute_total: nextTributeTotal,
         },
-        "tribute",
+        "tribute:coin-offer",
+        {
+          prestigeSource: "tribute-panel",
+          spendAmount: amount,
+          affectionGain,
+        },
       );
       if (!isGuestMode && nextAffection >= 100 && !petUnlockedAt && authUserId) {
         const now = new Date().toISOString();
@@ -3649,7 +3804,11 @@ export default function Home() {
     try {
       await persistProfileProgress(
         { coins: nextCoins, affection },
-        "common_gallery_unlock",
+        "spend:gallery-unlock",
+        {
+          itemId: item.id,
+          spendAmount: unlockCost,
+        },
       );
       await persistGalleryUnlocks([item.id]);
     } catch (error) {
@@ -3691,10 +3850,12 @@ export default function Home() {
 
     try {
       await persistTaskClaim(task);
-      await persistProfileProgress(
-        { coins: nextCoins, affection },
-        `task:${task.id}`,
-      );
+        await persistProfileProgress(
+          { coins: nextCoins, affection },
+          STREAK_BONUSES.some((bonus) => bonus.id === task.id)
+            ? `reward:streak:${task.id}`
+            : `reward:task:${task.id}`,
+        );
     } catch (error) {
       console.error("Failed to persist task reward", error);
       setAuthError(describeError(error));
@@ -3856,7 +4017,7 @@ export default function Home() {
       try {
         await persistPetProfilePatch(
           { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
-          "pet-perfect-writing",
+          "reward:pet-perfect-writing",
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -3934,7 +4095,7 @@ export default function Home() {
         try {
           await persistPetProfilePatch(
             { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
-            "pet-confession",
+            "reward:pet-confession",
           );
         } catch (error) {
           setAuthError(describeError(error));
@@ -4018,7 +4179,11 @@ export default function Home() {
             pet_score: nextPetScore,
             last_pet_tax_at: now,
           },
-          "pet-weekly-tax",
+          "spend:pet-weekly-tax",
+          {
+            spendAmount: PET_WEEKLY_TAX_COST,
+            rewardCoins: PET_TASK_COIN_REWARD,
+          },
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -4184,7 +4349,11 @@ export default function Home() {
       try {
         await persistPetProfilePatch(
           { coins: nextCoins, tribute_total: getNextTributeTotal(petDebtContract.debt_amount) },
-          "pet:debt-contract",
+          "tribute:debt-contract",
+          {
+            prestigeSource: "pet-debt-contract",
+            spendAmount: petDebtContract.debt_amount,
+          },
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -4283,7 +4452,7 @@ export default function Home() {
       try {
         await persistPetProfilePatch(
           { coins: nextCoins, pet_score: nextPetScore },
-          "pet-case-opening",
+          "reward:pet-case-opening",
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -4451,7 +4620,7 @@ export default function Home() {
       try {
         await persistPetProfilePatch(
           { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
-          "pet-evil-wait",
+          "reward:pet-evil-wait",
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -4514,7 +4683,7 @@ export default function Home() {
             coins: coinsRef.current + PET_TASK_COIN_REWARD,
             pet_score: Math.min(1000, petScore + task.reward),
           },
-          "pet-randomized-rules",
+          "reward:pet-randomized-rules",
         );
       } catch (error) {
         setAuthError(describeError(error));
@@ -4572,7 +4741,7 @@ export default function Home() {
       return false;
     }
 
-    const label = PET_RULE_MECHANICS.find((entry) => entry.id === mechanicId)?.label ?? mechanicId;
+    const label = getPetRuleMechanicLabel(mechanicId);
 
     if (task.ruleAcknowledged) {
       setMistressReply(`${label} is forbidden today. Randomized Rules locked it.`);
@@ -4663,7 +4832,7 @@ export default function Home() {
         try {
           await persistPetProfilePatch(
             { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
-            "pet-false-hope",
+            "reward:pet-false-hope",
           );
         } catch (error) {
           setAuthError(describeError(error));
@@ -4755,7 +4924,7 @@ export default function Home() {
         try {
           await persistPetProfilePatch(
             { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
-            "pet-favor-roulette",
+            "reward:pet-favor-roulette",
           );
         } catch (error) {
           setAuthError(describeError(error));

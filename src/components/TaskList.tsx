@@ -574,7 +574,7 @@ export function TaskList({
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Daily Profit
+                        Daily Winnings
                       </p>
                       <p
                         className={`mt-1 text-lg font-black ${
@@ -612,7 +612,7 @@ export function TaskList({
                   </div>
                   {task.highLowDailyLocked && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Daily Higher or Lower win limit reached.
+                      Higher or Lower winnings limit reached for today.
                     </p>
                   )}
                   <label className="mt-3 block">

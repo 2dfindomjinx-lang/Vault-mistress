@@ -16,6 +16,11 @@ export type GalleryItem = {
 export type TaskItem = {
   id:
     | "daily-login"
+    | "streak-bonus-1"
+    | "streak-bonus-3"
+    | "streak-bonus-7"
+    | "streak-bonus-15"
+    | "streak-bonus-30"
     | "typing-accuracy"
     | "high-low"
     | "number-pick"

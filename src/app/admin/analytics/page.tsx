@@ -20,8 +20,12 @@ type Overview = {
 type CountPoint = {
   count: number;
   day?: string;
+  image?: string;
   key?: string;
   label?: string;
+  title?: string;
+  totalEligibleUsers?: number;
+  unlockRate?: number;
 };
 
 type AmountPoint = {
@@ -48,6 +52,7 @@ type AnalyticsUser = {
 
 type Transaction = {
   id: string;
+  userId: string;
   username: string;
   avatarUrl: string | null;
   amount: number;
@@ -122,14 +127,24 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  const loadAnalytics = useCallback(async (search = "") => {
+  const loadAnalytics = useCallback(async (search = "", userId?: string | null) => {
     setIsLoading(true);
     setError("");
 
     try {
-      const params = search.trim() ? `?query=${encodeURIComponent(search.trim())}` : "";
-      const response = await fetch(`/api/admin/analytics${params}`, { cache: "no-store" });
+      const params = new URLSearchParams();
+
+      if (search.trim()) {
+        params.set("query", search.trim());
+      }
+
+      if (userId) {
+        params.set("userId", userId);
+      }
+
+      const response = await fetch(`/api/admin/analytics${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" });
       const payload = (await response.json()) as AnalyticsPayload & { error?: string };
 
       if (!response.ok) {
@@ -153,16 +168,13 @@ export default function AdminAnalyticsPage() {
     return () => window.clearTimeout(timer);
   }, [loadAnalytics]);
 
-  const selectedUser = useMemo(() => data?.matchedUsers[0] ?? null, [data]);
-  const selectedTransactions = useMemo(() => {
-    if (!selectedUser || !data) {
-      return [];
-    }
-
-    return data.transactionHistory.filter(
-      (entry) => entry.username.toLowerCase() === selectedUser.username.toLowerCase(),
-    );
-  }, [data, selectedUser]);
+  const selectedUser = useMemo(
+    () =>
+      data?.matchedUsers.find((user) => user.id === selectedUserId) ??
+      data?.users.find((user) => user.id === selectedUserId) ??
+      null,
+    [data, selectedUserId],
+  );
 
   if (isLoading && !data) {
     return (
@@ -190,11 +202,11 @@ export default function AdminAnalyticsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200" href="/admin">
-                Admin Console
-              </Link>
               <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200" href="/">
                 Dashboard
+              </Link>
+              <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200" href="/admin">
+                Admin Console
               </Link>
             </div>
           </div>
@@ -322,6 +334,7 @@ export default function AdminAnalyticsPage() {
                       onChange={(event) => setQuery(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
+                          setSelectedUserId(null);
                           void loadAnalytics(query);
                         }
                       }}
@@ -330,7 +343,10 @@ export default function AdminAnalyticsPage() {
                     />
                     <button
                       className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-sm font-black"
-                      onClick={() => void loadAnalytics(query)}
+                      onClick={() => {
+                        setSelectedUserId(null);
+                        void loadAnalytics(query);
+                      }}
                       type="button"
                     >
                       Search
@@ -340,7 +356,19 @@ export default function AdminAnalyticsPage() {
                 <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
                   <div className="grid gap-3">
                     {data.matchedUsers.map((user) => (
-                      <article className="rounded-2xl border border-white/10 bg-black/35 p-3" key={user.id}>
+                      <button
+                        className={`rounded-2xl border p-3 text-left transition ${
+                          selectedUserId === user.id
+                            ? "border-pink-300/45 bg-pink-500/10"
+                            : "border-white/10 bg-black/35 hover:border-pink-300/30"
+                        }`}
+                        key={user.id}
+                        onClick={() => {
+                          setSelectedUserId(user.id);
+                          void loadAnalytics(query, user.id);
+                        }}
+                        type="button"
+                      >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-black text-white">{user.username}</p>
@@ -356,7 +384,7 @@ export default function AdminAnalyticsPage() {
                             <span>Streak {user.loyaltyStreak}</span>
                           </div>
                         </div>
-                      </article>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -365,11 +393,20 @@ export default function AdminAnalyticsPage() {
               <article className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-4">
                 <h2 className="text-lg font-black">Transaction History</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {selectedUser ? `Showing recent entries for ${selectedUser.username}.` : "Recent audit rows."}
+                  {selectedUser ? `Showing recent entries for ${selectedUser.username}.` : "Select a user to view transaction history."}
                 </p>
                 <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                  {!selectedUser ? (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-5 text-sm text-zinc-400">
+                      Select a user to view transaction history.
+                    </p>
+                  ) : data.transactionHistory.length === 0 ? (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-5 text-sm text-zinc-400">
+                      No transactions found for {selectedUser.username}.
+                    </p>
+                  ) : (
                   <div className="grid gap-2">
-                    {(selectedTransactions.length > 0 ? selectedTransactions : data.transactionHistory.slice(0, 80)).map((entry) => (
+                    {data.transactionHistory.map((entry) => (
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-3 text-sm" key={entry.id}>
                         <div className="flex items-center justify-between gap-3">
                           <span className="font-bold text-white">{entry.username}</span>
@@ -386,19 +423,43 @@ export default function AdminAnalyticsPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               </article>
             </div>
 
             <article className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-4">
               <h2 className="text-lg font-black">Gallery Unlock Statistics</h2>
-              <div className="mt-4">
-                <BarChart
-                  color="from-violet-500 to-yellow-300"
-                  data={data.charts.galleryStats.slice(0, 25)}
-                  getLabel={(entry) => String((entry as CountPoint).key)}
-                  getValue={(entry) => (entry as CountPoint).count}
-                />
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {data.charts.galleryStats.map((entry) => (
+                  <article
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-black/35"
+                    key={entry.key}
+                  >
+                    <div className="aspect-[4/5] bg-fuchsia-950/25">
+                      {entry.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt={`${entry.title ?? entry.key} preview`}
+                          className="h-full w-full object-cover"
+                          src={entry.image}
+                        />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="truncate text-sm font-black text-white">
+                        {entry.title ?? entry.key}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">{entry.key}</p>
+                      <p className="mt-3 text-lg font-black text-pink-50">
+                        {entry.unlockRate ?? 0}%
+                      </p>
+                      <p className="text-xs text-zinc-400">
+                        {number(entry.count)} / {number(entry.totalEligibleUsers ?? 0)} users
+                      </p>
+                    </div>
+                  </article>
+                ))}
               </div>
             </article>
           </>
