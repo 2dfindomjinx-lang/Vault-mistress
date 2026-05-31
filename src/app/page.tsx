@@ -213,6 +213,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
+const PET_TASK_COIN_REWARD = 100;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_X_POST_TEXT = [
@@ -388,11 +389,11 @@ const petVoiceSentencePool = [
   "Principessa, owning me financially is your right. I surrender completely.",
 ];
 
-const petGalleryItems: PetGalleryItem[] = Array.from({ length: 20 }, (_, index) => ({
+const petGalleryItems: PetGalleryItem[] = Array.from({ length: 30 }, (_, index) => ({
   id: `pet-gallery-${index + 1}`,
   title: `Pet Vault ${index + 1}`,
   image: `/gallery/pet-${index + 1}.png`,
-  unlockCost: (index + 1) * 50,
+  unlockCost: Math.ceil(((index + 1) * 1000) / 30),
 }));
 
 const startingTasks: TaskItem[] = [
@@ -3853,7 +3854,10 @@ export default function Home() {
 
     if (!isGuestMode && authUserId) {
       try {
-        await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-perfect-writing");
+        await persistPetProfilePatch(
+          { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+          "pet-perfect-writing",
+        );
       } catch (error) {
         setAuthError(describeError(error));
         return;
@@ -3897,7 +3901,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Perfect. +${task.reward} Pet Score.`);
+    setMistressReply(`Perfect. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
   };
 
   const handlePetConfessionSubmit = async (value: string) => {
@@ -3928,7 +3932,10 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       if (completed) {
         try {
-          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-confession");
+          await persistPetProfilePatch(
+            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            "pet-confession",
+          );
         } catch (error) {
           setAuthError(describeError(error));
           return;
@@ -3975,7 +3982,7 @@ export default function Home() {
     );
     setMistressReply(
       completed
-        ? `Confession accepted. +${task.reward} Pet Score.`
+        ? `Confession accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`
         : `Good. ${nextCount}/5 confessions complete.`,
     );
   };
@@ -4000,7 +4007,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST;
+    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST + PET_TASK_COIN_REWARD;
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -4057,7 +4064,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score.`);
+    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
   };
 
   const handleDebtContractSign = async ({
@@ -4269,7 +4276,7 @@ export default function Home() {
 
     const now = new Date().toISOString();
     const reward = caseItem.value;
-    const nextCoins = Math.max(0, coinsRef.current + reward);
+    const nextCoins = Math.max(0, coinsRef.current + reward + PET_TASK_COIN_REWARD);
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -4322,7 +4329,7 @@ export default function Home() {
       ),
     );
     setMistressReply(
-      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward} coins. +${task.reward} Pet Score.`,
+      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward + PET_TASK_COIN_REWARD} coins. +${task.reward} Pet Score.`,
     );
   };
 
@@ -4442,7 +4449,10 @@ export default function Home() {
 
     if (!isGuestMode && authUserId) {
       try {
-        await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-evil-wait");
+        await persistPetProfilePatch(
+          { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+          "pet-evil-wait",
+        );
       } catch (error) {
         setAuthError(describeError(error));
         return;
@@ -4484,7 +4494,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Stillness accepted. +${task.reward} Pet Score.`);
+    setMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
   };
 
   const handlePetRulesAcknowledge = async (text: string) => {
@@ -4500,7 +4510,10 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       try {
         await persistPetProfilePatch(
-          { pet_score: Math.min(1000, petScore + task.reward) },
+          {
+            coins: coinsRef.current + PET_TASK_COIN_REWARD,
+            pet_score: Math.min(1000, petScore + task.reward),
+          },
           "pet-randomized-rules",
         );
       } catch (error) {
@@ -4548,7 +4561,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply("Rules accepted. Locked until reset.");
+    setMistressReply(`Rules accepted. Locked until reset. +${PET_TASK_COIN_REWARD} coins.`);
   };
 
   const markPetRulesFailed = async (mechanicId: string) => {
@@ -4648,7 +4661,10 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       if (completed) {
         try {
-          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-false-hope");
+          await persistPetProfilePatch(
+            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            "pet-false-hope",
+          );
         } catch (error) {
           setAuthError(describeError(error));
           return;
@@ -4699,7 +4715,7 @@ export default function Home() {
     );
 
     if (completed) {
-      setMistressReply(`Sequence completed. +${task.reward} Pet Score.`);
+      setMistressReply(`Sequence completed. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
     } else if (!(nextProgress === 0 && nextStage === 2)) {
       setMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
     }
@@ -4737,7 +4753,10 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       if (won) {
         try {
-          await persistPetProfilePatch({ pet_score: nextPetScore }, "pet-favor-roulette");
+          await persistPetProfilePatch(
+            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            "pet-favor-roulette",
+          );
         } catch (error) {
           setAuthError(describeError(error));
           return;
@@ -4790,7 +4809,7 @@ export default function Home() {
 
     setMistressReply(
       result === "win"
-        ? "Special Favor. Rare mercy, little Pet. Do not get used to it."
+        ? `Special Favor. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`
         : result === "empty-day"
           ? "How adorable. Today, none of them were winners."
           : "Disappointment. Naturally.",

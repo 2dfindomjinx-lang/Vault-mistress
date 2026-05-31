@@ -8,7 +8,7 @@ export async function POST() {
   }
 
   const now = new Date().toISOString();
-  const [irl, pet, petFailedRules, debtDue, ownerWarning] = await Promise.all([
+  const [irl, pet, debtDue] = await Promise.all([
     admin.supabase
       .from("user_irl_tasks")
       .select("id", { count: "exact", head: true })
@@ -18,23 +18,13 @@ export async function POST() {
       .select("id", { count: "exact", head: true })
       .eq("status", "pending"),
     admin.supabase
-      .from("user_pet_tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("task_id", "pet-randomized-rules")
-      .eq("status", "failed"),
-    admin.supabase
       .from("pet_debt_contracts")
       .select("id", { count: "exact", head: true })
       .eq("status", "active")
       .lte("next_due_at", now),
-    admin.supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .lte("owner_likeness", 25)
-      .not("pet_unlocked_at", "is", null),
   ]);
 
-  const errors = [irl.error, pet.error, petFailedRules.error, debtDue.error, ownerWarning.error].filter(Boolean);
+  const errors = [irl.error, pet.error, debtDue.error].filter(Boolean);
 
   if (errors.length > 0) {
     console.error("Admin notification count failed", errors);
@@ -44,18 +34,11 @@ export async function POST() {
   const counts = {
     debtDue: debtDue.count ?? 0,
     irlPending: irl.count ?? 0,
-    ownerWarnings: ownerWarning.count ?? 0,
-    petFailedRules: petFailedRules.count ?? 0,
     petPending: pet.count ?? 0,
   };
 
   return Response.json({
-    count:
-      counts.debtDue +
-      counts.irlPending +
-      counts.ownerWarnings +
-      counts.petFailedRules +
-      counts.petPending,
+    count: counts.debtDue + counts.irlPending + counts.petPending,
     counts,
   });
 }

@@ -5,6 +5,8 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
+const PET_TASK_COIN_REWARD = 100;
+
 async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();
   const { data } = await authSupabase.auth.getUser();
@@ -137,7 +139,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, pet_score")
+    .select("id, coins, pet_score")
     .eq("id", task.user_id)
     .maybeSingle();
 
@@ -150,7 +152,15 @@ export async function POST(request: Request) {
   }
 
   const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + Number(task.reward_score ?? 0));
-  const profilePatch: { pet_score: number; updated_at: string; last_pet_tax_at?: string } = {
+  const previousCoins = Number(profile.coins ?? 0);
+  const nextCoins = previousCoins + PET_TASK_COIN_REWARD;
+  const profilePatch: {
+    coins: number;
+    pet_score: number;
+    updated_at: string;
+    last_pet_tax_at?: string;
+  } = {
+    coins: nextCoins,
     pet_score: nextPetScore,
     updated_at: now,
   };
@@ -169,6 +179,21 @@ export async function POST(request: Request) {
     return Response.json({ error: profileUpdateError.message }, { status: 500 });
   }
 
+  const { error: transactionError } = await supabase.from("coin_transactions").insert({
+    user_id: profile.id,
+    amount: PET_TASK_COIN_REWARD,
+    reason: "pet_task_admin_approval",
+    balance_before: previousCoins,
+    balance_after: nextCoins,
+    metadata: {
+      taskId: task.task_id,
+    },
+  });
+
+  if (transactionError) {
+    console.error("Admin pet task coin transaction insert failed", transactionError);
+  }
+
   const { error: taskUpdateError } = await supabase
     .from("user_pet_tasks")
     .update({ status: "approved", reviewed_at: now })
@@ -180,7 +205,7 @@ export async function POST(request: Request) {
   }
 
   return Response.json({
-    message: `Pet task approved. +${task.reward_score ?? 0} Pet Score.`,
+    message: `Pet task approved. +${task.reward_score ?? 0} Pet Score, +${PET_TASK_COIN_REWARD} coins.`,
     tasks: await listPetTasks(supabase),
   });
 }

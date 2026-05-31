@@ -525,7 +525,7 @@ export function PetSection({
           <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
-                Rank Icons
+                Rank Gallery
               </p>
               <p className="text-xs font-semibold text-zinc-500">Download by rank</p>
             </div>
@@ -573,7 +573,7 @@ export function PetSection({
             <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
               Pet Gallery
             </p>
-            <p className="text-xs font-semibold text-zinc-500">1 unlock per 50 Pet Score</p>
+            <p className="text-xs font-semibold text-zinc-500">30-image Pet Score progression</p>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 pr-1 sm:grid-cols-3 sm:gap-3">
             {galleryItems.map((item) => {
@@ -690,8 +690,8 @@ export function PetSection({
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
-                      ? `Admin approve reward: +${task.reward} Pet Score`
-                      : `Completion reward: +${task.reward} Pet Score`}
+                      ? `Admin approve reward: +${task.reward} Pet Score, +100 Coins`
+                      : `Completion reward: +${task.reward} Pet Score, +100 Coins`}
                   </p>
                   {task.voiceSentence && (
                     <p className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm leading-6 text-red-50">
