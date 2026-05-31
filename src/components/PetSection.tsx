@@ -309,49 +309,36 @@ export function PetSection({
         setEvilFloatingBoxes((boxes) => boxes.filter((box) => box.id !== id));
       }, 4200);
     }, 13000);
-    const waitStartedAt = Date.now();
-    const waitDuration = Math.max(1, waitEndsAt - waitStartedAt);
-    const removalTimers: number[] = [];
     const spawnDistraction = () => {
       if (evilWaitFinishedRef.current) {
         return;
       }
 
-      const elapsedRatio = Math.min(1, Math.max(0, (Date.now() - waitStartedAt) / waitDuration));
+      const elapsedRatio = Math.min(
+        1,
+        Math.max(0, 1 - (waitEndsAt - Date.now()) / 120000),
+      );
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      const lifetime = Math.floor(5000 - elapsedRatio * 1200);
+      const lifetime = Math.max(2200, 4200 - elapsedRatio * 1200);
 
       setEvilDistractionBoxes((boxes) => [
-        ...boxes.slice(-2),
+        ...boxes.slice(-3),
         {
           id,
-          left: `${Math.floor(Math.random() * 72) + 8}%`,
+          left: `${Math.floor(Math.random() * 68) + 8}%`,
           rotate: `${Math.floor(Math.random() * 34) - 17}deg`,
           text: EVIL_DISTRACTION_TEXTS[Math.floor(Math.random() * EVIL_DISTRACTION_TEXTS.length)],
-          top: `${Math.floor(Math.random() * 62) + 16}%`,
+          top: `${Math.floor(Math.random() * 54) + 14}%`,
         },
       ]);
-      const removalTimer = window.setTimeout(() => {
+      window.setTimeout(() => {
         setEvilDistractionBoxes((boxes) => boxes.filter((box) => box.id !== id));
       }, lifetime);
-      removalTimers.push(removalTimer);
     };
+    spawnDistraction();
     const getSpawnDelay = () => {
-      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - waitStartedAt) / 1000));
-
-      if (elapsedSeconds < 15) {
-        return 15000 - elapsedSeconds * 1000;
-      }
-
-      if (elapsedSeconds < 60) {
-        return Math.floor(Math.random() * 4000) + 14000;
-      }
-
-      if (elapsedSeconds < 90) {
-        return Math.floor(Math.random() * 3000) + 9000;
-      }
-
-      return Math.floor(Math.random() * 3000) + 7000;
+      const remaining = Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000));
+      return remaining < 35 ? 4200 : remaining < 75 ? 5600 : 7200;
     };
     let distractionTimer: number | null = null;
     const scheduleDistraction = () => {
@@ -389,7 +376,6 @@ export function PetSection({
       if (distractionTimer !== null) {
         window.clearTimeout(distractionTimer);
       }
-      removalTimers.forEach((removalTimer) => window.clearTimeout(removalTimer));
       window.clearTimeout(timer);
       events.forEach((eventName) => window.removeEventListener(eventName, fail));
       setEvilDistractionBoxes([]);
@@ -507,21 +493,6 @@ export function PetSection({
         >
           {box.text}
         </div>
-      ))}
-      {evilDistractionBoxes.map((box) => (
-        <button
-          className="fixed z-40 rounded-2xl border border-pink-100/50 bg-black/82 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-pink-50 opacity-0 shadow-[0_0_22px_rgba(236,72,153,0.42)] transition hover:scale-105 sm:px-4 sm:py-3 sm:text-xs animate-[fadeOut_5s_ease-in-out_both]"
-          key={box.id}
-          onClick={onPetEvilWaitFail}
-          style={{
-            left: box.left,
-            top: box.top,
-            transform: `rotate(${box.rotate})`,
-          }}
-          type="button"
-        >
-          {box.text}
-        </button>
       ))}
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
@@ -934,6 +905,21 @@ export function PetSection({
                               </div>
                             );
                           })}
+                          {evilDistractionBoxes.map((box) => (
+                            <button
+                              className="absolute z-20 rounded-2xl border border-pink-100/50 bg-black/82 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.42)] animate-[fadeOut_4.2s_linear_both] sm:px-4 sm:py-3 sm:text-xs"
+                              key={box.id}
+                              onClick={onPetEvilWaitFail}
+                              style={{
+                                left: box.left,
+                                top: box.top,
+                                transform: `rotate(${box.rotate})`,
+                              }}
+                              type="button"
+                            >
+                              {box.text}
+                            </button>
+                          ))}
                         </div>
                       )}
                       <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-black text-red-50">
