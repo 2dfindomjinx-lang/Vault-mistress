@@ -13,6 +13,10 @@ function isGroupedWheelLayoutKind(kind: TaskItem["kind"]): boolean {
   return kind === "wait-obediently" || kind === "irl-wheel";
 }
 
+function isClaimedStreakBonus(task: TaskItem) {
+  return task.id.startsWith("streak-bonus-") && task.claimed;
+}
+
 type TaskListProps = {
   coins: number;
   disabled?: boolean;
@@ -155,6 +159,7 @@ export function TaskList({
               : "Open"}
     </span>
   );
+  const visibleTasks = tasks.filter((task) => !isClaimedStreakBonus(task));
 
   return (
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -208,7 +213,7 @@ export function TaskList({
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
-        {tasks.map((task) => {
+        {visibleTasks.map((task) => {
           const isTimeoutRisk = task.kind === "timeout-risk";
           const cooldownRemaining = task.cooldownUntil
             ? new Date(task.cooldownUntil).getTime() - now

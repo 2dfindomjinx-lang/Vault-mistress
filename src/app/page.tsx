@@ -249,11 +249,11 @@ const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_PROFIT_LOCK = 1000;
 const STREAK_BONUSES = [
-  { id: "streak-bonus-1", milestone: 1, reward: 50, title: "1 day streak bonus" },
-  { id: "streak-bonus-3", milestone: 3, reward: 150, title: "3 day streak bonus" },
-  { id: "streak-bonus-7", milestone: 7, reward: 400, title: "7 day streak bonus" },
-  { id: "streak-bonus-15", milestone: 15, reward: 1000, title: "15 day streak bonus" },
-  { id: "streak-bonus-30", milestone: 30, reward: 2500, title: "30 day streak bonus" },
+  { id: "streak-bonus-1", milestone: 1, reward: 25, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 75, title: "3 day streak bonus" },
+  { id: "streak-bonus-7", milestone: 7, reward: 200, title: "7 day streak bonus" },
+  { id: "streak-bonus-15", milestone: 15, reward: 500, title: "15 day streak bonus" },
+  { id: "streak-bonus-30", milestone: 30, reward: 1000, title: "30 day streak bonus" },
 ] as const;
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
@@ -3849,13 +3849,19 @@ export default function Home() {
     }
 
     try {
+      const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+
       await persistTaskClaim(task);
-        await persistProfileProgress(
-          { coins: nextCoins, affection },
-          STREAK_BONUSES.some((bonus) => bonus.id === task.id)
-            ? `reward:streak:${task.id}`
-            : `reward:task:${task.id}`,
-        );
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        streakBonus ? "streak_bonus" : `reward:task:${task.id}`,
+        streakBonus
+          ? {
+              milestone: streakBonus.milestone,
+              taskId: task.id,
+            }
+          : {},
+      );
     } catch (error) {
       console.error("Failed to persist task reward", error);
       setAuthError(describeError(error));
