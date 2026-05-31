@@ -579,7 +579,7 @@ export function TaskList({
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Daily Winnings
+                        Daily Net Profit
                       </p>
                       <p
                         className={`mt-1 text-lg font-black ${

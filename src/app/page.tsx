@@ -1000,8 +1000,8 @@ function getDailyKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isHighLowLocked(dailyWinnings: number) {
-  return dailyWinnings >= HIGH_LOW_PROFIT_LOCK;
+function isHighLowLocked(dailyProfit: number) {
+  return dailyProfit >= HIGH_LOW_PROFIT_LOCK;
 }
 
 function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
@@ -1130,12 +1130,12 @@ function buildTasksFromRows(
       const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
       const dailyDate = getTaskMetadataString(row?.metadata, "higherLowerDailyDate");
       const today = getDailyKey();
-      const dailyWinnings =
+      const dailyProfit =
         dailyDate === today
           ? getTaskMetadataNumber(
               row?.metadata,
-              "higherLowerDailyWinnings",
-              Math.max(0, getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)),
+              "higherLowerDailyProfit",
+              getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinnings", 0),
             )
           : 0;
       const dailyWins =
@@ -1150,8 +1150,8 @@ function buildTasksFromRows(
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
         highLowDailyDate: today,
-        highLowDailyLocked: isHighLowLocked(dailyWinnings),
-        highLowDailyProfit: dailyWinnings,
+        highLowDailyLocked: isHighLowLocked(dailyProfit),
+        highLowDailyProfit: dailyProfit,
         highLowDailyWins: dailyWins,
       };
     }
@@ -2798,14 +2798,13 @@ export default function Home() {
     const now = new Date().toISOString();
     const today = getDailyKey();
     const currentDailyDate = task.highLowDailyDate === today ? task.highLowDailyDate : today;
-    const currentDailyWinnings =
+    const currentDailyProfit =
       task.highLowDailyDate === today ? task.highLowDailyProfit ?? 0 : 0;
     const currentDailyWins =
       task.highLowDailyDate === today ? task.highLowDailyWins ?? 0 : 0;
-    const winAmount = outcome === "win" ? coinDelta : 0;
-    const nextDailyWinnings = currentDailyWinnings + winAmount;
+    const nextDailyProfit = currentDailyProfit + coinDelta;
     const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-    const nextDailyLocked = isHighLowLocked(nextDailyWinnings);
+    const nextDailyLocked = isHighLowLocked(nextDailyProfit);
     const nextBaseRevealAt = new Date(new Date().getTime() + 10 * 1000).toISOString();
     const lastResult =
       outcome === "tie"
@@ -2833,7 +2832,7 @@ export default function Home() {
           reward_coins: coinDelta,
           metadata: {
             higherLowerDailyDate: currentDailyDate,
-            higherLowerDailyWinnings: nextDailyWinnings,
+            higherLowerDailyProfit: nextDailyProfit,
             higherLowerDailyWins: nextDailyWins,
           },
         },
@@ -2855,7 +2854,7 @@ export default function Home() {
                 currentNumber,
                 highLowDailyDate: currentDailyDate,
                 highLowDailyLocked: nextDailyLocked,
-                highLowDailyProfit: nextDailyWinnings,
+                highLowDailyProfit: nextDailyProfit,
                 highLowDailyWins: nextDailyWins,
                 lastResult,
                 nextBaseRevealAt,
