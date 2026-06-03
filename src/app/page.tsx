@@ -42,6 +42,7 @@ import { emitSoundEvent } from "@/lib/sound";
 import {
   profileAvatarFromUser,
   profileUsernameFromUser,
+  isSupabaseConfigured,
   supabase,
   type Profile,
 } from "@/lib/supabase/client";
@@ -1102,6 +1103,24 @@ function writeDebtAutoPayEnabled(userId: string, enabled: boolean) {
   }
 
   window.localStorage.setItem(getDebtAutoPayStorageKey(userId), String(enabled));
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = 12000) {
+  let timeoutId: number | null = null;
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`${label} timed out.`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise,
+    timeout,
+  ]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  });
 }
 
 function getDebtPeriodMs(periodType: PetDebtContract["period_type"]) {
@@ -2687,7 +2706,7 @@ export default function Home() {
   }, [isGuestMode]);
 
   const loadProfile = useCallback(async (user: User) => {
-    console.info("Loading profile for authenticated user", {
+    console.info("[auth-init] profile fetch started", {
       id: user.id,
       metadata: user.user_metadata,
     });
@@ -2698,13 +2717,13 @@ export default function Home() {
       .eq("id", user.id)
       .maybeSingle();
 
-    console.info("Profile select result", {
+    console.info("[auth-init] profile fetch result", {
       existingProfile,
       error,
     });
 
     if (error) {
-      console.error("Profile select error", error);
+      console.error("[auth-init] profile fetch error", error);
       throw error;
     }
 
@@ -3229,42 +3248,72 @@ export default function Home() {
     let mounted = true;
 
     const bootSession = async () => {
-      setIsAuthLoading(true);
-      const sessionResult = await supabase.auth.getSession();
-      console.info("Supabase auth getSession result", sessionResult);
-
-      if (sessionResult.error) {
-        console.error("Supabase auth getSession error", sessionResult.error);
-      }
-
-      const userResult = await supabase.auth.getUser();
-      console.info("Supabase auth getUser result", userResult);
-
-      const { data, error } = userResult;
-
-      if (!mounted) {
-        return;
-      }
-
-      if (error) {
-        console.error("Supabase auth user lookup failed", error);
-      }
-
-      if (!data.user) {
-        setIsLoggedIn(false);
-        setIsAuthLoading(false);
-        return;
-      }
-
       try {
-        const profile = await loadProfile(data.user);
-        await updateLoyaltyForProfile(profile);
+        console.info("[auth-init] init started");
+        setIsAuthLoading(true);
+
+        if (!isSupabaseConfigured) {
+          throw new Error(
+            "Supabase client environment variables are missing. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+          );
+        }
+
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          "supabase.auth.getSession",
+        );
+        console.info("[auth-init] session result", sessionResult);
+
+        if (sessionResult.error) {
+          throw sessionResult.error;
+        }
+
+        if (!sessionResult.data.session?.user) {
+          console.info("[auth-init] no session; showing login screen");
+          if (mounted) {
+            setIsLoggedIn(false);
+            setAuthUserId(null);
+          }
+          return;
+        }
+
+        const userResult = await withTimeout(
+          supabase.auth.getUser(),
+          "supabase.auth.getUser",
+        );
+        console.info("[auth-init] user result", userResult);
+
+        if (userResult.error) {
+          throw userResult.error;
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        if (!userResult.data.user) {
+          console.info("[auth-init] no auth user; showing login screen");
+          setIsLoggedIn(false);
+          setAuthUserId(null);
+          return;
+        }
+
+        const profile = await withTimeout(
+          loadProfile(userResult.data.user),
+          "profile fetch",
+        );
+        await withTimeout(updateLoyaltyForProfile(profile), "loyalty update");
         setAvatarMistressReply("Logged in already? Eager little thing.");
-      } catch (profileError) {
-        console.error("Profile load/create failed", profileError);
-        setAuthError(describeError(profileError));
+      } catch (initError) {
+        console.error("[auth-init] init/profile error", initError);
+        if (mounted) {
+          setAuthError(describeError(initError));
+          setIsLoggedIn(false);
+          setAuthUserId(null);
+        }
       } finally {
         if (mounted) {
+          console.info("[auth-init] loading false");
           setIsAuthLoading(false);
         }
       }
@@ -3272,9 +3321,20 @@ export default function Home() {
 
     void bootSession();
 
+    if (!isSupabaseConfigured) {
+      return () => {
+        mounted = false;
+      };
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.info("[auth-init] auth state changed", {
+        event: _event,
+        hasSession: Boolean(session),
+      });
+
       if (!session?.user) {
         if (previewModeRef.current) {
           return;
@@ -3282,20 +3342,26 @@ export default function Home() {
 
         setIsLoggedIn(false);
         setAuthUserId(null);
+        setIsAuthLoading(false);
         return;
       }
 
-      console.info("Supabase auth state changed", {
-        event: _event,
-        user: session.user,
-      });
-
-      void loadProfile(session.user).then((profile) =>
-        updateLoyaltyForProfile(profile),
-      ).catch((profileError) => {
-        console.error("Profile load/create failed after auth change", profileError);
-        setAuthError(describeError(profileError));
-      });
+      void (async () => {
+        try {
+          console.info("[auth-init] profile fetch started after auth change");
+          const profile = await withTimeout(loadProfile(session.user), "profile fetch after auth change");
+          await withTimeout(updateLoyaltyForProfile(profile), "loyalty update after auth change");
+          console.info("[auth-init] profile fetch result after auth change", { profile });
+        } catch (profileError) {
+          console.error("[auth-init] profile fetch error after auth change", profileError);
+          setAuthError(describeError(profileError));
+          setIsLoggedIn(false);
+          setAuthUserId(null);
+        } finally {
+          console.info("[auth-init] loading false after auth change");
+          setIsAuthLoading(false);
+        }
+      })();
     });
 
     return () => {
