@@ -1,6 +1,6 @@
 export async function POST(request: Request) {
   const configuredPassword = process.env.PREVIEW_OVERRIDE_PASSWORD;
-  const overrideEnabled = process.env.PREVIEW_OVERRIDE_ENABLED !== "false";
+  const overrideEnabled = process.env.PREVIEW_OVERRIDE_ENABLED === "true";
 
   if (!overrideEnabled || !configuredPassword) {
     return Response.json(
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as { password?: string } | null;
 
-  if (body?.password !== configuredPassword) {
+  if (body?.password?.trim() !== configuredPassword) {
     return Response.json({ error: "Invalid preview override password." }, { status: 401 });
   }
 

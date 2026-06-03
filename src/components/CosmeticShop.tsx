@@ -1,4 +1,5 @@
 import type { CosmeticItem, TitleItem } from "@/lib/cosmetics";
+import { CoinAmount } from "@/components/CoinAmount";
 
 type CosmeticShopProps = {
   coins: number;
@@ -42,7 +43,7 @@ export function CosmeticShop({
           <h2 className="text-3xl font-black">Spend Without Tribute</h2>
         </div>
         <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
-          {coins.toLocaleString()} coins
+          <CoinAmount amount={coins} iconSize={15} label="coins" />
         </p>
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-400">
@@ -103,7 +104,11 @@ export function CosmeticShop({
                   </div>
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <p className="text-sm font-black text-pink-100">
-                      {item.price === 0 ? "Default" : `${item.price.toLocaleString()} coins`}
+                      {item.price === 0 ? (
+                        "Default"
+                      ) : (
+                        <CoinAmount amount={item.price} iconSize={16} label="coins" />
+                      )}
                     </p>
                     <button
                       className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
@@ -145,8 +150,12 @@ export function CosmeticShop({
             {premiumOwned
               ? "Owned"
               : coins >= (premiumTitle.price ?? 0)
-                ? `Buy ${premiumTitle.price?.toLocaleString()}`
-                : `Need ${premiumTitle.price?.toLocaleString()}`}
+                ? (
+                  <CoinAmount amount={premiumTitle.price ?? 0} iconSize={16} label="" prefix="Buy " />
+                )
+                : (
+                  <CoinAmount amount={premiumTitle.price ?? 0} iconSize={16} label="" prefix="Need " />
+                )}
           </button>
         </div>
       </div>

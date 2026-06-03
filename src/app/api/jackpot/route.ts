@@ -1,5 +1,6 @@
 import {
   JACKPOT_BASE_POOL,
+  JACKPOT_MIN_CONTRIBUTION,
   getJackpotCycle,
   type LoyaltyJackpotState,
 } from "@/lib/jackpot";
@@ -285,8 +286,7 @@ async function buildJackpotState(
     .from("loyalty_jackpot_contributions")
     .select("user_id, username, amount, created_at")
     .eq("jackpot_id", jackpot.id)
-    .order("created_at", { ascending: false })
-    .limit(6);
+    .order("created_at", { ascending: false });
 
   if (contributionError) {
     console.error("Jackpot recent contributors lookup failed", contributionError);
@@ -417,8 +417,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as { amount?: number };
     const amount = Number(body.amount);
 
-    if (!Number.isInteger(amount) || amount <= 0) {
-      return jsonError("Contribution amount must be a positive integer.", 400);
+    if (!Number.isInteger(amount) || amount < JACKPOT_MIN_CONTRIBUTION) {
+      return jsonError(
+        `Contribution amount must be at least ${JACKPOT_MIN_CONTRIBUTION} coins.`,
+        400,
+      );
     }
 
     const supabase = createSupabaseAdminClient();

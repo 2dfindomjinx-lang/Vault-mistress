@@ -1,9 +1,11 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
 type FloatingDefneBubbleProps = {
   avatarSrc?: string;
   message: string;
+  messageStyle?: CSSProperties;
   onBubbleFullyHidden?: (message: string) => void;
 };
 
@@ -12,6 +14,7 @@ const fadeDuration = 2000;
 export function FloatingDefneBubble({
   avatarSrc = "/character-icon.png",
   message,
+  messageStyle,
   onBubbleFullyHidden,
 }: FloatingDefneBubbleProps) {
   const [bubbleVisible, setBubbleVisible] = useState(true);
@@ -43,6 +46,7 @@ export function FloatingDefneBubble({
         className={`flex min-h-16 items-center rounded-[1.5rem] border border-pink-200/30 bg-black/80 px-4 py-3 text-base font-semibold leading-6 text-pink-50 shadow-[0_0_34px_rgba(236,72,153,0.3)] backdrop-blur transition-opacity duration-[2000ms] sm:min-h-20 sm:px-5 sm:py-4 sm:text-lg sm:leading-7 ${
           bubbleVisible ? "opacity-100" : "opacity-0"
         }`}
+        style={messageStyle}
       >
         {message}
       </div>

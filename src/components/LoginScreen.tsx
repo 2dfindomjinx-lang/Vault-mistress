@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -22,12 +23,21 @@ export function LoginScreen({
   const [previewError, setPreviewError] = useState("");
   const [isPreviewChecking, setIsPreviewChecking] = useState(false);
 
-  const handleUnlockedPreview = async () => {
+  const handleUnlockedPreview = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    const password = previewPassword.trim();
+
+    if (!password) {
+      setPreviewError("Enter the preview override password.");
+      return;
+    }
+
     setIsPreviewChecking(true);
     setPreviewError("");
 
     try {
-      const result = await onPreviewOverrideSubmit(previewPassword);
+      const result = await onPreviewOverrideSubmit(password);
 
       if (!result.ok) {
         setPreviewError(result.error ?? "Preview override failed.");
@@ -77,7 +87,7 @@ export function LoginScreen({
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-fuchsia-100/70">
             Testing Override
           </p>
-          <div className="mt-3 flex gap-2">
+          <form className="mt-3 flex gap-2" onSubmit={(event) => void handleUnlockedPreview(event)}>
             <input
               className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-pink-300/55"
               onChange={(event) => setPreviewPassword(event.target.value)}
@@ -87,13 +97,12 @@ export function LoginScreen({
             />
             <button
               className="rounded-xl border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black text-pink-50 transition hover:border-pink-300/50"
-              disabled={isPreviewChecking}
-              onClick={() => void handleUnlockedPreview()}
-              type="button"
+              disabled={isPreviewChecking || !previewPassword.trim()}
+              type="submit"
             >
               {isPreviewChecking ? "Checking" : "Unlock"}
             </button>
-          </div>
+          </form>
           {previewError && (
             <p className="mt-2 text-xs font-semibold text-red-100">{previewError}</p>
           )}

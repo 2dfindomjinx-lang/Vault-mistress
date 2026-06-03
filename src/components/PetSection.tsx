@@ -118,10 +118,12 @@ export function PetSection({
   favorCoinReward,
   galleryItems,
   isGuest,
+  isDebtAutoPayEnabled,
   nextTaxDueAt,
   onClaimAffection,
   onConfessionSubmit,
   onCompleteTask,
+  onDebtAutoPayChange,
   onPayDebtPeriod,
   onSignDebtContract,
   onFalseHopeKey,
@@ -146,10 +148,12 @@ export function PetSection({
   favorCoinReward: number;
   galleryItems: PetGalleryItem[];
   isGuest?: boolean;
+  isDebtAutoPayEnabled: boolean;
   nextTaxDueAt: string | null;
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string) => void;
   onCompleteTask: (taskId: string) => void;
+  onDebtAutoPayChange: (enabled: boolean) => void;
   onPayDebtPeriod: () => void;
   onSignDebtContract: (form: {
     debtAmount: number;
@@ -248,7 +252,7 @@ export function PetSection({
         return;
       }
 
-      if (falseHopeTask?.status === "approved" || falseHopeTask?.cooldownUntil) {
+      if (falseHopeTask?.cooldownUntil) {
         return;
       }
 
@@ -738,7 +742,7 @@ export function PetSection({
                 Boolean(task.cooldownUntil) &&
                 new Date(task.cooldownUntil ?? "").getTime() > now;
               const pending = task.status === "pending";
-              const approved = task.status === "approved";
+              const approved = task.kind !== "false-hope" && task.status === "approved";
               const failed = task.status === "failed";
               const sentence = task.sentence ?? "";
 
@@ -1060,7 +1064,7 @@ export function PetSection({
                         {(["a", "d"] as const).map((key) => (
                           <button
                             className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                            disabled={coolingDown || task.status === "approved"}
+                            disabled={coolingDown}
                             key={key}
                             onClick={() => onFalseHopeKey(key)}
                             type="button"
@@ -1184,17 +1188,38 @@ export function PetSection({
                     Future installments are locked. Only the current{" "}
                     {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
                   </p>
+                  <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
+                    <label className="flex items-center justify-between gap-3">
+                      <span>Auto payment</span>
+                      <input
+                        checked={isDebtAutoPayEnabled}
+                        className="h-4 w-4 accent-red-500"
+                        onChange={(event) => onDebtAutoPayChange(event.target.checked)}
+                        type="checkbox"
+                      />
+                    </label>
+                    <p className="mt-2 text-yellow-50/75">
+                      When enabled, each installment is paid automatically as soon as it becomes
+                      available.
+                    </p>
+                    <p className="mt-2 text-yellow-50/75">
+                      If auto payment is off and an installment is missed, missed debt is still
+                      collected from coin balance and can push balance below zero.
+                    </p>
+                    <p className="mt-2 text-yellow-50/75">
+                      Debt contracts cannot be removed here. Only admin can delete or cancel debt
+                      records.
+                    </p>
+                  </div>
                   <button
                     className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!debtPaymentDue || coins < petDebtContract.debt_amount}
+                    disabled={!debtPaymentDue}
                     onClick={onPayDebtPeriod}
                     type="button"
                   >
                     {!debtPaymentDue
                       ? "Next installment locked"
-                      : coins < petDebtContract.debt_amount
-                        ? `Need ${petDebtContract.debt_amount.toLocaleString()} Coins`
-                        : `Pay installment ${debtInstallmentNumber}`}
+                      : `Pay installment ${debtInstallmentNumber}`}
                   </button>
                 </div>
               ) : (
@@ -1245,6 +1270,20 @@ export function PetSection({
                     Duration must be {debtDurationLimit.min}-{debtDurationLimit.max}{" "}
                     {debtDurationLimit.label.toLowerCase()} for {debtPeriodType} contracts.
                   </p>
+                  <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
+                    Auto payment is off by default. Missed debt is still collected automatically
+                    after the payment window is missed, and coin balance may go below zero. Debt
+                    contracts can only be removed by admin.
+                  </p>
+                  <label className="flex items-center justify-between gap-3 rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
+                    <span>Auto payment</span>
+                    <input
+                      checked={isDebtAutoPayEnabled}
+                      className="h-4 w-4 accent-red-500"
+                      onChange={(event) => onDebtAutoPayChange(event.target.checked)}
+                      type="checkbox"
+                    />
+                  </label>
                   <button
                     className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
                     onClick={handleDebtSign}

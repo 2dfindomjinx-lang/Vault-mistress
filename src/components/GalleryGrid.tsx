@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { CoinAmount } from "@/components/CoinAmount";
 import type { GalleryItem, GalleryRarity } from "@/lib/types";
 
 type GalleryGridProps = {
@@ -65,7 +66,7 @@ export function GalleryGrid({
           </p>
         </div>
         <div className="text-sm text-zinc-400">
-          Balance: <span className="font-bold text-pink-100">{coins}</span>
+          Balance: <CoinAmount amount={coins} className="font-bold text-pink-100" iconSize={16} label="" />
           <span className="mx-2 text-zinc-600">/</span>
           Mood: <span className="font-bold text-pink-100">{mood}</span>
         </div>
@@ -168,7 +169,27 @@ export function GalleryGrid({
                   onClick={() => onUnlock(item.id)}
                   type="button"
                 >
-                  {buttonText}
+                  {!item.unlocked && isCommon && !disabled ? (
+                    canAfford ? (
+                      <CoinAmount
+                        amount={item.unlockCost ?? 0}
+                        className="justify-center"
+                        iconSize={16}
+                        label="coins"
+                        prefix="Unlock - "
+                      />
+                    ) : (
+                      <CoinAmount
+                        amount={item.unlockCost ?? 0}
+                        className="justify-center"
+                        iconSize={16}
+                        label="coins"
+                        prefix="Need "
+                      />
+                    )
+                  ) : (
+                    buttonText
+                  )}
                 </button>
                 {item.unlocked && (
                   <a

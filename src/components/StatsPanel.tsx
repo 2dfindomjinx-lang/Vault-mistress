@@ -3,6 +3,8 @@ import {
   type LeadershipEntry,
   type ShameEntry,
 } from "@/lib/leadership";
+import { CoinAmount } from "@/components/CoinAmount";
+import type { CSSProperties } from "react";
 
 const THRONE_URL = "https://throne.com/principessa2dfd";
 
@@ -16,25 +18,36 @@ type StatsPanelProps = {
   leadershipTop: LeadershipEntry[];
   shameTop: ShameEntry[];
   username: string;
+  usernameStyle?: CSSProperties;
+  statValueStyle?: CSSProperties;
+  equippedTitleName?: string;
 };
 
 export function StatsPanel({
+  equippedTitleName,
   leadershipTop,
   shameTop,
+  statValueStyle,
   stats,
   username,
+  usernameStyle,
 }: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
-  const statCards = [
-    ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance"],
-    ["Affection", `${stats.affection}/100`, "Principessa's current approval"],
-    ["Loyalty Streak", `${stats.loyaltyStreak} days`, "Prototype daily streak"],
-    ["Tribute Total", stats.tributeTotal.toLocaleString(), "Coins offered so far"],
+  const statCards: Array<[
+    string,
+    string,
+    string,
+    number | null,
+  ]> = [
+    ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance", stats.coins],
+    ["Affection", `${stats.affection}/100`, "Principessa's current approval", null],
+    ["Loyalty Streak", `${stats.loyaltyStreak} days`, "Prototype daily streak", null],
+    ["Tribute Total", stats.tributeTotal.toLocaleString(), "Coins offered so far", stats.tributeTotal],
   ];
 
   return (
     <section className="grid grid-cols-2 gap-3">
-      {statCards.map(([label, value, hint]) => (
+      {statCards.map(([label, value, hint, coinAmount]) => (
         <div
           className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]"
           key={label}
@@ -42,8 +55,17 @@ export function StatsPanel({
           <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
             {label}
           </p>
-          <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
-            {value}
+          <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
+            {coinAmount === null ? (
+              value
+            ) : (
+              <CoinAmount
+                amount={coinAmount}
+                className="gap-2"
+                iconSize={28}
+                label=""
+              />
+            )}
           </p>
           <p className="mt-1 text-xs text-zinc-400">{hint}</p>
           {label === "Coins" && (
@@ -68,11 +90,14 @@ export function StatsPanel({
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
               Leadership
             </p>
-            <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
-              {leadership.currentRank.title}
+            <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
+              {equippedTitleName ?? leadership.currentRank.title}
             </p>
           </div>
-          <p className="rounded-full border border-pink-200/20 bg-black/35 px-3 py-1 text-xs font-bold text-pink-100">
+          <p
+            className="rounded-full border border-pink-200/20 bg-black/35 px-3 py-1 text-xs font-bold text-pink-100"
+            style={statValueStyle}
+          >
             {stats.tributeTotal.toLocaleString()} prestige
           </p>
         </div>
@@ -111,12 +136,15 @@ export function StatsPanel({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-white">
-                      #{index + 1} {leader.username}
+                      #{index + 1}{" "}
+                      <span style={isCurrentUser ? usernameStyle : undefined}>
+                        {leader.username}
+                      </span>
                     </p>
                     <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
                   </div>
                   <p className="shrink-0 text-sm font-black text-pink-100">
-                    {leader.tributeTotal.toLocaleString()}
+                    <CoinAmount amount={leader.tributeTotal} iconSize={16} label="" />
                   </p>
                 </div>
               );
@@ -150,7 +178,10 @@ export function StatsPanel({
                   key={entry.username}
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
-                    #{index + 1} {entry.username}
+                    #{index + 1}{" "}
+                    <span style={isCurrentUser ? usernameStyle : undefined}>
+                      {entry.username}
+                    </span>
                   </p>
                   <p className="shrink-0 text-sm font-black text-rose-100">
                     {entry.shameCount} fail

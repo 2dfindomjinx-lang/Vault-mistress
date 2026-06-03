@@ -1,6 +1,8 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useMemo } from "react";
+import { CoinAmount } from "@/components/CoinAmount";
 
 export type RecentTribute = {
   id: string;
@@ -56,9 +58,13 @@ function getGlowClass(amount: number) {
 }
 
 export function RecentTributesTicker({
+  currentUsername,
+  usernameStyle,
   topTributes = [],
   tributes,
 }: {
+  currentUsername?: string;
+  usernameStyle?: CSSProperties;
   topTributes?: RecentTribute[];
   tributes: RecentTribute[];
 }) {
@@ -120,8 +126,10 @@ export function RecentTributesTicker({
               displayTributes.map((tribute, index) => (
                 <TributeCard
                   key={tribute.id}
+                  currentUsername={currentUsername}
                   tribute={tribute}
                   isNewest={index === 0}
+                  usernameStyle={usernameStyle}
                 />
               ))
             ) : (
@@ -148,9 +156,13 @@ export function RecentTributesTicker({
                     #{index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-black text-white">{tribute.username}</p>
+                    <p className="truncate text-xs font-black text-white">
+                      <span style={tribute.username === currentUsername ? usernameStyle : undefined}>
+                        {tribute.username}
+                      </span>
+                    </p>
                     <p className="text-[11px] font-bold text-yellow-50">
-                      +{tribute.amount.toLocaleString()} Coins
+                      <CoinAmount amount={tribute.amount} iconSize={14} label="Coins" prefix="+" />
                     </p>
                   </div>
                 </div>
@@ -164,11 +176,15 @@ export function RecentTributesTicker({
 }
 
 function TributeCard({
+  currentUsername,
   isNewest = false,
   tribute,
+  usernameStyle,
 }: {
+  currentUsername?: string;
   isNewest?: boolean;
   tribute: RecentTribute;
+  usernameStyle?: CSSProperties;
 }) {
   return (
     <article
@@ -192,10 +208,12 @@ function TributeCard({
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-white">
-          {tribute.username}
+          <span style={tribute.username === currentUsername ? usernameStyle : undefined}>
+            {tribute.username}
+          </span>
         </p>
         <p className="text-xs font-bold text-pink-100">
-          +{tribute.amount.toLocaleString()} Principessa Coins
+          <CoinAmount amount={tribute.amount} iconSize={15} label="Principessa Coins" prefix="+" />
         </p>
         <p className="text-[11px] text-zinc-400">
           {getRelativeTime(tribute.createdAt)}

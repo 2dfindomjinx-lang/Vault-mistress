@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Overview = {
   activeDebtContracts: number;
+  authRegisteredUsers: number;
   averageCoins: number;
   coinMetricScope?: "daily_gmt3" | string;
   dailyActiveUsers: number;
@@ -12,6 +13,7 @@ type Overview = {
   nextResetAt?: string;
   ownerLikenessWarnings: number;
   newRegistrationsToday: number;
+  profilesMissingFromAuthUsers: number;
   totalCoinsEarned: number;
   totalCoinsInCirculation: number;
   totalCoinsSpent: number;
@@ -253,7 +255,9 @@ export default function AdminAnalyticsPage() {
             </section>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ["Total Users", data.overview.totalRegisteredUsers],
+                ["Auth Users", data.overview.authRegisteredUsers],
+                ["Profile Users", data.overview.totalRegisteredUsers],
+                ["Missing Profiles", data.overview.profilesMissingFromAuthUsers],
                 ["Daily Active", data.overview.dailyActiveUsers],
                 ["New Today", data.overview.newRegistrationsToday],
                 ["Tribute Received Today", data.overview.totalTributeReceived],

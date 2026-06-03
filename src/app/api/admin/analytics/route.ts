@@ -2,7 +2,7 @@ import { requireAdminProfile } from "@/lib/admin-guard";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
-const TRANSACTION_ANALYTICS_RANGE_END = 9999;
+const ANALYTICS_PAGE_SIZE = 1000;
 
 type ProfileRow = {
   id: string;
@@ -108,8 +108,26 @@ function currentGmt3DayWindow() {
   };
 }
 
-function sum(rows: CoinRow[], predicate: (row: CoinRow) => boolean) {
-  return rows.reduce((total, row) => total + (predicate(row) ? row.amount : 0), 0);
+function isTributeTransaction(row: CoinRow) {
+  const reason = row.reason ?? "";
+
+  return reason === "tribute" || reason.startsWith("tribute:");
+}
+
+function getTributeReceivedAmount(row: CoinRow) {
+  if (!isTributeTransaction(row)) {
+    return 0;
+  }
+
+  return row.amount < 0 ? Math.abs(row.amount) : Math.max(0, row.amount);
+}
+
+function getCoinsEarnedAmount(row: CoinRow) {
+  return Math.max(0, row.amount);
+}
+
+function getCoinsSpentAmount(row: CoinRow) {
+  return Math.abs(Math.min(0, row.amount));
 }
 
 function countBy<T>(rows: T[], getKey: (row: T) => string) {
@@ -181,6 +199,70 @@ function getTaskLabel(taskId: string) {
   return titleizeTaskId(taskId);
 }
 
+async function fetchAllRows<T>(createQuery: () => {
+  range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+}) {
+  const rows: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + ANALYTICS_PAGE_SIZE - 1;
+    const { data, error } = await createQuery().range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+
+    if (page.length < ANALYTICS_PAGE_SIZE) {
+      break;
+    }
+
+    from += ANALYTICS_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function countAuthUsers(supabase: {
+  auth: {
+    admin: {
+      listUsers: (params: { page: number; perPage: number }) => Promise<{
+        data: { users?: unknown[] };
+        error: { message: string } | null;
+      }>;
+    };
+  };
+}) {
+  let page = 1;
+  let total = 0;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: ANALYTICS_PAGE_SIZE,
+    });
+
+    if (error) {
+      console.error("Admin analytics auth users count failed", error);
+      return null;
+    }
+
+    const users = data.users ?? [];
+    total += users.length;
+
+    if (users.length < ANALYTICS_PAGE_SIZE) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return total;
+}
+
 export async function GET(request: Request) {
   const admin = await requireAdminProfile();
 
@@ -197,47 +279,59 @@ export async function GET(request: Request) {
   const todayWindow = currentGmt3DayWindow();
 
   const [
+    authUsersCount,
     totalProfilesCountResult,
-    profilesResult,
-    tasksResult,
-    petTasksResult,
-    irlTasksResult,
-    galleryResult,
-    petGalleryResult,
-    overviewTransactionsResult,
-    chartTransactionsResult,
+    profiles,
+    userTaskRows,
+    petTaskRows,
+    irlTaskRows,
+    userGalleryRows,
+    petGalleryRows,
+    overviewTransactions,
+    chartTransactions,
     selectedTransactionsResult,
-    debtResult,
+    debts,
   ] = await Promise.all([
+    countAuthUsers(supabase),
     supabase.from("profiles").select("id", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("id, username, email, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("user_tasks")
-      .select("user_id, task_id, completed_at, claimed_at, reward_coins"),
-    supabase
-      .from("user_pet_tasks")
-      .select("user_id, task_id, completed_at, claimed_at:reviewed_at"),
-    supabase
-      .from("user_irl_tasks")
-      .select("user_id, task_id:task_label, completed_at, claimed_at:reviewed_at"),
-    supabase.from("user_gallery").select("user_id, item_id, unlocked_at"),
-    supabase.from("user_pet_gallery").select("user_id, item_id, unlocked_at"),
-    supabase
-      .from("coin_transactions")
-      .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
-      .gte("created_at", todayWindow.start)
-      .lt("created_at", todayWindow.end)
-      .order("created_at", { ascending: false })
-      .range(0, TRANSACTION_ANALYTICS_RANGE_END),
-    supabase
-      .from("coin_transactions")
-      .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
-      .gte("created_at", sevenDaysAgo)
-      .order("created_at", { ascending: false })
-      .range(0, TRANSACTION_ANALYTICS_RANGE_END),
+    fetchAllRows<ProfileRow>(() =>
+      supabase
+        .from("profiles")
+        .select("id, username, email, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
+        .order("created_at", { ascending: false }),
+    ),
+    fetchAllRows<TaskRow>(() =>
+      supabase
+        .from("user_tasks")
+        .select("user_id, task_id, completed_at, claimed_at, reward_coins"),
+    ),
+    fetchAllRows<TaskRow>(() =>
+      supabase
+        .from("user_pet_tasks")
+        .select("user_id, task_id, completed_at, claimed_at:reviewed_at"),
+    ),
+    fetchAllRows<TaskRow>(() =>
+      supabase
+        .from("user_irl_tasks")
+        .select("user_id, task_id:task_label, completed_at, claimed_at:reviewed_at"),
+    ),
+    fetchAllRows<GalleryRow>(() => supabase.from("user_gallery").select("user_id, item_id, unlocked_at")),
+    fetchAllRows<GalleryRow>(() => supabase.from("user_pet_gallery").select("user_id, item_id, unlocked_at")),
+    fetchAllRows<CoinRow>(() =>
+      supabase
+        .from("coin_transactions")
+        .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+        .gte("created_at", todayWindow.start)
+        .lt("created_at", todayWindow.end)
+        .order("created_at", { ascending: false }),
+    ),
+    fetchAllRows<CoinRow>(() =>
+      supabase
+        .from("coin_transactions")
+        .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: false }),
+    ),
     selectedUserId
       ? supabase
           .from("coin_transactions")
@@ -246,21 +340,14 @@ export async function GET(request: Request) {
           .order("created_at", { ascending: false })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
-    supabase.from("pet_debt_contracts").select("id, status, debt_amount, paid_periods, missed_periods"),
+    fetchAllRows<{ id: string; status: string; debt_amount: number; paid_periods: number; missed_periods: number }>(() =>
+      supabase.from("pet_debt_contracts").select("id, status, debt_amount, paid_periods, missed_periods"),
+    ),
   ]);
 
   const failed = [
     totalProfilesCountResult.error,
-    profilesResult.error,
-    tasksResult.error,
-    petTasksResult.error,
-    irlTasksResult.error,
-    galleryResult.error,
-    petGalleryResult.error,
-    overviewTransactionsResult.error,
-    chartTransactionsResult.error,
     selectedTransactionsResult.error,
-    debtResult.error,
   ].find(Boolean);
 
   if (failed) {
@@ -268,30 +355,26 @@ export async function GET(request: Request) {
     return Response.json({ error: failed.message }, { status: 500 });
   }
 
-  const profiles = (profilesResult.data ?? []) as ProfileRow[];
   const totalRegisteredUsers = totalProfilesCountResult.count ?? profiles.length;
   const taskRows = [
-    ...((tasksResult.data ?? []) as TaskRow[]),
-    ...((petTasksResult.data ?? []) as TaskRow[]).map((row) => ({
+    ...userTaskRows,
+    ...petTaskRows.map((row) => ({
       ...row,
       task_id: `pet:${row.task_id}`,
     })),
-    ...((irlTasksResult.data ?? []) as TaskRow[]).map((row) => ({
+    ...irlTaskRows.map((row) => ({
       ...row,
       task_id: `irl:${row.task_id}`,
     })),
   ];
   const galleryRows = [
-    ...((galleryResult.data ?? []) as GalleryRow[]),
-    ...((petGalleryResult.data ?? []) as GalleryRow[]).map((row) => ({
+    ...userGalleryRows,
+    ...petGalleryRows.map((row) => ({
       ...row,
       item_id: `pet:${row.item_id}`,
     })),
   ];
-  const overviewTransactions = (overviewTransactionsResult.data ?? []) as CoinRow[];
-  const chartTransactions = (chartTransactionsResult.data ?? []) as CoinRow[];
   const selectedTransactions = (selectedTransactionsResult.data ?? []) as CoinRow[];
-  const debts = debtResult.data ?? [];
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
 
   const [registrationsByDay, activeByDay, newTodayResult] = await Promise.all([
@@ -342,19 +425,17 @@ export async function GET(request: Request) {
   const tributeByDay = dayKeys.map((day) => ({
     day,
     amount: chartTransactions
-      .filter((row) => row.reason === "tribute" && dateKeyGmt3(row.created_at) === day)
-      .reduce((total, row) => total + Math.max(0, row.amount), 0),
+      .filter((row) => dateKeyGmt3(row.created_at) === day)
+      .reduce((total, row) => total + getTributeReceivedAmount(row), 0),
   }));
   const coinNetByDay = dayKeys.map((day) => ({
     day,
     earned: chartTransactions
-      .filter((row) => row.amount > 0 && dateKeyGmt3(row.created_at) === day)
-      .reduce((total, row) => total + row.amount, 0),
-    spent: Math.abs(
-      chartTransactions
-        .filter((row) => row.amount < 0 && dateKeyGmt3(row.created_at) === day)
-        .reduce((total, row) => total + row.amount, 0),
-    ),
+      .filter((row) => dateKeyGmt3(row.created_at) === day)
+      .reduce((total, row) => total + getCoinsEarnedAmount(row), 0),
+    spent: chartTransactions
+      .filter((row) => dateKeyGmt3(row.created_at) === day)
+      .reduce((total, row) => total + getCoinsSpentAmount(row), 0),
   }));
 
   const taskUsage = countBy(
@@ -454,17 +535,25 @@ export async function GET(request: Request) {
 
   return Response.json({
     overview: {
+      authRegisteredUsers: authUsersCount ?? totalRegisteredUsers,
       coinMetricScope: "daily_gmt3",
       nextResetAt: todayWindow.resetAt,
+      profilesMissingFromAuthUsers: Math.max(0, (authUsersCount ?? totalRegisteredUsers) - totalRegisteredUsers),
       totalRegisteredUsers,
       dailyActiveUsers: activeByDay.at(-1)?.count ?? 0,
       newRegistrationsToday: newTodayResult.count ?? 0,
-      totalTributeReceived: sum(
-        overviewTransactions,
-        (row) => row.reason === "tribute" && row.amount > 0,
+      totalTributeReceived: overviewTransactions.reduce(
+        (total, row) => total + getTributeReceivedAmount(row),
+        0,
       ),
-      totalCoinsEarned: sum(overviewTransactions, (row) => row.amount > 0),
-      totalCoinsSpent: Math.abs(sum(overviewTransactions, (row) => row.amount < 0)),
+      totalCoinsEarned: overviewTransactions.reduce(
+        (total, row) => total + getCoinsEarnedAmount(row),
+        0,
+      ),
+      totalCoinsSpent: overviewTransactions.reduce(
+        (total, row) => total + getCoinsSpentAmount(row),
+        0,
+      ),
       totalCoinsInCirculation: profiles.reduce(
         (total, profile) => total + Number(profile.coins ?? 0),
         0,

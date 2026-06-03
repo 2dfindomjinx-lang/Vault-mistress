@@ -21,6 +21,7 @@ import {
   cosmeticItems,
   DEFAULT_SPEECH_AVATAR_ID,
   getCosmeticItem,
+  getSpeechBubbleMessageForText,
   getSpeechBubbleMessagePool,
   getTitleItem,
   titleItems,
@@ -35,7 +36,7 @@ import {
   IRL_TASK_WHEEL_COST,
   irlTaskWheelSegments,
 } from "@/lib/irl-task-wheel";
-import type { LoyaltyJackpotState } from "@/lib/jackpot";
+import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { emitSoundEvent } from "@/lib/sound";
 import {
@@ -245,6 +246,8 @@ const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 const PREVIEW_USER_ID = "preview-local-user";
+const PREVIEW_OVERRIDE_STORAGE_KEY = "vault-preview-override-unlocked";
+const DEBT_AUTO_PAY_STORAGE_PREFIX = "vault-debt-auto-pay-enabled";
 const PET_X_POST_TEXT = [
   "I belong to Principessa.",
   "My small dick is completely hers.",
@@ -919,6 +922,8 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
     }
 
     if (task.kind === "false-hope") {
+      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const isCoolingDown = Boolean(cooldownUntil);
       const progress = getTaskMetadataNumber(row?.metadata, "progress", 0);
       const stage = getTaskMetadataNumber(row?.metadata, "stage", 1);
       const expectedKeyRaw = getTaskMetadataString(row?.metadata, "expectedKey");
@@ -926,13 +931,13 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
 
       return {
         ...task,
-        completedAt,
-        cooldownUntil: getPetTaskCooldownUntil(completedAt),
-        falseHopeExpectedKey: expectedKey,
-        falseHopeProgress: progress,
-        falseHopeStage: stage,
-        reviewedAt: row?.reviewed_at ?? null,
-        status: baseStatus,
+        completedAt: isCoolingDown ? completedAt : null,
+        cooldownUntil,
+        falseHopeExpectedKey: isCoolingDown ? expectedKey : "a",
+        falseHopeProgress: isCoolingDown ? progress : 0,
+        falseHopeStage: isCoolingDown ? stage : 1,
+        reviewedAt: null,
+        status: "available" as const,
       };
     }
 
@@ -1024,6 +1029,23 @@ function randomChance(probability: number) {
   return Math.random() < probability;
 }
 
+function normalizeWritingComparisonText(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u00B4`]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+}
+
+function writingStartsWith(sentence: string, value: string) {
+  return normalizeWritingComparisonText(sentence).startsWith(
+    normalizeWritingComparisonText(value),
+  );
+}
+
+function writingEquals(sentence: string, value: string) {
+  return normalizeWritingComparisonText(sentence) === normalizeWritingComparisonText(value);
+}
+
 function getDailyPetRuleMechanics() {
   const dayKey = getDailyKey();
   const seed = dayKey.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -1059,6 +1081,80 @@ function getDailyPetPerfectWritingSentence() {
 function getDailyPetConfessionSentence() {
   const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
   return petConfessionSentencePool[dayIndex % petConfessionSentencePool.length];
+}
+
+function getDebtAutoPayStorageKey(userId: string) {
+  return `${DEBT_AUTO_PAY_STORAGE_PREFIX}:${userId}`;
+}
+
+function readDebtAutoPayEnabled(userId: string) {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const stored = window.localStorage.getItem(getDebtAutoPayStorageKey(userId));
+  return stored === "true";
+}
+
+function writeDebtAutoPayEnabled(userId: string, enabled: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(getDebtAutoPayStorageKey(userId), String(enabled));
+}
+
+function getDebtPeriodMs(periodType: PetDebtContract["period_type"]) {
+  return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
+}
+
+function getDueDebtPaymentPlan(
+  contract: PetDebtContract,
+  options: { autoPayEnabled: boolean; nowMs?: number },
+) {
+  if (contract.status !== "active") {
+    return null;
+  }
+
+  const nowMs = options.nowMs ?? Date.now();
+  const dueMs = new Date(contract.next_due_at).getTime();
+
+  if (!Number.isFinite(dueMs) || dueMs > nowMs) {
+    return null;
+  }
+
+  const remainingPeriods = Math.max(0, contract.duration_periods - contract.paid_periods);
+
+  if (remainingPeriods === 0) {
+    return null;
+  }
+
+  const periodMs = getDebtPeriodMs(contract.period_type);
+  const activeDuePeriods = Math.floor((nowMs - dueMs) / periodMs) + 1;
+  const missedDuePeriods = Math.floor((nowMs - dueMs) / periodMs);
+  const duePeriods = Math.min(
+    remainingPeriods,
+    options.autoPayEnabled ? activeDuePeriods : missedDuePeriods,
+  );
+
+  if (duePeriods <= 0) {
+    return null;
+  }
+
+  const nextPaidPeriods = contract.paid_periods + duePeriods;
+  const completed = nextPaidPeriods >= contract.duration_periods;
+  const nextDueAt = completed
+    ? contract.next_due_at
+    : new Date(dueMs + duePeriods * periodMs).toISOString();
+
+  return {
+    amount: contract.debt_amount * duePeriods,
+    completed,
+    duePeriods,
+    missedPeriods: options.autoPayEnabled ? 0 : duePeriods,
+    nextDueAt,
+    nextPaidPeriods,
+  };
 }
 
 function randomHighLowNumber() {
@@ -1416,6 +1512,7 @@ export default function Home() {
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
   const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
+  const [isDebtAutoPayEnabled, setIsDebtAutoPayEnabled] = useState(false);
   const [petTaskState, setPetTaskState] = useState<PetTaskItem[]>(petTasks);
   const [petAffectionClaimed, setPetAffectionClaimed] = useState(false);
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
@@ -1439,6 +1536,7 @@ export default function Home() {
   });
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>(["leadership-0"]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
+  const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
@@ -1470,6 +1568,13 @@ export default function Home() {
     color: equippedUsernameColor?.color,
     textShadow: equippedUsernameGlow?.glow,
   };
+  const setAvatarMistressReply = useCallback(
+    (message: string) => {
+      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      setMistressReply(getSpeechBubbleMessageForText(avatarId, message));
+    },
+    [equippedSpeechAvatar?.id],
+  );
   const galleryItems =
     affection >= 100
       ? [
@@ -1527,12 +1632,15 @@ export default function Home() {
   const eventSafeReward = getEventTaskReward(SAFE_REWARD);
   const unlockProgressionTitles = useCallback((nextTributeTotal: number) => {
     const unlockedProgressionTitleIds = getUnlockedProgressionTitleIds(nextTributeTotal);
-    const defaultTitleId = getDefaultTitleId(nextTributeTotal);
+    const previousDefaultTitleId = getDefaultTitleId(tributeTotal);
+    const nextDefaultTitleId = getDefaultTitleId(nextTributeTotal);
+    const shouldAutoEquipProgressionTitle =
+      !isTitleManuallySelected && (!equippedTitleId || equippedTitleId === previousDefaultTitleId);
 
     setOwnedTitleIds((current) => Array.from(new Set([...current, ...unlockedProgressionTitleIds])));
 
-    if (!equippedTitleId) {
-      setEquippedTitleId(defaultTitleId);
+    if (shouldAutoEquipProgressionTitle) {
+      setEquippedTitleId(nextDefaultTitleId);
     }
 
     if (isGuestMode || !authUserId) {
@@ -1543,24 +1651,53 @@ export default function Home() {
       (titleId) => !ownedTitleIds.includes(titleId),
     );
 
-    if (missingTitleIds.length === 0) {
-      return;
-    }
+    const persistUnlocks = missingTitleIds.length > 0
+      ? supabase.from("user_titles").upsert(
+        missingTitleIds.map((titleId) => ({
+          user_id: authUserId,
+          title_id: titleId,
+          source: "progression",
+          equipped: false,
+        })),
+        { onConflict: "user_id,title_id" },
+      )
+      : Promise.resolve({ error: null });
 
-    void supabase.from("user_titles").upsert(
-      missingTitleIds.map((titleId) => ({
-        user_id: authUserId,
-        title_id: titleId,
-        source: "progression",
-        equipped: false,
-      })),
-      { onConflict: "user_id,title_id" },
-    ).then(({ error }) => {
+    void persistUnlocks.then(async ({ error }) => {
       if (error) {
         console.error("Failed to persist progression title unlocks", error);
+        return;
+      }
+
+      if (!shouldAutoEquipProgressionTitle) {
+        return;
+      }
+
+      const { error: clearError } = await supabase
+        .from("user_titles")
+        .update({ equipped: false })
+        .eq("user_id", authUserId);
+
+      if (clearError) {
+        console.error("Failed to clear equipped progression titles", clearError);
+        return;
+      }
+
+      const { error: equipError } = await supabase.from("user_titles").upsert(
+        {
+          user_id: authUserId,
+          title_id: nextDefaultTitleId,
+          source: "progression",
+          equipped: true,
+        },
+        { onConflict: "user_id,title_id" },
+      );
+
+      if (equipError) {
+        console.error("Failed to persist equipped progression title", equipError);
       }
     });
-  }, [authUserId, equippedTitleId, isGuestMode, ownedTitleIds]);
+  }, [authUserId, equippedTitleId, isGuestMode, isTitleManuallySelected, ownedTitleIds, tributeTotal]);
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
   const effectiveTimeoutDays = currentTime > 0
@@ -1576,7 +1713,7 @@ export default function Home() {
 
   const blockIfTimedOut = () => {
     if (isPreviewRestricted) {
-      setMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
+      setAvatarMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
       return true;
     }
 
@@ -1587,7 +1724,7 @@ export default function Home() {
       return false;
     }
 
-    setMistressReply("Timeout active. Stay denied like the pathetic loser you are or pay to unlock.");
+    setAvatarMistressReply("Timeout active. Stay denied like the pathetic loser you are or pay to unlock.");
     return true;
   };
 
@@ -1691,7 +1828,7 @@ export default function Home() {
     };
 
     const idleTimer = window.setTimeout(() => {
-      setMistressReply(getRandomIdleLine());
+      setAvatarMistressReply(getRandomIdleLine());
     }, getRandomDelay(10000, 15000));
 
     return () => {
@@ -1704,6 +1841,7 @@ export default function Home() {
     isLoggedIn,
     mistressReply,
     petEverUnlocked,
+    setAvatarMistressReply,
   ]);
 
   useEffect(() => {
@@ -1734,13 +1872,13 @@ export default function Home() {
 
     window.localStorage.setItem(storageKey, "shown");
     const timer = window.setTimeout(() => {
-      setMistressReply(
+      setAvatarMistressReply(
         `Today's forbidden tasks: ${bannedNames.join(" and ")}. Break them and the rules fail.`,
       );
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [authUserId, isLoggedIn, isPetUnlocked, petTaskState, username]);
+  }, [authUserId, isLoggedIn, isPetUnlocked, petTaskState, setAvatarMistressReply, username]);
 
   const recordCoinTransaction = useCallback((
     amount: number,
@@ -2066,6 +2204,7 @@ export default function Home() {
       const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
       setOwnedTitleIds([fallbackTitle]);
       setEquippedTitleId(fallbackTitle);
+      setIsTitleManuallySelected(false);
     } else {
       const titleRows = (titleData ?? []) as UserTitleRow[];
       const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
@@ -2076,6 +2215,7 @@ export default function Home() {
 
       setOwnedTitleIds(ownedTitles);
       setEquippedTitleId(ownedTitles.includes(equippedTitle) ? equippedTitle : fallbackTitle);
+      setIsTitleManuallySelected(equippedTitle !== fallbackTitle);
     }
 
     const { data: galleryData, error: galleryError } = await supabase
@@ -2130,7 +2270,96 @@ export default function Home() {
       console.warn("Failed to load Pet debt contract", debtError);
       setPetDebtContract(null);
     } else {
-      setPetDebtContract((debtData as PetDebtContract | null) ?? null);
+      const activeDebtContract = (debtData as PetDebtContract | null) ?? null;
+      const debtAutoPayEnabled = readDebtAutoPayEnabled(profile.id);
+      const duePlan =
+        activeDebtContract
+          ? getDueDebtPaymentPlan(activeDebtContract, {
+              autoPayEnabled: debtAutoPayEnabled,
+            })
+          : null;
+
+      setIsDebtAutoPayEnabled(debtAutoPayEnabled);
+
+      if (!activeDebtContract || !duePlan) {
+        setPetDebtContract(activeDebtContract);
+      } else {
+        const previousCoins = profile.coins;
+        const nextCoins = previousCoins - duePlan.amount;
+        const nextTributeTotal = (profile.tribute_total ?? 0) + duePlan.amount;
+        const collectedAt = new Date().toISOString();
+
+        const { data: collectedProfile, error: collectionProfileError } = await supabase
+          .from("profiles")
+          .update({
+            coins: nextCoins,
+            tribute_total: nextTributeTotal,
+            updated_at: collectedAt,
+          })
+          .eq("id", profile.id)
+          .select(profileSelect)
+          .single();
+
+        if (collectionProfileError) {
+          console.error("Failed to auto-collect overdue debt payment", collectionProfileError);
+          setAuthError(describeError(collectionProfileError));
+          setPetDebtContract(activeDebtContract);
+        } else {
+          const { data: collectedDebt, error: collectionDebtError } = await supabase
+            .from("pet_debt_contracts")
+            .update({
+              missed_periods: activeDebtContract.missed_periods + duePlan.missedPeriods,
+              paid_periods: duePlan.nextPaidPeriods,
+              next_due_at: duePlan.nextDueAt,
+              status: duePlan.completed ? "completed" : "active",
+              updated_at: collectedAt,
+            })
+            .eq("id", activeDebtContract.id)
+            .select("*")
+            .single();
+
+          if (collectionDebtError) {
+            console.error("Failed to update auto-collected debt contract", collectionDebtError);
+            setAuthError(describeError(collectionDebtError));
+            setPetDebtContract(activeDebtContract);
+          } else {
+            const updatedProfile = collectedProfile as Profile;
+            const { error: transactionError } = await supabase.from("coin_transactions").insert({
+              amount: updatedProfile.coins - previousCoins,
+              balance_after: updatedProfile.coins,
+              balance_before: previousCoins,
+              metadata: {
+                autoCollected: true,
+                contractId: activeDebtContract.id,
+                duePeriods: duePlan.duePeriods,
+                missedPeriods: duePlan.missedPeriods,
+                spendAmount: duePlan.amount,
+                tributeTotalChanged: true,
+              },
+              reason: duePlan.missedPeriods > 0
+                ? "tribute:debt-contract:missed"
+                : "tribute:debt-contract:auto",
+              user_id: profile.id,
+            });
+
+            if (transactionError) {
+              console.error("Failed to record auto-collected debt transaction", transactionError);
+            }
+
+            setCoins(updatedProfile.coins);
+            coinsRef.current = updatedProfile.coins;
+            setTributeTotal(updatedProfile.tribute_total ?? nextTributeTotal);
+            unlockProgressionTitles(updatedProfile.tribute_total ?? nextTributeTotal);
+            setPetDebtContract(duePlan.completed ? null : (collectedDebt as PetDebtContract));
+            setAvatarMistressReply(
+              duePlan.missedPeriods > 0
+                ? `Missed Debt Contract collected automatically. ${duePlan.amount.toLocaleString()} coins charged.`
+                : `Debt Contract auto-payment completed. ${duePlan.amount.toLocaleString()} coins charged.`,
+            );
+            void loadLeadershipTop();
+          }
+        }
+      }
     }
 
     const { data: petTaskData, error: petTaskError } = await supabase
@@ -2210,7 +2439,13 @@ export default function Home() {
     void loadLeadershipTop();
     void loadShameTop();
     void loadJackpot();
-  }, [loadJackpot, loadLeadershipTop, loadShameTop]);
+  }, [
+    loadJackpot,
+    loadLeadershipTop,
+    loadShameTop,
+    setAvatarMistressReply,
+    unlockProgressionTitles,
+  ]);
 
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
@@ -3024,7 +3259,7 @@ export default function Home() {
       try {
         const profile = await loadProfile(data.user);
         await updateLoyaltyForProfile(profile);
-        setMistressReply("Logged in already? Eager little thing.");
+        setAvatarMistressReply("Logged in already? Eager little thing.");
       } catch (profileError) {
         console.error("Profile load/create failed", profileError);
         setAuthError(describeError(profileError));
@@ -3067,7 +3302,7 @@ export default function Home() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile, updateLoyaltyForProfile]);
+  }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
 
   useEffect(() => {
     const unlockTimer = window.setTimeout(() => {
@@ -3101,7 +3336,7 @@ export default function Home() {
       });
 
       if (shouldAnnounceSecret) {
-        setMistressReply(
+        setAvatarMistressReply(
           "You reached 100 affection. Fine... one secret reward is yours.",
         );
       }
@@ -3110,7 +3345,7 @@ export default function Home() {
     return () => {
       window.clearTimeout(unlockTimer);
     };
-  }, [affection, persistGalleryUnlocks, unlockedGalleryIds]);
+  }, [affection, persistGalleryUnlocks, setAvatarMistressReply, unlockedGalleryIds]);
 
   const scriptedMessage = useMemo(
     () =>
@@ -3145,7 +3380,7 @@ export default function Home() {
 
     const sentence = task.sentence ?? getDailyTypingSentence();
 
-    if (!sentence.startsWith(value)) {
+    if (!writingStartsWith(sentence, value)) {
       const nextAttempts = Math.max(0, (task.attemptsRemaining ?? 3) - 1);
       const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
 
@@ -3185,7 +3420,7 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply(
+      setAvatarMistressReply(
         nextAttempts === 0
           ? "Game over, loser. You couldn't even handle simple sentences."
           : "Pathetic. You made a mistake. One heart lost.",
@@ -3193,7 +3428,7 @@ export default function Home() {
       return;
     }
 
-    if (value === sentence) {
+    if (writingEquals(sentence, value)) {
       if (!isGuestMode) {
         const { error } = await supabase.from("user_tasks").upsert(
           {
@@ -3223,7 +3458,7 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("Perfect. Principessa appreciates precision.");
+      setAvatarMistressReply("Perfect. Principessa appreciates precision.");
     }
   };
 
@@ -3265,24 +3500,24 @@ export default function Home() {
 
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
       if (highLowLocked) {
-        setMistressReply(
+        setAvatarMistressReply(
           `Higher or Lower ${HIGH_LOW_PROFIT_LOCK.toLocaleString()} net profit limit reached for today.`,
         );
       } else if (highLowCooldownActive) {
-        setMistressReply(`Wait ${formatDuration(highLowCooldownMs)} before playing Higher or Lower again.`);
+        setAvatarMistressReply(`Wait ${formatDuration(highLowCooldownMs)} before playing Higher or Lower again.`);
       }
       return;
     }
 
     if (!Number.isInteger(stake) || stake <= 0) {
-      setMistressReply("Choose a real stake before testing the vault.");
+      setAvatarMistressReply("Choose a real stake before testing the vault.");
       return;
     }
 
     const currentCoins = coinsRef.current;
 
     if (currentCoins < stake) {
-      setMistressReply("Too few coins for that little gamble.");
+      setAvatarMistressReply("Too few coins for that little gamble.");
       return;
     }
 
@@ -3372,7 +3607,7 @@ export default function Home() {
         ),
       );
       scheduleHighLowDisplayRefresh();
-      setMistressReply(
+      setAvatarMistressReply(
         outcome === "tie"
           ? "A tie. Your stake returns, this time."
           : outcome === "win"
@@ -3384,7 +3619,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to complete high-low play", error);
       setAuthError(describeError(error));
-      setMistressReply("The high-low ledger failed. Try again.");
+      setAvatarMistressReply("The high-low ledger failed. Try again.");
     }
   };
 
@@ -3486,7 +3721,7 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply(
+      setAvatarMistressReply(
         result === "win"
           ? `Lucky pick. The vault grants you ${reward} coins.`
           : result === "loss"
@@ -3496,7 +3731,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to complete number pick task", error);
       setAuthError(describeError(error));
-      setMistressReply("The number ledger failed. Try again.");
+      setAvatarMistressReply("The number ledger failed. Try again.");
     }
   };
 
@@ -3558,11 +3793,11 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("Now wait. One mistake and the vault closes.");
+      setAvatarMistressReply("Now wait. One mistake and the vault closes.");
     } catch (error) {
       console.error("Failed to start wait obediently task", error);
       setAuthError(describeError(error));
-      setMistressReply("The waiting task failed to start.");
+      setAvatarMistressReply("The waiting task failed to start.");
     }
   };
 
@@ -3606,7 +3841,7 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("You moved. Failed.");
+      setAvatarMistressReply("You moved. Failed.");
     } catch (error) {
       console.error("Failed to fail wait obediently task", error);
       setAuthError(describeError(error));
@@ -3660,11 +3895,11 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
+      setAvatarMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
     } catch (error) {
       console.error("Task failed. You’re too weak and impatient to even wait properly.", error);
       setAuthError(describeError(error));
-      setMistressReply("The waiting reward failed to save.");
+      setAvatarMistressReply("The waiting reward failed to save.");
     }
   };
 
@@ -3684,7 +3919,7 @@ export default function Home() {
     const effectiveDays = getEffectiveTimeoutDays(activeTimeoutUntil, nowMs);
 
     if (effectiveDays >= MAX_TIMEOUT_DAYS) {
-      setMistressReply("Maximum timeout reached. The risk table refuses you.");
+      setAvatarMistressReply("Maximum timeout reached. The risk table refuses you.");
       return;
     }
 
@@ -3712,7 +3947,7 @@ export default function Home() {
         : 0;
 
       if (currentSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
-        setMistressReply("You already survived twice today. The risk table is closed.");
+        setAvatarMistressReply("You already survived twice today. The risk table is closed.");
         return;
       }
 
@@ -3764,7 +3999,7 @@ export default function Home() {
               : entry,
           ),
         );
-        setMistressReply("Bad roll. 12 hours of timeout have been added.");
+        setAvatarMistressReply("Bad roll. 12 hours of timeout have been added.");
         return;
       }
 
@@ -3811,11 +4046,11 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply(`Safe roll. ${eventSafeReward} coins added.`);
+      setAvatarMistressReply(`Safe roll. ${eventSafeReward} coins added.`);
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
       setAuthError(describeError(error));
-      setMistressReply("The risk ledger failed. Try again.");
+      setAvatarMistressReply("The risk ledger failed. Try again.");
     }
   };
 
@@ -3835,19 +4070,19 @@ export default function Home() {
     const hasActiveAssignment = Boolean(task?.assignedIrlTask);
 
     if (timeoutActive) {
-      setMistressReply("Timeout is active. The wheel is not available yet.");
+      setAvatarMistressReply("Timeout is active. The wheel is not available yet.");
       return;
     }
 
     if (hasActiveAssignment) {
-      setMistressReply("Finish your assigned task first. The wheel is locked until admin review.");
+      setAvatarMistressReply("Finish your assigned task first. The wheel is locked until admin review.");
       return;
     }
 
     const currentCoins = coinsRef.current;
 
     if (currentCoins < IRL_TASK_WHEEL_COST) {
-      setMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
+      setAvatarMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
       return;
     }
 
@@ -3855,7 +4090,7 @@ export default function Home() {
 
     if (!assignedTask) {
       console.error("Invalid IRL wheel index", { wheelIndex });
-      setMistressReply("The wheel landed outside the vault. Try again.");
+      setAvatarMistressReply("The wheel landed outside the vault. Try again.");
       return;
     }
     const durationMinutes = getRandomIrlTaskDurationMinutes();
@@ -3903,11 +4138,11 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("Task assigned. DM @Principessa2dfd when it is done.");
+      setAvatarMistressReply("Task assigned. DM @Principessa2dfd when it is done.");
     } catch (error) {
       console.error("Failed to spin IRL task wheel", error);
       setAuthError(describeError(error));
-      setMistressReply("The task wheel jammed. Try again.");
+      setAvatarMistressReply("The task wheel jammed. Try again.");
     }
   };
 
@@ -3967,7 +4202,7 @@ export default function Home() {
         ...current,
         begCooldownUntil: getCooldownUntil(now, getEventCooldownMs(60 * 1000)),
       }));
-      setMistressReply(
+      setAvatarMistressReply(
         reward > 0
           ? `${randomFrom(begRewardLines)} +${reward} coins.`
           : randomFrom(begIgnoredLines),
@@ -3975,7 +4210,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
       setAuthError(describeError(error));
-      setMistressReply("The vault ignored the request. Try again.");
+      setAvatarMistressReply("The vault ignored the request. Try again.");
     }
   };
 
@@ -4000,7 +4235,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < SACRIFICE_COST) {
-      setMistressReply(
+      setAvatarMistressReply(
         `The sacrifice requires ${SACRIFICE_COST} coins. Principessa is not impressed.`,
       );
       return;
@@ -4015,7 +4250,7 @@ export default function Home() {
         ...current,
         sacrificeComplete: true,
       }));
-      setMistressReply("The Sacrifice Collection is already complete.");
+      setAvatarMistressReply("The Sacrifice Collection is already complete.");
       return;
     }
 
@@ -4074,7 +4309,7 @@ export default function Home() {
           : null,
         sacrificeLastResult: lastResult,
       }));
-      setMistressReply(
+      setAvatarMistressReply(
         unlockedItem
           ? `${randomFrom(sacrificeSuccessLines)} ${unlockedItem.title} joins the collection.`
           : randomFrom(sacrificeFailureLines),
@@ -4082,7 +4317,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to complete sacrifice mechanic", error);
       setAuthError(describeError(error));
-      setMistressReply("The sacrifice ledger failed. Try again.");
+      setAvatarMistressReply("The sacrifice ledger failed. Try again.");
     }
   };
 
@@ -4099,7 +4334,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < SUPPORT_COST) {
-      setMistressReply(`Support costs ${SUPPORT_COST} coins. The vault waits.`);
+      setAvatarMistressReply(`Support costs ${SUPPORT_COST} coins. The vault waits.`);
       return;
     }
 
@@ -4144,11 +4379,11 @@ export default function Home() {
         ...current,
         supportLastResult: message,
       }));
-      setMistressReply(message);
+      setAvatarMistressReply(message);
     } catch (error) {
       console.error("Failed to complete support mechanic", error);
       setAuthError(describeError(error));
-      setMistressReply("The support ledger failed. Try again.");
+      setAvatarMistressReply("The support ledger failed. Try again.");
     }
   };
 
@@ -4158,6 +4393,8 @@ export default function Home() {
     setIsPreviewMode(false);
     setIsPreviewUnlocked(false);
     setIsGuestMode(false);
+    previewModeRef.current = false;
+    window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
 
     try {
       console.info("Starting Supabase OAuth", {
@@ -4190,17 +4427,24 @@ export default function Home() {
     }
   };
 
-  const handleEnterPreviewMode = (unlocked: boolean) => {
+  const handleEnterPreviewMode = useCallback((unlocked: boolean) => {
     const now = new Date().toISOString();
 
     setAuthError("");
     setIsAuthBusy(false);
     setIsPreviewMode(true);
     setIsPreviewUnlocked(unlocked);
+    previewModeRef.current = true;
+    if (unlocked) {
+      window.localStorage.setItem(PREVIEW_OVERRIDE_STORAGE_KEY, "true");
+    } else {
+      window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
+    }
     setIsGuestMode(true);
     setIsLoggedIn(true);
     setAuthUserId(unlocked ? PREVIEW_USER_ID : null);
     profileIdRef.current = unlocked ? PREVIEW_USER_ID : null;
+    setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(PREVIEW_USER_ID));
     setUsername(unlocked ? "@previewtester" : "@preview");
     setCoins(unlocked ? 50000 : 0);
     setAffection(unlocked ? 100 : 0);
@@ -4221,6 +4465,7 @@ export default function Home() {
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
     setOwnedTitleIds(unlocked ? titleItems.map((title) => title.id) : ["leadership-0"]);
     setEquippedTitleId("leadership-0");
+    setIsTitleManuallySelected(false);
     setTasks(buildTasksFromRows([], unlocked ? 100 : 0, 0, null, null, null));
     setPetTaskState(buildPetTasksFromRows([]));
     setMechanics({
@@ -4233,12 +4478,28 @@ export default function Home() {
     setJackpot(null);
     setJackpotError("");
     setActivePanel("tribute");
-    setMistressReply(
+    setAvatarMistressReply(
       unlocked
         ? "Preview override unlocked. Test freely; nothing is saved."
         : "Preview Mode is read-only. Sign in to unlock progression.",
     );
-  };
+  }, [setAvatarMistressReply]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      return;
+    }
+
+    if (window.localStorage.getItem(PREVIEW_OVERRIDE_STORAGE_KEY) !== "true") {
+      return;
+    }
+
+    const restoreTimer = window.setTimeout(() => {
+      handleEnterPreviewMode(true);
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
+  }, [handleEnterPreviewMode, isLoggedIn]);
 
   const handlePreviewOverrideSubmit = async (password: string) => {
     try {
@@ -4269,6 +4530,8 @@ export default function Home() {
     setIsGuestMode(false);
     setIsPreviewMode(false);
     setIsPreviewUnlocked(false);
+    previewModeRef.current = false;
+    window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
     setIsLoggedIn(false);
     setAuthUserId(null);
     profileIdRef.current = null;
@@ -4290,6 +4553,7 @@ export default function Home() {
     setPetUnlockedAt(null);
     setLastPetTaxAt(null);
     setPetDebtContract(null);
+    setIsDebtAutoPayEnabled(false);
     setPetTaskState(petTasks);
     setPetAffectionClaimed(false);
     setPetGalleryUnlockedIds([]);
@@ -4297,7 +4561,8 @@ export default function Home() {
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
     setOwnedTitleIds(["leadership-0"]);
     setEquippedTitleId("leadership-0");
-    setMistressReply("Back at the gate. The vault can wait.");
+    setIsTitleManuallySelected(false);
+    setAvatarMistressReply("Back at the gate. The vault can wait.");
   };
 
   const handleTribute = async (amount: number) => {
@@ -4309,7 +4574,7 @@ export default function Home() {
     }
 
     if (affection >= 100) {
-      setMistressReply(
+      setAvatarMistressReply(
         "My mood is already at its peak. Your coins can wait.",
       );
       return;
@@ -4318,7 +4583,7 @@ export default function Home() {
     const currentCoins = coinsRef.current;
 
     if (currentCoins < amount) {
-      setMistressReply(
+      setAvatarMistressReply(
         "Too poor for that one? How predictable.",
       );
       return;
@@ -4373,7 +4638,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to persist tribute progress", error);
       setAuthError(describeError(error));
-      setMistressReply("The ledger refused that tribute. Try again.");
+      setAvatarMistressReply("The ledger refused that tribute. Try again.");
       return;
     }
 
@@ -4388,7 +4653,7 @@ export default function Home() {
     if (nextAffection >= 80) {
       completeTask("affection-80");
     }
-    setMistressReply(
+    setAvatarMistressReply(
       amount >= 5000
         ? "You emptied a big part of your wallet. I like this level of desperation."
         : amount >= 1000
@@ -4403,16 +4668,19 @@ export default function Home() {
     }
 
     if (isGuestMode || isPreviewMode || !authUserId) {
-      setMistressReply("Sign in to join the Loyalty Jackpot.");
+      setAvatarMistressReply("Sign in to join the Loyalty Jackpot.");
       return;
     }
 
-    if (!Number.isInteger(amount) || amount <= 0) {
+    if (!Number.isInteger(amount) || amount < JACKPOT_MIN_CONTRIBUTION) {
+      setAvatarMistressReply(
+        `Jackpot contributions require at least ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} coins.`,
+      );
       return;
     }
 
     if (coinsRef.current < amount) {
-      setMistressReply("Not enough coins for the jackpot pool.");
+      setAvatarMistressReply("Not enough coins for the jackpot pool.");
       return;
     }
 
@@ -4441,12 +4709,12 @@ export default function Home() {
 
       setJackpot(payload.jackpot ?? null);
       emitSoundEvent("jackpot_contribution");
-      setMistressReply(`Your ${amount.toLocaleString()} coins were added to the jackpot pool.`);
+      setAvatarMistressReply(`Your ${amount.toLocaleString()} coins were added to the jackpot pool.`);
     } catch (error) {
       console.error("Failed to contribute to jackpot", error);
       const message = describeError(error);
       setJackpotError(message);
-      setMistressReply(message);
+      setAvatarMistressReply(message);
     } finally {
       setIsJackpotBusy(false);
     }
@@ -4471,7 +4739,7 @@ export default function Home() {
     const unlockCost = item.unlockCost ?? 300;
 
     if (currentCoins < unlockCost) {
-      setMistressReply(
+      setAvatarMistressReply(
         "Too poor for that one? How lame.",
       );
       return;
@@ -4492,7 +4760,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to persist gallery unlock progress", error);
       setAuthError(describeError(error));
-      setMistressReply("The vault ledger rejected that unlock. Try again.");
+      setAvatarMistressReply("The vault ledger rejected that unlock. Try again.");
       return;
     }
 
@@ -4500,7 +4768,7 @@ export default function Home() {
       current.includes(item.id) ? current : [...current, item.id],
     );
     emitSoundEvent("gallery_unlock");
-    setMistressReply(
+    setAvatarMistressReply(
       "You unlocked a little more of my attention.",
     );
   };
@@ -4520,7 +4788,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < item.price) {
-      setMistressReply("Not enough coins for that cosmetic.");
+      setAvatarMistressReply("Not enough coins for that cosmetic.");
       return;
     }
 
@@ -4557,11 +4825,11 @@ export default function Home() {
         current.includes(item.id) ? current : [...current, item.id],
       );
       emitSoundEvent("cosmetic_purchased");
-      setMistressReply(`${item.name} purchased. Cosmetic spend does not count as tribute.`);
+      setAvatarMistressReply(`${item.name} purchased. Cosmetic spend does not count as tribute.`);
     } catch (error) {
       console.error("Failed to purchase cosmetic", error);
       setAuthError(describeError(error));
-      setMistressReply("The cosmetic ledger failed. Try again.");
+      setAvatarMistressReply("The cosmetic ledger failed. Try again.");
     }
   };
 
@@ -4607,11 +4875,11 @@ export default function Home() {
         current.includes(item.id) ? current : [...current, item.id],
       );
       setEquippedCosmeticIds((current) => ({ ...current, [item.type]: item.id }));
-      setMistressReply(`${item.name} equipped.`);
+      setAvatarMistressReply(`${item.name} equipped.`);
     } catch (error) {
       console.error("Failed to equip cosmetic", error);
       setAuthError(describeError(error));
-      setMistressReply("The cosmetic equip failed. Try again.");
+      setAvatarMistressReply("The cosmetic equip failed. Try again.");
     }
   };
 
@@ -4632,7 +4900,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < price) {
-      setMistressReply("Not enough coins for that title.");
+      setAvatarMistressReply("Not enough coins for that title.");
       return;
     }
 
@@ -4667,11 +4935,11 @@ export default function Home() {
       setOwnedTitleIds((current) =>
         current.includes(title.id) ? current : [...current, title.id],
       );
-      setMistressReply(`${title.name} title purchased.`);
+      setAvatarMistressReply(`${title.name} title purchased.`);
     } catch (error) {
       console.error("Failed to purchase title", error);
       setAuthError(describeError(error));
-      setMistressReply("The title ledger failed. Try again.");
+      setAvatarMistressReply("The title ledger failed. Try again.");
     }
   };
 
@@ -4713,14 +4981,15 @@ export default function Home() {
       }
 
       setEquippedTitleId(title.id);
+      setIsTitleManuallySelected(true);
       setOwnedTitleIds((current) =>
         current.includes(title.id) ? current : [...current, title.id],
       );
-      setMistressReply(`${title.name} title equipped.`);
+      setAvatarMistressReply(`${title.name} title equipped.`);
     } catch (error) {
       console.error("Failed to equip title", error);
       setAuthError(describeError(error));
-      setMistressReply("The title equip failed. Try again.");
+      setAvatarMistressReply("The title equip failed. Try again.");
     }
   };
 
@@ -4764,7 +5033,7 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to persist task reward", error);
       setAuthError(describeError(error));
-      setMistressReply("The reward ledger failed. Try again.");
+      setAvatarMistressReply("The reward ledger failed. Try again.");
       return;
     }
 
@@ -4787,7 +5056,7 @@ export default function Home() {
       ),
     );
     emitSoundEvent("task_completion");
-    setMistressReply(
+    setAvatarMistressReply(
       `Fine. ${rewardCoins} coins added. Spend them carefully.`,
     );
   };
@@ -4798,7 +5067,7 @@ export default function Home() {
     }
 
     if (!isPetUnlocked) {
-      setMistressReply("Principessa's Pet is locked.");
+      setAvatarMistressReply("Principessa's Pet is locked.");
       return;
     }
 
@@ -4812,7 +5081,7 @@ export default function Home() {
     }
 
     if (task.kind !== "review") {
-      setMistressReply("This Pet task has its own rules. Use its task controls.");
+      setAvatarMistressReply("This Pet task has its own rules. Use its task controls.");
       return;
     }
 
@@ -4850,7 +5119,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(
+    setAvatarMistressReply(
       isGuestMode
         ? "Guest Pet task submitted for review. Pet Score waits for approval."
         : "Pet task submitted for admin review.",
@@ -4872,7 +5141,7 @@ export default function Home() {
       return;
     }
 
-    if (!sentence.startsWith(value)) {
+    if (!writingStartsWith(sentence, value)) {
       const now = new Date().toISOString();
 
       if (!isGuestMode && authUserId) {
@@ -4912,11 +5181,11 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply("One mistake. Start over tomorrow.");
+      setAvatarMistressReply("One mistake. Start over tomorrow.");
       return;
     }
 
-    if (value !== sentence) {
+    if (!writingEquals(sentence, value)) {
       return;
     }
 
@@ -4972,7 +5241,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Perfect. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    setAvatarMistressReply(`Perfect. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handlePetConfessionSubmit = async (value: string) => {
@@ -4986,12 +5255,12 @@ export default function Home() {
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
     const sentence = task?.sentence ?? getDailyPetConfessionSentence();
 
-    if (!task || coolingDown || task.status === "approved") {
+    if (!task || coolingDown) {
       return;
     }
 
     if (value.trim() !== sentence) {
-      setMistressReply("Exact words only. Start that line again.");
+      setAvatarMistressReply("Exact words only. Start that line again.");
       return;
     }
 
@@ -5051,7 +5320,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(
+    setAvatarMistressReply(
       completed
         ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
         : `Good. ${nextCount}/5 confessions complete.`,
@@ -5073,7 +5342,7 @@ export default function Home() {
     }
 
     if (coinsRef.current < PET_WEEKLY_TAX_COST) {
-      setMistressReply(`Weekly tax requires ${PET_WEEKLY_TAX_COST} Principessa Coins.`);
+      setAvatarMistressReply(`Weekly tax requires ${PET_WEEKLY_TAX_COST} Principessa Coins.`);
       return;
     }
 
@@ -5139,7 +5408,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    setAvatarMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handleDebtContractSign = async ({
@@ -5171,7 +5440,7 @@ export default function Home() {
     }
 
     if (cleanPetName.length < 2) {
-      setMistressReply("Choose a clear Pet name before signing.");
+      setAvatarMistressReply("Choose a clear Pet name before signing.");
       return false;
     }
 
@@ -5180,7 +5449,7 @@ export default function Home() {
       cleanAmount < minimum ||
       cleanAmount % 1000 !== 0
     ) {
-      setMistressReply(
+      setAvatarMistressReply(
         periodType === "weekly"
           ? "Weekly debt must be at least 10000 coins and a multiple of 1000."
           : "Monthly debt must be at least 50000 coins and a multiple of 1000.",
@@ -5193,7 +5462,7 @@ export default function Home() {
       cleanDuration < durationLimit.min ||
       cleanDuration > durationLimit.max
     ) {
-      setMistressReply(
+      setAvatarMistressReply(
         `Contract duration must be between ${durationLimit.min} and ${durationLimit.max} ${durationLimit.label}.`,
       );
       return false;
@@ -5233,9 +5502,21 @@ export default function Home() {
       setPetDebtContract(data as PetDebtContract);
     }
 
-    setMistressReply("Debt Contract signed. The schedule is now active.");
+    setAvatarMistressReply("Debt Contract signed. The schedule is now active.");
     emitSoundEvent("debt_contract_signed");
     return true;
+  };
+
+  const handleDebtAutoPayChange = (enabled: boolean) => {
+    const debtAutoPayUserId = profileIdRef.current ?? authUserId ?? PREVIEW_USER_ID;
+
+    setIsDebtAutoPayEnabled(enabled);
+    writeDebtAutoPayEnabled(debtAutoPayUserId, enabled);
+    setAvatarMistressReply(
+      enabled
+        ? "Debt Contract auto-payment enabled. Installments pay automatically when they open."
+        : "Debt Contract auto-payment disabled. Missed debt collection still applies.",
+    );
   };
 
   const handleDebtContractPayment = async () => {
@@ -5252,16 +5533,11 @@ export default function Home() {
       new Date(petDebtContract.next_due_at).getTime() <= Date.now();
 
     if (!paymentDue) {
-      setMistressReply(
+      setAvatarMistressReply(
         `Future installments are locked. Next payment opens in ${formatDuration(
           new Date(petDebtContract.next_due_at).getTime() - Date.now(),
         )}.`,
       );
-      return;
-    }
-
-    if (coinsRef.current < petDebtContract.debt_amount) {
-      setMistressReply("You do not have enough Principessa Coins for this debt payment.");
       return;
     }
 
@@ -5365,7 +5641,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(
+    setAvatarMistressReply(
       completed
         ? "Debt Contract completed. You may sign another."
         : `Debt payment accepted. ${nextPaidPeriods}/${petDebtContract.duration_periods} periods paid.`,
@@ -5440,7 +5716,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(
+    setAvatarMistressReply(
       `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
     );
   };
@@ -5500,7 +5776,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply("Do not move. Principessa is watching.");
+    setAvatarMistressReply("Do not move. Principessa is watching.");
   };
 
   const handlePetEvilWaitFail = async () => {
@@ -5546,7 +5822,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply("You moved. Evil Pet task failed.");
+    setAvatarMistressReply("You moved. Evil Pet task failed.");
   };
 
   const handlePetEvilWaitComplete = async () => {
@@ -5606,7 +5882,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    setAvatarMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handlePetRulesAcknowledge = async (text: string) => {
@@ -5677,7 +5953,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Rules accepted. Locked until reset. +${eventPetTaskCoinReward} coins.`);
+    setAvatarMistressReply(`Rules accepted. Locked until reset. +${eventPetTaskCoinReward} coins.`);
   };
 
   const markPetRulesFailed = async (mechanicId: string) => {
@@ -5691,7 +5967,7 @@ export default function Home() {
     const label = getPetRuleMechanicLabel(mechanicId);
 
     if (task.ruleAcknowledged) {
-      setMistressReply(`${label} is forbidden today. Randomized Rules locked it.`);
+      setAvatarMistressReply(`${label} is forbidden today. Randomized Rules locked it.`);
       return true;
     }
 
@@ -5735,7 +6011,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
+    setAvatarMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
     return false;
   };
 
@@ -5749,7 +6025,7 @@ export default function Home() {
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
 
-    if (!task || coolingDown || task.status === "approved") {
+    if (!task || coolingDown) {
       return;
     }
 
@@ -5765,7 +6041,7 @@ export default function Home() {
     if (nextProgress >= 99 && currentStage === 1) {
       nextProgress = 0;
       nextStage = 2;
-      setMistressReply("So close. Did you really think it would be that easy?");
+      setAvatarMistressReply("So close. Did you really think it would be that easy?");
     } else if (nextProgress >= 100 && currentStage >= 2) {
       nextProgress = 100;
       completed = true;
@@ -5793,8 +6069,8 @@ export default function Home() {
           task_id: task.id,
           completed_at: completed ? now : task.completedAt,
           reward_score: task.reward,
-          status: completed ? "approved" : "available",
-          reviewed_at: completed ? now : task.reviewedAt,
+          status: "available",
+          reviewed_at: null,
           metadata: {
             expectedKey: nextExpectedKey,
             progress: nextProgress,
@@ -5823,17 +6099,17 @@ export default function Home() {
               falseHopeExpectedKey: nextExpectedKey,
               falseHopeProgress: nextProgress,
               falseHopeStage: nextStage,
-              reviewedAt: completed ? now : entry.reviewedAt,
-              status: completed ? "approved" : "available",
+              reviewedAt: null,
+              status: "available",
             }
           : entry,
       ),
     );
 
     if (completed) {
-      setMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+      setAvatarMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
     } else if (!(nextProgress === 0 && nextStage === 2)) {
-      setMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
+      setAvatarMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
     }
   };
 
@@ -5927,7 +6203,7 @@ export default function Home() {
       ),
     );
 
-    setMistressReply(
+    setAvatarMistressReply(
       result === "win"
         ? `Special Favor. +${task.reward} Pet Score, +${eventFavorCoinReward} coins.`
         : result === "empty-day"
@@ -6015,7 +6291,7 @@ export default function Home() {
 
         setPetScore(nextPetScore);
         setPetAffectionClaimed(true);
-        setMistressReply("Pet milestone claimed. +10 Pet Score.");
+        setAvatarMistressReply("Pet milestone claimed. +10 Pet Score.");
     };
 
   const stats = {
@@ -6104,7 +6380,12 @@ export default function Home() {
           </div>
         </header>
 
-        <RecentTributesTicker topTributes={topTributes} tributes={recentTributes} />
+        <RecentTributesTicker
+          currentUsername={username}
+          topTributes={topTributes}
+          tributes={recentTributes}
+          usernameStyle={usernameStyle}
+        />
 
         {activeEvent && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
@@ -6191,10 +6472,13 @@ export default function Home() {
 
           <div className="flex flex-col gap-6">
             <StatsPanel
+              equippedTitleName={equippedTitle?.name}
               leadershipTop={leadershipTop}
               shameTop={shameTop}
+              statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
               stats={stats}
               username={username}
+              usernameStyle={usernameStyle}
             />
           </div>
         </section>
@@ -6253,8 +6537,10 @@ export default function Home() {
               isJackpotBusy={isJackpotBusy}
               jackpot={jackpot}
               jackpotError={jackpotError}
+              currentUsername={username}
               mechanics={displayMechanics}
               tasks={tasks}
+              usernameStyle={usernameStyle}
               onBeg={handleBeg}
               onClaim={handleClaimTask}
               onJackpotContribute={handleJackpotContribute}
@@ -6294,6 +6580,7 @@ export default function Home() {
               coins={coins}
               galleryItems={petGalleryItems}
               isGuest={isGuestMode}
+              isDebtAutoPayEnabled={isDebtAutoPayEnabled}
               favorCoinReward={eventFavorCoinReward}
               nextTaxDueAt={nextPetTaxDueAt}
               ownerLikeness={ownerLikeness}
@@ -6310,6 +6597,7 @@ export default function Home() {
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={handlePetFavorPick}
               onOpenCase={handlePetCaseOpen}
+              onDebtAutoPayChange={handleDebtAutoPayChange}
               onPayDebtPeriod={handleDebtContractPayment}
               onPayWeeklyTax={handlePetWeeklyTax}
               onPetEvilWaitComplete={handlePetEvilWaitComplete}
@@ -6325,6 +6613,7 @@ export default function Home() {
       <FloatingDefneBubble
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
         message={mistressReply}
+        messageStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
         onBubbleFullyHidden={handleBubbleFullyHidden}
       />
     </main>

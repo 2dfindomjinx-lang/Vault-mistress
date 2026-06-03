@@ -1,6 +1,8 @@
+import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import { CoinAmount } from "@/components/CoinAmount";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
-import type { LoyaltyJackpotState } from "@/lib/jackpot";
+import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 const SACRIFICE_COST = 250;
@@ -27,6 +29,8 @@ type TaskListProps = {
   isJackpotBusy?: boolean;
   jackpot: LoyaltyJackpotState | null;
   jackpotError?: string;
+  currentUsername?: string;
+  usernameStyle?: CSSProperties;
   onBeg: () => void;
   onClaim: (taskId: string) => void;
   onJackpotContribute: (amount: number) => void;
@@ -53,6 +57,7 @@ export function TaskList({
   isJackpotBusy = false,
   jackpot,
   jackpotError = "",
+  currentUsername,
   mechanics,
   onBeg,
   onClaim,
@@ -72,6 +77,7 @@ export function TaskList({
   onWaitObedientlyFail,
   onWaitObedientlyStart,
   tasks,
+  usernameStyle,
 }: TaskListProps) {
   const [now, setNow] = useState(0);
   const [typingValue, setTypingValue] = useState("");
@@ -229,8 +235,10 @@ export function TaskList({
         error={jackpotError}
         isBusy={isJackpotBusy}
         jackpot={jackpot}
+        currentUsername={currentUsername}
         now={now}
         onContribute={onJackpotContribute}
+        usernameStyle={usernameStyle}
       />
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -970,18 +978,22 @@ function LoyaltyJackpotTaskCard({
   error,
   isBusy,
   jackpot,
+  currentUsername,
   now,
   onContribute,
+  usernameStyle,
 }: {
   coins: number;
+  currentUsername?: string;
   disabled: boolean;
   error: string;
   isBusy: boolean;
   jackpot: LoyaltyJackpotState | null;
   now: number;
   onContribute: (amount: number) => void;
+  usernameStyle?: CSSProperties;
 }) {
-  const [amount, setAmount] = useState("1000");
+  const [amount, setAmount] = useState(String(JACKPOT_MIN_CONTRIBUTION));
   const parsedAmount = Number(amount);
   const cleanAmount = Number.isInteger(parsedAmount) ? parsedAmount : 0;
   const phaseLabel =
@@ -994,7 +1006,7 @@ function LoyaltyJackpotTaskCard({
   const remainingMs = Math.max(0, phaseEndsAt - now);
   const canContribute =
     Boolean(jackpot && jackpot.phase === "contribution" && !disabled) &&
-    cleanAmount > 0 &&
+    cleanAmount >= JACKPOT_MIN_CONTRIBUTION &&
     cleanAmount <= coins;
 
   return (
@@ -1005,11 +1017,16 @@ function LoyaltyJackpotTaskCard({
             Loyalty Jackpot
           </p>
           <h3 className="mt-1 text-2xl font-black text-white">
-            {jackpot ? `${jackpot.pool.toLocaleString()} coins` : "Loading pool"}
+            {jackpot ? (
+              <CoinAmount amount={jackpot.pool} iconSize={24} label="coins" />
+            ) : (
+              "Loading pool"
+            )}
           </h3>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            3+ day loyalty streak users enter the draw. Add any coin amount to grow the
-            pool. Jackpot contributions do not count as tribute.
+            3+ day loyalty streak users enter the draw automatically. Extra payment is
+            not required to participate; contributions only increase the winner coin
+            prize and do not count as tribute.
           </p>
         </div>
         <div className="rounded-2xl border border-amber-100/20 bg-black/30 px-4 py-3 text-sm text-amber-50">
@@ -1030,15 +1047,27 @@ function LoyaltyJackpotTaskCard({
 
       {jackpot?.currentWinner && (
         <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
-          Winner: {jackpot.currentWinner.username} claimed{" "}
-          {jackpot.currentWinner.amount.toLocaleString()} coins.
+          Winner:{" "}
+          <StyledUsername
+            currentUsername={currentUsername}
+            username={jackpot.currentWinner.username}
+            usernameStyle={usernameStyle}
+          />{" "}
+          claimed{" "}
+          <CoinAmount amount={jackpot.currentWinner.amount} iconSize={16} label="coins" />.
         </p>
       )}
 
       {jackpot?.previousWinner && !jackpot.currentWinner && (
         <p className="mt-4 text-sm text-zinc-400">
-          Previous winner: {jackpot.previousWinner.username} won{" "}
-          {jackpot.previousWinner.amount.toLocaleString()} coins.
+          Previous winner:{" "}
+          <StyledUsername
+            currentUsername={currentUsername}
+            username={jackpot.previousWinner.username}
+            usernameStyle={usernameStyle}
+          />{" "}
+          won{" "}
+          <CoinAmount amount={jackpot.previousWinner.amount} iconSize={16} label="coins" />.
         </p>
       )}
 
@@ -1057,9 +1086,9 @@ function LoyaltyJackpotTaskCard({
             className="mt-2 w-full rounded-2xl border border-amber-100/20 bg-black/35 px-4 py-3 text-base font-bold text-amber-50 outline-none transition focus:border-amber-100/60 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={disabled || isBusy || jackpot?.phase !== "contribution"}
             inputMode="numeric"
-            min={1}
+            min={JACKPOT_MIN_CONTRIBUTION}
             onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="Enter coins"
+            placeholder={`Minimum ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} coins`}
             type="text"
             value={amount}
           />
@@ -1072,6 +1101,8 @@ function LoyaltyJackpotTaskCard({
         >
           {isBusy
             ? "Adding..."
+            : cleanAmount > 0 && cleanAmount < JACKPOT_MIN_CONTRIBUTION
+              ? `Min ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} Coins`
             : cleanAmount > coins
               ? "Not Enough Coins"
               : "Add to Jackpot"}
@@ -1083,15 +1114,21 @@ function LoyaltyJackpotTaskCard({
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
             Recent Contributions
           </p>
-          <div className="mt-3 grid gap-2">
+          <div className="mt-3 grid max-h-[8.75rem] gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
             {jackpot.recentContributors.map((contribution) => (
               <div
                 className="flex items-center justify-between rounded-2xl bg-black/25 px-3 py-2 text-sm"
                 key={`${contribution.username}-${contribution.createdAt}`}
               >
-                <span className="text-zinc-200">{contribution.username}</span>
+                <span className="text-zinc-200">
+                  <StyledUsername
+                    currentUsername={currentUsername}
+                    username={contribution.username}
+                    usernameStyle={usernameStyle}
+                  />
+                </span>
                 <span className="font-black text-amber-100">
-                  +{contribution.amount.toLocaleString()}
+                  <CoinAmount amount={contribution.amount} iconSize={16} label="" prefix="+" />
                 </span>
               </div>
             ))}
@@ -1102,6 +1139,18 @@ function LoyaltyJackpotTaskCard({
       {error && <p className="mt-4 text-sm text-rose-200">{error}</p>}
     </article>
   );
+}
+
+function StyledUsername({
+  currentUsername,
+  username,
+  usernameStyle,
+}: {
+  currentUsername?: string;
+  username: string;
+  usernameStyle?: CSSProperties;
+}) {
+  return <span style={username === currentUsername ? usernameStyle : undefined}>{username}</span>;
 }
 
 function JackpotStat({ label, value }: { label: string; value: string }) {
