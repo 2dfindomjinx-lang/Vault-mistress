@@ -51,6 +51,28 @@ button:disabled {
   animation: tribute-slide-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes character-stage-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  18% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+
+  68% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.025);
+  }
+}
+
 @keyframes petCaseRoll {
   0% {
     transform: translateX(0);

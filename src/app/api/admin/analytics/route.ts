@@ -1,6 +1,8 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
+const TRANSACTION_ANALYTICS_RANGE_END = 9999;
 
 type ProfileRow = {
   id: string;
@@ -67,22 +69,43 @@ const galleryCatalog = [
   })),
 ];
 
-function dateKey(value: string | null | undefined) {
+function dateKeyGmt3(value: string | null | undefined) {
   if (!value) {
     return "unknown";
   }
 
-  return new Date(value).toISOString().slice(0, 10);
+  return new Date(new Date(value).getTime() + GMT3_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function lastDays(days: number) {
-  const today = new Date();
+  const today = new Date(Date.now() + GMT3_OFFSET_MS);
   today.setUTCHours(0, 0, 0, 0);
 
   return Array.from({ length: days }, (_, index) => {
     const date = new Date(today.getTime() - (days - index - 1) * DAY_MS);
     return date.toISOString().slice(0, 10);
   });
+}
+
+function gmt3DayWindow(day: string) {
+  const startMs = new Date(`${day}T00:00:00.000Z`).getTime() - GMT3_OFFSET_MS;
+  const endMs = startMs + DAY_MS;
+
+  return {
+    end: new Date(endMs).toISOString(),
+    start: new Date(startMs).toISOString(),
+  };
+}
+
+function currentGmt3DayWindow() {
+  const todayKey = dateKeyGmt3(new Date().toISOString());
+  const window = gmt3DayWindow(todayKey);
+
+  return {
+    ...window,
+    day: todayKey,
+    resetAt: window.end,
+  };
 }
 
 function sum(rows: CoinRow[], predicate: (row: CoinRow) => boolean) {
@@ -102,6 +125,62 @@ function countBy<T>(rows: T[], getKey: (row: T) => string) {
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
 }
 
+const taskLabelMap: Record<string, string> = {
+  "affection": "Reach 50 Affection",
+  "affection-80": "Reach 80 Affection",
+  "beg": "Beg",
+  "daily-login": "Daily Login",
+  "high-low": "Higher or Lower",
+  "irl-task-wheel": "IRL Task Wheel",
+  "number-pick": "Number Pick",
+  "sacrifice": "Sacrifice",
+  "streak-bonus-1": "1 Day Streak Bonus",
+  "streak-bonus-3": "3 Day Streak Bonus",
+  "streak-bonus-7": "7 Day Streak Bonus",
+  "streak-bonus-15": "15 Day Streak Bonus",
+  "streak-bonus-30": "30 Day Streak Bonus",
+  "support": "Support",
+  "timeout-risk": "Risk My Freedom",
+  "typing-accuracy": "Typing Accuracy",
+  "wait-obediently": "Wait Obediently",
+  "pet:pet-affection-claim": "Pet Affection Claim",
+  "pet:pet-case-opening": "Pet Case Opening",
+  "pet:pet-confession-dm": "Confession Repetition",
+  "pet:pet-daily-report": "Small Dick Touching Journal",
+  "pet:pet-debt-contract": "Debt Contract",
+  "pet:pet-evil-wait": "Evil Wait Obediently",
+  "pet:pet-false-hope": "Obedience Sequence",
+  "pet:pet-favor-roulette": "Favor Roulette",
+  "pet:pet-perfect-writing": "Perfect Pet Writing",
+  "pet:pet-randomized-rules": "Randomized Rules",
+  "pet:pet-twitter-post": "X Post Assignment",
+  "pet:pet-voice-proof": "Voice Proof",
+  "pet:pet-weekly-throne-tax": "Weekly Throne Tax",
+};
+
+function titleizeTaskId(taskId: string) {
+  return taskId
+    .replace(/^pet:/, "")
+    .replace(/^irl:/, "")
+    .replace(/^pet-/, "")
+    .split(/[-_:]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function getTaskLabel(taskId: string) {
+  if (taskLabelMap[taskId]) {
+    return taskLabelMap[taskId];
+  }
+
+  if (taskId.startsWith("irl:")) {
+    return taskId.replace(/^irl:/, "") || "IRL Task";
+  }
+
+  return titleizeTaskId(taskId);
+}
+
 export async function GET(request: Request) {
   const admin = await requireAdminProfile();
 
@@ -114,9 +193,8 @@ export async function GET(request: Request) {
   const selectedUserId = requestUrl.searchParams.get("userId")?.trim() ?? "";
   const supabase = admin.supabase;
   const dayKeys = lastDays(7);
-  const sevenDaysAgo = `${dayKeys[0]}T00:00:00.000Z`;
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  const sevenDaysAgo = gmt3DayWindow(dayKeys[0]).start;
+  const todayWindow = currentGmt3DayWindow();
 
   const [
     totalProfilesCountResult,
@@ -150,14 +228,16 @@ export async function GET(request: Request) {
     supabase
       .from("coin_transactions")
       .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+      .gte("created_at", todayWindow.start)
+      .lt("created_at", todayWindow.end)
       .order("created_at", { ascending: false })
-      .limit(500),
+      .range(0, TRANSACTION_ANALYTICS_RANGE_END),
     supabase
       .from("coin_transactions")
       .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
       .gte("created_at", sevenDaysAgo)
       .order("created_at", { ascending: false })
-      .limit(500),
+      .range(0, TRANSACTION_ANALYTICS_RANGE_END),
     selectedUserId
       ? supabase
           .from("coin_transactions")
@@ -217,13 +297,12 @@ export async function GET(request: Request) {
   const [registrationsByDay, activeByDay, newTodayResult] = await Promise.all([
     Promise.all(
       dayKeys.map(async (day) => {
-        const nextDay = new Date(`${day}T00:00:00.000Z`);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        const window = gmt3DayWindow(day);
         const { count, error } = await supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
-          .gte("created_at", `${day}T00:00:00.000Z`)
-          .lt("created_at", nextDay.toISOString());
+          .gte("created_at", window.start)
+          .lt("created_at", window.end);
 
         if (error) {
           throw error;
@@ -234,13 +313,12 @@ export async function GET(request: Request) {
     ),
     Promise.all(
       dayKeys.map(async (day) => {
-        const nextDay = new Date(`${day}T00:00:00.000Z`);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        const window = gmt3DayWindow(day);
         const { count, error } = await supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
-          .gte("last_login_at", `${day}T00:00:00.000Z`)
-          .lt("last_login_at", nextDay.toISOString());
+          .gte("last_login_at", window.start)
+          .lt("last_login_at", window.end);
 
         if (error) {
           throw error;
@@ -252,7 +330,8 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", todayStart.toISOString()),
+      .gte("created_at", todayWindow.start)
+      .lt("created_at", todayWindow.end),
   ]);
 
   if (newTodayResult.error) {
@@ -263,17 +342,17 @@ export async function GET(request: Request) {
   const tributeByDay = dayKeys.map((day) => ({
     day,
     amount: chartTransactions
-      .filter((row) => row.reason === "tribute" && dateKey(row.created_at) === day)
+      .filter((row) => row.reason === "tribute" && dateKeyGmt3(row.created_at) === day)
       .reduce((total, row) => total + Math.max(0, row.amount), 0),
   }));
   const coinNetByDay = dayKeys.map((day) => ({
     day,
     earned: chartTransactions
-      .filter((row) => row.amount > 0 && dateKey(row.created_at) === day)
+      .filter((row) => row.amount > 0 && dateKeyGmt3(row.created_at) === day)
       .reduce((total, row) => total + row.amount, 0),
     spent: Math.abs(
       chartTransactions
-        .filter((row) => row.amount < 0 && dateKey(row.created_at) === day)
+        .filter((row) => row.amount < 0 && dateKeyGmt3(row.created_at) === day)
         .reduce((total, row) => total + row.amount, 0),
     ),
   }));
@@ -281,7 +360,7 @@ export async function GET(request: Request) {
   const taskUsage = countBy(
     taskRows.filter((row) => row.completed_at || row.claimed_at),
     (row) => row.task_id,
-  );
+  ).map((entry) => ({ ...entry, label: getTaskLabel(entry.key) }));
   const galleryCountEntries = await Promise.all(
     galleryCatalog.map(async (item) => {
       const isPetItem = item.id.startsWith("pet:");
@@ -375,6 +454,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     overview: {
+      coinMetricScope: "daily_gmt3",
+      nextResetAt: todayWindow.resetAt,
       totalRegisteredUsers,
       dailyActiveUsers: activeByDay.at(-1)?.count ?? 0,
       newRegistrationsToday: newTodayResult.count ?? 0,

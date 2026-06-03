@@ -60,12 +60,13 @@ export async function POST(request: Request) {
   const addMatch = command.match(/^\/add\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
+  const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)$/);
 
-  if (!giveMatch && !addMatch && !timeoutMatch && !timeoutRemoveMatch) {
+  if (!giveMatch && !addMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch) {
     return Response.json(
       {
         error:
-          "Invalid command. Use: /give 500 @username, /add 500 @username, /timeout @username 30, or /timeout remove @username",
+          "Invalid command. Use: /give 500 @username, /add 500 @username, /timeout @username 30, /timeout remove @username, or /title @username",
       },
       { status: 400 },
     );
@@ -77,13 +78,16 @@ export async function POST(request: Request) {
       ? Number(addMatch[1])
       : Number(timeoutMatch?.[2]);
   const username = (giveMatch?.[2] ?? addMatch?.[2] ?? timeoutMatch?.[1] ?? timeoutRemoveMatch?.[1] ?? "")
+    || titleMatch?.[1]
+    || "";
+  const normalizedUsername = username
     .toLowerCase();
   const supabase = createSupabaseAdminClient();
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, coins")
-    .eq("username", username)
+    .eq("username", normalizedUsername)
     .maybeSingle();
 
   if (profileError) {
@@ -136,6 +140,28 @@ export async function POST(request: Request) {
     });
   }
 
+  if (titleMatch) {
+    const { error: titleError } = await supabase.from("user_titles").upsert(
+      {
+        user_id: profile.id,
+        title_id: "admin-principessas-chosen",
+        source: "admin",
+        equipped: false,
+      },
+      { onConflict: "user_id,title_id" },
+    );
+
+    if (titleError) {
+      console.error("Admin title grant failed", titleError);
+      return Response.json({ error: titleError.message }, { status: 500 });
+    }
+
+    return Response.json({
+      message: `Granted Principessa's Chosen title to ${profile.username}.`,
+      username: profile.username,
+    });
+  }
+
   const nextCoins = Number(profile.coins ?? 0) + amount;
   const previousCoins = Number(profile.coins ?? 0);
   const { error: updateError } = await supabase
@@ -171,6 +197,44 @@ export async function POST(request: Request) {
 
   if (transactionError) {
     console.error("Admin coin transaction insert failed", transactionError);
+  }
+
+  if (giveMatch) {
+    const { data: giftRows, error: giftTotalError } = await supabase
+      .from("coin_transactions")
+      .select("amount")
+      .eq("user_id", profile.id)
+      .eq("reason", "live_gift");
+
+    if (giftTotalError) {
+      console.error("Throne title milestone total lookup failed", giftTotalError);
+    } else {
+      const giftTotal = (giftRows ?? []).reduce(
+        (sum, row) => sum + Math.max(0, Number(row.amount ?? 0)),
+        0,
+      );
+      const milestoneTitles = [
+        { min: 10000, titleId: "throne-10000" },
+        { min: 25000, titleId: "throne-25000" },
+        { min: 100000, titleId: "throne-100000" },
+      ].filter((milestone) => giftTotal >= milestone.min);
+
+      if (milestoneTitles.length > 0) {
+        const { error: titleError } = await supabase.from("user_titles").upsert(
+          milestoneTitles.map((milestone) => ({
+            user_id: profile.id,
+            title_id: milestone.titleId,
+            source: "throne",
+            equipped: false,
+          })),
+          { onConflict: "user_id,title_id" },
+        );
+
+        if (titleError) {
+          console.error("Throne title milestone unlock failed", titleError);
+        }
+      }
+    }
   }
 
   return Response.json({

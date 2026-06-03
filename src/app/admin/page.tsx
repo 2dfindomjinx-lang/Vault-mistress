@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import { supabase } from "@/lib/supabase/client";
 
 type AdminIrlTask = {
@@ -67,6 +68,10 @@ type AdminDebtContract = {
   ends_at: string;
 };
 
+type AdminEvent = RandomEvent & {
+  created_at?: string;
+};
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -90,11 +95,13 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<
-    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt"
+    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "events"
   >("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
   const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
+  const [events, setEvents] = useState<AdminEvent[]>([]);
+  const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
@@ -276,6 +283,114 @@ export default function AdminPage() {
     }
   };
 
+  const loadEvents = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/events", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        events?: AdminEvent[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Event list failed.");
+      }
+
+      setEvents(result.events ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Event list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleEventAction = async (
+    action: "activate" | "create" | "end",
+    eventId?: string,
+  ) => {
+    if (!isAdmin) {
+      setStatus("Admin access required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/events", {
+        body: JSON.stringify({
+          action,
+          eventId,
+          templateKey: action === "create" ? eventTemplateKey : undefined,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Event action failed.");
+      }
+
+      setStatus(
+        action === "create"
+          ? "Event created and activated."
+          : action === "activate"
+            ? "Event activated."
+            : "Event ended.",
+      );
+      setDefneMessage("Event ledger updated.");
+      await loadEvents({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Event action failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRemoveDebtContract = async (contractId: string) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/debt-contracts", {
+        body: JSON.stringify({ action: "remove", contractId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        contracts?: AdminDebtContract[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Debt removal failed.");
+      }
+
+      setDebtContracts(result.contracts ?? []);
+      setStatus("Debt contract removed.");
+      setDefneMessage("Debt removed. The ledger has been corrected.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Debt removal failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -346,6 +461,7 @@ export default function AdminPage() {
       void loadTimeouts({ keepStatus: true });
       void loadMaxAffectionUsers({ keepStatus: true });
       void loadDebtContracts({ keepStatus: true });
+      void loadEvents({ keepStatus: true });
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -382,6 +498,8 @@ export default function AdminPage() {
             ? "Timeout applied. Discipline looks good in the ledger."
             : trimmedCommand.startsWith("/add")
               ? "Coins added quietly. No tribute spectacle."
+            : trimmedCommand.startsWith("/title")
+              ? "Prestige title granted."
             : "Coins added. Try not to waste my generosity.",
       );
 
@@ -631,6 +749,7 @@ export default function AdminPage() {
               ["irlTasks", "IRL Tasks"],
               ["petTasks", "Pet Tasks"],
               ["debt", "Debt"],
+              ["events", "Events"],
               ["timeouts", "Active Timeouts"],
               ["maxAffection", "100 Affection"],
             ] as const).map(([key, label]) => (
@@ -652,6 +771,9 @@ export default function AdminPage() {
                   if (key === "debt") {
                     void loadDebtContracts();
                   }
+                  if (key === "events") {
+                    void loadEvents();
+                  }
                   if (key === "timeouts") {
                     void loadTimeouts();
                   }
@@ -672,7 +794,7 @@ export default function AdminPage() {
                 Command Console
               </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /add amount @username, /timeout @username minutes, /timeout remove @username
+                Available commands: /give amount @username, /add amount @username, /timeout @username minutes, /timeout remove @username, /title @username
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
@@ -941,6 +1063,16 @@ export default function AdminPage() {
                             {contract.status}
                           </span>
                         </div>
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={isBusy}
+                            onClick={() => void handleRemoveDebtContract(contract.id)}
+                            type="button"
+                          >
+                            Remove Debt
+                          </button>
+                        </div>
                       </article>
                     ))
                   ) : (
@@ -949,6 +1081,111 @@ export default function AdminPage() {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "events" && (
+            <div className="mt-4 rounded-[1.5rem] border border-yellow-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(250,204,21,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-yellow-200/70">
+                    Random Events
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Create, activate, or end temporary global bonuses.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadEvents()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-yellow-200/15 bg-yellow-400/10 p-3">
+                <p className="text-sm font-black text-yellow-50">Create Active Event</p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <select
+                    className="min-w-0 flex-1 rounded-2xl border border-yellow-200/20 bg-black/55 px-3 py-2 text-sm font-bold text-yellow-50 outline-none"
+                    onChange={(event) => setEventTemplateKey(event.target.value)}
+                    value={eventTemplateKey}
+                  >
+                    {[FIRST_DAY_EVENT_TEMPLATE, ...EVENT_TEMPLATES].map((template) => (
+                      <option key={template.key} value={template.key}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="rounded-2xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-2 text-sm font-black text-yellow-50 transition hover:border-yellow-100/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isBusy}
+                    onClick={() => void handleEventAction("create")}
+                    type="button"
+                  >
+                    Create + Activate
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {events.length > 0 ? (
+                  events.map((event) => (
+                    <article
+                      className={`rounded-2xl border p-3 ${
+                        event.active
+                          ? "border-yellow-200/30 bg-yellow-400/10"
+                          : "border-white/10 bg-black/35"
+                      }`}
+                      key={event.id}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-black text-white">{event.name}</p>
+                          <p className="mt-1 text-xs leading-5 text-zinc-400">
+                            {event.description}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {new Date(event.starts_at).toLocaleString()} -{" "}
+                            {new Date(event.ends_at).toLocaleString()}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-yellow-100/80">
+                            {event.effect.type} x{event.effect.multiplier}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          {!event.active && (
+                            <button
+                              className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleEventAction("activate", event.id)}
+                              type="button"
+                            >
+                              Activate
+                            </button>
+                          )}
+                          {event.active && (
+                            <button
+                              className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleEventAction("end", event.id)}
+                              type="button"
+                            >
+                              End
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                    No events yet.
+                  </p>
+                )}
               </div>
             </div>
           )}

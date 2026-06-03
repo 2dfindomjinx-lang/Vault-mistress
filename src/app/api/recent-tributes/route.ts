@@ -28,21 +28,39 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: transactions, error: transactionError } = await supabase
-    .from("coin_transactions")
-    .select("id, user_id, amount, created_at")
-    .in("reason", ["tribute", "live_gift", "admin_grant"])
-    .gt("amount", 0)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const tributeReasons = ["tribute", "live_gift", "admin_grant"];
+  const [{ data: transactions, error: transactionError }, { data: topTransactions, error: topError }] =
+    await Promise.all([
+      supabase
+        .from("coin_transactions")
+        .select("id, user_id, amount, created_at")
+        .in("reason", tributeReasons)
+        .gt("amount", 0)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("coin_transactions")
+        .select("id, user_id, amount, created_at")
+        .in("reason", tributeReasons)
+        .gt("amount", 0)
+        .order("amount", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(3),
+    ]);
 
   if (transactionError) {
     console.error("Recent tribute transaction lookup failed", transactionError);
     return Response.json({ error: transactionError.message }, { status: 500 });
   }
 
+  if (topError) {
+    console.error("Top tribute transaction lookup failed", topError);
+    return Response.json({ error: topError.message }, { status: 500 });
+  }
+
   const rows = (transactions ?? []) as CoinTransactionRow[];
-  const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+  const topRows = (topTransactions ?? []) as CoinTransactionRow[];
+  const userIds = Array.from(new Set([...rows, ...topRows].map((row) => row.user_id)));
   let { data: profiles, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, avatar_url")
@@ -70,17 +88,20 @@ export async function GET() {
     ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]),
   );
 
-  return Response.json({
-    tributes: rows.map((row) => {
-      const profile = profileMap.get(row.user_id);
+  const mapTribute = (row: CoinTransactionRow) => {
+    const profile = profileMap.get(row.user_id);
 
-      return {
-        id: row.id,
-        username: profile?.username ?? "@unknown",
-        avatarUrl: profile?.avatar_url ?? null,
-        amount: row.amount,
-        createdAt: row.created_at,
-      };
-    }),
+    return {
+      id: row.id,
+      username: profile?.username ?? "@unknown",
+      avatarUrl: profile?.avatar_url ?? null,
+      amount: row.amount,
+      createdAt: row.created_at,
+    };
+  };
+
+  return Response.json({
+    topTributes: topRows.map(mapTribute),
+    tributes: rows.map(mapTribute),
   });
 }

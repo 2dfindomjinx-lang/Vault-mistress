@@ -2,6 +2,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 type FloatingDefneBubbleProps = {
+  avatarSrc?: string;
   message: string;
   onBubbleFullyHidden?: (message: string) => void;
 };
@@ -9,6 +10,7 @@ type FloatingDefneBubbleProps = {
 const fadeDuration = 2000;
 
 export function FloatingDefneBubble({
+  avatarSrc = "/character-icon.png",
   message,
   onBubbleFullyHidden,
 }: FloatingDefneBubbleProps) {
@@ -51,7 +53,7 @@ export function FloatingDefneBubble({
           fill
           unoptimized
           sizes="88px"
-          src="/character-icon.png"
+          src={avatarSrc}
         />
       </div>
     </aside>

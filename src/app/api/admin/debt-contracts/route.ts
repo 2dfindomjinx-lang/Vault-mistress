@@ -51,8 +51,27 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    action?: "expireOverdue" | "list";
+    action?: "expireOverdue" | "list" | "remove";
+    contractId?: string;
   };
+
+  if (body.action === "remove") {
+    const contractId = body.contractId?.trim();
+
+    if (!contractId) {
+      return Response.json({ error: "Missing debt contract id." }, { status: 400 });
+    }
+
+    const { error } = await admin.supabase
+      .from("pet_debt_contracts")
+      .delete()
+      .eq("id", contractId);
+
+    if (error) {
+      console.error("Admin debt contract removal failed", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+  }
 
   if (body.action === "expireOverdue") {
     const now = new Date().toISOString();

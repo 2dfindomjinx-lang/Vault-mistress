@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
+import type { LoyaltyJackpotState } from "@/lib/jackpot";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 const SACRIFICE_COST = 250;
@@ -22,8 +23,13 @@ type TaskListProps = {
   disabled?: boolean;
   mechanics: MechanicsState;
   tasks: TaskItem[];
+  highLowProfitCap: number;
+  isJackpotBusy?: boolean;
+  jackpot: LoyaltyJackpotState | null;
+  jackpotError?: string;
   onBeg: () => void;
   onClaim: (taskId: string) => void;
+  onJackpotContribute: (amount: number) => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
@@ -43,9 +49,14 @@ type TaskListProps = {
 export function TaskList({
   coins,
   disabled = false,
+  highLowProfitCap,
+  isJackpotBusy = false,
+  jackpot,
+  jackpotError = "",
   mechanics,
   onBeg,
   onClaim,
+  onJackpotContribute,
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
@@ -174,7 +185,7 @@ export function TaskList({
         <MechanicCard
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
-          description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 25 coins."
+          description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 75 coins."
           disabled={disabled}
           onAction={onBeg}
           title="Beg"
@@ -211,6 +222,16 @@ export function TaskList({
           formatRemaining={formatRemaining}
         />
       </div>
+
+      <LoyaltyJackpotTaskCard
+        coins={coins}
+        disabled={disabled}
+        error={jackpotError}
+        isBusy={isJackpotBusy}
+        jackpot={jackpot}
+        now={now}
+        onContribute={onJackpotContribute}
+      />
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         {visibleTasks.map((task) => {
@@ -450,7 +471,7 @@ export function TaskList({
                   {task.reward > 0 && (
                     <p className="mt-1 text-sm text-zinc-400">
                       {task.kind === "number-pick"
-                        ? "Reward: 50 / 25 Principessa Coins"
+                        ? "Reward: 150 / 75 Principessa Coins"
                         : `Reward: ${task.reward} Principessa Coins`}
                     </p>
                   )}
@@ -470,7 +491,12 @@ export function TaskList({
 
               {task.kind === "typing" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                  <p className="text-sm leading-6 text-pink-50">
+                  <p
+                    className="select-none text-sm leading-6 text-pink-50"
+                    onContextMenu={(event) => event.preventDefault()}
+                    onCopy={(event) => event.preventDefault()}
+                    onCut={(event) => event.preventDefault()}
+                  >
                     {task.sentence}
                   </p>
                   <p className="mt-2 text-lg" aria-label={`${task.attemptsRemaining ?? 3} attempts remaining`}>
@@ -480,6 +506,8 @@ export function TaskList({
                   <input
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={disabled || isCoolingDown || task.completed}
+                    onCopy={(event) => event.preventDefault()}
+                    onCut={(event) => event.preventDefault()}
                     onChange={(event) => {
                       const nextValue = event.target.value;
                       setTypingValue(nextValue);
@@ -489,6 +517,8 @@ export function TaskList({
                         setTypingValue("");
                       }
                     }}
+                    onDrop={(event) => event.preventDefault()}
+                    onPaste={(event) => event.preventDefault()}
                     placeholder="Type the sentence exactly"
                     value={typingValue}
                   />
@@ -617,7 +647,13 @@ export function TaskList({
                   </div>
                   {task.highLowDailyLocked && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower winnings limit reached for today.
+                      Higher or Lower {highLowProfitCap.toLocaleString()} net profit limit reached
+                      for today.
+                    </p>
+                  )}
+                  {!task.highLowDailyLocked && (
+                    <p className="mt-3 text-xs font-semibold text-zinc-500">
+                      Locks at {highLowProfitCap.toLocaleString()} daily net profit.
                     </p>
                   )}
                   <label className="mt-3 block">
@@ -659,8 +695,8 @@ export function TaskList({
               {task.kind === "number-pick" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
-                    First correct pick pays 50 Principessa Coins. If you miss, the wrong number
-                    locks red and one final pick can still pay 25.
+                    First correct pick pays 150 Principessa Coins. If you miss, the wrong number
+                    locks red and one final pick can still pay 75.
                   </p>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(task.numberPickOptions ?? []).map((option) => {
@@ -926,6 +962,172 @@ function WheelSpinner({
       </p>
     </div>
   );
+}
+
+function LoyaltyJackpotTaskCard({
+  coins,
+  disabled,
+  error,
+  isBusy,
+  jackpot,
+  now,
+  onContribute,
+}: {
+  coins: number;
+  disabled: boolean;
+  error: string;
+  isBusy: boolean;
+  jackpot: LoyaltyJackpotState | null;
+  now: number;
+  onContribute: (amount: number) => void;
+}) {
+  const [amount, setAmount] = useState("1000");
+  const parsedAmount = Number(amount);
+  const cleanAmount = Number.isInteger(parsedAmount) ? parsedAmount : 0;
+  const phaseLabel =
+    jackpot?.phase === "contribution"
+      ? "Contribution Open"
+      : jackpot?.phase === "winner"
+        ? "Drawing Winner"
+        : "Next Cycle Preparing";
+  const phaseEndsAt = jackpot ? new Date(jackpot.phaseEndsAt).getTime() : 0;
+  const remainingMs = Math.max(0, phaseEndsAt - now);
+  const canContribute =
+    Boolean(jackpot && jackpot.phase === "contribution" && !disabled) &&
+    cleanAmount > 0 &&
+    cleanAmount <= coins;
+
+  return (
+    <article className="mt-5 rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(245,158,11,0.16),rgba(0,0,0,0.38))] p-4 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-100/70">
+            Loyalty Jackpot
+          </p>
+          <h3 className="mt-1 text-2xl font-black text-white">
+            {jackpot ? `${jackpot.pool.toLocaleString()} coins` : "Loading pool"}
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">
+            3+ day loyalty streak users enter the draw. Add any coin amount to grow the
+            pool. Jackpot contributions do not count as tribute.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-amber-100/20 bg-black/30 px-4 py-3 text-sm text-amber-50">
+          <p className="font-black">{phaseLabel}</p>
+          <p className="mt-1 text-xs text-amber-100/70">
+            {jackpot ? `${formatJackpotRemaining(remainingMs)} left` : "Checking vault..."}
+          </p>
+        </div>
+      </div>
+
+      {jackpot && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <JackpotStat label="Eligible" value={jackpot.eligibleCount.toLocaleString()} />
+          <JackpotStat label="Players" value={jackpot.participantCount.toLocaleString()} />
+          <JackpotStat label="Your Pool" value={jackpot.userContributionTotal.toLocaleString()} />
+        </div>
+      )}
+
+      {jackpot?.currentWinner && (
+        <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
+          Winner: {jackpot.currentWinner.username} claimed{" "}
+          {jackpot.currentWinner.amount.toLocaleString()} coins.
+        </p>
+      )}
+
+      {jackpot?.previousWinner && !jackpot.currentWinner && (
+        <p className="mt-4 text-sm text-zinc-400">
+          Previous winner: {jackpot.previousWinner.username} won{" "}
+          {jackpot.previousWinner.amount.toLocaleString()} coins.
+        </p>
+      )}
+
+      {jackpot?.userProtected && (
+        <p className="mt-4 rounded-2xl border border-fuchsia-200/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
+          You won recently, so this cycle protects the pool from repeat winners.
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <label className="block">
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+            Contribution Amount
+          </span>
+          <input
+            className="mt-2 w-full rounded-2xl border border-amber-100/20 bg-black/35 px-4 py-3 text-base font-bold text-amber-50 outline-none transition focus:border-amber-100/60 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled || isBusy || jackpot?.phase !== "contribution"}
+            inputMode="numeric"
+            min={1}
+            onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="Enter coins"
+            type="text"
+            value={amount}
+          />
+        </label>
+        <button
+          className="self-end rounded-2xl border border-amber-100/20 bg-amber-400/10 px-5 py-3 text-sm font-black text-amber-50 transition enabled:hover:border-amber-100/50 enabled:hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={!canContribute || isBusy}
+          onClick={() => onContribute(cleanAmount)}
+          type="button"
+        >
+          {isBusy
+            ? "Adding..."
+            : cleanAmount > coins
+              ? "Not Enough Coins"
+              : "Add to Jackpot"}
+        </button>
+      </div>
+
+      {jackpot?.recentContributors.length ? (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+            Recent Contributions
+          </p>
+          <div className="mt-3 grid gap-2">
+            {jackpot.recentContributors.map((contribution) => (
+              <div
+                className="flex items-center justify-between rounded-2xl bg-black/25 px-3 py-2 text-sm"
+                key={`${contribution.username}-${contribution.createdAt}`}
+              >
+                <span className="text-zinc-200">{contribution.username}</span>
+                <span className="font-black text-amber-100">
+                  +{contribution.amount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {error && <p className="mt-4 text-sm text-rose-200">{error}</p>}
+    </article>
+  );
+}
+
+function JackpotStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/25 px-3 py-3">
+      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function formatJackpotRemaining(milliseconds: number) {
+  const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
 }
 
 function ResultCell({ label, value }: { label: string; value: number }) {

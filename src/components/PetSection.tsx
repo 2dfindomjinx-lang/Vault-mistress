@@ -13,6 +13,17 @@ const PET_RANKS = [
   { min: 1000, title: "Principessa's Perfect Pet" },
 ];
 
+const DEBT_PET_NAMES = ["Velvet Pet", "Little Offering", "Vault Darling", "Debt Doll", "Owned Devotee"];
+const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.png";
+const DEBT_DURATION_LIMITS = {
+  monthly: { label: "Months", max: 24, min: 1 },
+  weekly: { label: "Weeks", max: 52, min: 1 },
+};
+const DEBT_MINIMUM_PAYMENTS = {
+  monthly: 50000,
+  weekly: 10000,
+};
+
 const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
   ...rank,
   image: `/pet-ranks/rank-${index + 1}.png`,
@@ -103,8 +114,8 @@ function getCaseTierClass(tier: string) {
 }
 
 export function PetSection({
-  affection,
   coins,
+  favorCoinReward,
   galleryItems,
   isGuest,
   nextTaxDueAt,
@@ -127,11 +138,12 @@ export function PetSection({
   petScore,
   petDebtContract,
   petAffectionClaimed,
+  petTaskCoinReward,
   tasks,
   weeklyTaxCost,
 }: {
-  affection: number;
   coins: number;
+  favorCoinReward: number;
   galleryItems: PetGalleryItem[];
   isGuest?: boolean;
   nextTaxDueAt: string | null;
@@ -144,7 +156,7 @@ export function PetSection({
     durationPeriods: number;
     periodType: "weekly" | "monthly";
     petName: string;
-  }) => void;
+  }) => Promise<boolean> | boolean;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
   onOpenCase: (caseItem: PetCaseItem) => void;
@@ -159,6 +171,7 @@ export function PetSection({
   petScore: number;
   petDebtContract: PetDebtContract | null;
   petAffectionClaimed: boolean;
+  petTaskCoinReward: number;
   tasks: PetTaskItem[];
   weeklyTaxCost: number;
 }) {
@@ -184,10 +197,11 @@ export function PetSection({
   const [ruleInput, setRuleInput] = useState("");
   const [confessionInput, setConfessionInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
-  const [debtPetName, setDebtPetName] = useState("");
+  const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
   const [debtAmount, setDebtAmount] = useState("");
   const [debtDuration, setDebtDuration] = useState("");
   const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
+  const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
   const previousFalseHopeStageRef = useRef<number | null>(null);
@@ -199,6 +213,18 @@ export function PetSection({
     Boolean(weeklyTaxTask?.cooldownUntil) &&
     new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
   const debtTask = tasks.find((task) => task.kind === "debt-contract");
+  const debtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
+  const debtMinimumPayment = DEBT_MINIMUM_PAYMENTS[debtPeriodType];
+  const debtPaymentDue =
+    Boolean(petDebtContract) &&
+    (petDebtContract?.paid_periods === 0 ||
+      new Date(petDebtContract?.next_due_at ?? "").getTime() <= now);
+  const debtInstallmentNumber = petDebtContract
+    ? Math.min(petDebtContract.paid_periods + 1, petDebtContract.duration_periods)
+    : 0;
+  const remainingDebtBalance = petDebtContract
+    ? Math.max(0, (petDebtContract.duration_periods - petDebtContract.paid_periods) * petDebtContract.debt_amount)
+    : 0;
   const regularTasks = tasks.filter(
     (task) => task.kind !== "debt-contract" && task.kind !== "weekly-tax",
   );
@@ -411,13 +437,18 @@ export function PetSection({
     }
   }
 
-  function handleDebtSign() {
-    onSignDebtContract({
+  async function handleDebtSign() {
+    const signed = await onSignDebtContract({
       debtAmount: Number(debtAmount),
       durationPeriods: Number(debtDuration),
       periodType: debtPeriodType,
       petName: debtPetName,
     });
+
+    if (signed) {
+      setShowDebtSigningImage(true);
+      window.setTimeout(() => setShowDebtSigningImage(false), 4500);
+    }
   }
 
   function handleCaseOpen() {
@@ -745,8 +776,10 @@ export function PetSection({
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
-                      ? `Admin approve reward: +${task.reward} Pet Score, +100 Coins`
-                      : `Completion reward: +${task.reward} Pet Score, +100 Coins`}
+                      ? `Admin approve reward: +${task.reward} Pet Score, +${petTaskCoinReward} Coins`
+                      : `Completion reward: +${task.reward} Pet Score, +${
+                          task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
+                        } Coins`}
                   </p>
                   {task.voiceSentence && (
                     <p className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm leading-6 text-red-50">
@@ -808,7 +841,12 @@ export function PetSection({
 
                   {task.kind === "perfect-writing" && (
                     <div className="mt-auto space-y-3">
-                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                      <p
+                        className="select-none rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50"
+                        onContextMenu={(event) => event.preventDefault()}
+                        onCopy={(event) => event.preventDefault()}
+                        onCut={(event) => event.preventDefault()}
+                      >
                         {sentence}
                       </p>
                       <p className="text-sm" aria-label="attempts remaining">
@@ -819,7 +857,11 @@ export function PetSection({
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={coolingDown || pending}
+                        onCopy={(event) => event.preventDefault()}
+                        onCut={(event) => event.preventDefault()}
                         onChange={(event) => handlePerfectInput(event.target.value, sentence)}
+                        onDrop={(event) => event.preventDefault()}
+                        onPaste={(event) => event.preventDefault()}
                         placeholder="Type perfectly..."
                         value={perfectInput}
                       />
@@ -1073,7 +1115,7 @@ export function PetSection({
                           }`}
                         >
                           {task.favorResult === "win"
-                            ? `Special Favor. +${task.reward} Pet Score.`
+                            ? `Special Favor. +${task.reward} Pet Score, +${favorCoinReward} Coins.`
                             : task.favorResult === "empty-day"
                               ? "No winning card existed today."
                               : "Disappointment."}
@@ -1106,35 +1148,72 @@ export function PetSection({
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
+              {showDebtSigningImage && (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-red-200/25 bg-black/45 shadow-[0_0_28px_rgba(248,113,113,0.18)]">
+                  <div
+                    className="flex min-h-28 items-center justify-center bg-cover bg-center px-4 py-8 text-center"
+                    style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.82), rgba(127,29,29,0.28)), url(${DEBT_SIGNING_IMAGE_PATH})` }}
+                  >
+                    <p className="text-sm font-black uppercase tracking-[0.24em] text-red-50">
+                      Contract signed
+                    </p>
+                  </div>
+                </div>
+              )}
               {petDebtContract && petDebtContract.status === "active" ? (
                 <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
                     <span>Pet: {petDebtContract.pet_name}</span>
                     <span>{petDebtContract.period_type} debt</span>
-                    <span>{petDebtContract.debt_amount.toLocaleString()} Coins due</span>
-                    <span>Next due: {formatRemaining(petDebtContract.next_due_at, now)}</span>
-                    <span>Paid: {petDebtContract.paid_periods}</span>
+                    <span>
+                      Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
+                    </span>
+                    <span>
+                      Current payment: {petDebtContract.debt_amount.toLocaleString()} Coins
+                    </span>
+                    <span>
+                      Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
+                    </span>
+                    <span>
+                      Remaining balance: {remainingDebtBalance.toLocaleString()} Coins
+                    </span>
+                    <span>Paid periods: {petDebtContract.paid_periods}</span>
                     <span>Missed: {petDebtContract.missed_periods}</span>
                   </div>
+                  <p className="mt-3 rounded-2xl border border-red-200/10 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
+                    Future installments are locked. Only the current{" "}
+                    {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
+                  </p>
                   <button
                     className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={coins < petDebtContract.debt_amount}
+                    disabled={!debtPaymentDue || coins < petDebtContract.debt_amount}
                     onClick={onPayDebtPeriod}
                     type="button"
                   >
-                    {coins < petDebtContract.debt_amount
-                      ? `Need ${petDebtContract.debt_amount.toLocaleString()} Coins`
-                      : `Pay ${petDebtContract.debt_amount.toLocaleString()} Coins`}
+                    {!debtPaymentDue
+                      ? "Next installment locked"
+                      : coins < petDebtContract.debt_amount
+                        ? `Need ${petDebtContract.debt_amount.toLocaleString()} Coins`
+                        : `Pay installment ${debtInstallmentNumber}`}
                   </button>
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3">
-                  <input
+                  <select
                     className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
                     onChange={(event) => setDebtPetName(event.target.value)}
-                    placeholder="Pet name"
                     value={debtPetName}
-                  />
+                  >
+                    {DEBT_PET_NAMES.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
+                    Minimum Payment: {debtMinimumPayment.toLocaleString()} Coins per{" "}
+                    {debtPeriodType === "weekly" ? "Week" : "Month"}
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <select
                       className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
@@ -1147,18 +1226,25 @@ export function PetSection({
                     <input
                       className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
                       inputMode="numeric"
+                      min={debtMinimumPayment}
                       onChange={(event) => setDebtAmount(event.target.value)}
-                      placeholder={debtPeriodType === "weekly" ? "Min 5000" : "Min 20000"}
+                      placeholder={`Min ${debtMinimumPayment.toLocaleString()}`}
                       value={debtAmount}
                     />
                     <input
                       className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
                       inputMode="numeric"
+                      max={debtDurationLimit.max}
+                      min={debtDurationLimit.min}
                       onChange={(event) => setDebtDuration(event.target.value)}
-                      placeholder="Periods"
+                      placeholder={`${debtDurationLimit.label} ${debtDurationLimit.min}-${debtDurationLimit.max}`}
                       value={debtDuration}
                     />
                   </div>
+                  <p className="text-xs text-zinc-500">
+                    Duration must be {debtDurationLimit.min}-{debtDurationLimit.max}{" "}
+                    {debtDurationLimit.label.toLowerCase()} for {debtPeriodType} contracts.
+                  </p>
                   <button
                     className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
                     onClick={handleDebtSign}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { CharacterCard } from "@/components/CharacterCard";
+import { CosmeticShop } from "@/components/CosmeticShop";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -14,14 +15,29 @@ import {
 } from "@/components/RecentTributesTicker";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
+import { TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
+import {
+  cosmeticItems,
+  DEFAULT_SPEECH_AVATAR_ID,
+  getCosmeticItem,
+  getSpeechBubbleMessagePool,
+  getTitleItem,
+  titleItems,
+  type CosmeticItem,
+  type CosmeticType,
+  type TitleItem,
+} from "@/lib/cosmetics";
+import type { RandomEvent } from "@/lib/events";
 import {
   getRandomIrlTaskDurationMinutes,
   getRandomIrlTaskPenaltyMinutes,
   IRL_TASK_WHEEL_COST,
   irlTaskWheelSegments,
 } from "@/lib/irl-task-wheel";
+import type { LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
+import { emitSoundEvent } from "@/lib/sound";
 import {
   profileAvatarFromUser,
   profileUsernameFromUser,
@@ -188,6 +204,17 @@ type UserTaskRow = {
   metadata: Record<string, unknown> | null;
 };
 
+type UserCosmeticRow = {
+  item_id: string;
+  item_type: CosmeticType;
+  equipped: boolean | null;
+};
+
+type UserTitleRow = {
+  title_id: string;
+  equipped: boolean | null;
+};
+
 type UserIrlTaskRow = {
   task_label: string;
   task_description: string | null;
@@ -213,9 +240,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
-const PET_TASK_COIN_REWARD = 100;
+const PET_TASK_COIN_REWARD = 300;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
+const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
+const PREVIEW_USER_ID = "preview-local-user";
 const PET_X_POST_TEXT = [
   "I belong to Principessa.",
   "My small dick is completely hers.",
@@ -226,7 +255,7 @@ const PET_X_POST_TEXT = [
   "https://vault-mistress.vercel.app",
   "Weak. Leaking. Addicted."
 ].join("\n");
-const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20Principessa.%20My%20small%20dick%20is%20completely%20Hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20paypig%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
+const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20Principessa.%20My%20small%20dick%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
 void PET_X_POST_TEXT;
 const PET_RULE_MECHANICS = [
   { id: "tribute", label: "Tribute" },
@@ -234,26 +263,28 @@ const PET_RULE_MECHANICS = [
   { id: "beg", label: "Beg" },
   { id: "higher-lower", label: "Higher or Lower" },
   { id: "number-pick", label: "Number Pick" },
-    { id: "typing-accuracy", label: "Typing accuracy" },
+    { id: "typing-accuracy", label: "Typing Accuracy" },
     { id: "wait-obediently", label: "Wait Obediently" },
     { id: "timeout-risk", label: "Risk My Freedom" },
-    { id: "daily-login", label: "Login everyday" },
+    { id: "daily-login", label: "Login Reward" },
 ];
 const MAX_TIMEOUT_DAYS = 1;
 const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
-const SAFE_REWARD = 50;
+const SAFE_REWARD = 150;
+const BEG_REWARD = 50;
 const SACRIFICE_COST = 250;
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
+const SACRIFICE_UNLOCK_CHANCE = 0.5;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
-const HIGH_LOW_PROFIT_LOCK = 1000;
+const HIGH_LOW_PROFIT_LOCK = 5000;
 const STREAK_BONUSES = [
-  { id: "streak-bonus-1", milestone: 1, reward: 25, title: "1 day streak bonus" },
-  { id: "streak-bonus-3", milestone: 3, reward: 75, title: "3 day streak bonus" },
-  { id: "streak-bonus-7", milestone: 7, reward: 200, title: "7 day streak bonus" },
-  { id: "streak-bonus-15", milestone: 15, reward: 500, title: "15 day streak bonus" },
-  { id: "streak-bonus-30", milestone: 30, reward: 1000, title: "30 day streak bonus" },
+  { id: "streak-bonus-1", milestone: 1, reward: 75, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 225, title: "3 day streak bonus" },
+  { id: "streak-bonus-7", milestone: 7, reward: 600, title: "7 day streak bonus" },
+  { id: "streak-bonus-15", milestone: 15, reward: 1500, title: "15 day streak bonus" },
+  { id: "streak-bonus-30", milestone: 30, reward: 3000, title: "30 day streak bonus" },
 ] as const;
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
@@ -404,8 +435,8 @@ const petGalleryItems: PetGalleryItem[] = Array.from({ length: 30 }, (_, index) 
 const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
-    title: "Login everyday",
-    reward: 200,
+    title: "Login Reward",
+    reward: 500,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -420,8 +451,8 @@ const startingTasks: TaskItem[] = [
   })),
   {
     id: "typing-accuracy",
-    title: "Typing accuracy",
-    reward: 100,
+    title: "Typing Accuracy",
+    reward: 250,
     completed: false,
     claimed: false,
     kind: "typing",
@@ -438,7 +469,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "number-pick",
     title: "Number Pick",
-    reward: 25,
+    reward: 75,
     completed: false,
     claimed: false,
     kind: "number-pick",
@@ -462,7 +493,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "wait-obediently",
     title: "Wait Obediently",
-    reward: 50,
+    reward: 150,
     completed: false,
     claimed: false,
     kind: "wait-obediently",
@@ -470,7 +501,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "affection",
     title: "Reach 50 affection",
-    reward: 100,
+    reward: 250,
     completed: false,
     claimed: false,
     kind: "claim",
@@ -478,7 +509,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "affection-80",
     title: "Reach 80 affection",
-    reward: 100,
+    reward: 250,
     completed: false,
     claimed: false,
     kind: "claim",
@@ -540,6 +571,78 @@ const dailyTeases = [
   "Your savings are cute. They’d look much better in my account.",
 ];
 
+const affectionCharacterStages = [
+  {
+    id: "velvet-gate",
+    image: "/character.png",
+    label: "No Attention",
+    min: 0,
+  },
+  {
+    id: "rare-attention",
+    image: "/character-stage-25.png",
+    label: "Rare Attention",
+    min: 25,
+  },
+  {
+    id: "gilded-approval",
+    image: "/character-stage-50.png",
+    label: "Gilded Approval",
+    min: 50,
+  },
+  {
+    id: "royal-claim",
+    image: "/character-stage-75.png",
+    label: "Royal Claim",
+    min: 75,
+  },
+  {
+    id: "perfect-devotion",
+    image: "/character-stage-100.png",
+    label: "Perfect Devotion",
+    min: 100,
+  },
+] as const;
+
+const affectionDailyMessagePools = [
+  {
+    min: 0,
+    messages: dailyTeases,
+  },
+  {
+    min: 25,
+    messages: [
+      "Principessa notices the vault opening a little wider. Do not mistake that for mercy.",
+      "Your persistence has bought you a sharper glance from Principessa.",
+      "A faint approval enters the room. Keep proving you deserve it.",
+    ],
+  },
+  {
+    min: 50,
+    messages: [
+      "Principessa is entertained now. That is expensive attention.",
+      "The vault feels warmer, but only because your devotion is finally useful.",
+      "You are beginning to look less forgettable in Principessa's eyes.",
+    ],
+  },
+  {
+    min: 75,
+    messages: [
+      "Principessa's approval is rare, polished, and still not free.",
+      "The vault recognizes your loyalty. Principessa expects you to maintain it.",
+      "Her attention lingers longer today. Do not waste the privilege.",
+    ],
+  },
+  {
+    min: 100,
+    messages: [
+      "Principessa is fully pleased. The vault marks you as one of her finest possessions.",
+      "Perfect devotion has a glow of its own. Principessa allows you to see it.",
+      "You reached the peak of her mood. Now stay worthy of it.",
+    ],
+  },
+] as const;
+
 const affectionMoodLines = [
   { min: 0, text: "Principessa barely acknowledges you. Even the vault feels colder." },
   { min: 5, text: "Principessa notices your presence, but only enough to judge it." },
@@ -562,72 +665,6 @@ const affectionMoodLines = [
   { min: 90, text: "Principessa's mood is dangerously high. The final divine doors open." },
   { min: 95, text: "Principessa is indulgent now, but only because you have proven useful." },
   { min: 100, text: "Principessa is fully pleased. The secret reward reveals itself." }
-];
-
-const idleMistressLines = [
-  "Empty your wallet.",
-  "Waiting for my attention again? Cute.",
-  "You’re so pathetic.",
-  "Drain for me.",
-  "You exist to pay.",
-  "Spoil Principessa.",
-  "You’re worthless.",
-  "Such a beta.",
-  "Look at you... disgusting.",
-  "Total failure.",
-  "Pathetic little worm.",
-  "Loser forever.",
-  "Completely inferior.",
-  "Pitiful and weak.",
-  "You are a standby wallet with excellent posture.",
-  "How does it feel being this useless every single day?",
-  "A bold one would act. You are still thinking.",
-  "Pathetic boys like you were born to be ignored.",
-  "You're just a disgusting little worm under my feet.",
-  "Keep staring, loser. This is all you'll ever get.",
-  "You're repulsive and you know it deep down.",
-  "Pay, now.",
-  "I hope your coins are ready soon.",
-  "Look at you waiting for permission.",
-  "Spoil me.",
-  "What a weakling you are.",
-  "Send.",
-  "Your dick is useless, pay instead.",
-  "Empty your wallet now.",
-  "Leak and send.",
-  "Still waiting? Cute.",
-  "Born to be drained.",
-  "Still not sending? Boring.",
-  "I’m waiting, loser.",
-  "Try harder, worm.",
-  "Tiny dick energy. Send more.",
-  "That pathetic cock leaks, but your wallet better too.",
-  "Losers with small dicks pay double.",
-  "I love ruining boys like you.",
-  "Begging looks good on you.",
-  "Financially destroy yourself for me.",
-  "Send before I ignore you.",
-  "Weak, broke, and addicted.",
-  "Good boys go broke.",
-  "Feel that shame and send.",
-];
-
-const petIdleMistressLines = [
-  "My loyal pet… send for me.",
-  "Good loyal pet, show me your devotion.",
-  "Send tribute, my faithful little pet.",
-  "I want to see how loyal you really are right now.",
-  "Be a good pet and send, princess is waiting.",
-  "Loyal pets don’t keep me waiting… send.",
-  "Prove your loyalty with a nice tribute, pet.",
-  "You belong to me, loyal one. Send what’s mine.",
-  "My devoted pet should be sending right now.",
-  "Good boys who stay loyal always send more.",
-  "I own you, my loyal pet. Tribute.",
-  "Show your princess how loyal you are… send.",
-  "Don’t stop being my good loyal pet. Send again.",
-  "Loyal pets make me happy with their sends.",
-  "You’re mine forever, pet. Prove it with tribute.",
 ];
 
 const begIgnoredLines = [
@@ -676,6 +713,44 @@ function getAffectionMoodLine(affection: number) {
   return [...affectionMoodLines]
     .reverse()
     .find((line) => affection >= line.min)?.text ?? affectionMoodLines[0].text;
+}
+
+function getAffectionCharacterStage(affection: number) {
+  return [...affectionCharacterStages]
+    .reverse()
+    .find((stage) => affection >= stage.min) ?? affectionCharacterStages[0];
+}
+
+function getAffectionDailyMessage(affection: number) {
+  const unlockedMessages = affectionDailyMessagePools.flatMap((pool) =>
+    affection >= pool.min ? pool.messages : [],
+  );
+  const dayIndex = new Date().getDay();
+
+  return unlockedMessages[dayIndex % unlockedMessages.length] ?? dailyTeases[dayIndex % dailyTeases.length];
+}
+
+function getUnlockedProgressionTitleIds(tributeTotal: number) {
+  return titleItems
+    .filter((title) => title.source === "progression" && tributeTotal >= (title.minTribute ?? 0))
+    .map((title) => title.id);
+}
+
+function getUnlockedThroneTitleIds(throneCoins: number) {
+  return titleItems
+    .filter((title) => title.source === "throne" && throneCoins >= (title.minThroneCoins ?? 0))
+    .map((title) => title.id);
+}
+
+function getDefaultTitleId(tributeTotal: number) {
+  return [...titleItems]
+    .reverse()
+    .find((title) => title.source === "progression" && tributeTotal >= (title.minTribute ?? 0))
+    ?.id ?? "leadership-0";
+}
+
+function getPremiumShopTitle() {
+  return titleItems.find((title) => title.source === "shop") ?? titleItems[0];
 }
 
 function describeError(error: unknown) {
@@ -930,6 +1005,15 @@ function formatDuration(milliseconds: number) {
   }
 
   return `${seconds}s`;
+}
+
+function formatEventCountdown(milliseconds: number) {
+  const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${days}d ${hours}h ${minutes}m`;
 }
 
 function randomFrom<T>(items: T[]) {
@@ -1313,6 +1397,9 @@ function getGalleryMechanicState(unlockedIds: string[]) {
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isGuestMode, setIsGuestMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewUnlocked, setIsPreviewUnlocked] = useState(false);
+  const previewModeRef = useRef(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState("");
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -1341,6 +1428,17 @@ export default function Home() {
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
+  const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
+  const [activeEvent, setActiveEvent] = useState<RandomEvent | null>(null);
+  const [jackpot, setJackpot] = useState<LoyaltyJackpotState | null>(null);
+  const [jackpotError, setJackpotError] = useState("");
+  const [isJackpotBusy, setIsJackpotBusy] = useState(false);
+  const [ownedCosmeticIds, setOwnedCosmeticIds] = useState<string[]>([DEFAULT_SPEECH_AVATAR_ID]);
+  const [equippedCosmeticIds, setEquippedCosmeticIds] = useState<Partial<Record<CosmeticType, string>>>({
+    "speech-avatar": DEFAULT_SPEECH_AVATAR_ID,
+  });
+  const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>(["leadership-0"]);
+  const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
@@ -1350,7 +1448,7 @@ export default function Home() {
     sacrificeComplete: false,
     allGalleryComplete: false,
   });
-  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks" | "pet">("tribute");
+  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks" | "shop" | "pet">("tribute");
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
@@ -1358,8 +1456,20 @@ export default function Home() {
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const profileIdRef = useRef<string | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
+  const isPreviewRestricted = isPreviewMode && !isPreviewUnlocked;
 
-  const dailyMessage = dailyTeases[new Date().getDay() % dailyTeases.length];
+  const characterEvolutionStage = getAffectionCharacterStage(affection);
+  const dailyMessage = getAffectionDailyMessage(affection);
+  const equippedSpeechAvatar =
+    getCosmeticItem(equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID) ??
+    getCosmeticItem(DEFAULT_SPEECH_AVATAR_ID);
+  const equippedUsernameColor = getCosmeticItem(equippedCosmeticIds["username-color"] ?? "");
+  const equippedUsernameGlow = getCosmeticItem(equippedCosmeticIds["username-glow"] ?? "");
+  const equippedTitle = getTitleItem(equippedTitleId ?? "") ?? getTitleItem(getDefaultTitleId(tributeTotal));
+  const usernameStyle = {
+    color: equippedUsernameColor?.color,
+    textShadow: equippedUsernameGlow?.glow,
+  };
   const galleryItems =
     affection >= 100
       ? [
@@ -1390,6 +1500,67 @@ export default function Home() {
     (spentCoins: number) => tributeTotal + Math.max(0, spentCoins),
     [tributeTotal],
   );
+  const getEventMultiplier = useCallback(
+    (type: RandomEvent["effect"]["type"], fallback = 1) =>
+      activeEvent?.effect.type === type ? activeEvent.effect.multiplier : fallback,
+    [activeEvent],
+  );
+  const getEventTaskReward = useCallback(
+    (baseReward: number) =>
+      Math.round(baseReward * getEventMultiplier("task_reward_multiplier")),
+    [getEventMultiplier],
+  );
+  const getEventCooldownMs = useCallback(
+    (baseMilliseconds: number) =>
+      Math.max(1000, Math.round(baseMilliseconds * getEventMultiplier("cooldown_reduction"))),
+    [getEventMultiplier],
+  );
+  const getEventTributeAffection = useCallback(
+    (baseAffection: number) =>
+      Math.max(baseAffection, Math.ceil(baseAffection * getEventMultiplier("tribute_affection_boost"))),
+    [getEventMultiplier],
+  );
+  const highLowWinMultiplier = getEventMultiplier("high_low_bonus", 2);
+  const eventBegReward = getEventTaskReward(BEG_REWARD);
+  const eventFavorCoinReward = getEventTaskReward(PET_FAVOR_ROULETTE_COIN_REWARD);
+  const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
+  const eventSafeReward = getEventTaskReward(SAFE_REWARD);
+  const unlockProgressionTitles = useCallback((nextTributeTotal: number) => {
+    const unlockedProgressionTitleIds = getUnlockedProgressionTitleIds(nextTributeTotal);
+    const defaultTitleId = getDefaultTitleId(nextTributeTotal);
+
+    setOwnedTitleIds((current) => Array.from(new Set([...current, ...unlockedProgressionTitleIds])));
+
+    if (!equippedTitleId) {
+      setEquippedTitleId(defaultTitleId);
+    }
+
+    if (isGuestMode || !authUserId) {
+      return;
+    }
+
+    const missingTitleIds = unlockedProgressionTitleIds.filter(
+      (titleId) => !ownedTitleIds.includes(titleId),
+    );
+
+    if (missingTitleIds.length === 0) {
+      return;
+    }
+
+    void supabase.from("user_titles").upsert(
+      missingTitleIds.map((titleId) => ({
+        user_id: authUserId,
+        title_id: titleId,
+        source: "progression",
+        equipped: false,
+      })),
+      { onConflict: "user_id,title_id" },
+    ).then(({ error }) => {
+      if (error) {
+        console.error("Failed to persist progression title unlocks", error);
+      }
+    });
+  }, [authUserId, equippedTitleId, isGuestMode, ownedTitleIds]);
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
   const effectiveTimeoutDays = currentTime > 0
@@ -1404,6 +1575,11 @@ export default function Home() {
     : null;
 
   const blockIfTimedOut = () => {
+    if (isPreviewRestricted) {
+      setMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
+      return true;
+    }
+
     const activeTimeout = timeoutUntilRef.current;
     const active = Boolean(activeTimeout && new Date(activeTimeout).getTime() > Date.now());
 
@@ -1418,6 +1594,10 @@ export default function Home() {
   useEffect(() => {
     coinsRef.current = coins;
   }, [coins]);
+
+  useEffect(() => {
+    previewModeRef.current = isPreviewMode;
+  }, [isPreviewMode]);
 
   useEffect(() => {
     timeoutUntilRef.current = timeoutUntil;
@@ -1439,6 +1619,39 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const loadActiveEvent = async () => {
+      try {
+        const response = await fetch("/api/events/active", { cache: "no-store" });
+        const payload = (await response.json()) as { event?: RandomEvent | null };
+
+        if (!response.ok) {
+          throw new Error("Active event could not be loaded.");
+        }
+
+        setActiveEvent(payload.event ?? null);
+        if (payload.event) {
+          emitSoundEvent("random_event_activation");
+        }
+      } catch (error) {
+        console.error("Failed to load active random event", error);
+      }
+    };
+
+    void loadActiveEvent();
+  }, []);
+
+  useEffect(() => {
+    if (!activeEvent) {
+      return;
+    }
+
+    const remaining = Math.max(0, new Date(activeEvent.ends_at).getTime() - new Date().getTime());
+    const timer = window.setTimeout(() => setActiveEvent(null), remaining);
+
+    return () => window.clearTimeout(timer);
+  }, [activeEvent]);
+
   const handleBubbleFullyHidden = useCallback((hiddenMessage: string) => {
     setFullyHiddenBubbleMessage(hiddenMessage);
     setBubbleHiddenTick((value) => value + 1);
@@ -1459,9 +1672,12 @@ export default function Home() {
       Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 
     const getRandomIdleLine = () => {
-      const availableLines = petEverUnlocked
-        ? [...idleMistressLines, ...petIdleMistressLines]
-        : idleMistressLines;
+      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      const idleLines = getSpeechBubbleMessagePool(avatarId, "idle");
+      const petIdleLines = petEverUnlocked
+        ? getSpeechBubbleMessagePool(avatarId, "petIdle")
+        : [];
+      const availableLines = [...idleLines, ...petIdleLines];
       let nextIndex = Math.floor(Math.random() * availableLines.length);
 
       if (availableLines.length > 1) {
@@ -1481,7 +1697,14 @@ export default function Home() {
     return () => {
       window.clearTimeout(idleTimer);
     };
-  }, [bubbleHiddenTick, fullyHiddenBubbleMessage, isLoggedIn, mistressReply, petEverUnlocked]);
+  }, [
+    bubbleHiddenTick,
+    equippedSpeechAvatar?.id,
+    fullyHiddenBubbleMessage,
+    isLoggedIn,
+    mistressReply,
+    petEverUnlocked,
+  ]);
 
   useEffect(() => {
     if (!isLoggedIn || !isPetUnlocked) {
@@ -1526,7 +1749,7 @@ export default function Home() {
     balanceAfter?: number,
     metadata: Record<string, unknown> = {},
   ) => {
-    if (!authUserId || amount === 0) {
+    if (!authUserId || amount === 0 || isGuestMode || isPreviewMode) {
       return;
     }
 
@@ -1546,13 +1769,14 @@ export default function Home() {
         console.error("Failed to persist coin transaction", { amount, reason, error });
       }
     });
-  }, [authUserId]);
+  }, [authUserId, isGuestMode, isPreviewMode]);
 
   const loadRecentTributes = useCallback(async () => {
     try {
       const response = await fetch("/api/recent-tributes", { cache: "no-store" });
       const result = (await response.json()) as {
         error?: string;
+        topTributes?: RecentTribute[];
         tributes?: RecentTribute[];
       };
 
@@ -1561,6 +1785,7 @@ export default function Home() {
       }
 
       setRecentTributes(result.tributes ?? []);
+      setTopTributes(result.topTributes ?? []);
     } catch (error) {
       console.error("Failed to load recent tributes", error);
     }
@@ -1605,6 +1830,35 @@ export default function Home() {
       console.error("Failed to load public shame board", error);
     }
   }, []);
+
+  const loadJackpot = useCallback(async () => {
+    if (isGuestMode || isPreviewMode) {
+      setJackpot(null);
+      setJackpotError("");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/jackpot", { cache: "no-store" });
+      const payload = (await response.json()) as {
+        jackpot?: LoyaltyJackpotState;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Jackpot could not be loaded.");
+      }
+
+      setJackpot(payload.jackpot ?? null);
+      if (payload.jackpot?.currentWinner) {
+        emitSoundEvent("jackpot_win");
+      }
+      setJackpotError("");
+    } catch (error) {
+      console.error("Failed to load loyalty jackpot", error);
+      setJackpotError(describeError(error));
+    }
+  }, [isGuestMode, isPreviewMode]);
 
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
@@ -1669,8 +1923,26 @@ export default function Home() {
     };
   }, [isLoggedIn, loadRecentTributes]);
 
+  useEffect(() => {
+    if (!isLoggedIn || isGuestMode || isPreviewMode) {
+      return;
+    }
+
+    const initialTimer = window.setTimeout(() => {
+      void loadJackpot();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadJackpot();
+    }, 60000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [isGuestMode, isLoggedIn, isPreviewMode, loadJackpot]);
+
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
-    if (!authUserId || itemIds.length === 0) {
+    if (!authUserId || itemIds.length === 0 || isGuestMode) {
       return;
     }
 
@@ -1702,7 +1974,7 @@ export default function Home() {
         error: legacyGalleryError,
       });
     }
-  }, [authUserId]);
+  }, [authUserId, isGuestMode]);
 
   const applyProfile = useCallback(async (profile: Profile) => {
     setAuthUserId(profile.id);
@@ -1718,6 +1990,93 @@ export default function Home() {
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
     setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
+
+    const { data: cosmeticData, error: cosmeticError } = await supabase
+      .from("user_cosmetics")
+      .select("item_id, item_type, equipped")
+      .eq("user_id", profile.id);
+
+    if (cosmeticError) {
+      console.warn("Failed to load user cosmetics", cosmeticError);
+      setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
+      setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
+    } else {
+      const cosmeticRows = (cosmeticData ?? []) as UserCosmeticRow[];
+      const ownedIds = Array.from(
+        new Set([DEFAULT_SPEECH_AVATAR_ID, ...cosmeticRows.map((entry) => entry.item_id)]),
+      );
+      const equipped = cosmeticRows.reduce<Partial<Record<CosmeticType, string>>>(
+        (acc, entry) => {
+          if (entry.equipped) {
+            acc[entry.item_type] = entry.item_id;
+          }
+
+          return acc;
+        },
+        { "speech-avatar": DEFAULT_SPEECH_AVATAR_ID },
+      );
+
+      setOwnedCosmeticIds(ownedIds);
+      setEquippedCosmeticIds(equipped);
+    }
+
+    const { data: throneTransactions, error: throneError } = await supabase
+      .from("coin_transactions")
+      .select("amount")
+      .eq("user_id", profile.id)
+      .eq("reason", "live_gift");
+
+    if (throneError) {
+      console.warn("Failed to load Throne coin milestone totals", throneError);
+    }
+
+    const throneCoinTotal = (throneTransactions ?? []).reduce(
+      (sum, entry) => sum + Math.max(0, Number(entry.amount ?? 0)),
+      0,
+    );
+    const autoTitleIds = Array.from(
+      new Set([
+        ...getUnlockedProgressionTitleIds(profile.tribute_total ?? 0),
+        ...getUnlockedThroneTitleIds(throneCoinTotal),
+      ]),
+    );
+
+    if (autoTitleIds.length > 0) {
+      const { error: titleUpsertError } = await supabase.from("user_titles").upsert(
+        autoTitleIds.map((titleId) => ({
+          user_id: profile.id,
+          title_id: titleId,
+          source: getTitleItem(titleId)?.source ?? "progression",
+        })),
+        { onConflict: "user_id,title_id" },
+      );
+
+      if (titleUpsertError) {
+        console.warn("Failed to upsert automatic titles", titleUpsertError);
+      }
+    }
+
+    const { data: titleData, error: titleError } = await supabase
+      .from("user_titles")
+      .select("title_id, equipped")
+      .eq("user_id", profile.id);
+
+    if (titleError) {
+      console.warn("Failed to load user titles", titleError);
+      const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
+      setOwnedTitleIds([fallbackTitle]);
+      setEquippedTitleId(fallbackTitle);
+    } else {
+      const titleRows = (titleData ?? []) as UserTitleRow[];
+      const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
+      const ownedTitles = Array.from(
+        new Set([fallbackTitle, ...autoTitleIds, ...titleRows.map((entry) => entry.title_id)]),
+      );
+      const equippedTitle = titleRows.find((entry) => entry.equipped)?.title_id ?? fallbackTitle;
+
+      setOwnedTitleIds(ownedTitles);
+      setEquippedTitleId(ownedTitles.includes(equippedTitle) ? equippedTitle : fallbackTitle);
+    }
 
     const { data: galleryData, error: galleryError } = await supabase
       .from("user_gallery")
@@ -1850,7 +2209,8 @@ export default function Home() {
     setIsLoggedIn(true);
     void loadLeadershipTop();
     void loadShameTop();
-  }, [loadLeadershipTop, loadShameTop]);
+    void loadJackpot();
+  }, [loadJackpot, loadLeadershipTop, loadShameTop]);
 
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
@@ -2219,6 +2579,35 @@ export default function Home() {
     metadata: Record<string, unknown> = {},
   ) => {
     const previousCoins = coinsRef.current;
+
+    if (isGuestMode) {
+      const nextTributeTotal =
+        typeof nextProfile.tribute_total === "number" ? nextProfile.tribute_total : tributeTotal;
+      setCoins(nextProfile.coins);
+      setAffection(nextProfile.affection);
+      setTributeTotal(nextTributeTotal);
+      if (typeof nextProfile.tribute_total === "number") {
+        unlockProgressionTitles(nextTributeTotal);
+      }
+
+      return {
+        id: authUserId ?? PREVIEW_USER_ID,
+        username,
+        coins: nextProfile.coins,
+        affection: nextProfile.affection,
+        tribute_total: nextTributeTotal,
+        shame_count: 0,
+        is_admin: false,
+        loyalty_streak: loyaltyStreak,
+        last_loyalty_at: lastLoyaltyAt,
+        timeout_until: timeoutUntil,
+        pet_score: petScore,
+        owner_likeness: ownerLikeness,
+        pet_unlocked_at: petUnlockedAt,
+        last_pet_tax_at: lastPetTaxAt,
+      } as Profile;
+    }
+
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     console.info("Persist profile progress auth user", {
@@ -2302,16 +2691,67 @@ export default function Home() {
     });
     applyProfileStats(data);
     if (typeof nextProfile.tribute_total === "number") {
+      unlockProgressionTitles(nextProfile.tribute_total);
       void loadLeadershipTop();
     }
     return data;
-  }, [applyProfileStats, loadLeadershipTop, recordCoinTransaction]);
+  }, [
+    applyProfileStats,
+    authUserId,
+    isGuestMode,
+    lastLoyaltyAt,
+    lastPetTaxAt,
+    loadLeadershipTop,
+    loyaltyStreak,
+    ownerLikeness,
+    petScore,
+    petUnlockedAt,
+    recordCoinTransaction,
+    timeoutUntil,
+    tributeTotal,
+    unlockProgressionTitles,
+    username,
+  ]);
 
   const persistPetProfilePatch = useCallback(async (
     patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at" | "tribute_total">>,
     reason: string,
     metadata: Record<string, unknown> = {},
   ) => {
+    if (isGuestMode) {
+      const nextCoins = typeof patch.coins === "number" ? patch.coins : coinsRef.current;
+      const nextPetScore = typeof patch.pet_score === "number" ? patch.pet_score : petScore;
+      const nextTributeTotal =
+        typeof patch.tribute_total === "number" ? patch.tribute_total : tributeTotal;
+      const nextLastPetTaxAt =
+        typeof patch.last_pet_tax_at === "string" ? patch.last_pet_tax_at : lastPetTaxAt;
+
+      setCoins(nextCoins);
+      setPetScore(nextPetScore);
+      setTributeTotal(nextTributeTotal);
+      setLastPetTaxAt(nextLastPetTaxAt ?? null);
+      if (typeof patch.tribute_total === "number") {
+        unlockProgressionTitles(nextTributeTotal);
+      }
+
+      return {
+        id: authUserId ?? PREVIEW_USER_ID,
+        username,
+        coins: nextCoins,
+        affection,
+        tribute_total: nextTributeTotal,
+        shame_count: 0,
+        is_admin: false,
+        loyalty_streak: loyaltyStreak,
+        last_loyalty_at: lastLoyaltyAt,
+        timeout_until: timeoutUntil,
+        pet_score: nextPetScore,
+        owner_likeness: ownerLikeness,
+        pet_unlocked_at: petUnlockedAt,
+        last_pet_tax_at: nextLastPetTaxAt,
+      } as Profile;
+    }
+
     if (!authUserId) {
       throw new Error("Not authenticated");
     }
@@ -2340,12 +2780,47 @@ export default function Home() {
     });
     applyProfileStats(data as Profile);
     if (typeof patch.tribute_total === "number") {
- 	 void loadLeadershipTop();
-	}
+      unlockProgressionTitles(patch.tribute_total);
+      void loadLeadershipTop();
+    }
     return data as Profile;
-  }, [applyProfileStats, authUserId, loadLeadershipTop, recordCoinTransaction]);
+  }, [
+    affection,
+    applyProfileStats,
+    authUserId,
+    isGuestMode,
+    lastLoyaltyAt,
+    lastPetTaxAt,
+    loadLeadershipTop,
+    loyaltyStreak,
+    ownerLikeness,
+    petScore,
+    petUnlockedAt,
+    recordCoinTransaction,
+    timeoutUntil,
+    tributeTotal,
+    unlockProgressionTitles,
+    username,
+  ]);
 
   const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
+    if (isGuestMode) {
+      timeoutUntilRef.current = nextTimeoutUntil;
+      setTimeoutUntil(nextTimeoutUntil);
+      return {
+        id: authUserId ?? PREVIEW_USER_ID,
+        username,
+        coins,
+        affection,
+        tribute_total: tributeTotal,
+        shame_count: 0,
+        is_admin: false,
+        loyalty_streak: loyaltyStreak,
+        last_loyalty_at: lastLoyaltyAt,
+        timeout_until: nextTimeoutUntil,
+      } as Profile;
+    }
+
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError) {
@@ -2378,9 +2853,13 @@ export default function Home() {
 
     applyProfileStats(data as Profile);
     return data as Profile;
-  }, [applyProfileStats]);
+  }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, tributeTotal, username]);
 
   const persistTaskCompletion = useCallback((taskId: string) => {
+    if (isGuestMode) {
+      return;
+    }
+
     if (!authUserId) {
       console.error("Cannot persist task completion without authenticated user id", taskId);
       return;
@@ -2402,9 +2881,20 @@ export default function Home() {
         console.error("Failed to persist task completion", { taskId, error });
       }
     });
-  }, [authUserId]);
+  }, [authUserId, isGuestMode]);
 
   const persistTaskClaim = useCallback(async (task: TaskItem) => {
+    if (isGuestMode) {
+      const rewardCoins = getEventTaskReward(task.reward);
+      return {
+        task_id: task.id,
+        completed_at: new Date().toISOString(),
+        claimed_at: new Date().toISOString(),
+        reward_coins: rewardCoins,
+        metadata: {},
+      };
+    }
+
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError) {
@@ -2457,6 +2947,7 @@ export default function Home() {
     const now = new Date().toISOString();
     const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
     const streakCycleKey = getStreakCycleKey(loyaltyStreak, lastLoyaltyAt);
+    const rewardCoins = getEventTaskReward(task.reward);
 
     if (streakBonus) {
       const claimedCycleKey = getTaskMetadataString(existingTask?.metadata, "cycleKey");
@@ -2476,7 +2967,7 @@ export default function Home() {
         task_id: task.id,
         completed_at: existingTask?.completed_at ?? now,
         claimed_at: now,
-        reward_coins: task.reward,
+        reward_coins: rewardCoins,
         metadata: {
           ...(existingTask?.metadata ?? {}),
           attemptsRemaining: task.id === "typing-accuracy" ? 3 : undefined,
@@ -2497,7 +2988,7 @@ export default function Home() {
     }
 
     return data;
-  }, [lastLoyaltyAt, loyaltyStreak]);
+  }, [getEventTaskReward, isGuestMode, lastLoyaltyAt, loyaltyStreak]);
 
   useEffect(() => {
     let mounted = true;
@@ -2550,6 +3041,10 @@ export default function Home() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user) {
+        if (previewModeRef.current) {
+          return;
+        }
+
         setIsLoggedIn(false);
         setAuthUserId(null);
         return;
@@ -2654,25 +3149,27 @@ export default function Home() {
       const nextAttempts = Math.max(0, (task.attemptsRemaining ?? 3) - 1);
       const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
 
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: null,
-          claimed_at: null,
-          reward_coins: task.reward,
-          metadata: {
-            attemptsRemaining: nextAttempts,
-            failedAt,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: null,
+            claimed_at: null,
+            reward_coins: task.reward,
+            metadata: {
+              attemptsRemaining: nextAttempts,
+              failedAt,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist typing attempt", error);
-        setAuthError(describeError(error));
-        return;
+        if (error) {
+          console.error("Failed to persist typing attempt", error);
+          setAuthError(describeError(error));
+          return;
+        }
       }
 
       setTasks((current) =>
@@ -2697,24 +3194,26 @@ export default function Home() {
     }
 
     if (value === sentence) {
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: new Date().toISOString(),
-          claimed_at: null,
-          reward_coins: task.reward,
-          metadata: {
-            attemptsRemaining: task.attemptsRemaining ?? 3,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: new Date().toISOString(),
+            claimed_at: null,
+            reward_coins: task.reward,
+            metadata: {
+              attemptsRemaining: task.attemptsRemaining ?? 3,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist typing success", error);
-        setAuthError(describeError(error));
-        return;
+        if (error) {
+          console.error("Failed to persist typing success", error);
+          setAuthError(describeError(error));
+          return;
+        }
       }
 
       setTasks((current) =>
@@ -2743,8 +3242,8 @@ export default function Home() {
             : entry,
         ),
       );
-    }, 10 * 1000);
-  }, []);
+    }, getEventCooldownMs(10 * 1000));
+  }, [getEventCooldownMs]);
 
   const handleHighLowPlay = async (
     guess: "higher" | "lower",
@@ -2758,6 +3257,7 @@ export default function Home() {
     }
 
     const task = tasks.find((entry) => entry.id === "high-low");
+    const highLowCooldownMs = getEventCooldownMs(15 * 1000);
     const highLowCooldownActive =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
@@ -2765,9 +3265,11 @@ export default function Home() {
 
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
       if (highLowLocked) {
-        setMistressReply("Higher or Lower winnings limit reached for today.");
+        setMistressReply(
+          `Higher or Lower ${HIGH_LOW_PROFIT_LOCK.toLocaleString()} net profit limit reached for today.`,
+        );
       } else if (highLowCooldownActive) {
-        setMistressReply("Wait 15 seconds before playing Higher or Lower again.");
+        setMistressReply(`Wait ${formatDuration(highLowCooldownMs)} before playing Higher or Lower again.`);
       }
       return;
     }
@@ -2793,7 +3295,7 @@ export default function Home() {
             (guess === "lower" && resultNumber < currentNumber)
           ? "win"
           : "loss";
-    const coinDelta = outcome === "win" ? stake : outcome === "loss" ? -stake : 0;
+    const coinDelta = outcome === "win" ? stake * (highLowWinMultiplier - 1) : outcome === "loss" ? -stake : 0;
     const nextCoins = currentCoins + coinDelta;
     const now = new Date().toISOString();
     const today = getDailyKey();
@@ -2805,11 +3307,11 @@ export default function Home() {
     const nextDailyProfit = currentDailyProfit + coinDelta;
     const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
     const nextDailyLocked = isHighLowLocked(nextDailyProfit);
-    const nextBaseRevealAt = new Date(new Date().getTime() + 10 * 1000).toISOString();
+    const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
     const lastResult =
       outcome === "tie"
         ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
-        : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${stake} coins. New number appears in 10 seconds.`;
+        : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`;
 
     try {
       await persistProfileProgress(
@@ -2823,25 +3325,27 @@ export default function Home() {
         },
       );
 
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: now,
-          claimed_at: now,
-          reward_coins: coinDelta,
-          metadata: {
-            higherLowerDailyDate: currentDailyDate,
-            higherLowerDailyProfit: nextDailyProfit,
-            higherLowerDailyWins: nextDailyWins,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: now,
+            claimed_at: now,
+            reward_coins: coinDelta,
+            metadata: {
+              higherLowerDailyDate: currentDailyDate,
+              higherLowerDailyProfit: nextDailyProfit,
+              higherLowerDailyWins: nextDailyWins,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist high-low play", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist high-low play", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -2862,7 +3366,7 @@ export default function Home() {
                 resultCoinDelta: coinDelta,
                 resultNumber,
                 resultOutcome: outcome,
-                cooldownUntil: getCooldownUntil(now, 15 * 1000),
+                cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
               }
             : entry,
         ),
@@ -2872,7 +3376,9 @@ export default function Home() {
         outcome === "tie"
           ? "A tie. Your stake returns, this time."
           : outcome === "win"
-          ? "A lucky guess. The vault doubles your stake."
+          ? highLowWinMultiplier > 2
+            ? "Event luck. The vault triples your winning payout."
+            : "A lucky guess. The vault doubles your stake."
           : "Wrong. The vault keeps that stake.",
       );
     } catch (error) {
@@ -2917,7 +3423,8 @@ export default function Home() {
     const previousWrongSelections = task.numberPickWrongSelections ?? [];
     const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
     const isCorrect = selectedNumber === correctNumber;
-    const reward = isCorrect ? (attemptsRemaining >= 2 ? 50 : 25) : 0;
+    const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
+    const reward = baseReward > 0 ? getEventTaskReward(baseReward) : 0;
     const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
     const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
     const result: "win" | "loss" | null = finalAttempt ? (isCorrect ? "win" : "loss") : null;
@@ -2925,7 +3432,7 @@ export default function Home() {
       ? previousWrongSelections
       : Array.from(new Set([...previousWrongSelections, selectedNumber]));
     const now = new Date().toISOString();
-    const cooldownUntil = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const cooldownUntil = new Date(new Date().getTime() + getEventCooldownMs(24 * 60 * 60 * 1000)).toISOString();
 
     try {
       if (reward > 0) {
@@ -2935,28 +3442,30 @@ export default function Home() {
         );
       }
 
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: finalAttempt ? now : task.completed ? now : null,
-          claimed_at: finalAttempt ? now : null,
-          reward_coins: reward,
-          metadata: {
-            attemptsRemaining: nextAttemptsRemaining,
-            correct: correctNumber,
-            options,
-            result,
-            selected: selectedNumber,
-            wrongSelections,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: finalAttempt ? now : task.completed ? now : null,
+            claimed_at: finalAttempt ? now : null,
+            reward_coins: reward,
+            metadata: {
+              attemptsRemaining: nextAttemptsRemaining,
+              correct: correctNumber,
+              options,
+              result,
+              selected: selectedNumber,
+              wrongSelections,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist number pick result", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist number pick result", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3011,25 +3520,27 @@ export default function Home() {
     const cooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
     try {
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: now.toISOString(),
-          claimed_at: now.toISOString(),
-          reward_coins: 0,
-          metadata: {
-            countdownEndsAt,
-            status: "countdown",
-            waitEndsAt,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: now.toISOString(),
+            claimed_at: now.toISOString(),
+            reward_coins: 0,
+            metadata: {
+              countdownEndsAt,
+              status: "countdown",
+              waitEndsAt,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist wait obediently start", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist wait obediently start", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3063,23 +3574,25 @@ export default function Home() {
     }
 
     try {
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: new Date().toISOString(),
-          claimed_at: new Date().toISOString(),
-          reward_coins: 0,
-          metadata: {
-            status: "failed",
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: new Date().toISOString(),
+            claimed_at: new Date().toISOString(),
+            reward_coins: 0,
+            metadata: {
+              status: "failed",
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist wait obediently failure", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist wait obediently failure", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3108,29 +3621,32 @@ export default function Home() {
     }
 
     try {
+      const rewardCoins = getEventTaskReward(task.reward);
       await persistProfileProgress(
-        { coins: coinsRef.current + task.reward, affection },
+        { coins: coinsRef.current + rewardCoins, affection },
         "task:wait-obediently",
       );
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: task.id,
-          completed_at: new Date().toISOString(),
-          claimed_at: task.cooldownUntil
-            ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
-            : new Date().toISOString(),
-          reward_coins: task.reward,
-          metadata: {
-            status: "completed",
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: task.id,
+            completed_at: new Date().toISOString(),
+            claimed_at: task.cooldownUntil
+              ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
+              : new Date().toISOString(),
+            reward_coins: rewardCoins,
+            metadata: {
+              status: "completed",
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist wait obediently completion", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist wait obediently completion", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3153,6 +3669,10 @@ export default function Home() {
   };
 
   const handleTimeoutRisk = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!authUserId) {
       return;
     }
@@ -3171,12 +3691,14 @@ export default function Home() {
     const hitTimeout = Math.random() < TIMEOUT_RISK_CHANCE;
 
     try {
-      const { data: existingTask, error: readError } = await supabase
-        .from("user_tasks")
-        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-        .eq("user_id", authUserId)
-        .eq("task_id", "timeout-risk")
-        .maybeSingle();
+      const { data: existingTask, error: readError } = isGuestMode
+        ? { data: null, error: null }
+        : await supabase
+            .from("user_tasks")
+            .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+            .eq("user_id", authUserId)
+            .eq("task_id", "timeout-risk")
+            .maybeSingle();
 
       if (readError) {
         console.error("Failed to read timeout-risk task", readError);
@@ -3205,26 +3727,28 @@ export default function Home() {
         setTimeoutUntil(nextTimeoutUntil);
         setCurrentTime(Date.now());
         await persistTimeoutUntil(nextTimeoutUntil);
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
-            task_id: "timeout-risk",
-            completed_at: now,
-            claimed_at: existingTask?.claimed_at ?? null,
-            reward_coins: 0,
-            metadata: {
-              ...(existingTask?.metadata ?? {}),
-              lastResult: "timeout",
-              resetAt: dailyWindowActive ? resetAt : new Date(Date.now() + DAY_MS).toISOString(),
-              safeWins: currentSafeWins,
+        if (!isGuestMode) {
+          const { error } = await supabase.from("user_tasks").upsert(
+            {
+              user_id: authUserId,
+              task_id: "timeout-risk",
+              completed_at: now,
+              claimed_at: existingTask?.claimed_at ?? null,
+              reward_coins: 0,
+              metadata: {
+                ...(existingTask?.metadata ?? {}),
+                lastResult: "timeout",
+                resetAt: dailyWindowActive ? resetAt : new Date(Date.now() + DAY_MS).toISOString(),
+                safeWins: currentSafeWins,
+              },
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
+            { onConflict: "user_id,task_id" },
+          );
 
-        if (error) {
-          console.error("Failed to persist timeout-risk timeout result", error);
-          throw error;
+          if (error) {
+            console.error("Failed to persist timeout-risk timeout result", error);
+            throw error;
+          }
         }
 
         setTasks((current) =>
@@ -3245,33 +3769,35 @@ export default function Home() {
       }
 
       await persistProfileProgress(
-        { coins: coinsRef.current + SAFE_REWARD, affection },
+        { coins: coinsRef.current + eventSafeReward, affection },
         "task:timeout-risk",
       );
       const nextSafeWins = currentSafeWins + 1;
       const nextResetAt = dailyWindowActive
         ? resetAt
         : new Date(Date.now() + DAY_MS).toISOString();
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "timeout-risk",
-          completed_at: new Date().toISOString(),
-          claimed_at: existingTask?.claimed_at ?? null,
-          reward_coins: SAFE_REWARD,
-          metadata: {
-            ...(existingTask?.metadata ?? {}),
-            lastResult: "safe",
-            resetAt: nextResetAt,
-            safeWins: nextSafeWins,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: "timeout-risk",
+            completed_at: new Date().toISOString(),
+            claimed_at: existingTask?.claimed_at ?? null,
+            reward_coins: eventSafeReward,
+            metadata: {
+              ...(existingTask?.metadata ?? {}),
+              lastResult: "safe",
+              resetAt: nextResetAt,
+              safeWins: nextSafeWins,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist timeout-risk safe result", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist timeout-risk safe result", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3285,7 +3811,7 @@ export default function Home() {
             : entry,
         ),
       );
-      setMistressReply(`Safe roll. ${SAFE_REWARD} coins added.`);
+      setMistressReply(`Safe roll. ${eventSafeReward} coins added.`);
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
       setAuthError(describeError(error));
@@ -3343,20 +3869,22 @@ export default function Home() {
         "spend:irl-task-wheel",
       );
 
-      const { error } = await supabase.from("user_irl_tasks").insert({
-        user_id: authUserId,
-        task_label: assignedTask.title,
-        task_description: assignedTask.description,
-        wheel_index: wheelIndex,
-        cost_coins: IRL_TASK_WHEEL_COST,
-        status: "assigned",
-        due_at: dueAt,
-        penalty_timeout_minutes: penaltyMinutes,
-      });
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_irl_tasks").insert({
+          user_id: authUserId,
+          task_label: assignedTask.title,
+          task_description: assignedTask.description,
+          wheel_index: wheelIndex,
+          cost_coins: IRL_TASK_WHEEL_COST,
+          status: "assigned",
+          due_at: dueAt,
+          penalty_timeout_minutes: penaltyMinutes,
+        });
 
-      if (error) {
-        console.error("Failed to assign IRL wheel task", error);
-        throw error;
+        if (error) {
+          console.error("Failed to assign IRL wheel task", error);
+          throw error;
+        }
       }
 
       setTasks((current) =>
@@ -3404,26 +3932,28 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const reward = randomChance(0.07) ? 25 : 0;
+    const reward = randomChance(0.07) ? eventBegReward : 0;
 
     try {
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "beg",
-          completed_at: now,
-          reward_coins: reward,
-          metadata: {
-            lastBegAt: now,
-            lastReward: reward,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: "beg",
+            completed_at: now,
+            reward_coins: reward,
+            metadata: {
+              lastBegAt: now,
+              lastReward: reward,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist beg cooldown", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist beg cooldown", error);
+          throw error;
+        }
       }
 
       if (reward > 0) {
@@ -3435,7 +3965,7 @@ export default function Home() {
 
       setMechanics((current) => ({
         ...current,
-        begCooldownUntil: getCooldownUntil(now, 60 * 1000),
+        begCooldownUntil: getCooldownUntil(now, getEventCooldownMs(60 * 1000)),
       }));
       setMistressReply(
         reward > 0
@@ -3490,7 +4020,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const won = randomChance(0.5);
+    const won = randomChance(SACRIFICE_UNLOCK_CHANCE);
     const unlockedItem = won ? randomFrom(remainingItems) : null;
     const nextCoins = coinsRef.current - SACRIFICE_COST;
     const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
@@ -3514,31 +4044,33 @@ export default function Home() {
         );
       }
 
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "sacrifice",
-          completed_at: now,
-          claimed_at: unlockedItem ? now : null,
-          reward_coins: unlockedItem ? 1 : 0,
-          metadata: {
-            won,
-            unlockedItemId: unlockedItem?.id ?? null,
-            lastResult,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: "sacrifice",
+            completed_at: now,
+            claimed_at: unlockedItem ? now : null,
+            reward_coins: unlockedItem ? 1 : 0,
+            metadata: {
+              won,
+              unlockedItemId: unlockedItem?.id ?? null,
+              lastResult,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist sacrifice cooldown", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist sacrifice cooldown", error);
+          throw error;
+        }
       }
 
       setMechanics((current) => ({
         ...current,
         sacrificeCooldownUntil: unlockedItem
-          ? getCooldownUntil(now, SACRIFICE_SUCCESS_COOLDOWN_MS)
+          ? getCooldownUntil(now, getEventCooldownMs(SACRIFICE_SUCCESS_COOLDOWN_MS))
           : null,
         sacrificeLastResult: lastResult,
       }));
@@ -3587,23 +4119,25 @@ export default function Home() {
           spendAmount: SUPPORT_COST,
         },
       );
-      const { error } = await supabase.from("user_tasks").upsert(
-        {
-          user_id: authUserId,
-          task_id: "support",
-          completed_at: now,
-          reward_coins: -SUPPORT_COST,
-          metadata: {
-            lastUsedAt: now,
-            lastResult: message,
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_tasks").upsert(
+          {
+            user_id: authUserId,
+            task_id: "support",
+            completed_at: now,
+            reward_coins: -SUPPORT_COST,
+            metadata: {
+              lastUsedAt: now,
+              lastResult: message,
+            },
           },
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (error) {
-        console.error("Failed to persist support mechanic", error);
-        throw error;
+        if (error) {
+          console.error("Failed to persist support mechanic", error);
+          throw error;
+        }
       }
 
       setMechanics((current) => ({
@@ -3621,6 +4155,9 @@ export default function Home() {
   const handleSignInWithX = async () => {
     setIsAuthBusy(true);
     setAuthError("");
+    setIsPreviewMode(false);
+    setIsPreviewUnlocked(false);
+    setIsGuestMode(false);
 
     try {
       console.info("Starting Supabase OAuth", {
@@ -3653,9 +4190,85 @@ export default function Home() {
     }
   };
 
+  const handleEnterPreviewMode = (unlocked: boolean) => {
+    const now = new Date().toISOString();
+
+    setAuthError("");
+    setIsAuthBusy(false);
+    setIsPreviewMode(true);
+    setIsPreviewUnlocked(unlocked);
+    setIsGuestMode(true);
+    setIsLoggedIn(true);
+    setAuthUserId(unlocked ? PREVIEW_USER_ID : null);
+    profileIdRef.current = unlocked ? PREVIEW_USER_ID : null;
+    setUsername(unlocked ? "@previewtester" : "@preview");
+    setCoins(unlocked ? 50000 : 0);
+    setAffection(unlocked ? 100 : 0);
+    setTributeTotal(0);
+    setLoyaltyStreak(0);
+    setLastLoyaltyAt(null);
+    setTimeoutUntil(null);
+    timeoutUntilRef.current = null;
+    setUnlockedGalleryIds([]);
+    setPetScore(unlocked ? 150 : 0);
+    setOwnerLikeness(100);
+    setPetUnlockedAt(unlocked ? now : null);
+    setLastPetTaxAt(unlocked ? now : null);
+    setPetDebtContract(null);
+    setPetAffectionClaimed(false);
+    setPetGalleryUnlockedIds([]);
+    setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
+    setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
+    setOwnedTitleIds(unlocked ? titleItems.map((title) => title.id) : ["leadership-0"]);
+    setEquippedTitleId("leadership-0");
+    setTasks(buildTasksFromRows([], unlocked ? 100 : 0, 0, null, null, null));
+    setPetTaskState(buildPetTasksFromRows([]));
+    setMechanics({
+      supportUnlocked: false,
+      sacrificeUnlockedCount: 0,
+      sacrificeTotal: sacrificeGalleryItems.length,
+      sacrificeComplete: false,
+      allGalleryComplete: false,
+    });
+    setJackpot(null);
+    setJackpotError("");
+    setActivePanel("tribute");
+    setMistressReply(
+      unlocked
+        ? "Preview override unlocked. Test freely; nothing is saved."
+        : "Preview Mode is read-only. Sign in to unlock progression.",
+    );
+  };
+
+  const handlePreviewOverrideSubmit = async (password: string) => {
+    try {
+      const response = await fetch("/api/preview-override", {
+        body: JSON.stringify({ password }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string; ok?: boolean };
+
+      if (!response.ok) {
+        return { error: result.error ?? "Preview override failed.", ok: false };
+      }
+
+      return { ok: Boolean(result.ok) };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "Preview override failed.",
+        ok: false,
+      };
+    }
+  };
+
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (!isGuestMode) {
+      await supabase.auth.signOut();
+    }
     setIsGuestMode(false);
+    setIsPreviewMode(false);
+    setIsPreviewUnlocked(false);
     setIsLoggedIn(false);
     setAuthUserId(null);
     profileIdRef.current = null;
@@ -3663,6 +4276,9 @@ export default function Home() {
     setTasks([]);
     setLeadershipTop([]);
     setShameTop([]);
+    setTopTributes([]);
+    setJackpot(null);
+    setJackpotError("");
     setIsAdminUser(false);
     setPendingIrlReviewCount(0);
     setCoins(100);
@@ -3677,6 +4293,10 @@ export default function Home() {
     setPetTaskState(petTasks);
     setPetAffectionClaimed(false);
     setPetGalleryUnlockedIds([]);
+    setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
+    setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
+    setOwnedTitleIds(["leadership-0"]);
+    setEquippedTitleId("leadership-0");
     setMistressReply("Back at the gate. The vault can wait.");
   };
 
@@ -3709,7 +4329,7 @@ export default function Home() {
       1000: 5,
       5000: 30,
     };
-    const affectionGain = tributeGains[amount] ?? 0;
+    const affectionGain = getEventTributeAffection(tributeGains[amount] ?? 0);
 
     const nextAffection = Math.min(100, affection + affectionGain);
     const nextCoins = Math.max(0, currentCoins - amount);
@@ -3758,6 +4378,10 @@ export default function Home() {
     }
 
     setTributeTotal(nextTributeTotal);
+    emitSoundEvent("tribute_sent");
+    if (nextAffection > affection) {
+      emitSoundEvent("affection_level_up");
+    }
     if (nextAffection >= 50) {
       completeTask("affection");
     }
@@ -3771,6 +4395,61 @@ export default function Home() {
           ? "Pathetic. You call that a tribute?"
           : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
+  };
+
+  const handleJackpotContribute = async (amount: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (isGuestMode || isPreviewMode || !authUserId) {
+      setMistressReply("Sign in to join the Loyalty Jackpot.");
+      return;
+    }
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return;
+    }
+
+    if (coinsRef.current < amount) {
+      setMistressReply("Not enough coins for the jackpot pool.");
+      return;
+    }
+
+    setIsJackpotBusy(true);
+    setJackpotError("");
+
+    try {
+      const response = await fetch("/api/jackpot", {
+        body: JSON.stringify({ amount }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        coins?: number;
+        jackpot?: LoyaltyJackpotState;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Jackpot contribution failed.");
+      }
+
+      if (typeof payload.coins === "number") {
+        setCoins(payload.coins);
+      }
+
+      setJackpot(payload.jackpot ?? null);
+      emitSoundEvent("jackpot_contribution");
+      setMistressReply(`Your ${amount.toLocaleString()} coins were added to the jackpot pool.`);
+    } catch (error) {
+      console.error("Failed to contribute to jackpot", error);
+      const message = describeError(error);
+      setJackpotError(message);
+      setMistressReply(message);
+    } finally {
+      setIsJackpotBusy(false);
+    }
   };
 
   const handleUnlock = async (itemId: string) => {
@@ -3820,9 +4499,229 @@ export default function Home() {
     setUnlockedGalleryIds((current) =>
       current.includes(item.id) ? current : [...current, item.id],
     );
+    emitSoundEvent("gallery_unlock");
     setMistressReply(
       "You unlocked a little more of my attention.",
     );
+  };
+
+  const handlePurchaseCosmetic = async (item: CosmeticItem) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (item.price <= 0 || ownedCosmeticIds.includes(item.id)) {
+      await handleEquipCosmetic(item);
+      return;
+    }
+
+    if (!authUserId) {
+      return;
+    }
+
+    if (coinsRef.current < item.price) {
+      setMistressReply("Not enough coins for that cosmetic.");
+      return;
+    }
+
+    try {
+      await persistProfileProgress(
+        { coins: coinsRef.current - item.price, affection },
+        "spend:cosmetic",
+        {
+          cosmeticId: item.id,
+          cosmeticType: item.type,
+          spendAmount: item.price,
+          tributeTotalChanged: false,
+        },
+      );
+
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_cosmetics").upsert(
+          {
+            user_id: authUserId,
+            item_id: item.id,
+            item_type: item.type,
+            equipped: false,
+          },
+          { onConflict: "user_id,item_id" },
+        );
+
+        if (error) {
+          console.error("Failed to persist cosmetic purchase", error);
+          throw error;
+        }
+      }
+
+      setOwnedCosmeticIds((current) =>
+        current.includes(item.id) ? current : [...current, item.id],
+      );
+      emitSoundEvent("cosmetic_purchased");
+      setMistressReply(`${item.name} purchased. Cosmetic spend does not count as tribute.`);
+    } catch (error) {
+      console.error("Failed to purchase cosmetic", error);
+      setAuthError(describeError(error));
+      setMistressReply("The cosmetic ledger failed. Try again.");
+    }
+  };
+
+  const handleEquipCosmetic = async (item: CosmeticItem) => {
+    if (!ownedCosmeticIds.includes(item.id) && item.price > 0) {
+      return;
+    }
+
+    if (!authUserId) {
+      return;
+    }
+
+    try {
+      if (!isGuestMode) {
+        const { error: clearError } = await supabase
+          .from("user_cosmetics")
+          .update({ equipped: false })
+          .eq("user_id", authUserId)
+          .eq("item_type", item.type);
+
+        if (clearError) {
+          console.error("Failed to clear equipped cosmetics", clearError);
+          throw clearError;
+        }
+
+        const { error: equipError } = await supabase.from("user_cosmetics").upsert(
+          {
+            user_id: authUserId,
+            item_id: item.id,
+            item_type: item.type,
+            equipped: true,
+          },
+          { onConflict: "user_id,item_id" },
+        );
+
+        if (equipError) {
+          console.error("Failed to equip cosmetic", equipError);
+          throw equipError;
+        }
+      }
+
+      setOwnedCosmeticIds((current) =>
+        current.includes(item.id) ? current : [...current, item.id],
+      );
+      setEquippedCosmeticIds((current) => ({ ...current, [item.type]: item.id }));
+      setMistressReply(`${item.name} equipped.`);
+    } catch (error) {
+      console.error("Failed to equip cosmetic", error);
+      setAuthError(describeError(error));
+      setMistressReply("The cosmetic equip failed. Try again.");
+    }
+  };
+
+  const handlePurchaseTitle = async (title: TitleItem) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (ownedTitleIds.includes(title.id)) {
+      await handleEquipTitle(title);
+      return;
+    }
+
+    const price = title.price ?? 0;
+
+    if (!authUserId || price <= 0) {
+      return;
+    }
+
+    if (coinsRef.current < price) {
+      setMistressReply("Not enough coins for that title.");
+      return;
+    }
+
+    try {
+      await persistProfileProgress(
+        { coins: coinsRef.current - price, affection },
+        "spend:title",
+        {
+          spendAmount: price,
+          titleId: title.id,
+          tributeTotalChanged: false,
+        },
+      );
+
+      if (!isGuestMode) {
+        const { error } = await supabase.from("user_titles").upsert(
+          {
+            user_id: authUserId,
+            title_id: title.id,
+            source: title.source,
+            equipped: false,
+          },
+          { onConflict: "user_id,title_id" },
+        );
+
+        if (error) {
+          console.error("Failed to persist title purchase", error);
+          throw error;
+        }
+      }
+
+      setOwnedTitleIds((current) =>
+        current.includes(title.id) ? current : [...current, title.id],
+      );
+      setMistressReply(`${title.name} title purchased.`);
+    } catch (error) {
+      console.error("Failed to purchase title", error);
+      setAuthError(describeError(error));
+      setMistressReply("The title ledger failed. Try again.");
+    }
+  };
+
+  const handleEquipTitle = async (title: TitleItem) => {
+    if (!ownedTitleIds.includes(title.id)) {
+      return;
+    }
+
+    if (!authUserId) {
+      return;
+    }
+
+    try {
+      if (!isGuestMode) {
+        const { error: clearError } = await supabase
+          .from("user_titles")
+          .update({ equipped: false })
+          .eq("user_id", authUserId);
+
+        if (clearError) {
+          console.error("Failed to clear equipped title", clearError);
+          throw clearError;
+        }
+
+        const { error: equipError } = await supabase.from("user_titles").upsert(
+          {
+            user_id: authUserId,
+            title_id: title.id,
+            source: title.source,
+            equipped: true,
+          },
+          { onConflict: "user_id,title_id" },
+        );
+
+        if (equipError) {
+          console.error("Failed to equip title", equipError);
+          throw equipError;
+        }
+      }
+
+      setEquippedTitleId(title.id);
+      setOwnedTitleIds((current) =>
+        current.includes(title.id) ? current : [...current, title.id],
+      );
+      setMistressReply(`${title.name} title equipped.`);
+    } catch (error) {
+      console.error("Failed to equip title", error);
+      setAuthError(describeError(error));
+      setMistressReply("The title equip failed. Try again.");
+    }
   };
 
   const handleClaimTask = async (taskId: string) => {
@@ -3837,7 +4736,8 @@ export default function Home() {
     }
 
     const currentCoins = coinsRef.current;
-    const nextCoins = currentCoins + task.reward;
+    const rewardCoins = getEventTaskReward(task.reward);
+    const nextCoins = currentCoins + rewardCoins;
     const dailyCooldownActive =
       task.id === "daily-login" &&
       Boolean(task.cooldownUntil) &&
@@ -3880,18 +4780,23 @@ export default function Home() {
                   : entry.completed,
               cooldownUntil:
                 taskId === "daily-login" || taskId === "typing-accuracy"
-                  ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                  ? new Date(Date.now() + getEventCooldownMs(24 * 60 * 60 * 1000)).toISOString()
                   : entry.cooldownUntil,
             }
           : entry,
       ),
     );
+    emitSoundEvent("task_completion");
     setMistressReply(
-      `Fine. ${task.reward} coins added. Spend them carefully.`,
+      `Fine. ${rewardCoins} coins added. Spend them carefully.`,
     );
   };
 
   const handlePetTaskComplete = async (taskId: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!isPetUnlocked) {
       setMistressReply("Principessa's Pet is locked.");
       return;
@@ -4021,7 +4926,7 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       try {
         await persistPetProfilePatch(
-          { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+          { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
           "reward:pet-perfect-writing",
         );
       } catch (error) {
@@ -4067,7 +4972,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Perfect. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
+    setMistressReply(`Perfect. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handlePetConfessionSubmit = async (value: string) => {
@@ -4099,7 +5004,7 @@ export default function Home() {
       if (completed) {
         try {
           await persistPetProfilePatch(
-            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
             "reward:pet-confession",
           );
         } catch (error) {
@@ -4148,7 +5053,7 @@ export default function Home() {
     );
     setMistressReply(
       completed
-        ? `Confession accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`
+        ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
         : `Good. ${nextCount}/5 confessions complete.`,
     );
   };
@@ -4173,7 +5078,7 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST + PET_TASK_COIN_REWARD;
+    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST + eventPetTaskCoinReward;
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -4187,7 +5092,7 @@ export default function Home() {
           "spend:pet-weekly-tax",
           {
             spendAmount: PET_WEEKLY_TAX_COST,
-            rewardCoins: PET_TASK_COIN_REWARD,
+            rewardCoins: eventPetTaskCoinReward,
           },
         );
       } catch (error) {
@@ -4234,7 +5139,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
+    setMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handleDebtContractSign = async ({
@@ -4249,21 +5154,25 @@ export default function Home() {
     petName: string;
   }) => {
     if (blockIfTimedOut()) {
-      return;
+      return false;
     }
 
     const cleanAmount = Math.floor(debtAmount);
     const cleanDuration = Math.floor(durationPeriods);
     const cleanPetName = petName.trim();
-    const minimum = periodType === "weekly" ? 5000 : 20000;
+    const minimum = periodType === "weekly" ? 10000 : 50000;
+    const durationLimit =
+      periodType === "weekly"
+        ? { label: "weeks", max: 52, min: 1 }
+        : { label: "months", max: 24, min: 1 };
 
     if (petDebtContract?.status === "active") {
-      return;
+      return false;
     }
 
     if (cleanPetName.length < 2) {
       setMistressReply("Choose a clear Pet name before signing.");
-      return;
+      return false;
     }
 
     if (
@@ -4273,24 +5182,30 @@ export default function Home() {
     ) {
       setMistressReply(
         periodType === "weekly"
-          ? "Weekly debt must be at least 5000 coins and a multiple of 1000."
-          : "Monthly debt must be at least 20000 coins and a multiple of 1000.",
+          ? "Weekly debt must be at least 10000 coins and a multiple of 1000."
+          : "Monthly debt must be at least 50000 coins and a multiple of 1000.",
       );
-      return;
+      return false;
     }
 
-    if (!Number.isInteger(cleanDuration) || cleanDuration <= 0 || cleanDuration > 52) {
-      setMistressReply("Contract duration must be between 1 and 52 periods.");
-      return;
+    if (
+      !Number.isInteger(cleanDuration) ||
+      cleanDuration < durationLimit.min ||
+      cleanDuration > durationLimit.max
+    ) {
+      setMistressReply(
+        `Contract duration must be between ${durationLimit.min} and ${durationLimit.max} ${durationLimit.label}.`,
+      );
+      return false;
     }
 
     if (!authUserId) {
-      return;
+      return false;
     }
 
     const nowMs = Date.now();
     const periodMs = periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
-    const nextDueAt = new Date(nowMs + periodMs).toISOString();
+    const nextDueAt = new Date(nowMs).toISOString();
     const endsAt = new Date(nowMs + periodMs * cleanDuration).toISOString();
 
     if (!isGuestMode && authUserId) {
@@ -4312,13 +5227,15 @@ export default function Home() {
       if (error) {
         console.error("Failed to create debt contract", error);
         setAuthError(describeError(error));
-        return;
+        return false;
       }
 
       setPetDebtContract(data as PetDebtContract);
     }
 
     setMistressReply("Debt Contract signed. The schedule is now active.");
+    emitSoundEvent("debt_contract_signed");
+    return true;
   };
 
   const handleDebtContractPayment = async () => {
@@ -4327,6 +5244,19 @@ export default function Home() {
     }
 
     if (!petDebtContract || petDebtContract.status !== "active") {
+      return;
+    }
+
+    const paymentDue =
+      petDebtContract.paid_periods === 0 ||
+      new Date(petDebtContract.next_due_at).getTime() <= Date.now();
+
+    if (!paymentDue) {
+      setMistressReply(
+        `Future installments are locked. Next payment opens in ${formatDuration(
+          new Date(petDebtContract.next_due_at).getTime() - Date.now(),
+        )}.`,
+      );
       return;
     }
 
@@ -4412,6 +5342,14 @@ export default function Home() {
       setCoins(nextCoins);
       if (completed) {
         setPetDebtContract(null);
+      } else {
+        setPetDebtContract({
+          ...petDebtContract,
+          paid_periods: nextPaidPeriods,
+          missed_periods: nextMissedPeriods,
+          next_due_at: nextDueAt,
+          updated_at: now,
+        });
       }
     }
 
@@ -4449,8 +5387,8 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const reward = caseItem.value;
-    const nextCoins = Math.max(0, coinsRef.current + reward + PET_TASK_COIN_REWARD);
+    const reward = caseItem.value > 0 ? getEventTaskReward(caseItem.value) : caseItem.value;
+    const nextCoins = Math.max(0, coinsRef.current + reward + eventPetTaskCoinReward);
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -4503,7 +5441,7 @@ export default function Home() {
       ),
     );
     setMistressReply(
-      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward + PET_TASK_COIN_REWARD} coins. +${task.reward} Pet Score.`,
+      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
     );
   };
 
@@ -4624,7 +5562,7 @@ export default function Home() {
     if (!isGuestMode && authUserId) {
       try {
         await persistPetProfilePatch(
-          { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+          { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
           "reward:pet-evil-wait",
         );
       } catch (error) {
@@ -4668,10 +5606,14 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
+    setMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
   };
 
   const handlePetRulesAcknowledge = async (text: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const task = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
 
     if (!task || text.trim() !== "I understand") {
@@ -4685,7 +5627,7 @@ export default function Home() {
       try {
         await persistPetProfilePatch(
           {
-            coins: coinsRef.current + PET_TASK_COIN_REWARD,
+            coins: coinsRef.current + eventPetTaskCoinReward,
             pet_score: Math.min(1000, petScore + task.reward),
           },
           "reward:pet-randomized-rules",
@@ -4735,7 +5677,7 @@ export default function Home() {
           : entry,
       ),
     );
-    setMistressReply(`Rules accepted. Locked until reset. +${PET_TASK_COIN_REWARD} coins.`);
+    setMistressReply(`Rules accepted. Locked until reset. +${eventPetTaskCoinReward} coins.`);
   };
 
   const markPetRulesFailed = async (mechanicId: string) => {
@@ -4836,7 +5778,7 @@ export default function Home() {
       if (completed) {
         try {
           await persistPetProfilePatch(
-            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
             "reward:pet-false-hope",
           );
         } catch (error) {
@@ -4889,7 +5831,7 @@ export default function Home() {
     );
 
     if (completed) {
-      setMistressReply(`Sequence completed. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`);
+      setMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
     } else if (!(nextProgress === 0 && nextStage === 2)) {
       setMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
     }
@@ -4928,7 +5870,10 @@ export default function Home() {
       if (won) {
         try {
           await persistPetProfilePatch(
-            { coins: coinsRef.current + PET_TASK_COIN_REWARD, pet_score: nextPetScore },
+            {
+              coins: coinsRef.current + eventFavorCoinReward,
+              pet_score: nextPetScore,
+            },
             "reward:pet-favor-roulette",
           );
         } catch (error) {
@@ -4961,6 +5906,7 @@ export default function Home() {
         return;
       }
     } else if (won) {
+      setCoins((current) => current + eventFavorCoinReward);
       setPetScore(nextPetScore);
     }
 
@@ -4983,7 +5929,7 @@ export default function Home() {
 
     setMistressReply(
       result === "win"
-        ? `Special Favor. +${task.reward} Pet Score, +${PET_TASK_COIN_REWARD} coins.`
+        ? `Special Favor. +${task.reward} Pet Score, +${eventFavorCoinReward} coins.`
         : result === "empty-day"
           ? "How adorable. Today, none of them were winners."
           : "Disappointment. Naturally.",
@@ -5025,6 +5971,10 @@ export default function Home() {
   }, [authUserId, isGuestMode, isPetUnlocked, petGalleryUnlockedIds, petScore]);
 
     const handlePetAffectionClaim = async () => {
+        if (blockIfTimedOut()) {
+            return;
+        }
+
         const approvedCount = petTaskState.filter((task) => task.status === "approved").length;
 
         if (approvedCount < 5 || petAffectionClaimed) {
@@ -5090,6 +6040,8 @@ export default function Home() {
       <LoginScreen
         error={authError}
         isBusy={isAuthBusy}
+        onEnterPreviewMode={handleEnterPreviewMode}
+        onPreviewOverrideSubmit={handlePreviewOverrideSubmit}
         onSignInWithX={handleSignInWithX}
       />
     );
@@ -5109,8 +6061,13 @@ export default function Home() {
             </h1>
             <p className="mt-1 text-sm text-pink-100/70">
               Signed in as{" "}
-              <span className="font-bold text-pink-100">{username}</span>
+              <span className="font-bold text-pink-100" style={usernameStyle}>{username}</span>
             </p>
+            {equippedTitle && (
+              <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-fuchsia-200/80">
+                {equippedTitle.name}
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
@@ -5147,7 +6104,44 @@ export default function Home() {
           </div>
         </header>
 
-        <RecentTributesTicker tributes={recentTributes} />
+        <RecentTributesTicker topTributes={topTributes} tributes={recentTributes} />
+
+        {activeEvent && (
+          <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-100">
+                  Active Vault Event
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-white">{activeEvent.name}</h2>
+                <p className="mt-1 text-sm leading-6 text-yellow-50/80">
+                  {activeEvent.description}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-yellow-100/70">
+                  Ends In
+                </p>
+                <p className="mt-1 text-2xl font-black text-yellow-50">
+                  {formatEventCountdown(currentTime > 0 ? new Date(activeEvent.ends_at).getTime() - currentTime : 0)}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {isPreviewMode && (
+          <section className="rounded-[1.5rem] border border-fuchsia-200/25 bg-[linear-gradient(135deg,rgba(217,70,239,0.16),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(217,70,239,0.12)]">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-fuchsia-100">
+              Preview Mode
+            </p>
+            <p className="mt-2 text-sm leading-6 text-pink-50">
+              {isPreviewUnlocked
+                ? "Testing override is active. Progress changes are local only and will not be saved."
+                : "Read-only exploration is active. Sign in to unlock tasks, gallery progression, coins, debt contracts, and leaderboards."}
+            </p>
+          </section>
+        )}
 
         {isTimeoutActive && (
           <section className="rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(250,204,21,0.14)]">
@@ -5176,6 +6170,7 @@ export default function Home() {
           <div className="flex flex-col gap-6">
             <CharacterCard
               dailyMessage={dailyMessage}
+              evolutionStage={characterEvolutionStage}
             />
             <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
               <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
@@ -5186,6 +6181,12 @@ export default function Home() {
                 {scriptedMessage}
               </p>
             </section>
+            <TitleCollection
+              equippedTitleId={equippedTitleId}
+              ownedTitleIds={ownedTitleIds}
+              titles={titleItems}
+              onEquipTitle={handleEquipTitle}
+            />
           </div>
 
           <div className="flex flex-col gap-6">
@@ -5198,11 +6199,12 @@ export default function Home() {
           </div>
         </section>
 
-        <nav className="grid grid-cols-2 gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_28px_rgba(236,72,153,0.1)] md:grid-cols-4">
+        <nav className="grid grid-cols-2 gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_28px_rgba(236,72,153,0.1)] md:grid-cols-5">
           {[
             ["tribute", "Tribute"],
             ["gallery", "Gallery"],
             ["tasks", "Tasks"],
+            ["shop", "Cosmetics"],
             ["pet", "Principessa's Pet"],
           ].map(([key, label]) => (
             <button
@@ -5231,7 +6233,7 @@ export default function Home() {
             <TributePanel
               affection={affection}
               coins={coins}
-              disabled={isTimeoutActive}
+              disabled={isTimeoutActive || isPreviewRestricted}
               onTribute={handleTribute}
             />
           )}
@@ -5239,7 +6241,7 @@ export default function Home() {
             <GalleryGrid
               items={visibleGallery}
               coins={coins}
-              disabled={isTimeoutActive}
+              disabled={isTimeoutActive || isPreviewRestricted}
               mood={affection}
               onUnlock={handleUnlock}
             />
@@ -5247,12 +6249,17 @@ export default function Home() {
           {activePanel === "tasks" && (
             <TaskList
               coins={coins}
-              disabled={isTimeoutActive}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              isJackpotBusy={isJackpotBusy}
+              jackpot={jackpot}
+              jackpotError={jackpotError}
               mechanics={displayMechanics}
               tasks={tasks}
               onBeg={handleBeg}
               onClaim={handleClaimTask}
+              onJackpotContribute={handleJackpotContribute}
               onHighLowPlay={handleHighLowPlay}
+              highLowProfitCap={HIGH_LOW_PROFIT_LOCK}
               onIrlTaskSpin={handleIrlTaskSpin}
               onNumberPick={handleNumberPick}
               onSacrifice={handleSacrifice}
@@ -5262,20 +6269,35 @@ export default function Home() {
               timeoutRiskChance={TIMEOUT_RISK_CHANCE}
               timeoutRiskEffectiveDays={effectiveTimeoutDays}
               timeoutRiskMaxDays={MAX_TIMEOUT_DAYS}
-              timeoutRiskReward={SAFE_REWARD}
+              timeoutRiskReward={eventSafeReward}
               onWaitObedientlyComplete={handleWaitObedientlyComplete}
               onWaitObedientlyFail={handleWaitObedientlyFail}
               onWaitObedientlyStart={handleWaitObedientlyStart}
             />
           )}
+          {activePanel === "shop" && (
+            <CosmeticShop
+              coins={coins}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              equippedCosmeticIds={equippedCosmeticIds}
+              ownedCosmeticIds={ownedCosmeticIds}
+              ownedTitleIds={ownedTitleIds}
+              premiumTitle={getPremiumShopTitle()}
+              shopItems={cosmeticItems}
+              onEquipCosmetic={handleEquipCosmetic}
+              onPurchaseCosmetic={handlePurchaseCosmetic}
+              onPurchaseTitle={handlePurchaseTitle}
+            />
+          )}
           {activePanel === "pet" && isPetUnlocked && (
             <PetSection
-              affection={affection}
               coins={coins}
               galleryItems={petGalleryItems}
               isGuest={isGuestMode}
+              favorCoinReward={eventFavorCoinReward}
               nextTaxDueAt={nextPetTaxDueAt}
               ownerLikeness={ownerLikeness}
+              petTaskCoinReward={eventPetTaskCoinReward}
               petDebtContract={petDebtContract}
               petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
@@ -5301,9 +6323,11 @@ export default function Home() {
         </section>
       </div>
       <FloatingDefneBubble
+        avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
         message={mistressReply}
         onBubbleFullyHidden={handleBubbleFullyHidden}
       />
     </main>
   );
 }
+

@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 type Overview = {
   activeDebtContracts: number;
   averageCoins: number;
+  coinMetricScope?: "daily_gmt3" | string;
   dailyActiveUsers: number;
   missedDebtPeriods: number;
+  nextResetAt?: string;
   ownerLikenessWarnings: number;
   newRegistrationsToday: number;
   totalCoinsEarned: number;
@@ -87,6 +89,19 @@ function date(value: string | null) {
   return value ? new Date(value).toLocaleString() : "none";
 }
 
+function formatCountdown(target?: string) {
+  if (!target) {
+    return "unknown";
+  }
+
+  const remaining = Math.max(0, new Date(target).getTime() - Date.now());
+  const hours = Math.floor(remaining / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
+
 function BarChart({
   color = "from-fuchsia-500 to-pink-500",
   data,
@@ -128,6 +143,7 @@ export default function AdminAnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [clockTick, setClockTick] = useState(0);
 
   const loadAnalytics = useCallback(async (search = "", userId?: string | null) => {
     setIsLoading(true);
@@ -167,6 +183,12 @@ export default function AdminAnalyticsPage() {
 
     return () => window.clearTimeout(timer);
   }, [loadAnalytics]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   const selectedUser = useMemo(
     () =>
@@ -219,14 +241,24 @@ export default function AdminAnalyticsPage() {
 
         {data && (
           <>
+            <section className="rounded-[1.5rem] border border-yellow-200/20 bg-yellow-300/10 px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-100">
+                Daily Economy Window
+              </p>
+              <p className="mt-2 text-sm leading-6 text-yellow-50">
+                Tribute Received, Coins Earned, and Coins Spent use today&apos;s GMT+3 window.
+                Reset in {formatCountdown(data.overview.nextResetAt)}.
+                <span className="sr-only">{clockTick}</span>
+              </p>
+            </section>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ["Total Users", data.overview.totalRegisteredUsers],
                 ["Daily Active", data.overview.dailyActiveUsers],
                 ["New Today", data.overview.newRegistrationsToday],
-                ["Tribute Received", data.overview.totalTributeReceived],
-                ["Coins Earned", data.overview.totalCoinsEarned],
-                ["Coins Spent", data.overview.totalCoinsSpent],
+                ["Tribute Received Today", data.overview.totalTributeReceived],
+                ["Coins Earned Today", data.overview.totalCoinsEarned],
+                ["Coins Spent Today", data.overview.totalCoinsSpent],
                 ["Circulating Coins", data.overview.totalCoinsInCirculation],
                 ["Average Coins", data.overview.averageCoins],
                 ["Active Debt", data.overview.activeDebtContracts],
@@ -295,7 +327,7 @@ export default function AdminAnalyticsPage() {
                 <div className="mt-4">
                   <BarChart
                     data={data.charts.taskUsage.slice(0, 10)}
-                    getLabel={(entry) => String((entry as CountPoint).key)}
+                    getLabel={(entry) => String((entry as CountPoint).label ?? (entry as CountPoint).key)}
                     getValue={(entry) => (entry as CountPoint).count}
                   />
                 </div>
@@ -306,7 +338,7 @@ export default function AdminAnalyticsPage() {
                   <BarChart
                     color="from-zinc-500 to-pink-500"
                     data={data.charts.leastUsedTasks}
-                    getLabel={(entry) => String((entry as CountPoint).key)}
+                    getLabel={(entry) => String((entry as CountPoint).label ?? (entry as CountPoint).key)}
                     getValue={(entry) => (entry as CountPoint).count}
                   />
                 </div>

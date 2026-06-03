@@ -121,6 +121,26 @@ create table if not exists public.user_pet_gallery (
   unique(user_id, item_id)
 );
 
+create table if not exists public.user_cosmetics (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  item_id text not null,
+  item_type text not null,
+  equipped boolean not null default false,
+  purchased_at timestamp with time zone not null default now(),
+  unique(user_id, item_id)
+);
+
+create table if not exists public.user_titles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title_id text not null,
+  source text not null default 'progression',
+  equipped boolean not null default false,
+  unlocked_at timestamp with time zone not null default now(),
+  unique(user_id, title_id)
+);
+
 create table if not exists public.pet_debt_contracts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -137,6 +157,50 @@ create table if not exists public.pet_debt_contracts (
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
+
+create table if not exists public.random_events (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null,
+  starts_at timestamp with time zone not null,
+  ends_at timestamp with time zone not null,
+  active boolean not null default false,
+  effect jsonb not null default '{}'::jsonb,
+  automatic_key text unique,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.loyalty_jackpots (
+  id uuid primary key default gen_random_uuid(),
+  cycle_key text unique not null,
+  starts_at timestamp with time zone not null,
+  contribution_ends_at timestamp with time zone not null,
+  ends_at timestamp with time zone not null,
+  base_pool integer not null default 5000,
+  winner_user_id uuid references auth.users(id) on delete set null,
+  winner_username text,
+  winner_amount integer,
+  winner_selected_at timestamp with time zone,
+  skipped_at timestamp with time zone,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.loyalty_jackpot_contributions (
+  id uuid primary key default gen_random_uuid(),
+  jackpot_id uuid not null references public.loyalty_jackpots(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  username text not null,
+  amount integer not null check (amount > 0),
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists loyalty_jackpot_contributions_jackpot_id_idx
+  on public.loyalty_jackpot_contributions(jackpot_id);
+
+create index if not exists loyalty_jackpot_contributions_user_id_idx
+  on public.loyalty_jackpot_contributions(user_id);
 
 alter table public.pet_debt_contracts
   add column if not exists missed_periods integer not null default 0,
@@ -171,7 +235,12 @@ alter table public.user_gallery enable row level security;
 alter table public.user_tasks enable row level security;
 alter table public.user_pet_tasks enable row level security;
 alter table public.user_pet_gallery enable row level security;
+alter table public.user_cosmetics enable row level security;
+alter table public.user_titles enable row level security;
 alter table public.pet_debt_contracts enable row level security;
+alter table public.random_events enable row level security;
+alter table public.loyalty_jackpots enable row level security;
+alter table public.loyalty_jackpot_contributions enable row level security;
 alter table public.coin_transactions enable row level security;
 alter table public.user_irl_tasks enable row level security;
 
@@ -275,6 +344,38 @@ create policy "Users can insert own pet gallery"
   to authenticated
   with check (auth.uid() = user_id);
 
+create policy "Users can read own cosmetics"
+  on public.user_cosmetics for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own cosmetics"
+  on public.user_cosmetics for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own cosmetics"
+  on public.user_cosmetics for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read own titles"
+  on public.user_titles for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own titles"
+  on public.user_titles for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own titles"
+  on public.user_titles for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 create policy "Users can read own debt contracts"
   on public.pet_debt_contracts for select
   to authenticated
@@ -289,6 +390,21 @@ create policy "Users can update own debt contracts"
   on public.pet_debt_contracts for update
   to authenticated
   using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read jackpot cycles"
+  on public.loyalty_jackpots for select
+  to authenticated
+  using (true);
+
+create policy "Users can read jackpot contributions"
+  on public.loyalty_jackpot_contributions for select
+  to authenticated
+  using (true);
+
+create policy "Users can insert own jackpot contributions"
+  on public.loyalty_jackpot_contributions for insert
+  to authenticated
   with check (auth.uid() = user_id);
 
 create policy "Users can read own irl tasks"
