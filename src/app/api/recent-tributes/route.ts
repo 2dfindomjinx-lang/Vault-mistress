@@ -11,6 +11,12 @@ type CoinTransactionRow = {
   created_at: string;
 };
 
+type TopTributorRow = {
+  userId: string;
+  amount: number;
+  createdAt: string;
+};
+
 type ProfileRow = {
   id: string;
   username: string;
@@ -30,23 +36,22 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const tributeReasons = ["tribute", "live_gift", "admin_grant"];
-  const [{ data: transactions, error: transactionError }, { data: topProfiles, error: topError }] =
+  const recentTributeReasons = ["tribute", "live_gift", "admin_grant"];
+  const [{ data: transactions, error: transactionError }, { data: liveGifts, error: topError }] =
     await Promise.all([
       supabase
         .from("coin_transactions")
         .select("id, user_id, amount, created_at")
-        .in("reason", tributeReasons)
+        .in("reason", recentTributeReasons)
         .gt("amount", 0)
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
-        .from("profiles")
-        .select("id, username, tribute_total, updated_at")
-        .gt("tribute_total", 0)
-        .order("tribute_total", { ascending: false })
-        .order("updated_at", { ascending: false })
-        .limit(3),
+        .from("coin_transactions")
+        .select("id, user_id, amount, created_at")
+        .eq("reason", "live_gift")
+        .gt("amount", 0)
+        .order("created_at", { ascending: false }),
     ]);
 
   if (transactionError) {
@@ -55,13 +60,15 @@ export async function GET() {
   }
 
   if (topError) {
-    console.error("Top tributors profile lookup failed", topError);
+    console.error("Top tributors live gift lookup failed", topError);
     return Response.json({ error: topError.message }, { status: 500 });
   }
 
   const rows = (transactions ?? []) as CoinTransactionRow[];
-  const topRows = (topProfiles ?? []) as ProfileRow[];
-  const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+  const topRows = getTopTributors((liveGifts ?? []) as CoinTransactionRow[]);
+  const userIds = Array.from(
+    new Set([...rows.map((row) => row.user_id), ...topRows.map((row) => row.userId)]),
+  );
   let { data: profiles, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, avatar_url")
@@ -101,16 +108,54 @@ export async function GET() {
     };
   };
 
-  const mapTopTributor = (profile: ProfileRow) => ({
-    id: profile.id,
-    username: profile.username ?? "@unknown",
-    avatarUrl: profile.avatar_url ?? null,
-    amount: Number(profile.tribute_total ?? 0),
-    createdAt: profile.updated_at ?? new Date(0).toISOString(),
-  });
+  const mapTopTributor = (row: TopTributorRow) => {
+    const profile = profileMap.get(row.userId);
+
+    return {
+      id: row.userId,
+      username: profile?.username ?? "@unknown",
+      avatarUrl: profile?.avatar_url ?? null,
+      amount: row.amount,
+      createdAt: row.createdAt,
+    };
+  };
 
   return Response.json({
     topTributes: topRows.map(mapTopTributor),
     tributes: rows.map(mapTribute),
   });
+}
+
+function getTopTributors(rows: CoinTransactionRow[]): TopTributorRow[] {
+  const totals = new Map<string, TopTributorRow>();
+
+  rows.forEach((row) => {
+    const amount = Math.max(0, Number(row.amount ?? 0));
+
+    if (amount <= 0) {
+      return;
+    }
+
+    const existing = totals.get(row.user_id);
+    const latestCreatedAt =
+      existing && new Date(existing.createdAt).getTime() > new Date(row.created_at).getTime()
+        ? existing.createdAt
+        : row.created_at;
+
+    totals.set(row.user_id, {
+      userId: row.user_id,
+      amount: (existing?.amount ?? 0) + amount,
+      createdAt: latestCreatedAt,
+    });
+  });
+
+  return Array.from(totals.values())
+    .sort((a, b) => {
+      if (b.amount !== a.amount) {
+        return b.amount - a.amount;
+      }
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .slice(0, 3);
 }
