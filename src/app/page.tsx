@@ -3203,6 +3203,8 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
+    let initialAuthResolved = false;
+    let fallbackTimer: number | null = null;
 
     const loadAuthenticatedUser = async (user: User, source: string) => {
       if (authProfileLoadInFlightRef.current === user.id) {
@@ -3231,63 +3233,44 @@ export default function Home() {
       }
     };
 
-    const bootSession = async () => {
+    const finishAuthLoad = () => {
+      if (!mounted) {
+        return;
+      }
+
+      console.info("[auth-init] loading false");
+      setAuthBootstrapped(true);
+      setIsAuthLoading(false);
+    };
+
+    const clearAuthState = () => {
+      authProfileLoadInFlightRef.current = null;
+      authProfileLoadedRef.current = null;
+      setIsLoggedIn(false);
+      setAuthUserId(null);
+    };
+
+    const resolveAuthSession = async (user: User | null, source: string) => {
       try {
-        console.info("[auth-init] init started");
+        console.info("[auth-init] init/session resolve started", {
+          hasUser: Boolean(user),
+          source,
+        });
         setIsAuthLoading(true);
 
-        if (!isSupabaseConfigured) {
-          console.info("[auth-init] Supabase env missing; showing login/preview screen");
-          if (!previewModeRef.current) {
-            setIsLoggedIn(false);
-            setAuthUserId(null);
-          }
-          return;
-        }
-
-        const sessionResult = await withTimeout(
-          supabase.auth.getSession(),
-          "supabase.auth.getSession",
-        );
-        console.info("[auth-init] session result", sessionResult);
-
-        if (sessionResult.error) {
-          throw sessionResult.error;
-        }
-
-        if (!sessionResult.data.session?.user) {
-          console.info("[auth-init] no session; showing login screen");
+        if (!user) {
+          console.info("[auth-init] no session; showing login screen", { source });
           if (mounted && !previewModeRef.current) {
-            setIsLoggedIn(false);
-            setAuthUserId(null);
+            clearAuthState();
           }
           return;
-        }
-
-        const userResult = await withTimeout(
-          supabase.auth.getUser(),
-          "supabase.auth.getUser",
-        );
-        console.info("[auth-init] user result", userResult);
-
-        if (userResult.error) {
-          throw userResult.error;
         }
 
         if (!mounted) {
           return;
         }
 
-        if (!userResult.data.user) {
-          console.info("[auth-init] no auth user; showing login screen");
-          if (!previewModeRef.current) {
-            setIsLoggedIn(false);
-            setAuthUserId(null);
-          }
-          return;
-        }
-
-        const profile = await loadAuthenticatedUser(userResult.data.user, "boot");
+        const profile = await loadAuthenticatedUser(user, source);
         if (profile) {
           setAvatarMistressReply("Logged in already? Eager little thing.");
         }
@@ -3295,21 +3278,18 @@ export default function Home() {
         console.error("[auth-init] init/profile error", initError);
         if (mounted && !previewModeRef.current) {
           setAuthError(describeError(initError));
-          setIsLoggedIn(false);
-          setAuthUserId(null);
+          clearAuthState();
         }
       } finally {
-        if (mounted) {
-          console.info("[auth-init] loading false");
-          setAuthBootstrapped(true);
-          setIsAuthLoading(false);
-        }
+        finishAuthLoad();
       }
     };
 
-    void bootSession();
-
     if (!isSupabaseConfigured) {
+      console.info("[auth-init] Supabase env missing; showing login/preview screen");
+      clearAuthState();
+      finishAuthLoad();
+
       return () => {
         mounted = false;
       };
@@ -3324,6 +3304,12 @@ export default function Home() {
       });
 
       if (_event === "INITIAL_SESSION") {
+        initialAuthResolved = true;
+        if (fallbackTimer !== null) {
+          window.clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
+        void resolveAuthSession(session?.user ?? null, "initial-session");
         return;
       }
 
@@ -3332,12 +3318,8 @@ export default function Home() {
           return;
         }
 
-        authProfileLoadInFlightRef.current = null;
-        authProfileLoadedRef.current = null;
-        setIsLoggedIn(false);
-        setAuthUserId(null);
-        setAuthBootstrapped(true);
-        setIsAuthLoading(false);
+        clearAuthState();
+        finishAuthLoad();
         return;
       }
 
@@ -3358,8 +3340,43 @@ export default function Home() {
       })();
     });
 
+    fallbackTimer = window.setTimeout(() => {
+      if (initialAuthResolved || !mounted) {
+        return;
+      }
+
+      initialAuthResolved = true;
+      void (async () => {
+        try {
+          console.info("[auth-init] initial session fallback started");
+          setIsAuthLoading(true);
+          const sessionResult = await withTimeout(
+            supabase.auth.getSession(),
+            "supabase.auth.getSession fallback",
+          );
+          console.info("[auth-init] fallback session result", sessionResult);
+
+          if (sessionResult.error) {
+            throw sessionResult.error;
+          }
+
+          await resolveAuthSession(sessionResult.data.session?.user ?? null, "fallback-get-session");
+        } catch (fallbackError) {
+          console.error("[auth-init] fallback session error", fallbackError);
+          if (!previewModeRef.current) {
+            setAuthError(describeError(fallbackError));
+            clearAuthState();
+          }
+          finishAuthLoad();
+        }
+      })();
+    }, 750);
+
     return () => {
       mounted = false;
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer);
+      }
       subscription.unsubscribe();
     };
   }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
