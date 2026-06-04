@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
 const PET_TASK_COIN_REWARD = 100;
 
@@ -27,10 +28,7 @@ async function isAdminRequest() {
     return false;
   }
 
-  return (
-    Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
-  );
+  return isTrustedAdminUsername(profile?.username);
 }
 
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {

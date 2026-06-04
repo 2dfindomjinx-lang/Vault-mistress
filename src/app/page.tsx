@@ -17,6 +17,7 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import {
   cosmeticItems,
   DEFAULT_SPEECH_AVATAR_ID,
@@ -246,8 +247,7 @@ const PET_TASK_COIN_REWARD = 300;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
-const PREVIEW_USER_ID = "preview-local-user";
-const PREVIEW_OVERRIDE_STORAGE_KEY = "vault-preview-override-unlocked";
+const LOCAL_GUEST_USER_ID = "local-guest-user";
 const DEBT_AUTO_PAY_STORAGE_PREFIX = "vault-debt-auto-pay-enabled";
 const PET_X_POST_TEXT = [
   "I belong to Principessa.",
@@ -1513,11 +1513,10 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isPreviewUnlocked, setIsPreviewUnlocked] = useState(false);
   const previewModeRef = useRef(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState("");
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
   const [coins, setCoins] = useState(100);
@@ -1573,7 +1572,7 @@ export default function Home() {
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const profileIdRef = useRef<string | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
-  const isPreviewRestricted = isPreviewMode && !isPreviewUnlocked;
+  const isPreviewRestricted = isPreviewMode;
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
@@ -1899,35 +1898,6 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [authUserId, isLoggedIn, isPetUnlocked, petTaskState, setAvatarMistressReply, username]);
 
-  const recordCoinTransaction = useCallback((
-    amount: number,
-    reason: string,
-    balanceBefore?: number,
-    balanceAfter?: number,
-    metadata: Record<string, unknown> = {},
-  ) => {
-    if (!authUserId || amount === 0 || isGuestMode || isPreviewMode) {
-      return;
-    }
-
-    const resolvedAfter = typeof balanceAfter === "number" ? balanceAfter : coinsRef.current;
-    const resolvedBefore =
-      typeof balanceBefore === "number" ? balanceBefore : resolvedAfter - amount;
-
-    void supabase.from("coin_transactions").insert({
-      user_id: authUserId,
-      amount,
-      reason,
-      balance_before: resolvedBefore,
-      balance_after: resolvedAfter,
-      metadata,
-    }).then(({ error }) => {
-      if (error) {
-        console.error("Failed to persist coin transaction", { amount, reason, error });
-      }
-    });
-  }, [authUserId, isGuestMode, isPreviewMode]);
-
   const loadRecentTributes = useCallback(async () => {
     try {
       const response = await fetch("/api/recent-tributes", { cache: "no-store" });
@@ -2108,28 +2078,20 @@ export default function Home() {
       item_id: itemId,
     }));
 
-    const { error: galleryError } = await supabase.from("user_gallery").upsert(rows, {
-      onConflict: "user_id,item_id",
+    void rows;
+    const response = await fetch("/api/user/gallery-unlocks", {
+      body: JSON.stringify({ itemIds }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
     });
+    const payload = (await response.json()) as { error?: string };
 
-    if (galleryError) {
+    if (!response.ok) {
       console.error("Failed to persist user_gallery unlocks", {
         itemIds,
-        error: galleryError,
+        error: payload.error,
       });
-      throw galleryError;
-    }
-
-    const { error: legacyGalleryError } = await supabase.from("unlocked_gallery_items").upsert(
-      rows,
-      { onConflict: "user_id,item_id" },
-    );
-
-    if (legacyGalleryError) {
-      console.warn("Failed to persist legacy gallery unlocks", {
-        itemIds,
-        error: legacyGalleryError,
-      });
+      throw new Error(payload.error ?? "Gallery unlock failed.");
     }
   }, [authUserId, isGuestMode]);
 
@@ -2145,8 +2107,7 @@ export default function Home() {
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
-    setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
+    setIsAdminUser(isTrustedAdminUsername(profile.username));
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -2303,80 +2264,51 @@ export default function Home() {
       if (!activeDebtContract || !duePlan) {
         setPetDebtContract(activeDebtContract);
       } else {
-        const previousCoins = profile.coins;
-        const nextCoins = previousCoins - duePlan.amount;
-        const nextTributeTotal = (profile.tribute_total ?? 0) + duePlan.amount;
-        const collectedAt = new Date().toISOString();
+        try {
+          const response = await fetch("/api/user/debt-contracts", {
+            body: JSON.stringify({
+              action: "autoCollect",
+              autoPayEnabled: debtAutoPayEnabled,
+              contractId: activeDebtContract.id,
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
+          const result = (await response.json()) as {
+            contract?: PetDebtContract | null;
+            error?: string;
+            plan?: { amount: number; missedPeriods: number };
+            profile?: Profile;
+          };
 
-        const { data: collectedProfile, error: collectionProfileError } = await supabase
-          .from("profiles")
-          .update({
-            coins: nextCoins,
-            tribute_total: nextTributeTotal,
-            updated_at: collectedAt,
-          })
-          .eq("id", profile.id)
-          .select(profileSelect)
-          .single();
+          if (!response.ok) {
+            throw new Error(result.error ?? "Debt auto-collection failed.");
+          }
 
-        if (collectionProfileError) {
-          console.error("Failed to auto-collect overdue debt payment", collectionProfileError);
-          setAuthError(describeError(collectionProfileError));
-          setPetDebtContract(activeDebtContract);
-        } else {
-          const { data: collectedDebt, error: collectionDebtError } = await supabase
-            .from("pet_debt_contracts")
-            .update({
-              missed_periods: activeDebtContract.missed_periods + duePlan.missedPeriods,
-              paid_periods: duePlan.nextPaidPeriods,
-              next_due_at: duePlan.nextDueAt,
-              status: duePlan.completed ? "completed" : "active",
-              updated_at: collectedAt,
-            })
-            .eq("id", activeDebtContract.id)
-            .select("*")
-            .single();
-
-          if (collectionDebtError) {
-            console.error("Failed to update auto-collected debt contract", collectionDebtError);
-            setAuthError(describeError(collectionDebtError));
-            setPetDebtContract(activeDebtContract);
-          } else {
-            const updatedProfile = collectedProfile as Profile;
-            const { error: transactionError } = await supabase.from("coin_transactions").insert({
-              amount: updatedProfile.coins - previousCoins,
-              balance_after: updatedProfile.coins,
-              balance_before: previousCoins,
-              metadata: {
-                autoCollected: true,
-                contractId: activeDebtContract.id,
-                duePeriods: duePlan.duePeriods,
-                missedPeriods: duePlan.missedPeriods,
-                spendAmount: duePlan.amount,
-                tributeTotalChanged: true,
-              },
-              reason: duePlan.missedPeriods > 0
-                ? "tribute:debt-contract:missed"
-                : "tribute:debt-contract:auto",
-              user_id: profile.id,
-            });
-
-            if (transactionError) {
-              console.error("Failed to record auto-collected debt transaction", transactionError);
-            }
-
+          if (result.profile) {
+            const updatedProfile = result.profile;
             setCoins(updatedProfile.coins);
             coinsRef.current = updatedProfile.coins;
-            setTributeTotal(updatedProfile.tribute_total ?? nextTributeTotal);
-            unlockProgressionTitles(updatedProfile.tribute_total ?? nextTributeTotal);
-            setPetDebtContract(duePlan.completed ? null : (collectedDebt as PetDebtContract));
-            setAvatarMistressReply(
-              duePlan.missedPeriods > 0
-                ? `Missed Debt Contract collected automatically. ${duePlan.amount.toLocaleString()} coins charged.`
-                : `Debt Contract auto-payment completed. ${duePlan.amount.toLocaleString()} coins charged.`,
-            );
+            setAffection(updatedProfile.affection);
+            setTributeTotal(updatedProfile.tribute_total ?? profile.tribute_total ?? 0);
+            setPetScore(updatedProfile.pet_score ?? 0);
+            setOwnerLikeness(updatedProfile.owner_likeness ?? 100);
+            setPetUnlockedAt(updatedProfile.pet_unlocked_at ?? null);
+            setLastPetTaxAt(updatedProfile.last_pet_tax_at ?? null);
+            unlockProgressionTitles(result.profile.tribute_total ?? profile.tribute_total ?? 0);
             void loadLeadershipTop();
           }
+
+          setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
+          setAvatarMistressReply(
+            (result.plan?.missedPeriods ?? 0) > 0
+              ? `Missed Debt Contract collected automatically. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`
+              : `Debt Contract auto-payment completed. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`,
+          );
+        } catch (error) {
+          console.error("Failed to auto-collect overdue debt payment", error);
+          setAuthError(describeError(error));
+          setPetDebtContract(activeDebtContract);
         }
       }
     }
@@ -2481,8 +2413,7 @@ export default function Home() {
     timeoutUntilRef.current = profile.timeout_until ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setIsLoggedIn(true);
-    const adminByUsername = profile.username.toLowerCase() === "@principessa2dfd";
-    setIsAdminUser(Boolean(profile.is_admin) || adminByUsername);
+    setIsAdminUser(isTrustedAdminUsername(profile.username));
   }, []);
 
   useEffect(() => {
@@ -2532,25 +2463,19 @@ export default function Home() {
         username: usernameForProfile,
       });
 
-      const result = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            id: user.id,
-            username: usernameForProfile,
-            email: user.email ?? null,
-            coins: 100,
-            affection: 0,
-            tribute_total: 0,
-            pet_score: 0,
-            owner_likeness: 100,
-            last_login_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id", ignoreDuplicates: true },
-        )
-        .select(profileSelect)
-        .single();
+      const response = await fetch("/api/user/profile-bootstrap", {
+        body: JSON.stringify({
+          avatarUrl,
+          username: usernameForProfile,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string; profile?: Profile };
+      const result = {
+        data: payload.profile ?? null,
+        error: response.ok ? null : { message: payload.error ?? "Profile could not be created." },
+      };
 
       console.info("Profile upsert result", {
         data: result.data,
@@ -2564,21 +2489,8 @@ export default function Home() {
       return result;
     };
 
-    let { data: createdProfile, error: insertError } =
+    const { data: createdProfile, error: insertError } =
       await createProfile(fallbackUsername);
-
-    if (insertError?.code === "23505") {
-      const uniqueUsername = `${fallbackUsername}_${user.id.slice(0, 6)}`;
-      console.warn("Profile username collision, retrying", {
-        fallbackUsername,
-        uniqueUsername,
-        error: insertError,
-      });
-      const retry = await createProfile(uniqueUsername);
-
-      createdProfile = retry.data;
-      insertError = retry.error;
-    }
 
     if (insertError || !createdProfile) {
       console.error("Profile create final failure", {
@@ -2689,20 +2601,22 @@ export default function Home() {
       return profile;
     }
 
-    patch.updated_at = nowIso;
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(patch)
-      .eq("id", profile.id)
-      .select(profileSelect)
-      .single();
+    const response = await fetch("/api/user/pet-profile-patch", {
+      body: JSON.stringify({
+        patch,
+        reason: "pet:maintenance",
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string; profile?: Profile };
 
-    if (error) {
-      console.error("Failed to persist Pet maintenance", error);
+    if (!response.ok || !result.profile) {
+      console.error("Failed to persist Pet maintenance", result.error);
       return profile;
     }
 
-    return data as Profile;
+    return result.profile as Profile;
   }, [isGuestMode]);
 
   const loadProfile = useCallback(async (user: User) => {
@@ -2832,8 +2746,6 @@ export default function Home() {
     reason: string,
     metadata: Record<string, unknown> = {},
   ) => {
-    const previousCoins = coinsRef.current;
-
     if (isGuestMode) {
       const nextTributeTotal =
         typeof nextProfile.tribute_total === "number" ? nextProfile.tribute_total : tributeTotal;
@@ -2845,7 +2757,7 @@ export default function Home() {
       }
 
       return {
-        id: authUserId ?? PREVIEW_USER_ID,
+        id: authUserId ?? LOCAL_GUEST_USER_ID,
         username,
         coins: nextProfile.coins,
         affection: nextProfile.affection,
@@ -2862,69 +2774,22 @@ export default function Home() {
       } as Profile;
     }
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    console.info("Persist profile progress auth user", {
-      reason,
-      userData,
-      userError,
+    const response = await fetch("/api/user/profile-progress", {
+      body: JSON.stringify({
+        metadata,
+        nextProfile,
+        reason,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
     });
-
-    if (userError) {
-      console.error("Failed to get authenticated user for profile update", userError);
-      throw userError;
-    }
-
-    if (!userData.user) {
-      throw new Error("Not authenticated");
-    }
-
-    const payload: {
-      coins: number;
-      affection: number;
-      tribute_total?: number;
-      updated_at: string;
-    } = {
-      coins: nextProfile.coins,
-      affection: nextProfile.affection,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (typeof nextProfile.tribute_total === "number") {
-      payload.tribute_total = nextProfile.tribute_total;
-    }
-
-    const updateResult = await supabase
-      .from("profiles")
-      .update(payload)
-      .eq("id", userData.user.id)
-      .select(profileSelect)
-      .single();
-    let data = updateResult.data as Profile | null;
-    let error = updateResult.error;
-
-    if (error?.code === "42703" && error.message.includes("updated_at")) {
-      console.warn("profiles.updated_at is missing; retrying progress update without it.");
-      const retry = await supabase
-        .from("profiles")
-        .update({
-          coins: nextProfile.coins,
-          affection: nextProfile.affection,
-          ...(typeof nextProfile.tribute_total === "number"
-            ? { tribute_total: nextProfile.tribute_total }
-            : {}),
-        })
-        .eq("id", userData.user.id)
-        .select(profileSelect)
-        .single();
-
-      data = retry.data as Profile | null;
-      error = retry.error;
-    }
+    const result = (await response.json()) as { error?: string; profile?: Profile };
+    const data = result.profile ?? null;
+    const error = response.ok ? null : new Error(result.error ?? "Profile update failed.");
 
     console.info("Persist profile progress result", {
       reason,
-      payload,
+      nextProfile,
       data,
       error,
     });
@@ -2938,11 +2803,6 @@ export default function Home() {
       throw new Error("Profile update returned no data.");
     }
 
-    const coinDelta = data.coins - previousCoins;
-    recordCoinTransaction(coinDelta, reason, previousCoins, data.coins, {
-      ...metadata,
-      tributeTotalChanged: typeof nextProfile.tribute_total === "number",
-    });
     applyProfileStats(data);
     if (typeof nextProfile.tribute_total === "number") {
       unlockProgressionTitles(nextProfile.tribute_total);
@@ -2960,7 +2820,6 @@ export default function Home() {
     ownerLikeness,
     petScore,
     petUnlockedAt,
-    recordCoinTransaction,
     timeoutUntil,
     tributeTotal,
     unlockProgressionTitles,
@@ -2968,31 +2827,40 @@ export default function Home() {
   ]);
 
   const persistPetProfilePatch = useCallback(async (
-    patch: Partial<Pick<Profile, "coins" | "pet_score" | "last_pet_tax_at" | "tribute_total">>,
+    patch: Partial<Pick<Profile, "affection" | "coins" | "last_owner_likeness_at" | "last_pet_tax_at" | "owner_likeness" | "pet_score" | "pet_unlocked_at" | "tribute_total">>,
     reason: string,
     metadata: Record<string, unknown> = {},
   ) => {
     if (isGuestMode) {
       const nextCoins = typeof patch.coins === "number" ? patch.coins : coinsRef.current;
       const nextPetScore = typeof patch.pet_score === "number" ? patch.pet_score : petScore;
+      const nextOwnerLikeness =
+        typeof patch.owner_likeness === "number" ? patch.owner_likeness : ownerLikeness;
+      const nextAffection =
+        typeof patch.affection === "number" ? patch.affection : affection;
       const nextTributeTotal =
         typeof patch.tribute_total === "number" ? patch.tribute_total : tributeTotal;
+      const nextPetUnlockedAt =
+        typeof patch.pet_unlocked_at === "string" ? patch.pet_unlocked_at : petUnlockedAt;
       const nextLastPetTaxAt =
         typeof patch.last_pet_tax_at === "string" ? patch.last_pet_tax_at : lastPetTaxAt;
 
       setCoins(nextCoins);
       setPetScore(nextPetScore);
+      setOwnerLikeness(nextOwnerLikeness);
+      setAffection(nextAffection);
       setTributeTotal(nextTributeTotal);
+      setPetUnlockedAt(nextPetUnlockedAt);
       setLastPetTaxAt(nextLastPetTaxAt ?? null);
       if (typeof patch.tribute_total === "number") {
         unlockProgressionTitles(nextTributeTotal);
       }
 
       return {
-        id: authUserId ?? PREVIEW_USER_ID,
+        id: authUserId ?? LOCAL_GUEST_USER_ID,
         username,
         coins: nextCoins,
-        affection,
+        affection: nextAffection,
         tribute_total: nextTributeTotal,
         shame_count: 0,
         is_admin: false,
@@ -3000,8 +2868,9 @@ export default function Home() {
         last_loyalty_at: lastLoyaltyAt,
         timeout_until: timeoutUntil,
         pet_score: nextPetScore,
-        owner_likeness: ownerLikeness,
-        pet_unlocked_at: petUnlockedAt,
+        owner_likeness: nextOwnerLikeness,
+        pet_unlocked_at: nextPetUnlockedAt,
+        last_owner_likeness_at: patch.last_owner_likeness_at ?? null,
         last_pet_tax_at: nextLastPetTaxAt,
       } as Profile;
     }
@@ -3010,28 +2879,28 @@ export default function Home() {
       throw new Error("Not authenticated");
     }
 
-    const previousCoins = coinsRef.current;
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        ...patch,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", authUserId)
-      .select(profileSelect)
-      .single();
+    const response = await fetch("/api/user/pet-profile-patch", {
+      body: JSON.stringify({
+        metadata,
+        patch,
+        reason,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string; profile?: Profile };
+    const data = result.profile ?? null;
+    const error = response.ok ? null : new Error(result.error ?? "Pet profile update failed.");
 
     if (error) {
       console.error("Failed to persist Pet profile patch", { reason, error });
       throw error;
     }
 
-    const updatedProfile = data as Profile;
-    const coinDelta = updatedProfile.coins - previousCoins;
-    recordCoinTransaction(coinDelta, reason, previousCoins, updatedProfile.coins, {
-      ...metadata,
-      tributeTotalChanged: typeof patch.tribute_total === "number",
-    });
+    if (!data) {
+      throw new Error("Pet profile update returned no profile.");
+    }
+
     applyProfileStats(data as Profile);
     if (typeof patch.tribute_total === "number") {
       unlockProgressionTitles(patch.tribute_total);
@@ -3050,19 +2919,88 @@ export default function Home() {
     ownerLikeness,
     petScore,
     petUnlockedAt,
-    recordCoinTransaction,
     timeoutUntil,
     tributeTotal,
     unlockProgressionTitles,
     username,
   ]);
 
+  const persistPetTask = useCallback(async (task: {
+    completed_at?: string | null;
+    metadata?: Record<string, unknown>;
+    reviewed_at?: string | null;
+    reward_score: number;
+    status: string;
+    task_id: string;
+  }) => {
+    const response = await fetch("/api/user/pet-tasks", {
+      body: JSON.stringify(task),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as { error?: string; task?: UserPetTaskRow };
+
+    if (!response.ok || !payload.task) {
+      throw new Error(payload.error ?? "Pet task update failed.");
+    }
+
+    return payload.task;
+  }, []);
+
+  const persistPetGalleryUnlocks = useCallback(async (itemIds: string[]) => {
+    const response = await fetch("/api/user/pet-gallery-unlocks", {
+      body: JSON.stringify({ itemIds }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as { error?: string; itemIds?: string[] };
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Pet gallery unlock failed.");
+    }
+
+    return payload.itemIds ?? itemIds;
+  }, []);
+
+  const persistDebtContractAction = useCallback(async (payload: Record<string, unknown>) => {
+    const response = await fetch("/api/user/debt-contracts", {
+      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as {
+      contract?: PetDebtContract | null;
+      error?: string;
+      plan?: {
+        amount: number;
+        completed: boolean;
+        duePeriods: number;
+        missedPeriods: number;
+        nextDueAt: string;
+        nextPaidPeriods: number;
+      };
+      profile?: Profile;
+    };
+
+    if (!response.ok) {
+      throw new Error(result.error ?? "Debt contract update failed.");
+    }
+
+    if (result.profile) {
+      applyProfileStats(result.profile);
+      unlockProgressionTitles(result.profile.tribute_total ?? tributeTotal);
+      void loadLeadershipTop();
+    }
+
+    return result;
+  }, [applyProfileStats, loadLeadershipTop, tributeTotal, unlockProgressionTitles]);
+
   const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
     if (isGuestMode) {
       timeoutUntilRef.current = nextTimeoutUntil;
       setTimeoutUntil(nextTimeoutUntil);
       return {
-        id: authUserId ?? PREVIEW_USER_ID,
+        id: authUserId ?? LOCAL_GUEST_USER_ID,
         username,
         coins,
         affection,
@@ -3109,6 +3047,30 @@ export default function Home() {
     return data as Profile;
   }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, tributeTotal, username]);
 
+  const persistUserTask = useCallback(async (task: {
+    claimed_at?: string | null;
+    completed_at?: string | null;
+    metadata?: Record<string, unknown>;
+    reward_coins?: number | null;
+    task_id: string;
+  }) => {
+    const response = await fetch("/api/user/tasks", {
+      body: JSON.stringify({ task }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      task?: UserTaskRow;
+    };
+
+    if (!response.ok || !payload.task) {
+      throw new Error(payload.error ?? "Task update failed.");
+    }
+
+    return payload.task;
+  }, []);
+
   const persistTaskCompletion = useCallback((taskId: string) => {
     if (isGuestMode) {
       return;
@@ -3121,21 +3083,15 @@ export default function Home() {
 
     const task = startingTasks.find((entry) => entry.id === taskId);
 
-    void supabase.from("user_tasks").upsert(
-      {
-        user_id: authUserId,
+    void persistUserTask({
         task_id: taskId,
         completed_at: new Date().toISOString(),
         reward_coins: task?.reward ?? 0,
         metadata: {},
-      },
-      { onConflict: "user_id,task_id" },
-    ).then(({ error }) => {
-      if (error) {
+    }).catch((error) => {
         console.error("Failed to persist task completion", { taskId, error });
-      }
     });
-  }, [authUserId, isGuestMode]);
+  }, [authUserId, isGuestMode, persistUserTask]);
 
   const persistTaskClaim = useCallback(async (task: TaskItem) => {
     if (isGuestMode) {
@@ -3215,9 +3171,8 @@ export default function Home() {
       }
     }
 
-    const { data, error } = await supabase.from("user_tasks").upsert(
+    const data = await persistUserTask(
       {
-        user_id: userData.user.id,
         task_id: task.id,
         completed_at: existingTask?.completed_at ?? now,
         claimed_at: now,
@@ -3230,9 +3185,8 @@ export default function Home() {
             milestone: streakBonus.milestone,
           } : {}),
         },
-      },
-      { onConflict: "user_id,task_id" },
-    ).select("task_id, completed_at, claimed_at, reward_coins, metadata").single();
+      });
+    const error = null;
 
     console.info("Task claim persist result", { data, error });
 
@@ -3242,7 +3196,7 @@ export default function Home() {
     }
 
     return data;
-  }, [getEventTaskReward, isGuestMode, lastLoyaltyAt, loyaltyStreak]);
+  }, [getEventTaskReward, isGuestMode, lastLoyaltyAt, loyaltyStreak, persistUserTask]);
 
   useEffect(() => {
     let mounted = true;
@@ -3253,9 +3207,12 @@ export default function Home() {
         setIsAuthLoading(true);
 
         if (!isSupabaseConfigured) {
-          throw new Error(
-            "Supabase client environment variables are missing. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-          );
+          console.info("[auth-init] Supabase env missing; showing login/preview screen");
+          if (!previewModeRef.current) {
+            setIsLoggedIn(false);
+            setAuthUserId(null);
+          }
+          return;
         }
 
         const sessionResult = await withTimeout(
@@ -3270,7 +3227,7 @@ export default function Home() {
 
         if (!sessionResult.data.session?.user) {
           console.info("[auth-init] no session; showing login screen");
-          if (mounted) {
+          if (mounted && !previewModeRef.current) {
             setIsLoggedIn(false);
             setAuthUserId(null);
           }
@@ -3293,8 +3250,10 @@ export default function Home() {
 
         if (!userResult.data.user) {
           console.info("[auth-init] no auth user; showing login screen");
-          setIsLoggedIn(false);
-          setAuthUserId(null);
+          if (!previewModeRef.current) {
+            setIsLoggedIn(false);
+            setAuthUserId(null);
+          }
           return;
         }
 
@@ -3306,7 +3265,7 @@ export default function Home() {
         setAvatarMistressReply("Logged in already? Eager little thing.");
       } catch (initError) {
         console.error("[auth-init] init/profile error", initError);
-        if (mounted) {
+        if (mounted && !previewModeRef.current) {
           setAuthError(describeError(initError));
           setIsLoggedIn(false);
           setAuthUserId(null);
@@ -3451,9 +3410,8 @@ export default function Home() {
       const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
 
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        try {
+          await persistUserTask({
             task_id: task.id,
             completed_at: null,
             claimed_at: null,
@@ -3462,11 +3420,8 @@ export default function Home() {
               attemptsRemaining: nextAttempts,
               failedAt,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
+          });
+        } catch (error) {
           console.error("Failed to persist typing attempt", error);
           setAuthError(describeError(error));
           return;
@@ -3496,9 +3451,8 @@ export default function Home() {
 
     if (writingEquals(sentence, value)) {
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        try {
+          await persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: null,
@@ -3506,11 +3460,8 @@ export default function Home() {
             metadata: {
               attemptsRemaining: task.attemptsRemaining ?? 3,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
+          });
+        } catch (error) {
           console.error("Failed to persist typing success", error);
           setAuthError(describeError(error));
           return;
@@ -3627,9 +3578,7 @@ export default function Home() {
       );
 
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: task.id,
             completed_at: now,
             claimed_at: now,
@@ -3639,14 +3588,7 @@ export default function Home() {
               higherLowerDailyProfit: nextDailyProfit,
               higherLowerDailyWins: nextDailyWins,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist high-low play", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -3744,9 +3686,7 @@ export default function Home() {
       }
 
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: task.id,
             completed_at: finalAttempt ? now : task.completed ? now : null,
             claimed_at: finalAttempt ? now : null,
@@ -3759,14 +3699,7 @@ export default function Home() {
               selected: selectedNumber,
               wrongSelections,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist number pick result", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -3822,9 +3755,7 @@ export default function Home() {
 
     try {
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: task.id,
             completed_at: now.toISOString(),
             claimed_at: now.toISOString(),
@@ -3834,14 +3765,7 @@ export default function Home() {
               status: "countdown",
               waitEndsAt,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist wait obediently start", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -3876,9 +3800,7 @@ export default function Home() {
 
     try {
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: new Date().toISOString(),
@@ -3886,14 +3808,7 @@ export default function Home() {
             metadata: {
               status: "failed",
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist wait obediently failure", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -3928,9 +3843,7 @@ export default function Home() {
         "task:wait-obediently",
       );
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: task.cooldownUntil
@@ -3940,14 +3853,7 @@ export default function Home() {
             metadata: {
               status: "completed",
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist wait obediently completion", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -4029,9 +3935,7 @@ export default function Home() {
         setCurrentTime(Date.now());
         await persistTimeoutUntil(nextTimeoutUntil);
         if (!isGuestMode) {
-          const { error } = await supabase.from("user_tasks").upsert(
-            {
-              user_id: authUserId,
+          await persistUserTask({
               task_id: "timeout-risk",
               completed_at: now,
               claimed_at: existingTask?.claimed_at ?? null,
@@ -4042,14 +3946,7 @@ export default function Home() {
                 resetAt: dailyWindowActive ? resetAt : new Date(Date.now() + DAY_MS).toISOString(),
                 safeWins: currentSafeWins,
               },
-            },
-            { onConflict: "user_id,task_id" },
-          );
-
-          if (error) {
-            console.error("Failed to persist timeout-risk timeout result", error);
-            throw error;
-          }
+            });
         }
 
         setTasks((current) =>
@@ -4078,9 +3975,7 @@ export default function Home() {
         ? resetAt
         : new Date(Date.now() + DAY_MS).toISOString();
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: "timeout-risk",
             completed_at: new Date().toISOString(),
             claimed_at: existingTask?.claimed_at ?? null,
@@ -4091,14 +3986,7 @@ export default function Home() {
               resetAt: nextResetAt,
               safeWins: nextSafeWins,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist timeout-risk safe result", error);
-          throw error;
-        }
+          });
       }
 
       setTasks((current) =>
@@ -4233,13 +4121,11 @@ export default function Home() {
     }
 
     const now = new Date().toISOString();
-    const reward = randomChance(0.07) ? eventBegReward : 0;
+      const reward = randomChance(0.07) ? eventBegReward : 0;
 
-    try {
-      if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+      try {
+        if (!isGuestMode) {
+        await persistUserTask({
             task_id: "beg",
             completed_at: now,
             reward_coins: reward,
@@ -4247,14 +4133,7 @@ export default function Home() {
               lastBegAt: now,
               lastReward: reward,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist beg cooldown", error);
-          throw error;
-        }
+          });
       }
 
       if (reward > 0) {
@@ -4346,9 +4225,7 @@ export default function Home() {
       }
 
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: "sacrifice",
             completed_at: now,
             claimed_at: unlockedItem ? now : null,
@@ -4358,14 +4235,7 @@ export default function Home() {
               unlockedItemId: unlockedItem?.id ?? null,
               lastResult,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist sacrifice cooldown", error);
-          throw error;
-        }
+          });
       }
 
       setMechanics((current) => ({
@@ -4421,9 +4291,7 @@ export default function Home() {
         },
       );
       if (!isGuestMode) {
-        const { error } = await supabase.from("user_tasks").upsert(
-          {
-            user_id: authUserId,
+        await persistUserTask({
             task_id: "support",
             completed_at: now,
             reward_coins: -SUPPORT_COST,
@@ -4431,14 +4299,7 @@ export default function Home() {
               lastUsedAt: now,
               lastResult: message,
             },
-          },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
-          console.error("Failed to persist support mechanic", error);
-          throw error;
-        }
+          });
       }
 
       setMechanics((current) => ({
@@ -4457,12 +4318,14 @@ export default function Home() {
     setIsAuthBusy(true);
     setAuthError("");
     setIsPreviewMode(false);
-    setIsPreviewUnlocked(false);
     setIsGuestMode(false);
     previewModeRef.current = false;
-    window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
 
     try {
+      if (!isSupabaseConfigured) {
+        throw new Error("Supabase env is missing locally. Preview Mode still works without local env.");
+      }
+
       console.info("Starting Supabase OAuth", {
         provider: "x",
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -4493,46 +4356,39 @@ export default function Home() {
     }
   };
 
-  const handleEnterPreviewMode = useCallback((unlocked: boolean) => {
-    const now = new Date().toISOString();
-
+  const handleEnterPreviewMode = useCallback(() => {
     setAuthError("");
     setIsAuthBusy(false);
+    setIsAuthLoading(false);
     setIsPreviewMode(true);
-    setIsPreviewUnlocked(unlocked);
     previewModeRef.current = true;
-    if (unlocked) {
-      window.localStorage.setItem(PREVIEW_OVERRIDE_STORAGE_KEY, "true");
-    } else {
-      window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
-    }
     setIsGuestMode(true);
     setIsLoggedIn(true);
-    setAuthUserId(unlocked ? PREVIEW_USER_ID : null);
-    profileIdRef.current = unlocked ? PREVIEW_USER_ID : null;
-    setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(PREVIEW_USER_ID));
-    setUsername(unlocked ? "@previewtester" : "@preview");
-    setCoins(unlocked ? 50000 : 0);
-    setAffection(unlocked ? 100 : 0);
+    setAuthUserId(null);
+    profileIdRef.current = null;
+    setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(LOCAL_GUEST_USER_ID));
+    setUsername("@preview");
+    setCoins(0);
+    setAffection(0);
     setTributeTotal(0);
     setLoyaltyStreak(0);
     setLastLoyaltyAt(null);
     setTimeoutUntil(null);
     timeoutUntilRef.current = null;
     setUnlockedGalleryIds([]);
-    setPetScore(unlocked ? 150 : 0);
+    setPetScore(0);
     setOwnerLikeness(100);
-    setPetUnlockedAt(unlocked ? now : null);
-    setLastPetTaxAt(unlocked ? now : null);
+    setPetUnlockedAt(null);
+    setLastPetTaxAt(null);
     setPetDebtContract(null);
     setPetAffectionClaimed(false);
     setPetGalleryUnlockedIds([]);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
-    setOwnedTitleIds(unlocked ? titleItems.map((title) => title.id) : ["leadership-0"]);
+    setOwnedTitleIds(["leadership-0"]);
     setEquippedTitleId("leadership-0");
     setIsTitleManuallySelected(false);
-    setTasks(buildTasksFromRows([], unlocked ? 100 : 0, 0, null, null, null));
+    setTasks(buildTasksFromRows([], 0, 0, null, null, null));
     setPetTaskState(buildPetTasksFromRows([]));
     setMechanics({
       supportUnlocked: false,
@@ -4544,50 +4400,8 @@ export default function Home() {
     setJackpot(null);
     setJackpotError("");
     setActivePanel("tribute");
-    setAvatarMistressReply(
-      unlocked
-        ? "Preview override unlocked. Test freely; nothing is saved."
-        : "Preview Mode is read-only. Sign in to unlock progression.",
-    );
+    setAvatarMistressReply("Preview Mode is read-only. Sign in to unlock progression.");
   }, [setAvatarMistressReply]);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      return;
-    }
-
-    if (window.localStorage.getItem(PREVIEW_OVERRIDE_STORAGE_KEY) !== "true") {
-      return;
-    }
-
-    const restoreTimer = window.setTimeout(() => {
-      handleEnterPreviewMode(true);
-    }, 0);
-
-    return () => window.clearTimeout(restoreTimer);
-  }, [handleEnterPreviewMode, isLoggedIn]);
-
-  const handlePreviewOverrideSubmit = async (password: string) => {
-    try {
-      const response = await fetch("/api/preview-override", {
-        body: JSON.stringify({ password }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const result = (await response.json()) as { error?: string; ok?: boolean };
-
-      if (!response.ok) {
-        return { error: result.error ?? "Preview override failed.", ok: false };
-      }
-
-      return { ok: Boolean(result.ok) };
-    } catch (error) {
-      return {
-        error: error instanceof Error ? error.message : "Preview override failed.",
-        ok: false,
-      };
-    }
-  };
 
   const handleLogout = async () => {
     if (!isGuestMode) {
@@ -4595,9 +4409,7 @@ export default function Home() {
     }
     setIsGuestMode(false);
     setIsPreviewMode(false);
-    setIsPreviewUnlocked(false);
     previewModeRef.current = false;
-    window.localStorage.removeItem(PREVIEW_OVERRIDE_STORAGE_KEY);
     setIsLoggedIn(false);
     setAuthUserId(null);
     profileIdRef.current = null;
@@ -4682,23 +4494,21 @@ export default function Home() {
       );
       if (!isGuestMode && nextAffection >= 100 && !petUnlockedAt && authUserId) {
         const now = new Date().toISOString();
-        const { error: petUnlockError } = await supabase
-          .from("profiles")
-          .update({
+        try {
+          await persistPetProfilePatch(
+            {
             pet_unlocked_at: now,
             last_owner_likeness_at: now,
             last_pet_tax_at: now,
             owner_likeness: 100,
-            updated_at: now,
-          })
-          .eq("id", authUserId);
-
-        if (petUnlockError) {
-          console.error("Failed to persist Pet unlock", petUnlockError);
-        } else {
+            },
+            "pet:unlock",
+          );
           setPetUnlockedAt(now);
           setLastPetTaxAt(now);
           setOwnerLikeness(100);
+        } catch (petUnlockError) {
+          console.error("Failed to persist Pet unlock", petUnlockError);
         }
       }
     } catch (error) {
@@ -5154,21 +4964,19 @@ export default function Home() {
     const now = new Date().toISOString();
 
     if (!isGuestMode && authUserId) {
-      const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
           status: "pending",
           metadata: {},
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (taskError) {
-        console.error("Failed to persist pet task", taskError);
-        setAuthError(describeError(taskError));
+        );
+      } catch (error) {
+        console.error("Failed to persist pet task", error);
+        setAuthError(describeError(error));
         return;
       }
     }
@@ -5211,9 +5019,9 @@ export default function Home() {
       const now = new Date().toISOString();
 
       if (!isGuestMode && authUserId) {
-        const { error } = await supabase.from("user_pet_tasks").upsert(
+        try {
+          await persistPetTask(
           {
-            user_id: authUserId,
             task_id: task.id,
             completed_at: now,
             reward_score: task.reward,
@@ -5224,10 +5032,8 @@ export default function Home() {
               failedAt: now,
             },
           },
-          { onConflict: "user_id,task_id" },
-        );
-
-        if (error) {
+          );
+        } catch (error) {
           console.error("Failed to persist Pet perfect writing failure", error);
           setAuthError(describeError(error));
           return;
@@ -5269,9 +5075,9 @@ export default function Home() {
         return;
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5281,10 +5087,8 @@ export default function Home() {
             attemptsRemaining: 1,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet perfect writing success", error);
         setAuthError(describeError(error));
         return;
@@ -5348,9 +5152,9 @@ export default function Home() {
         }
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: completed ? now : task.completedAt,
           reward_score: task.reward,
@@ -5360,10 +5164,8 @@ export default function Home() {
             count: nextCount,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet confession progress", error);
         setAuthError(describeError(error));
         return;
@@ -5435,9 +5237,9 @@ export default function Home() {
         return;
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5447,10 +5249,8 @@ export default function Home() {
             cost: PET_WEEKLY_TAX_COST,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet weekly tax", error);
         setAuthError(describeError(error));
         return;
@@ -5538,34 +5338,24 @@ export default function Home() {
       return false;
     }
 
-    const nowMs = Date.now();
-    const periodMs = periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
-    const nextDueAt = new Date(nowMs).toISOString();
-    const endsAt = new Date(nowMs + periodMs * cleanDuration).toISOString();
-
     if (!isGuestMode && authUserId) {
-      const { data, error } = await supabase
-        .from("pet_debt_contracts")
-        .insert({
-          user_id: authUserId,
-          pet_name: cleanPetName,
-          period_type: periodType,
-          debt_amount: cleanAmount,
-          duration_periods: cleanDuration,
-          next_due_at: nextDueAt,
-          ends_at: endsAt,
-          status: "active",
-        })
-        .select("*")
-        .single();
+      try {
+        const result = await persistDebtContractAction({
+          action: "sign",
+          debtAmount: cleanAmount,
+          durationPeriods: cleanDuration,
+          periodType,
+          petName: cleanPetName,
+        });
 
-      if (error) {
+        if (result.contract) {
+          setPetDebtContract(result.contract as PetDebtContract);
+        }
+      } catch (error) {
         console.error("Failed to create debt contract", error);
         setAuthError(describeError(error));
         return false;
       }
-
-      setPetDebtContract(data as PetDebtContract);
     }
 
     setAvatarMistressReply("Debt Contract signed. The schedule is now active.");
@@ -5574,7 +5364,7 @@ export default function Home() {
   };
 
   const handleDebtAutoPayChange = (enabled: boolean) => {
-    const debtAutoPayUserId = profileIdRef.current ?? authUserId ?? PREVIEW_USER_ID;
+    const debtAutoPayUserId = profileIdRef.current ?? authUserId ?? LOCAL_GUEST_USER_ID;
 
     setIsDebtAutoPayEnabled(enabled);
     writeDebtAutoPayEnabled(debtAutoPayUserId, enabled);
@@ -5624,62 +5414,17 @@ export default function Home() {
 
     if (!isGuestMode && authUserId) {
       try {
-        await persistPetProfilePatch(
-          { coins: nextCoins, tribute_total: getNextTributeTotal(petDebtContract.debt_amount) },
-          "tribute:debt-contract",
-          {
-            prestigeSource: "pet-debt-contract",
-            spendAmount: petDebtContract.debt_amount,
-          },
-        );
+        const result = await persistDebtContractAction({
+          action: "pay",
+          contractId: petDebtContract.id,
+        });
+
+        setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
       } catch (error) {
-        setAuthError(describeError(error));
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("pet_debt_contracts")
-        .update({
-          paid_periods: nextPaidPeriods,
-          missed_periods: nextMissedPeriods,
-          next_due_at: completed ? petDebtContract.next_due_at : nextDueAt,
-          status: completed ? "completed" : "active",
-          updated_at: now,
-        })
-        .eq("id", petDebtContract.id)
-        .select("*")
-        .single();
-
-      if (error) {
         console.error("Failed to persist debt contract payment", error);
         setAuthError(describeError(error));
         return;
       }
-
-      const task = petTaskState.find((entry) => entry.id === "pet-debt-contract");
-      if (task) {
-        const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
-        {
-          user_id: authUserId,
-            task_id: task.id,
-            completed_at: now,
-            reward_score: task.reward,
-            status: "approved",
-            reviewed_at: now,
-          metadata: {
-              contractId: petDebtContract.id,
-              paidPeriods: nextPaidPeriods,
-          },
-        },
-        { onConflict: "user_id,task_id" },
-      );
-
-        if (taskError) {
-          console.error("Failed to persist debt contract Pet task", taskError);
-        }
-      }
-
-      setPetDebtContract(completed ? null : (data as PetDebtContract));
     } else {
       setCoins(nextCoins);
       if (completed) {
@@ -5744,9 +5489,9 @@ export default function Home() {
         return;
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5754,10 +5499,8 @@ export default function Home() {
           reviewed_at: now,
           metadata: { reward, tier: caseItem.tier },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet case opening", error);
         setAuthError(describeError(error));
         return;
@@ -5806,9 +5549,9 @@ export default function Home() {
     const waitEndsAt = new Date(now.getTime() + 3000 + PET_EVIL_WAIT_MS).toISOString();
 
     if (!isGuestMode && authUserId) {
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now.toISOString(),
           reward_score: task.reward,
@@ -5819,10 +5562,8 @@ export default function Home() {
             waitEndsAt,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet evil wait start", error);
         setAuthError(describeError(error));
         return;
@@ -5855,9 +5596,9 @@ export default function Home() {
     const now = new Date().toISOString();
 
     if (!isGuestMode && authUserId) {
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5865,10 +5606,8 @@ export default function Home() {
           reviewed_at: now,
           metadata: { status: "failed" },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet evil wait failure", error);
         setAuthError(describeError(error));
         return;
@@ -5912,9 +5651,9 @@ export default function Home() {
         return;
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5922,10 +5661,8 @@ export default function Home() {
           reviewed_at: now,
           metadata: { status: "completed" },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet evil wait completion", error);
         setAuthError(describeError(error));
         return;
@@ -5979,9 +5716,9 @@ export default function Home() {
         return;
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -5993,10 +5730,8 @@ export default function Home() {
             date: getDailyKey(),
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet randomized rules", error);
         setAuthError(describeError(error));
         return;
@@ -6040,9 +5775,9 @@ export default function Home() {
     const now = new Date().toISOString();
 
     if (!isGuestMode && authUserId) {
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -6055,10 +5790,8 @@ export default function Home() {
             failedBy: mechanicId,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet randomized rules failure", error);
         setAuthError(describeError(error));
         return false;
@@ -6129,9 +5862,9 @@ export default function Home() {
         }
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: completed ? now : task.completedAt,
           reward_score: task.reward,
@@ -6143,10 +5876,8 @@ export default function Home() {
             stage: nextStage,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet false hope progress", error);
         setAuthError(describeError(error));
         return;
@@ -6224,9 +5955,9 @@ export default function Home() {
         }
       }
 
-      const { error } = await supabase.from("user_pet_tasks").upsert(
+      try {
+        await persistPetTask(
         {
-          user_id: authUserId,
           task_id: task.id,
           completed_at: now,
           reward_score: task.reward,
@@ -6239,10 +5970,8 @@ export default function Home() {
             winningIndex,
           },
         },
-        { onConflict: "user_id,task_id" },
-      );
-
-      if (error) {
+        );
+      } catch (error) {
         console.error("Failed to persist Pet favor roulette", error);
         setAuthError(describeError(error));
         return;
@@ -6300,17 +6029,12 @@ export default function Home() {
       return () => window.clearTimeout(timer);
     }
 
-    void supabase.from("user_pet_gallery").upsert(
-      thresholdIds.map((itemId) => ({ user_id: authUserId, item_id: itemId })),
-      { onConflict: "user_id,item_id" },
-    ).then(({ error }) => {
-      if (error) {
-        console.error("Failed to persist automatic pet gallery unlocks", error);
-      }
+    void persistPetGalleryUnlocks(thresholdIds).catch((error) => {
+      console.error("Failed to persist automatic pet gallery unlocks", error);
     });
 
     return () => window.clearTimeout(timer);
-  }, [authUserId, isGuestMode, isPetUnlocked, petGalleryUnlockedIds, petScore]);
+  }, [authUserId, isGuestMode, isPetUnlocked, persistPetGalleryUnlocks, petGalleryUnlockedIds, petScore]);
 
     const handlePetAffectionClaim = async () => {
         if (blockIfTimedOut()) {
@@ -6326,20 +6050,13 @@ export default function Home() {
         const nextPetScore = petScore + 10;
 
         if (!isGuestMode && authUserId) {
-            const { error } = await supabase
-                .from("profiles")
-                .update({ pet_score: nextPetScore, updated_at: new Date().toISOString() })
-                .eq("id", authUserId);
-
-            if (error) {
-                console.error("Failed to persist Pet score claim", error);
-                setAuthError(describeError(error));
-                return;
-            }
-
-            const { error: claimError } = await supabase.from("user_pet_tasks").upsert(
+            try {
+              await persistPetProfilePatch(
+                { pet_score: nextPetScore },
+                "reward:pet-affection-claim",
+              );
+              await persistPetTask(
                 {
-                    user_id: authUserId,
                     task_id: "pet-affection-claim",
                     completed_at: new Date().toISOString(),
                     reward_score: 10,
@@ -6347,11 +6064,11 @@ export default function Home() {
                     reviewed_at: new Date().toISOString(),
                     metadata: {},
                 },
-                { onConflict: "user_id,task_id" },
-            );
-
-            if (claimError) {
-                console.error("Failed to persist Pet score claim marker", claimError);
+              );
+            } catch (error) {
+                console.error("Failed to persist Pet score claim", error);
+                setAuthError(describeError(error));
+                return;
             }
         }
 
@@ -6383,7 +6100,6 @@ export default function Home() {
         error={authError}
         isBusy={isAuthBusy}
         onEnterPreviewMode={handleEnterPreviewMode}
-        onPreviewOverrideSubmit={handlePreviewOverrideSubmit}
         onSignInWithX={handleSignInWithX}
       />
     );
@@ -6483,9 +6199,8 @@ export default function Home() {
               Preview Mode
             </p>
             <p className="mt-2 text-sm leading-6 text-pink-50">
-              {isPreviewUnlocked
-                ? "Testing override is active. Progress changes are local only and will not be saved."
-                : "Read-only exploration is active. Sign in to unlock tasks, gallery progression, coins, debt contracts, and leaderboards."}
+              Read-only exploration is active. Sign in to unlock tasks, gallery progression,
+              coins, debt contracts, and leaderboards.
             </p>
           </section>
         )}

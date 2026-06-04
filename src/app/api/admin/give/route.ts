@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
 async function getAdminUserId() {
   const authSupabase = await createSupabaseServerClient();
@@ -25,9 +26,7 @@ async function getAdminUserId() {
     return null;
   }
 
-  const allowed =
-    Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd";
+  const allowed = isTrustedAdminUsername(profile?.username);
 
   return allowed ? data.user.id : null;
 }

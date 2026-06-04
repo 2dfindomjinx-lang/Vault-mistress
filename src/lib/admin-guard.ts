@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
 export async function requireAdminProfile() {
   const configErrors = getSupabaseAdminConfigErrors();
@@ -40,9 +41,7 @@ export async function requireAdminProfile() {
     return { error: error.message, status: 500 } as const;
   }
 
-  const isAdmin =
-    Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd";
+  const isAdmin = isTrustedAdminUsername(profile?.username);
 
   if (!isAdmin) {
     return { error: "Admin access required.", status: 401 } as const;

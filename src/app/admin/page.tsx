@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import { supabase } from "@/lib/supabase/client";
 
@@ -426,9 +427,7 @@ export default function AdminPage() {
           return;
         }
 
-        const adminAllowed =
-          Boolean(profile?.is_admin) ||
-          String(profile?.username ?? "").toLowerCase() === "@principessa2dfd";
+        const adminAllowed = isTrustedAdminUsername(profile?.username);
 
         if (mounted) {
           setIsAdmin(adminAllowed);

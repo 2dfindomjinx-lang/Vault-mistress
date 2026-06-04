@@ -1,0 +1,233 @@
+import { profileSelect } from "@/lib/server-game-rules";
+import {
+  createSupabaseAdminClient,
+  getSupabaseAdminConfigErrors,
+  isSupabaseAdminConfigured,
+} from "@/lib/supabase/admin";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+
+type Body = {
+  metadata?: Record<string, unknown>;
+  patch?: {
+    affection?: number;
+    coins?: number;
+    last_pet_tax_at?: string | null;
+    last_owner_likeness_at?: string | null;
+    owner_likeness?: number;
+    pet_unlocked_at?: string | null;
+    pet_score?: number;
+    tribute_total?: number;
+  };
+  reason?: string;
+};
+
+type ProfileRow = {
+  id: string;
+  coins: number;
+  affection: number;
+  last_pet_tax_at: string | null;
+  owner_likeness: number;
+  pet_unlocked_at: string | null;
+  pet_score: number;
+  tribute_total: number;
+};
+
+function jsonError(message: string, status = 400) {
+  return Response.json({ error: message }, { status });
+}
+
+function numberFromMetadata(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function validatePatch(
+  current: ProfileRow,
+  patch: NonNullable<Body["patch"]>,
+  reason: string,
+  metadata: Record<string, unknown>,
+) {
+  const nextCoins = typeof patch.coins === "number" ? patch.coins : current.coins;
+  const nextAffection = typeof patch.affection === "number" ? patch.affection : current.affection;
+  const nextOwnerLikeness = typeof patch.owner_likeness === "number" ? patch.owner_likeness : current.owner_likeness;
+  const nextPetScore = typeof patch.pet_score === "number" ? patch.pet_score : current.pet_score;
+  const nextTributeTotal = typeof patch.tribute_total === "number"
+    ? patch.tribute_total
+    : current.tribute_total;
+  const coinDelta = nextCoins - current.coins;
+  const petScoreDelta = nextPetScore - current.pet_score;
+  const tributeDelta = nextTributeTotal - current.tribute_total;
+
+  if (
+    !Number.isInteger(nextCoins) ||
+    !Number.isInteger(nextAffection) ||
+    !Number.isInteger(nextOwnerLikeness) ||
+    !Number.isInteger(nextPetScore) ||
+    nextAffection < 0 ||
+    nextAffection > 100 ||
+    nextOwnerLikeness < 0 ||
+    nextOwnerLikeness > 100 ||
+    nextPetScore < 0 ||
+    nextPetScore > 1000
+  ) {
+    return "Invalid Pet profile values.";
+  }
+
+  if (reason === "pet:unlock") {
+    if (
+      current.pet_unlocked_at ||
+      current.affection < 100 ||
+      nextOwnerLikeness !== 100 ||
+      nextAffection !== current.affection ||
+      coinDelta !== 0 ||
+      petScoreDelta !== 0 ||
+      tributeDelta !== 0 ||
+      typeof patch.pet_unlocked_at !== "string" ||
+      typeof patch.last_owner_likeness_at !== "string" ||
+      typeof patch.last_pet_tax_at !== "string"
+    ) {
+      return "Pet unlock patch is invalid.";
+    }
+
+    return null;
+  }
+
+  if (reason === "pet:maintenance") {
+    if (coinDelta !== 0 || petScoreDelta !== 0 || tributeDelta !== 0) {
+      return "Pet maintenance cannot change coins, score, or tribute.";
+    }
+
+    if (Math.abs(nextOwnerLikeness - current.owner_likeness) > 25 && nextOwnerLikeness !== 100) {
+      return "Pet maintenance owner likeness delta is invalid.";
+    }
+
+    if (current.affection - nextAffection > 30 || nextAffection > current.affection) {
+      return "Pet maintenance affection delta is invalid.";
+    }
+
+    return null;
+  }
+
+  if (reason === "tribute:debt-contract") {
+    const spendAmount = numberFromMetadata(metadata, "spendAmount");
+
+    if (!spendAmount || coinDelta !== -spendAmount || tributeDelta !== spendAmount) {
+      return "Debt contract profile delta is invalid.";
+    }
+
+    return null;
+  }
+
+  if (reason === "spend:pet-weekly-tax") {
+    const spendAmount = numberFromMetadata(metadata, "spendAmount");
+    const rewardCoins = numberFromMetadata(metadata, "rewardCoins");
+
+    if (!spendAmount || typeof rewardCoins !== "number" || coinDelta !== rewardCoins - spendAmount || petScoreDelta !== 10) {
+      return "Weekly tax profile delta is invalid.";
+    }
+
+    return null;
+  }
+
+  if (reason.startsWith("reward:pet-")) {
+    const allowedCoinRewards = new Set([300, 450, 500, 750, 600, 1000]);
+
+    if (
+      reason === "reward:pet-case-opening" &&
+      (!Number.isInteger(coinDelta) || coinDelta < 0 || coinDelta > 5000 || petScoreDelta !== 10 || tributeDelta !== 0)
+    ) {
+      return "Pet case profile delta is invalid.";
+    }
+
+    if (reason === "reward:pet-affection-claim" && (coinDelta !== 0 || petScoreDelta !== 10 || tributeDelta !== 0)) {
+      return "Pet affection claim profile delta is invalid.";
+    }
+
+    if (
+      reason !== "reward:pet-case-opening" &&
+      reason !== "reward:pet-affection-claim" &&
+      (!allowedCoinRewards.has(coinDelta) || petScoreDelta !== 10 || tributeDelta !== 0)
+    ) {
+      return "Pet reward profile delta is invalid.";
+    }
+
+    return null;
+  }
+
+  return `Unsupported Pet profile mutation reason: ${reason}`;
+}
+
+export async function POST(request: Request) {
+  if (!isSupabaseAdminConfigured) {
+    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    return jsonError(authError?.message ?? "Authentication required.", 401);
+  }
+
+  const body = (await request.json().catch(() => null)) as Body | null;
+  const reason = body?.reason?.trim();
+  const patch = body?.patch;
+  const metadata = body?.metadata ?? {};
+
+  if (!reason || !patch) {
+    return jsonError("Invalid Pet profile patch payload.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: currentProfile, error: currentError } = await supabase
+    .from("profiles")
+    .select("id, coins, affection, pet_score, owner_likeness, pet_unlocked_at, tribute_total, last_pet_tax_at")
+    .eq("id", authData.user.id)
+    .single();
+
+  if (currentError || !currentProfile) {
+    return jsonError(currentError?.message ?? "Profile not found.", 404);
+  }
+
+  const validationError = validatePatch(currentProfile as ProfileRow, patch, reason, metadata);
+
+  if (validationError) {
+    return jsonError(validationError, 422);
+  }
+
+  const { data: updatedProfile, error: updateError } = await supabase
+    .from("profiles")
+    .update({
+      ...patch,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", authData.user.id)
+    .select(profileSelect)
+    .single();
+
+  if (updateError || !updatedProfile) {
+    return jsonError(updateError?.message ?? "Pet profile update failed.", 500);
+  }
+
+  const coinDelta = Number(updatedProfile.coins ?? 0) - Number((currentProfile as ProfileRow).coins ?? 0);
+
+  if (coinDelta !== 0) {
+    const { error: transactionError } = await supabase.from("coin_transactions").insert({
+      amount: coinDelta,
+      balance_after: updatedProfile.coins,
+      balance_before: (currentProfile as ProfileRow).coins,
+      metadata: {
+        ...metadata,
+        tributeTotalChanged: typeof patch.tribute_total === "number",
+      },
+      reason,
+      user_id: authData.user.id,
+    });
+
+    if (transactionError) {
+      console.error("Pet profile transaction insert failed", transactionError);
+    }
+  }
+
+  return Response.json({ profile: updatedProfile });
+}

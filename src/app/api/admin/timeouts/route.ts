@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
 type TimeoutAction = "cancel" | "change";
 
@@ -27,10 +28,7 @@ async function isAdminRequest() {
     return false;
   }
 
-  return (
-    Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
-  );
+  return isTrustedAdminUsername(profile?.username);
 }
 
 function parseDuration(duration: string) {

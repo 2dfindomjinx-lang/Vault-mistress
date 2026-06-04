@@ -486,7 +486,6 @@ export async function GET(request: Request) {
       return affection >= bucket.min && affection <= bucket.max;
     }).length,
   }));
-
   const completedTasksByUser = countBy(
     taskRows.filter((row) => row.completed_at || row.claimed_at),
     (row) => row.user_id,

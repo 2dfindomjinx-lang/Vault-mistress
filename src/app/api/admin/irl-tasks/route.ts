@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 
 async function isAdminRequest() {
@@ -26,10 +27,7 @@ async function isAdminRequest() {
     return false;
   }
 
-  return (
-    Boolean(profile?.is_admin) ||
-    String(profile?.username ?? "").toLowerCase() === "@principessa2dfd"
-  );
+  return isTrustedAdminUsername(profile?.username);
 }
 
 export async function POST(request: Request) {
