@@ -1571,6 +1571,8 @@ export default function Home() {
   const lastIdleLineIndexRef = useRef(-1);
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const profileIdRef = useRef<string | null>(null);
+  const authProfileLoadInFlightRef = useRef<string | null>(null);
+  const authProfileLoadedRef = useRef<string | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
   const isPreviewRestricted = isPreviewMode;
 
@@ -3201,6 +3203,33 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
+    const loadAuthenticatedUser = async (user: User, source: string) => {
+      if (authProfileLoadInFlightRef.current === user.id) {
+        console.info("[auth-init] profile load already in flight", { source, userId: user.id });
+        return null;
+      }
+
+      if (authProfileLoadedRef.current === user.id && profileIdRef.current === user.id) {
+        console.info("[auth-init] profile already loaded", { source, userId: user.id });
+        return null;
+      }
+
+      authProfileLoadInFlightRef.current = user.id;
+
+      try {
+        console.info("[auth-init] profile fetch started", { source, userId: user.id });
+        const profile = await withTimeout(loadProfile(user), `profile fetch ${source}`);
+        await withTimeout(updateLoyaltyForProfile(profile), `loyalty update ${source}`);
+        authProfileLoadedRef.current = user.id;
+        console.info("[auth-init] profile fetch result", { source, profile });
+        return profile;
+      } finally {
+        if (authProfileLoadInFlightRef.current === user.id) {
+          authProfileLoadInFlightRef.current = null;
+        }
+      }
+    };
+
     const bootSession = async () => {
       try {
         console.info("[auth-init] init started");
@@ -3257,12 +3286,10 @@ export default function Home() {
           return;
         }
 
-        const profile = await withTimeout(
-          loadProfile(userResult.data.user),
-          "profile fetch",
-        );
-        await withTimeout(updateLoyaltyForProfile(profile), "loyalty update");
-        setAvatarMistressReply("Logged in already? Eager little thing.");
+        const profile = await loadAuthenticatedUser(userResult.data.user, "boot");
+        if (profile) {
+          setAvatarMistressReply("Logged in already? Eager little thing.");
+        }
       } catch (initError) {
         console.error("[auth-init] init/profile error", initError);
         if (mounted && !previewModeRef.current) {
@@ -3294,11 +3321,17 @@ export default function Home() {
         hasSession: Boolean(session),
       });
 
+      if (_event === "INITIAL_SESSION") {
+        return;
+      }
+
       if (!session?.user) {
         if (previewModeRef.current) {
           return;
         }
 
+        authProfileLoadInFlightRef.current = null;
+        authProfileLoadedRef.current = null;
         setIsLoggedIn(false);
         setAuthUserId(null);
         setIsAuthLoading(false);
@@ -3307,10 +3340,8 @@ export default function Home() {
 
       void (async () => {
         try {
-          console.info("[auth-init] profile fetch started after auth change");
-          const profile = await withTimeout(loadProfile(session.user), "profile fetch after auth change");
-          await withTimeout(updateLoyaltyForProfile(profile), "loyalty update after auth change");
-          console.info("[auth-init] profile fetch result after auth change", { profile });
+          setIsAuthLoading(true);
+          await loadAuthenticatedUser(session.user, `auth-change:${_event}`);
         } catch (profileError) {
           console.error("[auth-init] profile fetch error after auth change", profileError);
           setAuthError(describeError(profileError));
@@ -4315,11 +4346,15 @@ export default function Home() {
   };
 
   const handleSignInWithX = async () => {
+    let oauthRedirectStarted = false;
+
     setIsAuthBusy(true);
     setAuthError("");
+    setIsAuthLoading(true);
     setIsPreviewMode(false);
     setIsGuestMode(false);
     previewModeRef.current = false;
+    authProfileLoadedRef.current = null;
 
     try {
       if (!isSupabaseConfigured) {
@@ -4343,6 +4378,8 @@ export default function Home() {
       if (result.error) {
         throw result.error;
       }
+
+      oauthRedirectStarted = true;
     } catch (error) {
       console.error("Supabase X OAuth sign-in failed", error);
       setAuthError(
@@ -4350,13 +4387,17 @@ export default function Home() {
           ? error.message
           : "X sign-in failed. Check Supabase OAuth settings.",
       );
-      setIsAuthBusy(false);
     } finally {
-      setIsAuthLoading(false);
+      if (!oauthRedirectStarted) {
+        setIsAuthBusy(false);
+        setIsAuthLoading(false);
+      }
     }
   };
 
   const handleEnterPreviewMode = useCallback(() => {
+    authProfileLoadInFlightRef.current = null;
+    authProfileLoadedRef.current = null;
     setAuthError("");
     setIsAuthBusy(false);
     setIsAuthLoading(false);
@@ -4407,6 +4448,8 @@ export default function Home() {
     if (!isGuestMode) {
       await supabase.auth.signOut();
     }
+    authProfileLoadInFlightRef.current = null;
+    authProfileLoadedRef.current = null;
     setIsGuestMode(false);
     setIsPreviewMode(false);
     previewModeRef.current = false;
