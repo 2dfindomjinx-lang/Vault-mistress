@@ -29,6 +29,7 @@ const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   masterVolume: 0.7,
   uiEnabled: true,
 };
+const SOUND_SETTINGS_STORAGE_KEY = "vault:sound-settings";
 
 const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   button_click: { category: "ui", src: "/sounds/button-click.mp3" },
@@ -36,25 +37,29 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3" },
   task_completion: { category: "gameplay", src: "/sounds/task-completion.mp3" },
   affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3" },
-  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.mp3" },
-  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.mp3" },
+  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav" },
+  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav" },
   jackpot_contribution: { category: "gameplay", src: "/sounds/jackpot-contribution.mp3" },
   jackpot_win: { category: "gameplay", src: "/sounds/jackpot-win.mp3" },
   random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3" },
 };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
+let hydrated = false;
 
 export function getSoundSettings() {
+  hydrateSoundSettings();
   return { ...soundSettings };
 }
 
 export function updateSoundSettings(settings: Partial<SoundSettings>) {
+  hydrateSoundSettings();
   soundSettings = {
     ...soundSettings,
     ...settings,
     masterVolume: clampVolume(settings.masterVolume ?? soundSettings.masterVolume),
   };
+  persistSoundSettings();
 }
 
 export function registerSoundEvent(
@@ -72,6 +77,7 @@ export function emitSoundEvent(eventName: SoundEventName) {
     return;
   }
 
+  hydrateSoundSettings();
   const definition = soundRegistry[eventName];
 
   if (!definition?.src || !isCategoryEnabled(definition.category)) {
@@ -86,6 +92,44 @@ export function emitSoundEvent(eventName: SoundEventName) {
     });
   } catch {
     // Missing, invalid, or unsupported audio assets are intentionally ignored.
+  }
+}
+
+function hydrateSoundSettings() {
+  if (hydrated || typeof window === "undefined") {
+    return;
+  }
+
+  hydrated = true;
+
+  try {
+    const stored = window.localStorage.getItem(SOUND_SETTINGS_STORAGE_KEY);
+
+    if (!stored) {
+      return;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<SoundSettings>;
+    soundSettings = {
+      ...soundSettings,
+      gameplayEnabled: parsed.gameplayEnabled ?? soundSettings.gameplayEnabled,
+      masterVolume: clampVolume(parsed.masterVolume ?? soundSettings.masterVolume),
+      uiEnabled: parsed.uiEnabled ?? soundSettings.uiEnabled,
+    };
+  } catch {
+    // Sound settings should never break gameplay.
+  }
+}
+
+function persistSoundSettings() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(SOUND_SETTINGS_STORAGE_KEY, JSON.stringify(soundSettings));
+  } catch {
+    // Storage failures should never break gameplay.
   }
 }
 

@@ -4,7 +4,6 @@ import {
   generateNumberPickOptions,
   getActiveEventMultipliers,
   getCooldownUntil,
-  getEventCooldownMs,
   getMetadataNumber,
   getMetadataNumberArray,
   randomFrom,
@@ -65,7 +64,7 @@ export async function POST(request: Request) {
       .eq("user_id", authData.user.id)
       .eq("task_id", "number-pick")
       .maybeSingle(),
-    getActiveEventMultipliers(supabase, ["cooldown_reduction", "task_reward_multiplier"]),
+    getActiveEventMultipliers(supabase, ["task_reward_multiplier"]),
   ]);
 
   if (profileResult.error || !profileResult.data) {
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
   const profile = profileResult.data as ProfileRow;
   const existingTask = (taskResult.data as UserTaskActionRow | null) ?? null;
   const metadata = existingTask?.metadata ?? {};
-  const cooldownMs = getEventCooldownMs(DAY_MS, multipliers.cooldown_reduction);
+  const cooldownMs = DAY_MS;
   const cooldownUntil = getCooldownUntil(existingTask?.claimed_at, cooldownMs);
 
   if (cooldownUntil) {

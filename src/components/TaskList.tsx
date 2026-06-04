@@ -1084,11 +1084,21 @@ function LoyaltyJackpotTaskCard({
   const [amount, setAmount] = useState(String(JACKPOT_MIN_CONTRIBUTION));
   const parsedAmount = Number(amount);
   const cleanAmount = Number.isInteger(parsedAmount) ? parsedAmount : 0;
+  const jackpotWinners = jackpot?.currentWinners?.length
+    ? jackpot.currentWinners
+    : jackpot?.currentWinner
+      ? [jackpot.currentWinner]
+      : [];
+  const previousJackpotWinners = jackpot?.previousWinners?.length
+    ? jackpot.previousWinners
+    : jackpot?.previousWinner
+      ? [jackpot.previousWinner]
+      : [];
   const phaseLabel =
     jackpot?.phase === "contribution"
       ? "Contribution Open"
       : jackpot?.phase === "winner"
-        ? "Drawing Winner"
+        ? "Drawing Winners"
         : "Next Cycle Preparing";
   const phaseEndsAt = jackpot ? new Date(jackpot.phaseEndsAt).getTime() : 0;
   const remainingMs = Math.max(0, phaseEndsAt - now);
@@ -1113,7 +1123,7 @@ function LoyaltyJackpotTaskCard({
           </h3>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             3+ day loyalty streak users enter the draw automatically. Extra payment is
-            not required to participate; contributions only increase the winner coin
+            not required to participate; contributions only increase the winners coin
             prize and do not count as tribute.
           </p>
         </div>
@@ -1133,30 +1143,49 @@ function LoyaltyJackpotTaskCard({
         </div>
       )}
 
-      {jackpot?.currentWinner && (
-        <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
-          Winner:{" "}
-          <StyledUsername
-            currentUsername={currentUsername}
-            username={jackpot.currentWinner.username}
-            usernameStyle={usernameStyle}
-          />{" "}
-          claimed{" "}
-          <CoinAmount amount={jackpot.currentWinner.amount} iconSize={16} label="coins" />.
-        </p>
+      {jackpotWinners.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-50/80">
+            Jackpot Winners
+          </p>
+          <div className="mt-3 grid gap-2">
+            {jackpotWinners.map((winner, index) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100/15 bg-black/25 px-3 py-2"
+                key={`${winner.username}-${winner.selectedAt}-${index}`}
+              >
+                <span className="min-w-0 truncate">
+                  {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
+                  <StyledUsername
+                    currentUsername={currentUsername}
+                    username={winner.username}
+                    usernameStyle={usernameStyle}
+                  />
+                </span>
+                <CoinAmount amount={winner.amount} className="shrink-0" iconSize={16} label="coins" />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
-      {jackpot?.previousWinner && !jackpot.currentWinner && (
-        <p className="mt-4 text-sm text-zinc-400">
-          Previous winner:{" "}
-          <StyledUsername
-            currentUsername={currentUsername}
-            username={jackpot.previousWinner.username}
-            usernameStyle={usernameStyle}
-          />{" "}
-          won{" "}
-          <CoinAmount amount={jackpot.previousWinner.amount} iconSize={16} label="coins" />.
-        </p>
+      {previousJackpotWinners.length > 0 && jackpotWinners.length === 0 && (
+        <div className="mt-4 text-sm text-zinc-400">
+          <p className="font-bold text-zinc-300">Previous Jackpot Winners:</p>
+          <div className="mt-2 grid gap-1.5">
+            {previousJackpotWinners.map((winner, index) => (
+              <p key={`${winner.username}-${winner.selectedAt}-${index}`}>
+                {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
+                <StyledUsername
+                  currentUsername={currentUsername}
+                  username={winner.username}
+                  usernameStyle={usernameStyle}
+                />{" "}
+                won <CoinAmount amount={winner.amount} iconSize={16} label="coins" />.
+              </p>
+            ))}
+          </div>
+        </div>
       )}
 
       {jackpot?.userProtected && (
@@ -1250,6 +1279,22 @@ function JackpotStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getOrdinalSuffix(place: number) {
+  if (place === 1) {
+    return "st";
+  }
+
+  if (place === 2) {
+    return "nd";
+  }
+
+  if (place === 3) {
+    return "rd";
+  }
+
+  return "th";
+}
+
 function formatJackpotRemaining(milliseconds: number) {
   const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60000));
   const days = Math.floor(totalMinutes / 1440);
@@ -1311,6 +1356,67 @@ function WaitObedientlyPanel({
     onFailRef.current = onFail;
   }, [onComplete, onFail]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const syncPhase = (nextPhase: typeof phase, finished: boolean, remaining?: number) => {
+      queueMicrotask(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setPhase(nextPhase);
+        finishedRef.current = finished;
+
+        if (typeof remaining === "number") {
+          setWaitRemaining(remaining);
+        }
+      });
+    };
+
+    if (task.waitState === "countdown") {
+      syncPhase("countdown", false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (task.waitState === "waiting") {
+      syncPhase("waiting", false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (task.waitState === "completed") {
+      syncPhase("completed", true, 0);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (task.waitState === "failed") {
+      syncPhase("failed", true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (task.waitState === "cooldown") {
+      syncPhase("ready", true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (task.waitState === "ready") {
+      syncPhase("ready", false);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [task.waitState]);
+
   const startChallenge = () => {
     if (isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting") {
       return;
@@ -1328,27 +1434,31 @@ function WaitObedientlyPanel({
       return;
     }
 
-    const countdownEndsAt = Date.now() + 3 * 1000;
+    const countdownEndsAt = task.waitCountdownEndsAt
+      ? new Date(task.waitCountdownEndsAt).getTime()
+      : Date.now() + 3 * 1000;
     const interval = window.setInterval(() => {
       setCountdown(Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000)));
     }, 200);
     const timer = window.setTimeout(() => {
       setWaitRemaining(60);
       setPhase("waiting");
-    }, 3 * 1000);
+    }, Math.max(0, countdownEndsAt - Date.now()));
 
     return () => {
       window.clearInterval(interval);
       window.clearTimeout(timer);
     };
-  }, [phase]);
+  }, [phase, task.waitCountdownEndsAt]);
 
   useEffect(() => {
     if (phase !== "waiting") {
       return;
     }
 
-    const waitEndsAt = Date.now() + 60 * 1000;
+    const waitEndsAt = task.waitEndsAt
+      ? new Date(task.waitEndsAt).getTime()
+      : Date.now() + 60 * 1000;
     const fail = () => {
       if (finishedRef.current) {
         return;
@@ -1375,7 +1485,6 @@ function WaitObedientlyPanel({
       "click",
       "keydown",
       "mousedown",
-      "mousemove",
       "scroll",
       "touchstart",
       "wheel",
@@ -1392,7 +1501,7 @@ function WaitObedientlyPanel({
         window.removeEventListener(eventName, fail);
       });
     };
-  }, [phase]);
+  }, [phase, task.waitEndsAt]);
 
   const displayPhase = isCoolingDown && phase === "ready" ? "cooldown" : phase;
 

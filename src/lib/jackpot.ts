@@ -16,6 +16,7 @@ export type LoyaltyJackpotWinner = {
   username: string;
   amount: number;
   selectedAt: string;
+  place?: 1 | 2 | 3;
 };
 
 export type LoyaltyJackpotState = {
@@ -34,7 +35,9 @@ export type LoyaltyJackpotState = {
   userEligible: boolean;
   userProtected: boolean;
   recentContributors: LoyaltyJackpotContributor[];
+  currentWinners: LoyaltyJackpotWinner[];
   currentWinner: LoyaltyJackpotWinner | null;
+  previousWinners: LoyaltyJackpotWinner[];
   previousWinner: LoyaltyJackpotWinner | null;
 };
 

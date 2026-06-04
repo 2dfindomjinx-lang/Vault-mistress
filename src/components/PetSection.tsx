@@ -252,6 +252,11 @@ export function PetSection({
   );
   const evilWaitTask = tasks.find((task) => task.kind === "evil-wait");
   const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
+  const showFalseHopeWarning =
+    falseHopeShaking &&
+    falseHopeTask?.status !== "approved" &&
+    falseHopeTask?.waitState !== "completed" &&
+    !falseHopeTask?.cooldownUntil;
 
   useEffect(() => {
     onPetEvilWaitCompleteRef.current = onPetEvilWaitComplete;
@@ -435,7 +440,6 @@ export function PetSection({
       "click",
       "keydown",
       "mousedown",
-      "mousemove",
       "scroll",
       "touchstart",
       "wheel",
@@ -1122,7 +1126,7 @@ export function PetSection({
                         <span>{task.falseHopeProgress ?? 0}%</span>
                         <span>Next: {(task.falseHopeExpectedKey ?? "a").toUpperCase()}</span>
                       </div>
-                      {falseHopeShaking && (
+                      {showFalseHopeWarning && (
                         <p className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-2 text-sm font-black text-pink-50">
                           So close. Did you really think it would be that easy?
                         </p>
@@ -1256,15 +1260,10 @@ export function PetSection({
                     {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
                   </p>
                   <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-                    <label className="flex items-center justify-between gap-3">
-                      <span>Auto payment</span>
-                      <input
-                        checked={isDebtAutoPayEnabled}
-                        className="h-4 w-4 accent-red-500"
-                        onChange={(event) => onDebtAutoPayChange(event.target.checked)}
-                        type="checkbox"
-                      />
-                    </label>
+                    <AutoPaymentSwitch
+                      enabled={isDebtAutoPayEnabled}
+                      onChange={onDebtAutoPayChange}
+                    />
                     <p className="mt-2 text-yellow-50/75">
                       When enabled, each installment is paid automatically as soon as it becomes
                       available.
@@ -1344,15 +1343,12 @@ export function PetSection({
                     after the payment window is missed, and coin balance may go below zero. Debt
                     contracts can only be removed by admin.
                   </p>
-                  <label className="flex items-center justify-between gap-3 rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-                    <span>Auto payment</span>
-                    <input
-                      checked={isDebtAutoPayEnabled}
-                      className="h-4 w-4 accent-red-500"
-                      onChange={(event) => onDebtAutoPayChange(event.target.checked)}
-                      type="checkbox"
+                  <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
+                    <AutoPaymentSwitch
+                      enabled={isDebtAutoPayEnabled}
+                      onChange={onDebtAutoPayChange}
                     />
-                  </label>
+                  </div>
                   <button
                     className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
                     onClick={handleDebtSign}
@@ -1391,5 +1387,42 @@ export function PetSection({
         </div>
       </div>
     </section>
+  );
+}
+
+function AutoPaymentSwitch({
+  enabled,
+  onChange,
+}: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <button
+      aria-pressed={enabled}
+      className="flex w-full items-center justify-between gap-3 text-left"
+      onClick={() => onChange(!enabled)}
+      type="button"
+    >
+      <span>Auto payment</span>
+      <span
+        className={`relative h-7 w-14 rounded-full border transition ${
+          enabled
+            ? "border-emerald-200/40 bg-emerald-400/25"
+            : "border-red-200/25 bg-black/55"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-5 w-5 rounded-full transition ${
+            enabled
+              ? "left-7 bg-emerald-100 shadow-[0_0_14px_rgba(110,231,183,0.55)]"
+              : "left-1 bg-red-100/80"
+          }`}
+        />
+      </span>
+      <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
+        {enabled ? "ON" : "OFF"}
+      </span>
+    </button>
   );
 }

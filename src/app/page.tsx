@@ -39,7 +39,7 @@ import {
 } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
-import { emitSoundEvent } from "@/lib/sound";
+import { emitSoundEvent, getSoundSettings, updateSoundSettings, type SoundSettings } from "@/lib/sound";
 import {
   profileAvatarFromUser,
   profileUsernameFromUser,
@@ -813,6 +813,39 @@ function getPetTaskCooldownUntil(value: string | null) {
   return getCooldownUntil(value, DAY_MS);
 }
 
+function getWaitTaskState(
+  status: string | null,
+  countdownEndsAt: string | null,
+  waitEndsAt: string | null,
+  cooldownUntil: string | null,
+): TaskItem["waitState"] {
+  const now = Date.now();
+  const countdownMs = countdownEndsAt ? new Date(countdownEndsAt).getTime() : 0;
+  const waitMs = waitEndsAt ? new Date(waitEndsAt).getTime() : 0;
+
+  if (status === "countdown" && countdownMs > now) {
+    return "countdown";
+  }
+
+  if ((status === "countdown" || status === "waiting") && waitMs > now) {
+    return "waiting";
+  }
+
+  if (cooldownUntil) {
+    return "cooldown";
+  }
+
+  if (status === "completed") {
+    return "completed";
+  }
+
+  if (status === "failed") {
+    return "failed";
+  }
+
+  return "ready";
+}
+
 function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
   return petTasks.map((task) => {
     const row = rows.find((entry) => entry.task_id === task.id);
@@ -881,26 +914,19 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
 
     if (task.kind === "evil-wait") {
       const status = getTaskMetadataString(row?.metadata, "status");
-      const waitState: PetTaskItem["waitState"] = getPetTaskCooldownUntil(row?.completed_at ?? null)
-        ? "cooldown"
-        : status === "completed"
-          ? "completed"
-          : status === "failed"
-            ? "failed"
-            : status === "waiting"
-              ? "waiting"
-              : status === "countdown"
-                ? "countdown"
-                : "ready";
+      const cooldownUntil = getPetTaskCooldownUntil(row?.completed_at ?? null);
+      const waitCountdownEndsAt = getTaskMetadataString(row?.metadata, "countdownEndsAt");
+      const waitEndsAt = getTaskMetadataString(row?.metadata, "waitEndsAt");
+      const waitState = getWaitTaskState(status, waitCountdownEndsAt, waitEndsAt, cooldownUntil);
 
       return {
         ...task,
         completedAt,
-        cooldownUntil: getPetTaskCooldownUntil(row?.completed_at ?? null),
+        cooldownUntil,
         reviewedAt: row?.reviewed_at ?? null,
         status: baseStatus,
-        waitCountdownEndsAt: getTaskMetadataString(row?.metadata, "countdownEndsAt"),
-        waitEndsAt: getTaskMetadataString(row?.metadata, "waitEndsAt"),
+        waitCountdownEndsAt,
+        waitEndsAt,
         waitState,
       };
     }
@@ -1385,34 +1411,35 @@ function buildTasksFromRows(
 
     if (task.id === "wait-obediently") {
       const status = getTaskMetadataString(row?.metadata, "status");
-      const waitState: TaskItem["waitState"] = cooldownUntil
-        ? "cooldown"
-        : status === "completed"
-          ? "completed"
-          : status === "failed"
-            ? "failed"
-            : "ready";
+      const waitCountdownEndsAt = getTaskMetadataString(row?.metadata, "countdownEndsAt");
+      const waitEndsAt = getTaskMetadataString(row?.metadata, "waitEndsAt");
+      const waitState = getWaitTaskState(status, waitCountdownEndsAt, waitEndsAt, cooldownUntil);
 
       return {
         ...task,
         claimed: Boolean(cooldownUntil),
         completed: status === "completed",
         cooldownUntil,
-        waitCountdownEndsAt: getTaskMetadataString(row?.metadata, "countdownEndsAt"),
-        waitEndsAt: getTaskMetadataString(row?.metadata, "waitEndsAt"),
+        waitCountdownEndsAt,
+        waitEndsAt,
         waitState,
       };
     }
 
     if (task.id === "timeout-risk") {
       const resetAt = getTaskMetadataString(row?.metadata, "resetAt");
-      const safeWins = resetAt && new Date(resetAt).getTime() > Date.now()
+      const resetMs = resetAt ? new Date(resetAt).getTime() : 0;
+      const dailyWindowActive = resetMs > Date.now();
+      const safeWins = dailyWindowActive
         ? getTaskMetadataNumber(row?.metadata, "safeWins", 0)
         : 0;
+      const dailyLimitReached = safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT;
 
       return {
         ...task,
-        completed: safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+        claimed: dailyLimitReached,
+        completed: dailyLimitReached,
+        cooldownUntil: dailyLimitReached && resetAt ? resetAt : null,
         lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
         timeoutUntil,
       };
@@ -1564,6 +1591,11 @@ export default function Home() {
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
+  const [soundSettings, setSoundSettings] = useState<SoundSettings>({
+    gameplayEnabled: true,
+    masterVolume: 0.7,
+    uiEnabled: true,
+  });
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -1588,6 +1620,7 @@ export default function Home() {
   const pendingTaskActionsRef = useRef(new Set<string>());
   const pendingPetActionsRef = useRef(new Set<string>());
   const isPreviewRestricted = isPreviewMode;
+  const soundsMuted = !soundSettings.uiEnabled && !soundSettings.gameplayEnabled;
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
@@ -1607,6 +1640,22 @@ export default function Home() {
       setMistressReply(getSpeechBubbleMessageForText(avatarId, message));
     },
     [equippedSpeechAvatar?.id],
+  );
+  const applySoundSettings = useCallback(
+    (settings: Partial<SoundSettings>) => {
+      const nextSettings = {
+        ...soundSettings,
+        ...settings,
+        masterVolume: Math.min(
+          1,
+          Math.max(0, settings.masterVolume ?? soundSettings.masterVolume),
+        ),
+      };
+
+      updateSoundSettings(nextSettings);
+      setSoundSettings(nextSettings);
+    },
+    [soundSettings],
   );
   const galleryItems =
     affection >= 100
@@ -1777,6 +1826,12 @@ export default function Home() {
   useEffect(() => {
     coinsRef.current = coins;
   }, [coins]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setSoundSettings(getSoundSettings());
+    });
+  }, []);
 
   useEffect(() => {
     previewModeRef.current = isPreviewMode;
@@ -3912,7 +3967,8 @@ export default function Home() {
     const wrongSelections = isCorrect
       ? previousWrongSelections
       : Array.from(new Set([...previousWrongSelections, selectedNumber]));
-    const cooldownUntil = new Date(new Date().getTime() + getEventCooldownMs(24 * 60 * 60 * 1000)).toISOString();
+    const actionStartedAt = new Date();
+    const cooldownUntil = new Date(actionStartedAt.getTime() + DAY_MS).toISOString();
 
     if (reward > 0) {
       const nextCoins = coinsRef.current + reward;
@@ -6617,6 +6673,49 @@ export default function Home() {
           tributes={recentTributes}
           usernameStyle={usernameStyle}
         />
+
+        <section className="rounded-[1.25rem] border border-white/10 bg-black/35 px-4 py-3 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-fuchsia-200/70">
+              Sound
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                aria-pressed={soundsMuted}
+                className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${
+                  soundsMuted
+                    ? "border-red-200/30 bg-red-500/15 text-red-50 hover:border-red-200/55"
+                    : "border-emerald-200/30 bg-emerald-400/10 text-emerald-50 hover:border-emerald-200/55"
+                }`}
+                onClick={() =>
+                  applySoundSettings({
+                    gameplayEnabled: soundsMuted,
+                    uiEnabled: soundsMuted,
+                  })
+                }
+                type="button"
+              >
+                {soundsMuted ? "Unmute" : "Mute"}
+              </button>
+              <label className="flex min-w-0 items-center gap-3 text-xs font-bold text-zinc-300">
+                <span className="shrink-0">Volume</span>
+                <input
+                  className="w-44 accent-pink-400 sm:w-56"
+                  max={100}
+                  min={0}
+                  onChange={(event) =>
+                    applySoundSettings({ masterVolume: Number(event.target.value) / 100 })
+                  }
+                  type="range"
+                  value={Math.round(soundSettings.masterVolume * 100)}
+                />
+                <span className="w-10 text-right text-pink-100">
+                  {Math.round(soundSettings.masterVolume * 100)}%
+                </span>
+              </label>
+            </div>
+          </div>
+        </section>
 
         {activeEvent && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">

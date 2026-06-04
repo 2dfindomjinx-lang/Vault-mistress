@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type CharacterEvolutionStage = {
   id: string;
@@ -17,9 +17,24 @@ type CharacterCardProps = {
 
 export function CharacterCard({ dailyMessage, evolutionStage }: CharacterCardProps) {
   const [failedStageIds, setFailedStageIds] = useState<string[]>([]);
+  const [showStageReveal, setShowStageReveal] = useState(false);
+  const previousStageRef = useRef(evolutionStage);
   const imageSrc = failedStageIds.includes(evolutionStage.id)
     ? "/character.png"
     : evolutionStage.image;
+
+  useEffect(() => {
+    const previousStage = previousStageRef.current;
+
+    if (evolutionStage.id !== previousStage.id && evolutionStage.min > previousStage.min) {
+      setShowStageReveal(true);
+      const timer = window.setTimeout(() => setShowStageReveal(false), 1800);
+      previousStageRef.current = evolutionStage;
+      return () => window.clearTimeout(timer);
+    }
+
+    previousStageRef.current = evolutionStage;
+  }, [evolutionStage]);
 
   return (
     <section
@@ -46,15 +61,17 @@ export function CharacterCard({ dailyMessage, evolutionStage }: CharacterCardPro
           <div className="absolute right-4 top-4 rounded-full border border-pink-200/25 bg-black/55 px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-pink-50 backdrop-blur">
             {evolutionStage.label}
           </div>
-          <div
-            className="pointer-events-none absolute inset-0 opacity-0 [animation:character-stage-reveal_1800ms_ease-out_forwards]"
-            key={evolutionStage.id}
-          >
-            <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,rgba(250,204,21,0.18),rgba(236,72,153,0.1),transparent_62%)]" />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-100/35 bg-black/45 px-5 py-2 text-sm font-black uppercase tracking-[0.26em] text-yellow-50 shadow-[0_0_34px_rgba(250,204,21,0.32)] backdrop-blur">
-              Stage Up
+          {showStageReveal && (
+            <div
+              className="pointer-events-none absolute inset-0 opacity-0 [animation:character-stage-reveal_1800ms_ease-out_forwards]"
+              key={evolutionStage.id}
+            >
+              <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_center,rgba(250,204,21,0.18),rgba(236,72,153,0.1),transparent_62%)]" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-yellow-100/35 bg-black/45 px-5 py-2 text-sm font-black uppercase tracking-[0.26em] text-yellow-50 shadow-[0_0_34px_rgba(250,204,21,0.32)] backdrop-blur">
+                Stage Up
+              </div>
             </div>
-          </div>
+          )}
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <p className="text-sm uppercase tracking-[0.32em] text-pink-200">
               Your Greedy Mistress
