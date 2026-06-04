@@ -585,6 +585,13 @@ export function TaskList({
 
               {task.kind === "high-low" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                  {(() => {
+                    const highLowWinningAllowance =
+                      task.highLowWinningAllowance ?? Math.max(0, 2500 - Math.max(0, task.highLowWinningExposure ?? task.highLowDailyProfit ?? 0));
+                    const highLowStakeMax = Math.max(0, Math.min(coins, highLowWinningAllowance));
+
+                    return (
+                      <>
                   <p className="text-sm text-zinc-400">Current number</p>
                   <p className="mt-1 text-4xl font-black text-white">
                     {task.currentNumber}
@@ -651,7 +658,7 @@ export function TaskList({
                       {task.lastResult}
                     </p>
                   )}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-4">
                     <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                         Daily Net Profit
@@ -679,6 +686,14 @@ export function TaskList({
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                        Bet Allowance
+                      </p>
+                      <p className="mt-1 text-lg font-black text-pink-50">
+                        {highLowWinningAllowance.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                         Lock
                       </p>
                       <p
@@ -698,7 +713,12 @@ export function TaskList({
                   )}
                   {!task.highLowDailyLocked && (
                     <p className="mt-3 text-xs font-semibold text-zinc-500">
-                      Locks at {highLowProfitCap.toLocaleString()} daily net profit.
+                      Locks at {highLowProfitCap.toLocaleString()} daily net profit. Winning stake allowance starts at 2,500 and recovers when previous High/Lower profit is lost back.
+                    </p>
+                  )}
+                  {!task.highLowDailyLocked && highLowWinningAllowance <= 0 && (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                      Higher or Lower winning allowance is depleted.
                     </p>
                   )}
                   <label className="mt-3 block">
@@ -707,9 +727,9 @@ export function TaskList({
                     </span>
                     <input
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || isCoolingDown || task.highLowDailyLocked || isTaskActionPending("high-low")}
+                    disabled={disabled || isCoolingDown || task.highLowDailyLocked || highLowWinningAllowance <= 0 || isTaskActionPending("high-low")}
                       min={1}
-                      max={coins}
+                      max={highLowStakeMax}
                       onChange={(event) => setStake(Number(event.target.value))}
                       type="number"
                       value={stake}
@@ -725,7 +745,8 @@ export function TaskList({
                           isTaskActionPending("high-low") ||
                           task.highLowDailyLocked ||
                           stake <= 0 ||
-                          stake > coins
+                          stake > coins ||
+                          stake > highLowWinningAllowance
                         }
                         key={guess}
                         onClick={() => onHighLowPlay(guess, stake)}
@@ -735,6 +756,9 @@ export function TaskList({
                       </button>
                     ))}
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 

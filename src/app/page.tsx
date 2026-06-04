@@ -289,6 +289,7 @@ const SACRIFICE_UNLOCK_CHANCE = 0.5;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_PROFIT_LOCK = 5000;
+const HIGH_LOW_WINNING_ALLOWANCE = 2500;
 const STREAK_BONUSES = [
   { id: "streak-bonus-1", milestone: 1, reward: 75, title: "1 day streak bonus" },
   { id: "streak-bonus-3", milestone: 3, reward: 225, title: "3 day streak bonus" },
@@ -1250,6 +1251,10 @@ function isHighLowLocked(dailyProfit: number) {
   return dailyProfit >= HIGH_LOW_PROFIT_LOCK;
 }
 
+function getHighLowWinningAllowance(winningExposure: number) {
+  return Math.max(0, HIGH_LOW_WINNING_ALLOWANCE - Math.max(0, winningExposure));
+}
+
 function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
   if (!lastLoyaltyAt || streak <= 0) {
     return null;
@@ -1388,6 +1393,14 @@ function buildTasksFromRows(
         dailyDate === today
           ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0)
           : 0;
+      const winningExposure =
+        dailyDate === today
+          ? getTaskMetadataNumber(
+              row?.metadata,
+              "higherLowerDailyWinningExposure",
+              Math.min(HIGH_LOW_WINNING_ALLOWANCE, Math.max(0, dailyProfit)),
+            )
+          : 0;
 
       return {
         ...task,
@@ -1399,6 +1412,8 @@ function buildTasksFromRows(
         highLowDailyLocked: isHighLowLocked(dailyProfit),
         highLowDailyProfit: dailyProfit,
         highLowDailyWins: dailyWins,
+        highLowWinningAllowance: getHighLowWinningAllowance(winningExposure),
+        highLowWinningExposure: winningExposure,
       };
     }
 
@@ -3865,9 +3880,18 @@ export default function Home() {
     }
 
     const currentCoins = coinsRef.current;
+    const highLowWinningAllowance =
+      task.highLowWinningAllowance ?? getHighLowWinningAllowance(task.highLowWinningExposure ?? 0);
 
     if (currentCoins < stake) {
       setAvatarMistressReply("Too few coins for that little gamble.");
+      return;
+    }
+
+    if (stake > highLowWinningAllowance) {
+      setAvatarMistressReply(
+        `Higher or Lower winning allowance left: ${highLowWinningAllowance.toLocaleString()} coins. Lower the stake.`,
+      );
       return;
     }
 
@@ -3895,6 +3919,15 @@ export default function Home() {
         const now = new Date().toISOString();
         const today = getDailyKey();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
+        const nextWinningExposure = Math.max(
+          0,
+          Math.min(
+            HIGH_LOW_WINNING_ALLOWANCE,
+            (task.highLowWinningExposure ?? 0) +
+              (outcome === "win" ? stake : outcome === "loss" ? -stake : 0),
+          ),
+        );
+        const nextWinningAllowance = getHighLowWinningAllowance(nextWinningExposure);
 
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
@@ -3911,6 +3944,8 @@ export default function Home() {
                   highLowDailyLocked: isHighLowLocked((task.highLowDailyProfit ?? 0) + coinDelta),
                   highLowDailyProfit: (task.highLowDailyProfit ?? 0) + coinDelta,
                   highLowDailyWins: (task.highLowDailyWins ?? 0) + (outcome === "win" ? 1 : 0),
+                  highLowWinningAllowance: nextWinningAllowance,
+                  highLowWinningExposure: nextWinningExposure,
                   lastResult:
                     outcome === "tie"
                       ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`

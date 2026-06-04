@@ -4,9 +4,11 @@ import {
   getCooldownUntil,
   getDailyKey,
   getEventCooldownMs,
+  getHighLowWinningAllowance,
   getMetadataNumber,
   getMetadataString,
   HIGH_LOW_PROFIT_LOCK,
+  HIGH_LOW_WINNING_ALLOWANCE,
   isHighLowLocked,
   randomHighLowNumber,
   type UserTaskActionRow,
@@ -113,9 +115,25 @@ export async function POST(request: Request) {
       : 0;
   const currentDailyWins =
     dailyDate === today ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
+  const currentWinningExposure =
+    dailyDate === today
+      ? getMetadataNumber(
+          metadata,
+          "higherLowerDailyWinningExposure",
+          Math.min(HIGH_LOW_WINNING_ALLOWANCE, Math.max(0, currentDailyProfit)),
+        )
+      : 0;
+  const currentWinningAllowance = getHighLowWinningAllowance(currentWinningExposure);
 
   if (isHighLowLocked(currentDailyProfit)) {
     return jsonError(`Higher or Lower ${HIGH_LOW_PROFIT_LOCK.toLocaleString()} net profit limit reached for today.`, 422);
+  }
+
+  if (stake > currentWinningAllowance) {
+    return jsonError(
+      `Higher or Lower winning allowance is ${currentWinningAllowance.toLocaleString()} coins. Lower your stake.`,
+      422,
+    );
   }
 
   const resultNumber = randomHighLowNumber();
@@ -132,6 +150,14 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const nextDailyProfit = currentDailyProfit + coinDelta;
   const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
+  const nextWinningExposure = Math.max(
+    0,
+    Math.min(
+      HIGH_LOW_WINNING_ALLOWANCE,
+      currentWinningExposure + (outcome === "win" ? stake : outcome === "loss" ? -stake : 0),
+    ),
+  );
+  const nextWinningAllowance = getHighLowWinningAllowance(nextWinningExposure);
   const nextDailyLocked = isHighLowLocked(nextDailyProfit);
   const nextBaseRevealAt = new Date(Date.now() + getEventCooldownMs(10 * 1000, multipliers.cooldown_reduction)).toISOString();
   const lastResult =
@@ -189,6 +215,8 @@ export async function POST(request: Request) {
     higherLowerDailyDate: today,
     higherLowerDailyProfit: nextDailyProfit,
     higherLowerDailyWins: nextDailyWins,
+    higherLowerDailyWinningExposure: nextWinningExposure,
+    higherLowerWinningAllowance: nextWinningAllowance,
     outcome,
     resultNumber,
     stake,
@@ -229,6 +257,8 @@ export async function POST(request: Request) {
         resultNumber,
         stake,
         outcome,
+        higherLowerDailyWinningExposure: nextWinningExposure,
+        higherLowerWinningAllowance: nextWinningAllowance,
       },
       reason: outcome === "win" ? "game:higher-lower:win" : "game:higher-lower:loss",
       user_id: authData.user.id,
@@ -251,6 +281,8 @@ export async function POST(request: Request) {
       highLowDailyLocked: nextDailyLocked,
       highLowDailyProfit: nextDailyProfit,
       highLowDailyWins: nextDailyWins,
+      highLowWinningAllowance: nextWinningAllowance,
+      highLowWinningExposure: nextWinningExposure,
       lastResult,
       nextBaseRevealAt,
       resultBaseNumber: currentNumber,
