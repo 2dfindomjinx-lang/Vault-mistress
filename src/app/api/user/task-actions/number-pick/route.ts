@@ -77,9 +77,12 @@ export async function POST(request: Request) {
 
   const profile = profileResult.data as ProfileRow;
   const existingTask = (taskResult.data as UserTaskActionRow | null) ?? null;
-  const metadata = existingTask?.metadata ?? {};
   const cooldownMs = DAY_MS;
   const cooldownUntil = getCooldownUntil(existingTask?.claimed_at, cooldownMs);
+  const metadata =
+    existingTask?.claimed_at && !cooldownUntil
+      ? {}
+      : existingTask?.metadata ?? {};
 
   if (cooldownUntil) {
     return jsonError("Number Pick is still on cooldown.", 429);

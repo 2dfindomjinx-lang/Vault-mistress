@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CosmeticShop } from "@/components/CosmeticShop";
@@ -39,7 +39,13 @@ import {
 } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
-import { emitSoundEvent, getSoundSettings, updateSoundSettings, type SoundSettings } from "@/lib/sound";
+import {
+  emitSoundEvent,
+  getSoundSettings,
+  unlockSoundPlayback,
+  updateSoundSettings,
+  type SoundSettings,
+} from "@/lib/sound";
 import {
   profileAvatarFromUser,
   profileUsernameFromUser,
@@ -777,6 +783,20 @@ function describeError(error: unknown) {
   }
 
   return String(error);
+}
+
+function createApiError(endpoint: string, response: Response, payload: { error?: string }) {
+  const message = payload.error ?? `${endpoint} failed with HTTP ${response.status}`;
+  const error = new Error(message) as Error & {
+    endpoint?: string;
+    payload?: unknown;
+    status?: number;
+  };
+
+  error.endpoint = endpoint;
+  error.payload = payload;
+  error.status = response.status;
+  return error;
 }
 
 function isWithinLast24Hours(value: string | null) {
@@ -1547,6 +1567,8 @@ export default function Home() {
   const [authBootstrapped, setAuthBootstrapped] = useState(false);
   const authBootstrappedRef = useRef(false);
   const [isProfileVerified, setIsProfileVerified] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [hasHydratedInitialProfile, setHasHydratedInitialProfile] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
@@ -1596,6 +1618,7 @@ export default function Home() {
     masterVolume: 0.7,
     uiEnabled: true,
   });
+  const [affectionStageRevealToken, setAffectionStageRevealToken] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -1621,6 +1644,9 @@ export default function Home() {
   const pendingPetActionsRef = useRef(new Set<string>());
   const isPreviewRestricted = isPreviewMode;
   const soundsMuted = !soundSettings.uiEnabled && !soundSettings.gameplayEnabled;
+  const isVaultReady =
+    isPreviewMode ||
+    (isLoggedIn && hasHydratedInitialProfile && isProfileVerified && !isProfileLoading);
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
@@ -1657,6 +1683,15 @@ export default function Home() {
     },
     [soundSettings],
   );
+  const handleGlobalPointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement) || !target.closest("button")) {
+      return;
+    }
+
+    unlockSoundPlayback();
+  }, []);
   const galleryItems =
     affection >= 100
       ? [
@@ -2990,7 +3025,7 @@ export default function Home() {
     });
     const result = (await response.json()) as { error?: string; profile?: Profile };
     const data = result.profile ?? null;
-    const error = response.ok ? null : new Error(result.error ?? "Profile update failed.");
+    const error = response.ok ? null : createApiError("/api/user/profile-progress", response, result);
 
     console.info("Persist profile progress result", {
       reason,
@@ -3095,7 +3130,7 @@ export default function Home() {
     });
     const result = (await response.json()) as { error?: string; profile?: Profile };
     const data = result.profile ?? null;
-    const error = response.ok ? null : new Error(result.error ?? "Pet profile update failed.");
+    const error = response.ok ? null : createApiError("/api/user/pet-profile-patch", response, result);
 
     if (error) {
       console.error("Failed to persist Pet profile patch", { reason, error });
@@ -3146,7 +3181,7 @@ export default function Home() {
     const payload = (await response.json()) as { error?: string; task?: UserPetTaskRow };
 
     if (!response.ok || !payload.task) {
-      throw new Error(payload.error ?? "Pet task update failed.");
+      throw createApiError("/api/user/pet-tasks", response, payload);
     }
 
     return payload.task;
@@ -3161,7 +3196,7 @@ export default function Home() {
     const payload = (await response.json()) as { error?: string; itemIds?: string[] };
 
     if (!response.ok) {
-      throw new Error(payload.error ?? "Pet gallery unlock failed.");
+      throw createApiError("/api/user/pet-gallery-unlocks", response, payload);
     }
 
     return payload.itemIds ?? itemIds;
@@ -3188,7 +3223,7 @@ export default function Home() {
     };
 
     if (!response.ok) {
-      throw new Error(result.error ?? "Debt contract update failed.");
+      throw createApiError("/api/user/debt-contracts", response, result);
     }
 
     if (result.profile) {
@@ -3231,7 +3266,7 @@ export default function Home() {
 
     if (!response.ok || !result.profile) {
       console.error("Failed to persist timeout", result.error);
-      throw new Error(result.error ?? "Timeout update failed.");
+      throw createApiError("/api/user/timeout", response, result);
     }
 
     applyProfileStats(result.profile);
@@ -3256,7 +3291,7 @@ export default function Home() {
     };
 
     if (!response.ok || !payload.task) {
-      throw new Error(payload.error ?? "Task update failed.");
+      throw createApiError("/api/user/tasks", response, payload);
     }
 
     return payload.task;
@@ -3410,6 +3445,9 @@ export default function Home() {
       }
 
       authProfileLoadInFlightRef.current = user.id;
+      setIsProfileLoading(true);
+      setHasHydratedInitialProfile(false);
+      setIsProfileVerified(false);
 
       try {
         console.info("[auth-init] profile fetch started", { source, userId: user.id });
@@ -3423,6 +3461,7 @@ export default function Home() {
         const profile = await withTimeout(profileLoader(user), `profile fetch ${source}`);
         await withTimeout(loyaltyUpdater(profile), `loyalty update ${source}`);
         authProfileLoadedRef.current = user.id;
+        setHasHydratedInitialProfile(true);
         setIsProfileVerified(true);
         console.info("[auth-init] profile fetch result", { source, profile });
         return profile;
@@ -3430,6 +3469,7 @@ export default function Home() {
         if (authProfileLoadInFlightRef.current === user.id) {
           authProfileLoadInFlightRef.current = null;
         }
+        setIsProfileLoading(false);
       }
     };
 
@@ -3448,22 +3488,10 @@ export default function Home() {
       authProfileLoadInFlightRef.current = null;
       authProfileLoadedRef.current = null;
       setIsProfileVerified(false);
+      setIsProfileLoading(false);
+      setHasHydratedInitialProfile(false);
       setIsLoggedIn(false);
       setAuthUserId(null);
-    };
-
-    const showOptimisticDashboard = (user: User, source: string) => {
-      console.info("[auth-init] optimistic session accepted", { source, userId: user.id });
-      setAuthError("");
-      setIsGuestMode(false);
-      setIsPreviewMode(false);
-      previewModeRef.current = false;
-      setIsProfileVerified(false);
-      setIsAdminUser(false);
-      setAuthUserId(user.id);
-      setUsername(profileUsernameFromUser(user));
-      setIsLoggedIn(true);
-      finishAuthLoad();
     };
 
     const verifyAuthenticatedUser = async (user: User, source: string) => {
@@ -3472,10 +3500,15 @@ export default function Home() {
           return;
         }
 
+        setAuthError("");
+        setIsGuestMode(false);
+        setIsPreviewMode(false);
+        previewModeRef.current = false;
         const profile = await loadAuthenticatedUser(user, source);
         if (profile) {
           authReplyRef.current?.("Logged in already? Eager little thing.");
         }
+        finishAuthLoad();
       } catch (initError) {
         console.error("[auth-init] profile verification failed", initError);
         if (mounted && !previewModeRef.current) {
@@ -3505,8 +3538,7 @@ export default function Home() {
         }
 
         if (sessionResult.data.session?.user) {
-          showOptimisticDashboard(sessionResult.data.session.user, "client-session");
-          void verifyAuthenticatedUser(sessionResult.data.session.user, "client-session-verification");
+          await verifyAuthenticatedUser(sessionResult.data.session.user, "client-session");
           return;
         }
 
@@ -3526,8 +3558,7 @@ export default function Home() {
         }
 
         if (payload.user) {
-          showOptimisticDashboard(payload.user, "server-session-fallback");
-          void verifyAuthenticatedUser(payload.user, "server-session-verification");
+          await verifyAuthenticatedUser(payload.user, "server-session-fallback");
           return;
         }
 
@@ -3580,8 +3611,10 @@ export default function Home() {
 
       void (async () => {
         try {
-          showOptimisticDashboard(session.user, `auth-change:${_event}`);
-          await verifyAuthenticatedUser(session.user, `auth-change:${_event}:verification`);
+          setIsAuthLoading(true);
+          authBootstrappedRef.current = false;
+          setAuthBootstrapped(false);
+          await verifyAuthenticatedUser(session.user, `auth-change:${_event}`);
         } catch (profileError) {
           console.error("[auth-init] profile fetch error after auth change", profileError);
           setAuthError(describeError(profileError));
@@ -3589,6 +3622,7 @@ export default function Home() {
           setAuthUserId(null);
         } finally {
           console.info("[auth-init] loading false after auth change");
+          authBootstrappedRef.current = true;
           setAuthBootstrapped(true);
           setIsAuthLoading(false);
         }
@@ -3898,7 +3932,7 @@ export default function Home() {
         };
 
         if (!response.ok || !payload.profile || !payload.taskState) {
-          throw new Error(payload.error ?? "Higher/Lower action failed.");
+          throw createApiError("/api/user/task-actions/high-low", response, payload);
         }
 
         applyProfileStats(payload.profile);
@@ -4020,7 +4054,7 @@ export default function Home() {
         };
 
         if (!response.ok || !payload.profile || !payload.taskState) {
-          throw new Error(payload.error ?? "Number Pick action failed.");
+          throw createApiError("/api/user/task-actions/number-pick", response, payload);
         }
 
         applyProfileStats(payload.profile);
@@ -4503,6 +4537,9 @@ export default function Home() {
           ? `${randomFrom(begRewardLines)} +${reward} coins.`
           : randomFrom(begIgnoredLines),
       );
+      if (reward > 0) {
+        emitSoundEvent("task_completion");
+      }
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
       setAuthError(describeError(error));
@@ -4609,6 +4646,7 @@ export default function Home() {
           ? `${randomFrom(sacrificeSuccessLines)} ${unlockedItem.title} joins the collection.`
           : randomFrom(sacrificeFailureLines),
       );
+      emitSoundEvent(unlockedItem ? "gallery_unlock" : "tribute_sent");
     } catch (error) {
       console.error("Failed to complete sacrifice mechanic", error);
       setAuthError(describeError(error));
@@ -4674,6 +4712,7 @@ export default function Home() {
         supportLastResult: message,
       }));
       setAvatarMistressReply(message);
+      emitSoundEvent("tribute_sent");
     } catch (error) {
       console.error("Failed to complete support mechanic", error);
       setAuthError(describeError(error));
@@ -4691,6 +4730,8 @@ export default function Home() {
     authBootstrappedRef.current = false;
     setAuthBootstrapped(false);
     setIsProfileVerified(false);
+    setIsProfileLoading(true);
+    setHasHydratedInitialProfile(false);
     setIsAuthLoading(true);
     setIsPreviewMode(false);
     setIsGuestMode(false);
@@ -4732,6 +4773,8 @@ export default function Home() {
       if (!oauthRedirectStarted) {
         authBootstrappedRef.current = true;
         setAuthBootstrapped(true);
+        setIsProfileLoading(false);
+        setHasHydratedInitialProfile(false);
         setIsAuthBusy(false);
         setIsAuthLoading(false);
       }
@@ -4745,6 +4788,8 @@ export default function Home() {
     authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
     setIsProfileVerified(false);
+    setIsProfileLoading(false);
+    setHasHydratedInitialProfile(true);
     setIsAuthBusy(false);
     setIsAuthLoading(false);
     setIsPreviewMode(true);
@@ -4799,6 +4844,8 @@ export default function Home() {
     authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
     setIsProfileVerified(false);
+    setIsProfileLoading(false);
+    setHasHydratedInitialProfile(false);
     setIsGuestMode(false);
     setIsPreviewMode(false);
     previewModeRef.current = false;
@@ -4922,6 +4969,7 @@ export default function Home() {
     setTributeTotal(nextTributeTotal);
     emitSoundEvent("tribute_sent");
     if (nextAffection > affection) {
+      setAffectionStageRevealToken((current) => current + 1);
       emitSoundEvent("affection_level_up");
     }
     if (nextAffection >= 50) {
@@ -5395,7 +5443,7 @@ export default function Home() {
         };
 
         if (!response.ok || !payload.profile) {
-          throw new Error(payload.error ?? "Task reward claim failed.");
+          throw createApiError("/api/user/task-claim", response, payload);
         }
 
         rewardCoins = payload.rewardCoins ?? rewardCoins;
@@ -6589,11 +6637,11 @@ export default function Home() {
     tributeTotal,
   };
 
-  if (!authBootstrapped || isAuthLoading) {
+  if (!authBootstrapped || isAuthLoading || (isLoggedIn && !isVaultReady)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
         <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
-          Opening the vault...
+          Loading vault...
         </div>
       </main>
     );
@@ -6611,7 +6659,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#06030a] text-white">
+    <main
+      className="min-h-screen overflow-hidden bg-[#06030a] text-white"
+      onPointerDown={handleGlobalPointerDown}
+    >
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between rounded-[1.5rem] border border-fuchsia-300/15 bg-black/40 px-4 py-3 shadow-[0_0_40px_rgba(217,70,239,0.12)] backdrop-blur">
@@ -6781,6 +6832,7 @@ export default function Home() {
             <CharacterCard
               dailyMessage={dailyMessage}
               evolutionStage={characterEvolutionStage}
+              stageRevealToken={affectionStageRevealToken}
             />
             <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
               <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">

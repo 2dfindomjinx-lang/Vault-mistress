@@ -46,6 +46,7 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
 let hydrated = false;
+let playbackUnlocked = false;
 
 export function getSoundSettings() {
   hydrateSoundSettings();
@@ -80,19 +81,65 @@ export function emitSoundEvent(eventName: SoundEventName) {
   hydrateSoundSettings();
   const definition = soundRegistry[eventName];
 
-  if (!definition?.src || !isCategoryEnabled(definition.category)) {
+  if (!definition?.src) {
+    console.info("[sound] skipped missing source", { eventName });
+    return;
+  }
+
+  if (!isCategoryEnabled(definition.category)) {
+    console.info("[sound] skipped disabled category", {
+      category: definition.category,
+      eventName,
+      settings: soundSettings,
+    });
     return;
   }
 
   try {
     const audio = new Audio(definition.src);
     audio.volume = clampVolume((definition.volume ?? 1) * soundSettings.masterVolume);
-    void audio.play().catch(() => {
-      // Browsers can block playback before user interaction; sound must never break gameplay.
+    audio.addEventListener("error", () => {
+      console.error("[sound] audio file failed to load", {
+        eventName,
+        src: definition.src,
+      });
+    }, { once: true });
+
+    console.info("[sound] play requested", {
+      eventName,
+      playbackUnlocked,
+      src: definition.src,
+      volume: audio.volume,
+    });
+
+    void audio.play().then(() => {
+      playbackUnlocked = true;
+      console.info("[sound] play succeeded", { eventName });
+    }).catch((error) => {
+      console.error("[sound] play failed", {
+        error,
+        eventName,
+        playbackUnlocked,
+        src: definition.src,
+      });
     });
   } catch {
     // Missing, invalid, or unsupported audio assets are intentionally ignored.
   }
+}
+
+export function unlockSoundPlayback() {
+  if (typeof window === "undefined" || playbackUnlocked) {
+    return;
+  }
+
+  hydrateSoundSettings();
+
+  if (!soundSettings.uiEnabled || soundSettings.masterVolume <= 0) {
+    return;
+  }
+
+  emitSoundEvent("button_click");
 }
 
 function hydrateSoundSettings() {

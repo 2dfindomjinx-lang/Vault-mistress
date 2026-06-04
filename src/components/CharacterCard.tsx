@@ -13,9 +13,14 @@ type CharacterEvolutionStage = {
 type CharacterCardProps = {
   dailyMessage: string;
   evolutionStage: CharacterEvolutionStage;
+  stageRevealToken?: number;
 };
 
-export function CharacterCard({ dailyMessage, evolutionStage }: CharacterCardProps) {
+export function CharacterCard({
+  dailyMessage,
+  evolutionStage,
+  stageRevealToken = 0,
+}: CharacterCardProps) {
   const [failedStageIds, setFailedStageIds] = useState<string[]>([]);
   const [showStageReveal, setShowStageReveal] = useState(false);
   const previousStageRef = useRef(evolutionStage);
@@ -26,7 +31,11 @@ export function CharacterCard({ dailyMessage, evolutionStage }: CharacterCardPro
   useEffect(() => {
     const previousStage = previousStageRef.current;
 
-    if (evolutionStage.id !== previousStage.id && evolutionStage.min > previousStage.min) {
+    if (
+      stageRevealToken > 0 &&
+      evolutionStage.id !== previousStage.id &&
+      evolutionStage.min > previousStage.min
+    ) {
       setShowStageReveal(true);
       const timer = window.setTimeout(() => setShowStageReveal(false), 1800);
       previousStageRef.current = evolutionStage;
@@ -34,7 +43,7 @@ export function CharacterCard({ dailyMessage, evolutionStage }: CharacterCardPro
     }
 
     previousStageRef.current = evolutionStage;
-  }, [evolutionStage]);
+  }, [evolutionStage, stageRevealToken]);
 
   return (
     <section
