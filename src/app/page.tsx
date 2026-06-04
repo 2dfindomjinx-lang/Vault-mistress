@@ -1635,6 +1635,7 @@ export default function Home() {
   const profileIdRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
+  const initialAuthCheckInFlightRef = useRef(false);
   const loadProfileRef = useRef<((user: User) => Promise<Profile>) | null>(null);
   const updateLoyaltyForProfileRef = useRef<((profile: Profile) => Promise<Profile>) | null>(null);
   const authReplyRef = useRef<((message: string) => void) | null>(null);
@@ -3521,6 +3522,8 @@ export default function Home() {
     };
 
     const bootInitialAuth = async () => {
+      initialAuthCheckInFlightRef.current = true;
+
       try {
         console.info("[auth-init] client session check started");
         setIsAuthLoading(true);
@@ -3572,6 +3575,8 @@ export default function Home() {
           clearAuthState();
         }
         finishAuthLoad();
+      } finally {
+        initialAuthCheckInFlightRef.current = false;
       }
     };
 
@@ -3600,6 +3605,13 @@ export default function Home() {
       }
 
       if (!session?.user) {
+        if (initialAuthCheckInFlightRef.current) {
+          console.info("[auth-init] ignoring no-session auth event during initial check", {
+            event: _event,
+          });
+          return;
+        }
+
         if (previewModeRef.current) {
           return;
         }
@@ -6637,7 +6649,7 @@ export default function Home() {
     tributeTotal,
   };
 
-  if (!authBootstrapped || isAuthLoading || (isLoggedIn && !isVaultReady)) {
+  if (!authBootstrapped || isAuthLoading || isProfileLoading || (isLoggedIn && !isVaultReady)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
         <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
