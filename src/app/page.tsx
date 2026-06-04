@@ -1517,6 +1517,7 @@ export default function Home() {
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState("");
   const [authBootstrapped, setAuthBootstrapped] = useState(false);
+  const authBootstrappedRef = useRef(false);
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
@@ -3203,6 +3204,9 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
+    let browserInitialSessionReceived = false;
+    let browserInitialSessionUser: User | null = null;
+    let noSessionDecisionTimer: number | null = null;
 
     const loadAuthenticatedUser = async (user: User, source: string) => {
       if (authProfileLoadInFlightRef.current === user.id) {
@@ -3237,6 +3241,7 @@ export default function Home() {
       }
 
       console.info("[auth-init] loading false");
+      authBootstrappedRef.current = true;
       setAuthBootstrapped(true);
       setIsAuthLoading(false);
     };
@@ -3248,6 +3253,30 @@ export default function Home() {
       setAuthUserId(null);
     };
 
+    const decideNoSessionAfterGrace = (source: string) => {
+      if (noSessionDecisionTimer !== null) {
+        window.clearTimeout(noSessionDecisionTimer);
+      }
+
+      noSessionDecisionTimer = window.setTimeout(() => {
+        if (!mounted || previewModeRef.current) {
+          return;
+        }
+
+        if (browserInitialSessionUser) {
+          void resolveAuthSession(browserInitialSessionUser, `${source}:browser-session`);
+          return;
+        }
+
+        console.info("[auth-init] no session after grace; showing login screen", {
+          browserInitialSessionReceived,
+          source,
+        });
+        clearAuthState();
+        finishAuthLoad();
+      }, browserInitialSessionReceived ? 300 : 1500);
+    };
+
     const resolveAuthSession = async (user: User | null, source: string) => {
       try {
         console.info("[auth-init] init/session resolve started", {
@@ -3257,10 +3286,8 @@ export default function Home() {
         setIsAuthLoading(true);
 
         if (!user) {
-          console.info("[auth-init] no session; showing login screen", { source });
-          if (mounted && !previewModeRef.current) {
-            clearAuthState();
-          }
+          console.info("[auth-init] no session yet; waiting for browser hydration grace", { source });
+          decideNoSessionAfterGrace(source);
           return;
         }
 
@@ -3334,11 +3361,29 @@ export default function Home() {
       });
 
       if (_event === "INITIAL_SESSION") {
+        browserInitialSessionReceived = true;
+        browserInitialSessionUser = session?.user ?? null;
+
+        if (session?.user && !authBootstrappedRef.current) {
+          if (noSessionDecisionTimer !== null) {
+            window.clearTimeout(noSessionDecisionTimer);
+            noSessionDecisionTimer = null;
+          }
+          void resolveAuthSession(session.user, "initial-browser-session");
+        }
+
         return;
       }
 
       if (!session?.user) {
         if (previewModeRef.current) {
+          return;
+        }
+
+        if (!authBootstrappedRef.current) {
+          browserInitialSessionReceived = true;
+          browserInitialSessionUser = null;
+          decideNoSessionAfterGrace(`auth-change:${_event}`);
           return;
         }
 
@@ -3366,6 +3411,9 @@ export default function Home() {
 
     return () => {
       mounted = false;
+      if (noSessionDecisionTimer !== null) {
+        window.clearTimeout(noSessionDecisionTimer);
+      }
       subscription.unsubscribe();
     };
   }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
@@ -4360,6 +4408,7 @@ export default function Home() {
 
     setIsAuthBusy(true);
     setAuthError("");
+    authBootstrappedRef.current = false;
     setAuthBootstrapped(false);
     setIsAuthLoading(true);
     setIsPreviewMode(false);
@@ -4400,6 +4449,7 @@ export default function Home() {
       );
     } finally {
       if (!oauthRedirectStarted) {
+        authBootstrappedRef.current = true;
         setAuthBootstrapped(true);
         setIsAuthBusy(false);
         setIsAuthLoading(false);
@@ -4411,6 +4461,7 @@ export default function Home() {
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
     setAuthError("");
+    authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
     setIsAuthBusy(false);
     setIsAuthLoading(false);
@@ -4463,6 +4514,7 @@ export default function Home() {
     }
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
+    authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
     setIsGuestMode(false);
     setIsPreviewMode(false);
