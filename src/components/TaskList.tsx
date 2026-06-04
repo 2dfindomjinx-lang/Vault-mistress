@@ -16,8 +16,8 @@ function isGroupedWheelLayoutKind(kind: TaskItem["kind"]): boolean {
   return kind === "wait-obediently" || kind === "irl-wheel";
 }
 
-function isClaimedStreakBonus(task: TaskItem) {
-  return task.id.startsWith("streak-bonus-") && task.claimed;
+function isHiddenClaimedOneTimeTask(task: TaskItem) {
+  return task.kind === "claim" && task.claimed && task.id !== "daily-login";
 }
 
 type TaskListProps = {
@@ -25,6 +25,7 @@ type TaskListProps = {
   disabled?: boolean;
   mechanics: MechanicsState;
   tasks: TaskItem[];
+  pendingTaskActionIds?: string[];
   highLowProfitCap: number;
   isJackpotBusy?: boolean;
   jackpot: LoyaltyJackpotState | null;
@@ -65,6 +66,7 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
+  pendingTaskActionIds = [],
   onSacrifice,
   onSupport,
   onTimeoutRisk,
@@ -86,6 +88,8 @@ export function TaskList({
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
   const [showIrlTaskList, setShowIrlTaskList] = useState(false);
   const irlWheelTimerRef = useRef<number | null>(null);
+  const isTaskActionPending = (actionId: string) => pendingTaskActionIds.includes(actionId);
+  const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -177,7 +181,7 @@ export function TaskList({
               : "Open"}
     </span>
   );
-  const visibleTasks = tasks.filter((task) => !isClaimedStreakBonus(task));
+  const visibleTasks = tasks.filter((task) => !isHiddenClaimedOneTimeTask(task));
 
   return (
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -355,6 +359,7 @@ export function TaskList({
                         formatRemaining={formatRemaining}
                         isCoolingDown={isWaitCoolingDown}
                         isGloballyDisabled={disabled}
+                        isActionPending={isTaskActionPending("wait-obediently")}
                         onComplete={onWaitObedientlyComplete}
                         onFail={onWaitObedientlyFail}
                         onStart={onWaitObedientlyStart}
@@ -527,7 +532,7 @@ export function TaskList({
                   </p>
                   <input
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || isCoolingDown || task.completed}
+                    disabled={disabled || isCoolingDown || task.completed || isTaskActionPending("typing-accuracy")}
                     onCopy={(event) => event.preventDefault()}
                     onCut={(event) => event.preventDefault()}
                     onChange={(event) => {
@@ -547,7 +552,7 @@ export function TaskList({
                   {task.completed && !task.claimed && (
                     <button
                       className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled}
+                      disabled={disabled || isTaskActionPending("typing-accuracy") || isClaimPending(task.id)}
                       onClick={() => {
                         setTypingValue("");
                         onClaim(task.id);
@@ -684,7 +689,7 @@ export function TaskList({
                     </span>
                     <input
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || isCoolingDown || task.highLowDailyLocked}
+                    disabled={disabled || isCoolingDown || task.highLowDailyLocked || isTaskActionPending("high-low")}
                       min={1}
                       max={coins}
                       onChange={(event) => setStake(Number(event.target.value))}
@@ -699,6 +704,7 @@ export function TaskList({
                         disabled={
                           disabled ||
                           isCoolingDown ||
+                          isTaskActionPending("high-low") ||
                           task.highLowDailyLocked ||
                           stake <= 0 ||
                           stake > coins
@@ -738,7 +744,7 @@ export function TaskList({
                                 ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
                                 : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
                           }`}
-                          disabled={disabled || isCoolingDown || hasResult || isWrongSelection}
+                          disabled={disabled || isCoolingDown || isTaskActionPending("number-pick") || hasResult || isWrongSelection}
                           key={option}
                           onClick={() => onNumberPick(option)}
                           type="button"
@@ -771,6 +777,7 @@ export function TaskList({
                   formatRemaining={formatRemaining}
                   isCoolingDown={isCoolingDown}
                   isGloballyDisabled={disabled}
+                  isActionPending={isTaskActionPending("wait-obediently")}
                   onComplete={onWaitObedientlyComplete}
                   onFail={onWaitObedientlyFail}
                   onStart={onWaitObedientlyStart}
@@ -913,7 +920,7 @@ export function TaskList({
               {task.kind === "claim" && (
                 <button
                   className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={disabled || !isClaimable}
+                  disabled={disabled || !isClaimable || isClaimPending(task.id)}
                   onClick={() => onClaim(task.id)}
                   type="button"
                 >
@@ -1108,7 +1115,7 @@ function LoyaltyJackpotTaskCard({
       {jackpot && (
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <JackpotStat label="Eligible" value={jackpot.eligibleCount.toLocaleString()} />
-          <JackpotStat label="Players" value={jackpot.participantCount.toLocaleString()} />
+          <JackpotStat label="Contributors" value={jackpot.participantCount.toLocaleString()} />
           <JackpotStat label="Your Pool" value={jackpot.userContributionTotal.toLocaleString()} />
         </div>
       )}
@@ -1259,6 +1266,7 @@ function ResultCell({ label, value }: { label: string; value: number }) {
 function WaitObedientlyPanel({
   cooldownRemaining,
   formatRemaining,
+  isActionPending = false,
   isGloballyDisabled,
   isCoolingDown,
   onComplete,
@@ -1268,6 +1276,7 @@ function WaitObedientlyPanel({
 }: {
   cooldownRemaining: number;
   formatRemaining: (milliseconds: number) => string;
+  isActionPending?: boolean;
   isGloballyDisabled: boolean;
   isCoolingDown: boolean;
   onComplete: () => void;
@@ -1283,7 +1292,7 @@ function WaitObedientlyPanel({
   const finishedRef = useRef(false);
 
   const startChallenge = () => {
-    if (isGloballyDisabled || isCoolingDown || phase === "countdown" || phase === "waiting") {
+    if (isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting") {
       return;
     }
 
@@ -1423,7 +1432,7 @@ function WaitObedientlyPanel({
       <button
         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={
-          isGloballyDisabled || isCoolingDown || phase === "countdown" || phase === "waiting"
+          isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting"
         }
         onClick={startChallenge}
         type="button"
@@ -1432,6 +1441,8 @@ function WaitObedientlyPanel({
           ? `Available in ${formatRemaining(cooldownRemaining)}`
           : phase === "countdown" || phase === "waiting"
             ? "Do Not Move"
+            : isActionPending
+              ? "Saving..."
             : "Ready"}
       </button>
     </div>

@@ -925,6 +925,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
     if (task.kind === "false-hope") {
       const cooldownUntil = getPetTaskCooldownUntil(completedAt);
       const isCoolingDown = Boolean(cooldownUntil);
+      const hasActiveProgress = !completedAt;
       const progress = getTaskMetadataNumber(row?.metadata, "progress", 0);
       const stage = getTaskMetadataNumber(row?.metadata, "stage", 1);
       const expectedKeyRaw = getTaskMetadataString(row?.metadata, "expectedKey");
@@ -934,9 +935,9 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
         ...task,
         completedAt: isCoolingDown ? completedAt : null,
         cooldownUntil,
-        falseHopeExpectedKey: isCoolingDown ? expectedKey : "a",
-        falseHopeProgress: isCoolingDown ? progress : 0,
-        falseHopeStage: isCoolingDown ? stage : 1,
+        falseHopeExpectedKey: isCoolingDown || hasActiveProgress ? expectedKey : "a",
+        falseHopeProgress: isCoolingDown || hasActiveProgress ? progress : 0,
+        falseHopeStage: isCoolingDown || hasActiveProgress ? stage : 1,
         reviewedAt: null,
         status: "available" as const,
       };
@@ -1535,6 +1536,7 @@ export default function Home() {
   const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
   const [isDebtAutoPayEnabled, setIsDebtAutoPayEnabled] = useState(false);
   const [petTaskState, setPetTaskState] = useState<PetTaskItem[]>(petTasks);
+  const petTaskStateRef = useRef<PetTaskItem[]>(petTasks);
   const [petAffectionClaimed, setPetAffectionClaimed] = useState(false);
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
   const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
@@ -1547,6 +1549,8 @@ export default function Home() {
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
+  const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
+  const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
   const [activeEvent, setActiveEvent] = useState<RandomEvent | null>(null);
   const [jackpot, setJackpot] = useState<LoyaltyJackpotState | null>(null);
   const [jackpotError, setJackpotError] = useState("");
@@ -1580,6 +1584,9 @@ export default function Home() {
   const updateLoyaltyForProfileRef = useRef<((profile: Profile) => Promise<Profile>) | null>(null);
   const authReplyRef = useRef<((message: string) => void) | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
+  const falseHopePersistQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingTaskActionsRef = useRef(new Set<string>());
+  const pendingPetActionsRef = useRef(new Set<string>());
   const isPreviewRestricted = isPreviewMode;
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
@@ -1770,6 +1777,107 @@ export default function Home() {
   useEffect(() => {
     timeoutUntilRef.current = timeoutUntil;
   }, [timeoutUntil]);
+
+  useEffect(() => {
+    petTaskStateRef.current = petTaskState;
+  }, [petTaskState]);
+
+  const setPetTaskStateOptimistic = useCallback((updater: (current: PetTaskItem[]) => PetTaskItem[]) => {
+    const nextState = updater(petTaskStateRef.current);
+    petTaskStateRef.current = nextState;
+    setPetTaskState(nextState);
+    return nextState;
+  }, []);
+
+  const beginTaskAction = useCallback((actionId: string) => {
+    if (pendingTaskActionsRef.current.has(actionId)) {
+      return false;
+    }
+
+    const next = new Set(pendingTaskActionsRef.current);
+    next.add(actionId);
+    pendingTaskActionsRef.current = next;
+    setPendingTaskActionIds(Array.from(next));
+    return true;
+  }, []);
+
+  const finishTaskAction = useCallback((actionId: string) => {
+    if (!pendingTaskActionsRef.current.has(actionId)) {
+      return;
+    }
+
+    const next = new Set(pendingTaskActionsRef.current);
+    next.delete(actionId);
+    pendingTaskActionsRef.current = next;
+    setPendingTaskActionIds(Array.from(next));
+  }, []);
+
+  const beginPetAction = useCallback((actionId: string) => {
+    if (pendingPetActionsRef.current.has(actionId)) {
+      return false;
+    }
+
+    const next = new Set(pendingPetActionsRef.current);
+    next.add(actionId);
+    pendingPetActionsRef.current = next;
+    setPendingPetActionIds(Array.from(next));
+    return true;
+  }, []);
+
+  const finishPetAction = useCallback((actionId: string) => {
+    if (!pendingPetActionsRef.current.has(actionId)) {
+      return;
+    }
+
+    const next = new Set(pendingPetActionsRef.current);
+    next.delete(actionId);
+    pendingPetActionsRef.current = next;
+    setPendingPetActionIds(Array.from(next));
+  }, []);
+
+  const resyncAuthenticatedProfile = useCallback(async (label: string) => {
+    if (isGuestMode) {
+      return;
+    }
+
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      console.error(`${label}: failed to resync authenticated profile`, error);
+      return;
+    }
+
+    const profileLoader = loadProfileRef.current;
+
+    if (!profileLoader) {
+      return;
+    }
+
+    await profileLoader(data.user);
+  }, [isGuestMode]);
+
+  const persistInBackground = useCallback((
+    promise: Promise<unknown>,
+    label: string,
+    options: {
+      onFinally?: () => void;
+      resyncOnFailure?: boolean;
+    } = {},
+  ) => {
+    void promise.catch((error) => {
+      console.error(label, error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The action worked locally, but the vault failed to save it. Resyncing the vault state.");
+
+      if (options.resyncOnFailure !== false) {
+        void resyncAuthenticatedProfile(label).catch((resyncError) => {
+          console.error(`${label}: failed to resync after persistence error`, resyncError);
+        });
+      }
+    }).finally(() => {
+      options.onFinally?.();
+    });
+  }, [resyncAuthenticatedProfile, setAvatarMistressReply]);
 
   useEffect(() => () => {
     if (highLowRefreshTimerRef.current !== null) {
@@ -3500,12 +3608,18 @@ export default function Home() {
     const sentence = task.sentence ?? getDailyTypingSentence();
 
     if (!writingStartsWith(sentence, value)) {
+      const actionId = "typing-accuracy";
+
+      if (!beginTaskAction(actionId)) {
+        return;
+      }
+
       const nextAttempts = Math.max(0, (task.attemptsRemaining ?? 3) - 1);
       const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
 
       if (!isGuestMode) {
-        try {
-          await persistUserTask({
+        persistInBackground(
+          persistUserTask({
             task_id: task.id,
             completed_at: null,
             claimed_at: null,
@@ -3514,12 +3628,12 @@ export default function Home() {
               attemptsRemaining: nextAttempts,
               failedAt,
             },
-          });
-        } catch (error) {
-          console.error("Failed to persist typing attempt", error);
-          setAuthError(describeError(error));
-          return;
-        }
+          }),
+          "Failed to persist typing attempt",
+          { onFinally: () => finishTaskAction(actionId) },
+        );
+      } else {
+        finishTaskAction(actionId);
       }
 
       setTasks((current) =>
@@ -3544,9 +3658,15 @@ export default function Home() {
     }
 
     if (writingEquals(sentence, value)) {
+      const actionId = "typing-accuracy";
+
+      if (!beginTaskAction(actionId)) {
+        return;
+      }
+
       if (!isGuestMode) {
-        try {
-          await persistUserTask({
+        persistInBackground(
+          persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: null,
@@ -3554,12 +3674,12 @@ export default function Home() {
             metadata: {
               attemptsRemaining: task.attemptsRemaining ?? 3,
             },
-          });
-        } catch (error) {
-          console.error("Failed to persist typing success", error);
-          setAuthError(describeError(error));
-          return;
-        }
+          }),
+          "Failed to persist typing success",
+          { onFinally: () => finishTaskAction(actionId) },
+        );
+      } else {
+        finishTaskAction(actionId);
       }
 
       setTasks((current) =>
@@ -3632,6 +3752,12 @@ export default function Home() {
       return;
     }
 
+    const actionId = "high-low";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const currentNumber = task.currentNumber ?? randomHighLowDisplayNumber();
     const resultNumber = randomHighLowNumber();
     const outcome =
@@ -3659,70 +3785,78 @@ export default function Home() {
         ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
         : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`;
 
-    try {
-      await persistProfileProgress(
-        { coins: nextCoins, affection },
-        outcome === "win" ? "game:higher-lower:win" : outcome === "loss" ? "game:higher-lower:loss" : "game:higher-lower:tie",
-        {
-          baseNumber: currentNumber,
-          resultNumber,
-          stake,
-          outcome,
-        },
-      );
+    setCoins(nextCoins);
+    coinsRef.current = nextCoins;
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completed: true,
+              claimed: false,
+              currentNumber,
+              highLowDailyDate: currentDailyDate,
+              highLowDailyLocked: nextDailyLocked,
+              highLowDailyProfit: nextDailyProfit,
+              highLowDailyWins: nextDailyWins,
+              lastResult,
+              nextBaseRevealAt,
+              resultBaseNumber: currentNumber,
+              resultCoinDelta: coinDelta,
+              resultNumber,
+              resultOutcome: outcome,
+              cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
+            }
+          : entry,
+      ),
+    );
+    scheduleHighLowDisplayRefresh();
+    setAvatarMistressReply(
+      outcome === "tie"
+        ? "A tie. Your stake returns, this time."
+        : outcome === "win"
+        ? highLowWinMultiplier > 2
+          ? "Event luck. The vault triples your winning payout."
+          : "A lucky guess. The vault doubles your stake."
+        : "Wrong. The vault keeps that stake.",
+    );
 
-      if (!isGuestMode) {
-        await persistUserTask({
-            task_id: task.id,
-            completed_at: now,
-            claimed_at: now,
-            reward_coins: coinDelta,
-            metadata: {
-              higherLowerDailyDate: currentDailyDate,
-              higherLowerDailyProfit: nextDailyProfit,
-              higherLowerDailyWins: nextDailyWins,
-            },
-          });
-      }
+    persistInBackground(
+      (async () => {
+        if (isGuestMode) {
+          return;
+        }
 
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                completed: true,
-                claimed: false,
-                currentNumber,
-                highLowDailyDate: currentDailyDate,
-                highLowDailyLocked: nextDailyLocked,
-                highLowDailyProfit: nextDailyProfit,
-                highLowDailyWins: nextDailyWins,
-                lastResult,
-                nextBaseRevealAt,
-                resultBaseNumber: currentNumber,
-                resultCoinDelta: coinDelta,
-                resultNumber,
-                resultOutcome: outcome,
-                cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
-              }
-            : entry,
-        ),
-      );
-      scheduleHighLowDisplayRefresh();
-      setAvatarMistressReply(
-        outcome === "tie"
-          ? "A tie. Your stake returns, this time."
-          : outcome === "win"
-          ? highLowWinMultiplier > 2
-            ? "Event luck. The vault triples your winning payout."
-            : "A lucky guess. The vault doubles your stake."
-          : "Wrong. The vault keeps that stake.",
-      );
-    } catch (error) {
-      console.error("Failed to complete high-low play", error);
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The high-low ledger failed. Try again.");
-    }
+        const response = await fetch("/api/user/task-actions/high-low", {
+          body: JSON.stringify({ currentNumber, guess, stake }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          profile?: Profile;
+          taskState?: Partial<TaskItem>;
+        };
+
+        if (!response.ok || !payload.profile || !payload.taskState) {
+          throw new Error(payload.error ?? "Higher/Lower action failed.");
+        }
+
+        applyProfileStats(payload.profile);
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === task.id
+              ? {
+                  ...entry,
+                  ...payload.taskState,
+                }
+              : entry,
+          ),
+        );
+      })(),
+      "Failed to complete high-low play",
+      { onFinally: () => finishTaskAction(actionId) },
+    );
   };
 
   const handleNumberPick = async (selectedNumber: number) => {
@@ -3755,6 +3889,12 @@ export default function Home() {
       return;
     }
 
+    const actionId = "number-pick";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const existingCorrect = task.numberPickCorrect;
     const correctNumber = typeof existingCorrect === "number" ? existingCorrect : randomFrom(options);
     const previousWrongSelections = task.numberPickWrongSelections ?? [];
@@ -3768,64 +3908,76 @@ export default function Home() {
     const wrongSelections = isCorrect
       ? previousWrongSelections
       : Array.from(new Set([...previousWrongSelections, selectedNumber]));
-    const now = new Date().toISOString();
     const cooldownUntil = new Date(new Date().getTime() + getEventCooldownMs(24 * 60 * 60 * 1000)).toISOString();
 
-    try {
-      if (reward > 0) {
-        await persistProfileProgress(
-          { coins: coinsRef.current + reward, affection },
-          "task:number-pick",
-        );
-      }
-
-      if (!isGuestMode) {
-        await persistUserTask({
-            task_id: task.id,
-            completed_at: finalAttempt ? now : task.completed ? now : null,
-            claimed_at: finalAttempt ? now : null,
-            reward_coins: reward,
-            metadata: {
-              attemptsRemaining: nextAttemptsRemaining,
-              correct: correctNumber,
-              options,
-              result,
-              selected: selectedNumber,
-              wrongSelections,
-            },
-          });
-      }
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-              ...entry,
-                claimed: finalAttempt,
-                completed: result === "win",
-                cooldownUntil: finalAttempt ? cooldownUntil : entry.cooldownUntil,
-                numberPickAttemptsRemaining: nextAttemptsRemaining,
-                numberPickCorrect: correctNumber,
-                numberPickOptions: options,
-                numberPickResult: result,
-                numberPickSelected: selectedNumber,
-                numberPickWrongSelections: wrongSelections,
-              }
-            : entry,
-        ),
-      );
-      setAvatarMistressReply(
-        result === "win"
-          ? `Lucky pick. The vault grants you ${reward} coins.`
-          : result === "loss"
-            ? "Wrong again. The vault gives you nothing today."
-            : "Wrong number. One chance remains.",
-      );
-    } catch (error) {
-      console.error("Failed to complete number pick task", error);
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The number ledger failed. Try again.");
+    if (reward > 0) {
+      const nextCoins = coinsRef.current + reward;
+      setCoins(nextCoins);
+      coinsRef.current = nextCoins;
     }
+
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+            ...entry,
+              claimed: finalAttempt,
+              completed: result === "win",
+              cooldownUntil: finalAttempt ? cooldownUntil : entry.cooldownUntil,
+              numberPickAttemptsRemaining: nextAttemptsRemaining,
+              numberPickCorrect: correctNumber,
+              numberPickOptions: options,
+              numberPickResult: result,
+              numberPickSelected: selectedNumber,
+              numberPickWrongSelections: wrongSelections,
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply(
+      result === "win"
+        ? `Lucky pick. The vault grants you ${reward} coins.`
+        : result === "loss"
+          ? "Wrong again. The vault gives you nothing today."
+          : "Wrong number. One chance remains.",
+    );
+
+    persistInBackground(
+      (async () => {
+        if (isGuestMode) {
+          return;
+        }
+
+        const response = await fetch("/api/user/task-actions/number-pick", {
+          body: JSON.stringify({ options, selectedNumber }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          profile?: Profile;
+          taskState?: Partial<TaskItem>;
+        };
+
+        if (!response.ok || !payload.profile || !payload.taskState) {
+          throw new Error(payload.error ?? "Number Pick action failed.");
+        }
+
+        applyProfileStats(payload.profile);
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === task.id
+              ? {
+                  ...entry,
+                  ...payload.taskState,
+                }
+              : entry,
+          ),
+        );
+      })(),
+      "Failed to complete number pick task",
+      { onFinally: () => finishTaskAction(actionId) },
+    );
   };
 
   const handleWaitObedientlyStart = async () => {
@@ -3842,14 +3994,37 @@ export default function Home() {
       return;
     }
 
+    const actionId = "wait-obediently";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const now = new Date();
     const countdownEndsAt = new Date(now.getTime() + 3 * 1000).toISOString();
     const waitEndsAt = new Date(now.getTime() + 63 * 1000).toISOString();
     const cooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-    try {
-      if (!isGuestMode) {
-        await persistUserTask({
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              claimed: true,
+              completed: false,
+              cooldownUntil,
+              waitCountdownEndsAt: countdownEndsAt,
+              waitEndsAt,
+              waitState: "countdown",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply("Now wait. One mistake and the vault closes.");
+
+    if (!isGuestMode) {
+      persistInBackground(
+        persistUserTask({
             task_id: task.id,
             completed_at: now.toISOString(),
             claimed_at: now.toISOString(),
@@ -3859,29 +4034,12 @@ export default function Home() {
               status: "countdown",
               waitEndsAt,
             },
-          });
-      }
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                claimed: true,
-                completed: false,
-                cooldownUntil,
-                waitCountdownEndsAt: countdownEndsAt,
-                waitEndsAt,
-                waitState: "countdown",
-              }
-            : entry,
-        ),
+          }),
+        "Failed to start wait obediently task",
+        { onFinally: () => finishTaskAction(actionId) },
       );
-      setAvatarMistressReply("Now wait. One mistake and the vault closes.");
-    } catch (error) {
-      console.error("Failed to start wait obediently task", error);
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The waiting task failed to start.");
+    } else {
+      finishTaskAction(actionId);
     }
   };
 
@@ -3892,9 +4050,28 @@ export default function Home() {
       return;
     }
 
-    try {
-      if (!isGuestMode) {
-        await persistUserTask({
+    const actionId = "wait-obediently";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completed: false,
+              waitState: "failed",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply("You moved. Failed.");
+
+    if (!isGuestMode) {
+      persistInBackground(
+        persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: new Date().toISOString(),
@@ -3902,24 +4079,12 @@ export default function Home() {
             metadata: {
               status: "failed",
             },
-          });
-      }
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                completed: false,
-                waitState: "failed",
-              }
-            : entry,
-        ),
+          }),
+        "Failed to fail wait obediently task",
+        { onFinally: () => finishTaskAction(actionId) },
       );
-      setAvatarMistressReply("You moved. Failed.");
-    } catch (error) {
-      console.error("Failed to fail wait obediently task", error);
-      setAuthError(describeError(error));
+    } else {
+      finishTaskAction(actionId);
     }
   };
 
@@ -3930,14 +4095,37 @@ export default function Home() {
       return;
     }
 
-    try {
-      const rewardCoins = getEventTaskReward(task.reward);
-      await persistProfileProgress(
-        { coins: coinsRef.current + rewardCoins, affection },
-        "task:wait-obediently",
-      );
-      if (!isGuestMode) {
-        await persistUserTask({
+    const actionId = "wait-obediently";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    const rewardCoins = getEventTaskReward(task.reward);
+    const nextCoins = coinsRef.current + rewardCoins;
+    setCoins(nextCoins);
+    coinsRef.current = nextCoins;
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completed: true,
+              waitState: "completed",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
+
+    persistInBackground(
+      (async () => {
+        await persistProfileProgress(
+          { coins: nextCoins, affection },
+          "task:wait-obediently",
+        );
+        if (!isGuestMode) {
+          await persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: task.cooldownUntil
@@ -3948,25 +4136,11 @@ export default function Home() {
               status: "completed",
             },
           });
-      }
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                completed: true,
-                waitState: "completed",
-              }
-            : entry,
-        ),
-      );
-      setAvatarMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
-    } catch (error) {
-      console.error("Task failed. You’re too weak and impatient to even wait properly.", error);
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The waiting reward failed to save.");
-    }
+        }
+      })(),
+      "Failed to complete wait obediently task",
+      { onFinally: () => finishTaskAction(actionId) },
+    );
   };
 
   const handleTimeoutRisk = async () => {
@@ -4998,7 +5172,7 @@ export default function Home() {
     }
 
     const currentCoins = coinsRef.current;
-    const rewardCoins = getEventTaskReward(task.reward);
+    let rewardCoins = getEventTaskReward(task.reward);
     const nextCoins = currentCoins + rewardCoins;
     const dailyCooldownActive =
       task.id === "daily-login" &&
@@ -5009,27 +5183,14 @@ export default function Home() {
       return;
     }
 
-    try {
-      const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+    const actionId = `claim:${taskId}`;
 
-      await persistTaskClaim(task);
-      await persistProfileProgress(
-        { coins: nextCoins, affection },
-        streakBonus ? "streak_bonus" : `reward:task:${task.id}`,
-        streakBonus
-          ? {
-              milestone: streakBonus.milestone,
-              taskId: task.id,
-            }
-          : {},
-      );
-    } catch (error) {
-      console.error("Failed to persist task reward", error);
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The reward ledger failed. Try again.");
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
+    setCoins(nextCoins);
+    coinsRef.current = nextCoins;
     setTasks((current) =>
       current.map((entry) =>
         entry.id === taskId
@@ -5051,6 +5212,47 @@ export default function Home() {
     emitSoundEvent("task_completion");
     setAvatarMistressReply(
       `Fine. ${rewardCoins} coins added. Spend them carefully.`,
+    );
+
+    persistInBackground(
+      (async () => {
+        if (isGuestMode) {
+        const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+
+        await persistTaskClaim(task);
+        await persistProfileProgress(
+          { coins: nextCoins, affection },
+          streakBonus ? "streak_bonus" : `reward:task:${task.id}`,
+          streakBonus
+            ? {
+                milestone: streakBonus.milestone,
+                taskId: task.id,
+              }
+            : {},
+        );
+        } else {
+        const response = await fetch("/api/user/task-claim", {
+          body: JSON.stringify({ taskId: task.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          profile?: Profile;
+          rewardCoins?: number;
+          task?: UserTaskRow;
+        };
+
+        if (!response.ok || !payload.profile) {
+          throw new Error(payload.error ?? "Task reward claim failed.");
+        }
+
+        rewardCoins = payload.rewardCoins ?? rewardCoins;
+        applyProfileStats(payload.profile);
+      }
+      })(),
+      "Failed to persist task reward",
+      { onFinally: () => finishTaskAction(actionId) },
     );
   };
 
@@ -5098,7 +5300,7 @@ export default function Home() {
       }
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5122,7 +5324,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-perfect-writing");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-perfect-writing");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -5134,6 +5336,11 @@ export default function Home() {
 
     if (!writingStartsWith(sentence, value)) {
       const now = new Date().toISOString();
+      const actionId = "pet-perfect-writing";
+
+      if (!beginPetAction(actionId)) {
+        return;
+      }
 
       if (!isGuestMode && authUserId) {
         try {
@@ -5153,11 +5360,12 @@ export default function Home() {
         } catch (error) {
           console.error("Failed to persist Pet perfect writing failure", error);
           setAuthError(describeError(error));
+          finishPetAction(actionId);
           return;
         }
       }
 
-      setPetTaskState((current) =>
+      setPetTaskStateOptimistic((current) =>
         current.map((entry) =>
           entry.id === task.id
             ? {
@@ -5171,6 +5379,7 @@ export default function Home() {
         ),
       );
       setAvatarMistressReply("One mistake. Start over tomorrow.");
+      finishPetAction(actionId);
       return;
     }
 
@@ -5180,6 +5389,11 @@ export default function Home() {
 
     const now = new Date().toISOString();
     const nextPetScore = Math.min(1000, petScore + task.reward);
+    const actionId = "pet-perfect-writing";
+
+    if (!beginPetAction(actionId)) {
+      return;
+    }
 
     if (!isGuestMode && authUserId) {
       try {
@@ -5189,6 +5403,7 @@ export default function Home() {
         );
       } catch (error) {
         setAuthError(describeError(error));
+        finishPetAction(actionId);
         return;
       }
 
@@ -5208,13 +5423,14 @@ export default function Home() {
       } catch (error) {
         console.error("Failed to persist Pet perfect writing success", error);
         setAuthError(describeError(error));
+        finishPetAction(actionId);
         return;
       }
     } else {
       setPetScore(nextPetScore);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5229,6 +5445,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply(`Perfect. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    finishPetAction(actionId);
   };
 
   const handlePetConfessionSubmit = async (value: string) => {
@@ -5236,7 +5453,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-confession-dm");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-confession-dm");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
@@ -5291,7 +5508,7 @@ export default function Home() {
       setPetScore(nextPetScore);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5317,7 +5534,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-weekly-throne-tax");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-weekly-throne-tax");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -5378,7 +5595,7 @@ export default function Home() {
       setLastPetTaxAt(now);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5557,7 +5774,7 @@ export default function Home() {
       }
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === "pet-debt-contract"
           ? {
@@ -5581,7 +5798,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-case-opening");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-case-opening");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -5627,7 +5844,7 @@ export default function Home() {
       setPetScore(nextPetScore);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5652,7 +5869,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-evil-wait");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -5687,7 +5904,7 @@ export default function Home() {
       }
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5704,7 +5921,7 @@ export default function Home() {
   };
 
   const handlePetEvilWaitFail = async () => {
-    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-evil-wait");
 
     if (!task) {
       return;
@@ -5731,7 +5948,7 @@ export default function Home() {
       }
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5748,7 +5965,7 @@ export default function Home() {
   };
 
   const handlePetEvilWaitComplete = async () => {
-    const task = petTaskState.find((entry) => entry.id === "pet-evil-wait");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-evil-wait");
 
     if (!task) {
       return;
@@ -5788,7 +6005,7 @@ export default function Home() {
       setPetScore(nextPetScore);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5810,7 +6027,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-randomized-rules");
 
     if (!task || text.trim() !== "I understand") {
       return;
@@ -5857,7 +6074,7 @@ export default function Home() {
       setPetScore((value) => Math.min(1000, value + task.reward));
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5875,7 +6092,7 @@ export default function Home() {
   };
 
   const markPetRulesFailed = async (mechanicId: string) => {
-    const task = petTaskState.find((entry) => entry.id === "pet-randomized-rules");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-randomized-rules");
     const banned = task?.ruleBannedMechanics ?? [];
 
     if (!task || !banned.includes(mechanicId)) {
@@ -5915,7 +6132,7 @@ export default function Home() {
       }
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -5936,7 +6153,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-false-hope");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-false-hope");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -5952,7 +6169,7 @@ export default function Home() {
     let nextProgress = Math.max(0, currentProgress + (correct ? 2 : -1));
     let nextStage = currentStage;
     let completed = false;
-    const nextExpectedKey = expectedKey === "a" ? "d" : "a";
+    const nextExpectedKey: "a" | "d" = expectedKey === "a" ? "d" : "a";
 
     if (nextProgress >= 99 && currentStage === 1) {
       nextProgress = 0;
@@ -5965,22 +6182,39 @@ export default function Home() {
 
     const now = new Date().toISOString();
     const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              falseHopeExpectedKey: nextExpectedKey,
+              falseHopeProgress: nextProgress,
+              falseHopeStage: nextStage,
+              reviewedAt: null,
+              status: "available" as const,
+            }
+          : entry,
+      ),
+    );
+    if (completed && isGuestMode) {
+      setPetScore(nextPetScore);
+    }
 
-    if (!isGuestMode && authUserId) {
-      if (completed) {
-        try {
-          await persistPetProfilePatch(
-            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
-            "reward:pet-false-hope",
-          );
-        } catch (error) {
-          setAuthError(describeError(error));
-          return;
-        }
+    const persistFalseHopeProgress = async () => {
+      if (isGuestMode || !authUserId) {
+        return;
       }
 
-      try {
-        await persistPetTask(
+      if (completed) {
+        await persistPetProfilePatch(
+          { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
+          "reward:pet-false-hope",
+        );
+      }
+
+      await persistPetTask(
         {
           task_id: task.id,
           completed_at: completed ? now : task.completedAt,
@@ -5993,32 +6227,17 @@ export default function Home() {
             stage: nextStage,
           },
         },
-        );
-      } catch (error) {
+      );
+    };
+
+    falseHopePersistQueueRef.current = falseHopePersistQueueRef.current
+      .catch(() => undefined)
+      .then(persistFalseHopeProgress)
+      .catch((error) => {
         console.error("Failed to persist Pet false hope progress", error);
         setAuthError(describeError(error));
-        return;
-      }
-    } else if (completed) {
-      setPetScore(nextPetScore);
-    }
-
-    setPetTaskState((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              completedAt: completed ? now : entry.completedAt,
-              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
-              falseHopeExpectedKey: nextExpectedKey,
-              falseHopeProgress: nextProgress,
-              falseHopeStage: nextStage,
-              reviewedAt: null,
-              status: "available",
-            }
-          : entry,
-      ),
-    );
+        setAvatarMistressReply("The sequence saved locally, but the vault failed to persist it.");
+      });
 
     if (completed) {
       setAvatarMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
@@ -6032,7 +6251,7 @@ export default function Home() {
       return;
     }
 
-    const task = petTaskState.find((entry) => entry.id === "pet-favor-roulette");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-favor-roulette");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
@@ -6098,7 +6317,7 @@ export default function Home() {
       setPetScore(nextPetScore);
     }
 
-    setPetTaskState((current) =>
+    setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
           ? {
@@ -6193,6 +6412,24 @@ export default function Home() {
         setPetAffectionClaimed(true);
         setAvatarMistressReply("Pet milestone claimed. +10 Pet Score.");
     };
+
+  const runPetAction = useCallback(async (actionId: string, action: () => Promise<unknown> | unknown) => {
+    if (!beginPetAction(actionId)) {
+      return;
+    }
+
+    try {
+      await action();
+    } catch (error) {
+      console.error(`Failed pet action ${actionId}`, error);
+      setAuthError(describeError(error));
+      void resyncAuthenticatedProfile(`Failed pet action ${actionId}`).catch((resyncError) => {
+        console.error(`Failed to resync after pet action ${actionId}`, resyncError);
+      });
+    } finally {
+      finishPetAction(actionId);
+    }
+  }, [beginPetAction, finishPetAction, resyncAuthenticatedProfile]);
 
   const stats = {
     coins,
@@ -6437,6 +6674,7 @@ export default function Home() {
               jackpotError={jackpotError}
               currentUsername={username}
               mechanics={displayMechanics}
+              pendingTaskActionIds={pendingTaskActionIds}
               tasks={tasks}
               usernameStyle={usernameStyle}
               onBeg={handleBeg}
@@ -6487,22 +6725,23 @@ export default function Home() {
               petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
+              pendingPetActionIds={pendingPetActionIds}
               tasks={petTaskState}
               weeklyTaxCost={PET_WEEKLY_TAX_COST}
-              onClaimAffection={handlePetAffectionClaim}
-              onConfessionSubmit={handlePetConfessionSubmit}
-              onCompleteTask={handlePetTaskComplete}
+              onClaimAffection={() => runPetAction("pet-affection-claim", handlePetAffectionClaim)}
+              onConfessionSubmit={(value) => runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value))}
+              onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
               onFalseHopeKey={handlePetFalseHopeKey}
-              onFavorPick={handlePetFavorPick}
-              onOpenCase={handlePetCaseOpen}
+              onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
+              onOpenCase={(caseItem) => runPetAction("pet-case-opening", () => handlePetCaseOpen(caseItem))}
               onDebtAutoPayChange={handleDebtAutoPayChange}
-              onPayDebtPeriod={handleDebtContractPayment}
-              onPayWeeklyTax={handlePetWeeklyTax}
-              onPetEvilWaitComplete={handlePetEvilWaitComplete}
-              onPetEvilWaitFail={handlePetEvilWaitFail}
-              onPetEvilWaitStart={handlePetEvilWaitStart}
+              onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
+              onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}
+              onPetEvilWaitComplete={() => runPetAction("pet-evil-wait", handlePetEvilWaitComplete)}
+              onPetEvilWaitFail={() => runPetAction("pet-evil-wait", handlePetEvilWaitFail)}
+              onPetEvilWaitStart={() => runPetAction("pet-evil-wait", handlePetEvilWaitStart)}
               onPerfectWritingProgress={handlePetPerfectWritingProgress}
-              onRulesAcknowledge={handlePetRulesAcknowledge}
+              onRulesAcknowledge={(text) => runPetAction("pet-randomized-rules", () => handlePetRulesAcknowledge(text))}
               onSignDebtContract={handleDebtContractSign}
             />
           )}
@@ -6517,4 +6756,6 @@ export default function Home() {
     </main>
   );
 }
+
+
 

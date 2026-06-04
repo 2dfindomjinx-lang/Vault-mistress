@@ -136,6 +136,7 @@ export function PetSection({
   onPerfectWritingProgress,
   onRulesAcknowledge,
   petGalleryUnlockedIds,
+  pendingPetActionIds = [],
   ownerLikeness,
   petScore,
   petDebtContract,
@@ -171,6 +172,7 @@ export function PetSection({
   onPerfectWritingProgress: (value: string) => void;
   onRulesAcknowledge: (text: string) => void;
   petGalleryUnlockedIds: string[];
+  pendingPetActionIds?: string[];
   ownerLikeness: number;
   petScore: number;
   petDebtContract: PetDebtContract | null;
@@ -209,6 +211,7 @@ export function PetSection({
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
   const previousFalseHopeStageRef = useRef<number | null>(null);
+  const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => task.status === "approved").length;
  const canClaimAffection = approvedCount >= 5 &&!petAffectionClaimed;
@@ -247,6 +250,16 @@ export function PetSection({
     const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+
+      if (isTypingTarget) {
+        return;
+      }
 
       if (key !== "a" && key !== "d") {
         return;
@@ -724,11 +737,13 @@ export function PetSection({
             </p>
             <button
               className="mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={weeklyTaxCoolingDown || coins < weeklyTaxCost}
+              disabled={weeklyTaxCoolingDown || coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
               onClick={onPayWeeklyTax}
               type="button"
             >
-              {weeklyTaxCoolingDown
+              {isPetActionPending("pet-weekly-throne-tax")
+                ? "Saving..."
+                : weeklyTaxCoolingDown
                 ? "Tax Paid"
                 : coins < weeklyTaxCost
                   ? `Need ${weeklyTaxCost} Coins`
@@ -742,9 +757,10 @@ export function PetSection({
                 Boolean(task.cooldownUntil) &&
                 new Date(task.cooldownUntil ?? "").getTime() > now;
               const pending = task.status === "pending";
-              const approved = task.kind !== "false-hope" && task.status === "approved";
+              const approved = task.kind === "review" && task.status === "approved";
               const failed = task.status === "failed";
               const sentence = task.sentence ?? "";
+              const actionPending = isPetActionPending(task.id);
 
               return (
                 <article
@@ -827,14 +843,14 @@ export function PetSection({
                       </p>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.status === "approved"}
+                        disabled={coolingDown || task.status === "approved" || actionPending}
                         onChange={(event) => setConfessionInput(event.target.value)}
                         placeholder="Type the sentence exactly..."
                         value={confessionInput}
                       />
                       <button
                         className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.status === "approved" || confessionInput.length === 0}
+                        disabled={coolingDown || task.status === "approved" || actionPending || confessionInput.length === 0}
                         onClick={handleConfessionSubmit}
                         type="button"
                       >
@@ -860,7 +876,7 @@ export function PetSection({
                       </p>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || pending}
+                        disabled={coolingDown || pending || actionPending}
                         onCopy={(event) => event.preventDefault()}
                         onCut={(event) => event.preventDefault()}
                         onChange={(event) => handlePerfectInput(event.target.value, sentence)}
@@ -905,11 +921,11 @@ export function PetSection({
                       )}
                       <button
                         className="mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={caseRolling || coolingDown}
+                        disabled={caseRolling || coolingDown || actionPending}
                         onClick={handleCaseOpen}
                         type="button"
                       >
-                        {caseRolling ? "Opening..." : coolingDown ? "Cooldown" : "Open Case"}
+                        {caseRolling || actionPending ? "Opening..." : coolingDown ? "Cooldown" : "Open Case"}
                       </button>
                     </div>
                   )}
@@ -955,6 +971,7 @@ export function PetSection({
                             <button
                               className="absolute z-20 rounded-2xl border border-pink-100/50 bg-black/82 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.42)] animate-[fadeOut_4.2s_linear_both] sm:px-4 sm:py-3 sm:text-xs"
                               key={box.id}
+                              disabled={actionPending}
                               onClick={onPetEvilWaitFail}
                               style={{
                                 left: box.left,
@@ -985,11 +1002,11 @@ export function PetSection({
                       </p>
                       <button
                         className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.waitState === "countdown" || task.waitState === "waiting"}
+                        disabled={coolingDown || actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
                         onClick={onPetEvilWaitStart}
                         type="button"
                       >
-                        {coolingDown ? "Cooldown" : "Ready"}
+                        {actionPending ? "Saving..." : coolingDown ? "Cooldown" : "Ready"}
                       </button>
                     </div>
                   )}
@@ -1020,14 +1037,14 @@ export function PetSection({
                       )}
                       <input
                         className="mt-3 w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.ruleAcknowledged}
+                        disabled={coolingDown || task.ruleAcknowledged || actionPending}
                         onChange={(event) => setRuleInput(event.target.value)}
                         placeholder="I understand"
                         value={ruleInput}
                       />
                       <button
                         className="mt-3 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.ruleAcknowledged || ruleInput !== "I understand"}
+                        disabled={coolingDown || task.ruleAcknowledged || actionPending || ruleInput !== "I understand"}
                         onClick={() => {
                           onRulesAcknowledge(ruleInput);
                           setRuleInput("");
@@ -1100,7 +1117,7 @@ export function PetSection({
                                       ? "border-white/10 bg-black/45"
                                       : "border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(88,28,135,0.24))] hover:border-pink-200/55"
                               } ${favorRevealing && picked ? "scale-105" : ""}`}
-                              disabled={coolingDown || revealed}
+                              disabled={coolingDown || revealed || actionPending}
                               key={index}
                               onClick={() => handleFavorPick(index)}
                               type="button"
@@ -1131,11 +1148,11 @@ export function PetSection({
                   {task.kind === "review" && (
                     <button
                       className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={coolingDown || pending}
+                      disabled={coolingDown || pending || actionPending}
                       onClick={() => onCompleteTask(task.id)}
                       type="button"
                     >
-                      {pending ? "Pending Review" : coolingDown ? "Cooldown" : "Submit for Review"}
+                      {actionPending ? "Saving..." : pending ? "Pending Review" : coolingDown ? "Cooldown" : "Submit for Review"}
                     </button>
                   )}
                 </article>
@@ -1213,11 +1230,13 @@ export function PetSection({
                   </div>
                   <button
                     className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!debtPaymentDue}
+                    disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
                     onClick={onPayDebtPeriod}
                     type="button"
                   >
-                    {!debtPaymentDue
+                    {isPetActionPending("pet-debt-contract")
+                      ? "Saving..."
+                      : !debtPaymentDue
                       ? "Next installment locked"
                       : `Pay installment ${debtInstallmentNumber}`}
                   </button>
@@ -1306,11 +1325,13 @@ export function PetSection({
 		</p>
             <button
               className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!canClaimAffection}
+              disabled={!canClaimAffection || isPetActionPending("pet-affection-claim")}
               onClick={onClaimAffection}
               type="button"
             >
-              {petAffectionClaimed
+              {isPetActionPending("pet-affection-claim")
+                ? "Saving..."
+                : petAffectionClaimed
   		? "Already Claimed"
   		: canClaimAffection
    		 ? "Claim +10 Pet Score"

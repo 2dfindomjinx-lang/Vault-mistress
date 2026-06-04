@@ -143,7 +143,7 @@ function validateTransition(
     return null;
   }
 
-  if (["task:number-pick", "task:wait-obediently", "task:timeout-risk", "beg"].includes(reason)) {
+  if (["task:wait-obediently", "task:timeout-risk", "beg"].includes(reason)) {
     const taskId = reason === "beg" ? "beg" : reason.replace("task:", "");
 
     if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
@@ -158,14 +158,6 @@ function validateTransition(
 
     if (!spendAmount || coinDelta !== -spendAmount || tributeDelta !== spendAmount) {
       return "Tribute spend delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "game:higher-lower:win" || reason === "game:higher-lower:loss" || reason === "game:higher-lower:tie") {
-    if (!Number.isInteger(coinDelta) || Math.abs(coinDelta) > 10000 || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Game delta is invalid.";
     }
 
     return null;

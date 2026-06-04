@@ -36,6 +36,10 @@ export function getAllowedTaskRewards(taskId: string) {
   return Array.from(new Set([0, baseReward, Math.round(baseReward * 1.5), baseReward * 2]));
 }
 
+export function getBaseTaskReward(taskId: string) {
+  return baseTaskRewards.get(taskId) ?? null;
+}
+
 export function getCosmeticPrice(itemId: string) {
   return cosmeticItems.find((item) => item.id === itemId)?.price ?? null;
 }

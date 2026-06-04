@@ -21,10 +21,6 @@ function jsonError(message: string, status = 400) {
 }
 
 function isRewardAllowed(taskId: string, reward: number) {
-  if (taskId === "high-low") {
-    return Number.isInteger(reward) && reward >= -10000 && reward <= 10000;
-  }
-
   if (taskId === "sacrifice") {
     return reward === 0 || reward === 1;
   }
@@ -59,6 +55,10 @@ export async function POST(request: Request) {
 
   if (!taskId || typeof taskId !== "string" || !Number.isInteger(rewardCoins)) {
     return jsonError("Invalid task payload.");
+  }
+
+  if (taskId === "high-low" || taskId === "number-pick") {
+    return jsonError("This task must use its dedicated action endpoint.", 409);
   }
 
   if (!isRewardAllowed(taskId, rewardCoins)) {
