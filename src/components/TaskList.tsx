@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
-import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
+import { IRL_TASK_WHEEL_COST, irlTaskWheelSegments } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
@@ -84,6 +84,7 @@ export function TaskList({
   const [stake, setStake] = useState(10);
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
+  const [showIrlTaskList, setShowIrlTaskList] = useState(false);
   const irlWheelTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -104,8 +105,8 @@ export function TaskList({
       return;
     }
 
-    const selectedIndex = Math.floor(Math.random() * 20);
-    const segmentDegrees = 360 / 20;
+    const selectedIndex = Math.floor(Math.random() * irlTaskWheelSegments.length);
+    const segmentDegrees = 360 / irlTaskWheelSegments.length;
     const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
     const currentRotation = ((irlWheelRotation % 360) + 360) % 360;
     const targetRotation = (360 - selectedCenter) % 360;
@@ -382,16 +383,29 @@ export function TaskList({
                       {renderStatus(irlTask, isIrlCoolingDown)}
                     </div>
                     <div className="mt-4 flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                      <p className="text-sm leading-6 text-zinc-400">
-                        Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
-                        your assigned IRL task.
-                      </p>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <p className="text-sm leading-6 text-zinc-400">
+                          Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
+                          your assigned IRL task.
+                        </p>
+                        <button
+                          className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
+                          onClick={() => setShowIrlTaskList(true)}
+                          type="button"
+                        >
+                          Task List
+                        </button>
+                      </div>
                       <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
-                        <WheelSpinner
-                          rotation={irlWheelRotation}
-                          selectedIndex={irlTask.assignedIrlWheelIndex ?? null}
-                          spinning={isIrlWheelSpinning}
-                        />
+                        {showIrlTaskList ? (
+                          <IrlTaskWheelTaskList onClose={() => setShowIrlTaskList(false)} />
+                        ) : (
+                          <WheelSpinner
+                            rotation={irlWheelRotation}
+                            selectedIndex={irlTask.assignedIrlWheelIndex ?? null}
+                            spinning={isIrlWheelSpinning}
+                          />
+                        )}
                       </div>
                       {irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now && (
                         <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
@@ -808,16 +822,29 @@ export function TaskList({
 
               {task.kind === "irl-wheel" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                  <p className="text-sm leading-6 text-zinc-400">
-                    Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
-                    your assigned IRL task.
-                  </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <p className="text-sm leading-6 text-zinc-400">
+                      Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
+                      your assigned IRL task.
+                    </p>
+                    <button
+                      className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
+                      onClick={() => setShowIrlTaskList(true)}
+                      type="button"
+                    >
+                      Task List
+                    </button>
+                  </div>
                   <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
-                    <WheelSpinner
-                      rotation={irlWheelRotation}
-                      selectedIndex={task.assignedIrlWheelIndex ?? null}
-                      spinning={isIrlWheelSpinning}
-                    />
+                    {showIrlTaskList ? (
+                      <IrlTaskWheelTaskList onClose={() => setShowIrlTaskList(false)} />
+                    ) : (
+                      <WheelSpinner
+                        rotation={irlWheelRotation}
+                        selectedIndex={task.assignedIrlWheelIndex ?? null}
+                        spinning={isIrlWheelSpinning}
+                      />
+                    )}
                   </div>
                   {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
@@ -902,6 +929,47 @@ export function TaskList({
         })}
       </div>
     </section>
+  );
+}
+
+function IrlTaskWheelTaskList({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="relative">
+      <button
+        aria-label="Close task list"
+        className="absolute right-0 top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/60 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/20"
+        onClick={onClose}
+        type="button"
+      >
+        X
+      </button>
+      <div className="pr-11">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-200/70">
+          All Wheel Tasks
+        </p>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">
+          Each wheel slice maps to one unique IRL task.
+        </p>
+      </div>
+      <div className="mt-4 grid max-h-[24rem] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+        {irlTaskWheelSegments.map((task, index) => (
+          <div
+            className="rounded-2xl border border-white/10 bg-black/35 p-3"
+            key={`${task.title}-${index}`}
+          >
+            <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-pink-200/60">
+              Task #{index + 1}
+            </p>
+            <p className="mt-1 text-sm font-black text-white">{task.title}</p>
+            {task.description && (
+              <p className="mt-2 text-xs leading-5 text-zinc-400">
+                {task.description}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

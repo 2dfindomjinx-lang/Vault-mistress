@@ -42,12 +42,49 @@ export const irlTaskWheelTasks = [
     title: "Send 10$ on Throne",
     description: "Send $10 tribute on Throne immediately. No excuses. Send proof afterwards.",
   },
+  {
+    title: "Ownership Affirmation",
+    description: "Write and send a short paragraph (3-5 sentences) explaining why your finances and obedience belong to Principessa. Include today’s date and your username.",
+  },
+  {
+    title: "Edge & Deny Report",
+    description: "Edge yourself for a minimum of 10 minutes without orgasm, then send a detailed report of how desperate you felt and who controls your pleasure.",
+  },
+  {
+    title: "Loyalty Caption",
+    description: "Create an original short caption (1-2 sentences) showing your devotion to Principessa and send it as a message with a timestamp.",
+  },
+  {
+    title: "Humiliation Confession",
+    description: "Write a short confession about why you’re addicted to being drained and controlled by Principessa.",
+  },
+  {
+    title: "Coin Loss",
+    description: "DM @principessa2dfd and beg her for drain your coins.",
+  },
+  {
+    title: "Ballbusting Goon",
+    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+  {
+    title: "Porn Denial Loop",
+    description: "Go to a porn site and open 4 different videos. Edge to each one for exactly 3 minutes without cumming. Send a report of which video made you feel the weakest.",
+  },
+  {
+    title: "Send 1$ on Throne",
+    description: "Send 1$ tribute on Throne immediately. No excuses. Send proof afterwards.",
+  },
+  {
+    title: "Intentional Fail",
+    description: "Intentionally fail at least 4 tasks.",
+  },
+  {
+    title: "Repost Task",
+    description: "Visit @principessa2dfd on X and repost at least 5 posts.",
+  },
 ];
 
-export const irlTaskWheelSegments = irlTaskWheelTasks.flatMap((task) => [
-  task,
-  task,
-]);
+export const irlTaskWheelSegments = irlTaskWheelTasks;
 
 export function getRandomIrlTaskDurationMinutes() {
   return 24 * 60;

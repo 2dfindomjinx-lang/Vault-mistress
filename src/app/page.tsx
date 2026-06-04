@@ -1518,6 +1518,7 @@ export default function Home() {
   const [authError, setAuthError] = useState("");
   const [authBootstrapped, setAuthBootstrapped] = useState(false);
   const authBootstrappedRef = useRef(false);
+  const [isProfileVerified, setIsProfileVerified] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
@@ -1739,6 +1740,11 @@ export default function Home() {
   const blockIfTimedOut = () => {
     if (isPreviewRestricted) {
       setAvatarMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
+      return true;
+    }
+
+    if (isLoggedIn && !isGuestMode && !isProfileVerified) {
+      setAvatarMistressReply("The vault is still verifying your profile. Try again in a moment.");
       return true;
     }
 
@@ -3239,6 +3245,7 @@ export default function Home() {
         const profile = await withTimeout(profileLoader(user), `profile fetch ${source}`);
         await withTimeout(loyaltyUpdater(profile), `loyalty update ${source}`);
         authProfileLoadedRef.current = user.id;
+        setIsProfileVerified(true);
         console.info("[auth-init] profile fetch result", { source, profile });
         return profile;
       } finally {
@@ -3262,26 +3269,27 @@ export default function Home() {
     const clearAuthState = () => {
       authProfileLoadInFlightRef.current = null;
       authProfileLoadedRef.current = null;
+      setIsProfileVerified(false);
       setIsLoggedIn(false);
       setAuthUserId(null);
     };
 
-    const resolveAuthSession = async (user: User | null, source: string) => {
+    const showOptimisticDashboard = (user: User, source: string) => {
+      console.info("[auth-init] optimistic session accepted", { source, userId: user.id });
+      setAuthError("");
+      setIsGuestMode(false);
+      setIsPreviewMode(false);
+      previewModeRef.current = false;
+      setIsProfileVerified(false);
+      setIsAdminUser(false);
+      setAuthUserId(user.id);
+      setUsername(profileUsernameFromUser(user));
+      setIsLoggedIn(true);
+      finishAuthLoad();
+    };
+
+    const verifyAuthenticatedUser = async (user: User, source: string) => {
       try {
-        console.info("[auth-init] init/session resolve started", {
-          hasUser: Boolean(user),
-          source,
-        });
-        setIsAuthLoading(true);
-
-        if (!user) {
-          console.info("[auth-init] no session; showing login screen", { source });
-          if (mounted && !previewModeRef.current) {
-            clearAuthState();
-          }
-          return;
-        }
-
         if (!mounted) {
           return;
         }
@@ -3291,27 +3299,46 @@ export default function Home() {
           authReplyRef.current?.("Logged in already? Eager little thing.");
         }
       } catch (initError) {
-        console.error("[auth-init] init/profile error", initError);
+        console.error("[auth-init] profile verification failed", initError);
         if (mounted && !previewModeRef.current) {
           setAuthError(describeError(initError));
+          void supabase.auth.signOut();
           clearAuthState();
+          finishAuthLoad();
         }
-      } finally {
-        finishAuthLoad();
       }
     };
 
     const bootInitialAuth = async () => {
       try {
-        console.info("[auth-init] server session check started");
+        console.info("[auth-init] client session check started");
         setIsAuthLoading(true);
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          "supabase.auth.getSession optimistic",
+        );
+
+        console.info("[auth-init] client session result", {
+          hasUser: Boolean(sessionResult.data.session?.user),
+        });
+
+        if (sessionResult.error) {
+          throw sessionResult.error;
+        }
+
+        if (sessionResult.data.session?.user) {
+          showOptimisticDashboard(sessionResult.data.session.user, "client-session");
+          void verifyAuthenticatedUser(sessionResult.data.session.user, "client-session-verification");
+          return;
+        }
+
         const response = await withTimeout(
           fetch("/api/auth/session", { cache: "no-store" }),
-          "server auth session",
+          "server auth session fallback",
         );
         const payload = (await response.json()) as { error?: string | null; user?: User | null };
 
-        console.info("[auth-init] server session result", {
+        console.info("[auth-init] server session fallback result", {
           hasUser: Boolean(payload.user),
           status: response.status,
         });
@@ -3320,11 +3347,19 @@ export default function Home() {
           throw new Error(payload.error ?? "Auth session check failed.");
         }
 
-        await resolveAuthSession(payload.user ?? null, "server-session");
-      } catch (serverSessionError) {
-        console.error("[auth-init] server session check failed", serverSessionError);
+        if (payload.user) {
+          showOptimisticDashboard(payload.user, "server-session-fallback");
+          void verifyAuthenticatedUser(payload.user, "server-session-verification");
+          return;
+        }
+
+        console.info("[auth-init] no session; showing login screen");
+        clearAuthState();
+        finishAuthLoad();
+      } catch (sessionError) {
+        console.error("[auth-init] session check failed", sessionError);
         if (!previewModeRef.current) {
-          setAuthError(describeError(serverSessionError));
+          setAuthError(describeError(sessionError));
           clearAuthState();
         }
         finishAuthLoad();
@@ -3367,8 +3402,8 @@ export default function Home() {
 
       void (async () => {
         try {
-          setIsAuthLoading(true);
-          await loadAuthenticatedUser(session.user, `auth-change:${_event}`);
+          showOptimisticDashboard(session.user, `auth-change:${_event}`);
+          await verifyAuthenticatedUser(session.user, `auth-change:${_event}:verification`);
         } catch (profileError) {
           console.error("[auth-init] profile fetch error after auth change", profileError);
           setAuthError(describeError(profileError));
@@ -4380,6 +4415,7 @@ export default function Home() {
     setAuthError("");
     authBootstrappedRef.current = false;
     setAuthBootstrapped(false);
+    setIsProfileVerified(false);
     setIsAuthLoading(true);
     setIsPreviewMode(false);
     setIsGuestMode(false);
@@ -4433,6 +4469,7 @@ export default function Home() {
     setAuthError("");
     authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
+    setIsProfileVerified(false);
     setIsAuthBusy(false);
     setIsAuthLoading(false);
     setIsPreviewMode(true);
@@ -4486,6 +4523,7 @@ export default function Home() {
     authProfileLoadedRef.current = null;
     authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
+    setIsProfileVerified(false);
     setIsGuestMode(false);
     setIsPreviewMode(false);
     previewModeRef.current = false;
