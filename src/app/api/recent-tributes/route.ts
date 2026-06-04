@@ -39,8 +39,7 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const recentTributeReasons = ["tribute", "live_gift", "throne_tribute", "admin_grant"];
-  const throneTributeReasons = ["throne_tribute", "live_gift"];
-  const [{ data: transactions, error: transactionError }, { data: throneTributes, error: topError }] =
+  const [{ data: transactions, error: transactionError }, throneTributeResult] =
     await Promise.all([
       supabase
         .from("coin_transactions")
@@ -49,12 +48,7 @@ export async function GET() {
         .gt("amount", 0)
         .order("created_at", { ascending: false })
         .limit(10),
-      supabase
-        .from("coin_transactions")
-        .select("id, user_id, amount, reason, metadata, created_at")
-        .in("reason", throneTributeReasons)
-        .gt("amount", 0)
-        .order("created_at", { ascending: false }),
+      fetchAllThroneTributeTransactions(supabase),
     ]);
 
   if (transactionError) {
@@ -62,14 +56,14 @@ export async function GET() {
     return Response.json({ error: transactionError.message }, { status: 500 });
   }
 
-  if (topError) {
-    console.error("Top tributors live gift lookup failed", topError);
-    return Response.json({ error: topError.message }, { status: 500 });
+  if (throneTributeResult.error) {
+    console.error("All-time throne tributors lookup failed", throneTributeResult.error);
+    return Response.json({ error: throneTributeResult.error.message }, { status: 500 });
   }
 
   const rows = (transactions ?? []) as CoinTransactionRow[];
   const topRows = getTopTributors(
-    ((throneTributes ?? []) as CoinTransactionRow[]).filter(isThroneTributeTransaction),
+    throneTributeResult.rows.filter(isThroneTributeTransaction),
   );
   const userIds = Array.from(
     new Set([...rows.map((row) => row.user_id), ...topRows.map((row) => row.userId)]),
@@ -131,6 +125,35 @@ export async function GET() {
   });
 }
 
+async function fetchAllThroneTributeTransactions(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+) {
+  const throneTributeReasons = ["throne_tribute", "live_gift", "admin_grant"];
+  const pageSize = 1000;
+  const rows: CoinTransactionRow[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("coin_transactions")
+      .select("id, user_id, amount, reason, metadata, created_at")
+      .in("reason", throneTributeReasons)
+      .gt("amount", 0)
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      return { error, rows };
+    }
+
+    const pageRows = (data ?? []) as CoinTransactionRow[];
+    rows.push(...pageRows);
+
+    if (pageRows.length < pageSize) {
+      return { error: null, rows };
+    }
+  }
+}
+
 function getTopTributors(rows: CoinTransactionRow[]): TopTributorRow[] {
   const totals = new Map<string, TopTributorRow>();
 
@@ -175,6 +198,6 @@ function isThroneTributeTransaction(row: CoinTransactionRow) {
     return source === "throne" || kind === "manual_coin_purchase" || command === "give";
   }
 
-  // Legacy /give records used live_gift with metadata.command = "give".
-  return row.reason === "live_gift" && command === "give";
+  // Legacy /give records may have used live_gift or admin_grant with metadata.command = "give".
+  return (row.reason === "live_gift" || row.reason === "admin_grant") && command === "give";
 }

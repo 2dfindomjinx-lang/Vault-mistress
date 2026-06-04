@@ -7,6 +7,7 @@ import type { MechanicsState, TaskItem } from "@/lib/types";
 
 const SACRIFICE_COST = 250;
 const SUPPORT_COST = 1000;
+const JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY = "vault:jackpot-hide-contributors";
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
   return kind === expected;
@@ -1118,6 +1119,25 @@ function LoyaltyJackpotTaskCard({
     cleanAmount >= JACKPOT_MIN_CONTRIBUTION &&
     cleanAmount <= coins;
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY);
+      queueMicrotask(() => setHideContributors(stored === "true"));
+    } catch {
+      // A private browsing/storage failure should not break the jackpot card.
+    }
+  }, []);
+
+  const handleHideContributorsChange = (checked: boolean) => {
+    setHideContributors(checked);
+
+    try {
+      window.localStorage.setItem(JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY, String(checked));
+    } catch {
+      // Keep the current in-memory preference even if persistence fails.
+    }
+  };
+
   return (
     <article className="mt-5 rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(245,158,11,0.16),rgba(0,0,0,0.38))] p-4 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1247,7 +1267,7 @@ function LoyaltyJackpotTaskCard({
               <input
                 checked={hideContributors}
                 className="h-4 w-4 accent-amber-300"
-                onChange={(event) => setHideContributors(event.target.checked)}
+                onChange={(event) => handleHideContributorsChange(event.target.checked)}
                 type="checkbox"
               />
               Hide contributors

@@ -30,10 +30,12 @@ export function CosmeticShop({
   onPurchaseCosmetic,
   onPurchaseTitle,
 }: CosmeticShopProps) {
+  const sortByPrice = (items: CosmeticItem[]) =>
+    [...items].sort((a, b) => a.price - b.price);
   const groupedItems = {
-    "speech-avatar": shopItems.filter((item) => item.type === "speech-avatar"),
-    "username-color": shopItems.filter((item) => item.type === "username-color"),
-    "username-glow": shopItems.filter((item) => item.type === "username-glow"),
+    "speech-avatar": sortByPrice(shopItems.filter((item) => item.type === "speech-avatar")),
+    "username-color": sortByPrice(shopItems.filter((item) => item.type === "username-color")),
+    "username-glow": sortByPrice(shopItems.filter((item) => item.type === "username-glow")),
   };
   const premiumOwned = ownedTitleIds.includes(premiumTitle.id);
 
