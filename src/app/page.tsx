@@ -1265,12 +1265,12 @@ function generateNumberPickOptions(seed = Math.floor(Date.now() / (24 * 60 * 60 
   let step = 0;
 
   while (options.size < 3) {
-    const raw = Math.sin(seed * 997 + step * 37) * 10000;
-    options.add(Math.floor((raw - Math.floor(raw)) * 99) + 1);
+    const value = ((seed + step * 7) % 9) + 1;
+    options.add(value);
     step += 1;
   }
 
-  return [...options];
+  return Array.from(options).sort((a, b) => a - b);
 }
 
 function getTaskMetadataNumberArray(
@@ -2389,16 +2389,26 @@ export default function Home() {
 
     const { data: throneTransactions, error: throneError } = await supabase
       .from("coin_transactions")
-      .select("amount")
+      .select("amount, metadata, reason")
       .eq("user_id", profile.id)
-      .eq("reason", "live_gift");
+      .in("reason", ["throne_tribute", "live_gift"]);
 
     if (throneError) {
       console.warn("Failed to load Throne coin milestone totals", throneError);
     }
 
     const throneCoinTotal = (throneTransactions ?? []).reduce(
-      (sum, entry) => sum + Math.max(0, Number(entry.amount ?? 0)),
+      (sum, entry) => {
+        const metadata = (entry.metadata ?? {}) as Record<string, unknown>;
+        const command = typeof metadata.command === "string" ? metadata.command : null;
+        const kind = typeof metadata.kind === "string" ? metadata.kind : null;
+        const source = typeof metadata.source === "string" ? metadata.source : null;
+        const isThroneTribute =
+          entry.reason === "throne_tribute" ||
+          (entry.reason === "live_gift" && (command === "give" || kind === "manual_coin_purchase" || source === "throne"));
+
+        return isThroneTribute ? sum + Math.max(0, Number(entry.amount ?? 0)) : sum;
+      },
       0,
     );
     const autoTitleIds = Array.from(
@@ -2574,7 +2584,11 @@ export default function Home() {
       const petRows = (petTaskData ?? []) as UserPetTaskRow[];
       setPetTaskState(buildPetTasksFromRows(petRows));
       setPetAffectionClaimed(
-        petRows.some((entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved"),
+        petRows.some((entry) =>
+          entry.task_id === "pet-affection-claim" &&
+          entry.status === "approved" &&
+          getTaskMetadataString(entry.metadata, "date") === getDailyKey(),
+        ),
       );
     }
 
@@ -3864,72 +3878,54 @@ export default function Home() {
     }
 
     const currentNumber = task.currentNumber ?? randomHighLowDisplayNumber();
-    const resultNumber = randomHighLowNumber();
-    const outcome =
-      resultNumber === currentNumber
-        ? "tie"
-        : (guess === "higher" && resultNumber > currentNumber) ||
-            (guess === "lower" && resultNumber < currentNumber)
-          ? "win"
-          : "loss";
-    const coinDelta = outcome === "win" ? stake * (highLowWinMultiplier - 1) : outcome === "loss" ? -stake : 0;
-    const nextCoins = currentCoins + coinDelta;
-    const now = new Date().toISOString();
-    const today = getDailyKey();
-    const currentDailyDate = task.highLowDailyDate === today ? task.highLowDailyDate : today;
-    const currentDailyProfit =
-      task.highLowDailyDate === today ? task.highLowDailyProfit ?? 0 : 0;
-    const currentDailyWins =
-      task.highLowDailyDate === today ? task.highLowDailyWins ?? 0 : 0;
-    const nextDailyProfit = currentDailyProfit + coinDelta;
-    const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-    const nextDailyLocked = isHighLowLocked(nextDailyProfit);
-    const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
-    const lastResult =
-      outcome === "tie"
-        ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
-        : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`;
+    setAvatarMistressReply("Rolling the vault number...");
 
-    setCoins(nextCoins);
-    coinsRef.current = nextCoins;
-    setTasks((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              completed: true,
-              claimed: false,
-              currentNumber,
-              highLowDailyDate: currentDailyDate,
-              highLowDailyLocked: nextDailyLocked,
-              highLowDailyProfit: nextDailyProfit,
-              highLowDailyWins: nextDailyWins,
-              lastResult,
-              nextBaseRevealAt,
-              resultBaseNumber: currentNumber,
-              resultCoinDelta: coinDelta,
-              resultNumber,
-              resultOutcome: outcome,
-              cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
-            }
-          : entry,
-      ),
-    );
-    scheduleHighLowDisplayRefresh();
-    setAvatarMistressReply(
-      outcome === "tie"
-        ? "A tie. Your stake returns, this time."
-        : outcome === "win"
-        ? highLowWinMultiplier > 2
-          ? "Event luck. The vault triples your winning payout."
-          : "A lucky guess. The vault doubles your stake."
-        : "Wrong. The vault keeps that stake.",
-    );
-
-    persistInBackground(
-      (async () => {
+    try {
         if (isGuestMode) {
-          return;
+        const resultNumber = randomHighLowNumber();
+        const outcome =
+          resultNumber === currentNumber
+            ? "tie"
+            : (guess === "higher" && resultNumber > currentNumber) ||
+                (guess === "lower" && resultNumber < currentNumber)
+              ? "win"
+              : "loss";
+        const coinDelta = outcome === "win" ? stake * (highLowWinMultiplier - 1) : outcome === "loss" ? -stake : 0;
+        const nextCoins = currentCoins + coinDelta;
+        const now = new Date().toISOString();
+        const today = getDailyKey();
+        const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
+
+        setCoins(nextCoins);
+        coinsRef.current = nextCoins;
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === task.id
+              ? {
+                  ...entry,
+                  completed: true,
+                  claimed: false,
+                  cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
+                  currentNumber,
+                  highLowDailyDate: today,
+                  highLowDailyLocked: isHighLowLocked((task.highLowDailyProfit ?? 0) + coinDelta),
+                  highLowDailyProfit: (task.highLowDailyProfit ?? 0) + coinDelta,
+                  highLowDailyWins: (task.highLowDailyWins ?? 0) + (outcome === "win" ? 1 : 0),
+                  lastResult:
+                    outcome === "tie"
+                      ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
+                      : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`,
+                  nextBaseRevealAt,
+                  resultBaseNumber: currentNumber,
+                  resultCoinDelta: coinDelta,
+                  resultNumber,
+                  resultOutcome: outcome,
+                }
+              : entry,
+          ),
+        );
+        scheduleHighLowDisplayRefresh();
+        return;
         }
 
         const response = await fetch("/api/user/task-actions/high-low", {
@@ -3958,10 +3954,32 @@ export default function Home() {
               : entry,
           ),
         );
-      })(),
-      "Failed to complete high-low play",
-      { onFinally: () => finishTaskAction(actionId) },
-    );
+
+        scheduleHighLowDisplayRefresh();
+
+        const outcome = payload.taskState.resultOutcome;
+        setAvatarMistressReply(
+          outcome === "tie"
+            ? "A tie. Your stake returns, this time."
+            : outcome === "win"
+              ? highLowWinMultiplier > 2
+                ? "Event luck. The vault boosted your winning payout."
+                : "A lucky guess. The vault pays your win."
+              : "Wrong. The vault keeps that stake.",
+        );
+        if (outcome === "win") {
+          emitSoundEvent("task_completion");
+        }
+    } catch (error) {
+      console.error("Failed to complete high-low play", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The Higher or Lower ledger failed. Resyncing the vault state.");
+      void resyncAuthenticatedProfile("Failed to complete high-low play").catch((resyncError) => {
+        console.error("[profile-resync] failed after high-low error", resyncError);
+      });
+    } finally {
+      finishTaskAction(actionId);
+    }
   };
 
   const handleNumberPick = async (selectedNumber: number) => {
@@ -3994,64 +4012,64 @@ export default function Home() {
       return;
     }
 
+    const currentCoins = coinsRef.current;
     const actionId = "number-pick";
 
     if (!beginTaskAction(actionId)) {
       return;
     }
 
-    const existingCorrect = task.numberPickCorrect;
-    const correctNumber = typeof existingCorrect === "number" ? existingCorrect : randomFrom(options);
-    const previousWrongSelections = task.numberPickWrongSelections ?? [];
-    const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
-    const isCorrect = selectedNumber === correctNumber;
-    const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
-    const reward = baseReward > 0 ? getEventTaskReward(baseReward) : 0;
-    const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
-    const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
-    const result: "win" | "loss" | null = finalAttempt ? (isCorrect ? "win" : "loss") : null;
-    const wrongSelections = isCorrect
-      ? previousWrongSelections
-      : Array.from(new Set([...previousWrongSelections, selectedNumber]));
-    const actionStartedAt = new Date();
-    const cooldownUntil = new Date(actionStartedAt.getTime() + DAY_MS).toISOString();
+    setAvatarMistressReply("Checking that number with the vault...");
 
-    if (reward > 0) {
-      const nextCoins = coinsRef.current + reward;
-      setCoins(nextCoins);
-      coinsRef.current = nextCoins;
-    }
-
-    setTasks((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-            ...entry,
-              claimed: finalAttempt,
-              completed: result === "win",
-              cooldownUntil: finalAttempt ? cooldownUntil : entry.cooldownUntil,
-              numberPickAttemptsRemaining: nextAttemptsRemaining,
-              numberPickCorrect: correctNumber,
-              numberPickOptions: options,
-              numberPickResult: result,
-              numberPickSelected: selectedNumber,
-              numberPickWrongSelections: wrongSelections,
-            }
-          : entry,
-      ),
-    );
-    setAvatarMistressReply(
-      result === "win"
-        ? `Lucky pick. The vault grants you ${reward} coins.`
-        : result === "loss"
-          ? "Wrong again. The vault gives you nothing today."
-          : "Wrong number. One chance remains.",
-    );
-
-    persistInBackground(
-      (async () => {
+    try {
         if (isGuestMode) {
-          return;
+        const existingCorrect = task.numberPickCorrect;
+        const correctNumber = typeof existingCorrect === "number" ? existingCorrect : randomFrom(options);
+        const previousWrongSelections = task.numberPickWrongSelections ?? [];
+        const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
+        const isCorrect = selectedNumber === correctNumber;
+        const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
+        const reward = baseReward > 0 ? getEventTaskReward(baseReward) : 0;
+        const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
+        const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
+        const result: "win" | "loss" | null = finalAttempt ? (isCorrect ? "win" : "loss") : null;
+        const wrongSelections = isCorrect
+          ? previousWrongSelections
+          : Array.from(new Set([...previousWrongSelections, selectedNumber]));
+        const cooldownUntil = new Date(new Date().getTime() + DAY_MS).toISOString();
+
+        if (reward > 0) {
+          const nextCoins = coinsRef.current + reward;
+          setCoins(nextCoins);
+          coinsRef.current = nextCoins;
+        }
+
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === task.id
+              ? {
+                  ...entry,
+                  claimed: finalAttempt,
+                  completed: result === "win",
+                  cooldownUntil: finalAttempt ? cooldownUntil : entry.cooldownUntil,
+                  numberPickAttemptsRemaining: nextAttemptsRemaining,
+                  numberPickCorrect: correctNumber,
+                  numberPickOptions: options,
+                  numberPickResult: result,
+                  numberPickSelected: selectedNumber,
+                  numberPickWrongSelections: wrongSelections,
+                }
+              : entry,
+          ),
+        );
+        setAvatarMistressReply(
+          result === "win"
+            ? `Lucky pick. The vault grants you ${reward} coins.`
+            : result === "loss"
+              ? "Wrong again. The vault gives you nothing today."
+              : "Wrong number. One chance remains.",
+        );
+        return;
         }
 
         const response = await fetch("/api/user/task-actions/number-pick", {
@@ -4080,10 +4098,31 @@ export default function Home() {
               : entry,
           ),
         );
-      })(),
-      "Failed to complete number pick task",
-      { onFinally: () => finishTaskAction(actionId) },
-    );
+
+        const result = payload.taskState.numberPickResult;
+        const rewardDelta =
+          typeof payload.profile.coins === "number" ? payload.profile.coins - currentCoins : 0;
+
+        setAvatarMistressReply(
+          result === "win"
+            ? `Lucky pick. The vault grants you ${Math.max(0, rewardDelta)} coins.`
+            : result === "loss"
+              ? "Wrong again. The vault gives you nothing today."
+              : "Wrong number. One chance remains.",
+        );
+        if (result === "win") {
+          emitSoundEvent("task_completion");
+        }
+    } catch (error) {
+      console.error("Failed to complete number pick task", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The Number Pick ledger failed. Resyncing the vault state.");
+      void resyncAuthenticatedProfile("Failed to complete number pick task").catch((resyncError) => {
+        console.error("[profile-resync] failed after number-pick error", resyncError);
+      });
+    } finally {
+      finishTaskAction(actionId);
+    }
   };
 
   const handleWaitObedientlyStart = async () => {
@@ -4551,6 +4590,8 @@ export default function Home() {
       );
       if (reward > 0) {
         emitSoundEvent("task_completion");
+      } else {
+        emitSoundEvent("button_click");
       }
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
@@ -6588,7 +6629,9 @@ export default function Home() {
             return;
         }
 
-        const approvedCount = petTaskState.filter((task) => task.status === "approved").length;
+        const approvedCount = petTaskState.filter((task) =>
+          task.id !== "pet-affection-claim" && task.status === "approved"
+        ).length;
 
         if (approvedCount < 5 || petAffectionClaimed) {
             return;
@@ -6609,7 +6652,7 @@ export default function Home() {
                     reward_score: 10,
                     status: "approved",
                     reviewed_at: new Date().toISOString(),
-                    metadata: {},
+                    metadata: { date: getDailyKey() },
                 },
               );
             } catch (error) {

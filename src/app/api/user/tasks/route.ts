@@ -83,6 +83,11 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
+    console.error("[user-tasks] upsert failed", {
+      error,
+      task,
+      userId: authData.user.id,
+    });
     return jsonError(error?.message ?? "Task update failed.", 500);
   }
 

@@ -76,10 +76,18 @@ export async function POST(request: Request) {
   ]);
 
   if (profileResult.error || !profileResult.data) {
+    console.error("[high-low] profile read failed", {
+      error: profileResult.error,
+      userId: authData.user.id,
+    });
     return jsonError(profileResult.error?.message ?? "Profile not found.", 404);
   }
 
   if (taskResult.error) {
+    console.error("[high-low] task read failed", {
+      error: taskResult.error,
+      userId: authData.user.id,
+    });
     return jsonError(taskResult.error.message, 500);
   }
 
@@ -146,6 +154,13 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error || !data) {
+      console.error("[high-low] profile coin update failed", {
+        coinDelta,
+        error,
+        nextCoins,
+        previousCoins: profile.coins,
+        userId: authData.user.id,
+      });
       return jsonError(error?.message ?? "Higher/Lower duplicate or stale balance rejected.", 409);
     }
 
@@ -158,6 +173,10 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
+      console.error("[high-low] profile refresh failed", {
+        error,
+        userId: authData.user.id,
+      });
       return jsonError(error?.message ?? "Profile refresh failed.", 500);
     }
 
@@ -191,6 +210,12 @@ export async function POST(request: Request) {
     .single();
 
   if (taskError || !updatedTask) {
+    console.error("[high-low] user_tasks upsert failed", {
+      coinDelta,
+      error: taskError,
+      nextMetadata,
+      userId: authData.user.id,
+    });
     return jsonError(taskError?.message ?? "Higher/Lower task update failed.", 500);
   }
 

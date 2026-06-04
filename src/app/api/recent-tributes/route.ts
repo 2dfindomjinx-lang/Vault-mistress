@@ -9,6 +9,8 @@ type CoinTransactionRow = {
   user_id: string;
   amount: number;
   created_at: string;
+  metadata?: Record<string, unknown> | null;
+  reason?: string | null;
 };
 
 type TopTributorRow = {
@@ -36,20 +38,21 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const recentTributeReasons = ["tribute", "live_gift", "admin_grant"];
-  const [{ data: transactions, error: transactionError }, { data: liveGifts, error: topError }] =
+  const recentTributeReasons = ["tribute", "live_gift", "throne_tribute", "admin_grant"];
+  const throneTributeReasons = ["throne_tribute", "live_gift"];
+  const [{ data: transactions, error: transactionError }, { data: throneTributes, error: topError }] =
     await Promise.all([
       supabase
         .from("coin_transactions")
-        .select("id, user_id, amount, created_at")
+        .select("id, user_id, amount, reason, metadata, created_at")
         .in("reason", recentTributeReasons)
         .gt("amount", 0)
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
         .from("coin_transactions")
-        .select("id, user_id, amount, created_at")
-        .eq("reason", "live_gift")
+        .select("id, user_id, amount, reason, metadata, created_at")
+        .in("reason", throneTributeReasons)
         .gt("amount", 0)
         .order("created_at", { ascending: false }),
     ]);
@@ -65,7 +68,9 @@ export async function GET() {
   }
 
   const rows = (transactions ?? []) as CoinTransactionRow[];
-  const topRows = getTopTributors((liveGifts ?? []) as CoinTransactionRow[]);
+  const topRows = getTopTributors(
+    ((throneTributes ?? []) as CoinTransactionRow[]).filter(isThroneTributeTransaction),
+  );
   const userIds = Array.from(
     new Set([...rows.map((row) => row.user_id), ...topRows.map((row) => row.userId)]),
   );
@@ -158,4 +163,18 @@ function getTopTributors(rows: CoinTransactionRow[]): TopTributorRow[] {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })
     .slice(0, 3);
+}
+
+function isThroneTributeTransaction(row: CoinTransactionRow) {
+  const metadata = row.metadata ?? {};
+  const command = typeof metadata.command === "string" ? metadata.command : null;
+  const kind = typeof metadata.kind === "string" ? metadata.kind : null;
+  const source = typeof metadata.source === "string" ? metadata.source : null;
+
+  if (row.reason === "throne_tribute") {
+    return source === "throne" || kind === "manual_coin_purchase" || command === "give";
+  }
+
+  // Legacy /give records used live_gift with metadata.command = "give".
+  return row.reason === "live_gift" && command === "give";
 }

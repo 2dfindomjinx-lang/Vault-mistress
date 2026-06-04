@@ -176,7 +176,7 @@ export async function POST(request: Request) {
     return Response.json({ error: updateError.message }, { status: 500 });
   }
 
-  const transactionReason = giveMatch ? "live_gift" : "admin_add";
+  const transactionReason = giveMatch ? "throne_tribute" : "admin_add";
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
     .insert({
@@ -188,6 +188,8 @@ export async function POST(request: Request) {
       balance_after: nextCoins,
       metadata: {
         command: giveMatch ? "give" : "add",
+        kind: giveMatch ? "manual_coin_purchase" : "admin_adjustment",
+        source: giveMatch ? "throne" : "admin",
         tributeTotalChanged: false,
       },
     })
@@ -203,7 +205,7 @@ export async function POST(request: Request) {
       .from("coin_transactions")
       .select("amount")
       .eq("user_id", profile.id)
-      .eq("reason", "live_gift");
+      .in("reason", ["throne_tribute", "live_gift"]);
 
     if (giftTotalError) {
       console.error("Throne title milestone total lookup failed", giftTotalError);

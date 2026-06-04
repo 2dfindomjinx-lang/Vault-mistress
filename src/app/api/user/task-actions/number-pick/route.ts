@@ -48,6 +48,10 @@ export async function POST(request: Request) {
   const selectedNumber = body?.selectedNumber;
 
   if (typeof selectedNumber !== "number" || !Number.isInteger(selectedNumber) || selectedNumber < 1 || selectedNumber > 9) {
+    console.error("[number-pick] invalid payload", {
+      selectedNumber,
+      userId: authData.user.id,
+    });
     return jsonError("Invalid Number Pick payload.");
   }
 
@@ -68,10 +72,18 @@ export async function POST(request: Request) {
   ]);
 
   if (profileResult.error || !profileResult.data) {
+    console.error("[number-pick] profile read failed", {
+      error: profileResult.error,
+      userId: authData.user.id,
+    });
     return jsonError(profileResult.error?.message ?? "Profile not found.", 404);
   }
 
   if (taskResult.error) {
+    console.error("[number-pick] task read failed", {
+      error: taskResult.error,
+      userId: authData.user.id,
+    });
     return jsonError(taskResult.error.message, 500);
   }
 
@@ -88,13 +100,19 @@ export async function POST(request: Request) {
     return jsonError("Number Pick is still on cooldown.", 429);
   }
 
-  const storedOptions = getMetadataNumberArray(metadata, "options");
+  const storedOptions = validateNumberPickOptions(metadata.options);
   const submittedOptions = validateNumberPickOptions(body?.options);
   const options = storedOptions && storedOptions.length === 3
     ? storedOptions
     : submittedOptions ?? generateNumberPickOptions();
 
   if (!options.includes(selectedNumber)) {
+    console.error("[number-pick] selected number missing from active options", {
+      options,
+      selectedNumber,
+      submittedOptions,
+      userId: authData.user.id,
+    });
     return jsonError("Selected number is not in the active options.", 422);
   }
 
@@ -111,7 +129,9 @@ export async function POST(request: Request) {
   }
 
   const existingCorrect = getMetadataNumber(metadata, "correct", Number.NaN);
-  const correctNumber = Number.isFinite(existingCorrect) ? existingCorrect : randomFrom(options);
+  const correctNumber = Number.isFinite(existingCorrect) && options.includes(existingCorrect)
+    ? existingCorrect
+    : randomFrom(options);
   const attemptsRemaining = getMetadataNumber(metadata, "attemptsRemaining", 2);
   const isCorrect = selectedNumber === correctNumber;
   const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
@@ -140,6 +160,13 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error || !data) {
+      console.error("[number-pick] profile coin update failed", {
+        error,
+        nextCoins,
+        previousCoins: profile.coins,
+        reward,
+        userId: authData.user.id,
+      });
       return jsonError(error?.message ?? "Number Pick duplicate or stale balance rejected.", 409);
     }
 
@@ -152,6 +179,10 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
+      console.error("[number-pick] profile refresh failed", {
+        error,
+        userId: authData.user.id,
+      });
       return jsonError(error?.message ?? "Profile refresh failed.", 500);
     }
 
@@ -184,6 +215,12 @@ export async function POST(request: Request) {
     .single();
 
   if (taskError || !updatedTask) {
+    console.error("[number-pick] user_tasks upsert failed", {
+      error: taskError,
+      nextMetadata,
+      reward,
+      userId: authData.user.id,
+    });
     return jsonError(taskError?.message ?? "Number Pick task update failed.", 500);
   }
 

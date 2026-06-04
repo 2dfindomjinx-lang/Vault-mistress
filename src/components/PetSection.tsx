@@ -228,8 +228,8 @@ export function PetSection({
   const previousFalseHopeStageRef = useRef<number | null>(null);
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
   const rank = getPetRank(petScore);
-  const approvedCount = tasks.filter((task) => task.status === "approved").length;
- const canClaimAffection = approvedCount >= 5 &&!petAffectionClaimed;
+  const approvedCount = tasks.filter((task) => task.id !== "pet-affection-claim" && task.status === "approved").length;
+  const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
   const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
@@ -358,8 +358,21 @@ export function PetSection({
 
     evilWaitFinishedRef.current = false;
     const waitEndsAt = new Date(evilWaitTask.waitEndsAt ?? Date.now() + 120000).getTime();
+    const remainingMs = waitEndsAt - Date.now();
+
+    if (remainingMs <= 0) {
+      evilWaitFinishedRef.current = true;
+      queueMicrotask(() => {
+        setEvilDistractionBoxes([]);
+        setEvilWaitRemaining(0);
+        onPetEvilWaitCompleteRef.current();
+      });
+      return;
+    }
+
+    const armedAt = Date.now() + 300;
     const fail = () => {
-      if (evilWaitFinishedRef.current) {
+      if (evilWaitFinishedRef.current || Date.now() < armedAt) {
         return;
       }
 
@@ -435,7 +448,7 @@ export function PetSection({
       evilWaitFinishedRef.current = true;
       setEvilDistractionBoxes([]);
       onPetEvilWaitCompleteRef.current();
-    }, Math.max(0, waitEndsAt - Date.now()));
+    }, remainingMs);
     const events: Array<keyof WindowEventMap> = [
       "click",
       "keydown",

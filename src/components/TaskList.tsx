@@ -329,6 +329,11 @@ export function TaskList({
                           Daily safe win limit reached. Come back tomorrow.
                         </p>
                       )}
+                      {isCoolingDown && (
+                        <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                          Available again in {formatRemaining(cooldownRemaining)}
+                        </p>
+                      )}
                       <button
                         className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
@@ -824,6 +829,11 @@ export function TaskList({
                       Daily safe win limit reached. Come back tomorrow.
                     </p>
                   )}
+                  {isCoolingDown && (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                      Available again in {formatRemaining(cooldownRemaining)}
+                    </p>
+                  )}
                   <button
                     className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
@@ -1082,6 +1092,7 @@ function LoyaltyJackpotTaskCard({
   usernameStyle?: CSSProperties;
 }) {
   const [amount, setAmount] = useState(String(JACKPOT_MIN_CONTRIBUTION));
+  const [hideContributors, setHideContributors] = useState(false);
   const parsedAmount = Number(amount);
   const cleanAmount = Number.isInteger(parsedAmount) ? parsedAmount : 0;
   const jackpotWinners = jackpot?.currentWinners?.length
@@ -1228,28 +1239,45 @@ function LoyaltyJackpotTaskCard({
 
       {jackpot?.recentContributors.length ? (
         <div className="mt-4 border-t border-white/10 pt-4">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-            Recent Contributions
-          </p>
-          <div className="mt-3 grid max-h-[8.75rem] gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-            {jackpot.recentContributors.map((contribution) => (
-              <div
-                className="flex items-center justify-between rounded-2xl bg-black/25 px-3 py-2 text-sm"
-                key={`${contribution.username}-${contribution.createdAt}`}
-              >
-                <span className="text-zinc-200">
-                  <StyledUsername
-                    currentUsername={currentUsername}
-                    username={contribution.username}
-                    usernameStyle={usernameStyle}
-                  />
-                </span>
-                <span className="font-black text-amber-100">
-                  <CoinAmount amount={contribution.amount} iconSize={16} label="" prefix="+" />
-                </span>
-              </div>
-            ))}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Recent Contributions
+            </p>
+            <label className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:border-amber-100/30 hover:text-amber-50">
+              <input
+                checked={hideContributors}
+                className="h-4 w-4 accent-amber-300"
+                onChange={(event) => setHideContributors(event.target.checked)}
+                type="checkbox"
+              />
+              Hide contributors
+            </label>
           </div>
+          {hideContributors ? (
+            <p className="mt-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-zinc-400">
+              Contributor names hidden.
+            </p>
+          ) : (
+            <div className="mt-3 grid max-h-[8.75rem] gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+              {jackpot.recentContributors.map((contribution) => (
+                <div
+                  className="flex items-center justify-between rounded-2xl bg-black/25 px-3 py-2 text-sm"
+                  key={`${contribution.username}-${contribution.createdAt}`}
+                >
+                  <span className="text-zinc-200">
+                    <StyledUsername
+                      currentUsername={currentUsername}
+                      username={contribution.username}
+                      usernameStyle={usernameStyle}
+                    />
+                  </span>
+                  <span className="font-black text-amber-100">
+                    <CoinAmount amount={contribution.amount} iconSize={16} label="" prefix="+" />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -1459,8 +1487,21 @@ function WaitObedientlyPanel({
     const waitEndsAt = task.waitEndsAt
       ? new Date(task.waitEndsAt).getTime()
       : Date.now() + 60 * 1000;
+    const remainingMs = waitEndsAt - Date.now();
+
+    if (remainingMs <= 0) {
+      finishedRef.current = true;
+      queueMicrotask(() => {
+        setWaitRemaining(0);
+        setPhase("completed");
+        onCompleteRef.current();
+      });
+      return;
+    }
+
+    const armedAt = Date.now() + 300;
     const fail = () => {
-      if (finishedRef.current) {
+      if (finishedRef.current || Date.now() < armedAt) {
         return;
       }
 
@@ -1480,7 +1521,7 @@ function WaitObedientlyPanel({
       setWaitRemaining(0);
       setPhase("completed");
       onCompleteRef.current();
-    }, 60 * 1000);
+    }, remainingMs);
     const events: Array<keyof WindowEventMap> = [
       "click",
       "keydown",
