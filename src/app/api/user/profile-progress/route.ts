@@ -217,11 +217,14 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", authData.user.id)
+    .eq("coins", (currentProfile as ProfileRow).coins)
+    .eq("affection", (currentProfile as ProfileRow).affection)
+    .eq("tribute_total", (currentProfile as ProfileRow).tribute_total)
     .select(profileSelect)
-    .single();
+    .maybeSingle();
 
   if (updateError || !updatedProfile) {
-    return jsonError(updateError?.message ?? "Profile update failed.", 500);
+    return jsonError(updateError?.message ?? "Profile update was stale or duplicated.", updateError ? 500 : 409);
   }
 
   const coinDelta = Number(updatedProfile.coins ?? 0) - Number((currentProfile as ProfileRow).coins ?? 0);

@@ -202,11 +202,16 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", authData.user.id)
+    .eq("coins", (currentProfile as ProfileRow).coins)
+    .eq("affection", (currentProfile as ProfileRow).affection)
+    .eq("owner_likeness", (currentProfile as ProfileRow).owner_likeness)
+    .eq("pet_score", (currentProfile as ProfileRow).pet_score)
+    .eq("tribute_total", (currentProfile as ProfileRow).tribute_total)
     .select(profileSelect)
-    .single();
+    .maybeSingle();
 
   if (updateError || !updatedProfile) {
-    return jsonError(updateError?.message ?? "Pet profile update failed.", 500);
+    return jsonError(updateError?.message ?? "Pet profile update was stale or duplicated.", updateError ? 500 : 409);
   }
 
   const coinDelta = Number(updatedProfile.coins ?? 0) - Number((currentProfile as ProfileRow).coins ?? 0);

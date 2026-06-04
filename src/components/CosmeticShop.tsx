@@ -9,6 +9,8 @@ type CosmeticShopProps = {
   premiumTitle: TitleItem;
   shopItems: CosmeticItem[];
   disabled?: boolean;
+  pendingCosmeticIds?: string[];
+  pendingTitleIds?: string[];
   onEquipCosmetic: (item: CosmeticItem) => void;
   onPurchaseCosmetic: (item: CosmeticItem) => void;
   onPurchaseTitle: (title: TitleItem) => void;
@@ -20,6 +22,8 @@ export function CosmeticShop({
   equippedCosmeticIds,
   ownedCosmeticIds,
   ownedTitleIds,
+  pendingCosmeticIds = [],
+  pendingTitleIds = [],
   premiumTitle,
   shopItems,
   onEquipCosmetic,
@@ -65,6 +69,7 @@ export function CosmeticShop({
               const owned = item.price === 0 || ownedCosmeticIds.includes(item.id);
               const equipped = equippedCosmeticIds[item.type] === item.id;
               const canAfford = coins >= item.price;
+              const pending = pendingCosmeticIds.includes(item.id);
 
               return (
                 <article
@@ -112,11 +117,13 @@ export function CosmeticShop({
                     </p>
                     <button
                       className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled || equipped || (!owned && !canAfford)}
+                      disabled={disabled || pending || equipped || (!owned && !canAfford)}
                       onClick={() => (owned ? onEquipCosmetic(item) : onPurchaseCosmetic(item))}
                       type="button"
                     >
-                      {equipped
+                      {pending
+                        ? "Saving..."
+                        : equipped
                         ? "Equipped"
                         : owned
                           ? "Equip"
@@ -143,11 +150,13 @@ export function CosmeticShop({
           </div>
           <button
             className="rounded-2xl border border-yellow-100/30 bg-yellow-400/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={disabled || premiumOwned || coins < (premiumTitle.price ?? 0)}
+            disabled={disabled || pendingTitleIds.includes(premiumTitle.id) || premiumOwned || coins < (premiumTitle.price ?? 0)}
             onClick={() => onPurchaseTitle(premiumTitle)}
             type="button"
           >
-            {premiumOwned
+            {pendingTitleIds.includes(premiumTitle.id)
+              ? "Saving..."
+              : premiumOwned
               ? "Owned"
               : coins >= (premiumTitle.price ?? 0)
                 ? (

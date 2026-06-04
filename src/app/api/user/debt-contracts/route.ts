@@ -240,11 +240,13 @@ export async function POST(request: Request) {
         updated_at: collectedAt,
       })
       .eq("id", userId)
+      .eq("coins", profile.coins)
+      .eq("tribute_total", profile.tribute_total)
       .select(profileSelect)
-      .single();
+      .maybeSingle();
 
     if (updateProfileError || !updatedProfile) {
-      return jsonError(updateProfileError?.message ?? "Debt profile update failed.", 500);
+      return jsonError(updateProfileError?.message ?? "Debt payment was stale or duplicated.", updateProfileError ? 500 : 409);
     }
 
     const { data: updatedContract, error: updateContractError } = await supabase
@@ -257,11 +259,14 @@ export async function POST(request: Request) {
         updated_at: collectedAt,
       })
       .eq("id", contract.id)
+      .eq("paid_periods", contract.paid_periods)
+      .eq("next_due_at", contract.next_due_at)
+      .eq("status", contract.status)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (updateContractError || !updatedContract) {
-      return jsonError(updateContractError?.message ?? "Debt contract update failed.", 500);
+      return jsonError(updateContractError?.message ?? "Debt contract update was stale or duplicated.", updateContractError ? 500 : 409);
     }
 
     const { error: transactionError } = await supabase.from("coin_transactions").insert({

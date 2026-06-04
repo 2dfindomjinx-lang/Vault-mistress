@@ -144,7 +144,7 @@ export function RecentTributesTicker({
         <div className="rounded-[1.25rem] border border-yellow-200/15 bg-black/35 px-3 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-100/75">
-              Top 3 Tributes
+              Top 3 Tributors
             </p>
             <div className="flex touch-pan-x gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {topTributes.map((tribute, index) => (
@@ -162,7 +162,7 @@ export function RecentTributesTicker({
                       </span>
                     </p>
                     <p className="text-[11px] font-bold text-yellow-50">
-                      <CoinAmount amount={tribute.amount} iconSize={14} label="Coins" prefix="+" />
+                      <CoinAmount amount={tribute.amount} iconSize={14} label="Total" />
                     </p>
                   </div>
                 </div>

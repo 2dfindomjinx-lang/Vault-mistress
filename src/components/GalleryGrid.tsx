@@ -8,6 +8,7 @@ type GalleryGridProps = {
   coins: number;
   disabled?: boolean;
   mood: number;
+  pendingUnlockIds?: string[];
   onUnlock: (itemId: string) => void;
 };
 
@@ -26,6 +27,7 @@ export function GalleryGrid({
   disabled = false,
   items,
   mood,
+  pendingUnlockIds = [],
   onUnlock,
 }: GalleryGridProps) {
   const hasSecret = items.some((item) => item.rarity === "Secret");
@@ -94,12 +96,15 @@ export function GalleryGrid({
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
           const isSacrifice = item.rarity === "Sacrifice";
+          const isPending = pendingUnlockIds.includes(item.id);
           const canAfford = isCommon && coins >= (item.unlockCost ?? 0);
           const lockedText = isCommon
             ? "Locked"
             : `Requires Mood ${item.moodRequired}`;
           const buttonText = item.unlocked
             ? "Unlocked"
+            : isPending
+              ? "Unlocking..."
             : disabled && isCommon
               ? "Timeout Active"
             : isCommon
@@ -165,11 +170,11 @@ export function GalleryGrid({
                         ? "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white hover:shadow-[0_0_22px_rgba(236,72,153,0.35)]"
                         : "border border-white/10 bg-white/[0.04] text-zinc-400"
                   }`}
-                  disabled={disabled || item.unlocked || !isCommon || !canAfford}
+                  disabled={disabled || isPending || item.unlocked || !isCommon || !canAfford}
                   onClick={() => onUnlock(item.id)}
                   type="button"
                 >
-                  {!item.unlocked && isCommon && !disabled ? (
+                  {!item.unlocked && isCommon && !disabled && !isPending ? (
                     canAfford ? (
                       <CoinAmount
                         amount={item.unlockCost ?? 0}

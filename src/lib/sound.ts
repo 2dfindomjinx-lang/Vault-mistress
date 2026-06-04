@@ -31,16 +31,16 @@ const DEFAULT_SOUND_SETTINGS: SoundSettings = {
 };
 
 const soundRegistry: Record<SoundEventName, SoundDefinition> = {
-  button_click: { category: "ui" },
-  tribute_sent: { category: "gameplay" },
-  gallery_unlock: { category: "gameplay" },
-  task_completion: { category: "gameplay" },
-  affection_level_up: { category: "gameplay" },
-  debt_contract_signed: { category: "gameplay" },
-  cosmetic_purchased: { category: "gameplay" },
-  jackpot_contribution: { category: "gameplay" },
-  jackpot_win: { category: "gameplay" },
-  random_event_activation: { category: "gameplay" },
+  button_click: { category: "ui", src: "/sounds/button-click.mp3" },
+  tribute_sent: { category: "gameplay", src: "/sounds/tribute-sent.mp3" },
+  gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3" },
+  task_completion: { category: "gameplay", src: "/sounds/task-completion.mp3" },
+  affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3" },
+  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.mp3" },
+  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.mp3" },
+  jackpot_contribution: { category: "gameplay", src: "/sounds/jackpot-contribution.mp3" },
+  jackpot_win: { category: "gameplay", src: "/sounds/jackpot-win.mp3" },
+  random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3" },
 };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };

@@ -1750,9 +1750,17 @@ export default function Home() {
       return true;
     }
 
-    if (isLoggedIn && !isGuestMode && !isProfileVerified) {
+    if (isLoggedIn && !isGuestMode && !isProfileVerified && authProfileLoadInFlightRef.current) {
       setAvatarMistressReply("The vault is still verifying your profile. Try again in a moment.");
       return true;
+    }
+
+    if (isLoggedIn && !isGuestMode && !isProfileVerified && !authProfileLoadInFlightRef.current) {
+      console.warn("[action-gate] profile verification was stale; allowing backend-protected action retry", {
+        authUserId,
+        pendingPetActionIds: Array.from(pendingPetActionsRef.current),
+        pendingTaskActionIds: Array.from(pendingTaskActionsRef.current),
+      });
     }
 
     const activeTimeout = timeoutUntilRef.current;
@@ -1791,6 +1799,10 @@ export default function Home() {
 
   const beginTaskAction = useCallback((actionId: string) => {
     if (pendingTaskActionsRef.current.has(actionId)) {
+      console.info("[action-lock] begin skipped: task action already pending", {
+        actionId,
+        pendingTaskActionIds: Array.from(pendingTaskActionsRef.current),
+      });
       return false;
     }
 
@@ -1798,22 +1810,30 @@ export default function Home() {
     next.add(actionId);
     pendingTaskActionsRef.current = next;
     setPendingTaskActionIds(Array.from(next));
+    console.info("[action-lock] begin task action", {
+      actionId,
+      pendingTaskActionIds: Array.from(next),
+    });
     return true;
   }, []);
 
   const finishTaskAction = useCallback((actionId: string) => {
-    if (!pendingTaskActionsRef.current.has(actionId)) {
-      return;
-    }
-
     const next = new Set(pendingTaskActionsRef.current);
     next.delete(actionId);
     pendingTaskActionsRef.current = next;
     setPendingTaskActionIds(Array.from(next));
+    console.info("[action-lock] finish task action", {
+      actionId,
+      pendingTaskActionIds: Array.from(next),
+    });
   }, []);
 
   const beginPetAction = useCallback((actionId: string) => {
     if (pendingPetActionsRef.current.has(actionId)) {
+      console.info("[action-lock] begin skipped: pet action already pending", {
+        actionId,
+        pendingPetActionIds: Array.from(pendingPetActionsRef.current),
+      });
       return false;
     }
 
@@ -1821,18 +1841,22 @@ export default function Home() {
     next.add(actionId);
     pendingPetActionsRef.current = next;
     setPendingPetActionIds(Array.from(next));
+    console.info("[action-lock] begin pet action", {
+      actionId,
+      pendingPetActionIds: Array.from(next),
+    });
     return true;
   }, []);
 
   const finishPetAction = useCallback((actionId: string) => {
-    if (!pendingPetActionsRef.current.has(actionId)) {
-      return;
-    }
-
     const next = new Set(pendingPetActionsRef.current);
     next.delete(actionId);
     pendingPetActionsRef.current = next;
     setPendingPetActionIds(Array.from(next));
+    console.info("[action-lock] finish pet action", {
+      actionId,
+      pendingPetActionIds: Array.from(next),
+    });
   }, []);
 
   const resyncAuthenticatedProfile = useCallback(async (label: string) => {
@@ -1840,20 +1864,30 @@ export default function Home() {
       return;
     }
 
-    const { data, error } = await supabase.auth.getUser();
+    console.info("[profile-resync] start", { label });
 
-    if (error || !data.user) {
-      console.error(`${label}: failed to resync authenticated profile`, error);
-      return;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+
+      if (error || !data.user) {
+        console.error("[profile-resync] auth user unavailable", { error, label });
+        return;
+      }
+
+      const profileLoader = loadProfileRef.current;
+
+      if (!profileLoader) {
+        console.warn("[profile-resync] profile loader unavailable", { label });
+        return;
+      }
+
+      await profileLoader(data.user);
+      setIsProfileVerified(true);
+      console.info("[profile-resync] success", { label, userId: data.user.id });
+    } catch (error) {
+      console.error("[profile-resync] fail", { error, label });
+      throw error;
     }
-
-    const profileLoader = loadProfileRef.current;
-
-    if (!profileLoader) {
-      return;
-    }
-
-    await profileLoader(data.user);
   }, [isGuestMode]);
 
   const persistInBackground = useCallback((
@@ -1865,17 +1899,20 @@ export default function Home() {
     } = {},
   ) => {
     void promise.catch((error) => {
-      console.error(label, error);
-      setAuthError(describeError(error));
+      console.error("[action-error] caught background action error", { error, label });
       setAvatarMistressReply("The action worked locally, but the vault failed to save it. Resyncing the vault state.");
 
       if (options.resyncOnFailure !== false) {
         void resyncAuthenticatedProfile(label).catch((resyncError) => {
-          console.error(`${label}: failed to resync after persistence error`, resyncError);
+          console.error("[profile-resync] failed after background action error", { label, resyncError });
         });
       }
     }).finally(() => {
-      options.onFinally?.();
+      try {
+        options.onFinally?.();
+      } catch (cleanupError) {
+        console.error("[action-lock] cleanup callback failed", { cleanupError, label });
+      }
     });
   }, [resyncAuthenticatedProfile, setAvatarMistressReply]);
 
@@ -2825,36 +2862,28 @@ export default function Home() {
       return profile;
     }
 
-    const lastLoyaltyTime = lastLoyaltyAt ? new Date(lastLoyaltyAt).getTime() : 0;
-    const streakExpired = !lastLoyaltyTime || Date.now() - lastLoyaltyTime > 48 * 60 * 60 * 1000;
-    const nextLoyaltyAt = new Date().toISOString();
-    const nextLoyaltyStreak = streakExpired ? 1 : Math.max(1, (profile.loyalty_streak ?? 0) + 1);
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        loyalty_streak: nextLoyaltyStreak,
-        last_loyalty_at: nextLoyaltyAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", profile.id)
-      .select(profileSelect)
-      .single();
+    const response = await fetch("/api/user/loyalty", {
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string; profile?: Profile };
 
-    console.info("Loyalty streak update result", { data, error });
+    console.info("Loyalty streak update result", { result, ok: response.ok });
 
-    if (error) {
-      console.error("Failed to persist loyalty streak", error);
-      throw error;
+    if (!response.ok || !result.profile) {
+      console.error("Failed to persist loyalty streak", result.error);
+      throw new Error(result.error ?? "Loyalty streak update failed.");
     }
 
-    setLoyaltyStreak(data.loyalty_streak ?? nextLoyaltyStreak);
-    setLastLoyaltyAt(data.last_loyalty_at ?? nextLoyaltyAt);
+    const data = result.profile;
+
+    setLoyaltyStreak(data.loyalty_streak ?? 0);
+    setLastLoyaltyAt(data.last_loyalty_at ?? null);
     setTasks((current) =>
       current.map((entry) => {
         const bonus = STREAK_BONUSES.find((item) => item.id === entry.id);
 
         return bonus
-          ? { ...entry, completed: (data.loyalty_streak ?? nextLoyaltyStreak) >= bonus.milestone }
+          ? { ...entry, completed: (data.loyalty_streak ?? 0) >= bonus.milestone }
           : entry;
       }),
     );
@@ -3134,38 +3163,24 @@ export default function Home() {
       } as Profile;
     }
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-
-    if (userError) {
-      console.error("Failed to get authenticated user for timeout update", userError);
-      throw userError;
+    if (!nextTimeoutUntil) {
+      throw new Error("User timeout endpoint does not support clearing timeout.");
     }
 
-    if (!userData.user) {
-      throw new Error("Not authenticated");
+    const response = await fetch("/api/user/timeout", {
+      body: JSON.stringify({ timeoutUntil: nextTimeoutUntil }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json()) as { error?: string; profile?: Profile };
+
+    if (!response.ok || !result.profile) {
+      console.error("Failed to persist timeout", result.error);
+      throw new Error(result.error ?? "Timeout update failed.");
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .update({
-        timeout_until: nextTimeoutUntil,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userData.user.id)
-      .select(profileSelect)
-      .single();
-
-    if (error) {
-      console.error("Failed to persist timeout", error);
-      throw error;
-    }
-
-    if (!data) {
-      throw new Error("Timeout update returned no profile.");
-    }
-
-    applyProfileStats(data as Profile);
-    return data as Profile;
+    applyProfileStats(result.profile);
+    return result.profile;
   }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, tributeTotal, username]);
 
   const persistUserTask = useCallback(async (task: {
@@ -3544,11 +3559,6 @@ export default function Home() {
         return;
       }
 
-      const shouldAnnounceSecret =
-        affection >= 100 &&
-        missingIds.includes(secretGalleryItem.id) &&
-        !unlockedGalleryIds.includes(secretGalleryItem.id);
-
       setUnlockedGalleryIds((current) => {
         const nextIds = new Set(current);
         missingIds.forEach((id) => nextIds.add(id));
@@ -3561,18 +3571,12 @@ export default function Home() {
         });
         setAuthError(describeError(error));
       });
-
-      if (shouldAnnounceSecret) {
-        setAvatarMistressReply(
-          "You reached 100 affection. Fine... one secret reward is yours.",
-        );
-      }
     }, 0);
 
     return () => {
       window.clearTimeout(unlockTimer);
     };
-  }, [affection, persistGalleryUnlocks, setAvatarMistressReply, unlockedGalleryIds]);
+  }, [affection, persistGalleryUnlocks, unlockedGalleryIds]);
 
   const scriptedMessage = useMemo(
     () =>
@@ -4163,6 +4167,12 @@ export default function Home() {
       return;
     }
 
+    const actionId = "timeout-risk";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const hitTimeout = Math.random() < TIMEOUT_RISK_CHANCE;
 
     try {
@@ -4273,6 +4283,8 @@ export default function Home() {
       console.error("Failed to complete timeout-risk task", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The risk ledger failed. Try again.");
+    } finally {
+      finishTaskAction(actionId);
     }
   };
 
@@ -4315,6 +4327,13 @@ export default function Home() {
       setAvatarMistressReply("The wheel landed outside the vault. Try again.");
       return;
     }
+
+    const actionId = "irl-task-wheel";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const durationMinutes = getRandomIrlTaskDurationMinutes();
     const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
     const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
@@ -4365,6 +4384,8 @@ export default function Home() {
       console.error("Failed to spin IRL task wheel", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The task wheel jammed. Try again.");
+    } finally {
+      finishTaskAction(actionId);
     }
   };
 
@@ -4385,6 +4406,12 @@ export default function Home() {
       new Date(displayMechanics.begCooldownUntil ?? "").getTime() > new Date().getTime();
 
     if (cooldownActive) {
+      return;
+    }
+
+    const actionId = "beg";
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -4424,6 +4451,8 @@ export default function Home() {
       console.error("Failed to complete beg mechanic", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The vault ignored the request. Try again.");
+    } finally {
+      finishTaskAction(actionId);
     }
   };
 
@@ -4464,6 +4493,12 @@ export default function Home() {
         sacrificeComplete: true,
       }));
       setAvatarMistressReply("The Sacrifice Collection is already complete.");
+      return;
+    }
+
+    const actionId = "sacrifice";
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -4522,6 +4557,8 @@ export default function Home() {
       console.error("Failed to complete sacrifice mechanic", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The sacrifice ledger failed. Try again.");
+    } finally {
+      finishTaskAction(actionId);
     }
   };
 
@@ -4539,6 +4576,12 @@ export default function Home() {
 
     if (coinsRef.current < SUPPORT_COST) {
       setAvatarMistressReply(`Support costs ${SUPPORT_COST} coins. The vault waits.`);
+      return;
+    }
+
+    const actionId = "support";
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -4579,6 +4622,8 @@ export default function Home() {
       console.error("Failed to complete support mechanic", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The support ledger failed. Try again.");
+    } finally {
+      finishTaskAction(actionId);
     }
   };
 
@@ -4742,10 +4787,17 @@ export default function Home() {
       return;
     }
 
+    const actionId = `tribute:${amount}`;
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     if (affection >= 100) {
       setAvatarMistressReply(
         "My mood is already at its peak. Your coins can wait.",
       );
+      finishTaskAction(actionId);
       return;
     }
 
@@ -4755,6 +4807,7 @@ export default function Home() {
       setAvatarMistressReply(
         "Too poor for that one? How predictable.",
       );
+      finishTaskAction(actionId);
       return;
     }
 
@@ -4806,6 +4859,7 @@ export default function Home() {
       console.error("Failed to persist tribute progress", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The ledger refused that tribute. Try again.");
+      finishTaskAction(actionId);
       return;
     }
 
@@ -4827,6 +4881,7 @@ export default function Home() {
           ? "Pathetic. You call that a tribute?"
           : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
+    finishTaskAction(actionId);
   };
 
   const handleJackpotContribute = async (amount: number) => {
@@ -4912,6 +4967,12 @@ export default function Home() {
       return;
     }
 
+    const actionId = `gallery:${item.id}`;
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
     const nextCoins = Math.max(0, currentCoins - unlockCost);
 
     try {
@@ -4928,6 +4989,7 @@ export default function Home() {
       console.error("Failed to persist gallery unlock progress", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The vault ledger rejected that unlock. Try again.");
+      finishTaskAction(actionId);
       return;
     }
 
@@ -4938,6 +5000,7 @@ export default function Home() {
     setAvatarMistressReply(
       "You unlocked a little more of my attention.",
     );
+    finishTaskAction(actionId);
   };
 
   const handlePurchaseCosmetic = async (item: CosmeticItem) => {
@@ -4956,6 +5019,12 @@ export default function Home() {
 
     if (coinsRef.current < item.price) {
       setAvatarMistressReply("Not enough coins for that cosmetic.");
+      return;
+    }
+
+    const actionId = `cosmetic:${item.id}`;
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -4993,10 +5062,12 @@ export default function Home() {
       );
       emitSoundEvent("cosmetic_purchased");
       setAvatarMistressReply(`${item.name} purchased. Cosmetic spend does not count as tribute.`);
+      finishTaskAction(actionId);
     } catch (error) {
       console.error("Failed to purchase cosmetic", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The cosmetic ledger failed. Try again.");
+      finishTaskAction(actionId);
     }
   };
 
@@ -5006,6 +5077,12 @@ export default function Home() {
     }
 
     if (!authUserId) {
+      return;
+    }
+
+    const actionId = `cosmetic:${item.id}`;
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -5043,10 +5120,12 @@ export default function Home() {
       );
       setEquippedCosmeticIds((current) => ({ ...current, [item.type]: item.id }));
       setAvatarMistressReply(`${item.name} equipped.`);
+      finishTaskAction(actionId);
     } catch (error) {
       console.error("Failed to equip cosmetic", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The cosmetic equip failed. Try again.");
+      finishTaskAction(actionId);
     }
   };
 
@@ -5068,6 +5147,12 @@ export default function Home() {
 
     if (coinsRef.current < price) {
       setAvatarMistressReply("Not enough coins for that title.");
+      return;
+    }
+
+    const actionId = `title:${title.id}`;
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -5103,10 +5188,12 @@ export default function Home() {
         current.includes(title.id) ? current : [...current, title.id],
       );
       setAvatarMistressReply(`${title.name} title purchased.`);
+      finishTaskAction(actionId);
     } catch (error) {
       console.error("Failed to purchase title", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The title ledger failed. Try again.");
+      finishTaskAction(actionId);
     }
   };
 
@@ -5116,6 +5203,12 @@ export default function Home() {
     }
 
     if (!authUserId) {
+      return;
+    }
+
+    const actionId = `title:${title.id}`;
+
+    if (!beginTaskAction(actionId)) {
       return;
     }
 
@@ -5153,10 +5246,12 @@ export default function Home() {
         current.includes(title.id) ? current : [...current, title.id],
       );
       setAvatarMistressReply(`${title.name} title equipped.`);
+      finishTaskAction(actionId);
     } catch (error) {
       console.error("Failed to equip title", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The title equip failed. Try again.");
+      finishTaskAction(actionId);
     }
   };
 
@@ -6421,15 +6516,15 @@ export default function Home() {
     try {
       await action();
     } catch (error) {
-      console.error(`Failed pet action ${actionId}`, error);
-      setAuthError(describeError(error));
+      console.error("[action-error] caught pet action error", { actionId, error });
+      setAvatarMistressReply("That Pet action failed to save. Resyncing the vault state.");
       void resyncAuthenticatedProfile(`Failed pet action ${actionId}`).catch((resyncError) => {
-        console.error(`Failed to resync after pet action ${actionId}`, resyncError);
+        console.error("[profile-resync] failed after pet action error", { actionId, resyncError });
       });
     } finally {
       finishPetAction(actionId);
     }
-  }, [beginPetAction, finishPetAction, resyncAuthenticatedProfile]);
+  }, [beginPetAction, finishPetAction, resyncAuthenticatedProfile, setAvatarMistressReply]);
 
   const stats = {
     coins,
@@ -6653,6 +6748,7 @@ export default function Home() {
               affection={affection}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
+              pending={pendingTaskActionIds.some((id) => id.startsWith("tribute:"))}
               onTribute={handleTribute}
             />
           )}
@@ -6662,6 +6758,9 @@ export default function Home() {
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               mood={affection}
+              pendingUnlockIds={pendingTaskActionIds
+                .filter((id) => id.startsWith("gallery:"))
+                .map((id) => id.slice("gallery:".length))}
               onUnlock={handleUnlock}
             />
           )}
@@ -6704,6 +6803,12 @@ export default function Home() {
               equippedCosmeticIds={equippedCosmeticIds}
               ownedCosmeticIds={ownedCosmeticIds}
               ownedTitleIds={ownedTitleIds}
+              pendingCosmeticIds={pendingTaskActionIds
+                .filter((id) => id.startsWith("cosmetic:"))
+                .map((id) => id.slice("cosmetic:".length))}
+              pendingTitleIds={pendingTaskActionIds
+                .filter((id) => id.startsWith("title:"))
+                .map((id) => id.slice("title:".length))}
               premiumTitle={getPremiumShopTitle()}
               shopItems={cosmeticItems}
               onEquipCosmetic={handleEquipCosmetic}

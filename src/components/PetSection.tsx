@@ -40,6 +40,17 @@ function getPetRank(score: number) {
   return { current, next, progress };
 }
 
+function normalizeWritingPreview(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u00B4\u0060]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+}
+
+function writingPreviewStartsWith(target: string, input: string) {
+  return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
+}
+
 function formatRemaining(target: string | null, now: number) {
   if (!target || now <= 0) {
     return "Not scheduled";
@@ -62,17 +73,14 @@ function formatRemaining(target: string | null, now: number) {
 }
 
 const PET_CASE_DISPLAY_POOL = [
-  { value: -500, tier: "black", weight: 1 },
-  { value: -250, tier: "black", weight: 1 },
-  { value: -100, tier: "black", weight: 1 },
-  { value: 10, tier: "ice", weight: 84 },
-  { value: 25, tier: "ice", weight: 78 },
-  { value: 50, tier: "blue", weight: 54 },
-  { value: 75, tier: "blue", weight: 42 },
-  { value: 150, tier: "pink", weight: 22 },
-  { value: 250, tier: "pink", weight: 12 },
-  { value: 500, tier: "red", weight: 5 },
-  { value: 750, tier: "red", weight: 3 },
+  { value: 100, tier: "ice", weight: 84 },
+  { value: 150, tier: "ice", weight: 78 },
+  { value: 200, tier: "blue", weight: 54 },
+  { value: 300, tier: "blue", weight: 42 },
+  { value: 500, tier: "pink", weight: 22 },
+  { value: 750, tier: "pink", weight: 12 },
+  { value: 1000, tier: "red", weight: 5 },
+  { value: 1250, tier: "red", weight: 3 },
   { value: 1500, tier: "gold", weight: 1 },
 ];
 
@@ -190,6 +198,10 @@ export function PetSection({
   const [caseResultVisible, setCaseResultVisible] = useState(false);
   const caseViewportRef = useRef<HTMLDivElement | null>(null);
   const caseResultRef = useRef<HTMLSpanElement | null>(null);
+  const caseOpeningRef = useRef(false);
+  const caseTimersRef = useRef<number[]>([]);
+  const debtSignTimerRef = useRef<number | null>(null);
+  const favorRevealTimerRef = useRef<number | null>(null);
   const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
     Array<{ id: number; left: string; rotate: string; text: string; top: string }>
   >([]);
@@ -210,6 +222,9 @@ export function PetSection({
   const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
+  const onPetEvilWaitCompleteRef = useRef(onPetEvilWaitComplete);
+  const onPetEvilWaitFailRef = useRef(onPetEvilWaitFail);
+  const onFalseHopeKeyRef = useRef(onFalseHopeKey);
   const previousFalseHopeStageRef = useRef<number | null>(null);
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
   const rank = getPetRank(petScore);
@@ -235,6 +250,27 @@ export function PetSection({
   const regularTasks = tasks.filter(
     (task) => task.kind !== "debt-contract" && task.kind !== "weekly-tax",
   );
+  const evilWaitTask = tasks.find((task) => task.kind === "evil-wait");
+  const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
+
+  useEffect(() => {
+    onPetEvilWaitCompleteRef.current = onPetEvilWaitComplete;
+    onPetEvilWaitFailRef.current = onPetEvilWaitFail;
+  }, [onPetEvilWaitComplete, onPetEvilWaitFail]);
+
+  useEffect(() => {
+    onFalseHopeKeyRef.current = onFalseHopeKey;
+  }, [onFalseHopeKey]);
+
+  useEffect(() => () => {
+    caseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    if (debtSignTimerRef.current !== null) {
+      window.clearTimeout(debtSignTimerRef.current);
+    }
+    if (favorRevealTimerRef.current !== null) {
+      window.clearTimeout(favorRevealTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -247,7 +283,6 @@ export function PetSection({
   }, []);
 
   useEffect(() => {
-    const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
     const onKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       const target = event.target as HTMLElement | null;
@@ -269,12 +304,12 @@ export function PetSection({
         return;
       }
 
-      onFalseHopeKey(key);
+      onFalseHopeKeyRef.current(key);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onFalseHopeKey, tasks]);
+  }, [falseHopeTask?.cooldownUntil, falseHopeTask?.id]);
 
   useEffect(() => {
     const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
@@ -294,41 +329,37 @@ export function PetSection({
   }, [tasks]);
 
   useEffect(() => {
-    const task = tasks.find((entry) => entry.kind === "evil-wait");
-
-    if (task?.waitState !== "countdown") {
+    if (evilWaitTask?.waitState !== "countdown") {
       return;
     }
 
-    const endsAt = new Date(task.waitCountdownEndsAt ?? Date.now() + 3000).getTime();
+    const endsAt = new Date(evilWaitTask.waitCountdownEndsAt ?? Date.now() + 3000).getTime();
     const interval = window.setInterval(() => {
       setEvilCountdown(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)));
     }, 200);
 
     return () => window.clearInterval(interval);
-  }, [tasks]);
+  }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitState]);
 
   useEffect(() => {
-    const task = tasks.find((entry) => entry.kind === "evil-wait");
-
     const countdownOver =
-      task?.waitState === "countdown" &&
-      Boolean(task.waitCountdownEndsAt) &&
-      new Date(task.waitCountdownEndsAt ?? "").getTime() <= Date.now();
+      evilWaitTask?.waitState === "countdown" &&
+      Boolean(evilWaitTask.waitCountdownEndsAt) &&
+      new Date(evilWaitTask.waitCountdownEndsAt ?? "").getTime() <= Date.now();
 
-    if (task?.waitState !== "waiting" && !countdownOver) {
+    if (evilWaitTask?.waitState !== "waiting" && !countdownOver) {
       return;
     }
 
     evilWaitFinishedRef.current = false;
-    const waitEndsAt = new Date(task.waitEndsAt ?? Date.now() + 120000).getTime();
+    const waitEndsAt = new Date(evilWaitTask.waitEndsAt ?? Date.now() + 120000).getTime();
     const fail = () => {
       if (evilWaitFinishedRef.current) {
         return;
       }
 
       evilWaitFinishedRef.current = true;
-      onPetEvilWaitFail();
+      onPetEvilWaitFailRef.current();
     };
     const interval = window.setInterval(() => {
       setEvilWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
@@ -398,7 +429,7 @@ export function PetSection({
 
       evilWaitFinishedRef.current = true;
       setEvilDistractionBoxes([]);
-      onPetEvilWaitComplete();
+      onPetEvilWaitCompleteRef.current();
     }, Math.max(0, waitEndsAt - Date.now()));
     const events: Array<keyof WindowEventMap> = [
       "click",
@@ -423,24 +454,23 @@ export function PetSection({
       events.forEach((eventName) => window.removeEventListener(eventName, fail));
       setEvilDistractionBoxes([]);
     };
-  }, [now, onPetEvilWaitComplete, onPetEvilWaitFail, tasks]);
+  }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitEndsAt, evilWaitTask?.waitState]);
 
   useEffect(() => {
-    const task = tasks.find((entry) => entry.kind === "evil-wait");
-
-    if (task?.waitState !== "countdown") {
+    if (evilWaitTask?.waitState !== "countdown") {
       return;
     }
 
+    const delay = Math.max(0, new Date(evilWaitTask.waitCountdownEndsAt ?? Date.now() + 3000).getTime() - Date.now());
     const timer = window.setTimeout(() => {
       setEvilWaitRemaining(120);
-    }, 3000);
+    }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [tasks]);
+  }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitState]);
 
   function handlePerfectInput(value: string, sentence: string) {
-    if (!sentence.startsWith(value)) {
+    if (!writingPreviewStartsWith(sentence, value)) {
       setPerfectInput("");
       onPerfectWritingProgress(value);
       return;
@@ -464,11 +494,21 @@ export function PetSection({
 
     if (signed) {
       setShowDebtSigningImage(true);
-      window.setTimeout(() => setShowDebtSigningImage(false), 4500);
+      if (debtSignTimerRef.current !== null) {
+        window.clearTimeout(debtSignTimerRef.current);
+      }
+      debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
     }
   }
 
   function handleCaseOpen() {
+    if (caseOpeningRef.current) {
+      return;
+    }
+
+    caseOpeningRef.current = true;
+    caseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    caseTimersRef.current = [];
     const selectedCaseItem = randomCaseDisplayItem();
     const nextTrack = [
       ...Array.from({ length: CASE_RESULT_INDEX }, () => randomCaseDisplayItem()),
@@ -479,7 +519,7 @@ export function PetSection({
     setCaseTrack(nextTrack);
     setCaseResultVisible(false);
     setCaseTransform("translateX(0px)");
-    window.setTimeout(() => {
+    const alignTimer = window.setTimeout(() => {
       const viewport = caseViewportRef.current;
       const result = caseResultRef.current;
 
@@ -493,18 +533,28 @@ export function PetSection({
 
       setCaseRolling(true);
     }, 50);
-    window.setTimeout(() => {
-      onOpenCase(selectedCaseItem);
-      setCaseRolling(false);
-      setCaseResultVisible(true);
-      window.setTimeout(() => setCaseResultVisible(false), 10000);
+    const resultTimer = window.setTimeout(() => {
+      try {
+        onOpenCase(selectedCaseItem);
+        setCaseResultVisible(true);
+        const hideTimer = window.setTimeout(() => setCaseResultVisible(false), 10000);
+        caseTimersRef.current.push(hideTimer);
+      } finally {
+        setCaseRolling(false);
+        caseOpeningRef.current = false;
+        caseTimersRef.current = caseTimersRef.current.filter((timer) => timer !== resultTimer);
+      }
     }, 10000);
+    caseTimersRef.current.push(alignTimer, resultTimer);
   }
 
   function handleFavorPick(index: number) {
     setFavorRevealing(true);
     onFavorPick(index);
-    window.setTimeout(() => setFavorRevealing(false), 900);
+    if (favorRevealTimerRef.current !== null) {
+      window.clearTimeout(favorRevealTimerRef.current);
+    }
+    favorRevealTimerRef.current = window.setTimeout(() => setFavorRevealing(false), 900);
   }
 
   function handleConfessionSubmit() {

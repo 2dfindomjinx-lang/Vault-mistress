@@ -2,6 +2,7 @@ type TributePanelProps = {
   affection: number;
   coins: number;
   disabled?: boolean;
+  pending?: boolean;
   onTribute: (amount: number) => void;
 };
 
@@ -15,6 +16,7 @@ export function TributePanel({
   affection,
   coins,
   disabled = false,
+  pending = false,
   onTribute,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
@@ -37,7 +39,7 @@ export function TributePanel({
         {tributeOptions.map((option) => (
           <button
             className="group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={disabled || isMaxAffection || coins < option.amount}
+            disabled={disabled || pending || isMaxAffection || coins < option.amount}
             key={option.amount}
             onClick={() => onTribute(option.amount)}
             type="button"

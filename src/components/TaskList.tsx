@@ -20,6 +20,17 @@ function isHiddenClaimedOneTimeTask(task: TaskItem) {
   return task.kind === "claim" && task.claimed && task.id !== "daily-login";
 }
 
+function normalizeWritingPreview(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u00B4\u0060]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+}
+
+function writingPreviewStartsWith(target: string, input: string) {
+  return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
+}
+
 type TaskListProps = {
   coins: number;
   disabled?: boolean;
@@ -197,7 +208,7 @@ export function TaskList({
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
           description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 75 coins."
-          disabled={disabled}
+          disabled={disabled || isTaskActionPending("beg")}
           onAction={onBeg}
           title="Beg"
           now={now}
@@ -211,7 +222,7 @@ export function TaskList({
           }
           cooldownUntil={mechanics.sacrificeCooldownUntil}
           description={`Burn ${SACRIFICE_COST} coins for a 50% chance to unlock a hidden Sacrifice Collection image. ${mechanics.sacrificeUnlockedCount}/${mechanics.sacrificeTotal} unlocked.`}
-          disabled={disabled || mechanics.sacrificeComplete || coins < SACRIFICE_COST}
+          disabled={disabled || isTaskActionPending("sacrifice") || mechanics.sacrificeComplete || coins < SACRIFICE_COST}
           lastResult={mechanics.sacrificeLastResult}
           onAction={onSacrifice}
           title="Sacrifice"
@@ -225,7 +236,7 @@ export function TaskList({
               ? `Spend ${SUPPORT_COST} coins for a special dialogue moment. More rewards can be attached later.`
               : "Unlock every normal and Sacrifice Collection image to open this endgame mechanic."
           }
-          disabled={disabled || !mechanics.supportUnlocked || coins < SUPPORT_COST}
+          disabled={disabled || isTaskActionPending("support") || !mechanics.supportUnlocked || coins < SUPPORT_COST}
           lastResult={mechanics.supportLastResult}
           onAction={onSupport}
           title="Support"
@@ -320,7 +331,7 @@ export function TaskList({
                       )}
                       <button
                         className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={task.completed || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                        disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
                         onClick={onTimeoutRisk}
                         type="button"
                       >
@@ -461,6 +472,7 @@ export function TaskList({
                         disabled={
                           isIrlWheelSpinning ||
                           disabled ||
+                          isTaskActionPending("irl-task-wheel") ||
                           coins < IRL_TASK_WHEEL_COST ||
                           Boolean(irlTask.assignedIrlTask) ||
                           Boolean(irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now)
@@ -540,7 +552,7 @@ export function TaskList({
                       setTypingValue(nextValue);
                       onTypingProgress(nextValue);
 
-                      if (task.sentence && !task.sentence.startsWith(nextValue)) {
+                      if (task.sentence && !writingPreviewStartsWith(task.sentence, nextValue)) {
                         setTypingValue("");
                       }
                     }}
@@ -814,7 +826,7 @@ export function TaskList({
                   )}
                   <button
                     className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={task.completed || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                    disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
                     onClick={onTimeoutRisk}
                     type="button"
                   >
@@ -901,6 +913,7 @@ export function TaskList({
                     disabled={
                       isIrlWheelSpinning ||
                       disabled ||
+                      isTaskActionPending("irl-task-wheel") ||
                       coins < IRL_TASK_WHEEL_COST ||
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
@@ -1290,6 +1303,13 @@ function WaitObedientlyPanel({
   const [countdown, setCountdown] = useState(3);
   const [waitRemaining, setWaitRemaining] = useState(60);
   const finishedRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const onFailRef = useRef(onFail);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    onFailRef.current = onFail;
+  }, [onComplete, onFail]);
 
   const startChallenge = () => {
     if (isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting") {
@@ -1336,7 +1356,7 @@ function WaitObedientlyPanel({
 
       finishedRef.current = true;
       setPhase("failed");
-      onFail();
+      onFailRef.current();
     };
     const interval = window.setInterval(() => {
       setWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
@@ -1349,7 +1369,7 @@ function WaitObedientlyPanel({
       finishedRef.current = true;
       setWaitRemaining(0);
       setPhase("completed");
-      onComplete();
+      onCompleteRef.current();
     }, 60 * 1000);
     const events: Array<keyof WindowEventMap> = [
       "click",
@@ -1372,7 +1392,7 @@ function WaitObedientlyPanel({
         window.removeEventListener(eventName, fail);
       });
     };
-  }, [onComplete, onFail, phase]);
+  }, [phase]);
 
   const displayPhase = isCoolingDown && phase === "ready" ? "cooldown" : phase;
 
@@ -1509,3 +1529,4 @@ function MechanicCard({
     </article>
   );
 }
+

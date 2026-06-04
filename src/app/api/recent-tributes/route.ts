@@ -14,7 +14,9 @@ type CoinTransactionRow = {
 type ProfileRow = {
   id: string;
   username: string;
-  avatar_url: string | null;
+  avatar_url?: string | null;
+  tribute_total?: number | null;
+  updated_at?: string | null;
 };
 
 export async function GET() {
@@ -29,7 +31,7 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const tributeReasons = ["tribute", "live_gift", "admin_grant"];
-  const [{ data: transactions, error: transactionError }, { data: topTransactions, error: topError }] =
+  const [{ data: transactions, error: transactionError }, { data: topProfiles, error: topError }] =
     await Promise.all([
       supabase
         .from("coin_transactions")
@@ -39,12 +41,11 @@ export async function GET() {
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
-        .from("coin_transactions")
-        .select("id, user_id, amount, created_at")
-        .in("reason", tributeReasons)
-        .gt("amount", 0)
-        .order("amount", { ascending: false })
-        .order("created_at", { ascending: false })
+        .from("profiles")
+        .select("id, username, tribute_total, updated_at")
+        .gt("tribute_total", 0)
+        .order("tribute_total", { ascending: false })
+        .order("updated_at", { ascending: false })
         .limit(3),
     ]);
 
@@ -54,13 +55,13 @@ export async function GET() {
   }
 
   if (topError) {
-    console.error("Top tribute transaction lookup failed", topError);
+    console.error("Top tributors profile lookup failed", topError);
     return Response.json({ error: topError.message }, { status: 500 });
   }
 
   const rows = (transactions ?? []) as CoinTransactionRow[];
-  const topRows = (topTransactions ?? []) as CoinTransactionRow[];
-  const userIds = Array.from(new Set([...rows, ...topRows].map((row) => row.user_id)));
+  const topRows = (topProfiles ?? []) as ProfileRow[];
+  const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
   let { data: profiles, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, avatar_url")
@@ -100,8 +101,16 @@ export async function GET() {
     };
   };
 
+  const mapTopTributor = (profile: ProfileRow) => ({
+    id: profile.id,
+    username: profile.username ?? "@unknown",
+    avatarUrl: profile.avatar_url ?? null,
+    amount: Number(profile.tribute_total ?? 0),
+    createdAt: profile.updated_at ?? new Date(0).toISOString(),
+  });
+
   return Response.json({
-    topTributes: topRows.map(mapTribute),
+    topTributes: topRows.map(mapTopTributor),
     tributes: rows.map(mapTribute),
   });
 }
