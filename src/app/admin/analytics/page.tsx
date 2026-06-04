@@ -83,6 +83,8 @@ type AnalyticsPayload = {
   users: AnalyticsUser[];
 };
 
+type UserSortMode = "default" | "tribute" | "coins";
+
 function number(value: number) {
   return value.toLocaleString();
 }
@@ -144,6 +146,7 @@ export default function AdminAnalyticsPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [userSort, setUserSort] = useState<UserSortMode>("default");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [clockTick, setClockTick] = useState(0);
 
@@ -199,6 +202,35 @@ export default function AdminAnalyticsPage() {
       null,
     [data, selectedUserId],
   );
+
+  const visibleUsers = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    const hasQuery = query.trim().length > 0;
+    const users = [...(hasQuery ? data.matchedUsers : data.users)];
+
+    if (userSort === "tribute") {
+      users.sort(
+        (a, b) =>
+          b.tributeTotal - a.tributeTotal ||
+          b.coins - a.coins ||
+          a.username.localeCompare(b.username),
+      );
+    }
+
+    if (userSort === "coins") {
+      users.sort(
+        (a, b) =>
+          b.coins - a.coins ||
+          b.tributeTotal - a.tributeTotal ||
+          a.username.localeCompare(b.username),
+      );
+    }
+
+    return hasQuery ? users : users.slice(0, 20);
+  }, [data, query, userSort]);
 
   if (isLoading && !data) {
     return (
@@ -364,7 +396,16 @@ export default function AdminAnalyticsPage() {
               <article className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <h2 className="text-lg font-black">User Profiles</h2>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      className="rounded-2xl border border-white/10 bg-black/45 px-4 py-2 text-sm font-bold text-white outline-none focus:border-pink-200/45"
+                      onChange={(event) => setUserSort(event.target.value as UserSortMode)}
+                      value={userSort}
+                    >
+                      <option value="default">Normal</option>
+                      <option value="tribute">Most Tribute</option>
+                      <option value="coins">Most Current Coins</option>
+                    </select>
                     <input
                       className="min-w-0 rounded-2xl border border-white/10 bg-black/45 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-pink-200/45"
                       onChange={(event) => setQuery(event.target.value)}
@@ -391,7 +432,7 @@ export default function AdminAnalyticsPage() {
                 </div>
                 <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
                   <div className="grid gap-3">
-                    {data.matchedUsers.map((user) => (
+                    {visibleUsers.map((user) => (
                       <button
                         className={`rounded-2xl border p-3 text-left transition ${
                           selectedUserId === user.id

@@ -38,7 +38,13 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const recentTributeReasons = ["tribute", "live_gift", "throne_tribute", "admin_grant"];
+  const recentTributeReasons = [
+    "tribute",
+    "live_gift",
+    "throne_tribute",
+    "admin_grant",
+    "admin:/give",
+  ];
   const [{ data: transactions, error: transactionError }, throneTributeResult] =
     await Promise.all([
       supabase
@@ -128,7 +134,7 @@ export async function GET() {
 async function fetchAllThroneTributeTransactions(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
 ) {
-  const throneTributeReasons = ["throne_tribute", "live_gift", "admin_grant"];
+  const throneTributeReasons = ["throne_tribute", "live_gift", "admin_grant", "admin:/give"];
   const pageSize = 1000;
   const rows: CoinTransactionRow[] = [];
 
@@ -191,11 +197,9 @@ function getTopTributors(rows: CoinTransactionRow[]): TopTributorRow[] {
 function isThroneTributeTransaction(row: CoinTransactionRow) {
   const metadata = row.metadata ?? {};
   const command = typeof metadata.command === "string" ? metadata.command : null;
-  const kind = typeof metadata.kind === "string" ? metadata.kind : null;
-  const source = typeof metadata.source === "string" ? metadata.source : null;
 
-  if (row.reason === "throne_tribute") {
-    return source === "throne" || kind === "manual_coin_purchase" || command === "give";
+  if (row.reason === "throne_tribute" || row.reason === "admin:/give") {
+    return true;
   }
 
   // Legacy /give records may have used live_gift or admin_grant with metadata.command = "give".
