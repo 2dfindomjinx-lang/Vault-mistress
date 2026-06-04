@@ -1469,7 +1469,10 @@ function WaitObedientlyPanel({
       setCountdown(Math.max(0, Math.ceil((countdownEndsAt - Date.now()) / 1000)));
     }, 200);
     const timer = window.setTimeout(() => {
-      setWaitRemaining(60);
+      const waitEndsAt = task.waitEndsAt
+        ? new Date(task.waitEndsAt).getTime()
+        : Date.now() + 60 * 1000;
+      setWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
       setPhase("waiting");
     }, Math.max(0, countdownEndsAt - Date.now()));
 
@@ -1477,7 +1480,7 @@ function WaitObedientlyPanel({
       window.clearInterval(interval);
       window.clearTimeout(timer);
     };
-  }, [phase, task.waitCountdownEndsAt]);
+  }, [phase, task.waitCountdownEndsAt, task.waitEndsAt]);
 
   useEffect(() => {
     if (phase !== "waiting") {
@@ -1526,6 +1529,8 @@ function WaitObedientlyPanel({
       "click",
       "keydown",
       "mousedown",
+      "mousemove",
+      "pointermove",
       "scroll",
       "touchstart",
       "wheel",

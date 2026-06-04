@@ -347,144 +347,170 @@ export function PetSection({
   }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitState]);
 
   useEffect(() => {
-    const countdownOver =
-      evilWaitTask?.waitState === "countdown" &&
-      Boolean(evilWaitTask.waitCountdownEndsAt) &&
-      new Date(evilWaitTask.waitCountdownEndsAt ?? "").getTime() <= Date.now();
-
-    if (evilWaitTask?.waitState !== "waiting" && !countdownOver) {
+    if (evilWaitTask?.waitState !== "countdown" && evilWaitTask?.waitState !== "waiting") {
       return;
     }
 
-    evilWaitFinishedRef.current = false;
-    const waitEndsAt = new Date(evilWaitTask.waitEndsAt ?? Date.now() + 120000).getTime();
-    const remainingMs = waitEndsAt - Date.now();
-
-    if (remainingMs <= 0) {
-      evilWaitFinishedRef.current = true;
-      queueMicrotask(() => {
-        setEvilDistractionBoxes([]);
-        setEvilWaitRemaining(0);
-        onPetEvilWaitCompleteRef.current();
-      });
-      return;
-    }
-
-    const armedAt = Date.now() + 300;
-    const fail = () => {
-      if (evilWaitFinishedRef.current || Date.now() < armedAt) {
-        return;
-      }
-
-      evilWaitFinishedRef.current = true;
-      onPetEvilWaitFailRef.current();
-    };
-    const interval = window.setInterval(() => {
-      setEvilWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
-    }, 250);
-    const teaseInterval = window.setInterval(() => {
-      setEvilTeaseIndex((value) => value + 1);
-    }, 5000);
-    const floatingTeaseInterval = window.setInterval(() => {
-      const id = Date.now();
-      setEvilFloatingBoxes((boxes) => [
-        ...boxes.slice(-2),
-        {
-          id,
-          left: `${Math.floor(Math.random() * 72) + 8}%`,
-          rotate: `${Math.floor(Math.random() * 28) - 14}deg`,
-          text: Math.random() > 0.35 ? "Confirm obedience" : "I accept",
-          top: `${Math.floor(Math.random() * 58) + 16}%`,
-        },
-      ]);
-      window.setTimeout(() => {
-        setEvilFloatingBoxes((boxes) => boxes.filter((box) => box.id !== id));
-      }, 4200);
-    }, 13000);
-    const spawnDistraction = () => {
-      if (evilWaitFinishedRef.current) {
-        return;
-      }
-
-      const elapsedRatio = Math.min(
-        1,
-        Math.max(0, 1 - (waitEndsAt - Date.now()) / 120000),
-      );
-      const id = Date.now() + Math.floor(Math.random() * 1000);
-      const lifetime = Math.max(2200, 4200 - elapsedRatio * 1200);
-
-      setEvilDistractionBoxes((boxes) => [
-        ...boxes.slice(-3),
-        {
-          id,
-          left: `${Math.floor(Math.random() * 68) + 8}%`,
-          rotate: `${Math.floor(Math.random() * 34) - 17}deg`,
-          text: EVIL_DISTRACTION_TEXTS[Math.floor(Math.random() * EVIL_DISTRACTION_TEXTS.length)],
-          top: `${Math.floor(Math.random() * 54) + 14}%`,
-        },
-      ]);
-      window.setTimeout(() => {
-        setEvilDistractionBoxes((boxes) => boxes.filter((box) => box.id !== id));
-      }, lifetime);
-    };
-    spawnDistraction();
-    const getSpawnDelay = () => {
-      const remaining = Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000));
-      return remaining < 35 ? 4200 : remaining < 75 ? 5600 : 7200;
-    };
+    let interval: number | null = null;
+    let teaseInterval: number | null = null;
+    let floatingTeaseInterval: number | null = null;
     let distractionTimer: number | null = null;
-    const scheduleDistraction = () => {
-      distractionTimer = window.setTimeout(() => {
-        spawnDistraction();
-        scheduleDistraction();
-      }, getSpawnDelay());
-    };
-    scheduleDistraction();
-    const timer = window.setTimeout(() => {
-      if (evilWaitFinishedRef.current) {
+    let timer: number | null = null;
+    let startTimer: number | null = null;
+    let activeEvents: Array<keyof WindowEventMap> = [];
+    let activeFail: (() => void) | null = null;
+    let cleanupDistractions = false;
+
+    const countdownEndsAt = evilWaitTask.waitCountdownEndsAt
+      ? new Date(evilWaitTask.waitCountdownEndsAt).getTime()
+      : Date.now();
+    const waitEndsAt = new Date(evilWaitTask.waitEndsAt ?? Date.now() + 120000).getTime();
+    const startDelay =
+      evilWaitTask.waitState === "waiting"
+        ? 0
+        : Math.max(0, countdownEndsAt - Date.now());
+
+    const startWaiting = () => {
+      evilWaitFinishedRef.current = false;
+      const remainingMs = waitEndsAt - Date.now();
+
+      if (remainingMs <= 0) {
+        evilWaitFinishedRef.current = true;
+        queueMicrotask(() => {
+          setEvilDistractionBoxes([]);
+          setEvilWaitRemaining(0);
+          onPetEvilWaitCompleteRef.current();
+        });
         return;
       }
 
-      evilWaitFinishedRef.current = true;
-      setEvilDistractionBoxes([]);
-      onPetEvilWaitCompleteRef.current();
-    }, remainingMs);
-    const events: Array<keyof WindowEventMap> = [
-      "click",
-      "keydown",
-      "mousedown",
-      "scroll",
-      "touchstart",
-      "wheel",
-    ];
+      setEvilWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
 
-    events.forEach((eventName) => window.addEventListener(eventName, fail));
+      const armedAt = Date.now() + 300;
+      const fail = () => {
+        if (evilWaitFinishedRef.current || Date.now() < armedAt) {
+          return;
+        }
+
+        evilWaitFinishedRef.current = true;
+        onPetEvilWaitFailRef.current();
+      };
+
+      interval = window.setInterval(() => {
+        setEvilWaitRemaining(Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000)));
+      }, 250);
+      teaseInterval = window.setInterval(() => {
+        setEvilTeaseIndex((value) => value + 1);
+      }, 5000);
+      floatingTeaseInterval = window.setInterval(() => {
+        const id = Date.now();
+        setEvilFloatingBoxes((boxes) => [
+          ...boxes.slice(-2),
+          {
+            id,
+            left: `${Math.floor(Math.random() * 72) + 8}%`,
+            rotate: `${Math.floor(Math.random() * 28) - 14}deg`,
+            text: Math.random() > 0.35 ? "Confirm obedience" : "I accept",
+            top: `${Math.floor(Math.random() * 58) + 16}%`,
+          },
+        ]);
+        window.setTimeout(() => {
+          setEvilFloatingBoxes((boxes) => boxes.filter((box) => box.id !== id));
+        }, 4200);
+      }, 13000);
+      const spawnDistraction = () => {
+        if (evilWaitFinishedRef.current) {
+          return;
+        }
+
+        const elapsedRatio = Math.min(
+          1,
+          Math.max(0, 1 - (waitEndsAt - Date.now()) / 120000),
+        );
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        const lifetime = Math.max(2200, 4200 - elapsedRatio * 1200);
+
+        setEvilDistractionBoxes((boxes) => [
+          ...boxes.slice(-3),
+          {
+            id,
+            left: `${Math.floor(Math.random() * 68) + 8}%`,
+            rotate: `${Math.floor(Math.random() * 34) - 17}deg`,
+            text: EVIL_DISTRACTION_TEXTS[Math.floor(Math.random() * EVIL_DISTRACTION_TEXTS.length)],
+            top: `${Math.floor(Math.random() * 54) + 14}%`,
+          },
+        ]);
+        window.setTimeout(() => {
+          setEvilDistractionBoxes((boxes) => boxes.filter((box) => box.id !== id));
+        }, lifetime);
+      };
+      spawnDistraction();
+      const getSpawnDelay = () => {
+        const remaining = Math.max(0, Math.ceil((waitEndsAt - Date.now()) / 1000));
+        return remaining < 35 ? 4200 : remaining < 75 ? 5600 : 7200;
+      };
+      const scheduleDistraction = () => {
+        distractionTimer = window.setTimeout(() => {
+          spawnDistraction();
+          scheduleDistraction();
+        }, getSpawnDelay());
+      };
+      scheduleDistraction();
+      timer = window.setTimeout(() => {
+        if (evilWaitFinishedRef.current) {
+          return;
+        }
+
+        evilWaitFinishedRef.current = true;
+        setEvilDistractionBoxes([]);
+        onPetEvilWaitCompleteRef.current();
+      }, remainingMs);
+      activeEvents = [
+        "click",
+        "keydown",
+        "mousedown",
+        "mousemove",
+        "pointermove",
+        "scroll",
+        "touchstart",
+        "wheel",
+      ];
+
+      activeFail = fail;
+      activeEvents.forEach((eventName) => window.addEventListener(eventName, fail));
+      cleanupDistractions = true;
+    };
+
+    startTimer = window.setTimeout(startWaiting, startDelay);
 
     return () => {
-      window.clearInterval(interval);
-      window.clearInterval(teaseInterval);
-      window.clearInterval(floatingTeaseInterval);
+      if (startTimer !== null) {
+        window.clearTimeout(startTimer);
+      }
+      if (interval !== null) {
+        window.clearInterval(interval);
+      }
+      if (teaseInterval !== null) {
+        window.clearInterval(teaseInterval);
+      }
+      if (floatingTeaseInterval !== null) {
+        window.clearInterval(floatingTeaseInterval);
+      }
       if (distractionTimer !== null) {
         window.clearTimeout(distractionTimer);
       }
-      window.clearTimeout(timer);
-      events.forEach((eventName) => window.removeEventListener(eventName, fail));
-      setEvilDistractionBoxes([]);
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+      if (activeFail) {
+        const listener = activeFail;
+        activeEvents.forEach((eventName) => window.removeEventListener(eventName, listener));
+      }
+      if (cleanupDistractions) {
+        setEvilDistractionBoxes([]);
+      }
     };
   }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitEndsAt, evilWaitTask?.waitState]);
-
-  useEffect(() => {
-    if (evilWaitTask?.waitState !== "countdown") {
-      return;
-    }
-
-    const delay = Math.max(0, new Date(evilWaitTask.waitCountdownEndsAt ?? Date.now() + 3000).getTime() - Date.now());
-    const timer = window.setTimeout(() => {
-      setEvilWaitRemaining(120);
-    }, delay);
-
-    return () => window.clearTimeout(timer);
-  }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitState]);
 
   function handlePerfectInput(value: string, sentence: string) {
     if (!writingPreviewStartsWith(sentence, value)) {
