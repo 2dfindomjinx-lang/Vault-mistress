@@ -1516,6 +1516,7 @@ export default function Home() {
   const previewModeRef = useRef(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [authError, setAuthError] = useState("");
+  const [authBootstrapped, setAuthBootstrapped] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
@@ -3300,6 +3301,7 @@ export default function Home() {
       } finally {
         if (mounted) {
           console.info("[auth-init] loading false");
+          setAuthBootstrapped(true);
           setIsAuthLoading(false);
         }
       }
@@ -3334,6 +3336,7 @@ export default function Home() {
         authProfileLoadedRef.current = null;
         setIsLoggedIn(false);
         setAuthUserId(null);
+        setAuthBootstrapped(true);
         setIsAuthLoading(false);
         return;
       }
@@ -3349,6 +3352,7 @@ export default function Home() {
           setAuthUserId(null);
         } finally {
           console.info("[auth-init] loading false after auth change");
+          setAuthBootstrapped(true);
           setIsAuthLoading(false);
         }
       })();
@@ -4350,6 +4354,7 @@ export default function Home() {
 
     setIsAuthBusy(true);
     setAuthError("");
+    setAuthBootstrapped(false);
     setIsAuthLoading(true);
     setIsPreviewMode(false);
     setIsGuestMode(false);
@@ -4389,6 +4394,7 @@ export default function Home() {
       );
     } finally {
       if (!oauthRedirectStarted) {
+        setAuthBootstrapped(true);
         setIsAuthBusy(false);
         setIsAuthLoading(false);
       }
@@ -4399,6 +4405,7 @@ export default function Home() {
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
     setAuthError("");
+    setAuthBootstrapped(true);
     setIsAuthBusy(false);
     setIsAuthLoading(false);
     setIsPreviewMode(true);
@@ -4450,6 +4457,7 @@ export default function Home() {
     }
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
+    setAuthBootstrapped(true);
     setIsGuestMode(false);
     setIsPreviewMode(false);
     previewModeRef.current = false;
@@ -6127,7 +6135,7 @@ export default function Home() {
     tributeTotal,
   };
 
-  if (isAuthLoading) {
+  if (!authBootstrapped || isAuthLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
         <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
@@ -6137,7 +6145,7 @@ export default function Home() {
     );
   }
 
-  if (!isLoggedIn) {
+  if (authBootstrapped && !isLoggedIn && !isPreviewMode) {
     return (
       <LoginScreen
         error={authError}
