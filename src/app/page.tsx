@@ -1575,6 +1575,9 @@ export default function Home() {
   const profileIdRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
+  const loadProfileRef = useRef<((user: User) => Promise<Profile>) | null>(null);
+  const updateLoyaltyForProfileRef = useRef<((profile: Profile) => Promise<Profile>) | null>(null);
+  const authReplyRef = useRef<((message: string) => void) | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
   const isPreviewRestricted = isPreviewMode;
 
@@ -3203,10 +3206,13 @@ export default function Home() {
   }, [getEventTaskReward, isGuestMode, lastLoyaltyAt, loyaltyStreak, persistUserTask]);
 
   useEffect(() => {
+    loadProfileRef.current = loadProfile;
+    updateLoyaltyForProfileRef.current = updateLoyaltyForProfile;
+    authReplyRef.current = setAvatarMistressReply;
+  }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
+
+  useEffect(() => {
     let mounted = true;
-    let browserInitialSessionReceived = false;
-    let browserInitialSessionUser: User | null = null;
-    let noSessionDecisionTimer: number | null = null;
 
     const loadAuthenticatedUser = async (user: User, source: string) => {
       if (authProfileLoadInFlightRef.current === user.id) {
@@ -3223,8 +3229,15 @@ export default function Home() {
 
       try {
         console.info("[auth-init] profile fetch started", { source, userId: user.id });
-        const profile = await withTimeout(loadProfile(user), `profile fetch ${source}`);
-        await withTimeout(updateLoyaltyForProfile(profile), `loyalty update ${source}`);
+        const profileLoader = loadProfileRef.current;
+        const loyaltyUpdater = updateLoyaltyForProfileRef.current;
+
+        if (!profileLoader || !loyaltyUpdater) {
+          throw new Error("Auth profile loader is not ready.");
+        }
+
+        const profile = await withTimeout(profileLoader(user), `profile fetch ${source}`);
+        await withTimeout(loyaltyUpdater(profile), `loyalty update ${source}`);
         authProfileLoadedRef.current = user.id;
         console.info("[auth-init] profile fetch result", { source, profile });
         return profile;
@@ -3253,30 +3266,6 @@ export default function Home() {
       setAuthUserId(null);
     };
 
-    const decideNoSessionAfterGrace = (source: string) => {
-      if (noSessionDecisionTimer !== null) {
-        window.clearTimeout(noSessionDecisionTimer);
-      }
-
-      noSessionDecisionTimer = window.setTimeout(() => {
-        if (!mounted || previewModeRef.current) {
-          return;
-        }
-
-        if (browserInitialSessionUser) {
-          void resolveAuthSession(browserInitialSessionUser, `${source}:browser-session`);
-          return;
-        }
-
-        console.info("[auth-init] no session after grace; showing login screen", {
-          browserInitialSessionReceived,
-          source,
-        });
-        clearAuthState();
-        finishAuthLoad();
-      }, browserInitialSessionReceived ? 300 : 1500);
-    };
-
     const resolveAuthSession = async (user: User | null, source: string) => {
       try {
         console.info("[auth-init] init/session resolve started", {
@@ -3286,8 +3275,10 @@ export default function Home() {
         setIsAuthLoading(true);
 
         if (!user) {
-          console.info("[auth-init] no session yet; waiting for browser hydration grace", { source });
-          decideNoSessionAfterGrace(source);
+          console.info("[auth-init] no session; showing login screen", { source });
+          if (mounted && !previewModeRef.current) {
+            clearAuthState();
+          }
           return;
         }
 
@@ -3297,7 +3288,7 @@ export default function Home() {
 
         const profile = await loadAuthenticatedUser(user, source);
         if (profile) {
-          setAvatarMistressReply("Logged in already? Eager little thing.");
+          authReplyRef.current?.("Logged in already? Eager little thing.");
         }
       } catch (initError) {
         console.error("[auth-init] init/profile error", initError);
@@ -3361,29 +3352,11 @@ export default function Home() {
       });
 
       if (_event === "INITIAL_SESSION") {
-        browserInitialSessionReceived = true;
-        browserInitialSessionUser = session?.user ?? null;
-
-        if (session?.user && !authBootstrappedRef.current) {
-          if (noSessionDecisionTimer !== null) {
-            window.clearTimeout(noSessionDecisionTimer);
-            noSessionDecisionTimer = null;
-          }
-          void resolveAuthSession(session.user, "initial-browser-session");
-        }
-
         return;
       }
 
       if (!session?.user) {
         if (previewModeRef.current) {
-          return;
-        }
-
-        if (!authBootstrappedRef.current) {
-          browserInitialSessionReceived = true;
-          browserInitialSessionUser = null;
-          decideNoSessionAfterGrace(`auth-change:${_event}`);
           return;
         }
 
@@ -3411,12 +3384,9 @@ export default function Home() {
 
     return () => {
       mounted = false;
-      if (noSessionDecisionTimer !== null) {
-        window.clearTimeout(noSessionDecisionTimer);
-      }
       subscription.unsubscribe();
     };
-  }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
+  }, []);
 
   useEffect(() => {
     const unlockTimer = window.setTimeout(() => {
