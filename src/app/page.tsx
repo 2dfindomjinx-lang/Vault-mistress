@@ -3203,8 +3203,6 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
-    let initialAuthResolved = false;
-    let fallbackTimer: number | null = null;
 
     const loadAuthenticatedUser = async (user: User, source: string) => {
       if (authProfileLoadInFlightRef.current === user.id) {
@@ -3285,6 +3283,36 @@ export default function Home() {
       }
     };
 
+    const bootInitialAuth = async () => {
+      try {
+        console.info("[auth-init] server session check started");
+        setIsAuthLoading(true);
+        const response = await withTimeout(
+          fetch("/api/auth/session", { cache: "no-store" }),
+          "server auth session",
+        );
+        const payload = (await response.json()) as { error?: string | null; user?: User | null };
+
+        console.info("[auth-init] server session result", {
+          hasUser: Boolean(payload.user),
+          status: response.status,
+        });
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Auth session check failed.");
+        }
+
+        await resolveAuthSession(payload.user ?? null, "server-session");
+      } catch (serverSessionError) {
+        console.error("[auth-init] server session check failed", serverSessionError);
+        if (!previewModeRef.current) {
+          setAuthError(describeError(serverSessionError));
+          clearAuthState();
+        }
+        finishAuthLoad();
+      }
+    };
+
     if (!isSupabaseConfigured) {
       console.info("[auth-init] Supabase env missing; showing login/preview screen");
       clearAuthState();
@@ -3295,6 +3323,8 @@ export default function Home() {
       };
     }
 
+    void bootInitialAuth();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -3304,12 +3334,6 @@ export default function Home() {
       });
 
       if (_event === "INITIAL_SESSION") {
-        initialAuthResolved = true;
-        if (fallbackTimer !== null) {
-          window.clearTimeout(fallbackTimer);
-          fallbackTimer = null;
-        }
-        void resolveAuthSession(session?.user ?? null, "initial-session");
         return;
       }
 
@@ -3340,43 +3364,8 @@ export default function Home() {
       })();
     });
 
-    fallbackTimer = window.setTimeout(() => {
-      if (initialAuthResolved || !mounted) {
-        return;
-      }
-
-      initialAuthResolved = true;
-      void (async () => {
-        try {
-          console.info("[auth-init] initial session fallback started");
-          setIsAuthLoading(true);
-          const sessionResult = await withTimeout(
-            supabase.auth.getSession(),
-            "supabase.auth.getSession fallback",
-          );
-          console.info("[auth-init] fallback session result", sessionResult);
-
-          if (sessionResult.error) {
-            throw sessionResult.error;
-          }
-
-          await resolveAuthSession(sessionResult.data.session?.user ?? null, "fallback-get-session");
-        } catch (fallbackError) {
-          console.error("[auth-init] fallback session error", fallbackError);
-          if (!previewModeRef.current) {
-            setAuthError(describeError(fallbackError));
-            clearAuthState();
-          }
-          finishAuthLoad();
-        }
-      })();
-    }, 750);
-
     return () => {
       mounted = false;
-      if (fallbackTimer !== null) {
-        window.clearTimeout(fallbackTimer);
-      }
       subscription.unsubscribe();
     };
   }, [loadProfile, setAvatarMistressReply, updateLoyaltyForProfile]);
