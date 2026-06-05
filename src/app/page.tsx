@@ -7042,19 +7042,12 @@ export default function Home() {
                 {scriptedMessage}
               </p>
             </section>
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,0.72fr)]">
-              <TitleCollection
-                equippedTitleId={equippedTitleId}
-                ownedTitleIds={ownedTitleIds}
-                titles={titleItems}
-                onEquipTitle={handleEquipTitle}
-              />
-              <ProfileTaskCard
-                disabled={isTimeoutActive || isPreviewRestricted}
-                isPending={pendingTaskActionIds.includes("rebrand-profile")}
-                onRebrandProfile={handleRebrandProfile}
-              />
-            </div>
+            <TitleCollection
+              equippedTitleId={equippedTitleId}
+              ownedTitleIds={ownedTitleIds}
+              titles={titleItems}
+              onEquipTitle={handleEquipTitle}
+            />
           </div>
 
           <div className="flex flex-col gap-6">
@@ -7066,6 +7059,11 @@ export default function Home() {
               stats={stats}
               username={username}
               usernameStyle={usernameStyle}
+            />
+            <ProfileTaskCard
+              disabled={isTimeoutActive || isPreviewRestricted}
+              isPending={pendingTaskActionIds.includes("rebrand-profile")}
+              onRebrandProfile={handleRebrandProfile}
             />
           </div>
         </section>

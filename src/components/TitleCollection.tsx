@@ -139,7 +139,7 @@ export function ProfileTaskCard({
   onRebrandProfile,
 }: ProfileTaskCardProps) {
   return (
-    <section className="flex min-h-full flex-col justify-between rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+    <section className="flex min-h-[18rem] flex-col justify-between rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-200/70">
           Profile Task
