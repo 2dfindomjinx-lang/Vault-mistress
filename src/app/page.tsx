@@ -249,7 +249,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
-const PET_TASK_COIN_REWARD = 300;
+const PET_TASK_COIN_REWARD = 100;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
@@ -288,14 +288,15 @@ const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SACRIFICE_UNLOCK_CHANCE = 0.5;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
-const HIGH_LOW_BET_ALLOWANCE = 5000;
+const HIGH_LOW_BET_ALLOWANCE = 4000;
+const HIGH_LOW_PROFIT_LIMIT = 4000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const STREAK_BONUSES = [
-  { id: "streak-bonus-1", milestone: 1, reward: 75, title: "1 day streak bonus" },
-  { id: "streak-bonus-3", milestone: 3, reward: 225, title: "3 day streak bonus" },
-  { id: "streak-bonus-7", milestone: 7, reward: 600, title: "7 day streak bonus" },
-  { id: "streak-bonus-15", milestone: 15, reward: 1500, title: "15 day streak bonus" },
-  { id: "streak-bonus-30", milestone: 30, reward: 3000, title: "30 day streak bonus" },
+  { id: "streak-bonus-1", milestone: 1, reward: 38, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 113, title: "3 day streak bonus" },
+  { id: "streak-bonus-7", milestone: 7, reward: 300, title: "7 day streak bonus" },
+  { id: "streak-bonus-15", milestone: 15, reward: 750, title: "15 day streak bonus" },
+  { id: "streak-bonus-30", milestone: 30, reward: 1500, title: "30 day streak bonus" },
 ] as const;
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
@@ -447,7 +448,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login Reward",
-    reward: 500,
+    reward: 250,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -463,7 +464,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "typing-accuracy",
     title: "Typing Accuracy",
-    reward: 250,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "typing",
@@ -480,7 +481,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "number-pick",
     title: "Number Pick",
-    reward: 75,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "number-pick",
@@ -504,7 +505,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "wait-obediently",
     title: "Wait Obediently",
-    reward: 150,
+    reward: 100,
     completed: false,
     claimed: false,
     kind: "wait-obediently",
@@ -1277,8 +1278,8 @@ function getDailyKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isHighLowLocked(dailyBetTotal: number) {
-  return dailyBetTotal >= HIGH_LOW_BET_ALLOWANCE;
+function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
+  return dailyBetTotal >= HIGH_LOW_BET_ALLOWANCE || dailyProfit >= HIGH_LOW_PROFIT_LIMIT;
 }
 
 function getHighLowBetAllowance(dailyBetTotal: number) {
@@ -1440,7 +1441,7 @@ function buildTasksFromRows(
         currentNumber: randomHighLowDisplayNumber(),
         highLowDailyDate: today,
         highLowDailyBetTotal: dailyBetTotal,
-        highLowDailyLocked: isHighLowLocked(dailyBetTotal),
+        highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
         highLowDailyProfit: dailyProfit,
         highLowDailyWins: dailyWins,
         highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
@@ -2908,7 +2909,7 @@ export default function Home() {
           console.error("Failed to count daily Pet tasks for Owner Likeness", countError);
         }
 
-        if ((count ?? 0) >= 6) {
+        if ((count ?? 0) >= 5) {
           nextOwnerLikeness = Math.min(100, nextOwnerLikeness + 10);
         } else {
           nextOwnerLikeness = Math.max(0, nextOwnerLikeness - 25);
@@ -3920,7 +3921,7 @@ export default function Home() {
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
       if (highLowLocked) {
         setAvatarMistressReply(
-          `Higher or Lower ${HIGH_LOW_BET_ALLOWANCE.toLocaleString()} total bet allowance reached for today.`,
+          `Higher or Lower ${HIGH_LOW_BET_ALLOWANCE.toLocaleString()} coin profit or bet allowance reached for today.`,
         );
       } else if (highLowCooldownActive) {
         setAvatarMistressReply(`Wait ${formatDuration(highLowCooldownMs)} before playing Higher or Lower again.`);
@@ -3979,6 +3980,7 @@ export default function Home() {
           (task.highLowDailyBetTotal ?? 0) + allowanceCost,
         );
         const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
+        const nextDailyProfit = (task.highLowDailyProfit ?? 0) + coinDelta;
 
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
@@ -3993,8 +3995,8 @@ export default function Home() {
                   currentNumber,
                   highLowDailyDate: today,
                   highLowDailyBetTotal: nextDailyBetTotal,
-                  highLowDailyLocked: isHighLowLocked(nextDailyBetTotal),
-                  highLowDailyProfit: (task.highLowDailyProfit ?? 0) + coinDelta,
+                  highLowDailyLocked: isHighLowLocked(nextDailyBetTotal, nextDailyProfit),
+                  highLowDailyProfit: nextDailyProfit,
                   highLowDailyWins: (task.highLowDailyWins ?? 0) + (outcome === "win" ? 1 : 0),
                   highLowBetAllowance: nextBetAllowance,
                   lastResult:
@@ -4114,7 +4116,7 @@ export default function Home() {
         const previousWrongSelections = task.numberPickWrongSelections ?? [];
         const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
         const isCorrect = selectedNumber === correctNumber;
-        const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
+        const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 100 : 50) : 0;
         const reward = baseReward > 0 ? getEventTaskReward(baseReward) : 0;
         const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
         const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
@@ -4861,6 +4863,61 @@ export default function Home() {
     }
   };
 
+  const handleRebrandProfile = async () => {
+    if (isGuestMode) {
+      setAvatarMistressReply("Preview mode cannot edit an X profile.");
+      return;
+    }
+
+    if (!authUserId) {
+      setAvatarMistressReply("Sign in with X before requesting a profile rebrand.");
+      return;
+    }
+
+    const consentGiven = window.confirm(
+      [
+        "Rebrand for Principessa needs explicit consent.",
+        "",
+        "If the X write integration is configured, this will request changes to your bio, avatar, header, location, and website.",
+        "",
+        "Continue?",
+      ].join("\n"),
+    );
+
+    if (!consentGiven) {
+      return;
+    }
+
+    const actionId = "rebrand-profile";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/rebrand-profile", {
+        body: JSON.stringify({ consent: true }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw createApiError("/api/user/rebrand-profile", response, payload ?? {});
+      }
+
+      setAvatarMistressReply(payload?.message ?? "Profile rebrand request completed.");
+    } catch (error) {
+      console.error("[rebrand-profile] request failed", error);
+      setAvatarMistressReply(describeError(error));
+    } finally {
+      finishTaskAction(actionId);
+    }
+  };
+
   const handleSignInWithX = async () => {
     let oauthRedirectStarted = false;
 
@@ -5518,6 +5575,9 @@ export default function Home() {
       new Date(task.cooldownUntil ?? "").getTime() > Date.now();
 
     if (!task.completed || (task.claimed && task.id !== "daily-login") || dailyCooldownActive) {
+      if (task.id === "typing-accuracy") {
+        setAvatarMistressReply("Finish the typing task before claiming the reward.");
+      }
       return;
     }
 
@@ -7073,8 +7133,10 @@ export default function Home() {
               onJackpotContribute={handleJackpotContribute}
               onHighLowPlay={handleHighLowPlay}
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
+              highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onIrlTaskSpin={handleIrlTaskSpin}
               onNumberPick={handleNumberPick}
+              onRebrandProfile={handleRebrandProfile}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
               onTimeoutRisk={handleTimeoutRisk}

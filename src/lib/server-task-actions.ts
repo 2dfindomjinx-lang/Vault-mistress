@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const HIGH_LOW_BET_ALLOWANCE = 5000;
+export const HIGH_LOW_BET_ALLOWANCE = 4000;
+export const HIGH_LOW_PROFIT_LIMIT = 4000;
 
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },

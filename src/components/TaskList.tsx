@@ -39,6 +39,7 @@ type TaskListProps = {
   tasks: TaskItem[];
   pendingTaskActionIds?: string[];
   highLowAllowanceCap: number;
+  highLowProfitCap: number;
   isJackpotBusy?: boolean;
   jackpot: LoyaltyJackpotState | null;
   jackpotError?: string;
@@ -50,6 +51,7 @@ type TaskListProps = {
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
+  onRebrandProfile: () => void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTimeoutRisk: () => void;
@@ -67,6 +69,7 @@ export function TaskList({
   coins,
   disabled = false,
   highLowAllowanceCap,
+  highLowProfitCap,
   isJackpotBusy = false,
   jackpot,
   jackpotError = "",
@@ -78,6 +81,7 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
+  onRebrandProfile,
   pendingTaskActionIds = [],
   onSacrifice,
   onSupport,
@@ -212,6 +216,15 @@ export function TaskList({
           disabled={disabled || isTaskActionPending("beg")}
           onAction={onBeg}
           title="Beg"
+          now={now}
+          formatRemaining={formatRemaining}
+        />
+        <MechanicCard
+          actionLabel="Rebrand Profile"
+          description="Consent-only profile rebrand preparation. No coin reward, no cooldown."
+          disabled={disabled || isTaskActionPending("rebrand-profile")}
+          onAction={onRebrandProfile}
+          title="Rebrand for Principessa"
           now={now}
           formatRemaining={formatRemaining}
         />
@@ -516,7 +529,7 @@ export function TaskList({
                   {task.reward > 0 && (
                     <p className="mt-1 text-sm text-zinc-400">
                       {task.kind === "number-pick"
-                        ? "Reward: 150 / 75 Principessa Coins"
+                        ? "Reward: 100 / 50 Principessa Coins"
                         : `Reward: ${task.reward} Principessa Coins`}
                     </p>
                   )}
@@ -570,7 +583,13 @@ export function TaskList({
                   {task.completed && !task.claimed && (
                     <button
                       className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled || isTaskActionPending("typing-accuracy") || isClaimPending(task.id)}
+                      disabled={
+                        disabled ||
+                        !task.completed ||
+                        task.claimed ||
+                        isTaskActionPending("typing-accuracy") ||
+                        isClaimPending(task.id)
+                      }
                       onClick={() => {
                         setTypingValue("");
                         onClaim(task.id);
@@ -587,7 +606,8 @@ export function TaskList({
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   {(() => {
                     const highLowBetAllowance =
-                      task.highLowBetAllowance ?? Math.max(0, 5000 - Math.max(0, task.highLowDailyBetTotal ?? 0));
+                      task.highLowBetAllowance ??
+                      Math.max(0, highLowAllowanceCap - Math.max(0, task.highLowDailyBetTotal ?? 0));
                     const highLowStakeMax = Math.max(0, Math.min(coins, highLowBetAllowance));
 
                     return (
@@ -707,13 +727,12 @@ export function TaskList({
                   </div>
                   {task.highLowDailyLocked && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower {highLowAllowanceCap.toLocaleString()} total bet allowance reached
-                      for today.
+                      Higher or Lower daily profit or bet allowance limit reached.
                     </p>
                   )}
                   {!task.highLowDailyLocked && (
                     <p className="mt-3 text-xs font-semibold text-zinc-500">
-                      Locks after {highLowAllowanceCap.toLocaleString()} total coins are bet during the allowance period. Wins and losses consume allowance; ties refund and do not count.
+                      Locks at {highLowProfitCap.toLocaleString()} daily net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the allowance period. Wins and losses consume allowance; ties refund and do not count.
                     </p>
                   )}
                   {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
@@ -765,8 +784,8 @@ export function TaskList({
               {task.kind === "number-pick" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
-                    First correct pick pays 150 Principessa Coins. If you miss, the wrong number
-                    locks red and one final pick can still pay 75.
+                    First correct pick pays 100 Principessa Coins. If you miss, the wrong number
+                    locks red and one final pick can still pay 50.
                   </p>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(task.numberPickOptions ?? []).map((option) => {

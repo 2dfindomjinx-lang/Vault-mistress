@@ -130,7 +130,7 @@ function validatePatch(
   }
 
   if (reason.startsWith("reward:pet-")) {
-    const allowedCoinRewards = new Set([300, 450, 500, 750, 600, 1000]);
+    const allowedCoinRewards = new Set([100, 150, 200, 500, 750, 1000]);
 
     if (
       reason === "reward:pet-case-opening" &&

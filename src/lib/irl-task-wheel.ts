@@ -1,4 +1,4 @@
-export const IRL_TASK_WHEEL_COST = 2000;
+export const IRL_TASK_WHEEL_COST = 2500;
 export const IRL_TASK_APPROVAL_AFFECTION_GAIN = 10;
 
 export const irlTaskWheelTasks = [

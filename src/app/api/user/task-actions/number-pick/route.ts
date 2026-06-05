@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     : randomFrom(options);
   const attemptsRemaining = getMetadataNumber(metadata, "attemptsRemaining", 2);
   const isCorrect = selectedNumber === correctNumber;
-  const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 150 : 75) : 0;
+  const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 100 : 50) : 0;
   const reward = baseReward > 0 ? Math.round(baseReward * multipliers.task_reward_multiplier) : 0;
   const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
   const finalAttempt = isCorrect || nextAttemptsRemaining === 0;

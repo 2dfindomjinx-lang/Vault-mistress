@@ -8,6 +8,7 @@ import {
   getMetadataNumber,
   getMetadataString,
   HIGH_LOW_BET_ALLOWANCE,
+  HIGH_LOW_PROFIT_LIMIT,
   randomHighLowNumber,
   type UserTaskActionRow,
 } from "@/lib/server-task-actions";
@@ -123,6 +124,13 @@ export async function POST(request: Request) {
       : 0;
   const currentBetAllowance = getHighLowBetAllowance(currentDailyBetTotal);
 
+  if (currentDailyProfit >= HIGH_LOW_PROFIT_LIMIT) {
+    return jsonError(
+      `Higher or Lower ${HIGH_LOW_PROFIT_LIMIT.toLocaleString()} coin profit limit reached for today.`,
+      422,
+    );
+  }
+
   if (stake > currentBetAllowance) {
     return jsonError(
       `Higher or Lower bet allowance is ${currentBetAllowance.toLocaleString()} coins. Lower your stake.`,
@@ -143,11 +151,21 @@ export async function POST(request: Request) {
   const nextCoins = profile.coins + coinDelta;
   const now = new Date().toISOString();
   const nextDailyProfit = currentDailyProfit + coinDelta;
+
+  if (outcome === "win" && nextDailyProfit > HIGH_LOW_PROFIT_LIMIT) {
+    const remainingProfit = Math.max(0, HIGH_LOW_PROFIT_LIMIT - currentDailyProfit);
+
+    return jsonError(
+      `Higher or Lower profit room is ${remainingProfit.toLocaleString()} coins. Lower your stake.`,
+      422,
+    );
+  }
+
   const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
   const allowanceCost = outcome === "tie" ? 0 : stake;
   const nextDailyBetTotal = Math.min(HIGH_LOW_BET_ALLOWANCE, currentDailyBetTotal + allowanceCost);
   const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
-  const nextDailyLocked = nextBetAllowance <= 0;
+  const nextDailyLocked = nextBetAllowance <= 0 || nextDailyProfit >= HIGH_LOW_PROFIT_LIMIT;
   const nextBaseRevealAt = new Date(Date.now() + getEventCooldownMs(10 * 1000, multipliers.cooldown_reduction)).toISOString();
   const lastResult =
     outcome === "tie"
