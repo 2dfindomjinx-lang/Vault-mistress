@@ -4905,6 +4905,11 @@ export default function Home() {
         message?: string;
       } | null;
 
+      if (response.status === 403 && payload?.error === "Connect X write access first.") {
+        window.location.href = "/api/user/rebrand-x/start";
+        return;
+      }
+
       if (!response.ok) {
         throw createApiError("/api/user/rebrand-profile", response, payload ?? {});
       }

@@ -20,6 +20,11 @@ type XUserTokens = {
   accessToken: string;
 };
 
+type SafeDbError = {
+  code?: string;
+  message?: string;
+};
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -63,6 +68,52 @@ function getXUserTokens(row: XUserTokenRow | null): XUserTokens | null {
   ]);
 
   return accessToken && accessSecret ? { accessSecret, accessToken } : null;
+}
+
+function safeDbError(error: unknown): SafeDbError {
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+
+  return {
+    code: "code" in error && typeof error.code === "string" ? error.code : undefined,
+    message:
+      "message" in error && typeof error.message === "string"
+        ? error.message
+        : undefined,
+  };
+}
+
+async function readStoredXTokens(userId: string) {
+  const adminSupabase = createSupabaseAdminClient();
+  const { data: tokenRow, error: tokenError } = await adminSupabase
+    .from("x_rebrand_tokens")
+    .select("user_id, x_user_id, access_token, access_secret, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (tokenError) {
+    const safeError = safeDbError(tokenError);
+    console.error("[x-rebrand] token lookup failed", {
+      code: safeError.code,
+      message: safeError.message,
+      userId,
+    });
+
+    return { error: tokenError, row: null, tokens: null };
+  }
+
+  const row = (tokenRow as XUserTokenRow | null) ?? null;
+  const tokens = getXUserTokens(row);
+
+  console.info("[x-rebrand] token lookup result", {
+    accessSecretPresent: Boolean(tokens?.accessSecret),
+    accessTokenPresent: Boolean(tokens?.accessToken),
+    rowExists: Boolean(row),
+    userId,
+  });
+
+  return { error: null, row, tokens };
 }
 
 function encodeOAuth(value: string | number) {
@@ -233,22 +284,17 @@ export async function POST(request: Request) {
   }
 
   const plannedProfile = getRebrandProfileWithAssetUrls(new URL(request.url).origin);
-  const adminSupabase = createSupabaseAdminClient();
-  const { data: tokenRow, error: tokenError } = await adminSupabase
-    .from("x_rebrand_tokens")
-    .select("*")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
+  console.info("[x-rebrand] authenticated user resolved", {
+    userId: data.user.id,
+  });
 
-  if (tokenError) {
-    console.error("[x-rebrand] token lookup failed", {
-      error: tokenError,
-      userId: data.user.id,
-    });
+  const tokenLookup = await readStoredXTokens(data.user.id);
+
+  if (tokenLookup.error) {
     return jsonError("Failed to read stored X write access.", 500);
   }
 
-  const tokens = getXUserTokens((tokenRow as XUserTokenRow | null) ?? null);
+  const tokens = tokenLookup.tokens;
 
   if (!tokens) {
     return jsonError("Connect X write access first.", 403);
@@ -298,4 +344,52 @@ export async function POST(request: Request) {
       502,
     );
   }
+}
+
+export async function GET() {
+  if (!isSupabaseAdminConfigured) {
+    return Response.json(
+      {
+        error: `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      },
+      { status: 500 },
+    );
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    return jsonError(error?.message ?? "Authentication required.", 401);
+  }
+
+  console.info("[x-rebrand:debug] authenticated user resolved", {
+    userId: data.user.id,
+  });
+
+  const tokenLookup = await readStoredXTokens(data.user.id);
+
+  if (tokenLookup.error) {
+    const safeError = safeDbError(tokenLookup.error);
+
+    return Response.json(
+      {
+        databaseError: {
+          code: safeError.code,
+          message: safeError.message,
+        },
+        rowExists: false,
+        userId: data.user.id,
+      },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({
+    accessSecretPresent: Boolean(tokenLookup.tokens?.accessSecret),
+    accessTokenPresent: Boolean(tokenLookup.tokens?.accessToken),
+    rowExists: Boolean(tokenLookup.row),
+    userId: data.user.id,
+    xUserIdPresent: typeof tokenLookup.row?.x_user_id === "string" && Boolean(tokenLookup.row.x_user_id),
+  });
 }
