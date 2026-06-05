@@ -31,6 +31,26 @@ async function getAdminUserId() {
   return allowed ? data.user.id : null;
 }
 
+function getGiveBonusPercent(currentCoins: number) {
+  if (currentCoins >= 100000) {
+    return 0.25;
+  }
+
+  if (currentCoins >= 50000) {
+    return 0.2;
+  }
+
+  if (currentCoins >= 20000) {
+    return 0.15;
+  }
+
+  if (currentCoins >= 10000) {
+    return 0.1;
+  }
+
+  return 0;
+}
+
 export async function POST(request: Request) {
   const configErrors = getSupabaseAdminConfigErrors();
 
@@ -161,8 +181,10 @@ export async function POST(request: Request) {
     });
   }
 
-  const nextCoins = Number(profile.coins ?? 0) + amount;
   const previousCoins = Number(profile.coins ?? 0);
+  const nextCoins = previousCoins + amount;
+  const giveBonusPercent = giveMatch ? getGiveBonusPercent(previousCoins) : 0;
+  const giveBonusAmount = Math.floor(amount * giveBonusPercent);
   const { error: updateError } = await supabase
     .from("profiles")
     .update({
@@ -198,6 +220,60 @@ export async function POST(request: Request) {
 
   if (transactionError) {
     console.error("Admin coin transaction insert failed", transactionError);
+  }
+
+  let bonusTransaction: {
+    id: string;
+    amount: number;
+    reason: string;
+    created_at: string;
+  } | null = null;
+  let finalCoins = nextCoins;
+
+  if (giveMatch && giveBonusAmount > 0) {
+    const bonusBalanceBefore = nextCoins;
+    const bonusBalanceAfter = nextCoins + giveBonusAmount;
+    const { error: bonusUpdateError } = await supabase
+      .from("profiles")
+      .update({
+        coins: bonusBalanceAfter,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", profile.id);
+
+    if (bonusUpdateError) {
+      console.error("Admin give bonus coin update failed", bonusUpdateError);
+    } else {
+      finalCoins = bonusBalanceAfter;
+
+      const { data: insertedBonusTransaction, error: bonusTransactionError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          user_id: profile.id,
+          admin_user_id: adminUserId,
+          amount: giveBonusAmount,
+          reason: "give_bonus",
+          balance_before: bonusBalanceBefore,
+          balance_after: bonusBalanceAfter,
+          metadata: {
+            command: "give",
+            kind: "admin_give_bonus",
+            source: "admin",
+            baseAmount: amount,
+            bonusPercent: giveBonusPercent,
+            balanceTierBeforeGive: previousCoins,
+            tributeTotalChanged: false,
+          },
+        })
+        .select("id, amount, reason, created_at")
+        .single();
+
+      if (bonusTransactionError) {
+        console.error("Admin give bonus transaction insert failed", bonusTransactionError);
+      } else {
+        bonusTransaction = insertedBonusTransaction;
+      }
+    }
   }
 
   if (giveMatch) {
@@ -243,7 +319,8 @@ export async function POST(request: Request) {
       ? `Granted ${amount} coins to ${profile.username}.`
       : `Added ${amount} coins to ${profile.username}.`,
     username: profile.username,
-    coins: nextCoins,
+    coins: finalCoins,
     transaction,
+    bonusTransaction,
   });
 }
