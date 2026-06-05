@@ -1917,6 +1917,37 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rebrandResult = params.get("rebrand");
+
+    if (!rebrandResult) {
+      return;
+    }
+
+    const reply =
+      rebrandResult === "applied"
+        ? "X write access connected. Rebrand profile applied."
+        : rebrandResult === "apply_failed"
+          ? params.get("rebrand_error") ??
+            "X write access connected, but the rebrand failed to apply."
+          : "";
+
+    if (reply) {
+      queueMicrotask(() => setAvatarMistressReply(reply));
+    }
+
+    params.delete("rebrand");
+    params.delete("rebrand_error");
+
+    const nextQuery = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`,
+    );
+  }, [setAvatarMistressReply]);
+
+  useEffect(() => {
     previewModeRef.current = isPreviewMode;
   }, [isPreviewMode]);
 

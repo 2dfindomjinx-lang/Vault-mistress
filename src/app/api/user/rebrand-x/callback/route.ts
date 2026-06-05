@@ -5,6 +5,7 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import { getRebrandProfileWithAssetUrls } from "@/lib/rebrand-profile";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { postXOAuthForm } from "@/lib/x-oauth";
 
@@ -47,6 +48,79 @@ function getStoredRequestToken(value: string | undefined): StoredRequestToken | 
 
 function redirectHome(origin: string, message: string) {
   return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(message)}`, origin));
+}
+
+function redirectRebrandResult(origin: string, result: string, error?: string) {
+  const url = new URL("/", origin);
+  url.searchParams.set("rebrand", result);
+
+  if (error) {
+    url.searchParams.set("rebrand_error", error);
+  }
+
+  return NextResponse.redirect(url);
+}
+
+async function fetchImageAsBase64(assetUrl: string, label: string) {
+  const response = await fetch(assetUrl);
+
+  if (!response.ok) {
+    throw new Error(`${label} image could not be loaded from ${assetUrl}.`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer).toString("base64");
+}
+
+async function applyRebrandProfile({
+  accessSecret,
+  accessToken,
+  origin,
+}: {
+  accessSecret: string;
+  accessToken: string;
+  origin: string;
+}) {
+  const plannedProfile = getRebrandProfileWithAssetUrls(origin);
+
+  console.info("[x-rebrand:callback] applying profile rebrand", {
+    avatarUrlPresent: Boolean(plannedProfile.avatarUrl),
+    bannerUrlPresent: Boolean(plannedProfile.bannerUrl),
+    displayNamePresent: Boolean(plannedProfile.displayName),
+  });
+
+  await postXOAuthForm({
+    accessToken,
+    bodyParams: {
+      description: plannedProfile.bio,
+      location: plannedProfile.location,
+      name: plannedProfile.displayName,
+      url: plannedProfile.website,
+    },
+    tokenSecret: accessSecret,
+    url: "https://api.twitter.com/1.1/account/update_profile.json",
+  });
+
+  const avatarImage = await fetchImageAsBase64(plannedProfile.avatarUrl, "Avatar");
+  await postXOAuthForm({
+    accessToken,
+    bodyParams: {
+      image: avatarImage,
+      skip_status: "true",
+    },
+    tokenSecret: accessSecret,
+    url: "https://api.twitter.com/1.1/account/update_profile_image.json",
+  });
+
+  const bannerImage = await fetchImageAsBase64(plannedProfile.bannerUrl, "Header");
+  await postXOAuthForm({
+    accessToken,
+    bodyParams: {
+      banner: bannerImage,
+    },
+    tokenSecret: accessSecret,
+    url: "https://api.twitter.com/1.1/account/update_profile_banner.json",
+  });
 }
 
 export async function GET(request: Request) {
@@ -144,7 +218,31 @@ export async function GET(request: Request) {
       xUserIdPresent: Boolean(xUserId),
     });
 
-    const response = NextResponse.redirect(new URL("/", requestUrl.origin));
+    try {
+      await applyRebrandProfile({
+        accessSecret,
+        accessToken,
+        origin: requestUrl.origin,
+      });
+    } catch (applyError) {
+      console.error("[x-rebrand:callback] auto apply failed after token storage", {
+        error: applyError,
+        userId: data.user.id,
+      });
+      const response = redirectRebrandResult(
+        requestUrl.origin,
+        "apply_failed",
+        applyError instanceof Error ? applyError.message : "X profile rebrand apply failed.",
+      );
+      response.cookies.delete(COOKIE_NAME);
+      return response;
+    }
+
+    console.info("[x-rebrand:callback] auto apply completed", {
+      userId: data.user.id,
+    });
+
+    const response = redirectRebrandResult(requestUrl.origin, "applied");
     response.cookies.delete(COOKIE_NAME);
     return response;
   } catch (callbackError) {
