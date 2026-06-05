@@ -7043,10 +7043,13 @@ export default function Home() {
               </p>
             </section>
             <TitleCollection
+              disabled={isTimeoutActive || isPreviewRestricted}
               equippedTitleId={equippedTitleId}
+              isRebrandPending={pendingTaskActionIds.includes("rebrand-profile")}
               ownedTitleIds={ownedTitleIds}
               titles={titleItems}
               onEquipTitle={handleEquipTitle}
+              onRebrandProfile={handleRebrandProfile}
             />
           </div>
 
@@ -7134,7 +7137,6 @@ export default function Home() {
               highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onIrlTaskSpin={handleIrlTaskSpin}
               onNumberPick={handleNumberPick}
-              onRebrandProfile={handleRebrandProfile}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
               onTimeoutRisk={handleTimeoutRisk}

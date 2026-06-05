@@ -51,7 +51,6 @@ type TaskListProps = {
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
-  onRebrandProfile: () => void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTimeoutRisk: () => void;
@@ -81,7 +80,6 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
-  onRebrandProfile,
   pendingTaskActionIds = [],
   onSacrifice,
   onSupport,
@@ -208,7 +206,7 @@ export function TaskList({
         <h2 className="text-3xl font-black">Play the Vault</h2>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MechanicCard
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
@@ -216,15 +214,6 @@ export function TaskList({
           disabled={disabled || isTaskActionPending("beg")}
           onAction={onBeg}
           title="Beg"
-          now={now}
-          formatRemaining={formatRemaining}
-        />
-        <MechanicCard
-          actionLabel="Rebrand Profile"
-          description="Authorize X and apply the configured profile rebrand. No coin reward, no cooldown."
-          disabled={disabled || isTaskActionPending("rebrand-profile")}
-          onAction={onRebrandProfile}
-          title="Rebrand for Principessa"
           now={now}
           formatRemaining={formatRemaining}
         />
