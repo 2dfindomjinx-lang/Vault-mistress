@@ -15,7 +15,7 @@ import {
 } from "@/components/RecentTributesTicker";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
-import { TitleCollection } from "@/components/TitleCollection";
+import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
 import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import {
@@ -7042,15 +7042,19 @@ export default function Home() {
                 {scriptedMessage}
               </p>
             </section>
-            <TitleCollection
-              disabled={isTimeoutActive || isPreviewRestricted}
-              equippedTitleId={equippedTitleId}
-              isRebrandPending={pendingTaskActionIds.includes("rebrand-profile")}
-              ownedTitleIds={ownedTitleIds}
-              titles={titleItems}
-              onEquipTitle={handleEquipTitle}
-              onRebrandProfile={handleRebrandProfile}
-            />
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(12rem,0.72fr)]">
+              <TitleCollection
+                equippedTitleId={equippedTitleId}
+                ownedTitleIds={ownedTitleIds}
+                titles={titleItems}
+                onEquipTitle={handleEquipTitle}
+              />
+              <ProfileTaskCard
+                disabled={isTimeoutActive || isPreviewRestricted}
+                isPending={pendingTaskActionIds.includes("rebrand-profile")}
+                onRebrandProfile={handleRebrandProfile}
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-6">
