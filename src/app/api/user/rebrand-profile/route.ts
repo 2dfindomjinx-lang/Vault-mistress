@@ -88,7 +88,7 @@ async function readStoredXTokens(userId: string) {
   const adminSupabase = createSupabaseAdminClient();
   const { data: tokenRow, error: tokenError } = await adminSupabase
     .from("x_rebrand_tokens")
-    .select("user_id, x_user_id, access_token, access_secret, updated_at")
+    .select("user_id, x_user_id, screen_name, access_token, access_secret, updated_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -389,6 +389,8 @@ export async function GET() {
     accessSecretPresent: Boolean(tokenLookup.tokens?.accessSecret),
     accessTokenPresent: Boolean(tokenLookup.tokens?.accessToken),
     rowExists: Boolean(tokenLookup.row),
+    screenNamePresent:
+      typeof tokenLookup.row?.screen_name === "string" && Boolean(tokenLookup.row.screen_name),
     userId: data.user.id,
     xUserIdPresent: typeof tokenLookup.row?.x_user_id === "string" && Boolean(tokenLookup.row.x_user_id),
   });

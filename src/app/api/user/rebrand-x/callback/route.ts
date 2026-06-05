@@ -173,6 +173,7 @@ export async function GET(request: Request) {
     const accessToken = accessTokenResponse.oauth_token;
     const accessSecret = accessTokenResponse.oauth_token_secret;
     const xUserId = accessTokenResponse.user_id;
+    const screenName = accessTokenResponse.screen_name;
 
     if (!accessToken || !accessSecret) {
       console.error("[x-rebrand:callback] access token response missing token fields", {
@@ -193,6 +194,7 @@ export async function GET(request: Request) {
         {
           access_secret: accessSecret,
           access_token: accessToken,
+          screen_name: typeof screenName === "string" ? screenName : null,
           updated_at: new Date().toISOString(),
           user_id: data.user.id,
           x_user_id: typeof xUserId === "string" ? xUserId : null,
@@ -214,6 +216,7 @@ export async function GET(request: Request) {
     console.info("[x-rebrand:callback] token stored", {
       accessSecretPresent: true,
       accessTokenPresent: true,
+      screenNamePresent: Boolean(screenName),
       userId: data.user.id,
       xUserIdPresent: Boolean(xUserId),
     });
@@ -239,7 +242,9 @@ export async function GET(request: Request) {
     }
 
     console.info("[x-rebrand:callback] auto apply completed", {
+      screenNamePresent: Boolean(screenName),
       userId: data.user.id,
+      xUserIdPresent: Boolean(xUserId),
     });
 
     const response = redirectRebrandResult(requestUrl.origin, "applied");

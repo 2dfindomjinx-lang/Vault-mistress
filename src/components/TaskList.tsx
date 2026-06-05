@@ -221,7 +221,7 @@ export function TaskList({
         />
         <MechanicCard
           actionLabel="Rebrand Profile"
-          description="Consent-only profile rebrand preparation. No coin reward, no cooldown."
+          description="Authorize X and apply the configured profile rebrand. No coin reward, no cooldown."
           disabled={disabled || isTaskActionPending("rebrand-profile")}
           onAction={onRebrandProfile}
           title="Rebrand for Principessa"

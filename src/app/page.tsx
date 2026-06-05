@@ -4905,53 +4905,15 @@ export default function Home() {
       return;
     }
 
-    const consentGiven = window.confirm(
-      [
-        "Rebrand for Principessa needs explicit consent.",
-        "",
-        "If the X write integration is configured, this will request changes to your bio, avatar, header, location, and website.",
-        "",
-        "Continue?",
-      ].join("\n"),
-    );
-
-    if (!consentGiven) {
-      return;
-    }
-
     const actionId = "rebrand-profile";
 
     if (!beginTaskAction(actionId)) {
       return;
     }
 
-    try {
-      const response = await fetch("/api/user/rebrand-profile", {
-        body: JSON.stringify({ consent: true }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-        message?: string;
-      } | null;
-
-      if (response.status === 403 && payload?.error === "Connect X write access first.") {
-        window.location.href = "/api/user/rebrand-x/start";
-        return;
-      }
-
-      if (!response.ok) {
-        throw createApiError("/api/user/rebrand-profile", response, payload ?? {});
-      }
-
-      setAvatarMistressReply(payload?.message ?? "Profile rebrand request completed.");
-    } catch (error) {
-      console.error("[rebrand-profile] request failed", error);
-      setAvatarMistressReply(describeError(error));
-    } finally {
-      finishTaskAction(actionId);
-    }
+    setAvatarMistressReply("Opening X authorization for the rebrand...");
+    finishTaskAction(actionId);
+    window.location.href = "/api/user/rebrand-x/start";
   };
 
   const handleSignInWithX = async () => {

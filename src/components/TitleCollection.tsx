@@ -7,6 +7,30 @@ type TitleCollectionProps = {
   onEquipTitle: (title: TitleItem) => void;
 };
 
+function formatCoins(value: number) {
+  return value.toLocaleString();
+}
+
+function describeTitleUnlock(title: TitleItem) {
+  if (title.source === "progression" && typeof title.minTribute === "number") {
+    return `Reach ${formatCoins(title.minTribute)} Tribute Total.`;
+  }
+
+  if (title.source === "throne" && typeof title.minThroneCoins === "number") {
+    return `Receive ${formatCoins(title.minThroneCoins)} manual Throne tribute coins.`;
+  }
+
+  if (title.source === "shop" && typeof title.price === "number") {
+    return `Buy in Cosmetics Shop for ${formatCoins(title.price)} coins.`;
+  }
+
+  if (title.source === "admin") {
+    return "Manual admin-granted title.";
+  }
+
+  return "Unlock through progression, shop purchases, Throne tribute, or admin rewards.";
+}
+
 export function TitleCollection({
   equippedTitleId,
   ownedTitleIds,
@@ -14,6 +38,7 @@ export function TitleCollection({
   onEquipTitle,
 }: TitleCollectionProps) {
   const ownedTitles = titles.filter((title) => ownedTitleIds.includes(title.id));
+  const lockedTitles = titles.filter((title) => !ownedTitleIds.includes(title.id));
   const lockedCount = Math.max(0, titles.length - ownedTitles.length);
   const equippedTitle =
     titles.find((title) => title.id === equippedTitleId) ?? ownedTitles[0] ?? null;
@@ -61,9 +86,33 @@ export function TitleCollection({
         {equippedTitle?.description ?? "Unlock titles through progression, shop purchases, and admin rewards."}
       </p>
       {lockedCount > 0 && (
-        <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-600">
-          {lockedCount} locked
-        </p>
+        <details className="mt-3 group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:border-pink-200/25 hover:text-pink-100">
+            <span>{lockedCount} locked titles</span>
+            <span className="text-zinc-600 transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
+            {lockedTitles.map((title) => (
+              <div
+                key={title.id}
+                className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 text-xs font-black text-zinc-200">{title.name}</p>
+                  <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                    {title.source}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] font-bold leading-4 text-pink-100/75">
+                  {describeTitleUnlock(title)}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">
+                  {title.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
     </section>
   );
