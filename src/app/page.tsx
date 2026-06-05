@@ -15,7 +15,7 @@ import {
 } from "@/components/RecentTributesTicker";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
-import { TitleCollection } from "@/components/TitleCollection";
+import { LockedTitleList, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
 import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import {
@@ -7045,6 +7045,7 @@ export default function Home() {
             <TitleCollection
               equippedTitleId={equippedTitleId}
               ownedTitleIds={ownedTitleIds}
+              showLockedTitles={false}
               titles={titleItems}
               onEquipTitle={handleEquipTitle}
             />
@@ -7059,6 +7060,9 @@ export default function Home() {
               stats={stats}
               username={username}
               usernameStyle={usernameStyle}
+            />
+            <LockedTitleList
+              lockedTitles={titleItems.filter((title) => !ownedTitleIds.includes(title.id))}
             />
           </div>
         </section>
