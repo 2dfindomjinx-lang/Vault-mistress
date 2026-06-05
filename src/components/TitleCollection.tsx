@@ -54,7 +54,7 @@ export function TitleCollection({
   };
 
   return (
-    <section className="rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
+    <section className="relative overflow-visible rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/70">
@@ -86,12 +86,12 @@ export function TitleCollection({
         {equippedTitle?.description ?? "Unlock titles through progression, shop purchases, and admin rewards."}
       </p>
       {lockedCount > 0 && (
-        <details className="mt-3 group">
+        <details className="group relative mt-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:border-pink-200/25 hover:text-pink-100">
             <span>{lockedCount} locked titles</span>
             <span className="text-zinc-600 transition group-open:rotate-180">⌄</span>
           </summary>
-          <div className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
+          <div className="mt-2 max-h-56 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-2 pr-1 shadow-[0_18px_40px_rgba(0,0,0,0.45)] xl:absolute xl:left-full xl:top-0 xl:z-30 xl:ml-3 xl:mt-0 xl:w-80 xl:max-h-72">
             {lockedTitles.map((title) => (
               <div
                 key={title.id}
