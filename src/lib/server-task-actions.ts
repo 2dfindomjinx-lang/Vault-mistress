@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const HIGH_LOW_PROFIT_LOCK = 5000;
-export const HIGH_LOW_WINNING_ALLOWANCE = 2500;
+export const HIGH_LOW_BET_ALLOWANCE = 5000;
 
 const BASE_NUMBER_WEIGHTS = [
   { value: 2, weight: 1 },
@@ -157,12 +156,8 @@ export function getEventCooldownMs(baseMilliseconds: number, cooldownMultiplier:
   return Math.max(1000, Math.round(baseMilliseconds * cooldownMultiplier));
 }
 
-export function isHighLowLocked(dailyProfit: number) {
-  return dailyProfit >= HIGH_LOW_PROFIT_LOCK;
-}
-
-export function getHighLowWinningAllowance(winningExposure: number) {
-  return Math.max(0, HIGH_LOW_WINNING_ALLOWANCE - Math.max(0, winningExposure));
+export function getHighLowBetAllowance(dailyBetTotal: number) {
+  return Math.max(0, HIGH_LOW_BET_ALLOWANCE - Math.max(0, dailyBetTotal));
 }
 
 export function validateNumberPickOptions(options: unknown) {

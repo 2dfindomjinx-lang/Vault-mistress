@@ -288,8 +288,8 @@ const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SACRIFICE_UNLOCK_CHANCE = 0.5;
 const SUPPORT_COST = 1000;
 const TIMEOUT_RISK_CHANCE = 0.2;
-const HIGH_LOW_PROFIT_LOCK = 5000;
-const HIGH_LOW_WINNING_ALLOWANCE = 2500;
+const HIGH_LOW_BET_ALLOWANCE = 5000;
+const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const STREAK_BONUSES = [
   { id: "streak-bonus-1", milestone: 1, reward: 75, title: "1 day streak bonus" },
   { id: "streak-bonus-3", milestone: 3, reward: 225, title: "3 day streak bonus" },
@@ -1136,6 +1136,36 @@ function getDebtAutoPayStorageKey(userId: string) {
   return `${DEBT_AUTO_PAY_STORAGE_PREFIX}:${userId}`;
 }
 
+function getJackpotWinnerRevealKey(jackpotState: LoyaltyJackpotState | null) {
+  if (!jackpotState) {
+    return null;
+  }
+
+  const winners =
+    jackpotState.currentWinners.length > 0
+      ? jackpotState.currentWinners
+      : jackpotState.currentWinner
+        ? [jackpotState.currentWinner]
+        : [];
+
+  if (winners.length === 0) {
+    return null;
+  }
+
+  const winnerKey = winners
+    .map((winner) =>
+      [
+        winner.place ?? 0,
+        winner.username,
+        winner.amount,
+        winner.selectedAt,
+      ].join(":"),
+    )
+    .join("|");
+
+  return `${jackpotState.id}:${jackpotState.cycleKey}:${winnerKey}`;
+}
+
 function readDebtAutoPayEnabled(userId: string) {
   if (typeof window === "undefined") {
     return false;
@@ -1247,12 +1277,12 @@ function getDailyKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function isHighLowLocked(dailyProfit: number) {
-  return dailyProfit >= HIGH_LOW_PROFIT_LOCK;
+function isHighLowLocked(dailyBetTotal: number) {
+  return dailyBetTotal >= HIGH_LOW_BET_ALLOWANCE;
 }
 
-function getHighLowWinningAllowance(winningExposure: number) {
-  return Math.max(0, HIGH_LOW_WINNING_ALLOWANCE - Math.max(0, winningExposure));
+function getHighLowBetAllowance(dailyBetTotal: number) {
+  return Math.max(0, HIGH_LOW_BET_ALLOWANCE - Math.max(0, dailyBetTotal));
 }
 
 function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
@@ -1393,12 +1423,12 @@ function buildTasksFromRows(
         dailyDate === today
           ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0)
           : 0;
-      const winningExposure =
+      const dailyBetTotal =
         dailyDate === today
           ? getTaskMetadataNumber(
               row?.metadata,
-              "higherLowerDailyWinningExposure",
-              Math.min(HIGH_LOW_WINNING_ALLOWANCE, Math.max(0, dailyProfit)),
+              "higherLowerDailyBetTotal",
+              getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinningExposure", 0),
             )
           : 0;
 
@@ -1409,11 +1439,11 @@ function buildTasksFromRows(
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
         highLowDailyDate: today,
-        highLowDailyLocked: isHighLowLocked(dailyProfit),
+        highLowDailyBetTotal: dailyBetTotal,
+        highLowDailyLocked: isHighLowLocked(dailyBetTotal),
         highLowDailyProfit: dailyProfit,
         highLowDailyWins: dailyWins,
-        highLowWinningAllowance: getHighLowWinningAllowance(winningExposure),
-        highLowWinningExposure: winningExposure,
+        highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
       };
     }
 
@@ -1647,6 +1677,7 @@ export default function Home() {
   );
   const lastIdleLineIndexRef = useRef(-1);
   const highLowRefreshTimerRef = useRef<number | null>(null);
+  const lastPlayedJackpotWinnerSoundKeyRef = useRef<string | null>(null);
   const profileIdRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
@@ -2241,15 +2272,38 @@ export default function Home() {
       }
 
       setJackpot(payload.jackpot ?? null);
-      if (payload.jackpot?.currentWinner) {
-        emitSoundEvent("jackpot_win");
-      }
       setJackpotError("");
     } catch (error) {
       console.error("Failed to load loyalty jackpot", error);
       setJackpotError(describeError(error));
     }
   }, [isGuestMode, isPreviewMode]);
+
+  useEffect(() => {
+    const revealKey = getJackpotWinnerRevealKey(jackpot);
+
+    if (!revealKey) {
+      return;
+    }
+
+    if (lastPlayedJackpotWinnerSoundKeyRef.current === revealKey) {
+      return;
+    }
+
+    try {
+      if (window.localStorage.getItem(JACKPOT_WIN_SOUND_STORAGE_KEY) === revealKey) {
+        lastPlayedJackpotWinnerSoundKeyRef.current = revealKey;
+        return;
+      }
+
+      window.localStorage.setItem(JACKPOT_WIN_SOUND_STORAGE_KEY, revealKey);
+    } catch {
+      // Storage failures should not break jackpot rendering.
+    }
+
+    lastPlayedJackpotWinnerSoundKeyRef.current = revealKey;
+    emitSoundEvent("jackpot_win");
+  }, [jackpot]);
 
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
@@ -3866,7 +3920,7 @@ export default function Home() {
     if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
       if (highLowLocked) {
         setAvatarMistressReply(
-          `Higher or Lower ${HIGH_LOW_PROFIT_LOCK.toLocaleString()} net profit limit reached for today.`,
+          `Higher or Lower ${HIGH_LOW_BET_ALLOWANCE.toLocaleString()} total bet allowance reached for today.`,
         );
       } else if (highLowCooldownActive) {
         setAvatarMistressReply(`Wait ${formatDuration(highLowCooldownMs)} before playing Higher or Lower again.`);
@@ -3880,17 +3934,17 @@ export default function Home() {
     }
 
     const currentCoins = coinsRef.current;
-    const highLowWinningAllowance =
-      task.highLowWinningAllowance ?? getHighLowWinningAllowance(task.highLowWinningExposure ?? 0);
+    const highLowBetAllowance =
+      task.highLowBetAllowance ?? getHighLowBetAllowance(task.highLowDailyBetTotal ?? 0);
 
     if (currentCoins < stake) {
       setAvatarMistressReply("Too few coins for that little gamble.");
       return;
     }
 
-    if (stake > highLowWinningAllowance) {
+    if (stake > highLowBetAllowance) {
       setAvatarMistressReply(
-        `Higher or Lower winning allowance left: ${highLowWinningAllowance.toLocaleString()} coins. Lower the stake.`,
+        `Higher or Lower bet allowance left: ${highLowBetAllowance.toLocaleString()} coins. Lower the stake.`,
       );
       return;
     }
@@ -3919,15 +3973,12 @@ export default function Home() {
         const now = new Date().toISOString();
         const today = getDailyKey();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
-        const nextWinningExposure = Math.max(
-          0,
-          Math.min(
-            HIGH_LOW_WINNING_ALLOWANCE,
-            (task.highLowWinningExposure ?? 0) +
-              (outcome === "win" ? stake : outcome === "loss" ? -stake : 0),
-          ),
+        const allowanceCost = outcome === "tie" ? 0 : stake;
+        const nextDailyBetTotal = Math.min(
+          HIGH_LOW_BET_ALLOWANCE,
+          (task.highLowDailyBetTotal ?? 0) + allowanceCost,
         );
-        const nextWinningAllowance = getHighLowWinningAllowance(nextWinningExposure);
+        const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
 
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
@@ -3941,11 +3992,11 @@ export default function Home() {
                   cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
                   currentNumber,
                   highLowDailyDate: today,
-                  highLowDailyLocked: isHighLowLocked((task.highLowDailyProfit ?? 0) + coinDelta),
+                  highLowDailyBetTotal: nextDailyBetTotal,
+                  highLowDailyLocked: isHighLowLocked(nextDailyBetTotal),
                   highLowDailyProfit: (task.highLowDailyProfit ?? 0) + coinDelta,
                   highLowDailyWins: (task.highLowDailyWins ?? 0) + (outcome === "win" ? 1 : 0),
-                  highLowWinningAllowance: nextWinningAllowance,
-                  highLowWinningExposure: nextWinningExposure,
+                  highLowBetAllowance: nextBetAllowance,
                   lastResult:
                     outcome === "tie"
                       ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
@@ -7021,7 +7072,7 @@ export default function Home() {
               onClaim={handleClaimTask}
               onJackpotContribute={handleJackpotContribute}
               onHighLowPlay={handleHighLowPlay}
-              highLowProfitCap={HIGH_LOW_PROFIT_LOCK}
+              highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
               onIrlTaskSpin={handleIrlTaskSpin}
               onNumberPick={handleNumberPick}
               onSacrifice={handleSacrifice}

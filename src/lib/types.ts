@@ -46,11 +46,11 @@ export type TaskItem = {
   sentence?: string;
   currentNumber?: number;
   highLowDailyDate?: string | null;
+  highLowDailyBetTotal?: number;
   highLowDailyLocked?: boolean;
   highLowDailyProfit?: number;
   highLowDailyWins?: number;
-  highLowWinningAllowance?: number;
-  highLowWinningExposure?: number;
+  highLowBetAllowance?: number;
   lastResult?: string | null;
   nextBaseRevealAt?: string | null;
   resultBaseNumber?: number;

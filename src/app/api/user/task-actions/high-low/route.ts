@@ -4,12 +4,10 @@ import {
   getCooldownUntil,
   getDailyKey,
   getEventCooldownMs,
-  getHighLowWinningAllowance,
+  getHighLowBetAllowance,
   getMetadataNumber,
   getMetadataString,
-  HIGH_LOW_PROFIT_LOCK,
-  HIGH_LOW_WINNING_ALLOWANCE,
-  isHighLowLocked,
+  HIGH_LOW_BET_ALLOWANCE,
   randomHighLowNumber,
   type UserTaskActionRow,
 } from "@/lib/server-task-actions";
@@ -115,23 +113,19 @@ export async function POST(request: Request) {
       : 0;
   const currentDailyWins =
     dailyDate === today ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
-  const currentWinningExposure =
+  const currentDailyBetTotal =
     dailyDate === today
       ? getMetadataNumber(
           metadata,
-          "higherLowerDailyWinningExposure",
-          Math.min(HIGH_LOW_WINNING_ALLOWANCE, Math.max(0, currentDailyProfit)),
+          "higherLowerDailyBetTotal",
+          getMetadataNumber(metadata, "higherLowerDailyWinningExposure", 0),
         )
       : 0;
-  const currentWinningAllowance = getHighLowWinningAllowance(currentWinningExposure);
+  const currentBetAllowance = getHighLowBetAllowance(currentDailyBetTotal);
 
-  if (isHighLowLocked(currentDailyProfit)) {
-    return jsonError(`Higher or Lower ${HIGH_LOW_PROFIT_LOCK.toLocaleString()} net profit limit reached for today.`, 422);
-  }
-
-  if (stake > currentWinningAllowance) {
+  if (stake > currentBetAllowance) {
     return jsonError(
-      `Higher or Lower winning allowance is ${currentWinningAllowance.toLocaleString()} coins. Lower your stake.`,
+      `Higher or Lower bet allowance is ${currentBetAllowance.toLocaleString()} coins. Lower your stake.`,
       422,
     );
   }
@@ -150,15 +144,10 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const nextDailyProfit = currentDailyProfit + coinDelta;
   const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-  const nextWinningExposure = Math.max(
-    0,
-    Math.min(
-      HIGH_LOW_WINNING_ALLOWANCE,
-      currentWinningExposure + (outcome === "win" ? stake : outcome === "loss" ? -stake : 0),
-    ),
-  );
-  const nextWinningAllowance = getHighLowWinningAllowance(nextWinningExposure);
-  const nextDailyLocked = isHighLowLocked(nextDailyProfit);
+  const allowanceCost = outcome === "tie" ? 0 : stake;
+  const nextDailyBetTotal = Math.min(HIGH_LOW_BET_ALLOWANCE, currentDailyBetTotal + allowanceCost);
+  const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
+  const nextDailyLocked = nextBetAllowance <= 0;
   const nextBaseRevealAt = new Date(Date.now() + getEventCooldownMs(10 * 1000, multipliers.cooldown_reduction)).toISOString();
   const lastResult =
     outcome === "tie"
@@ -213,10 +202,11 @@ export async function POST(request: Request) {
     ...metadata,
     baseNumber: currentNumber,
     higherLowerDailyDate: today,
+    higherLowerDailyBetTotal: nextDailyBetTotal,
     higherLowerDailyProfit: nextDailyProfit,
     higherLowerDailyWins: nextDailyWins,
-    higherLowerDailyWinningExposure: nextWinningExposure,
-    higherLowerWinningAllowance: nextWinningAllowance,
+    higherLowerAllowanceCost: allowanceCost,
+    higherLowerBetAllowance: nextBetAllowance,
     outcome,
     resultNumber,
     stake,
@@ -257,8 +247,9 @@ export async function POST(request: Request) {
         resultNumber,
         stake,
         outcome,
-        higherLowerDailyWinningExposure: nextWinningExposure,
-        higherLowerWinningAllowance: nextWinningAllowance,
+        higherLowerAllowanceCost: allowanceCost,
+        higherLowerDailyBetTotal: nextDailyBetTotal,
+        higherLowerBetAllowance: nextBetAllowance,
       },
       reason: outcome === "win" ? "game:higher-lower:win" : "game:higher-lower:loss",
       user_id: authData.user.id,
@@ -278,11 +269,11 @@ export async function POST(request: Request) {
       cooldownUntil: getCooldownUntil(now, cooldownMs),
       currentNumber,
       highLowDailyDate: today,
+      highLowDailyBetTotal: nextDailyBetTotal,
       highLowDailyLocked: nextDailyLocked,
       highLowDailyProfit: nextDailyProfit,
       highLowDailyWins: nextDailyWins,
-      highLowWinningAllowance: nextWinningAllowance,
-      highLowWinningExposure: nextWinningExposure,
+      highLowBetAllowance: nextBetAllowance,
       lastResult,
       nextBaseRevealAt,
       resultBaseNumber: currentNumber,

@@ -1439,18 +1439,19 @@ function AutoPaymentSwitch({
   return (
     <button
       aria-pressed={enabled}
-      className="flex w-full items-center justify-between gap-3 text-left"
+      className="flex w-full items-center gap-3 text-left"
       onClick={() => onChange(!enabled)}
       type="button"
     >
-      <span>Auto payment</span>
-      <span
-        className={`relative h-7 w-14 rounded-full border transition ${
-          enabled
-            ? "border-emerald-200/40 bg-emerald-400/25"
-            : "border-red-200/25 bg-black/55"
-        }`}
-      >
+      <span className="min-w-0 flex-1">Auto payment</span>
+      <span className="ml-auto inline-flex items-center gap-2">
+        <span
+          className={`relative h-7 w-14 rounded-full border transition ${
+            enabled
+              ? "border-emerald-200/40 bg-emerald-400/25"
+              : "border-red-200/25 bg-black/55"
+          }`}
+        >
         <span
           className={`absolute top-1 h-5 w-5 rounded-full transition ${
             enabled
@@ -1458,9 +1459,10 @@ function AutoPaymentSwitch({
               : "left-1 bg-red-100/80"
           }`}
         />
-      </span>
-      <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
-        {enabled ? "ON" : "OFF"}
+        </span>
+        <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
+          {enabled ? "ON" : "OFF"}
+        </span>
       </span>
     </button>
   );
