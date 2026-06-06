@@ -23,6 +23,15 @@ const DEBT_MINIMUM_PAYMENTS = {
   monthly: 50000,
   weekly: 10000,
 };
+const DEBT_RANDOM_STEP = 5000;
+const DEBT_RANDOM_AMOUNT_LIMITS = {
+  monthly: { max: 200000, min: 50000 },
+  weekly: { max: 30000, min: 10000 },
+};
+const DEBT_RANDOM_DURATION_LIMITS = {
+  monthly: DEBT_DURATION_LIMITS.monthly,
+  weekly: { label: "Weeks", max: 52, min: 8 },
+};
 
 const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
   ...rank,
@@ -70,6 +79,66 @@ function formatRemaining(target: string | null, now: number) {
   }
 
   return `${minutes}m`;
+}
+
+function randomInteger(minimum: number, maximum: number) {
+  return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
+}
+
+function randomWeightedWeeklyDebtDuration(amount: number) {
+  const durationLimit = DEBT_RANDOM_DURATION_LIMITS.weekly;
+  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS.weekly;
+  const amountRange = amountLimit.max - amountLimit.min;
+  const lowAmountBias =
+    amountRange > 0 ? Math.max(0, (amountLimit.max - amount) / amountRange) : 0;
+  const durationOptions = Array.from(
+    { length: durationLimit.max - durationLimit.min + 1 },
+    (_, index) => durationLimit.min + index,
+  );
+  const weightedOptions = durationOptions.map((duration) => {
+    const durationRange = durationLimit.max - durationLimit.min;
+    const highDurationBias =
+      durationRange > 0 ? (duration - durationLimit.min) / durationRange : 0;
+
+    return {
+      duration,
+      weight: 1 + lowAmountBias * highDurationBias * 5,
+    };
+  });
+  const totalWeight = weightedOptions.reduce((sum, option) => sum + option.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const option of weightedOptions) {
+    roll -= option.weight;
+
+    if (roll <= 0) {
+      return option.duration;
+    }
+  }
+
+  return durationLimit.max;
+}
+
+function getRandomDebtDraft(periodType: "weekly" | "monthly", currentDuration: string) {
+  const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
+  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
+  const minimumMultiplier = amountLimit.min / DEBT_RANDOM_STEP;
+  const maximumMultiplier = amountLimit.max / DEBT_RANDOM_STEP;
+  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * DEBT_RANDOM_STEP;
+  const parsedDuration = Number(currentDuration);
+  const duration =
+    periodType === "weekly"
+      ? randomWeightedWeeklyDebtDuration(installmentAmount)
+      : Number.isInteger(parsedDuration) &&
+          parsedDuration >= durationLimit.min &&
+          parsedDuration <= durationLimit.max
+        ? parsedDuration
+        : randomInteger(durationLimit.min, durationLimit.max);
+
+  return {
+    amount: installmentAmount,
+    duration,
+  };
 }
 
 const PET_CASE_DISPLAY_POOL = [
@@ -542,6 +611,13 @@ export function PetSection({
       }
       debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
     }
+  }
+
+  function handleRandomDebtDraft() {
+    const draft = getRandomDebtDraft(debtPeriodType, debtDuration);
+
+    setDebtAmount(String(draft.amount));
+    setDebtDuration(String(draft.duration));
   }
 
   function handleCaseOpen() {
@@ -1392,6 +1468,13 @@ export function PetSection({
                     Duration must be {debtDurationLimit.min}-{debtDurationLimit.max}{" "}
                     {debtDurationLimit.label.toLowerCase()} for {debtPeriodType} contracts.
                   </p>
+                  <button
+                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition hover:border-red-200/50 hover:bg-red-500/20"
+                    onClick={handleRandomDebtDraft}
+                    type="button"
+                  >
+                    Random Debt
+                  </button>
                   <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
                     Auto payment is off by default. Missed debt is still collected automatically
                     after the payment window is missed, and coin balance may go below zero. Debt

@@ -128,7 +128,7 @@ export async function POST(request: Request) {
       return jsonError("Invalid Pet name.");
     }
 
-    if (!Number.isInteger(cleanAmount) || cleanAmount < minimum || cleanAmount % 1000 !== 0) {
+    if (!Number.isInteger(cleanAmount) || cleanAmount < minimum || cleanAmount % 5000 !== 0) {
       return jsonError("Invalid debt amount.", 422);
     }
 

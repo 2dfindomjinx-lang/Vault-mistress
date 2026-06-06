@@ -292,6 +292,7 @@ const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_BET_ALLOWANCE = 4000;
 const HIGH_LOW_PROFIT_LIMIT = 4000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
+const OWNER_LIKENESS_PROTECTED_USERNAME = "principessa2dfd";
 const STREAK_BONUSES = [
   { id: "streak-bonus-1", milestone: 1, reward: 40, title: "1 day streak bonus" },
   { id: "streak-bonus-3", milestone: 3, reward: 115, title: "3 day streak bonus" },
@@ -1277,8 +1278,12 @@ function randomHighLowDisplayNumber() {
   return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
 }
 
-function getDailyKey() {
-  return new Date().toISOString().slice(0, 10);
+function getDailyKey(date: Date | number = new Date()) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+function normalizeUsernameKey(value: string | null | undefined) {
+  return (value ?? "").replace(/^@+/, "").trim().toLowerCase();
 }
 
 function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
@@ -1629,10 +1634,11 @@ export default function Home() {
   const [isDebtAutoPayEnabled, setIsDebtAutoPayEnabled] = useState(false);
   const [petTaskState, setPetTaskState] = useState<PetTaskItem[]>(petTasks);
   const petTaskStateRef = useRef<PetTaskItem[]>(petTasks);
-  const [petAffectionClaimed, setPetAffectionClaimed] = useState(false);
+  const [petAffectionClaimDate, setPetAffectionClaimDate] = useState<string | null>(null);
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
   const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const petAffectionClaimed = petAffectionClaimDate === getDailyKey(currentTime);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
   const [fullyHiddenBubbleMessage, setFullyHiddenBubbleMessage] = useState("");
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
@@ -2679,16 +2685,19 @@ export default function Home() {
     if (petTaskError) {
       console.warn("Failed to load pet task state", petTaskError);
       setPetTaskState(petTasks);
+      setPetAffectionClaimDate(null);
     } else {
       const petRows = (petTaskData ?? []) as UserPetTaskRow[];
-      setPetTaskState(buildPetTasksFromRows(petRows));
-      setPetAffectionClaimed(
-        petRows.some((entry) =>
-          entry.task_id === "pet-affection-claim" &&
-          entry.status === "approved" &&
-          getTaskMetadataString(entry.metadata, "date") === getDailyKey(),
-        ),
+      const petMilestoneClaimRow = petRows.find(
+        (entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved",
       );
+      const petMilestoneClaimDate = getTaskMetadataString(
+        petMilestoneClaimRow?.metadata,
+        "date",
+      );
+
+      setPetTaskState(buildPetTasksFromRows(petRows));
+      setPetAffectionClaimDate(petMilestoneClaimDate);
     }
 
     const { data: taskData, error: taskError } = await supabase
@@ -2907,6 +2916,13 @@ export default function Home() {
     let nextOwnerLikeness = profile.owner_likeness ?? 100;
     let nextLastOwnerLikenessAt = profile.last_owner_likeness_at ?? null;
     let nextLastTaxAt = profile.last_pet_tax_at ?? null;
+    const ownerLikenessProtected =
+      normalizeUsernameKey(profile.username) === OWNER_LIKENESS_PROTECTED_USERNAME;
+
+    if (ownerLikenessProtected && nextOwnerLikeness !== 100) {
+      nextOwnerLikeness = 100;
+      patch.owner_likeness = 100;
+    }
 
     if (!nextPetUnlockedAt && profile.affection >= 100) {
       nextPetUnlockedAt = nowIso;
@@ -2918,7 +2934,14 @@ export default function Home() {
       patch.owner_likeness = nextOwnerLikeness;
     }
 
-    if (nextPetUnlockedAt) {
+    if (nextPetUnlockedAt && ownerLikenessProtected) {
+      if (nextOwnerLikeness !== 100 || !nextLastOwnerLikenessAt) {
+        nextOwnerLikeness = 100;
+        nextLastOwnerLikenessAt = nowIso;
+        patch.owner_likeness = 100;
+        patch.last_owner_likeness_at = nowIso;
+      }
+    } else if (nextPetUnlockedAt) {
       const likenessBase = new Date(nextLastOwnerLikenessAt ?? nextPetUnlockedAt).getTime();
       const elapsedLikenessDays = Math.floor((now - likenessBase) / DAY_MS);
 
@@ -5051,7 +5074,7 @@ export default function Home() {
     setPetUnlockedAt(null);
     setLastPetTaxAt(null);
     setPetDebtContract(null);
-    setPetAffectionClaimed(false);
+    setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
@@ -5110,7 +5133,7 @@ export default function Home() {
     setPetDebtContract(null);
     setIsDebtAutoPayEnabled(false);
     setPetTaskState(petTasks);
-    setPetAffectionClaimed(false);
+    setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
@@ -6099,12 +6122,12 @@ export default function Home() {
     if (
       !Number.isInteger(cleanAmount) ||
       cleanAmount < minimum ||
-      cleanAmount % 1000 !== 0
+      cleanAmount % 5000 !== 0
     ) {
       setAvatarMistressReply(
         periodType === "weekly"
-          ? "Weekly debt must be at least 10000 coins and a multiple of 1000."
-          : "Monthly debt must be at least 50000 coins and a multiple of 1000.",
+          ? "Weekly debt must be at least 10000 coins and a multiple of 5000."
+          : "Monthly debt must be at least 50000 coins and a multiple of 5000.",
       );
       return false;
     }
@@ -6312,7 +6335,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply(
-      `${caseItem.tier.toUpperCase()} case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
+      `Case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
     );
   };
 
@@ -6838,11 +6861,13 @@ export default function Home() {
             return;
         }
 
+        const today = getDailyKey();
+        const milestoneClaimedToday = petAffectionClaimDate === today;
         const approvedCount = petTaskState.filter((task) =>
           task.id !== "pet-affection-claim" && task.status === "approved"
         ).length;
 
-        if (approvedCount < 5 || petAffectionClaimed) {
+        if (approvedCount < 5 || milestoneClaimedToday) {
             return;
         }
 
@@ -6861,7 +6886,7 @@ export default function Home() {
                     reward_score: 10,
                     status: "approved",
                     reviewed_at: new Date().toISOString(),
-                    metadata: { date: getDailyKey() },
+                    metadata: { date: today },
                 },
               );
             } catch (error) {
@@ -6872,7 +6897,7 @@ export default function Home() {
         }
 
         setPetScore(nextPetScore);
-        setPetAffectionClaimed(true);
+        setPetAffectionClaimDate(today);
         setAvatarMistressReply("Pet milestone claimed. +10 Pet Score.");
     };
 

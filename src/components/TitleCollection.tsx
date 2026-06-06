@@ -1,4 +1,5 @@
 import type { TitleItem } from "@/lib/cosmetics";
+import { rebrandProfile } from "@/lib/rebrand-profile";
 
 type TitleCollectionProps = {
   equippedTitleId: string | null;
@@ -147,6 +148,28 @@ export function ProfileTaskCard({
         <h3 className="mt-1 text-base font-black text-white">
           Rebrand for Principessa
         </h3>
+        <div className="mt-3 overflow-hidden rounded-2xl border border-pink-200/15 bg-black/35">
+          <div
+            className="h-16 bg-cover bg-center"
+            style={{ backgroundImage: `url(${rebrandProfile.bannerPath})` }}
+          />
+          <div className="flex items-center gap-3 px-3 pb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className="-mt-6 h-12 w-12 shrink-0 rounded-full border-2 border-black bg-black object-cover"
+              src={rebrandProfile.avatarPath}
+            />
+            <div className="min-w-0 pt-2">
+              <p className="truncate text-xs font-black text-white">
+                {rebrandProfile.displayName}
+              </p>
+              <p className="truncate text-[10px] font-bold text-pink-100/65">
+                {rebrandProfile.location}
+              </p>
+            </div>
+          </div>
+        </div>
         <p className="mt-2 text-xs leading-5 text-zinc-400">
           Authorize X and apply the configured profile rebrand. No coin reward, no cooldown.
         </p>
