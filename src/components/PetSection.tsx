@@ -13,7 +13,7 @@ const PET_RANKS = [
   { min: 1000, title: "Principessa's Perfect Pet" },
 ];
 
-const DEBT_PET_NAMES = ["Velvet Pet", "Little Offering", "Vault Darling", "Debt Doll", "Owned Devotee"];
+const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
 const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.png";
 const DEBT_DURATION_LIMITS = {
   monthly: { label: "Months", max: 24, min: 1 },
@@ -23,13 +23,16 @@ const DEBT_MINIMUM_PAYMENTS = {
   monthly: 50000,
   weekly: 10000,
 };
-const DEBT_RANDOM_STEP = 5000;
+const DEBT_RANDOM_AMOUNT_STEPS = {
+  monthly: 10000,
+  weekly: 5000,
+};
 const DEBT_RANDOM_AMOUNT_LIMITS = {
   monthly: { max: 200000, min: 50000 },
   weekly: { max: 30000, min: 10000 },
 };
 const DEBT_RANDOM_DURATION_LIMITS = {
-  monthly: DEBT_DURATION_LIMITS.monthly,
+  monthly: { label: "Months", max: 24, min: 4 },
   weekly: { label: "Weeks", max: 52, min: 8 },
 };
 
@@ -85,6 +88,10 @@ function randomInteger(minimum: number, maximum: number) {
   return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 }
 
+function randomPetName() {
+  return DEBT_PET_NAMES[Math.floor(Math.random() * DEBT_PET_NAMES.length)] ?? DEBT_PET_NAMES[0];
+}
+
 function randomWeightedWeeklyDebtDuration(amount: number) {
   const durationLimit = DEBT_RANDOM_DURATION_LIMITS.weekly;
   const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS.weekly;
@@ -119,25 +126,31 @@ function randomWeightedWeeklyDebtDuration(amount: number) {
   return durationLimit.max;
 }
 
-function getRandomDebtDraft(periodType: "weekly" | "monthly", currentDuration: string) {
+function randomDebtPeriodType(): "weekly" | "monthly" {
+  return Math.random() < 0.5 ? "weekly" : "monthly";
+}
+
+function getRandomDebtDraft(): {
+  amount: number;
+  duration: number;
+  periodType: "weekly" | "monthly";
+} {
+  const periodType = randomDebtPeriodType();
   const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
   const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
-  const minimumMultiplier = amountLimit.min / DEBT_RANDOM_STEP;
-  const maximumMultiplier = amountLimit.max / DEBT_RANDOM_STEP;
-  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * DEBT_RANDOM_STEP;
-  const parsedDuration = Number(currentDuration);
+  const amountStep = DEBT_RANDOM_AMOUNT_STEPS[periodType];
+  const minimumMultiplier = amountLimit.min / amountStep;
+  const maximumMultiplier = amountLimit.max / amountStep;
+  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * amountStep;
   const duration =
     periodType === "weekly"
       ? randomWeightedWeeklyDebtDuration(installmentAmount)
-      : Number.isInteger(parsedDuration) &&
-          parsedDuration >= durationLimit.min &&
-          parsedDuration <= durationLimit.max
-        ? parsedDuration
-        : randomInteger(durationLimit.min, durationLimit.max);
+      : randomInteger(durationLimit.min, durationLimit.max);
 
   return {
     amount: installmentAmount,
     duration,
+    periodType,
   };
 }
 
@@ -596,28 +609,52 @@ export function PetSection({
     }
   }
 
+  function showDebtSignedImage() {
+    setShowDebtSigningImage(true);
+    if (debtSignTimerRef.current !== null) {
+      window.clearTimeout(debtSignTimerRef.current);
+    }
+    debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
+  }
+
+  async function signDebtContract(form: {
+    debtAmount: number;
+    durationPeriods: number;
+    periodType: "weekly" | "monthly";
+    petName: string;
+  }) {
+    const signed = await onSignDebtContract(form);
+
+    if (signed) {
+      showDebtSignedImage();
+    }
+
+    return signed;
+  }
+
   async function handleDebtSign() {
-    const signed = await onSignDebtContract({
+    await signDebtContract({
       debtAmount: Number(debtAmount),
       durationPeriods: Number(debtDuration),
       periodType: debtPeriodType,
       petName: debtPetName,
     });
-
-    if (signed) {
-      setShowDebtSigningImage(true);
-      if (debtSignTimerRef.current !== null) {
-        window.clearTimeout(debtSignTimerRef.current);
-      }
-      debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
-    }
   }
 
-  function handleRandomDebtDraft() {
-    const draft = getRandomDebtDraft(debtPeriodType, debtDuration);
+  async function handleRandomDebtSign() {
+    const draft = getRandomDebtDraft();
+    const petName = randomPetName();
 
+    setDebtPetName(petName);
     setDebtAmount(String(draft.amount));
     setDebtDuration(String(draft.duration));
+    setDebtPeriodType(draft.periodType);
+    await signDebtContract({
+      debtAmount: draft.amount,
+      durationPeriods: draft.duration,
+      periodType: draft.periodType,
+      petName,
+    });
   }
 
   function handleCaseOpen() {
@@ -1469,12 +1506,17 @@ export function PetSection({
                     {debtDurationLimit.label.toLowerCase()} for {debtPeriodType} contracts.
                   </p>
                   <button
-                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition hover:border-red-200/50 hover:bg-red-500/20"
-                    onClick={handleRandomDebtDraft}
+                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition enabled:hover:border-red-200/50 enabled:hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={isPetActionPending("pet-debt-contract")}
+                    onClick={handleRandomDebtSign}
                     type="button"
                   >
-                    Random Debt
+                    {isPetActionPending("pet-debt-contract") ? "Signing..." : "Sign Random Debt"}
                   </button>
+                  <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-xs font-bold text-red-50/75">
+                    Warning: Sign Random Debt immediately creates a debt contract with a random
+                    Pet name, weekly/monthly type, amount, and duration.
+                  </p>
                   <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
                     Auto payment is off by default. Missed debt is still collected automatically
                     after the payment window is missed, and coin balance may go below zero. Debt

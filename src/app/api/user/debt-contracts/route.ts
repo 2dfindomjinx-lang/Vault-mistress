@@ -118,6 +118,7 @@ export async function POST(request: Request) {
     const cleanDuration = Math.floor(Number(body.durationPeriods));
     const cleanPetName = String(body.petName ?? "").trim();
     const minimum = periodType === "weekly" ? 10000 : 50000;
+    const amountStep = periodType === "weekly" ? 5000 : 10000;
     const durationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };
 
     if (periodType !== "weekly" && periodType !== "monthly") {
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
       return jsonError("Invalid Pet name.");
     }
 
-    if (!Number.isInteger(cleanAmount) || cleanAmount < minimum || cleanAmount % 5000 !== 0) {
+    if (!Number.isInteger(cleanAmount) || cleanAmount < minimum || cleanAmount % amountStep !== 0) {
       return jsonError("Invalid debt amount.", 422);
     }
 

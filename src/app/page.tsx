@@ -6105,6 +6105,7 @@ export default function Home() {
     const cleanDuration = Math.floor(durationPeriods);
     const cleanPetName = petName.trim();
     const minimum = periodType === "weekly" ? 10000 : 50000;
+    const amountStep = periodType === "weekly" ? 5000 : 10000;
     const durationLimit =
       periodType === "weekly"
         ? { label: "weeks", max: 52, min: 1 }
@@ -6122,12 +6123,12 @@ export default function Home() {
     if (
       !Number.isInteger(cleanAmount) ||
       cleanAmount < minimum ||
-      cleanAmount % 5000 !== 0
+      cleanAmount % amountStep !== 0
     ) {
       setAvatarMistressReply(
         periodType === "weekly"
           ? "Weekly debt must be at least 10000 coins and a multiple of 5000."
-          : "Monthly debt must be at least 50000 coins and a multiple of 5000.",
+          : "Monthly debt must be at least 50000 coins and a multiple of 10000.",
       );
       return false;
     }
