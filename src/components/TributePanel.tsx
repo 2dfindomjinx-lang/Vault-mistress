@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type TributePanelProps = {
   affection: number;
   coins: number;
@@ -10,13 +12,6 @@ const tributeOptions = [
   { amount: 250, label: "Velvet Coin Drop", boost: "+1 affection" },
   { amount: 1000, label: "Gilded Offering", boost: "+5 affection" },
   { amount: 5000, label: "Vault Tribute", boost: "+30 affection" },
-];
-
-const bonusTiers = [
-  "10,000+ Tribute -> +10% Bonus Coins",
-  "20,000+ Tribute -> +15% Bonus Coins",
-  "50,000+ Tribute -> +20% Bonus Coins",
-  "100,000+ Tribute -> +25% Bonus Coins",
 ];
 
 export function TributePanel({
@@ -90,24 +85,14 @@ export function TributePanel({
           Coins are fantasy points and are manually granted as supporter
           rewards. No automatic payment integration yet.
         </p>
-        <div className="mt-4 rounded-2xl border border-fuchsia-200/15 bg-black/35 p-3">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-200/70">
-            Bonus Coin Rewards
-          </p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {bonusTiers.map((tier) => (
-              <p
-                className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-pink-50"
-                key={tier}
-              >
-                {tier}
-              </p>
-            ))}
-          </div>
-          <p className="mt-3 text-[11px] leading-5 text-zinc-500">
-            Bonus coins are separate from tribute rankings and do not count toward Recent
-            Tributes, Top Tributors, or title progression.
-          </p>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-200/15 bg-black/35 shadow-[0_0_22px_rgba(217,70,239,0.1)]">
+          <Image
+            alt="Bonus coin reward tiers"
+            className="h-auto w-full"
+            height={1024}
+            src="/bonus-coin-rewards.jfif"
+            width={1536}
+          />
         </div>
       </div>
     </section>
