@@ -7144,7 +7144,10 @@ export default function Home() {
               }`}
               disabled={key === "pet" && !isPetUnlocked}
               key={key}
-              onClick={() => setActivePanel(key as typeof activePanel)}
+              onClick={() => {
+                emitSoundEvent("button_click");
+                setActivePanel(key as typeof activePanel);
+              }}
               type="button"
             >
               {label}
