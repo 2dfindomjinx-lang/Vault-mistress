@@ -4045,7 +4045,11 @@ export default function Home() {
           ),
         );
         scheduleHighLowDisplayRefresh();
-        emitSoundEvent(outcome === "loss" ? "task_fail" : "task_completion");
+        if (outcome === "win") {
+          emitSoundEvent("task_completion");
+        } else if (outcome === "loss") {
+          emitSoundEvent("task_fail");
+        }
         return;
         }
 
@@ -4088,7 +4092,11 @@ export default function Home() {
                 : "A lucky guess. The vault pays your win."
               : "Wrong. The vault keeps that stake.",
         );
-        emitSoundEvent(outcome === "loss" ? "task_fail" : "task_completion");
+        if (outcome === "win") {
+          emitSoundEvent("task_completion");
+        } else if (outcome === "loss") {
+          emitSoundEvent("task_fail");
+        }
     } catch (error) {
       console.error("Failed to complete high-low play", error);
       emitSoundEvent("error");
@@ -4742,7 +4750,7 @@ export default function Home() {
           ? `${randomFrom(begRewardLines)} +${reward} coins.`
           : randomFrom(begIgnoredLines),
       );
-      emitSoundEvent("task_completion");
+      emitSoundEvent(reward > 0 ? "task_completion" : "task_fail");
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
       emitSoundEvent("error");
