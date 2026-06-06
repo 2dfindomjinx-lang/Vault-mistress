@@ -213,6 +213,7 @@ export function PetSection({
   onClaimAffection,
   onConfessionSubmit,
   onCompleteTask,
+  onCooldownAttempt,
   onDebtAutoPayChange,
   onPayDebtPeriod,
   onSignDebtContract,
@@ -244,11 +245,13 @@ export function PetSection({
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onCompleteTask: (taskId: string) => void;
+  onCooldownAttempt?: (message: string) => void;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onPayDebtPeriod: () => void;
   onSignDebtContract: (form: {
     debtAmount: number;
     durationPeriods: number;
+    randomGenerated?: boolean;
     periodType: "weekly" | "monthly";
     petName: string;
   }) => Promise<boolean> | boolean;
@@ -309,6 +312,9 @@ export function PetSection({
   const onFalseHopeKeyRef = useRef(onFalseHopeKey);
   const previousFalseHopeStageRef = useRef<number | null>(null);
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
+  const handleCooldownAttempt = (message: string) => {
+    onCooldownAttempt?.(message);
+  };
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => task.id !== "pet-affection-claim" && task.status === "approved").length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
@@ -620,6 +626,7 @@ export function PetSection({
   async function signDebtContract(form: {
     debtAmount: number;
     durationPeriods: number;
+    randomGenerated?: boolean;
     periodType: "weekly" | "monthly";
     petName: string;
   }) {
@@ -652,6 +659,7 @@ export function PetSection({
     await signDebtContract({
       debtAmount: draft.amount,
       durationPeriods: draft.duration,
+      randomGenerated: true,
       periodType: draft.periodType,
       petName,
     });
@@ -948,8 +956,15 @@ export function PetSection({
             </p>
             <button
               className="mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={weeklyTaxCoolingDown || coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
-              onClick={onPayWeeklyTax}
+              disabled={coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
+              onClick={() => {
+                if (weeklyTaxCoolingDown) {
+                  handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(weeklyTaxTask?.cooldownUntil ?? null, now)}.`);
+                  return;
+                }
+
+                onPayWeeklyTax();
+              }}
               type="button"
             >
               {isPetActionPending("pet-weekly-throne-tax")
@@ -1142,8 +1157,15 @@ export function PetSection({
                       )}
                       <button
                         className="mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={caseRolling || coolingDown || actionPending}
-                        onClick={handleCaseOpen}
+                        disabled={caseRolling || actionPending}
+                        onClick={() => {
+                          if (coolingDown) {
+                            handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                            return;
+                          }
+
+                          handleCaseOpen();
+                        }}
                         type="button"
                       >
                         {caseRolling || actionPending ? "Opening..." : coolingDown ? "Cooldown" : "Open Case"}
@@ -1223,8 +1245,15 @@ export function PetSection({
                       </p>
                       <button
                         className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
-                        onClick={onPetEvilWaitStart}
+                        disabled={actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
+                        onClick={() => {
+                          if (coolingDown) {
+                            handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                            return;
+                          }
+
+                          onPetEvilWaitStart();
+                        }}
                         type="button"
                       >
                         {actionPending ? "Saving..." : coolingDown ? "Cooldown" : "Ready"}
@@ -1302,9 +1331,16 @@ export function PetSection({
                         {(["a", "d"] as const).map((key) => (
                           <button
                             className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                            disabled={coolingDown}
+                            disabled={false}
                             key={key}
-                            onClick={() => onFalseHopeKey(key)}
+                            onClick={() => {
+                              if (coolingDown) {
+                                handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                                return;
+                              }
+
+                              onFalseHopeKey(key);
+                            }}
                             type="button"
                           >
                             {key}
@@ -1338,9 +1374,16 @@ export function PetSection({
                                       ? "border-white/10 bg-black/45"
                                       : "border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(88,28,135,0.24))] hover:border-pink-200/55"
                               } ${favorRevealing && picked ? "scale-105" : ""}`}
-                              disabled={coolingDown || revealed || actionPending}
+                              disabled={revealed || actionPending}
                               key={index}
-                              onClick={() => handleFavorPick(index)}
+                              onClick={() => {
+                                if (coolingDown) {
+                                  handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                                  return;
+                                }
+
+                                handleFavorPick(index);
+                              }}
                               type="button"
                             >
                               <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
@@ -1369,8 +1412,15 @@ export function PetSection({
                   {task.kind === "review" && (
                     <button
                       className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={coolingDown || pending || actionPending}
-                      onClick={() => onCompleteTask(task.id)}
+                      disabled={pending || actionPending}
+                      onClick={() => {
+                        if (coolingDown) {
+                          handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                          return;
+                        }
+
+                        onCompleteTask(task.id);
+                      }}
                       type="button"
                     >
                       {actionPending ? "Saving..." : pending ? "Pending Review" : coolingDown ? "Cooldown" : "Submit for Review"}

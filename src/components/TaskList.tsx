@@ -52,6 +52,7 @@ type TaskListProps = {
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
+  onCooldownAttempt?: (message: string) => void;
   onSacrifice: () => void;
   onSupport: () => void;
   onTimeoutRisk: () => void;
@@ -81,6 +82,7 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
+  onCooldownAttempt,
   pendingTaskActionIds = [],
   onSacrifice,
   onSupport,
@@ -105,6 +107,10 @@ export function TaskList({
   const irlWheelTimerRef = useRef<number | null>(null);
   const isTaskActionPending = (actionId: string) => pendingTaskActionIds.includes(actionId);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
+  const handleCooldownAttempt = (message: string) => {
+    emitSoundEvent("button_click");
+    onCooldownAttempt?.(message);
+  };
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -216,6 +222,7 @@ export function TaskList({
           description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 75 coins."
           disabled={disabled || isTaskActionPending("beg")}
           onAction={onBeg}
+          onCooldownAttempt={handleCooldownAttempt}
           title="Beg"
           now={now}
           formatRemaining={formatRemaining}
@@ -230,6 +237,7 @@ export function TaskList({
           description={`Burn ${SACRIFICE_COST} coins for a 50% chance to unlock a hidden Sacrifice Collection image. ${mechanics.sacrificeUnlockedCount}/${mechanics.sacrificeTotal} unlocked.`}
           disabled={disabled || isTaskActionPending("sacrifice") || mechanics.sacrificeComplete || coins < SACRIFICE_COST}
           lastResult={mechanics.sacrificeLastResult}
+          onCooldownAttempt={handleCooldownAttempt}
           onAction={onSacrifice}
           title="Sacrifice"
           now={now}
@@ -345,6 +353,11 @@ export function TaskList({
                         disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
                         onClick={() => {
                           emitSoundEvent("button_click");
+                          if (isCoolingDown) {
+                            onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                            return;
+                          }
+
                           onTimeoutRisk();
                         }}
                         type="button"
@@ -386,6 +399,7 @@ export function TaskList({
                         isGloballyDisabled={disabled}
                         isActionPending={isTaskActionPending("wait-obediently")}
                         onComplete={onWaitObedientlyComplete}
+                        onCooldownAttempt={handleCooldownAttempt}
                         onFail={onWaitObedientlyFail}
                         onStart={onWaitObedientlyStart}
                         task={waitTask}
@@ -494,7 +508,14 @@ export function TaskList({
                           Boolean(irlTask.assignedIrlTask) ||
                           Boolean(irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now)
                         }
-                        onClick={handleIrlWheelSpinClick}
+                        onClick={() => {
+                          if (isIrlCoolingDown) {
+                            handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(irlCooldownRemaining)}.`);
+                            return;
+                          }
+
+                          handleIrlWheelSpinClick();
+                        }}
                         type="button"
                       >
                         {isIrlWheelSpinning
@@ -561,7 +582,7 @@ export function TaskList({
                   </p>
                   <input
                     className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || isCoolingDown || task.completed || isTaskActionPending("typing-accuracy")}
+                  disabled={disabled || isCoolingDown || task.completed || isTaskActionPending("typing-accuracy")}
                     onCopy={(event) => event.preventDefault()}
                     onCut={(event) => event.preventDefault()}
                     onChange={(event) => {
@@ -581,14 +602,19 @@ export function TaskList({
                   {task.completed && !task.claimed && (
                     <button
                       className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={
-                        disabled ||
-                        !task.completed ||
-                        task.claimed ||
-                        isTaskActionPending("typing-accuracy") ||
-                        isClaimPending(task.id)
-                      }
-                      onClick={() => {
+                        disabled={
+                          disabled ||
+                          (!task.completed && !isCoolingDown) ||
+                          task.claimed ||
+                          isTaskActionPending("typing-accuracy") ||
+                          isClaimPending(task.id)
+                        }
+                        onClick={() => {
+                        if (isCoolingDown) {
+                          handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                          return;
+                        }
+
                         setTypingValue("");
                         emitSoundEvent("button_click");
                         onClaim(task.id);
@@ -759,7 +785,6 @@ export function TaskList({
                       className="rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={
                           disabled ||
-                          isCoolingDown ||
                           isTaskActionPending("high-low") ||
                           task.highLowDailyLocked ||
                           stake <= 0 ||
@@ -769,6 +794,11 @@ export function TaskList({
                         key={guess}
                         onClick={() => {
                           emitSoundEvent("button_click");
+                          if (isCoolingDown) {
+                            onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                            return;
+                          }
+
                           onHighLowPlay(guess, stake);
                         }}
                         type="button"
@@ -807,10 +837,15 @@ export function TaskList({
                                 ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
                                 : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
                           }`}
-                          disabled={disabled || isCoolingDown || isTaskActionPending("number-pick") || hasResult || isWrongSelection}
+                          disabled={disabled || isTaskActionPending("number-pick") || hasResult || isWrongSelection}
                           key={option}
                           onClick={() => {
                             emitSoundEvent("button_click");
+                            if (isCoolingDown) {
+                              onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                              return;
+                            }
+
                             onNumberPick(option);
                           }}
                           type="button"
@@ -845,6 +880,7 @@ export function TaskList({
                   isGloballyDisabled={disabled}
                   isActionPending={isTaskActionPending("wait-obediently")}
                   onComplete={onWaitObedientlyComplete}
+                  onCooldownAttempt={handleCooldownAttempt}
                   onFail={onWaitObedientlyFail}
                   onStart={onWaitObedientlyStart}
                   task={task}
@@ -886,7 +922,14 @@ export function TaskList({
                   <button
                     className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
-                    onClick={onTimeoutRisk}
+                    onClick={() => {
+                      if (isCoolingDown) {
+                        handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                        return;
+                      }
+
+                      onTimeoutRisk();
+                    }}
                     type="button"
                   >
                     {task.completed
@@ -980,7 +1023,14 @@ export function TaskList({
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
                     }
-                    onClick={handleIrlWheelSpinClick}
+                    onClick={() => {
+                      if (isCoolingDown) {
+                        handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                        return;
+                      }
+
+                      handleIrlWheelSpinClick();
+                    }}
                     type="button"
                   >
                     {isIrlWheelSpinning ? "Spinning..." : task.assignedIrlTask
@@ -995,9 +1045,14 @@ export function TaskList({
               {task.kind === "claim" && (
                 <button
                   className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={disabled || !isClaimable || isClaimPending(task.id)}
+                  disabled={disabled || (!isClaimable && !isCoolingDown) || isClaimPending(task.id)}
                   onClick={() => {
                     emitSoundEvent("button_click");
+                    if (isCoolingDown) {
+                      onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                      return;
+                    }
+
                     onClaim(task.id);
                   }}
                   type="button"
@@ -1441,6 +1496,7 @@ function WaitObedientlyPanel({
   isGloballyDisabled,
   isCoolingDown,
   onComplete,
+  onCooldownAttempt,
   onFail,
   onStart,
   task,
@@ -1451,6 +1507,7 @@ function WaitObedientlyPanel({
   isGloballyDisabled: boolean;
   isCoolingDown: boolean;
   onComplete: () => void;
+  onCooldownAttempt?: (message: string) => void;
   onFail: () => void;
   onStart: () => void;
   task: TaskItem;
@@ -1531,7 +1588,13 @@ function WaitObedientlyPanel({
   }, [task.waitState]);
 
   const startChallenge = () => {
-    if (isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting") {
+    if (isCoolingDown) {
+      emitSoundEvent("button_click");
+      onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+      return;
+    }
+
+    if (isGloballyDisabled || isActionPending || phase === "countdown" || phase === "waiting") {
       return;
     }
 
@@ -1693,7 +1756,7 @@ function WaitObedientlyPanel({
       <button
         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={
-          isGloballyDisabled || isCoolingDown || isActionPending || phase === "countdown" || phase === "waiting"
+          isGloballyDisabled || isActionPending || phase === "countdown" || phase === "waiting"
         }
         onClick={startChallenge}
         type="button"
@@ -1719,6 +1782,7 @@ function MechanicCard({
   lastResult,
   now,
   onAction,
+  onCooldownAttempt,
   title,
 }: {
   actionLabel: string;
@@ -1729,6 +1793,7 @@ function MechanicCard({
   lastResult?: string | null;
   now: number;
   onAction: () => void;
+  onCooldownAttempt?: (message: string) => void;
   title: string;
 }) {
   const cooldownRemaining = cooldownUntil
@@ -1761,9 +1826,14 @@ function MechanicCard({
       )}
       <button
         className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={disabled || isCoolingDown}
+        disabled={disabled}
         onClick={() => {
           emitSoundEvent("button_click");
+          if (isCoolingDown) {
+            onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+            return;
+          }
+
           onAction();
         }}
         type="button"

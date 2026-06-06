@@ -63,6 +63,7 @@ type AdminDebtContract = {
   duration_periods: number;
   paid_periods: number;
   missed_periods: number;
+  random_generated?: boolean;
   status: string;
   started_at: string;
   next_due_at: string;
@@ -1058,9 +1059,16 @@ export default function AdminPage() {
                               Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
                             </p>
                           </div>
-                          <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
-                            {contract.status}
-                          </span>
+                          <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+                            {contract.random_generated && (
+                              <span className="rounded-full border border-yellow-200/30 bg-yellow-400/10 px-3 py-1 text-xs font-black uppercase text-yellow-50">
+                                Random
+                              </span>
+                            )}
+                            <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                              {contract.status}
+                            </span>
+                          </div>
                         </div>
                         <div className="mt-3 flex justify-end">
                           <button

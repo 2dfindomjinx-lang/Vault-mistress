@@ -6091,11 +6091,13 @@ export default function Home() {
     durationPeriods,
     periodType,
     petName,
+    randomGenerated = false,
   }: {
     debtAmount: number;
     durationPeriods: number;
     periodType: "weekly" | "monthly";
     petName: string;
+    randomGenerated?: boolean;
   }) => {
     if (blockIfTimedOut()) {
       return false;
@@ -6156,6 +6158,7 @@ export default function Home() {
           durationPeriods: cleanDuration,
           periodType,
           petName: cleanPetName,
+          randomGenerated,
         });
 
         if (result.contract) {
@@ -6339,6 +6342,10 @@ export default function Home() {
       `Case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
     );
   };
+
+  const handleCooldownAttempt = useCallback((message: string) => {
+    setAvatarMistressReply(message);
+  }, [setAvatarMistressReply]);
 
   const handlePetEvilWaitStart = async () => {
     if (blockIfTimedOut()) {
@@ -7228,6 +7235,7 @@ export default function Home() {
               usernameStyle={usernameStyle}
               onBeg={handleBeg}
               onClaim={handleClaimTask}
+              onCooldownAttempt={handleCooldownAttempt}
               onJackpotContribute={handleJackpotContribute}
               onHighLowPlay={handleHighLowPlay}
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
@@ -7289,6 +7297,7 @@ export default function Home() {
                 runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
               }
               onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
+              onCooldownAttempt={handleCooldownAttempt}
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
               onOpenCase={(caseItem) => runPetAction("pet-case-opening", () => handlePetCaseOpen(caseItem))}

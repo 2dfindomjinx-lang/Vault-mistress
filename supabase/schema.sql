@@ -172,6 +172,7 @@ create table if not exists public.pet_debt_contracts (
   duration_periods integer not null,
   paid_periods integer not null default 0,
   missed_periods integer not null default 0,
+  random_generated boolean not null default false,
   status text not null default 'active',
   started_at timestamp with time zone not null default now(),
   next_due_at timestamp with time zone not null,
@@ -226,6 +227,7 @@ create index if not exists loyalty_jackpot_contributions_user_id_idx
 
 alter table public.pet_debt_contracts
   add column if not exists missed_periods integer not null default 0,
+  add column if not exists random_generated boolean not null default false,
   add column if not exists updated_at timestamp with time zone not null default now();
 
 alter table public.user_pet_tasks

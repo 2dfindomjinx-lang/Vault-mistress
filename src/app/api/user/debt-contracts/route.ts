@@ -34,6 +34,7 @@ type Body =
       durationPeriods?: number;
       periodType?: "weekly" | "monthly";
       petName?: string;
+      randomGenerated?: boolean;
     }
   | {
       action?: "pay" | "autoCollect";
@@ -164,6 +165,7 @@ export async function POST(request: Request) {
         next_due_at: new Date(nowMs).toISOString(),
         period_type: periodType,
         pet_name: cleanPetName,
+        random_generated: Boolean(body.randomGenerated),
         status: "active",
         user_id: userId,
       })
