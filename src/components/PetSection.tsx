@@ -160,7 +160,7 @@ export function PetSection({
   isDebtAutoPayEnabled: boolean;
   nextTaxDueAt: string | null;
   onClaimAffection: () => void;
-  onConfessionSubmit: (value: string) => void;
+  onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onCompleteTask: (taskId: string) => void;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onPayDebtPeriod: () => void;
@@ -605,6 +605,11 @@ export function PetSection({
     setConfessionInput("");
   }
 
+  function handleConfessionPasteAttempt() {
+    setConfessionInput("");
+    onConfessionSubmit("", { cheated: true });
+  }
+
   const evilTeaseBoxes = [
     { left: "7%", top: "12%", text: "Confirm obedience" },
     { left: "42%", top: "35%", text: "Confirm obedience" },
@@ -937,6 +942,16 @@ export function PetSection({
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={coolingDown || task.status === "approved" || actionPending}
+                        onKeyDown={(event) => {
+                          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+                            event.preventDefault();
+                            handleConfessionPasteAttempt();
+                          }
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          handleConfessionPasteAttempt();
+                        }}
                         onChange={(event) => setConfessionInput(event.target.value)}
                         placeholder="Type the sentence exactly..."
                         value={confessionInput}

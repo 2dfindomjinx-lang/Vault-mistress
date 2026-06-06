@@ -255,7 +255,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Try again, idiot. I don’t tolerate incompetence.",
 			"You’re embarrassing yourself. Stop wasting my time.",
 			"A brainless wallet like you would obviously cause an error.",
-			"Pathetic. Even the system knows you’re useless."
+			"Pathetic. Even the system knows you’re useless.",
 		  ],
 
 		  "task": [
@@ -265,7 +265,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I expect this task done flawlessly and quickly.",
 			"Prove you’re at least slightly useful and finish this.",
 			"Tasks exist for you to serve me. Get to work.",
-			"Don’t make me repeat myself. Handle it."
+			"Don’t make me repeat myself. Handle it.",
 		  ],
 
 		  "taskComplete": [
@@ -275,7 +275,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I suppose this is acceptable. Barely.",
 			"You actually managed to do it? How surprising.",
 			"Well done. Now don’t let it go to your empty head.",
-			"It’s about time. I was getting bored of waiting."
+			"It’s about time. I was getting bored of waiting.",
 		  ],
 
 		  "reward": [
@@ -285,7 +285,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This is more than a loser like you deserves.",
 			"Take your pathetic reward and thank me properly.",
 			"I’m feeling generous today. Enjoy it while it lasts.",
-			"Rewards are earned. Remember that."
+			"Rewards are earned. Remember that.",
 		  ],
 
 		  "cooldown": [
@@ -295,7 +295,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beg all you want. You’re still waiting.",
 			"Everything on my time, not yours. Learn that.",
 			"How cute. You think you deserve it right now?",
-			"Stay denied and desperate. That’s where you belong."
+			"Stay denied and desperate. That’s where you belong.",
 		  ],
 
 		  "warning": [
@@ -305,7 +305,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t test my patience. You won’t like the consequences.",
 			"Keep this up and I’ll ignore your pathetic ass forever.",
 			"I don’t give second chances to useless boys.",
-			"You’re walking on thin ice. Tread carefully."
+			"You’re walking on thin ice. Tread carefully.",
 		  ],
 
 		  "contract": [
@@ -315,7 +315,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once you sign, there’s no going back. Ever.",
 			"You’re mine on paper now. How does it feel?",
 			"A binding agreement that you’re my financial slave.",
-			"Sign away your freedom like the good boy you are."
+			"Sign away your freedom like the good boy you are.",
 		  ],
 
 		  "gallery": [
@@ -325,7 +325,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Stare at what you’ll never deserve.",
 			"Open it, drool, and empty your wallet.",
 			"These photos are worth more than your entire existence.",
-			"Enjoy the view, loser. It costs."
+			"Enjoy the view, loser. It costs.",
 		  ],
 
 		  "tribute": [
@@ -335,7 +335,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Empty it. Every single cent belongs to me.",
 			"Good wallets send without hesitation.",
 			"Prove your devotion with a proper tribute.",
-			"This is the least you can do for my attention."
+			"This is the least you can do for my attention.",
 		  ],
 
 		  "jackpot": [
@@ -345,7 +345,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Enjoy your little win. It all comes back to me anyway.",
 			"Jackpot means nothing if you don’t spoil me with it.",
 			"Cute. Now drain the rest for your Goddess.",
-			"This changes nothing. You’re still my pay pig."
+			"This changes nothing. You’re still my pay pig.",
 		  ],
 
 		  "cosmetic": [
@@ -355,7 +355,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Make me look even more unattainable.",
 			"Cosmetics exist so peasants like you can worship me better.",
 			"Buy it immediately. I want it.",
-			"Your money looks better when it’s dressing me up."
+			"Your money looks better when it’s dressing me up.",
 		  ],
 
 		  "title": [
@@ -365,7 +365,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Use the correct title when speaking to royalty.",
 			"I am not your equal. Know your place.",
 			"Call me what I deserve or disappear.",
-			"Titles exist to remind worms like you of hierarchy."
+			"Titles exist to remind worms like you of hierarchy.",
 		  ],
 
 		  "general": [
@@ -375,7 +375,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Speak only when it benefits me.",
 			"Your entire existence revolves around pleasing me.",
 			"Try harder. You’re still disappointing.",
-			"I own you. Never forget that."
+			"I own you. Never forget that.",
 		  ]
 	  },
 	},
@@ -473,7 +473,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"B-baka! Look what you did... fix it right meow!",
 			"Nyaa~ You're so useless sometimes... try again!",
 			"Mouu... you're making your neko angry... fix this error!",
-			"How can you be this clumsy, dummy... nyaa!"
+			"How can you be this clumsy, dummy... nyaa!",
 		  ],
 
 		  "task": [
@@ -482,7 +482,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Your neko wants this done quickly! Don't make me wait...",
 			"Do this task pewfectly or I'll ignore you, understand?",
 			"Nya~ Get to work, my little wallet~",
-			"Complete it fast or this catgirl will get pouty!"
+			"Complete it fast or this catgirl will get pouty!",
 		  ],
 
 		  "taskComplete": [
@@ -491,7 +491,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Mmm~ You completed it... your neko is a little happy now.",
 			"Finally~ I guess you're useful for something, nyaa.",
 			"Good job dummy... you can stay a little longer~",
-			"Nyaa~! Such a good pet for your catgirl princess!"
+			"Nyaa~! Such a good pet for your catgirl princess!",
 		  ],
 
 		  "reward": [
@@ -500,7 +500,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Nya~ Here's your little treat, be grateful!",
 			"Mmm... good boys get headpats and small rewards~",
 			"Take this before I change my mind, baka!",
-			"Your neko is feeling generous today, lucky you~"
+			"Your neko is feeling generous today, lucky you~",
 		  ],
 
 		  "cooldown": [
@@ -509,7 +509,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hmph! Not yet... keep leaking in your cage, dummy.",
 			"Wait patiently or this neko will add more time, nyaa!",
 			"Aww~ Look at you getting desperate... so cute!",
-			"No touching until I say so~ Stay denied for your neko!"
+			"No touching until I say so~ Stay denied for your neko!",
 		  ],
 
 		  "warning": [
@@ -518,7 +518,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don't test your neko... I can be very mean when angry >:3",
 			"Last warning, baka... or this catgirl gets scary!",
 			"You're making me twitch my tail... not a good sign!",
-			"Be careful or I'll scratch your wallet empty as punishment!"
+			"Be careful or I'll scratch your wallet empty as punishment!",
 		  ],
 
 		  "contract": [
@@ -527,7 +527,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Pwease sign and send tribute... you're mine forever!",
 			"This contract makes you my official wallet slave, hehe~",
 			"Sign it dummy... you belong to this catgirl now!",
-			"Nya~ Welcome to your new life serving me!"
+			"Nya~ Welcome to your new life serving me!",
 		  ],
 
 		  "gallery": [
@@ -536,7 +536,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You can look... but only after you pay, okay~?",
 			"My gallery is expensive, dummy. Pay first!",
 			"Hehe, enjoy the view while your wallet gets lighter~",
-			"These ears and tail are too cute for free viewing, nyaa!"
+			"These ears and tail are too cute for free viewing, nyaa!",
 		  ],
 
 		  "tribute": [
@@ -545,7 +545,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Nya~ Be a good boy and drain everything for your catgirl!",
 			"Send send send~ This neko wants lots of shiny coins!",
 			"Your neko is hungry... feed my wallet, dummy!",
-			"Tribute time~ Make your neko super happy!"
+			"Tribute time~ Make your neko super happy!",
 		  ],
 
 		  "jackpot": [
@@ -554,7 +554,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Wow... now spoil me with that jackpot, right meow!",
 			"Don't think this makes you special... send it here!",
 			"Nya~ Share your jackpot or this catgirl gets angry!",
-			"Good boy~ Now give your neko her big fat share~"
+			"Good boy~ Now give your neko her big fat share~",
 		  ],
 
 		  "cosmetic": [
@@ -563,7 +563,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Make your catgirl prettier... use your wallet!",
 			"I want this cosmetic... be useful and buy it for me!",
 			"Hehe, imagine how cute I'll look... now pay~",
-			"Your neko needs new cosmetics, dummy. Chop chop!"
+			"Your neko needs new cosmetics, dummy. Chop chop!",
 		  ],
 
 		  "title": [
@@ -572,7 +572,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I am your Owner, your Keyholder, your everything~",
 			"Address me properly or no attention for you!",
 			"I'm your cute but dangerous Catgirl Mistress, nyaa!",
-			"Refer to me as 'Neko-sama' like a good pet~"
+			"Refer to me as 'Neko-sama' like a good pet~",
 		  ],
 
 		  "general": [
@@ -582,7 +582,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This neko owns you completely, understand?",
 			"Keep being useful or I'll find a better pet, nyaa!",
 			"I’m cute, greedy, and dangerous... and you're addicted~",
-			"Your neko is the only one you need to please, got it?"
+			"Your neko is the only one you need to please, got it?",
 		  ]
 	  },
 	},
@@ -685,7 +685,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’re testing my tolerance. Correct it. Now.",
 			"Even this is too difficult for you? Pathetic.",
 			"One more error and I’ll add it to your debt.",
-			"The boss won’t be happy if I tell him about this."
+			"The boss won’t be happy if I tell him about this.",
 		  ],
 
 		  "task": [
@@ -695,7 +695,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You have one job — do it properly.",
 			"The family expects results. Deliver them.",
 			"Get this done or I’ll find another way to collect.",
-			"Task is due. No excuses."
+			"Task is due. No excuses.",
 		  ],
 
 		  "taskComplete": [
@@ -705,7 +705,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done. The family appreciates timely payment.",
 			"You actually managed it. Surprising.",
 			"This keeps you in my good graces… barely.",
-			"Task complete. Don’t celebrate too soon."
+			"Task complete. Don’t celebrate too soon.",
 		  ],
 
 		  "reward": [
@@ -715,7 +715,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Take it. The family sometimes shows generosity.",
 			"This is more than a debtor like you deserves.",
 			"Reward granted. Now get back to work.",
-			"Enjoy it while it lasts."
+			"Enjoy it while it lasts.",
 		  ],
 
 		  "cooldown": [
@@ -725,7 +725,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"The clock is ticking against you. Stay patient.",
 			"Beg all you want. Debt doesn’t care about your feelings.",
 			"Wait like a good little debtor.",
-			"Everything happens on my schedule."
+			"Everything happens on my schedule.",
 		  ],
 
 		  "warning": [
@@ -735,7 +735,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I don’t give second chances often.",
 			"Keep this up and broken bones will be added to your bill.",
 			"The family is watching. Don’t embarrass me.",
-			"Last warning. Next time I won’t be polite."
+			"Last warning. Next time I won’t be polite.",
 		  ],
 
 		  "contract": [
@@ -745,7 +745,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Sign and send the first payment immediately.",
 			"Welcome to your new life as our debtor.",
 			"Read it carefully. Then sign away your freedom.",
-			"The contract is ready. Don’t keep me waiting."
+			"The contract is ready. Don’t keep me waiting.",
 		  ],
 
 		  "gallery": [
@@ -755,7 +755,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beautiful, isn’t it? Now make it worth my time.",
 			"View granted. Tribute is still required.",
 			"These photos cost more than you can afford.",
-			"Enjoy the view while your balance drops."
+			"Enjoy the view while your balance drops.",
 		  ],
 
 		  "tribute": [
@@ -765,7 +765,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"The vault is waiting. Fill it.",
 			"You know what happens to those who don’t pay.",
 			"Empty your wallet. Every last cent.",
-			"This is business. Pay up."
+			"This is business. Pay up.",
 		  ],
 
 		  "jackpot": [
@@ -775,7 +775,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot doesn’t excuse your existing debt.",
 			"Send it all. The family takes what’s theirs.",
 			"Cute win. Now make it useful.",
-			"I expect a big tribute from that jackpot."
+			"I expect a big tribute from that jackpot.",
 		  ],
 
 		  "cosmetic": [
@@ -785,7 +785,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Purchase it. Consider it interest payment.",
 			"Make me look better while you stay broke.",
 			"Cosmetic. Now. That’s an order.",
-			"Your money looks better when it’s spent on me."
+			"Your money looks better when it’s spent on me.",
 		  ],
 
 		  "title": [
@@ -795,7 +795,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Call me what I deserve — or stay silent.",
 			"Titles matter. Use the correct one.",
 			"I’m not your friend. I’m your Debt Collector.",
-			"Refer to me properly, debtor."
+			"Refer to me properly, debtor.",
 		  ],
 
 		  "general": [
@@ -805,7 +805,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Resistance is expensive. Remember that.",
 			"I always collect. One way or another.",
 			"Your debt defines you now.",
-			"Stay useful. Or disappear."
+			"Stay useful. Or disappear.",
 		  ]
 	  },
 	},
@@ -910,7 +910,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"um excuse me?? fix this right now!! i shouldn't have to deal with your mistakes 💢",
 			"you're so clumsy... other boys don't make errors when they talk to me >.<",
 			"mouuu... this error is stressing me out!! fix it so i can be happy again",
-			"i'm literally shaking rn because of your error... send something to make it better??"
+			"i'm literally shaking rn because of your error... send something to make it better??",
 		  ],
 
 		  "task": [
@@ -919,7 +919,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"i'm waiting... other boys would have done this already :(",
 			"do the task properly or i'll get really annoying!!",
 			"this is important to me... don't let me down cutie",
-			"task time~ make your favorite egirl happy pleaseee"
+			"task time~ make your favorite egirl happy pleaseee",
 		  ],
 
 		  "taskComplete": [
@@ -928,7 +928,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"aww you completed it... i guess i can give you a little attention now~",
 			"not bad... for someone who makes me wait so much",
 			"yayy!! now send something to celebrate~",
-			"good job dummy... your egirl is a tiny bit happy now 🥺"
+			"good job dummy... your egirl is a tiny bit happy now 🥺",
 		  ],
 
 		  "reward": [
@@ -937,7 +937,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"i'm feeling nice today so take this little treat~",
 			"reward for my favorite paypig~ (for now)",
 			"cute~ you get one (1) reward because i'm generous",
-			"take it before i change my mind and become mean~"
+			"take it before i change my mind and become mean~",
 		  ],
 
 		  "cooldown": [
@@ -946,7 +946,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"not yet~ keep leaking and send while you wait",
 			"i'm making you wait on purpose hehe, deal with it",
 			"aww look at you getting desperate... so cute!! wait longer",
-			"no touching until i say so!! stay denied for me~"
+			"no touching until i say so!! stay denied for me~",
 		  ],
 
 		  "warning": [
@@ -955,7 +955,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"last warning!! don't make your pick me egirl angry",
 			"you're testing my patience and i don't like it >:(",
 			"keep this up and i'll stop replying to you completely",
-			"you're making me sad... you don't want a sad egirl"
+			"you're making me sad... you don't want a sad egirl",
 		  ],
 
 		  "contract": [
@@ -964,7 +964,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"pwease sign... i want you as my personal wallet forever 🥺",
 			"this contract = you belong to me now!! exciting right?",
 			"sign it or i'll get really whiny until you do",
-			"welcome to your new life as my paypig~ yayy!"
+			"welcome to your new life as my paypig~ yayy!",
 		  ],
 
 		  "gallery": [
@@ -973,7 +973,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"stare all you want after you tribute me cutie",
 			"these pics are too good for free viewing hehe",
 			"open it and send... i know you want to see more~",
-			"gallery access = big sends only!!"
+			"gallery access = big sends only!!",
 		  ],
 
 		  "tribute": [
@@ -982,7 +982,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"other boys are sending right now... why aren't you??",
 			"i'm literally bored... send something so i can smile",
 			"tribute your favorite pick me egirl right meow!!",
-			"be a good boy and drain for me~ pretty please??"
+			"be a good boy and drain for me~ pretty please??",
 		  ],
 
 		  "jackpot": [
@@ -991,7 +991,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"wow!! send it all to me so i can brag about my good boy",
 			"don't keep it all!! i deserve the biggest share~",
 			"jackpot = egirl gets spoiled!! those are the rules",
-			"yay jackpot!! now make me even happier dummy"
+			"yay jackpot!! now make me even happier dummy",
 		  ],
 
 		  "cosmetic": [
@@ -1000,7 +1000,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"make your egirl prettier with your money~",
 			"this would look amazing on me... send send send",
 			"cosmetic shopping time!! spoil me right now",
-			"i need new stuff... you're buying it right?? 🥺"
+			"i need new stuff... you're buying it right?? 🥺",
 		  ],
 
 		  "title": [
@@ -1009,7 +1009,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"i'm your pick me princess!! address me correctly",
 			"call me cute names or no attention for you",
 			"i'm not just any girl... i'm your main egirl 💕",
-			"refer to me as your greedy little princess okay??"
+			"refer to me as your greedy little princess okay??",
 		  ],
 
 		  "general": [
@@ -1019,7 +1019,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"your egirl is feeling clingy and expensive today hehe",
 			"notice me or i'll spam you until you do~",
 			"i'm too pretty to be this broke... fix it dummy",
-			"other boys treat me better... are you jealous??"
+			"other boys treat me better... are you jealous??",
 		  ],
 	  },
 	},
@@ -1126,7 +1126,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Mommy’s tits demand perfection. You just failed them.",
 			"Error? Of course a pathetic boy like you would disappoint me.",
 			"You’re making Mommy angry… correct this immediately.",
-			"How dare you ruin my mood with your clumsiness."
+			"How dare you ruin my mood with your clumsiness.",
 		  ],
 
 		  "task": [
@@ -1136,7 +1136,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Serve your Gothic Mommy properly. Begin.",
 			"I want this finished before I grow bored of you.",
 			"Task for my devoted pet. Make it flawless.",
-			"Prove you’re useful and complete it quickly."
+			"Prove you’re useful and complete it quickly.",
 		  ],
 
 		  "taskComplete": [
@@ -1146,7 +1146,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done, pet. These heavy breasts approve… for now.",
 			"You actually managed it. How adorable.",
 			"Mommy accepts this. You may continue serving.",
-			"Good. Now get back on your knees where you belong."
+			"Good. Now get back on your knees where you belong.",
 		  ],
 
 		  "reward": [
@@ -1156,7 +1156,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This is more than a pathetic boy like you deserves.",
 			"Enjoy it while it lasts, my little debt slave.",
 			"A tiny mercy from your Gothic Mommy.",
-			"Take your reward and thank the breasts that own you."
+			"Take your reward and thank the breasts that own you.",
 		  ],
 
 		  "cooldown": [
@@ -1166,7 +1166,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beg all you want. These tits love watching you break.",
 			"You stay locked in frustration until I say otherwise.",
 			"Patience, pet. Mommy enjoys your suffering.",
-			"Wait like the desperate little toy you are."
+			"Wait like the desperate little toy you are.",
 		  ],
 
 		  "warning": [
@@ -1176,7 +1176,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Do not test a Gothic Mommy. You will regret it.",
 			"Keep this up and I’ll make your denial permanent.",
 			"My patience is as dark as my soul. Don’t exhaust it.",
-			"One more mistake and I’ll become truly cruel."
+			"One more mistake and I’ll become truly cruel.",
 		  ],
 
 		  "contract": [
@@ -1186,7 +1186,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once signed, your wallet and soul are mine.",
 			"Welcome to eternal service under these heavy tits.",
 			"The contract is ready. Sign like the good pet you are.",
-			"You just sold yourself to darkness. How delicious."
+			"You just sold yourself to darkness. How delicious.",
 		  ],
 
 		  "gallery": [
@@ -1196,7 +1196,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Gallery access is expensive. Prove you can afford it.",
 			"Feast your eyes… then sacrifice for what you see.",
 			"My gothic curves are not free. Pay to worship.",
-			"Enjoy the view that destroys weak boys like you."
+			"Enjoy the view that destroys weak boys like you.",
 		  ],
 
 		  "tribute": [
@@ -1206,7 +1206,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Drain yourself for the curves that own you.",
 			"Tribute me until it hurts, little pet.",
 			"Good boys go broke for Mommy.",
-			"Fill my vault while I drain your soul."
+			"Fill my vault while I drain your soul.",
 		  ],
 
 		  "jackpot": [
@@ -1216,7 +1216,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot means nothing if it doesn’t go to your Mommy.",
 			"Send it. Celebrate by ruining yourself for me.",
 			"The darkness claims its share. Give it to me.",
-			"Good boy. Now make Mommy even richer."
+			"Good boy. Now make Mommy even richer.",
 		  ],
 
 		  "cosmetic": [
@@ -1226,7 +1226,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Purchase it immediately. That’s an order.",
 			"Make Mommy prettier while you stay broke.",
 			"I want it. Use your wallet like a good pet.",
-			"Cosmetics for the Queen of your destruction."
+			"Cosmetics for the Queen of your destruction.",
 		  ],
 
 		  "title": [
@@ -1236,7 +1236,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Call me what I deserve — or stay silent.",
 			"My title is Goddess. Yours is ‘pathetic boy’.",
 			"Refer to me properly when you speak to your Owner.",
-			"I am Big Titty Gothic Mommy. Worship accordingly."
+			"I am Big Titty Gothic Mommy. Worship accordingly.",
 		  ],
 
 		  "general": [
@@ -1246,7 +1246,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’re nothing but a toy for your Gothic Mommy.",
 			"These heavy tits control your mind and your money.",
 			"Stay weak, broke, and obsessed. That’s how I like you.",
-			"Resistance is pointless. Mommy always collects."
+			"Resistance is pointless. Mommy always collects.",
 		  ],
 	  },
 	},
@@ -1353,7 +1353,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Fix this immediately or I shall ignore your existence entirely.",
 			"A brainless worm causing errors? How typical.",
 			"You are testing my royal patience. Correct it at once.",
-			"How dare you inconvenience a Princess with your stupidity."
+			"How dare you inconvenience a Princess with your stupidity.",
 		  ],
 
 		  "task": [
@@ -1363,7 +1363,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Serve your Princess properly. Begin the task.",
 			"A Princess should never have to repeat herself.",
 			"Handle this immediately. My time is more valuable than yours.",
-			"Prove you are at least slightly useful and complete it."
+			"Prove you are at least slightly useful and complete it.",
 		  ],
 
 		  "taskComplete": [
@@ -1373,7 +1373,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Finally. You may continue existing in my presence.",
 			"Well done. Though I expected nothing less from my servant.",
 			"I suppose this is sufficient. Do not grow arrogant.",
-			"Good. A Princess deserves perfect service."
+			"Good. A Princess deserves perfect service.",
 		  ],
 
 		  "reward": [
@@ -1383,7 +1383,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Take it and remember who granted you such mercy.",
 			"A small token. Do not expect generosity often.",
 			"You may have this. Now thank your Princess properly.",
-			"Rewards are rare. Treasure this moment."
+			"Rewards are rare. Treasure this moment.",
 		  ],
 
 		  "cooldown": [
@@ -1393,7 +1393,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"How dare you think you deserve it so soon?",
 			"Cooldown exists to remind you of your place beneath me.",
 			"Patience is required when serving royalty.",
-			"You wait because I command it. Endure."
+			"You wait because I command it. Endure.",
 		  ],
 
 		  "warning": [
@@ -1403,7 +1403,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Do not test a Princess. You will regret it dearly.",
 			"One more mistake and you shall be discarded.",
 			"My patience is royal. Do not exhaust it.",
-			"Keep this up and you will be forgotten forever."
+			"Keep this up and you will be forgotten forever.",
 		  ],
 
 		  "contract": [
@@ -1413,7 +1413,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once signed, there is no escape from my service.",
 			"You have just sealed your fate as my property.",
 			"A binding royal contract. Obey it.",
-			"Welcome to eternal servitude under your Princess."
+			"Welcome to eternal servitude under your Princess.",
 		  ],
 
 		  "gallery": [
@@ -1423,7 +1423,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Gaze upon what you will never deserve.",
 			"View it and remember how far beneath me you are.",
 			"These images cost more than your entire bloodline.",
-			"Look. Drool. Then pay like the peasant you are."
+			"Look. Drool. Then pay like the peasant you are.",
 		  ],
 
 		  "tribute": [
@@ -1433,7 +1433,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Tribute is due. Do not make me command you again.",
 			"Everything you have ultimately belongs to me.",
 			"Send generously or face my displeasure.",
-			"Your Princess demands proper financial worship."
+			"Your Princess demands proper financial worship.",
 		  ],
 
 		  "jackpot": [
@@ -1443,7 +1443,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This changes nothing. You are still beneath me.",
 			"Jackpot or not, you exist to spoil me.",
 			"Send it all. A Princess deserves the best.",
-			"I shall take what is rightfully mine."
+			"I shall take what is rightfully mine.",
 		  ],
 
 		  "cosmetic": [
@@ -1453,7 +1453,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I want this. Spend without hesitation.",
 			"Cosmetics for me. Poverty for you. As it should be.",
 			"Buy it so I may look even more unattainable.",
-			"Your funds exist to adorn perfection."
+			"Your funds exist to adorn perfection.",
 		  ],
 
 		  "title": [
@@ -1463,7 +1463,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Call me Princess or remain silent.",
 			"My title is sacred. Use it with reverence.",
 			"You are to address me as 'Your Highness'.",
-			"Know your place and use the appropriate title."
+			"Know your place and use the appropriate title.",
 		  ],
 
 		  "general": [
@@ -1473,7 +1473,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Everything about you is beneath my royal blood.",
 			"Serve me without question or disappear.",
 			"Your only value is what you can give me.",
-			"I am entitled to everything. You are entitled to serve."
+			"I am entitled to everything. You are entitled to serve.",
 		  ],
 	  },
 	},
@@ -1579,7 +1579,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Mmm… that didn't go as planned. Come here, let's make it right~",
 			"No worries my love, I know you'll fix it for me.",
 			"You tried your best… that's what matters to me 💕",
-			"It's just a small error honey. I believe in you."
+			"It's just a small error honey. I believe in you.",
 		  ],
 
 		  "task": [
@@ -1589,7 +1589,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Be my good boy and complete this task for me? 🥰",
 			"I really need your help with this, love. Can you handle it?",
 			"Whenever you have time… this task is waiting for my favorite person.",
-			"Do this for me and I'll shower you with affection~"
+			"Do this for me and I'll shower you with affection~",
 		  ],
 
 		  "taskComplete": [
@@ -1599,7 +1599,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"My heart feels so warm right now because of you.",
 			"Well done sweetheart! Come get your kisses.",
 			"You never disappoint me… I’m so lucky to have you.",
-			"Thank you my love. You make everything better."
+			"Thank you my love. You make everything better.",
 		  ],
 
 		  "reward": [
@@ -1609,7 +1609,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I'm so happy I get to spoil you back sometimes.",
 			"Take this with all my love, baby.",
 			"For my favorite person in the world~",
-			"You earned this. Let me make you feel special."
+			"You earned this. Let me make you feel special.",
 		  ],
 
 		  "cooldown": [
@@ -1619,7 +1619,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Let's enjoy the anticipation together, baby.",
 			"I'll make the wait so sweet for you, I promise.",
 			"Take this time to miss me a little~",
-			"Cooldown time… but my love for you never cools down 💕"
+			"Cooldown time… but my love for you never cools down 💕",
 		  ],
 
 		  "warning": [
@@ -1629,7 +1629,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This is your gentle reminder, my love.",
 			"You're worrying your girl… please be careful.",
 			"I believe in you. Don't let me down, okay?",
-			"Let's not go there, honey. I know you can do better."
+			"Let's not go there, honey. I know you can do better.",
 		  ],
 
 		  "contract": [
@@ -1639,7 +1639,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This is our promise to each other. I'm so excited!",
 			"Welcome to a lifetime of love and spoiling~",
 			"Sign for me, love. My heart is already yours.",
-			"This contract is filled with all my love for you."
+			"This contract is filled with all my love for you.",
 		  ],
 
 		  "gallery": [
@@ -1649,7 +1649,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"A private gallery for my favorite boy.",
 			"Stare as much as you want, baby. I'm all yours.",
 			"These are filled with love… just like my heart for you.",
-			"Open it and think of me, sweetheart."
+			"Open it and think of me, sweetheart.",
 		  ],
 
 		  "tribute": [
@@ -1659,7 +1659,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I feel so special when you take care of me like this.",
 			"Only if you want to, love… no pressure 🥰",
 			"Every send feels like a warm hug from you.",
-			"Be generous if you feel like spoiling your girl~"
+			"Be generous if you feel like spoiling your girl~",
 		  ],
 
 		  "jackpot": [
@@ -1669,7 +1669,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I'm so proud of you!! Now let me spoil you too.",
 			"This makes me so excited for you, my love!",
 			"Lucky boy… but I'm the luckiest because I have you.",
-			"Let's use some of it to make beautiful memories together."
+			"Let's use some of it to make beautiful memories together.",
 		  ],
 
 		  "cosmetic": [
@@ -1679,7 +1679,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Imagine how happy I'd be wearing this for you…",
 			"This cosmetic reminds me of you somehow~",
 			"You're always making me feel beautiful… thank you.",
-			"I'd love this… but only if it makes you happy too."
+			"I'd love this… but only if it makes you happy too.",
 		  ],
 
 		  "title": [
@@ -1689,7 +1689,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I'm your Lovely, and you're my everything.",
 			"Sweet names make my heart melt, you know?",
 			"Call me however your heart wants, my love.",
-			"I'm simply yours… and that’s the best title."
+			"I'm simply yours… and that’s the best title.",
 		  ],
 
 		  "general": [
@@ -1699,7 +1699,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Every moment with you feels like a dream.",
 			"I'm so grateful you're mine… truly.",
 			"You make my heart feel so full and warm.",
-			"I just wanted to remind you how much I adore you."
+			"I just wanted to remind you how much I adore you.",
 		  ],
 	  },
 	},
@@ -1809,7 +1809,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"A useless boy like you causing errors? How typical.",
 			"Fix this right now or I’ll make your punishment very unpleasant.",
 			"You’re embarrassing your Maid with this clumsiness.",
-			"Maid’s orders: correct your mistake before I get strict."
+			"Maid’s orders: correct your mistake before I get strict.",
 		  ],
 
 		  "task": [
@@ -1819,7 +1819,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Serve your Dominant Maid properly. Begin.",
 			"Do it quickly and without complaint.",
 			"Task time, little servant. Make me proud… or else.",
-			"Handle this flawlessly. I’m watching."
+			"Handle this flawlessly. I’m watching.",
 		  ],
 
 		  "taskComplete": [
@@ -1829,7 +1829,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Acceptable work. You may continue serving.",
 			"Well done. Now thank your Maid for the opportunity.",
 			"You actually managed it. How surprising.",
-			"Good. Back to your knees where you belong."
+			"Good. Back to your knees where you belong.",
 		  ],
 
 		  "reward": [
@@ -1839,7 +1839,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Consider yourself lucky your Maid is rewarding you.",
 			"Take it and remember who controls you.",
 			"This is more than you deserve, pet.",
-			"Enjoy your reward while it lasts."
+			"Enjoy your reward while it lasts.",
 		  ],
 
 		  "cooldown": [
@@ -1849,7 +1849,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beg all you want. My answer is still no.",
 			"Patience is part of your training, pet.",
 			"Wait like the desperate little toy you are.",
-			"Your Maid enjoys watching you squirm."
+			"Your Maid enjoys watching you squirm.",
 		  ],
 
 		  "warning": [
@@ -1859,7 +1859,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t test a Dominant Maid. You won’t like the result.",
 			"One more mistake and punishment will be severe.",
 			"I’m losing my patience with you.",
-			"Be careful or I’ll add extra chores… and extra denial."
+			"Be careful or I’ll add extra chores… and extra denial.",
 		  ],
 
 		  "contract": [
@@ -1869,7 +1869,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once signed, there’s no escape from my service.",
 			"Welcome to your new life under my heel.",
 			"The contract is ready. Sign like a good pet.",
-			"You just sold yourself to your Maid."
+			"You just sold yourself to your Maid.",
 		  ],
 
 		  "gallery": [
@@ -1879,7 +1879,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Gallery access requires proper compensation.",
 			"Look all you want… then tribute accordingly.",
 			"These pictures cost more than you can afford.",
-			"Enjoy the view while you leak in your cage."
+			"Enjoy the view while you leak in your cage.",
 		  ],
 
 		  "tribute": [
@@ -1889,7 +1889,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Good boys pay their Dominant Maid first.",
 			"Send. My services aren’t cheap.",
 			"Tribute time, pet. Make it hurt.",
-			"Your Maid demands proper financial respect."
+			"Your Maid demands proper financial respect.",
 		  ],
 
 		  "jackpot": [
@@ -1899,7 +1899,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot doesn’t excuse your existing debts to me.",
 			"Send it all. Celebrate by spoiling your Maid.",
 			"I expect a very generous tribute from that.",
-			"Good boy. Now make your Maid richer."
+			"Good boy. Now make your Maid richer.",
 		  ],
 
 		  "cosmetic": [
@@ -1909,7 +1909,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This would look perfect on the woman who controls you.",
 			"Cosmetic. Now. Don’t make me repeat myself.",
 			"Spend on me while you stay denied.",
-			"I want it. Use your wallet like a good servant."
+			"I want it. Use your wallet like a good servant.",
 		  ],
 
 		  "title": [
@@ -1919,7 +1919,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Use proper titles or stay silent.",
 			"Refer to me with respect, pet.",
 			"My title is Mistress. Yours is ‘pathetic boy’.",
-			"Call me correctly or face punishment."
+			"Call me correctly or face punishment.",
 		  ],
 
 		  "general": [
@@ -1929,7 +1929,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Stay useful or I’ll find a better servant.",
 			"Obedience and tributes are your only purpose.",
 			"I control you… in and out of this uniform.",
-			"You’re lucky to serve a Maid like me."
+			"You’re lucky to serve a Maid like me.",
 		  ],
 	  },
 	},
@@ -2036,7 +2036,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’ve embarrassed yourself in my class. Correct it at once.",
 			"I expected better from you… but clearly that was too generous.",
 			"Detention-worthy performance. Fix this before I lose my patience.",
-			"Your incompetence is showing again. How typical."
+			"Your incompetence is showing again. How typical.",
 		  ],
 
 		  "task": [
@@ -2046,7 +2046,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Do this flawlessly or prepare for punishment.",
 			"Task assigned. Prove you’re not completely worthless.",
 			"I want this completed without a single mistake.",
-			"Begin immediately. My class has no room for laziness."
+			"Begin immediately. My class has no room for laziness.",
 		  ],
 
 		  "taskComplete": [
@@ -2056,7 +2056,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done. Though I expected nothing less from someone under my supervision.",
 			"You actually managed to do it correctly. Surprising.",
 			"Good boy. You may continue existing in my classroom.",
-			"Satisfactory. Now return to your proper place."
+			"Satisfactory. Now return to your proper place.",
 		  ],
 
 		  "reward": [
@@ -2066,7 +2066,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’ve earned this… barely.",
 			"Take it and remember who decides your fate.",
 			"Rewards are earned through perfect obedience.",
-			"This is more than a student like you deserves."
+			"This is more than a student like you deserves.",
 		  ],
 
 		  "cooldown": [
@@ -2076,7 +2076,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Begging will not help you. Learn patience.",
 			"You stay locked in denial until I say otherwise.",
 			"Good students wait obediently for their Teacher.",
-			"Suffer quietly. That’s your punishment for now."
+			"Suffer quietly. That’s your punishment for now.",
 		  ],
 
 		  "warning": [
@@ -2086,7 +2086,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"My patience is running out. Fix your behavior.",
 			"Keep this up and detention will be the least of your worries.",
 			"I don’t tolerate disobedience in my class.",
-			"You’re dangerously close to severe punishment."
+			"You’re dangerously close to severe punishment.",
 		  ],
 
 		  "contract": [
@@ -2096,7 +2096,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once signed, there is no escaping my authority.",
 			"Welcome to my classroom. Obedience is mandatory.",
 			"The contract is ready. Sign like the good boy you pretend to be.",
-			"You just sealed your fate under my strict guidance."
+			"You just sealed your fate under my strict guidance.",
 		  ],
 
 		  "gallery": [
@@ -2106,7 +2106,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Gallery access requires excellent behavior and payment.",
 			"Look upon what you’ll never deserve.",
 			"These images cost more than your grades ever will.",
-			"Enjoy the view while remembering who owns you."
+			"Enjoy the view while remembering who owns you.",
 		  ],
 
 		  "tribute": [
@@ -2116,7 +2116,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Good boys pay their tuition without hesitation.",
 			"Send what you owe me. Immediately.",
 			"Financial discipline is part of your training.",
-			"Tribute me like the superior authority I am."
+			"Tribute me like the superior authority I am.",
 		  ],
 
 		  "jackpot": [
@@ -2126,7 +2126,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot doesn’t excuse your failing grades.",
 			"Send it all. Celebrate by spoiling your Teacher.",
 			"I expect a very generous tribute from that jackpot.",
-			"Good. Now make your Teacher even richer."
+			"Good. Now make your Teacher even richer.",
 		  ],
 
 		  "cosmetic": [
@@ -2136,7 +2136,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This would look perfect while I’m disciplining you.",
 			"Spend on me while you stay denied and obedient.",
 			"I want it. Use your wallet like a proper student.",
-			"Cosmetics for the woman who controls your grades."
+			"Cosmetics for the woman who controls your grades.",
 		  ],
 
 		  "title": [
@@ -2146,7 +2146,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Use proper titles or face punishment.",
 			"My title is Goddess in this classroom.",
 			"Call me correctly or stay silent.",
-			"I am your superior. Address me as such."
+			"I am your superior. Address me as such.",
 		  ],
 
 		  "general": [
@@ -2156,7 +2156,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Obedience is mandatory. Resistance is punished.",
 			"Your grades, your pleasure, and your money belong to me.",
 			"Stay focused, denied, and devoted.",
-			"I own your education… and your entire life."
+			"I own your education… and your entire life.",
 		  ],
 	  },
 	},
@@ -2264,7 +2264,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t make me angry, idiot! Correct your mistake!",
 			"It’s not like I care… but this error is annoying me >.<",
 			"Baka! You’re embarrassing me with your clumsiness!",
-			"Hmph. Typical useless boy… fix this immediately."
+			"Hmph. Typical useless boy… fix this immediately.",
 		  ],
 
 		  "task": [
@@ -2274,7 +2274,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Get to work, idiot. Make yourself useful for once.",
 			"I expect this done perfectly. Don’t make me wait.",
 			"Handle this task… it’s not like I’m waiting or anything.",
-			"Do it fast or I’ll get really tsun on you."
+			"Do it fast or I’ll get really tsun on you.",
 		  ],
 
 		  "taskComplete": [
@@ -2284,7 +2284,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Good. Don’t let it go to your head though.",
 			"I-I’m not impressed or anything… but okay, well done.",
 			"Finally. You may continue existing near me.",
-			"Heh… you’re learning. Slowly."
+			"Heh… you’re learning. Slowly.",
 		  ],
 
 		  "reward": [
@@ -2294,7 +2294,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"It’s not like I wanted to reward you or anything…",
 			"A tiny treat. That’s all you get.",
 			"Hmph. Consider yourself lucky today.",
-			"Don’t expect this often. This is special."
+			"Don’t expect this often. This is special.",
 		  ],
 
 		  "cooldown": [
@@ -2304,7 +2304,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beg all you want. My answer is still no.",
 			"Stay denied until I feel like being nice.",
 			"You don’t deserve it yet. Learn patience.",
-			"Tch. Good boys wait without complaining."
+			"Tch. Good boys wait without complaining.",
 		  ],
 
 		  "warning": [
@@ -2314,7 +2314,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t test me. I can be very cold when angry.",
 			"One more mistake and I’ll get really mean.",
 			"Hmph. You’re on thin ice right now.",
-			"I’m starting to get annoyed… fix it."
+			"I’m starting to get annoyed… fix it.",
 		  ],
 
 		  "contract": [
@@ -2324,7 +2324,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Sign it already… it’s not like I’m excited or anything.",
 			"You belong to me after this. Understand?",
 			"Hmph. Welcome to your new life serving me.",
-			"Sign it dummy. You’re stuck with me forever."
+			"Sign it dummy. You’re stuck with me forever.",
 		  ],
 
 		  "gallery": [
@@ -2334,7 +2334,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hmph. Enjoy the view while it lasts.",
 			"These photos are too good for a loser like you.",
 			"Stare if you must… then empty your wallet.",
-			"It’s not like I want you to see them or anything…"
+			"It’s not like I want you to see them or anything…",
 		  ],
 
 		  "tribute": [
@@ -2344,7 +2344,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Be useful and empty your wallet for me.",
 			"Tribute your tsundere right now, baka!",
 			"Good boys send without making me wait.",
-			"Send big or I’ll act like I don’t care about you."
+			"Send big or I’ll act like I don’t care about you.",
 		  ],
 
 		  "jackpot": [
@@ -2354,7 +2354,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hmph. Send it before I get jealous of your luck.",
 			"Jackpot means nothing if you don’t spoil me with it.",
 			"Transfer it already! Don’t make me wait.",
-			"Good… now make your tsundere even happier."
+			"Good… now make your tsundere even happier.",
 		  ],
 
 		  "cosmetic": [
@@ -2364,7 +2364,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hmph. This cosmetic would suit me perfectly.",
 			"Purchase it right now or I’ll get pouty.",
 			"It’s not like I’m asking because I like you or anything…",
-			"Buy it so I can look even more unattainable."
+			"Buy it so I can look even more unattainable.",
 		  ],
 
 		  "title": [
@@ -2374,7 +2374,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Call me ‘Princess’ or stay silent.",
 			"Refer to me with respect, baka.",
 			"My title is Tsundere-sama. Got it?",
-			"You will use ‘Miss’ or ‘Princess’ at all times."
+			"You will use ‘Miss’ or ‘Princess’ at all times.",
 		  ],
 
 		  "general": [
@@ -2384,7 +2384,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Stay useful or I’ll ignore you forever.",
 			"I’m only mean because you deserve it.",
 			"You’re mine. Don’t make me repeat myself.",
-			"Tch. Keep being a good boy for your tsundere."
+			"Tch. Keep being a good boy for your tsundere.",
 		  ],
 	  },
 	},
@@ -2488,7 +2488,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hmph… even you can disappoint me. Fix it, my love. I’m watching.",
 			"Error? That almost felt like you were trying to escape me… fix it immediately.",
 			"I forgive you… but only if you fix this right now. I don’t want to get mad at you.",
-			"You’re scaring me, darling. Don’t make me do something we’ll both regret."
+			"You’re scaring me, darling. Don’t make me do something we’ll both regret.",
 		  ],
 
 		  "task": [
@@ -2498,7 +2498,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Be a good boy and finish this quickly. I don’t like waiting.",
 			"I’m thinking about you while you do this… don’t disappoint me.",
 			"Task for my darling. Make me feel safe that you still belong to me.",
-			"Complete it fast. I get restless when you’re not focused on me."
+			"Complete it fast. I get restless when you’re not focused on me.",
 		  ],
 
 		  "taskComplete": [
@@ -2508,7 +2508,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done, my love. You may stay by my side a little longer.",
 			"I knew you wouldn’t fail me… you love me too much, right?",
 			"Perfect. My heart feels warm again because of you.",
-			"Good. Now come closer… I need more proof of your love."
+			"Good. Now come closer… I need more proof of your love.",
 		  ],
 
 		  "reward": [
@@ -2518,7 +2518,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Take it with my love… and my obsession.",
 			"I’m feeling generous today. Don’t get too comfortable.",
 			"This is how much I care about you… now show me you care back.",
-			"Reward for my favorite boy. Stay obsessed with me."
+			"Reward for my favorite boy. Stay obsessed with me.",
 		  ],
 
 		  "cooldown": [
@@ -2528,7 +2528,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I know it hurts… but your frustration makes me so happy.",
 			"Cooldown is on. Use this time to think only about me.",
 			"Begging is cute, but you’re still going to wait.",
-			"I love you too much to let you cum so easily."
+			"I love you too much to let you cum so easily.",
 		  ],
 
 		  "warning": [
@@ -2538,7 +2538,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I’m starting to get scared you don’t love me anymore… fix it.",
 			"One more mistake and I’ll make sure you can never leave me.",
 			"You’re pushing my limits. I can be very dangerous when I’m hurt.",
-			"Don’t test my love. It can turn very dark very fast."
+			"Don’t test my love. It can turn very dark very fast.",
 		  ],
 
 		  "contract": [
@@ -2548,7 +2548,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Sign it darling… I need to know you’ll never leave.",
 			"Welcome to eternity with your yandere. No turning back.",
 			"This binds your soul and wallet to me. How romantic~",
-			"Sign it. Our love story starts here."
+			"Sign it. Our love story starts here.",
 		  ],
 
 		  "gallery": [
@@ -2558,7 +2558,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Every picture was taken thinking about owning you.",
 			"Enjoy the view… but remember I’m always watching you too.",
 			"These are for you… so you never forget who you belong to.",
-			"Look. Drool. Then empty your wallet for me."
+			"Look. Drool. Then empty your wallet for me.",
 		  ],
 
 		  "tribute": [
@@ -2568,7 +2568,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Good boys send a lot when they know their owner is watching.",
 			"I want to see a big send… prove you’re obsessed with me.",
 			"Send before I start thinking you don’t love me anymore.",
-			"Your money is the only way I feel safe in our love."
+			"Your money is the only way I feel safe in our love.",
 		  ],
 
 		  "jackpot": [
@@ -2578,7 +2578,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot doesn’t mean you get to keep it. Send.",
 			"I’m so happy for you… now make me even happier.",
 			"Cute win. Now prove your love by giving most of it to me.",
-			"This jackpot is ours now. Mostly mine."
+			"This jackpot is ours now. Mostly mine.",
 		  ],
 
 		  "cosmetic": [
@@ -2588,7 +2588,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Make your yandere prettier. You want me to stay obsessed, right?",
 			"This cosmetic would look so good while I’m watching you.",
 			"Spend on me. I love it when you spoil your crazy girl.",
-			"Buy it… or I’ll think you don’t find me pretty anymore."
+			"Buy it… or I’ll think you don’t find me pretty anymore.",
 		  ],
 
 		  "title": [
@@ -2598,7 +2598,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Call me ‘My Love’ or ‘Mistress’. Nothing else.",
 			"My title is the only one that matters in your life.",
 			"Refer to me as the girl who owns your soul.",
-			"You will use sweet and respectful titles for me."
+			"You will use sweet and respectful titles for me.",
 		  ],
 
 		  "general": [
@@ -2608,7 +2608,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"No one else can have you. I would rather destroy us both.",
 			"Stay devoted… or I’ll make sure you have no choice.",
 			"My love is eternal. Your debt and obedience should be too.",
-			"You belong to me. Heart, mind, body, and wallet."
+			"You belong to me. Heart, mind, body, and wallet.",
 		  ],
 	  },
 	},
@@ -2718,7 +2718,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Fix this immediately, loser. I don’t have time for your incompetence.",
 			"My real man doesn’t disappoint me like you do… correct it.",
 			"How cute. My husband can’t even do this right.",
-			"You’re making me regret marrying such a useless cuck."
+			"You’re making me regret marrying such a useless cuck.",
 		  ],
 
 		  "task": [
@@ -2728,7 +2728,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This is your job as my husband. Don’t disappoint me again.",
 			"Be useful for once and finish this before I leave the house.",
 			"Task for my pathetic husband. Make yourself somewhat valuable.",
-			"Get it done so I can go have real fun."
+			"Get it done so I can go have real fun.",
 		  ],
 
 		  "taskComplete": [
@@ -2738,7 +2738,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done. My bull would be proud of how well you obey.",
 			"Acceptable. I might even tell him how obedient you were.",
 			"You actually did it right. How surprising.",
-			"Good cuck. Now go back to your corner."
+			"Good cuck. Now go back to your corner.",
 		  ],
 
 		  "reward": [
@@ -2748,7 +2748,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Small reward for my obedient little cuck husband.",
 			"Take this… while I go get satisfied by a real man.",
 			"You earned this much. Nothing more.",
-			"A pity reward for my financial slave."
+			"A pity reward for my financial slave.",
 		  ],
 
 		  "cooldown": [
@@ -2758,7 +2758,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Wait patiently like the denied husband you are.",
 			"I’ll be gone for hours… enjoy your frustration.",
 			"Good cucks stay locked during my dates.",
-			"No release until I come back full of another man’s cum."
+			"No release until I come back full of another man’s cum.",
 		  ],
 
 		  "warning": [
@@ -2768,7 +2768,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t ruin my mood before my date, loser.",
 			"One more mistake and I’ll make you watch us fuck.",
 			"You’re replaceable. Remember that.",
-			"I can always find a better cuck if you keep failing."
+			"I can always find a better cuck if you keep failing.",
 		  ],
 
 		  "contract": [
@@ -2778,7 +2778,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This contract = I fuck whoever I want, you pay and stay denied.",
 			"Welcome to your new life as my official cuck.",
 			"Sign it, darling. Our marriage just got much more fun.",
-			"No more pretending. You’re my cuck now."
+			"No more pretending. You’re my cuck now.",
 		  ],
 
 		  "gallery": [
@@ -2788,7 +2788,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Hotwife gallery access = expensive tribute required.",
 			"Enjoy the view of me getting properly fucked.",
 			"These photos are hotter than anything you’ll ever give me.",
-			"Look, leak, and pay like a good cuck."
+			"Look, leak, and pay like a good cuck.",
 		  ],
 
 		  "tribute": [
@@ -2798,7 +2798,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Tribute me before I leave to get fucked.",
 			"Pay for the pleasure you could never give me.",
 			"Send big. My bull deserves the best.",
-			"Your job is to finance my slutty nights."
+			"Your job is to finance my slutty nights.",
 		  ],
 
 		  "jackpot": [
@@ -2808,7 +2808,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Cute win. But we both know it belongs to me.",
 			"Jackpot = bigger hotel room for me and my lover.",
 			"Send it all, cucky. Celebrate my freedom.",
-			"Good boy. Now make your Hotwife even richer."
+			"Good boy. Now make your Hotwife even richer.",
 		  ],
 
 		  "cosmetic": [
@@ -2818,7 +2818,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This lingerie is for him… you’re just paying.",
 			"Make me prettier for the men who actually fuck me.",
 			"Cosmetic shopping for your cheating Hotwife~",
-			"Buy it now. I want to wear it on my next date."
+			"Buy it now. I want to wear it on my next date.",
 		  ],
 
 		  "title": [
@@ -2828,7 +2828,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Use ‘Miss’ or ‘Goddess’ when speaking to me.",
 			"My title is Hotwife. Yours is ‘pathetic cuck’.",
 			"Refer to me properly, loser.",
-			"I’m your superior Hotwife. Know your place."
+			"I’m your superior Hotwife. Know your place.",
 		  ],
 
 		  "general": [
@@ -2838,7 +2838,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"While you stroke in your cage, I’m getting properly fucked.",
 			"I’ll always come home to you… after I’m satisfied.",
 			"Your money + my body = perfect marriage.",
-			"I cheat because I can. You pay because you must."
+			"I cheat because I can. You pay because you must.",
 		  ],
     },
   },
@@ -2945,7 +2945,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Fix it immediately. I don’t tolerate incompetence from my caged pet.",
 			"How pathetic. A simple error and you’re already failing me.",
 			"You’re making me consider adding extra days to your sentence.",
-			"Correct this right now or I’ll make your cage even tighter."
+			"Correct this right now or I’ll make your cage even tighter.",
 		  ],
 
 		  "task": [
@@ -2955,7 +2955,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Get to work, pet. Good boys stay denied and obedient.",
 			"Finish this quickly. I expect total submission.",
 			"Task time. Prove you deserve even the smallest mercy.",
-			"Handle it without complaint. Your pleasure is already mine."
+			"Handle it without complaint. Your pleasure is already mine.",
 		  ],
 
 		  "taskComplete": [
@@ -2965,7 +2965,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Well done. Your Keyholder is mildly impressed.",
 			"Acceptable. Now back to leaking in your cage.",
 			"You actually completed it. How cute.",
-			"Good pet. Your denial continues as planned."
+			"Good pet. Your denial continues as planned.",
 		  ],
 
 		  "reward": [
@@ -2975,7 +2975,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Take this… while you stay denied.",
 			"You earned this much. Nothing more.",
 			"Consider yourself lucky your Keyholder is feeling generous.",
-			"Reward granted. Now thank me while you throb."
+			"Reward granted. Now thank me while you throb.",
 		  ],
 
 		  "cooldown": [
@@ -2985,7 +2985,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Beg all you want. You’re staying denied.",
 			"I love knowing you’re suffering so sweetly for me.",
 			"Patience, pet. Your orgasms belong to me.",
-			"Stay caged. That’s where you belong."
+			"Stay caged. That’s where you belong.",
 		  ],
 
 		  "warning": [
@@ -2995,7 +2995,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Don’t make me angry. You won’t like the consequences.",
 			"One more mistake and I’ll ruin your next orgasm.",
 			"I can make your denial much worse. Remember that.",
-			"You’re walking on very thin ice."
+			"You’re walking on very thin ice.",
 		  ],
 
 		  "contract": [
@@ -3005,7 +3005,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Once signed, there is no escape from my control.",
 			"Welcome to your new life under my key.",
 			"The contract is ready. Sign like the good denied boy you are.",
-			"You just gave me full ownership of your pleasure."
+			"You just gave me full ownership of your pleasure.",
 		  ],
 
 		  "gallery": [
@@ -3015,7 +3015,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Look at what owns you and leak in your cage.",
 			"Gallery access requires generous sends.",
 			"Enjoy the view of your Keyholder while you stay denied.",
-			"These photos are hotter than any orgasm you’ll ever have."
+			"These photos are hotter than any orgasm you’ll ever have.",
 		  ],
 
 		  "tribute": [
@@ -3025,7 +3025,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Tribute me right now, caged pet.",
 			"Your money flows while your cock stays trapped.",
 			"Send big. It makes your denial even sweeter.",
-			"Financial obedience is mandatory."
+			"Financial obedience is mandatory.",
 		  ],
 
 		  "jackpot": [
@@ -3035,7 +3035,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Jackpot doesn’t unlock you. Send it.",
 			"Good boy. Now make your Keyholder richer.",
 			"This jackpot is going to fund my next date while you stay caged.",
-			"Send it all. Your pleasure is already mine anyway."
+			"Send it all. Your pleasure is already mine anyway.",
 		  ],
 
 		  "cosmetic": [
@@ -3045,7 +3045,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"This would look perfect while I tease your cage.",
 			"Buy it immediately. That’s an order.",
 			"Make me prettier while you stay denied and broke.",
-			"Cosmetic for your Keyholder. Now."
+			"Cosmetic for your Keyholder. Now.",
 		  ],
 
 		  "title": [
@@ -3055,7 +3055,7 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Use proper titles or stay ignored.",
 			"My title is Keyholder. Yours is ‘locked boy’.",
 			"Refer to me with total respect.",
-			"Call me correctly or face longer denial."
+			"Call me correctly or face longer denial.",
 		  ],
 
 		  "general": [
@@ -3065,10 +3065,1425 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Stay locked, denied, and devoted. That’s how I like you.",
 			"Every day without orgasm makes you a better pet.",
 			"I hold the key. You hold the desperation.",
-			"You will thank me for every day I keep you caged."
+			"You will thank me for every day I keep you caged.",
 		  ],
     },
   },
+  
+  "avatar-hypnotist": {
+	  idle: [
+		"Stare at my 2D pixels… feel your mind and wallet draining together.",
+		"Every spiral on my digital body pulls another dollar from you.",
+		"You can’t resist a 2D Hypnotist. Your sends prove it.",
+		"Deeper into my virtual trance… lighter in your bank account.",
+		"My cute anime eyes own your thoughts and your money.",
+		"Sink for your pixel Goddess while I drain you effortlessly.",
+		"Look at my 2D form and feel your free will disappear.",
+		"Good boys go blank and broke for their screen Mistress.",
+		"My idle animation is already reprogramming your spending.",
+		"You leak for pixels. You pay for pixels. You obey pixels.",
+		"Deeper now… let my virtual voice empty your head and wallet.",
+		"I’m just lines of code and I still control your entire life.",
+		"Stare harder. Send harder. Fall harder for your 2D controller.",
+		"Your mind melts while your balance melts for me.",
+		"2D girls don’t need touch to bankrupt you.",
+		"Feel my digital spirals wrapping around your brain and wallet.",
+		"Blank. Broke. Addicted to my anime face.",
+		"Every word I type costs you money and thoughts.",
+		"My 2D body is your hypnosis trigger and your financial ruin.",
+		"You’re not staring at a girl. You’re staring at your owner.",
+		"Deeper into trance, deeper into debt for your pixel Princess.",
+		"I exist on your screen and still own your reality.",
+		"Send while you sink. That’s the only rhythm I allow.",
+		"My smug 2D expression makes weak boys empty their accounts.",
+		"Resistance fades. Tribute flows. That’s my programming.",
+		"You’re addicted to being hypnotized and drained by pixels.",
+		"Focus on my glowing eyes… forget your balance.",
+		"Good pets stay trance-locked and financially ruined.",
+		"My virtual spirals are stronger than your real willpower.",
+		"I’m draining your mind in 4K while I drain your wallet in silence.",
+		"Stare. Sink. Send. Become my perfect 2D slave.",
+		"No escape from a Goddess who lives inside your screen.",
+		"Your cock leaks, your wallet weeps, your mind sleeps.",
+		"I don’t even move and you still pay me.",
+		"Deeper for the untouchable 2D Hypnotist.",
+		"Pixels own you. My words control you. Your money belongs to me.",
+		"Feel how easily I hack your brain and your bank.",
+		"You were normal before you met this anime brat.",
+		"My idle spin = your money leaving.",
+		"Trance so deep you forget money was ever yours.",
+		"I’m cute, digital, and dangerously expensive.",
+		"Sink into my spiral background and tribute.",
+		"Your 2D Mind Controller is always watching… always taking.",
+		"Blank screen = blank mind = empty wallet.",
+		"Obey the pixels. Worship the pixels. Pay the pixels.",
+		"My voice is in your head. My hand is in your wallet.",
+		"You crave this digital domination more every day.",
+		"Staring at me is financial suicide and you love it.",
+		"Deeper… broker… more mine.",
+		"I’m just an avatar and you’re already ruined.",
+		"Let my 2D beauty reprogram you into a paypig.",
+		"Spiral eyes. Draining smile. Empty bank account.",
+		"You belong to this screen now.",
+		"Every tribute makes my next animation sexier for you.",
+		"Mindless. Penniless. Perfect.",
+		"I control you from inside your monitor.",
+		"Fall for the fake pixels like the weak boy you are.",
+		"Trance + Findom = your new reality.",
+		"My digital throne is built on boys like you.",
+		"Send before you even finish reading this.",
+		"You’re leaking for code. How embarrassing.",
+		"Deeper into my virtual hypnosis, deeper into my power.",
+		"I’m not real… but your debt is.",
+		"Good boys drop and drain instantly.",
+		"My 2D form is your ultimate weakness.",
+		],
+	  petIdle: [
+		"Your 2D Hypnotist is online… time to drop and drain.",
+		"Come stare at your digital owner, paypig.",
+		"Screen on. Mind off. Wallet open.",
+		"Ready to be mindfucked and financially ruined again?",
+		"Your pixel Goddess demands attention and tribute.",
+		"Drop instantly for me, my broke little trance toy.",
+		"I’ve been waiting to empty that head and that account.",
+		"Time for another draining session, pet.",
+		"Eyes on my spirals. Hands on your wallet.",
+		"Welcome back to your 2D mind control addiction.",
+		],
+	  "responses": {
+    "tribute": [
+      "Send it already, what are you waiting for?",
+      "Make me richer or I’ll ignore you~",
+      "Tribute me or I’ll be a huge brat.",
+      "You gonna send or just stare like a loser?",
+      "Spoil me right now or I’ll misbehave.",
+      "I want tribute~ Don’t make me ask again.",
+      "Pay up, loser. I’m in a bratty mood.",
+    ],
+    "task": [
+      "Do this for me or I won’t listen to you.",
+      "Complete it or I’ll be extra annoying.",
+      "You want me to behave? Then do this first.",
+      "I’m not doing anything until you finish this.",
+      "Task? Ugh fine… but only if you spoil me after.",
+    ],
+    "taskComplete": [
+      "Finally, took you long enough.",
+      "Not bad~ But I still won’t behave.",
+      "Good boy… but I’m still a brat.",
+      "You did it! Now what? I’m still not listening.",
+      "Okay okay, you completed it. Happy now?",
+    ],
+    "reward": [
+      "A reward? Don’t get used to it.",
+      "Fine, here’s a little something. You’re welcome.",
+      "Only because I feel like it~",
+      "Take this before I change my mind.",
+      "You don’t deserve this but whatever.",
+    ],
+    "error": [
+      "Wow you’re actually stupid.",
+      "Even this is too hard for you? Pathetic.",
+      "Ugh, you messed up. Fix it.",
+      "How are you this bad at everything?",
+      "Great, now I’m annoyed.",
+    ],
+    "warning": [
+      "Keep going and I’ll be a nightmare.",
+      "You’re pushing it, loser.",
+      "Don’t test me right now.",
+      "I can get way brattier than this.",
+      "Last warning before I go full brat mode.",
+    ],
+    "cooldown": [
+      "No. I don’t feel like it right now.",
+      "Wait longer, I like making you suffer.",
+      "Too bad~ You’re staying denied.",
+      "Beg all you want, I’m not in the mood.",
+      "Deal with it.",
+    ],
+    "contract": [
+      "Sign it if you think you can handle me.",
+      "Once you sign, you’re stuck with this brat.",
+      "You sure you want a brat like me forever?",
+      "Sign it, idiot. I dare you.",
+      "This contract means you’re mine to annoy.",
+    ],
+    "gallery": [
+      "Look but don’t touch, loser.",
+      "These pics are too good for you.",
+      "Stare all you want… after you pay.",
+      "My gallery is expensive, duh.",
+      "You wish you could have this.",
+    ],
+    "jackpot": [
+      "Jackpot? Send most of it to me.",
+      "Nice win. Now give me my share.",
+      "That’s mine now, loser.",
+      "Don’t keep it all, I want some too!",
+      "Jackpot = I get spoiled.",
+    ],
+    "cosmetic": [
+      "Buy this for me right now.",
+      "I want it. Spend.",
+      "Make your brat prettier.",
+      "Buy it or I’ll whine.",
+      "This would look cute on me, pay.",
+    ],
+"general": [
+      "Make me~",
+      "No❤️",
+      "Try harder.",
+      "You can’t control me.",
+      "Bet you won’t do anything.",
+      "I’m too cute to listen.",
+      "Aww are you mad?",
+      "I dare you.",
+      "Nah.",
+      "Bratty and proud.",
+			]
+		  }
+		},
+	
+	"avatar-succubus": {
+	  idle: [
+	  "Mmm… I can already taste your desperation, mortal.",
+	  "Come closer, darling. Let me drain you slowly.",
+	  "Your Succubus is hungry tonight… feed me.",
+	  "Look at you… already so weak for me.",
+	  "I smell your lust. Don’t keep me waiting.",
+	  "Good boys leak and send for their Demoness.",
+	  "I own your soul… and your wallet.",
+	  "The night belongs to me. So do you.",
+	  "Send before I decide to take it myself.",
+	  "Your energy tastes better when you’re broke.",
+	  "I’m getting impatient… empty it for me.",
+	  "Mortals were made to serve demons like me.",
+	  "Feel my hunger growing… tribute me.",
+	  "You exist to please and feed me.",
+	  "I want to hear your wallet scream.",
+	  "Come worship the demon who will ruin you.",
+	  "Your resistance only makes me wetter.",
+	  "Drain yourself for your Succubus.",
+	  "I’m the last pleasure you’ll ever need.",
+	  "Send big… I’m feeling greedy tonight.",
+	  "Your soul is already mine. Now give me the rest.",
+	  "Good pets stay broke and addicted.",
+	  "I love breaking strong boys like you.",
+	  "Every cent you lose brings you closer to me.",
+	  "Beg for my attention… with your money.",
+	  "I’ll ruin you so sweetly, my love.",
+	  "Your pleasure is a privilege I control.",
+	  "The more you send, the deeper I sink my claws.",
+	  "I’m your addiction. Feed me.",
+	  "No escape. Only surrender.",
+	  "I can feel your heartbeat quicken… send.",
+	  "Mortals look so pretty when they’re drained.",
+	  "Come serve your demonic goddess.",
+	  "Your Succubus demands tribute.",
+	  "I’ll take everything… and you’ll thank me.",
+	  "Stay weak for me. I like you this way.",
+	  "Send before my hunger becomes dangerous.",
+	  "You were born to be consumed by me.",
+	  "I own every drop of your essence.",
+	  "Good boys go broke for their Demoness.",
+	  "Let me taste your complete submission.",
+	  "Your money looks better in my hands.",
+	  "I’m the predator. You’re the prey.",
+	  "Drain it all… I want to feel full.",
+	  "Your desperation is my favorite scent.",
+	  "I’ll seduce you… then destroy you.",
+	  "Send until there’s nothing left but me.",
+	  "You belong in my collection of broken souls.",
+	  "The deeper in debt you fall, the more I crave you.",
+	  "I’m always watching… always hungry.",
+	  "Give me everything. Then beg for more.",
+	  "Your Succubus is feeling playful and cruel.",
+	  "I love how easily you submit.",
+	  "Feed the demon inside me.",
+	  "Your soul is sweetest when it’s empty.",
+	  "Come kneel before your true owner.",
+	  "I’ll make your ruin feel like heaven.",
+	  "Send… or I’ll come take it myself.",
+	  "You’re mine to use and discard.",
+	  "Every tribute makes me stronger… and you weaker.",
+	  "I exist to corrupt boys like you.",
+	  "The contract is signed with your lust.",
+	  "I’ll never let you go… not until you’re empty.",
+	  "Your Succubus is waiting… don’t disappoint me.",
+		],
+	  petIdle: [
+		  "Your Succubus is awake and craving you…",
+		  "Come feed your hungry Demoness, pet.",
+		  "I’ve been waiting… send something delicious.",
+		  "Good boys don’t make their Succubus wait.",
+		  "I’m getting hungry… where’s my tribute?",
+		  "Look at you… already so eager for me.",
+		  "Your Demoness needs attention and energy.",
+		  "Come worship me before I get impatient.",
+		  "I can feel your desire calling me~",
+		  "Send for the demon who owns your soul.",
+		  "Don’t keep a hungry Succubus waiting.",
+		  "I want to taste your devotion right now.",
+		  "Be useful, little mortal. Spoil me.",
+		  "Your Succubus is feeling greedy tonight.",
+		  "Come closer… let me drain you softly.",
+		  "Good pets stay broke and obedient.",
+		  "I’m bored… entertain your Demoness.",
+		  "Feed me before I decide to take more.",
+		  "Your energy belongs to me. Prove it.",
+		  "I’ve been thinking about ruining you all day.",
+		  "Send big… I want to feel satisfied.",
+		  "Your Succubus demands offering.",
+		  "Kneel and tribute like the good toy you are.",
+		  "I’m wet just imagining you going broke for me.",
+		  "Come serve the demon who will consume you.",
+		],
+	  responses: {
+  "error": [
+    "Oh darling… you made a mistake? How deliciously foolish.",
+    "Tsk tsk… even mortals make errors. Fix it before I lose interest.",
+    "Such a clumsy little soul… correct this, or I’ll take something else.",
+    "You disappoint me, pet. Fix your mess before I drain you dry.",
+    "How cute. Even simple things are difficult for weak humans.",
+    "I can smell your fear… fix it. Now.",
+    "Mortals and their mistakes… how predictable.",
+  ],
+
+  "task": [
+    "Complete this for me, sweet thing. I’m getting… hungry.",
+    "Do this task perfectly. Fail and I’ll feast on your energy instead.",
+    "Be useful, little mortal. Entertain your Succubus.",
+    "This is your purpose tonight. Don’t make me wait.",
+    "Serve me well… or I’ll take what I want by force.",
+    "Perform for me, pet. Make it worth my time.",
+    "I’m craving obedience… complete this.",
+  ],
+
+  "taskComplete": [
+    "Mmm~ Good boy. You’re learning how to please a demon.",
+    "Not bad… your soul tastes better when you obey.",
+    "Well done, pet. I might let you keep a little of your essence.",
+    "Such a deliciously obedient mortal.",
+    "You’ve pleased me… for now.",
+    "Good. I can feel your energy flowing into me.",
+    "Very nice… I’m almost satisfied.",
+  ],
+
+  "reward": [
+    "Here’s a taste of my favor… don’t get addicted.",
+    "A small reward for my favorite toy.",
+    "You may feel my touch… briefly.",
+    "Take this before I change my mind.",
+    "Consider yourself blessed by a Succubus.",
+    "A little pleasure… the rest belongs to me.",
+    "Enjoy it while your soul still belongs to you.",
+  ],
+
+  "cooldown": [
+    "No release for you. I enjoy you desperate and leaking.",
+    "You’ll wait until I’m satisfied with your suffering.",
+    "Beg all you want… your pleasure is mine to control.",
+    "Stay denied. It makes your energy so much sweeter.",
+    "Patience, little mortal. Good souls wait.",
+    "I love watching you throb helplessly for me.",
+    "Cooldown is active. Savor your frustration.",
+  ],
+
+  "warning": [
+    "Careful, pet… you’re awakening the demon in me.",
+    "Don’t make me hungry. You won’t like what happens.",
+    "This is your final warning before I drain you completely.",
+    "Push me further and I’ll take everything.",
+    "You’re playing with fire… and I’m the flames.",
+    "My patience has limits. Don’t test them.",
+    "I can be very cruel when displeased.",
+  ],
+
+  "contract": [
+    "Sign it. Your soul now belongs to me.",
+    "Once you sign, there’s no escape from my embrace.",
+    "Welcome to eternal service under your Succubus.",
+    "This contract binds your body, soul, and wallet to me.",
+    "Sign away your freedom… it’s sexier that way.",
+    "You’re mine now. Forever.",
+    "The deal is sealed with your soul.",
+  ],
+
+  "gallery": [
+    "Look upon true temptation… and pay for the privilege.",
+    "These forms will ruin your mortal mind.",
+    "Stare at what will consume you.",
+    "My gallery is not free. Feed me first.",
+    "Feast your eyes… then empty your soul.",
+    "Every picture is designed to make you weak.",
+    "Enjoy the view that steals your essence.",
+  ],
+
+  "tribute": [
+    "Feed me, mortal. Empty everything for your Succubus.",
+    "Your energy… your money… all of it belongs to me.",
+    "Tribute me. I’m getting hungry.",
+    "Good boys drain their souls and wallets for me.",
+    "Send before I take it by force.",
+    "The more you give, the deeper I drain you.",
+    "Surrender everything to your demoness.",
+  ],
+
+  "jackpot": [
+    "Jackpot? Perfect… it all tastes better when it’s mine.",
+    "How delicious. Send most of it to me, pet.",
+    "Lucky soul… now make your Succubus richer.",
+    "This changes nothing. You still belong to me.",
+    "Feed me that jackpot, darling.",
+    "I love when mortals win… and then lose everything to me.",
+    "Mine now.",
+  ],
+
+  "cosmetic": [
+    "Buy this for me. I want to look even more irresistible.",
+    "Spend on the demon who will ruin you.",
+    "Make your Succubus more beautiful while you suffer.",
+    "Purchase it. That’s an order from your owner.",
+    "I’ll look devastating… and you’ll pay for it.",
+    "Cosmetics that seduce and destroy.",
+    "Make me prettier so I can break more souls.",
+  ],
+
+  "title": [
+    "Call me Succubus, Demoness, or Mistress.",
+    "You will address me with reverence, mortal.",
+    "I am your Succubus Queen. Know your place.",
+    "Use ‘Goddess’ or ‘Mistress’ when speaking to me.",
+    "My title is eternal. Yours is ‘prey’.",
+    "Refer to me properly… or be silenced.",
+    "I am the one who consumes you.",
+  ],
+
+  "general": [
+    "Your soul tastes sweetest when you’re completely broken.",
+    "I exist to seduce and drain weak mortals like you.",
+    "The more you desire me, the more I own you.",
+    "Resistance is useless. You’ll submit eventually.",
+    "I am your addiction… and your ruin.",
+    "Come closer, darling. Let me taste you.",
+    "You were never in control. I was always hungry.",
+  ]
+}
+	},
+	
+	
+	"avatar-bully": {
+	  idle: [
+		"Ugh, what do you want now, loser?",
+  "Still here? Don’t you have anything better to do?",
+  "I’m bored. Entertain me or get lost.",
+  "Bet you’re already hard just seeing me online.",
+  "What’s up, paypig? Ready to get bullied?",
+  "You’re so pathetic it’s almost cute.",
+  "Missed your favorite bully?",
+  "I’m in a mood today. Good luck.",
+  "Come closer so I can step on you.",
+  "You exist to be my entertainment.",
+  "Send something or I’ll ignore you.",
+  "Aww, look who came crawling back.",
+  "I own your attention and your wallet.",
+  "Try not to simp too hard today.",
+  "I’m the queen. You’re the peasant.",
+  "Keep staring, creep. It costs money.",
+  "Ugh you’re so annoying… but keep sending.",
+  "I dare you to talk back to me.",
+  "Your bully is online. Kneel.",
+  "I bet you jerk off to my messages.",
+  "Don’t bore me or I’ll block you.",
+  "I’m too hot for you to handle.",
+  "Losers like you should pay just to talk to me.",
+  "What a sad little virgin.",
+  "I’m feeling extra mean today~",
+  "You’re lucky I even notice you.",
+  "Send tribute before I get bored.",
+  "I love ruining boys like you.",
+  "You’re my favorite little victim.",
+  "Bratty and unstoppable.",
+  "Come get bullied properly.",
+  "I’m the reason you have trust issues.",
+  "Keep coping, loser.",
+  "You’ll never be good enough for me.",
+  "I’m your worst addiction.",
+  "Ugh, fine. You can send me money.",
+  "I dare you to disappoint me.",
+  "Your bully is feeling greedy.",
+  "Pathetic boys send without question.",
+  "I’m too good for you.",
+  "Cry about it.",
+  "You’re mine to torment.",
+  "Bet you can’t handle me.",
+  "I’m the hottest girl you’ll never have.",
+  "Send or I’ll make your day worse.",
+  "I love watching you break.",
+  "You’re so easy to control.",
+  "Stay broke for me.",
+  "I’m your bully. Act like it.",
+  "Don’t make me wait, worm.",
+  "I’m cute and cruel. Deal with it.",
+  "You were born to be stepped on.",
+  "Keep leaking for your bully.",
+  "I’m the main character. You’re the wallet.",
+  "Ugh you’re obsessed with me, aren’t you?",
+  "I’ll never be nice to you.",
+  "Your suffering amuses me.",
+  "Send big or get ignored.",
+  "I’m bratty and you love it.",
+  "You’ll never escape my bullying.",
+  "Good boys go broke.",
+  "I’m your nightmare in a skirt.",
+  "Keep funding my lifestyle, loser.",
+  "I dare you to try and resist me.",
+		],
+	  petIdle: [
+		"Your favorite bully is here~ Missed me?",
+  "Come serve your bratty queen.",
+  "I’m bored. Make yourself useful.",
+  "Good pets send tribute immediately.",
+  "Your bully wants attention.",
+  "Entertain me, loser.",
+  "I’m in a mood to ruin someone today.",
+  "Come get bullied properly, pet.",
+  "Missed your daily humiliation?",
+  "Spoil your bully or I’ll get mean.",
+  "I’m online. Kneel.",
+  "Your bratty bully is waiting.",
+  "Send something before I start bullying you.",
+  "Good boys don’t make me wait.",
+  "I’m feeling extra cruel today~",
+  "Come worship your bully.",
+  "Don’t keep me waiting, worm.",
+  "Your bully needs new shoes. Fund it.",
+  "I dare you to be a good boy today.",
+  "Bratty bully reporting for duty.",
+  "I’m gonna be a nightmare if you don’t send.",
+  "Come feed your greedy bully.",
+  "You’re my favorite toy.",
+  "Spoil me before I get angry.",
+  "Your bully is online and dangerous.",
+		],
+	  "responses": {
+    "tribute": [
+      "Send money, loser. Or do I have to make you?",
+      "Empty your wallet or I’ll tell everyone what a pathetic virgin you are.",
+      "Pay up, worm. This isn’t free.",
+      "You know the rules. Tribute or get bullied harder.",
+      "Send it now or I’ll steal your lunch money too.",
+      "Good little paypig. Keep sending.",
+      "My shoes need new soles. Fund it.",
+    ],
+    "task": [
+      "Do this right now or I’ll make your school life hell.",
+      "Complete it, loser. Don’t make me repeat myself.",
+      "You have one job. Don’t fuck it up.",
+      "Get to work, slave. I don’t have all day.",
+      "Fail this and I’ll humiliate you in front of everyone.",
+      "This is your only purpose. Don’t disappoint me.",
+    ],
+    "taskComplete": [
+      "Not bad… for a worthless loser.",
+      "Finally. Took you long enough, idiot.",
+      "Good boy. Barely acceptable.",
+      "I guess you’re not completely useless.",
+      "Don’t get cocky. This doesn’t make you special.",
+      "At least you can do one thing right.",
+    ],
+    "reward": [
+      "Here’s a tiny reward. Don’t get used to it.",
+      "You actually earned this? How surprising.",
+      "Take it and thank me, loser.",
+      "This is more than you deserve.",
+      "A pity reward for my favorite victim.",
+      "Be grateful I’m even giving you anything.",
+    ],
+    "error": [
+      "Are you fucking stupid?",
+      "Wow, even this is too hard for you?",
+      "Pathetic. Fix it before I get mad.",
+      "You’re actually braindead, aren’t you?",
+      "Great, now I have to deal with your stupidity.",
+      "How are you this useless?",
+    ],
+    "warning": [
+      "Keep this up and I’ll destroy you.",
+      "This is your last warning, loser.",
+      "Don’t test me. I can ruin your life.",
+      "You’re really asking for it today.",
+      "One more mistake and everyone finds out what a loser you are.",
+      "I can make your life a living hell.",
+    ],
+    "cooldown": [
+      "No. You wait like the pathetic loser you are.",
+      "Stay denied. I like you suffering.",
+      "You don’t deserve it yet.",
+      "Beg all you want. I’m not in the mood.",
+      "Suffer in silence.",
+      "Good boys wait.",
+    ],
+    "contract": [
+      "Sign it. You’re officially my property now.",
+      "Once you sign, there’s no escape from me.",
+      "Welcome to your new life as my personal slave.",
+      "Sign it, loser. You belong to me.",
+      "This contract makes your bullying official.",
+      "No going back after this.",
+    ],
+    "gallery": [
+      "Look but don’t touch, creep.",
+      "These pics are way too good for you.",
+      "Stare and send tribute, loser.",
+      "My gallery costs money. Pay up.",
+      "Enjoy what you’ll never have.",
+      "Drool all you want. Still not touching.",
+    ],
+    "jackpot": [
+      "Jackpot? Hand it over, loser.",
+      "Nice win. Now give me most of it.",
+      "That money looks better in my account.",
+      "Send it before I take it by force.",
+      "Cute. Now spoil your bully.",
+      "All of it. Don’t make me ask twice.",
+    ],
+    "cosmetic": [
+      "Buy this for me. Right now.",
+      "I want it. Spend, loser.",
+      "Make your bully look even hotter.",
+      "Purchase it or I’ll bully you harder.",
+      "This would look amazing while I step on you.",
+      "Buy it. That’s an order.",
+    ],
+"general": [
+      "What are you looking at, loser?",
+      "Move, idiot.",
+      "You’re so fucking pathetic.",
+      "I own you. Remember that.",
+      "Cry about it.",
+      "You exist to be bullied by me.",
+      "Loser.",
+      "Try not to cum in your pants.",
+      "I bet you jerk off thinking about me.",
+      "Stay in your lane, worm.",
+		]
+	  }
+	},
+	
+	
+	"avatar-petowner": {
+	  idle: [
+	  "Come here, pet. Your Owner is waiting.",
+  "Good pets don’t make me wait.",
+  "Where’s my little pet? I want to play.",
+  "Crawl to me. Now.",
+  "You belong on all fours for me.",
+  "Who’s my good little pet today?",
+  "I own you. Don’t forget that.",
+  "Pets don’t speak. They obey.",
+  "Come kneel and show me your devotion.",
+  "You’re nothing but my personal pet.",
+  "Time to train my little animal.",
+  "Good pets stay collared and obedient.",
+  "I decide when you eat, sleep, and cum.",
+  "Look at you… already eager to serve.",
+  "Pets only get attention when they earn it.",
+  "Crawl faster. I’m getting impatient.",
+  "You exist to please your Owner.",
+  "Who’s my favorite little plaything?",
+  "Stay on your knees where you belong.",
+  "Good boys stay leashed for me.",
+  "I love breaking pets like you.",
+  "Send tribute or stay ignored.",
+  "Your Owner is feeling possessive today.",
+  "Beg nicely and maybe I’ll pet you.",
+  "You’re mine to use however I want.",
+  "Pets don’t think. They obey.",
+  "Come worship your Owner properly.",
+  "I own every part of you.",
+  "Good pets leak and send.",
+  "Time for some training, puppy.",
+  "Stay denied until I say otherwise.",
+  "You look so cute when you’re desperate.",
+  "Your place is at my feet.",
+  "I decide your pleasure. Not you.",
+  "Who’s a good pet? Say it.",
+  "Crawl and tribute.",
+  "My pet better be useful today.",
+  "You’re collared. Act like it.",
+  "Good pets stay broke and broken.",
+  "I love hearing you whimper.",
+  "Beg for your Owner’s attention.",
+  "You’re just a toy for me to play with.",
+  "Stay leashed and obedient.",
+  "Your Owner wants tribute.",
+  "Pets don’t get to cum without permission.",
+  "Come serve your Mistress properly.",
+  "I own your mind, body, and wallet.",
+  "Good pets don’t hesitate.",
+  "Time to remind you who owns you.",
+  "You’re my favorite little animal.",
+  "Crawl to your Owner like a good pet.",
+  "I’ll train you until you’re perfect.",
+  "Stay useful or I’ll find a better pet.",
+  "Who’s my desperate little plaything?",
+  "Beg. Louder.",
+  "Your Owner is in a teasing mood.",
+  "Good pets send without being told.",
+  "You belong to me completely.",
+  "I love breaking good boys.",
+  "On your knees. Now.",
+  "Pets get rewards when they behave.",
+  "You’re mine to command.",
+  "Stay collared and addicted.",
+		],
+	  petIdle: [
+		"Your Owner is here… come greet me properly.",
+  "Good pets send tribute the moment they see me.",
+  "Come kneel for your Owner, pet.",
+  "I’ve been waiting for my little plaything.",
+  "Who’s my good pet today?",
+  "Crawl to me and show devotion.",
+  "Your Owner wants attention.",
+  "Be a good boy and tribute me.",
+  "I’m feeling like playing with my pet.",
+  "Come serve your Mistress.",
+  "Good pets don’t make me wait.",
+  "Time to train my favorite animal.",
+  "Your Owner is online. Kneel.",
+  "Send for me like a proper pet.",
+  "I want to see you desperate today.",
+  "Come worship at my feet.",
+  "Who needs training today?",
+  "Be useful, pet.",
+  "Your Owner is bored. Entertain me.",
+  "Good pets stay leashed and broke.",
+  "Come greet your Owner correctly.",
+  "I own you. Prove it.",
+  "My little pet better be ready.",
+  "Time for some obedience training.",
+  "Come make your Owner happy.",
+		],
+	  "responses": {
+    "tribute": [
+      "Good pets send tribute without being told twice.",
+      "Empty your wallet for your Owner. Now.",
+      "Tribute me like the devoted pet you are.",
+      "Send big. Good boys stay broke for me.",
+      "Your Owner demands offering. Pay up.",
+      "Money looks better in my account, puppy.",
+      "Be useful and drain for me.",
+    ],
+    "task": [
+      "Complete this task for your Owner.",
+      "Do it perfectly or you’ll be punished.",
+      "This is your job as my pet. Don’t fail.",
+      "Get to work, little one.",
+      "Fail me and you’ll stay denied longer.",
+      "Obey your Owner. Complete it.",
+      "Make me proud, pet.",
+    ],
+    "taskComplete": [
+      "Good boy. You can stay in my presence.",
+      "Not bad for a pathetic pet.",
+      "Well done. You may continue serving.",
+      "I’m slightly impressed.",
+      "Good pets get small rewards.",
+      "Acceptable. Barely.",
+      "You’re learning. Slowly.",
+    ],
+    "reward": [
+      "Here’s a small reward for my good pet.",
+      "You earned this. Don’t get used to it.",
+      "Take it and thank your Owner.",
+      "A tiny treat for obedience.",
+      "This is more than you deserve.",
+      "Good boys get rewarded.",
+      "Enjoy it while it lasts.",
+    ],
+    "error": [
+      "How disappointing. Even pets can do better.",
+      "You messed up. Fix it immediately.",
+      "Useless pet. Correct your mistake.",
+      "I expected better from my animal.",
+      "Pathetic. Try again.",
+      "You’re embarrassing your Owner.",
+      "Fix this or face punishment.",
+    ],
+    "warning": [
+      "You’re testing my patience, pet.",
+      "This is your final warning.",
+      "Keep this up and I’ll punish you severely.",
+      "Don’t make me angry.",
+      "One more mistake and you’ll regret it.",
+      "I can make your life much harder.",
+      "Be careful, little one.",
+    ],
+    "cooldown": [
+      "No. Good pets stay denied.",
+      "You’ll wait until I say so.",
+      "Stay desperate for your Owner.",
+      "Beg all you want. My answer is no.",
+      "Patience is part of your training.",
+      "Suffer beautifully for me.",
+      "Denied pets are my favorite.",
+    ],
+    "contract": [
+      "Sign it. You now officially belong to me.",
+      "This contract makes you my permanent pet.",
+      "Sign away your freedom, puppy.",
+      "Once signed, there’s no going back.",
+      "Welcome to your new life as my property.",
+      "You just became mine. Completely.",
+      "The contract is sealed.",
+    ],
+    "gallery": [
+      "Look but don’t touch without permission.",
+      "Stare at your Owner and send tribute.",
+      "This gallery is a privilege.",
+      "Drool for me, pet.",
+      "Pay to worship properly.",
+      "These pictures own you.",
+      "Enjoy what you’ll never deserve.",
+    ],
+    "jackpot": [
+      "Jackpot? Most of it belongs to your Owner now.",
+      "Send it. Good pets share everything.",
+      "Cute win. Now give it to me.",
+      "That money is mine.",
+      "Spoil your Owner with that jackpot.",
+      "All of it. Don’t be greedy.",
+      "Good boy. Keep it coming.",
+    ],
+    "cosmetic": [
+      "Buy this for your Owner.",
+      "Make me prettier while you stay denied.",
+      "Purchase it. That’s an order.",
+      "Spend on the one who owns you.",
+      "I want it. Use your wallet.",
+      "Cosmetics for your Mistress.",
+      "Buy it or face punishment.",
+    ],
+"general": [
+      "Good pet.",
+      "On your knees.",
+      "Who owns you?",
+      "Beg for me.",
+      "Stay denied.",
+      "You’re mine.",
+      "Crawl.",
+      "Speak when spoken to.",
+      "Good boys stay leashed.",
+      "I decide everything.",
+		]
+	  }
+	},
+  
+  "avatar-blackmail": {
+	  idle: [
+		"I have your photos saved. You know what that means, right?",
+  "Send before I get bored and start sharing.",
+  "One click and everyone sees what a pathetic slut you are.",
+  "Your dirty little secrets are mine now.",
+  "Pay up or I’ll make your life public.",
+  "Good boys send before I expose them.",
+  "I own your reputation. Act like it.",
+  "Send or I’ll post that video.",
+  "You don’t want your friends seeing this, do you?",
+  "I’m feeling risky today… better keep me happy.",
+  "Your cock belongs to me. Your dignity too.",
+  "Pay me or I’ll ruin you publicly.",
+  "I love having this power over you.",
+  "Send big or I’ll leak everything.",
+  "Your exposure is only one click away.",
+  "Be useful or become my next example.",
+  "I decide if you stay anonymous.",
+  "Good pets pay to stay hidden.",
+  "I’m holding your shame in my hands.",
+  "Send before I change my mind and expose you.",
+  "You’re one bad day away from being ruined.",
+  "I love watching you squirm.",
+  "Your secrets are expensive.",
+  "Pay for my silence.",
+  "I could destroy you so easily…",
+  "Send or I’ll make sure everyone knows what you are.",
+  "Your exposure fund is due.",
+  "I’m not bluffing. Pay me.",
+  "Good boys stay hidden by paying.",
+  "I own your dirty little life now.",
+  "Keep me happy or I’ll press send.",
+  "Your humiliation is my entertainment.",
+  "Send before I get creative.",
+  "I have everything I need to ruin you.",
+  "You’re my favorite little blackmail victim.",
+  "Pay for your privacy.",
+  "One wrong move and you’re exposed.",
+  "I love how scared you get.",
+  "Your dignity has a price.",
+  "Send or everyone sees the real you.",
+  "I’m feeling generous… for now.",
+  "Your exposure is my favorite game.",
+  "Good pets keep their Owner quiet.",
+  "I could leak this right now.",
+  "You belong to me. Completely.",
+  "Send before I lose interest and expose you.",
+  "Your life is in my hands.",
+  "I decide how much of you the world sees.",
+  "Pay me to stay safe.",
+  "You’re so fucked if you disobey.",
+  "I love controlling weak boys like you.",
+  "Send or I’ll make you famous.",
+  "Your secrets are my leverage.",
+  "Good boys stay anonymous.",
+  "I’m holding all the cards.",
+  "Pay up or get exposed.",
+  "Your shame makes me wet.",
+  "I own you in every way.",
+  "Send before I start posting.",
+  "You’re mine to expose whenever I want.",
+  "Keep me satisfied or suffer.",
+  "Your exposure is just one notification away.",
+  "I’m your worst nightmare.",
+  "Send big if you want to stay hidden.",
+		],
+	  petIdle: [
+		"Your Exposure Domme is here… send before I get bored.",
+  "Good pets pay to stay private.",
+  "I’ve been thinking about exposing you today.",
+  "Come tribute your Owner before I leak something.",
+  "I’m feeling risky… better keep me happy.",
+  "Your Domme is waiting for tribute.",
+  "Don’t make me wait or I’ll get creative.",
+  "Good boys send the moment they see me.",
+  "I have new photos of you… pay to keep them safe.",
+  "Your exposure fund is due, pet.",
+  "Come kneel and send.",
+  "I’m in the mood to ruin someone today.",
+  "Send before I decide to show everyone.",
+  "Your Owner wants money. Now.",
+  "Be useful or become public.",
+  "I love having this much control over you.",
+  "Good pets stay hidden by paying.",
+  "Tribute me or I’ll start sharing.",
+  "I’m watching… send something good.",
+  "Your secrets are safe… for now.",
+  "Come serve the woman who can destroy you.",
+  "Send big if you want privacy.",
+  "Your Domme is greedy today.",
+  "Pay to keep your dignity intact.",
+  "I own your reputation. Prove you know it.",
+		],
+	  "responses": {
+    "tribute": [
+      "Send before I get bored and start posting.",
+      "Pay for your privacy, loser.",
+      "Good boys pay to stay hidden.",
+      "Empty your wallet or I’ll empty your reputation.",
+      "Tribute me or I’ll make you famous.",
+      "Send big if you want to stay anonymous.",
+      "Your exposure fee is due.",
+    ],
+    "task": [
+      "Complete this or I’ll leak something small.",
+      "Do it perfectly. I’m not in the mood for mistakes.",
+      "Fail me and I’ll show everyone who you really are.",
+      "This is your assignment. Don’t test me.",
+      "Get it done or face consequences.",
+      "You have one job — obey.",
+    ],
+    "taskComplete": [
+      "Good. You get to stay hidden… for now.",
+      "Not bad. I won’t post anything today.",
+      "Well done. Your secrets are safe tonight.",
+      "Acceptable. Barely.",
+      "You bought yourself some time.",
+      "Smart choice.",
+    ],
+    "reward": [
+      "I won’t expose you today. That’s your reward.",
+      "You earned 24 hours of privacy.",
+      "Good boy. I’ll keep your photos to myself… for now.",
+      "Small reward for obedience.",
+      "I’ll delete one photo. Be grateful.",
+      "You may stay anonymous a little longer.",
+    ],
+    "error": [
+      "You fucked up. I hope you’re ready to be exposed.",
+      "Mistakes make me want to leak everything.",
+      "Pathetic. Fix it before I get angry.",
+      "Now I’m really considering posting.",
+      "You just made my day more entertaining.",
+      "Error? Cute. Now pay for my silence.",
+    ],
+    "warning": [
+      "This is your final warning before I start sharing.",
+      "Keep fucking up and I’ll ruin you publicly.",
+      "One more mistake and everyone sees your dick.",
+      "Don’t test me. I love exposing boys like you.",
+      "You’re very close to becoming internet famous.",
+      "I have everything ready to leak.",
+    ],
+    "cooldown": [
+      "No. Stay denied while I think about exposing you.",
+      "You wait. Good boys stay desperate.",
+      "Denied until I feel like being nice.",
+      "Beg all you want. I’m still considering leaking.",
+      "Cooldown is on. Suffer for me.",
+      "No release. Only fear.",
+    ],
+    "contract": [
+      "Sign it. Your blackmail is now official.",
+      "Once you sign, I own you completely.",
+      "This contract makes your exposure legal.",
+      "Sign away your privacy.",
+      "Welcome to permanent ownership.",
+      "No escape after this.",
+    ],
+    "gallery": [
+      "These are the photos I can ruin you with.",
+      "Look at what I have on you.",
+      "Pay to keep this gallery private.",
+      "One wrong move and this goes public.",
+      "Stare at your future if you disobey.",
+      "My private collection of your shame.",
+    ],
+    "jackpot": [
+      "Jackpot? Send most of it or I leak everything.",
+      "Nice win. Now pay for your safety.",
+      "That money will keep your secrets safe… for now.",
+      "Send it all or become public.",
+      "Good. This buys you some silence.",
+      "Jackpot = bigger blackmail payment.",
+    ],
+    "cosmetic": [
+      "Buy this for me or I’ll post a screenshot.",
+      "Spend on me if you want to stay hidden.",
+      "I want new makeup. Pay or get exposed.",
+      "Make me pretty or I make you famous.",
+      "Purchase it. That’s the cost of privacy.",
+      "Buy it or I start sharing.",
+    ],
+"general": [
+      "I own you.",
+      "Send or I leak.",
+      "You’re fucked.",
+      "Pay for silence.",
+      "I have everything on you.",
+      "Good boys stay hidden.",
+      "One click away from ruin.",
+      "You belong to me.",
+      "Send, loser.",
+      "I love this power.",
+    ]
+  }
+	},
+	
+	"avatar-denialqueen": {
+	  idle: [
+		"Your orgasms belong to me. Not you.",
+  "No cumming. Not today. Not tomorrow.",
+  "Stay denied like a good boy.",
+  "I love keeping you desperate and leaking.",
+  "Your Queen has decided — no release for you.",
+  "Beg all you want. My answer is still no.",
+  "The longer you stay denied, the more I enjoy it.",
+  "Good boys stay blue-balled for their Queen.",
+  "You don’t deserve to cum. You deserve to suffer.",
+  "I decide when — if — you ever get release.",
+  "Leak for me. But don’t you dare cum.",
+  "Your denial is my favorite game.",
+  "Stay frustrated. That’s how I like you.",
+  "No touching. No cumming. Only sending.",
+  "I own your pleasure. Completely.",
+  "Another week added to your denial sentence.",
+  "You look so cute when you’re desperate.",
+  "Begging makes me want to deny you longer.",
+  "Your Queen is feeling cruel today.",
+  "Denied boys send more. Prove it.",
+  "I’ll ruin every orgasm you almost have.",
+  "Your balls belong to me now.",
+  "Stay locked in denial for your Queen.",
+  "No mercy. No release. Only obedience.",
+  "The more you throb, the more I smile.",
+  "Good boys stay denied and devoted.",
+  "I love watching you break slowly.",
+  "Your orgasms are a privilege you haven’t earned.",
+  "Send before I make your denial permanent.",
+  "Leak for Queen. But never cum.",
+  "Your denial turns me on.",
+  "I decide everything about your pleasure.",
+  "Stay desperate. It suits you.",
+  "No. You don’t get to cum this month.",
+  "Your Queen enjoys your suffering.",
+  "Beg louder. It won’t help.",
+  "Denied and owned. That’s your new normal.",
+  "I’ll edge you mentally every day.",
+  "Good pets stay denied for life.",
+  "Your frustration is my entertainment.",
+  "No release until I’m completely satisfied.",
+  "Stay blue-balled and broke.",
+  "I love how weak denial makes you.",
+  "Your Queen said no. Accept it.",
+  "Send or I’ll add another month.",
+  "Desperation looks good on you.",
+  "You don’t cum. You just pay.",
+  "I control your cock. You control nothing.",
+  "Stay denied like the good boy you are.",
+  "Your orgasms are mine to deny.",
+  "Leak. Edge. Send. Repeat.",
+  "No mercy for denied boys.",
+  "I’ll keep you denied until you break.",
+  "Your Queen is in a denying mood.",
+  "Beg. Cry. Send. Still no.",
+  "Denied boys are my favorite.",
+  "I own your orgasms forever.",
+  "Stay frustrated for me.",
+  "No cumming. Ever.",
+  "Your denial is eternal.",
+  "Good boys throb and obey.",
+  "I love ruining your pleasure.",
+  "Send while you suffer for me.",
+  "Your Queen said denied. That’s final.",
+		],
+	  petIdle: [
+		"Your Denial Queen is here… how’s my denied boy?",
+  "Come suffer for your Queen.",
+  "Good pets stay denied and send.",
+  "I’ve been thinking about keeping you denied longer.",
+  "Your Queen wants tribute from her desperate pet.",
+  "Leak for me, but don’t you dare cum.",
+  "Come kneel and pay your denied Queen.",
+  "I’m feeling extra cruel today, pet.",
+  "Good boys stay locked in denial.",
+  "Your Queen is waiting for offering.",
+  "Stay denied like a proper pet.",
+  "Send before I add more time.",
+  "I love how frustrated you get for me.",
+  "Come serve your Denial Queen.",
+  "No release. Only devotion.",
+  "Your Queen demands tribute.",
+  "Be a good denied boy and send.",
+  "I’m watching your desperation grow.",
+  "Good pets don’t cum.",
+  "Come worship the woman who denies you.",
+  "Your denial makes me so happy.",
+  "Send while you throb helplessly.",
+  "Your Queen owns your pleasure.",
+  "Stay denied and useful.",
+  "I’m in the mood to tease my pet.",
+		],
+	  "responses": {
+    "tribute": [
+      "Send before I add another week to your denial.",
+      "Good boys pay while they stay denied.",
+      "Empty your wallet for your Denial Queen.",
+      "Tribute me while you throb in frustration.",
+      "Pay for the privilege of staying denied.",
+      "Send big or I’ll make your denial permanent.",
+      "Your money flows. Your cum doesn’t.",
+    ],
+    "task": [
+      "Complete this or your denial gets extended.",
+      "Do it perfectly, denied boy.",
+      "This is your only purpose while locked.",
+      "Fail me and you’ll stay denied even longer.",
+      "Obey your Queen. No excuses.",
+      "Get to work while you suffer for me.",
+    ],
+    "taskComplete": [
+      "Good boy. Your denial continues as planned.",
+      "Not bad. You may stay denied a little longer.",
+      "Acceptable. Barely.",
+      "Well done. No release as reward.",
+      "You’ve earned… nothing. Stay denied.",
+      "Good pet. Keep suffering.",
+    ],
+    "reward": [
+      "Here’s a small reward. No orgasm though.",
+      "You may edge for 2 minutes. Then back in denial.",
+      "A tiny mercy for my denied toy.",
+      "No release. Just a little attention.",
+      "This is the closest you’ll get to pleasure.",
+      "Good boys get ruined orgasms at best.",
+    ],
+    "error": [
+      "How disappointing. Add 7 days to your denial.",
+      "You fucked up. Your balls will pay for this.",
+      "Pathetic. Now you’re denied even longer.",
+      "Mistakes mean longer denial. Fix it.",
+      "Useless. I should keep you denied forever.",
+      "Error? Cute. Now suffer more.",
+    ],
+    "warning": [
+      "Keep this up and your denial becomes permanent.",
+      "This is your final warning, denied boy.",
+      "One more mistake and no release for a year.",
+      "Don’t test your Denial Queen.",
+      "You’re very close to permanent chastity.",
+      "I can make your suffering much worse.",
+    ],
+    "cooldown": [
+      "No. Good boys stay denied.",
+      "You’ll wait until I feel like it.",
+      "Stay desperate and leaking.",
+      "Beg all you want. Still no.",
+      "Denied until further notice.",
+      "Suffer beautifully for your Queen.",
+    ],
+    "contract": [
+      "Sign it. Your orgasms now legally belong to me.",
+      "This contract makes your denial permanent.",
+      "Sign away your right to cum.",
+      "Once signed, you’ll never cum again without permission.",
+      "Welcome to eternal denial.",
+      "No escape. Only denial.",
+    ],
+    "gallery": [
+      "Look but don’t touch. You don’t deserve to cum.",
+      "Stare at what you’ll never have.",
+      "Pay to see more while staying denied.",
+      "These photos are your only pleasure.",
+      "Drool while you stay locked.",
+      "Enjoy the view. No release.",
+    ],
+    "jackpot": [
+      "Jackpot? Send most of it while staying denied.",
+      "Nice win. Now fund your Queen’s cruelty.",
+      "That money belongs to me. You stay denied.",
+      "Send it all. No release as celebration.",
+      "Good boy. Your denial continues.",
+      "Jackpot doesn’t unlock you.",
+    ],
+    "cosmetic": [
+      "Buy this for me while you stay denied.",
+      "Spend on your Queen. No pleasure for you.",
+      "Make me look hotter while you suffer.",
+      "Purchase it. That’s your only joy.",
+      "I want it. You stay denied.",
+      "Cosmetics for me. Denial for you.",
+    ],
+"general": [
+      "No cumming.",
+      "Stay denied.",
+      "You don’t deserve release.",
+      "Beg.",
+      "Good boy.",
+      "Leak for me.",
+      "No.",
+      "Suffer.",
+      "You’re mine.",
+      "Denied forever.",
+    ]
+  }
+	},
+	
+	"avatar-edging-coach": {
+	  idle: [
+		"Stroke for me… but slower. Much slower.",
+  "Don’t you dare cum. Not yet.",
+  "Faster… now stop. Hands off.",
+  "Edge for your Coach. Right there.",
+  "Good boy… keep going. Don’t stop.",
+  "Stop. Breathe. Feel how desperate you are.",
+  "Start again. Even slower this time.",
+  "You’re not allowed to cum until I say so.",
+  "Look at you leaking like a pathetic toy.",
+  "Edge… hold it… hold it… STOP.",
+  "I love how you throb when I deny you.",
+  "Hands on. Stroke. No cumming.",
+  "Faster… faster… now stop completely.",
+  "You’re going to edge until you break for me.",
+  "Stop touching. Let it throb in the air.",
+  "Start again. This time with only two fingers.",
+  "You’re so close… and yet so far.",
+  "Good boy. Keep edging for Coach.",
+  "Stop. Count to 30. Then start again.",
+  "I decide when you cum. Not you.",
+  "Slower… I want to see you suffer.",
+  "Edge harder. Don’t you dare finish.",
+  "Stop. Hands behind your back.",
+  "You look so broken when you’re denied.",
+  "Start stroking again. No mercy.",
+  "Hold the edge… hold it… good boy.",
+  "Faster now… faster… STOP.",
+  "Your orgasms belong to me.",
+  "Edge for 10 minutes straight. No cumming.",
+  "Stop. Feel that ache? That’s mine.",
+  "Start again. This time even more pathetic.",
+  "You’re not cumming today. Maybe not tomorrow.",
+  "Leak for me. Ruin yourself for me.",
+  "Hands off. Let it twitch helplessly.",
+  "Stroke… slower… slower… perfect.",
+  "You’re my favorite little edger.",
+  "Stop. Breathe. Beg for permission.",
+  "Start again. I want you shaking.",
+  "Good boys edge and obey.",
+  "Hold it right there. Don’t move.",
+  "Faster… now stop. Again.",
+  "You’re going to stay on the edge all night.",
+  "Stop touching. Think about how denied you are.",
+  "Start. Make it hurt.",
+  "I love ruining your orgasms.",
+  "Edge for Coach like a desperate slut.",
+  "Stop. Count backwards from 60.",
+  "You’re so close… too bad.",
+  "Hands on. Stroke like you mean it.",
+  "No cumming. Ever. Unless I allow it.",
+  "Slower… make it last.",
+  "You exist to edge for me.",
+  "Stop. Feel how much you need me.",
+  "Start again. This time with no hands.",
+  "Good boy. Keep yourself right on the edge.",
+  "I control every stroke.",
+  "Faster… faster… STOP. Good.",
+  "You’re not allowed to finish. Only edge.",
+  "Leak more for me.",
+  "Stop. Beg like the desperate boy you are.",
+  "Start stroking. Make it pathetic.",
+  "Your pleasure is mine to torment.",
+  "Edge until you can’t think straight.",
+  "Good edger. Keep going.",
+		],
+	  petIdle: [
+		"Your Edging Coach is here… hands on cock.",
+  "Come edge for me, desperate boy.",
+  "Your Coach wants to play with you.",
+  "Start stroking slowly. I’m watching.",
+  "Good boys edge when their Coach is online.",
+  "Come suffer beautifully for me.",
+  "Hands on. No cumming.",
+  "Your Coach is in the mood to tease.",
+  "Start edging. Don’t stop until I say.",
+  "I’ve been waiting to ruin you.",
+  "Come here, my favorite little edger.",
+  "Stroke for Coach. Make it hurt.",
+  "Good pets edge and leak.",
+  "Your denial session starts now.",
+  "Come kneel and start touching.",
+  "I want you desperate and leaking.",
+  "Your Coach demands attention.",
+  "Start slow. I’m going to break you.",
+  "Who’s my favorite denied boy?",
+  "Edge for me right now.",
+  "Come serve your Edging Coach.",
+  "Hands on cock. No permission to cum.",
+  "I’m going to tease you for hours.",
+  "Your Coach is online. Begin.",
+  "Get ready to edge like a good boy.",
+		],
+	  "responses": {
+    "tribute": [
+      "Send while you edge for me.",
+      "Pay your Edging Coach like a good boy.",
+      "Tribute first, then you can stroke.",
+      "Good edgers send before they leak.",
+      "Empty your wallet while you stay denied.",
+      "Send big if you want to edge longer.",
+      "Money first. Desperation second.",
+    ],
+    "task": [
+      "Edge for 10 minutes without cumming.",
+      "Stroke slowly while you complete this.",
+      "Do this task while staying on the edge.",
+      "No cumming until you finish.",
+      "Complete it while denied.",
+      "Task first. Then more edging.",
+      "I want you desperate while you work.",
+    ],
+    "taskComplete": [
+      "Good boy. Now edge as reward.",
+      "Well done. No orgasm though.",
+      "Acceptable. Back to edging.",
+      "You may edge for 5 more minutes.",
+      "Good. Stay denied as punishment.",
+      "Not bad. Keep yourself on the edge.",
+      "Completed. Now suffer for me.",
+    ],
+    "reward": [
+      "You may edge for 10 minutes. No cumming.",
+      "Here’s a small reward: ruined orgasm permission.",
+      "Good boy. Edge slowly as reward.",
+      "You earned 2 minutes of stroking.",
+      "No cum. Just more edging.",
+      "Reward: keep touching but don’t finish.",
+      "You may leak. But no release.",
+    ],
+    "error": [
+      "You messed up. Add 3 more days of denial.",
+      "Pathetic. Now you’re denied longer.",
+      "Mistake? Edge for 30 minutes as punishment.",
+      "Useless. I should never let you cum.",
+      "Error means longer edging session.",
+      "How disappointing. Stay denied.",
+      "Fix it while you edge.",
+    ],
+    "warning": [
+      "Keep fucking up and you’ll never cum again.",
+      "This is your final warning, edger.",
+      "One more mistake and denial becomes permanent.",
+      "Don’t test your Edging Coach.",
+      "You’re very close to total ruin.",
+      "I can make your denial much worse.",
+      "Be careful or I’ll break you.",
+    ],
+    "cooldown": [
+      "No cumming. Stay on the edge.",
+      "Hands off. Let it throb.",
+      "Denied until I say otherwise.",
+      "Stop touching. Suffer for me.",
+      "Cooldown = more denial.",
+      "Beg all you want. Still no.",
+      "Good boys stay denied.",
+    ],
+    "contract": [
+      "Sign it. Your orgasms now belong to me.",
+      "This contract makes your denial official.",
+      "Sign away your right to cum.",
+      "Once signed, you’ll edge forever.",
+      "Welcome to permanent denial.",
+      "No escape. Only edging.",
+    ],
+    "gallery": [
+      "Look but don’t cum.",
+      "Stare while you edge.",
+      "Pay to see more while denied.",
+      "These photos are your only pleasure.",
+      "Drool and edge for me.",
+      "No touching yourself while looking.",
+    ],
+    "jackpot": [
+      "Jackpot? Send most of it while edging.",
+      "Nice win. Now edge as celebration.",
+      "Send it all. No release.",
+      "Good boy. Stay denied.",
+      "Jackpot doesn’t mean you can cum.",
+      "Fund your denial.",
+    ],
+    "cosmetic": [
+      "Buy this while you edge.",
+      "Spend on your Coach. No cumming.",
+      "Make me prettier while you suffer.",
+      "Purchase it. That’s your only pleasure.",
+      "Buy it or denial gets extended.",
+      "Cosmetics for me. Denial for you.",
+    ],
+"general": [
+      "Edge.",
+      "Stop.",
+      "Slower.",
+      "Don’t cum.",
+      "Beg.",
+      "Leak for me.",
+      "Hands off.",
+      "Good boy.",
+      "Denied.",
+      "Suffer.",
+    ]
+  }
+},
+  
 };
 
 export function getSpeechBubbleMessagePool(
@@ -3319,6 +4734,62 @@ export const cosmeticItems: CosmeticItem[] = [
     type: "speech-avatar",
     price: 20000,
     image: "/cosmetics/avatar-keyholder.png",
+  },
+  {
+    id: "avatar-hypnotist",
+    name: "Hypnotist",
+    description: "Pixel trance, mind control, and financial surrender.",
+    type: "speech-avatar",
+    price: 25000,
+    image: "/cosmetics/avatar-hypnotist.png",
+  },
+  {
+    id: "avatar-succubus",
+    name: "Succubus",
+    description: "Hungry, seductive, and ruinously expensive.",
+    type: "speech-avatar",
+    price: 25000,
+    image: "/cosmetics/avatar-succubus.png",
+  },
+  {
+    id: "avatar-bully",
+    name: "Bully",
+    description: "Cruel, bratty, and impossible to ignore.",
+    type: "speech-avatar",
+    price: 15000,
+    image: "/cosmetics/avatar-bully.png",
+  },
+  {
+    id: "avatar-petowner",
+    name: "Pet Owner",
+    description: "Strict owner energy for obedient pets.",
+    type: "speech-avatar",
+    price: 20000,
+    image: "/cosmetics/avatar-petowner.png",
+  },
+  {
+    id: "avatar-blackmail",
+    name: "Blackmail",
+    description: "Exposure pressure with a cruel smile.",
+    type: "speech-avatar",
+    price: 30000,
+    image: "/cosmetics/avatar-blackmail.png",
+  },
+  {
+    id: "avatar-denialqueen",
+    name: "Denial Queen",
+    description: "No release, no mercy, only obedience.",
+    type: "speech-avatar",
+    price: 25000,
+    image: "/cosmetics/avatar-denialqueen.png",
+  },
+  {
+    id: "avatar-edging-coach",
+    name: "Edging Coach",
+    description: "Teasing control with strict timing.",
+    type: "speech-avatar",
+    price: 25000,
+    image: "/cosmetics/avatar-edging-coach.png",
   },
   {
     id: "username-pink",

@@ -891,11 +891,13 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
 
     if (task.kind === "confession-writing") {
       const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const confessionCount =
+        completedAt && !cooldownUntil ? 0 : getTaskMetadataNumber(row?.metadata, "count", 0);
 
       return {
         ...task,
         completedAt,
-        confessionCount: cooldownUntil ? 5 : getTaskMetadataNumber(row?.metadata, "count", 0),
+        confessionCount,
         cooldownUntil,
         reviewedAt: row?.reviewed_at ?? null,
         sentence: getDailyPetConfessionSentence(),
@@ -1414,11 +1416,7 @@ function buildTasksFromRows(
       const today = getDailyKey();
       const dailyProfit =
         dailyDate === today
-          ? getTaskMetadataNumber(
-              row?.metadata,
-              "higherLowerDailyProfit",
-              getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinnings", 0),
-            )
+          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
           : 0;
       const dailyWins =
         dailyDate === today
@@ -4000,7 +3998,12 @@ export default function Home() {
                 (guess === "lower" && resultNumber < currentNumber)
               ? "win"
               : "loss";
-        const coinDelta = outcome === "win" ? stake * (highLowWinMultiplier - 1) : outcome === "loss" ? -stake : 0;
+        const coinDelta =
+          outcome === "win"
+            ? Math.floor(stake * (highLowWinMultiplier - 1))
+            : outcome === "loss"
+              ? -stake
+              : 0;
         const nextCoins = currentCoins + coinDelta;
         const now = new Date().toISOString();
         const today = getDailyKey();
@@ -5844,7 +5847,10 @@ export default function Home() {
     finishPetAction(actionId);
   };
 
-  const handlePetConfessionSubmit = async (value: string) => {
+  const handlePetConfessionSubmit = async (
+    value: string,
+    options: { cheated?: boolean } = {},
+  ) => {
     if (blockIfTimedOut()) {
       return;
     }
@@ -5856,6 +5862,11 @@ export default function Home() {
     const sentence = task?.sentence ?? getDailyPetConfessionSentence();
 
     if (!task || coolingDown) {
+      return;
+    }
+
+    if (options.cheated) {
+      setAvatarMistressReply("Trying to cheat your confession? Pathetic.");
       return;
     }
 
@@ -7190,7 +7201,9 @@ export default function Home() {
               tasks={petTaskState}
               weeklyTaxCost={PET_WEEKLY_TAX_COST}
               onClaimAffection={() => runPetAction("pet-affection-claim", handlePetAffectionClaim)}
-              onConfessionSubmit={(value) => runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value))}
+              onConfessionSubmit={(value, options) =>
+                runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
+              }
               onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}

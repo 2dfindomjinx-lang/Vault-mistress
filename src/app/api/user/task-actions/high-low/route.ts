@@ -110,7 +110,7 @@ export async function POST(request: Request) {
   const dailyDate = getMetadataString(metadata, "higherLowerDailyDate");
   const currentDailyProfit =
     dailyDate === today
-      ? getMetadataNumber(metadata, "higherLowerDailyProfit", getMetadataNumber(metadata, "higherLowerDailyWinnings", 0))
+      ? getMetadataNumber(metadata, "higherLowerDailyProfit", 0)
       : 0;
   const currentDailyWins =
     dailyDate === today ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
@@ -147,10 +147,11 @@ export async function POST(request: Request) {
         ? "win"
         : "loss";
   const winMultiplier = multipliers.high_low_bonus > 1 ? multipliers.high_low_bonus : 2;
-  const coinDelta = outcome === "win" ? stake * (winMultiplier - 1) : outcome === "loss" ? -stake : 0;
+  const coinDelta = outcome === "win" ? Math.floor(stake * (winMultiplier - 1)) : outcome === "loss" ? -stake : 0;
+  const actualCoinDelta = coinDelta;
   const nextCoins = profile.coins + coinDelta;
   const now = new Date().toISOString();
-  const nextDailyProfit = currentDailyProfit + coinDelta;
+  const nextDailyProfit = currentDailyProfit + actualCoinDelta;
 
   if (outcome === "win" && nextDailyProfit > HIGH_LOW_PROFIT_LIMIT) {
     const remainingProfit = Math.max(0, HIGH_LOW_PROFIT_LIMIT - currentDailyProfit);
@@ -227,6 +228,7 @@ export async function POST(request: Request) {
     higherLowerBetAllowance: nextBetAllowance,
     outcome,
     resultNumber,
+    actualCoinDelta,
     stake,
   };
   const { data: updatedTask, error: taskError } = await supabase
@@ -265,6 +267,7 @@ export async function POST(request: Request) {
         resultNumber,
         stake,
         outcome,
+        actualCoinDelta,
         higherLowerAllowanceCost: allowanceCost,
         higherLowerDailyBetTotal: nextDailyBetTotal,
         higherLowerBetAllowance: nextBetAllowance,
