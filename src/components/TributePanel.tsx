@@ -90,7 +90,7 @@ export function TributePanel({
             alt="Bonus coin reward tiers"
             className="h-auto w-full"
             height={1024}
-            src="/bonus-coin-rewards.jfif"
+            src="/bonus-coin-rewards.jpg"
             width={1536}
           />
         </div>
