@@ -1,4 +1,4 @@
-import { getBaseTaskReward, profileSelect } from "@/lib/server-game-rules";
+import { getBaseTaskReward, profileSelect, roundRewardToNearestFive } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === taskId);
-  const rewardCoins = Math.round(baseReward * multiplier);
+  const rewardCoins = roundRewardToNearestFive(baseReward * multiplier);
   const nextCoins = profile.coins + rewardCoins;
   const metadata = {
     ...(existingTask?.metadata ?? {}),

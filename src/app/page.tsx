@@ -39,6 +39,7 @@ import {
 } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
+import { roundRewardToNearestFive } from "@/lib/server-game-rules";
 import {
   emitSoundEvent,
   getSoundSettings,
@@ -292,8 +293,8 @@ const HIGH_LOW_BET_ALLOWANCE = 4000;
 const HIGH_LOW_PROFIT_LIMIT = 4000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const STREAK_BONUSES = [
-  { id: "streak-bonus-1", milestone: 1, reward: 38, title: "1 day streak bonus" },
-  { id: "streak-bonus-3", milestone: 3, reward: 113, title: "3 day streak bonus" },
+  { id: "streak-bonus-1", milestone: 1, reward: 40, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 115, title: "3 day streak bonus" },
   { id: "streak-bonus-7", milestone: 7, reward: 300, title: "7 day streak bonus" },
   { id: "streak-bonus-15", milestone: 15, reward: 750, title: "15 day streak bonus" },
   { id: "streak-bonus-30", milestone: 30, reward: 1500, title: "30 day streak bonus" },
@@ -1773,7 +1774,7 @@ export default function Home() {
   );
   const getEventTaskReward = useCallback(
     (baseReward: number) =>
-      Math.round(baseReward * getEventMultiplier("task_reward_multiplier")),
+      roundRewardToNearestFive(baseReward * getEventMultiplier("task_reward_multiplier")),
     [getEventMultiplier],
   );
   const getEventCooldownMs = useCallback(

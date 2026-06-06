@@ -31,20 +31,20 @@ async function getAdminUserId() {
   return allowed ? data.user.id : null;
 }
 
-function getGiveBonusPercent(currentCoins: number) {
-  if (currentCoins >= 100000) {
+function getGiveBonusPercent(giveAmount: number) {
+  if (giveAmount >= 100000) {
     return 0.25;
   }
 
-  if (currentCoins >= 50000) {
+  if (giveAmount >= 50000) {
     return 0.2;
   }
 
-  if (currentCoins >= 20000) {
+  if (giveAmount >= 20000) {
     return 0.15;
   }
 
-  if (currentCoins >= 10000) {
+  if (giveAmount >= 10000) {
     return 0.1;
   }
 
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
 
   const previousCoins = Number(profile.coins ?? 0);
   const nextCoins = previousCoins + amount;
-  const giveBonusPercent = giveMatch ? getGiveBonusPercent(previousCoins) : 0;
+  const giveBonusPercent = giveMatch ? getGiveBonusPercent(amount) : 0;
   const giveBonusAmount = Math.floor(amount * giveBonusPercent);
   const { error: updateError } = await supabase
     .from("profiles")
@@ -261,6 +261,7 @@ export async function POST(request: Request) {
             source: "admin",
             baseAmount: amount,
             bonusPercent: giveBonusPercent,
+            bonusTierAmount: amount,
             balanceTierBeforeGive: previousCoins,
             tributeTotalChanged: false,
           },

@@ -12,8 +12,8 @@ export const visibleGalleryCosts = new Map<string, number>([
 
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 250],
-  ["streak-bonus-1", 38],
-  ["streak-bonus-3", 113],
+  ["streak-bonus-1", 40],
+  ["streak-bonus-3", 115],
   ["streak-bonus-7", 300],
   ["streak-bonus-15", 750],
   ["streak-bonus-30", 1500],
@@ -26,6 +26,10 @@ const baseTaskRewards = new Map<string, number>([
   ["affection-80", 250],
 ]);
 
+export function roundRewardToNearestFive(value: number) {
+  return Math.round(value / 5) * 5;
+}
+
 export function getAllowedTaskRewards(taskId: string) {
   const baseReward = baseTaskRewards.get(taskId);
 
@@ -33,7 +37,12 @@ export function getAllowedTaskRewards(taskId: string) {
     return [];
   }
 
-  return Array.from(new Set([0, baseReward, Math.round(baseReward * 1.5), baseReward * 2]));
+  return Array.from(new Set([
+    0,
+    baseReward,
+    roundRewardToNearestFive(baseReward * 1.5),
+    roundRewardToNearestFive(baseReward * 2),
+  ]));
 }
 
 export function getBaseTaskReward(taskId: string) {
