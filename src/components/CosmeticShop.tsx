@@ -9,6 +9,7 @@ type CosmeticShopProps = {
   premiumTitle: TitleItem;
   shopItems: CosmeticItem[];
   disabled?: boolean;
+  eventSpeechAvatarId?: string | null;
   pendingCosmeticIds?: string[];
   pendingTitleIds?: string[];
   onEquipCosmetic: (item: CosmeticItem) => void;
@@ -20,6 +21,7 @@ export function CosmeticShop({
   coins,
   disabled = false,
   equippedCosmeticIds,
+  eventSpeechAvatarId = null,
   ownedCosmeticIds,
   ownedTitleIds,
   pendingCosmeticIds = [],
@@ -68,7 +70,11 @@ export function CosmeticShop({
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => {
-              const owned = item.price === 0 || ownedCosmeticIds.includes(item.id);
+              const eventAvailable =
+                item.type === "speech-avatar" &&
+                item.id === eventSpeechAvatarId &&
+                !ownedCosmeticIds.includes(item.id);
+              const owned = item.price === 0 || ownedCosmeticIds.includes(item.id) || eventAvailable;
               const equipped = equippedCosmeticIds[item.type] === item.id;
               const canAfford = coins >= item.price;
               const pending = pendingCosmeticIds.includes(item.id);
@@ -106,12 +112,14 @@ export function CosmeticShop({
                             : "border-white/10 bg-black/35 text-zinc-400"
                       }`}
                     >
-                      {equipped ? "Equipped" : owned ? "Owned" : "Locked"}
+                      {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
                     </span>
                   </div>
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <p className="text-sm font-black text-pink-100">
-                      {item.price === 0 ? (
+                      {eventAvailable ? (
+                        "Event Access"
+                      ) : item.price === 0 ? (
                         "Default"
                       ) : (
                         <CoinAmount amount={item.price} iconSize={16} label="coins" />

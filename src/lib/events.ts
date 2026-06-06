@@ -1,12 +1,16 @@
+import { DEFAULT_SPEECH_AVATAR_ID, cosmeticItems } from "@/lib/cosmetics";
+
 export type EventEffectType =
   | "cooldown_reduction"
   | "high_low_bonus"
   | "task_reward_multiplier"
-  | "tribute_affection_boost";
+  | "tribute_affection_boost"
+  | "speech_avatar_override";
 
 export type EventEffect = {
   type: EventEffectType;
   multiplier: number;
+  speechAvatarId?: string;
 };
 
 export type RandomEvent = {
@@ -51,6 +55,12 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     description: "Supported activity cooldowns are reduced while this event is active.",
     effect: { type: "cooldown_reduction", multiplier: 0.5 },
   },
+  {
+    key: "random-speech-bubble",
+    name: "Random Speech Bubble",
+    description: "A random speech bubble personality visits default-avatar users for the day.",
+    effect: { type: "speech_avatar_override", multiplier: 1 },
+  },
 ];
 
 export const FIRST_DAY_EVENT_TEMPLATE: EventTemplate = {
@@ -62,6 +72,30 @@ export const FIRST_DAY_EVENT_TEMPLATE: EventTemplate = {
 
 export function getEventTemplate(key: string) {
   return [FIRST_DAY_EVENT_TEMPLATE, ...EVENT_TEMPLATES].find((event) => event.key === key) ?? null;
+}
+
+export function getRandomSpeechAvatarId() {
+  const speechAvatars = cosmeticItems.filter(
+    (item) => item.type === "speech-avatar" && item.id !== DEFAULT_SPEECH_AVATAR_ID,
+  );
+
+  if (speechAvatars.length === 0) {
+    return DEFAULT_SPEECH_AVATAR_ID;
+  }
+
+  return speechAvatars[Math.floor(Math.random() * speechAvatars.length)].id;
+}
+
+export function resolveEventEffect(effect: EventEffect): EventEffect {
+  if (effect.type !== "speech_avatar_override") {
+    return effect;
+  }
+
+  return {
+    ...effect,
+    multiplier: effect.multiplier || 1,
+    speechAvatarId: effect.speechAvatarId ?? getRandomSpeechAvatarId(),
+  };
 }
 
 export function getEventDayKey(date = new Date()) {

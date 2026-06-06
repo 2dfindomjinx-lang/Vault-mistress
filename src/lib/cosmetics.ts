@@ -4587,6 +4587,32 @@ function shouldKeepOriginalSpeechBubbleMessage(message: string) {
   );
 }
 
+export function getSpeechBubbleResponseMessage(
+  avatarId: string | null | undefined,
+  category: SpeechBubbleMessageCategory,
+  fallbackMessage?: string,
+) {
+  const selectedAvatarId = avatarId ?? DEFAULT_SPEECH_AVATAR_ID;
+  const selectedPool = speechBubbleMessages[selectedAvatarId];
+  const selectedMessages = selectedPool?.responses?.[category];
+
+  if (selectedMessages?.length) {
+    return selectedMessages[Math.floor(Math.random() * selectedMessages.length)];
+  }
+
+  const defaultMessages = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID].responses?.[category];
+
+  if (defaultMessages?.length) {
+    return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+  }
+
+  if (fallbackMessage) {
+    return fallbackMessage;
+  }
+
+  return getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
+}
+
 export function getSpeechBubbleMessageForText(
   avatarId: string | null | undefined,
   fallbackMessage: string,

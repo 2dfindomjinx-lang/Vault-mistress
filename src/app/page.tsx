@@ -24,6 +24,7 @@ import {
   getCosmeticItem,
   getSpeechBubbleMessageForText,
   getSpeechBubbleMessagePool,
+  getSpeechBubbleResponseMessage,
   getTitleItem,
   titleItems,
   type CosmeticItem,
@@ -218,6 +219,11 @@ type UserCosmeticRow = {
   item_id: string;
   item_type: CosmeticType;
   equipped: boolean | null;
+};
+
+type TemporarySpeechAvatarState = {
+  avatarId: string;
+  eventId: string;
 };
 
 type UserTitleRow = {
@@ -1650,6 +1656,11 @@ export default function Home() {
   const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
   const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
   const [activeEvent, setActiveEvent] = useState<RandomEvent | null>(null);
+  const [temporarySpeechAvatar, setTemporarySpeechAvatar] =
+    useState<TemporarySpeechAvatarState | null>(null);
+  const [dismissedSpeechAvatarEventId, setDismissedSpeechAvatarEventId] = useState<string | null>(
+    null,
+  );
   const [jackpot, setJackpot] = useState<LoyaltyJackpotState | null>(null);
   const [jackpotError, setJackpotError] = useState("");
   const [isJackpotBusy, setIsJackpotBusy] = useState(false);
@@ -1701,8 +1712,37 @@ export default function Home() {
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
+  const eventSpeechAvatarId =
+    activeEvent?.effect.type === "speech_avatar_override"
+      ? activeEvent.effect.speechAvatarId ?? null
+      : null;
+  const persistedSpeechAvatarId =
+    equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID;
+  const activeManualTemporarySpeechAvatar =
+    activeEvent &&
+    eventSpeechAvatarId &&
+    temporarySpeechAvatar?.eventId === activeEvent.id &&
+    temporarySpeechAvatar.avatarId === eventSpeechAvatarId
+      ? temporarySpeechAvatar
+      : null;
+  const autoEventSpeechAvatarId =
+    activeEvent &&
+    eventSpeechAvatarId &&
+    persistedSpeechAvatarId === DEFAULT_SPEECH_AVATAR_ID &&
+    dismissedSpeechAvatarEventId !== activeEvent.id
+      ? eventSpeechAvatarId
+      : null;
+  const displayedSpeechAvatarId =
+    activeManualTemporarySpeechAvatar?.avatarId ?? autoEventSpeechAvatarId ?? persistedSpeechAvatarId;
+  const effectiveEquippedCosmeticIds = useMemo(
+    () => ({
+      ...equippedCosmeticIds,
+      "speech-avatar": displayedSpeechAvatarId,
+    }),
+    [displayedSpeechAvatarId, equippedCosmeticIds],
+  );
   const equippedSpeechAvatar =
-    getCosmeticItem(equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID) ??
+    getCosmeticItem(displayedSpeechAvatarId) ??
     getCosmeticItem(DEFAULT_SPEECH_AVATAR_ID);
   const equippedUsernameColor = getCosmeticItem(equippedCosmeticIds["username-color"] ?? "");
   const equippedUsernameGlow = getCosmeticItem(equippedCosmeticIds["username-glow"] ?? "");
@@ -5437,7 +5477,23 @@ export default function Home() {
   };
 
   const handleEquipCosmetic = async (item: CosmeticItem) => {
-    if (!ownedCosmeticIds.includes(item.id) && item.price > 0) {
+    const hasTemporaryEventAccess =
+      item.type === "speech-avatar" &&
+      item.id === eventSpeechAvatarId &&
+      Boolean(activeEvent);
+    const ownsCosmetic = ownedCosmeticIds.includes(item.id) || item.price <= 0;
+
+    if (!ownsCosmetic && item.price > 0 && !hasTemporaryEventAccess) {
+      return;
+    }
+
+    if (hasTemporaryEventAccess && !ownsCosmetic && activeEvent) {
+      setTemporarySpeechAvatar({
+        avatarId: item.id,
+        eventId: activeEvent.id,
+      });
+      setDismissedSpeechAvatarEventId(null);
+      setAvatarMistressReply(`${item.name} equipped for today's event.`);
       return;
     }
 
@@ -5452,6 +5508,13 @@ export default function Home() {
     }
 
     try {
+      if (item.type === "speech-avatar" && activeEvent) {
+        setTemporarySpeechAvatar(null);
+        if (item.id !== eventSpeechAvatarId) {
+          setDismissedSpeechAvatarEventId(activeEvent.id);
+        }
+      }
+
       if (!isGuestMode) {
         const { error: clearError } = await supabase
           .from("user_cosmetics")
@@ -6344,8 +6407,9 @@ export default function Home() {
   };
 
   const handleCooldownAttempt = useCallback((message: string) => {
-    setAvatarMistressReply(message);
-  }, [setAvatarMistressReply]);
+    const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+    setMistressReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
+  }, [equippedSpeechAvatar?.id]);
 
   const handlePetEvilWaitStart = async () => {
     if (blockIfTimedOut()) {
@@ -7259,7 +7323,8 @@ export default function Home() {
             <CosmeticShop
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
-              equippedCosmeticIds={equippedCosmeticIds}
+              equippedCosmeticIds={effectiveEquippedCosmeticIds}
+              eventSpeechAvatarId={eventSpeechAvatarId}
               ownedCosmeticIds={ownedCosmeticIds}
               ownedTitleIds={ownedTitleIds}
               pendingCosmeticIds={pendingTaskActionIds

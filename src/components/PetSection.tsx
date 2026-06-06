@@ -35,6 +35,8 @@ const DEBT_RANDOM_DURATION_LIMITS = {
   monthly: { label: "Months", max: 24, min: 4 },
   weekly: { label: "Weeks", max: 52, min: 8 },
 };
+const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
+const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
 
 const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
   ...rank,
@@ -955,7 +957,10 @@ export function PetSection({
               Pay {weeklyTaxCost} Principessa Coins within the daily window. Missing it may reduce affection.
             </p>
             <button
-              className="mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              aria-disabled={weeklyTaxCoolingDown || undefined}
+              className={`mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                weeklyTaxCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+              }`}
               disabled={coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
               onClick={() => {
                 if (weeklyTaxCoolingDown) {
@@ -1156,7 +1161,10 @@ export function PetSection({
                         </p>
                       )}
                       <button
-                        className="mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-disabled={coolingDown || undefined}
+                        className={`mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                          coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                        }`}
                         disabled={caseRolling || actionPending}
                         onClick={() => {
                           if (coolingDown) {
@@ -1244,7 +1252,10 @@ export function PetSection({
                                   : "Ready"}
                       </p>
                       <button
-                        className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-disabled={coolingDown || undefined}
+                        className={`mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                          coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                        }`}
                         disabled={actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
                         onClick={() => {
                           if (coolingDown) {
@@ -1330,7 +1341,10 @@ export function PetSection({
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {(["a", "d"] as const).map((key) => (
                           <button
-                            className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-disabled={coolingDown || undefined}
+                            className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                              coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                            }`}
                             disabled={false}
                             key={key}
                             onClick={() => {
@@ -1373,7 +1387,10 @@ export function PetSection({
                                     : revealed
                                       ? "border-white/10 bg-black/45"
                                       : "border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(88,28,135,0.24))] hover:border-pink-200/55"
-                              } ${favorRevealing && picked ? "scale-105" : ""}`}
+                              } ${favorRevealing && picked ? "scale-105" : ""} ${
+                                coolingDown ? CLICKABLE_COOLDOWN_TILE_CLASS : ""
+                              }`}
+                              aria-disabled={coolingDown || undefined}
                               disabled={revealed || actionPending}
                               key={index}
                               onClick={() => {
@@ -1411,7 +1428,10 @@ export function PetSection({
 
                   {task.kind === "review" && (
                     <button
-                      className="mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-disabled={coolingDown || undefined}
+                      className={`mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                      }`}
                       disabled={pending || actionPending}
                       onClick={() => {
                         if (coolingDown) {

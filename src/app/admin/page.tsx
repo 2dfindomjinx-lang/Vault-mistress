@@ -1161,6 +1161,7 @@ export default function AdminPage() {
                           </p>
                           <p className="mt-1 text-xs font-bold text-yellow-100/80">
                             {event.effect.type} x{event.effect.multiplier}
+                            {event.effect.speechAvatarId ? ` - ${event.effect.speechAvatarId}` : ""}
                           </p>
                         </div>
                         <div className="flex shrink-0 gap-2">

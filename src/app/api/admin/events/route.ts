@@ -1,5 +1,5 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
-import { getEventTemplate, getUtcDayBounds, type EventEffect } from "@/lib/events";
+import { getEventTemplate, getUtcDayBounds, resolveEventEffect, type EventEffect } from "@/lib/events";
 
 type AdminEventBody = {
   action?: "activate" | "create" | "end";
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       .insert({
         active: true,
         description,
-        effect,
+        effect: resolveEventEffect(effect),
         ends_at: body.endsAt ?? end.toISOString(),
         name,
         starts_at: body.startsAt ?? start.toISOString(),
