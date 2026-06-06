@@ -127,15 +127,13 @@ function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTa
 
   if (streakBonus) {
     const loyaltyStreak = profile.loyalty_streak ?? 0;
-    const streakCycleKey = getStreakCycleKey(loyaltyStreak, profile.last_loyalty_at);
-    const claimedCycleKey = getTaskMetadataString(existingTask?.metadata, "cycleKey");
 
     if (loyaltyStreak < streakBonus.milestone) {
       return "Streak milestone is not reached.";
     }
 
-    if (existingTask?.claimed_at && claimedCycleKey === streakCycleKey) {
-      return "Streak bonus already claimed for this cycle.";
+    if (existingTask?.claimed_at) {
+      return "Streak bonus already claimed.";
     }
 
     return null;

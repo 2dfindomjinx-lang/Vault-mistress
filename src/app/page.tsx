@@ -1386,9 +1386,7 @@ function buildTasksFromRows(
     const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
 
     if (streakBonus) {
-      const cycleKey = getStreakCycleKey(loyaltyStreak, lastLoyaltyAt);
-      const claimedCycleKey = getTaskMetadataString(row?.metadata, "cycleKey");
-      const claimed = Boolean(row?.claimed_at && cycleKey && claimedCycleKey === cycleKey);
+      const claimed = Boolean(row?.claimed_at);
 
       return {
         ...task,
@@ -3500,14 +3498,12 @@ export default function Home() {
     const rewardCoins = getEventTaskReward(task.reward);
 
     if (streakBonus) {
-      const claimedCycleKey = getTaskMetadataString(existingTask?.metadata, "cycleKey");
-
       if (loyaltyStreak < streakBonus.milestone) {
         throw new Error("Streak milestone is not reached.");
       }
 
-      if (existingTask?.claimed_at && claimedCycleKey === streakCycleKey) {
-        throw new Error("Streak bonus already claimed for this cycle.");
+      if (existingTask?.claimed_at) {
+        throw new Error("Streak bonus already claimed.");
       }
     }
 
@@ -4597,33 +4593,56 @@ export default function Home() {
       return;
     }
 
-    const durationMinutes = getRandomIrlTaskDurationMinutes();
-    const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
-    const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
-    const nextCoins = currentCoins - IRL_TASK_WHEEL_COST;
-
     try {
-      await persistProfileProgress(
-        { coins: nextCoins, affection },
-        "spend:irl-task-wheel",
-      );
+      let assignedIrlTask = {
+        due_at: new Date(Date.now() + getRandomIrlTaskDurationMinutes() * 60 * 1000).toISOString(),
+        penalty_timeout_minutes: getRandomIrlTaskPenaltyMinutes(),
+        status: "assigned",
+        task_description: assignedTask.description,
+        task_label: assignedTask.title,
+        wheel_index: wheelIndex,
+      };
 
-      if (!isGuestMode) {
-        const { error } = await supabase.from("user_irl_tasks").insert({
-          user_id: authUserId,
-          task_label: assignedTask.title,
-          task_description: assignedTask.description,
-          wheel_index: wheelIndex,
-          cost_coins: IRL_TASK_WHEEL_COST,
-          status: "assigned",
-          due_at: dueAt,
-          penalty_timeout_minutes: penaltyMinutes,
+      if (isGuestMode) {
+        const nextCoins = currentCoins - IRL_TASK_WHEEL_COST;
+        setCoins(nextCoins);
+        coinsRef.current = nextCoins;
+      } else {
+        const response = await fetch("/api/user/irl-task-wheel", {
+          body: JSON.stringify({ wheelIndex }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
         });
+        const result = (await response.json()) as {
+          assignment?: {
+            due_at: string | null;
+            penalty_timeout_minutes: number | null;
+            status: string | null;
+            task_description: string | null;
+            task_label: string;
+            wheel_index: number;
+          };
+          error?: string;
+          profile?: Profile;
+        };
 
-        if (error) {
-          console.error("Failed to assign IRL wheel task", error);
-          throw error;
+        if (!response.ok) {
+          throw createApiError("/api/user/irl-task-wheel", response, result);
         }
+
+        if (!result.profile || !result.assignment) {
+          throw new Error("IRL wheel endpoint returned no assignment.");
+        }
+
+        applyProfileStats(result.profile);
+        assignedIrlTask = {
+          due_at: result.assignment.due_at ?? assignedIrlTask.due_at,
+          penalty_timeout_minutes: result.assignment.penalty_timeout_minutes ?? assignedIrlTask.penalty_timeout_minutes,
+          status: result.assignment.status ?? "assigned",
+          task_description: result.assignment.task_description ?? assignedTask.description,
+          task_label: result.assignment.task_label,
+          wheel_index: result.assignment.wheel_index,
+        };
       }
 
       setTasks((current) =>
@@ -4631,12 +4650,12 @@ export default function Home() {
           entry.id === "irl-task-wheel"
             ? {
                 ...entry,
-                assignedIrlTask: assignedTask.title,
-                assignedIrlTaskDescription: assignedTask.description,
-                assignedIrlTaskStatus: "assigned",
-                assignedIrlWheelIndex: wheelIndex,
-                assignedIrlDueAt: dueAt,
-                assignedIrlPenaltyMinutes: penaltyMinutes,
+                assignedIrlTask: assignedIrlTask.task_label,
+                assignedIrlTaskDescription: assignedIrlTask.task_description,
+                assignedIrlTaskStatus: assignedIrlTask.status,
+                assignedIrlWheelIndex: assignedIrlTask.wheel_index,
+                assignedIrlDueAt: assignedIrlTask.due_at,
+                assignedIrlPenaltyMinutes: assignedIrlTask.penalty_timeout_minutes,
                 completed: true,
               }
             : entry,

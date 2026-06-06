@@ -5,6 +5,7 @@ import {
   profileSelect,
   visibleGalleryCosts,
 } from "@/lib/server-game-rules";
+import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -94,7 +95,7 @@ function validateTransition(
   }
 
   if (reason === "spend:irl-task-wheel") {
-    if (coinDelta !== -2000 || tributeDelta !== 0 || next.affection !== current.affection) {
+    if (coinDelta !== -IRL_TASK_WHEEL_COST || tributeDelta !== 0 || next.affection !== current.affection) {
       return "IRL task wheel spend delta is invalid.";
     }
 

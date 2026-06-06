@@ -316,7 +316,11 @@ export async function POST(request: Request) {
 
   return Response.json({
     message: giveMatch
-      ? `Granted ${amount} coins to ${profile.username}.`
+      ? `Granted ${
+          giveBonusAmount > 0
+            ? `${amount.toLocaleString()} + ${giveBonusAmount.toLocaleString()} bonus`
+            : amount.toLocaleString()
+        } coins to ${profile.username}.`
       : `Added ${amount} coins to ${profile.username}.`,
     username: profile.username,
     coins: finalCoins,
