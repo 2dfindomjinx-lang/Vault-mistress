@@ -4044,6 +4044,7 @@ export default function Home() {
           ),
         );
         scheduleHighLowDisplayRefresh();
+        emitSoundEvent("task_completion");
         return;
         }
 
@@ -4086,9 +4087,7 @@ export default function Home() {
                 : "A lucky guess. The vault pays your win."
               : "Wrong. The vault keeps that stake.",
         );
-        if (outcome === "win") {
-          emitSoundEvent("task_completion");
-        }
+        emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete high-low play", error);
       setAuthError(describeError(error));
@@ -4188,6 +4187,9 @@ export default function Home() {
               ? "Wrong again. The vault gives you nothing today."
               : "Wrong number. One chance remains.",
         );
+        if (finalAttempt) {
+          emitSoundEvent("task_completion");
+        }
         return;
         }
 
@@ -4229,7 +4231,7 @@ export default function Home() {
               ? "Wrong again. The vault gives you nothing today."
               : "Wrong number. One chance remains.",
         );
-        if (result === "win") {
+        if (result === "win" || result === "loss") {
           emitSoundEvent("task_completion");
         }
     } catch (error) {
@@ -4381,6 +4383,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
+    emitSoundEvent("task_completion");
 
     persistInBackground(
       (async () => {
@@ -4539,6 +4542,7 @@ export default function Home() {
         ),
       );
       setAvatarMistressReply(`Safe roll. ${eventSafeReward} coins added.`);
+      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
       setAuthError(describeError(error));
@@ -4663,6 +4667,7 @@ export default function Home() {
         ),
       );
       setAvatarMistressReply("Task assigned. DM @Principessa2dfd when it is done.");
+      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to spin IRL task wheel", error);
       setAuthError(describeError(error));
@@ -4730,11 +4735,7 @@ export default function Home() {
           ? `${randomFrom(begRewardLines)} +${reward} coins.`
           : randomFrom(begIgnoredLines),
       );
-      if (reward > 0) {
-        emitSoundEvent("task_completion");
-      } else {
-        emitSoundEvent("button_click");
-      }
+      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
       setAuthError(describeError(error));
@@ -4842,6 +4843,7 @@ export default function Home() {
           : randomFrom(sacrificeFailureLines),
       );
       emitSoundEvent(unlockedItem ? "gallery_unlock" : "tribute_sent");
+      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete sacrifice mechanic", error);
       setAuthError(describeError(error));
@@ -4908,6 +4910,7 @@ export default function Home() {
       }));
       setAvatarMistressReply(message);
       emitSoundEvent("tribute_sent");
+      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete support mechanic", error);
       setAuthError(describeError(error));

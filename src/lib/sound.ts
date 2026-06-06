@@ -3,6 +3,8 @@ export type SoundEventName =
   | "tribute_sent"
   | "gallery_unlock"
   | "task_completion"
+  | "task_fail"
+  | "error"
   | "affection_level_up"
   | "debt_contract_signed"
   | "cosmetic_purchased"
@@ -36,6 +38,8 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   tribute_sent: { category: "gameplay", src: "/sounds/tribute-sent.mp3" },
   gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3" },
   task_completion: { category: "gameplay", src: "/sounds/task-completion.mp3" },
+  task_fail: { category: "gameplay", src: "/sounds/task-fail.mp3" },
+  error: { category: "ui", src: "/sounds/error.mp3" },
   affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3" },
   debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav" },
   cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav" },

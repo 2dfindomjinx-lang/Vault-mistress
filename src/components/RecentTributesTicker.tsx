@@ -10,6 +10,7 @@ export type RecentTribute = {
   avatarUrl: string | null;
   amount: number;
   createdAt: string;
+  usernameStyle?: CSSProperties;
 };
 
 function getRelativeTime(createdAt: string) {
@@ -157,7 +158,7 @@ export function RecentTributesTicker({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-black text-white">
-                      <span style={tribute.username === currentUsername ? usernameStyle : undefined}>
+                      <span style={tribute.usernameStyle ?? (tribute.username === currentUsername ? usernameStyle : undefined)}>
                         {tribute.username}
                       </span>
                     </p>
@@ -208,7 +209,7 @@ function TributeCard({
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-white">
-          <span style={tribute.username === currentUsername ? usernameStyle : undefined}>
+          <span style={tribute.usernameStyle ?? (tribute.username === currentUsername ? usernameStyle : undefined)}>
             {tribute.username}
           </span>
         </p>

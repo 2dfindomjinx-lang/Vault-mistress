@@ -12,11 +12,19 @@ export type LeadershipEntry = {
   username: string;
   tributeTotal: number;
   rankTitle: string;
+  usernameStyle?: {
+    color?: string;
+    textShadow?: string;
+  };
 };
 
 export type ShameEntry = {
   username: string;
   shameCount: number;
+  usernameStyle?: {
+    color?: string;
+    textShadow?: string;
+  };
 };
 
 export function getLeadershipRank(tributeTotal: number) {

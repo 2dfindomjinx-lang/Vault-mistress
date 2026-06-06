@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { IRL_TASK_WHEEL_COST, irlTaskWheelSegments } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
+import { emitSoundEvent } from "@/lib/sound";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 const SACRIFICE_COST = 250;
@@ -122,6 +123,8 @@ export function TaskList({
     if (disabled || isIrlWheelSpinning) {
       return;
     }
+
+    emitSoundEvent("button_click");
 
     const selectedIndex = Math.floor(Math.random() * irlTaskWheelSegments.length);
     const segmentDegrees = 360 / irlTaskWheelSegments.length;
@@ -340,7 +343,10 @@ export function TaskList({
                       <button
                         className="mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
-                        onClick={onTimeoutRisk}
+                        onClick={() => {
+                          emitSoundEvent("button_click");
+                          onTimeoutRisk();
+                        }}
                         type="button"
                       >
                         {task.completed
@@ -414,7 +420,10 @@ export function TaskList({
                         </p>
                         <button
                           className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
-                          onClick={() => setShowIrlTaskList(true)}
+                          onClick={() => {
+                            emitSoundEvent("button_click");
+                            setShowIrlTaskList(true);
+                          }}
                           type="button"
                         >
                           Task List
@@ -581,6 +590,7 @@ export function TaskList({
                       }
                       onClick={() => {
                         setTypingValue("");
+                        emitSoundEvent("button_click");
                         onClaim(task.id);
                       }}
                       type="button"
@@ -757,7 +767,10 @@ export function TaskList({
                           stake > highLowBetAllowance
                         }
                         key={guess}
-                        onClick={() => onHighLowPlay(guess, stake)}
+                        onClick={() => {
+                          emitSoundEvent("button_click");
+                          onHighLowPlay(guess, stake);
+                        }}
                         type="button"
                       >
                         {guess}
@@ -796,7 +809,10 @@ export function TaskList({
                           }`}
                           disabled={disabled || isCoolingDown || isTaskActionPending("number-pick") || hasResult || isWrongSelection}
                           key={option}
-                          onClick={() => onNumberPick(option)}
+                          onClick={() => {
+                            emitSoundEvent("button_click");
+                            onNumberPick(option);
+                          }}
                           type="button"
                         >
                           {option}
@@ -891,7 +907,10 @@ export function TaskList({
                     </p>
                     <button
                       className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
-                      onClick={() => setShowIrlTaskList(true)}
+                      onClick={() => {
+                        emitSoundEvent("button_click");
+                        setShowIrlTaskList(true);
+                      }}
                       type="button"
                     >
                       Task List
@@ -977,7 +996,10 @@ export function TaskList({
                 <button
                   className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={disabled || !isClaimable || isClaimPending(task.id)}
-                  onClick={() => onClaim(task.id)}
+                  onClick={() => {
+                    emitSoundEvent("button_click");
+                    onClaim(task.id);
+                  }}
                   type="button"
                 >
                   {isCoolingDown
@@ -1001,7 +1023,10 @@ function IrlTaskWheelTaskList({ onClose }: { onClose: () => void }) {
       <button
         aria-label="Close task list"
         className="absolute right-0 top-0 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/60 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/20"
-        onClick={onClose}
+        onClick={() => {
+          emitSoundEvent("button_click");
+          onClose();
+        }}
         type="button"
       >
         X
@@ -1221,6 +1246,7 @@ function LoyaltyJackpotTaskCard({
                   {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
                   <StyledUsername
                     currentUsername={currentUsername}
+                    displayUsernameStyle={winner.usernameStyle}
                     username={winner.username}
                     usernameStyle={usernameStyle}
                   />
@@ -1241,6 +1267,7 @@ function LoyaltyJackpotTaskCard({
                 {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
                 <StyledUsername
                   currentUsername={currentUsername}
+                  displayUsernameStyle={winner.usernameStyle}
                   username={winner.username}
                   usernameStyle={usernameStyle}
                 />{" "}
@@ -1276,7 +1303,10 @@ function LoyaltyJackpotTaskCard({
         <button
           className="self-end rounded-2xl border border-amber-100/20 bg-amber-400/10 px-5 py-3 text-sm font-black text-amber-50 transition enabled:hover:border-amber-100/50 enabled:hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
           disabled={!canContribute || isBusy}
-          onClick={() => onContribute(cleanAmount)}
+          onClick={() => {
+            emitSoundEvent("button_click");
+            onContribute(cleanAmount);
+          }}
           type="button"
         >
           {isBusy
@@ -1319,6 +1349,7 @@ function LoyaltyJackpotTaskCard({
                   <span className="text-zinc-200">
                     <StyledUsername
                       currentUsername={currentUsername}
+                      displayUsernameStyle={contribution.usernameStyle}
                       username={contribution.username}
                       usernameStyle={usernameStyle}
                     />
@@ -1340,14 +1371,16 @@ function LoyaltyJackpotTaskCard({
 
 function StyledUsername({
   currentUsername,
+  displayUsernameStyle,
   username,
   usernameStyle,
 }: {
   currentUsername?: string;
+  displayUsernameStyle?: CSSProperties;
   username: string;
   usernameStyle?: CSSProperties;
 }) {
-  return <span style={username === currentUsername ? usernameStyle : undefined}>{username}</span>;
+  return <span style={displayUsernameStyle ?? (username === currentUsername ? usernameStyle : undefined)}>{username}</span>;
 }
 
 function JackpotStat({ label, value }: { label: string; value: string }) {
@@ -1502,6 +1535,7 @@ function WaitObedientlyPanel({
       return;
     }
 
+    emitSoundEvent("button_click");
     finishedRef.current = false;
     setCountdown(3);
     setWaitRemaining(60);
@@ -1728,7 +1762,10 @@ function MechanicCard({
       <button
         className="mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={disabled || isCoolingDown}
-        onClick={onAction}
+        onClick={() => {
+          emitSoundEvent("button_click");
+          onAction();
+        }}
         type="button"
       >
         {isCoolingDown ? `Available in ${formatRemaining(cooldownRemaining)}` : actionLabel}

@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { getLeadershipRank } from "@/lib/leadership";
+import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
@@ -20,7 +21,7 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
   .from("profiles")
-  .select("username, tribute_total, created_at")
+  .select("id, username, tribute_total, created_at")
   .eq("hide_from_leaderboard", false)
   .order("tribute_total", { ascending: false })
   .order("created_at", { ascending: true })
@@ -31,6 +32,20 @@ export async function GET() {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
+  const userIds = (data ?? []).map((profile) => String(profile.id)).filter(Boolean);
+  const { data: cosmeticRows, error: cosmeticError } = await supabase
+    .from("user_cosmetics")
+    .select("user_id, item_id, item_type, equipped")
+    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("equipped", true)
+    .in("item_type", ["username-color", "username-glow"]);
+
+  if (cosmeticError) {
+    console.error("Leadership username cosmetic lookup failed", cosmeticError);
+  }
+
+  const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
+
   return Response.json({
     leaders: (data ?? [])
       .map((profile) => {
@@ -38,6 +53,7 @@ export async function GET() {
 
         return {
           createdAt: String(profile.created_at ?? ""),
+          id: String(profile.id),
           rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
           tributeTotal,
           username: profile.username,
@@ -55,6 +71,7 @@ export async function GET() {
         rankTitle: leader.rankTitle,
         tributeTotal: leader.tributeTotal,
         username: leader.username,
+        usernameStyle: usernameStyles.get(leader.id),
       })),
   });
 }

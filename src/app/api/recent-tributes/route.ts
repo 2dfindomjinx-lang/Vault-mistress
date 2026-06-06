@@ -3,6 +3,7 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 type CoinTransactionRow = {
   id: string;
@@ -97,9 +98,21 @@ export async function GET() {
     return Response.json({ error: profileError.message }, { status: 500 });
   }
 
+  const { data: cosmeticRows, error: cosmeticError } = await supabase
+    .from("user_cosmetics")
+    .select("user_id, item_id, item_type, equipped")
+    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("equipped", true)
+    .in("item_type", ["username-color", "username-glow"]);
+
+  if (cosmeticError) {
+    console.error("Recent tribute username cosmetic lookup failed", cosmeticError);
+  }
+
   const profileMap = new Map(
     ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]),
   );
+  const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
   const mapTribute = (row: CoinTransactionRow) => {
     const profile = profileMap.get(row.user_id);
@@ -110,6 +123,7 @@ export async function GET() {
       avatarUrl: profile?.avatar_url ?? null,
       amount: row.amount,
       createdAt: row.created_at,
+      usernameStyle: usernameStyles.get(row.user_id),
     };
   };
 
@@ -122,6 +136,7 @@ export async function GET() {
       avatarUrl: profile?.avatar_url ?? null,
       amount: row.amount,
       createdAt: row.createdAt,
+      usernameStyle: usernameStyles.get(row.userId),
     };
   };
 

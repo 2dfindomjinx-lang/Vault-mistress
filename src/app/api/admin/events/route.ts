@@ -12,6 +12,28 @@ type AdminEventBody = {
   templateKey?: string;
 };
 
+const EVENT_LOG_RETENTION_DAYS = 7;
+
+function getEventLogCutoffIso() {
+  return new Date(Date.now() - EVENT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function cleanupOldEventLogs(admin: Awaited<ReturnType<typeof requireAdminProfile>>) {
+  if ("error" in admin) {
+    return;
+  }
+
+  const { error } = await admin.supabase
+    .from("random_events")
+    .delete()
+    .eq("active", false)
+    .lt("created_at", getEventLogCutoffIso());
+
+  if (error) {
+    console.error("Admin event log cleanup failed", error);
+  }
+}
+
 export async function GET() {
   const admin = await requireAdminProfile();
 
@@ -19,9 +41,12 @@ export async function GET() {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
+  await cleanupOldEventLogs(admin);
+
   const { data, error } = await admin.supabase
     .from("random_events")
     .select("id, name, description, starts_at, ends_at, active, effect, created_at")
+    .gte("created_at", getEventLogCutoffIso())
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -39,6 +64,8 @@ export async function POST(request: Request) {
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
+
+  await cleanupOldEventLogs(admin);
 
   const body = (await request.json()) as AdminEventBody;
   const now = new Date().toISOString();

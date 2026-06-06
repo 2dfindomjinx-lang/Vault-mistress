@@ -137,7 +137,7 @@ export function StatsPanel({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-white">
                       #{index + 1}{" "}
-                      <span style={isCurrentUser ? usernameStyle : undefined}>
+                      <span style={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
                         {leader.username}
                       </span>
                     </p>
@@ -179,7 +179,7 @@ export function StatsPanel({
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
                     #{index + 1}{" "}
-                    <span style={isCurrentUser ? usernameStyle : undefined}>
+                    <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
                       {entry.username}
                     </span>
                   </p>

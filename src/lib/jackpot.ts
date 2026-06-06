@@ -10,6 +10,10 @@ export type LoyaltyJackpotContributor = {
   username: string;
   amount: number;
   createdAt: string;
+  usernameStyle?: {
+    color?: string;
+    textShadow?: string;
+  };
 };
 
 export type LoyaltyJackpotWinner = {
@@ -17,6 +21,10 @@ export type LoyaltyJackpotWinner = {
   amount: number;
   selectedAt: string;
   place?: 1 | 2 | 3;
+  usernameStyle?: {
+    color?: string;
+    textShadow?: string;
+  };
 };
 
 export type LoyaltyJackpotState = {

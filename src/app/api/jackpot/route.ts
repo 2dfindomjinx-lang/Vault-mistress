@@ -10,6 +10,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 type JackpotRow = {
   id: string;
@@ -308,13 +309,34 @@ async function getJackpotWinnersFromTransactions(
   }
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.username]));
+  const usernameStyles = await getUsernameStylesForUserIds(supabase, userIds);
 
   return rows.map((row) => ({
     username: profileMap.get(row.user_id) ?? String(row.metadata?.username ?? "@unknown"),
     amount: Number(row.amount ?? 0),
     selectedAt: row.created_at,
     place: jackpotWinnerPlaces[row.reason as keyof typeof jackpotWinnerPlaces],
+    usernameStyle: usernameStyles.get(row.user_id),
   }));
+}
+
+async function getUsernameStylesForUserIds(
+  supabase: SupabaseAdminClient,
+  userIds: string[],
+) {
+  const { data, error } = await supabase
+    .from("user_cosmetics")
+    .select("user_id, item_id, item_type, equipped")
+    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("equipped", true)
+    .in("item_type", ["username-color", "username-glow"]);
+
+  if (error) {
+    console.error("Jackpot username cosmetic lookup failed", error);
+    return new Map();
+  }
+
+  return getUsernameStylesByUserId((data ?? []) as EquippedUsernameCosmeticRow[]);
 }
 
 async function maybeSelectWinner(
@@ -517,6 +539,10 @@ async function buildJackpotState(
   );
   const displayPreviousWinners = previousWinnerRows.flat();
   const previousWinnerRow = displayPreviousWinners[0];
+  const contributorUserIds = Array.from(
+    new Set(((contributionRows ?? []) as ContributionRow[]).map((row) => String(row.user_id ?? "")).filter(Boolean)),
+  );
+  const contributorUsernameStyles = await getUsernameStylesForUserIds(supabase, contributorUserIds);
 
   return {
     id: jackpot.id,
@@ -537,6 +563,7 @@ async function buildJackpotState(
       username: row.username,
       amount: row.amount,
       createdAt: row.created_at,
+      usernameStyle: row.user_id ? contributorUsernameStyles.get(row.user_id) : undefined,
     })),
     currentWinners: displayCurrentWinners,
     currentWinner: displayCurrentWinners[0] ?? null,
