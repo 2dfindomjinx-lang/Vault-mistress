@@ -9,7 +9,8 @@ import type { MechanicsState, TaskItem } from "@/lib/types";
 const SACRIFICE_COST = 250;
 const SUPPORT_COST = 1000;
 const JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY = "vault:jackpot-hide-contributors";
-const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
+const CLICKABLE_COOLDOWN_BUTTON_CLASS =
+  "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-70";
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
@@ -33,6 +34,20 @@ function normalizeWritingPreview(value: string) {
 
 function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
+}
+
+function getNextDailyResetRemaining(now: number) {
+  const current = new Date(now);
+  const nextReset = new Date(current);
+  nextReset.setHours(24, 0, 0, 0);
+
+  return Math.max(0, nextReset.getTime() - now);
+}
+
+function CooldownButtonContent({ label }: { label: string }) {
+  return (
+    <span>{label}</span>
+  );
 }
 
 type TaskListProps = {
@@ -642,6 +657,7 @@ export function TaskList({
                       task.highLowBetAllowance ??
                       Math.max(0, highLowAllowanceCap - Math.max(0, task.highLowDailyBetTotal ?? 0));
                     const highLowStakeMax = Math.max(0, Math.min(coins, highLowBetAllowance));
+                    const highLowResetRemaining = getNextDailyResetRemaining(now);
 
                     return (
                       <>
@@ -760,7 +776,8 @@ export function TaskList({
                   </div>
                   {task.highLowDailyLocked && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower daily profit or bet allowance limit reached.
+                      Higher or Lower daily profit or bet allowance limit reached. Available again in{" "}
+                      {formatRemaining(highLowResetRemaining)}.
                     </p>
                   )}
                   {!task.highLowDailyLocked && (
@@ -814,7 +831,11 @@ export function TaskList({
                         }}
                         type="button"
                       >
-                        {guess}
+                        {isCoolingDown ? (
+                          <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
+                        ) : (
+                          guess
+                        )}
                       </button>
                     ))}
                   </div>
@@ -1078,9 +1099,9 @@ export function TaskList({
                   }}
                   type="button"
                 >
-                  {isCoolingDown
-                    ? `Available in ${formatRemaining(cooldownRemaining)}`
-                    : task.claimed
+                  {isCoolingDown ? (
+                    <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
+                  ) : task.claimed
                       ? "Reward Claimed"
                       : "Claim Reward"}
                 </button>
@@ -1785,9 +1806,9 @@ function WaitObedientlyPanel({
         onClick={startChallenge}
         type="button"
       >
-        {displayPhase === "cooldown"
-          ? `Available in ${formatRemaining(cooldownRemaining)}`
-          : phase === "countdown" || phase === "waiting"
+        {displayPhase === "cooldown" ? (
+          <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
+        ) : phase === "countdown" || phase === "waiting"
             ? "Do Not Move"
             : isActionPending
               ? "Saving..."
@@ -1865,7 +1886,11 @@ function MechanicCard({
         }}
         type="button"
       >
-        {isCoolingDown ? `Available in ${formatRemaining(cooldownRemaining)}` : actionLabel}
+        {isCoolingDown ? (
+          <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
+        ) : (
+          actionLabel
+        )}
       </button>
     </article>
   );
