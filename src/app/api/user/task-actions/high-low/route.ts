@@ -1,5 +1,6 @@
 import { profileSelect } from "@/lib/server-game-rules";
 import {
+  DAY_MS,
   getActiveEventMultipliers,
   getCooldownUntil,
   getDailyKey,
@@ -106,27 +107,32 @@ export async function POST(request: Request) {
     return jsonError("Not enough coins for that stake.", 422);
   }
 
+  const nowMs = Date.now();
+  const legacyDailyDate = getMetadataString(metadata, "higherLowerDailyDate");
+  const legacyWindowStartedAt = legacyDailyDate ? existingTask?.claimed_at : null;
+  const storedWindowStartedAt =
+    getMetadataString(metadata, "higherLowerWindowStartedAt") ?? legacyWindowStartedAt;
+  const storedWindowStartedMs = storedWindowStartedAt ? new Date(storedWindowStartedAt).getTime() : 0;
+  const windowActive =
+    Number.isFinite(storedWindowStartedMs) && nowMs - storedWindowStartedMs < DAY_MS;
+  const windowStartedAt =
+    windowActive && storedWindowStartedAt ? storedWindowStartedAt : new Date(nowMs).toISOString();
+  const windowResetAt = new Date(new Date(windowStartedAt).getTime() + DAY_MS).toISOString();
   const today = getDailyKey();
-  const dailyDate = getMetadataString(metadata, "higherLowerDailyDate");
-  const currentDailyProfit =
-    dailyDate === today
-      ? getMetadataNumber(metadata, "higherLowerDailyProfit", 0)
-      : 0;
-  const currentDailyWins =
-    dailyDate === today ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
-  const currentDailyBetTotal =
-    dailyDate === today
-      ? getMetadataNumber(
-          metadata,
-          "higherLowerDailyBetTotal",
-          getMetadataNumber(metadata, "higherLowerDailyWinningExposure", 0),
-        )
-      : 0;
+  const currentDailyProfit = windowActive ? getMetadataNumber(metadata, "higherLowerDailyProfit", 0) : 0;
+  const currentDailyWins = windowActive ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
+  const currentDailyBetTotal = windowActive
+    ? getMetadataNumber(
+        metadata,
+        "higherLowerDailyBetTotal",
+        getMetadataNumber(metadata, "higherLowerDailyWinningExposure", 0),
+      )
+    : 0;
   const currentBetAllowance = getHighLowBetAllowance(currentDailyBetTotal);
 
   if (currentDailyProfit >= HIGH_LOW_PROFIT_LIMIT) {
     return jsonError(
-      `Higher or Lower ${HIGH_LOW_PROFIT_LIMIT.toLocaleString()} coin profit limit reached for today.`,
+      `Higher or Lower ${HIGH_LOW_PROFIT_LIMIT.toLocaleString()} coin profit limit reached for this 24-hour window.`,
       422,
     );
   }
@@ -224,6 +230,8 @@ export async function POST(request: Request) {
     higherLowerDailyBetTotal: nextDailyBetTotal,
     higherLowerDailyProfit: nextDailyProfit,
     higherLowerDailyWins: nextDailyWins,
+    higherLowerResetAt: windowResetAt,
+    higherLowerWindowStartedAt: windowStartedAt,
     higherLowerAllowanceCost: allowanceCost,
     higherLowerBetAllowance: nextBetAllowance,
     outcome,
@@ -295,6 +303,7 @@ export async function POST(request: Request) {
       highLowDailyProfit: nextDailyProfit,
       highLowDailyWins: nextDailyWins,
       highLowBetAllowance: nextBetAllowance,
+      highLowResetAt: windowResetAt,
       lastResult,
       nextBaseRevealAt,
       resultBaseNumber: currentNumber,

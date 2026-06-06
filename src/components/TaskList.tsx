@@ -36,14 +36,6 @@ function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
 }
 
-function getNextDailyResetRemaining(now: number) {
-  const current = new Date(now);
-  const nextReset = new Date(current);
-  nextReset.setHours(24, 0, 0, 0);
-
-  return Math.max(0, nextReset.getTime() - now);
-}
-
 function CooldownButtonContent({ label }: { label: string }) {
   return (
     <span>{label}</span>
@@ -657,7 +649,9 @@ export function TaskList({
                       task.highLowBetAllowance ??
                       Math.max(0, highLowAllowanceCap - Math.max(0, task.highLowDailyBetTotal ?? 0));
                     const highLowStakeMax = Math.max(0, Math.min(coins, highLowBetAllowance));
-                    const highLowResetRemaining = getNextDailyResetRemaining(now);
+                    const highLowResetRemaining = task.highLowResetAt
+                      ? new Date(task.highLowResetAt).getTime() - now
+                      : 0;
 
                     return (
                       <>
@@ -730,7 +724,7 @@ export function TaskList({
                   <div className="mt-3 grid gap-2 sm:grid-cols-4">
                     <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                       <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Daily Net Profit
+                        24h Net Profit
                       </p>
                       <p
                         className={`mt-1 text-lg font-black ${
@@ -776,13 +770,15 @@ export function TaskList({
                   </div>
                   {task.highLowDailyLocked && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower daily profit or bet allowance limit reached. Available again in{" "}
-                      {formatRemaining(highLowResetRemaining)}.
+                      Higher or Lower 24-hour profit or bet allowance limit reached.
+                      {highLowResetRemaining > 0
+                        ? ` Available again in ${formatRemaining(highLowResetRemaining)}.`
+                        : " Available again after the current 24-hour window resets."}
                     </p>
                   )}
                   {!task.highLowDailyLocked && (
                     <p className="mt-3 text-xs font-semibold text-zinc-500">
-                      Locks at {highLowProfitCap.toLocaleString()} daily net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the allowance period. Wins and losses consume allowance; ties refund and do not count.
+                      Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties refund and do not count.
                     </p>
                   )}
                   {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (

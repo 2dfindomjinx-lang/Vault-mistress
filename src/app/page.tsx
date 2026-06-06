@@ -41,6 +41,7 @@ import {
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { roundRewardToNearestFive } from "@/lib/server-game-rules";
+import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 import {
   emitSoundEvent,
   getSoundSettings,
@@ -1124,22 +1125,22 @@ function getPetRuleMechanicLabel(mechanicId: string) {
 }
 
 function getDailyTypingSentence() {
-  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  const dayIndex = getGmt3DayIndex();
   return typingSentencePool[dayIndex % typingSentencePool.length];
 }
 
 function getDailyPetVoiceSentence() {
-  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  const dayIndex = getGmt3DayIndex();
   return petVoiceSentencePool[dayIndex % petVoiceSentencePool.length];
 }
 
 function getDailyPetPerfectWritingSentence() {
-  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  const dayIndex = getGmt3DayIndex();
   return petPerfectWritingSentencePool[dayIndex % petPerfectWritingSentencePool.length];
 }
 
 function getDailyPetConfessionSentence() {
-  const dayIndex = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+  const dayIndex = getGmt3DayIndex();
   return petConfessionSentencePool[dayIndex % petConfessionSentencePool.length];
 }
 
@@ -1284,8 +1285,8 @@ function randomHighLowDisplayNumber() {
   return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
 }
 
-function getDailyKey(date: Date | number = new Date()) {
-  return new Date(date).toISOString().slice(0, 10);
+function getDailyKey(date: Date | number | string = new Date()) {
+  return getGmt3DateKey(date);
 }
 
 function normalizeUsernameKey(value: string | null | undefined) {
@@ -1307,10 +1308,10 @@ function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
 
   const cycleStart = new Date(lastLoyaltyAt);
   cycleStart.setUTCDate(cycleStart.getUTCDate() - (streak - 1));
-  return cycleStart.toISOString().slice(0, 10);
+  return getGmt3DateKey(cycleStart);
 }
 
-function generateNumberPickOptions(seed = Math.floor(Date.now() / (24 * 60 * 60 * 1000))) {
+function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 
@@ -1422,24 +1423,26 @@ function buildTasksFromRows(
 
     if (task.id === "high-low") {
       const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
-      const dailyDate = getTaskMetadataString(row?.metadata, "higherLowerDailyDate");
-      const today = getDailyKey();
-      const dailyProfit =
-        dailyDate === today
-          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
-          : 0;
-      const dailyWins =
-        dailyDate === today
-          ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0)
-          : 0;
-      const dailyBetTotal =
-        dailyDate === today
-          ? getTaskMetadataNumber(
-              row?.metadata,
-              "higherLowerDailyBetTotal",
-              getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinningExposure", 0),
-            )
-          : 0;
+      const windowStartedAt =
+        getTaskMetadataString(row?.metadata, "higherLowerWindowStartedAt") ??
+        row?.claimed_at ??
+        null;
+      const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
+      const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
+      const highLowResetAt = windowActive
+        ? new Date(windowStartedMs + DAY_MS).toISOString()
+        : null;
+      const dailyProfit = windowActive
+        ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
+        : 0;
+      const dailyWins = windowActive ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0) : 0;
+      const dailyBetTotal = windowActive
+        ? getTaskMetadataNumber(
+            row?.metadata,
+            "higherLowerDailyBetTotal",
+            getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinningExposure", 0),
+          )
+        : 0;
 
       return {
         ...task,
@@ -1447,12 +1450,13 @@ function buildTasksFromRows(
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
         currentNumber: randomHighLowDisplayNumber(),
-        highLowDailyDate: today,
+        highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
         highLowDailyBetTotal: dailyBetTotal,
         highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
         highLowDailyProfit: dailyProfit,
         highLowDailyWins: dailyWins,
         highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
+        highLowResetAt,
       };
     }
 
@@ -4066,8 +4070,17 @@ export default function Home() {
               ? -stake
               : 0;
         const nextCoins = currentCoins + coinDelta;
-        const now = new Date().toISOString();
-        const today = getDailyKey();
+        const nowDate = new Date();
+        const nowMs = nowDate.getTime();
+        const now = nowDate.toISOString();
+        const existingResetMs = task.highLowResetAt ? new Date(task.highLowResetAt).getTime() : 0;
+        const windowActive = Number.isFinite(existingResetMs) && existingResetMs > nowMs;
+        const windowStartedAt = windowActive
+          ? new Date(existingResetMs - DAY_MS).toISOString()
+          : now;
+        const highLowResetAt = windowActive
+          ? task.highLowResetAt
+          : new Date(nowMs + DAY_MS).toISOString();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
         const allowanceCost = outcome === "tie" ? 0 : stake;
         const nextDailyBetTotal = Math.min(
@@ -4088,12 +4101,13 @@ export default function Home() {
                   claimed: false,
                   cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
                   currentNumber,
-                  highLowDailyDate: today,
+                  highLowDailyDate: getDailyKey(windowStartedAt),
                   highLowDailyBetTotal: nextDailyBetTotal,
                   highLowDailyLocked: isHighLowLocked(nextDailyBetTotal, nextDailyProfit),
                   highLowDailyProfit: nextDailyProfit,
                   highLowDailyWins: (task.highLowDailyWins ?? 0) + (outcome === "win" ? 1 : 0),
                   highLowBetAllowance: nextBetAllowance,
+                  highLowResetAt,
                   lastResult:
                     outcome === "tie"
                       ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`

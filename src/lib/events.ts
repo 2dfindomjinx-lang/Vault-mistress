@@ -1,4 +1,5 @@
 import { DEFAULT_SPEECH_AVATAR_ID, cosmeticItems } from "@/lib/cosmetics";
+import { getGmt3DateKey, getGmt3DayBounds } from "@/lib/time";
 
 export type EventEffectType =
   | "cooldown_reduction"
@@ -66,7 +67,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
 export const FIRST_DAY_EVENT_TEMPLATE: EventTemplate = {
   key: "task-reward-1-5x",
   name: "Coin Earn Surge",
-  description: "Task coin rewards are increased by 1.5x until midnight GMT.",
+  description: "Task coin rewards are increased by 1.5x until midnight GMT+3.",
   effect: { type: "task_reward_multiplier", multiplier: 1.5 },
 };
 
@@ -99,12 +100,9 @@ export function resolveEventEffect(effect: EventEffect): EventEffect {
 }
 
 export function getEventDayKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  return getGmt3DateKey(date);
 }
 
 export function getUtcDayBounds(date = new Date()) {
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-
-  return { end, start };
+  return getGmt3DayBounds(date);
 }

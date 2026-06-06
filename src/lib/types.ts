@@ -51,6 +51,7 @@ export type TaskItem = {
   highLowDailyProfit?: number;
   highLowDailyWins?: number;
   highLowBetAllowance?: number;
+  highLowResetAt?: string | null;
   lastResult?: string | null;
   nextBaseRevealAt?: string | null;
   resultBaseNumber?: number;

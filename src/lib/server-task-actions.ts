@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
+export { DAY_MS } from "@/lib/time";
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
 export const HIGH_LOW_BET_ALLOWANCE = 4000;
 export const HIGH_LOW_PROFIT_LIMIT = 4000;
 
@@ -38,7 +39,7 @@ export function getCooldownUntil(value: string | null | undefined, milliseconds:
 }
 
 export function getDailyKey() {
-  return new Date().toISOString().slice(0, 10);
+  return getGmt3DateKey();
 }
 
 export function getMetadataNumber(
@@ -87,7 +88,7 @@ export function randomHighLowDisplayNumber() {
   return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
 }
 
-export function generateNumberPickOptions(seed = Math.floor(Date.now() / DAY_MS)) {
+export function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 

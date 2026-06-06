@@ -5,6 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { getGmt3DateKey } from "@/lib/time";
 
 type Body = {
   taskId?: string;
@@ -58,7 +59,7 @@ function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
 
   const cycleStart = new Date(lastLoyaltyAt);
   cycleStart.setUTCDate(cycleStart.getUTCDate() - (streak - 1));
-  return cycleStart.toISOString().slice(0, 10);
+  return getGmt3DateKey(cycleStart);
 }
 
 function getTaskRewardMultiplier(effect: unknown) {
