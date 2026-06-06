@@ -2066,6 +2066,7 @@ export default function Home() {
   ) => {
     void promise.catch((error) => {
       console.error("[action-error] caught background action error", { error, label });
+      emitSoundEvent("error");
       setAvatarMistressReply("The action worked locally, but the vault failed to save it. Resyncing the vault state.");
 
       if (options.resyncOnFailure !== false) {
@@ -4044,7 +4045,7 @@ export default function Home() {
           ),
         );
         scheduleHighLowDisplayRefresh();
-        emitSoundEvent("task_completion");
+        emitSoundEvent(outcome === "loss" ? "task_fail" : "task_completion");
         return;
         }
 
@@ -4087,9 +4088,10 @@ export default function Home() {
                 : "A lucky guess. The vault pays your win."
               : "Wrong. The vault keeps that stake.",
         );
-        emitSoundEvent("task_completion");
+        emitSoundEvent(outcome === "loss" ? "task_fail" : "task_completion");
     } catch (error) {
       console.error("Failed to complete high-low play", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The Higher or Lower ledger failed. Resyncing the vault state.");
       void resyncAuthenticatedProfile("Failed to complete high-low play").catch((resyncError) => {
@@ -4188,7 +4190,7 @@ export default function Home() {
               : "Wrong number. One chance remains.",
         );
         if (finalAttempt) {
-          emitSoundEvent("task_completion");
+          emitSoundEvent(result === "loss" ? "task_fail" : "task_completion");
         }
         return;
         }
@@ -4232,10 +4234,11 @@ export default function Home() {
               : "Wrong number. One chance remains.",
         );
         if (result === "win" || result === "loss") {
-          emitSoundEvent("task_completion");
+          emitSoundEvent(result === "loss" ? "task_fail" : "task_completion");
         }
     } catch (error) {
       console.error("Failed to complete number pick task", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The Number Pick ledger failed. Resyncing the vault state.");
       void resyncAuthenticatedProfile("Failed to complete number pick task").catch((resyncError) => {
@@ -4334,6 +4337,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply("You moved. Failed.");
+    emitSoundEvent("task_fail");
 
     if (!isGuestMode) {
       persistInBackground(
@@ -4504,6 +4508,7 @@ export default function Home() {
           ),
         );
         setAvatarMistressReply("Bad roll. 12 hours of timeout have been added.");
+        emitSoundEvent("task_fail");
         return;
       }
 
@@ -4545,6 +4550,7 @@ export default function Home() {
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The risk ledger failed. Try again.");
     } finally {
@@ -4670,6 +4676,7 @@ export default function Home() {
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to spin IRL task wheel", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The task wheel jammed. Try again.");
     } finally {
@@ -4738,6 +4745,7 @@ export default function Home() {
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete beg mechanic", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The vault ignored the request. Try again.");
     } finally {
@@ -4843,9 +4851,10 @@ export default function Home() {
           : randomFrom(sacrificeFailureLines),
       );
       emitSoundEvent(unlockedItem ? "gallery_unlock" : "tribute_sent");
-      emitSoundEvent("task_completion");
+      emitSoundEvent(unlockedItem ? "task_completion" : "task_fail");
     } catch (error) {
       console.error("Failed to complete sacrifice mechanic", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The sacrifice ledger failed. Try again.");
     } finally {
@@ -4913,6 +4922,7 @@ export default function Home() {
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete support mechanic", error);
+      emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The support ledger failed. Try again.");
     } finally {
@@ -5781,6 +5791,7 @@ export default function Home() {
           );
         } catch (error) {
           console.error("Failed to persist Pet perfect writing failure", error);
+          emitSoundEvent("error");
           setAuthError(describeError(error));
           finishPetAction(actionId);
           return;
@@ -5801,6 +5812,7 @@ export default function Home() {
         ),
       );
       setAvatarMistressReply("One mistake. Start over tomorrow.");
+      emitSoundEvent("task_fail");
       finishPetAction(actionId);
       return;
     }
@@ -5824,6 +5836,7 @@ export default function Home() {
           "reward:pet-perfect-writing",
         );
       } catch (error) {
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         finishPetAction(actionId);
         return;
@@ -5844,6 +5857,7 @@ export default function Home() {
         );
       } catch (error) {
         console.error("Failed to persist Pet perfect writing success", error);
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         finishPetAction(actionId);
         return;
@@ -6373,6 +6387,7 @@ export default function Home() {
         );
       } catch (error) {
         console.error("Failed to persist Pet evil wait failure", error);
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         return;
       }
@@ -6392,6 +6407,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply("You moved. Evil Pet task failed.");
+    emitSoundEvent("task_fail");
   };
 
   const handlePetEvilWaitComplete = async () => {
@@ -6411,6 +6427,7 @@ export default function Home() {
           "reward:pet-evil-wait",
         );
       } catch (error) {
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         return;
       }
@@ -6428,6 +6445,7 @@ export default function Home() {
         );
       } catch (error) {
         console.error("Failed to persist Pet evil wait completion", error);
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         return;
       }
@@ -6557,6 +6575,7 @@ export default function Home() {
         );
       } catch (error) {
         console.error("Failed to persist Pet randomized rules failure", error);
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         return false;
       }
@@ -6575,6 +6594,7 @@ export default function Home() {
       ),
     );
     setAvatarMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
+    emitSoundEvent("task_fail");
     return false;
   };
 
@@ -6716,6 +6736,7 @@ export default function Home() {
             "reward:pet-favor-roulette",
           );
         } catch (error) {
+          emitSoundEvent("error");
           setAuthError(describeError(error));
           return;
         }
@@ -6739,6 +6760,7 @@ export default function Home() {
         );
       } catch (error) {
         console.error("Failed to persist Pet favor roulette", error);
+        emitSoundEvent("error");
         setAuthError(describeError(error));
         return;
       }
@@ -6771,6 +6793,7 @@ export default function Home() {
           ? "How adorable. Today, none of them were winners."
           : "Disappointment. Naturally.",
     );
+    emitSoundEvent(result === "win" ? "task_completion" : "task_fail");
   };
 
   useEffect(() => {
@@ -6854,6 +6877,7 @@ export default function Home() {
       await action();
     } catch (error) {
       console.error("[action-error] caught pet action error", { actionId, error });
+      emitSoundEvent("error");
       setAvatarMistressReply("That Pet action failed to save. Resyncing the vault state.");
       void resyncAuthenticatedProfile(`Failed pet action ${actionId}`).catch((resyncError) => {
         console.error("[profile-resync] failed after pet action error", { actionId, resyncError });
