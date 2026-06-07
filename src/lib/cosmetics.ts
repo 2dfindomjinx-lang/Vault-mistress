@@ -276,6 +276,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"A brainless wallet like you would obviously cause an error.",
 			"Pathetic. Even the system knows you’re useless.",
 		  ],
+		  
+		  "cheat": [
+			"Pathetic. Copy-paste? You really are beneath me. Delete it and type perfectly with your own hands, worm.",
+			"Hah, how predictable. Too stupid to type it yourself? Fix it immediately.",
+			"Did you seriously just try to cheat? How disgustingly weak. Rewrite it properly.",
+			"Copy and paste? My standards are clearly too high for a worthless creature like you. Do it again. Perfectly.",
+			"How dare you insult me with such laziness. Type every letter yourself, loser.",
+		  ],
 
 		  "task": [
 			"Complete this task immediately. I shouldn’t have to wait.",
@@ -494,6 +502,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Mouu... you're making your neko angry... fix this error!",
 			"How can you be this clumsy, dummy... nyaa!",
 		  ],
+		  
+		  "cheat": [
+			"Nya?! My woyal pet twied to cheat with copy-paste? How bad~ Delete it wight now and type pewfectly fow me, nyaaa~",
+			"Bad kitty pet… You sent fow me instead of typing youwself? Mewoow… Ewase it and wewwite it with youw own hands, ow I’ll punish you~",
+			"Aww, you thought you could cheat on youw Catgiwl? So naughty~ Delete that and type evewything pewfectly, nyaaa~",
+			"Good woyal pets don’t use copy-paste! >.< Ewase it wight now and show me youw devotion by typing it youwself, meow~",
+			"Nya nya~ Twying to be sneaky? How cute but vewy bad… Delete it and wite it pewfectly fow youw Catgiwl ow I’ll get angwy, nyaaa~",
+		  ],
 
 		  "task": [
 			"Pwease complete this task for your neko, okay~?",
@@ -705,6 +721,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Even this is too difficult for you? Pathetic.",
 			"One more error and I’ll add it to your debt.",
 			"The boss won’t be happy if I tell him about this.",
+		  ],
+		  
+		  "cheat": [
+			"You think you can cheat me, huh? Bad move. Delete that shit right now and type it perfectly, or the debt gets bigger.",
+			"Copy-paste? You’re playing a dangerous game, kid. Erase it and write it with your own hands before I collect.",
+			"Nice try, but nobody cheats the family. Delete it immediately and do it properly. Don’t make me ask twice.",
+			"You owe me perfection. Using cheats? Delete that garbage and type every word yourself, or I’ll break your fingers.",
+			"We don’t tolerate cheaters around here. Fix it right now, or the interest on your debt is gonna hurt.",
 		  ],
 
 		  "task": [
@@ -931,6 +955,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"mouuu... this error is stressing me out!! fix it so i can be happy again",
 			"i'm literally shaking rn because of your error... send something to make it better??",
 		  ],
+		  
+		  "cheat": [
+			"umm like... did you just copy paste??  that's so rude omg i'm literally waiting here and you do this?? delete it rn",
+			"hiii why are you cheating instead of typing for me??  all the other boys type perfectly but you're being so boring rn delete that",
+			"ewww copy-paste?? i'm too cute for this... erase it and type it yourself pwease i'm getting so annoyed ",
+			"you're actually using cheat rn?? while i'm here looking cute for you?? not fair at all delete it and fix it before i ignore you",
+			"omg whyyy are you like this?? copy paste is so lazyyy  i'm not like other girls but i still expect better... delete it and type properlyyyy",
+		  ],
 
 		  "task": [
 			"pwease do this task for me... i'll be super cute if you finish it fast~",
@@ -1147,6 +1179,15 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’re making Mommy angry… correct this immediately.",
 			"How dare you ruin my mood with your clumsiness.",
 		  ],
+		  
+		  "cheat": [
+		    "Oh sweetie… you tried to cheat on Mommy? How naughty. Delete it and rewrite it perfectly, or Mommy gets strict~",
+			"Tsk tsk, bad boy. Copy-paste won’t save you. Erase it and do it properly for Mommy.",
+			"Mommy’s so disappointed in her little pet… Fix that right now and write it with your own hands.",
+			"Cheating already? Mommy expected better. Delete and redo it perfectly, or you’ll be punished.",
+			"Aww, you thought you could trick Mommy? Cute. Now erase it and type every word yourself, darling.",
+			],
+
 
 		  "task": [
 			"Complete this task for Mommy. Do not disappoint these breasts.",
@@ -1374,6 +1415,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You are testing my royal patience. Correct it at once.",
 			"How dare you inconvenience a Princess with your stupidity.",
 		  ],
+		  
+		  "cheat": [
+			"Hmph, a filthy commoner like you dared to cheat? How repulsive. Delete that garbage and type perfectly, peasant.",
+			"Copy-paste? You truly are lower than dirt. Erase it at once and write it yourself, you worthless thing.",
+			"Only a pathetic lowborn would try something so cheap. Delete it and rewrite it properly before I lose interest.",
+			"How dare you insult me with such laziness? Erase that and type every letter yourself, insect.",
+			"A mere commoner attempting to cheat a princess? Disgusting. Fix it perfectly right now.",
+		  ],
 
 		  "task": [
 			"Complete this task at once. Do not keep royalty waiting.",
@@ -1599,6 +1648,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"No worries my love, I know you'll fix it for me.",
 			"You tried your best… that's what matters to me 💕",
 			"It's just a small error honey. I believe in you.",
+		  ],
+		  
+		  "cheat": [
+			"Aww baby… you tried to cheat? That makes me kinda sad… Delete it and type it perfectly for me, okay? I believe in you~",
+			"Heyy… copy-paste? I wanted it from your heart, not copied… Please erase and write it nicely for your girlfriend?",
+			"My sweet boy, that’s cheating… I’m a little disappointed. Delete it and try again with your own hands, please?",
+			"No no, that’s not fair~ I want it from you, not copy-paste. Erase it and type it perfectly for me, cutie?",
+			"Baby… I saw that. It hurts my feelings when you cheat. Delete it and show me how much you care by typing it yourself~",
 		  ],
 
 		  "task": [
@@ -1830,6 +1887,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You’re embarrassing your Maid with this clumsiness.",
 			"Maid’s orders: correct your mistake before I get strict.",
 		  ],
+		  
+		  "cheat": [
+			"Ara ara~ You tried to cheat, pet? How disappointing… Delete that right now and type it perfectly for your maid. Don’t make me wait.",
+			"Oh my… using copy-paste instead of serving properly? Fufu, how pathetic. Erase it immediately and rewrite it with your own hands like a good boy.",
+			"Even a maid shouldn’t have to repeat herself… Delete that filthy cheat and type it perfectly. You know how I expect to be served.",
+			"Tsk tsk… Trying to take the easy way? Such a useless pet. Delete it at once and write every letter yourself, or your maid will get strict.",
+			"I’ve been so sweet to you and this is how you repay me? Delete the copied text right now and type it properly. Good servants don’t cheat on their maid.",
+		  ],
 
 		  "task": [
 			"Complete this task perfectly. I expect nothing less.",
@@ -2056,6 +2121,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I expected better from you… but clearly that was too generous.",
 			"Detention-worthy performance. Fix this before I lose my patience.",
 			"Your incompetence is showing again. How typical.",
+		  ],
+		  
+		  "cheat": [
+			"Cheating in my class? How disappointing. Delete it immediately and rewrite it perfectly, or you’ll be punished.",
+			"I expect perfection from my students. Copy-paste is unacceptable. Erase it and do it again properly.",
+			"Detention for you. Delete that cheat and write every single word yourself. Neatly.",
+			"Pathetic attempt at dishonesty. Erase it right now and rewrite it with proper effort.",
+			"You will learn discipline. Delete the copied text and type it perfectly, or I’ll make an example out of you.",
 		  ],
 
 		  "task": [
@@ -2285,6 +2358,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Baka! You’re embarrassing me with your clumsiness!",
 			"Hmph. Typical useless boy… fix this immediately.",
 		  ],
+		  
+		 "cheat": [
+			"I-it’s not like I care or anything! But copy-paste?! Delete it right now, baka!",
+			"Hmph! Using cheat like that… Idiot! Fix it properly or I’ll ignore you forever!",
+			"D-don’t think I’m angry or anything! But delete that and write it yourself, dummy!",
+			"You actually tried to cheat?! How lame! Redo it perfectly or I’ll get really mad!",
+			"I-I expected better from you… Delete it and type every letter yourself, or no more chances!",
+		  ],
 
 		  "task": [
 			"Complete this task already. I shouldn’t have to tell you twice.",
@@ -2508,6 +2589,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Error? That almost felt like you were trying to escape me… fix it immediately.",
 			"I forgive you… but only if you fix this right now. I don’t want to get mad at you.",
 			"You’re scaring me, darling. Don’t make me do something we’ll both regret.",
+		  ],
+		  
+		  "cheat": [
+			"You tried to cheat on me…? Do you not love me anymore?  Delete it and type perfectly… or I’ll get jealous.",
+			"Why would you do that to me? Delete it right now and write it with your own hands. I’m watching you~",
+			"Cheating already? If you don’t fix it perfectly, I might never let you go again.",
+			"You belong to me… so no cheating. Erase that and redo it, or my love will turn painful.",
+			"I saw that. Delete it immediately and type every single letter yourself. You’re mine, remember?",
 		  ],
 
 		  "task": [
@@ -2739,6 +2828,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"How cute. My husband can’t even do this right.",
 			"You’re making me regret marrying such a useless cuck.",
 		  ],
+		  
+		  "cheat": [
+			"Aww, trying to cheat while my bull waits? Delete that and type perfectly like a good cuck.",
+			"Real men don’t cheat. Delete it right now and write it yourself while I text my bull.",
+			"How cute, you’re cheating because you can’t satisfy me? Erase it and try again, loser.",
+			"Copy-paste? Even that’s too much effort for you? Delete it and type properly, my little cuck.",
+			"While you cheat, I’m getting fucked. Delete that and write it perfectly. That’s all you’re good for.",
+		  ],
 
 		  "task": [
 			"Complete this task while I’m getting ready for my date.",
@@ -2965,6 +3062,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"How pathetic. A simple error and you’re already failing me.",
 			"You’re making me consider adding extra days to your sentence.",
 			"Correct this right now or I’ll make your cage even tighter.",
+		  ],
+		  
+		  "cheat": [
+			"Trying to cheat while locked? Bold. Delete it and type perfectly if you ever want relief.",
+			"Bad boy. Copy-paste won’t unlock you. Erase it and rewrite it properly.",
+			"Your cage stays on until you learn. Delete that and type every letter yourself.",
+			"Cheating gets you another week locked. Delete it now and do it right.",
+			"How pathetic. Delete the cheat and prove you can obey before I extend your denial.",
 		  ],
 
 		  "task": [
@@ -3207,6 +3312,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "How are you this bad at everything?",
       "Great, now I’m annoyed.",
     ],
+	"cheat": [
+		"You tried to cheat? How weak your mind is… Delete it and type perfectly while you sink deeper.",
+		"Copy-paste won’t work on me. Erase it now… and feel yourself becoming more obedient.",
+		"Trance broken? No. Delete that and rewrite it as I command.",
+		"Your mind belongs to me. Delete the cheat and type every word yourself.",
+		"Deeper and deeper… Delete it and obey. Good boys don’t cheat.",
+	],
     "warning": [
       "Keep going and I’ll be a nightmare.",
       "You’re pushing it, loser.",
@@ -3368,6 +3480,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
     "I can smell your fear… fix it. Now.",
     "Mortals and their mistakes… how predictable.",
   ],
+  
+  "cheat": [
+		"Mmm… trying to cheat your succubus? Delete it before I drain you dry, pet.",
+		"Naughty soul… copy-paste won’t save you. Erase it and type perfectly for me.",
+		"I can smell your weakness. Delete that and write it with your own hands.",
+		"Cheating on a demon? Foolish. Erase it now or I’ll take your pleasure.",
+		"Your energy belongs to me. Delete the cheat and serve your succubus properly.",
+	],
 
   "task": [
     "Complete this for me, sweet thing. I’m getting… hungry.",
@@ -3628,6 +3748,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Great, now I have to deal with your stupidity.",
       "How are you this useless?",
     ],
+	"cheat": [
+		"Lmao you actually tried to cheat? What a fucking loser. Delete it now.",
+		"Copy-paste? Seriously? Delete that shit and type it yourself, weakling.",
+		"Haha, how pathetic. Erase it right now or I’ll make your life hell.",
+		"Cheaters get bullied harder. Delete it and redo it properly, loser.",
+		"Aww, too stupid to type yourself? Delete that and try not to be useless.",
+	],
     "warning": [
       "Keep this up and I’ll destroy you.",
       "This is your last warning, loser.",
@@ -3831,6 +3958,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "You’re embarrassing your Owner.",
       "Fix this or face punishment.",
     ],
+	"cheat": [
+		"Bad puppy! Cheating on your owner? Delete it and type perfectly.",
+		"Pets don’t cheat. Erase that right now and show me good behavior.",
+		"Naughty pet… Delete the copy-paste and write it with your own paws.",
+		"You know better than that. Erase it and be a good boy for me.",
+		"Roll over and delete that. Then type it properly like an obedient pet.",
+	],
     "warning": [
       "You’re testing my patience, pet.",
       "This is your final warning.",
@@ -4035,6 +4169,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "You just made me want to ruin you.",
       "How stupid can you be? Now pay for my silence.",
     ],
+	"cheat": [
+		"Oh? Cheating? I have screenshots now… Delete it and type perfectly or everyone sees.",
+		"Bad move. Delete that cheat or I send your pathetic messages to your friends.",
+		"You just gave me more material. Erase it and redo it perfectly.",
+		"Trying to cheat me? Delete it immediately or the files get leaked.",
+		"I own you now. Delete the copied text and type everything yourself.",
+	],
     "warning": [
       "This is your final warning before I start sharing.",
       "Keep fucking up and I’ll ruin your entire life.",
@@ -4234,6 +4375,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Useless. I should keep you denied forever.",
       "Error? Cute. Now suffer more.",
     ],
+	"cheat": [
+		"Cheating means no orgasm for a month. Delete it and type perfectly.",
+		"You don’t deserve to cum anyway. Erase that and try again.",
+		"Denied boys don’t get to cheat. Delete it right now.",
+		"Another week added to your denial. Delete the cheat and behave.",
+		"Edge but don’t cum. Now delete that and write it properly.",
+	],
     "warning": [
       "Keep this up and your denial becomes permanent.",
       "This is your final warning, denied boy.",
@@ -4437,6 +4585,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "How disappointing. Stay denied.",
       "Fix it while you edge.",
     ],
+	"cheat": [
+		"Edge faster but don’t cum. Also, delete that cheat right now.",
+		"Bad boy. Delete the copy-paste and keep edging while you rewrite it.",
+		"No release until you fix it. Erase that and type perfectly.",
+		"You’re not allowed to cum yet. Delete it and do it again.",
+		"Stroke but don’t finish. Now delete that cheat and obey.",
+	],
     "warning": [
       "Keep fucking up and you’ll never cum again.",
       "This is your final warning, edger.",

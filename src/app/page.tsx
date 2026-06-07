@@ -263,6 +263,7 @@ const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 250;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
+const ACCOUNT_ANNOUNCEMENT_EXPIRES_AT = "2026-06-12T00:00:00+03:00";
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 const LOCAL_GUEST_USER_ID = "local-guest-user";
@@ -2031,6 +2032,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [authUserId, isGuestMode, ownedTitleIds, petScore]);
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
+  const showAccountAnnouncement =
+    currentTime < new Date(ACCOUNT_ANNOUNCEMENT_EXPIRES_AT).getTime();
   const effectiveTimeoutDays = currentTime > 0
     ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
     : 0;
@@ -7485,6 +7488,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             </button>
           </div>
         </header>
+
+        {showAccountAnnouncement && (
+          <section className="rounded-[1.25rem] border border-pink-200/30 bg-[linear-gradient(135deg,rgba(236,72,153,0.18),rgba(0,0,0,0.58))] px-4 py-3 shadow-[0_0_28px_rgba(236,72,153,0.14)]">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/75">
+              Announcement
+            </p>
+            <p className="mt-1 text-sm leading-6 text-pink-50">
+              Principessa&apos;s new X account is now{" "}
+              <span className="font-black text-white">@VMPrincipessa</span>. Please use this
+              account for DMs, task submissions, and manual reviews.
+            </p>
+          </section>
+        )}
 
         <RecentTributesTicker
           currentUsername={username}
