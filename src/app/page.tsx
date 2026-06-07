@@ -405,7 +405,7 @@ const petTasks: PetTaskItem[] = [
     id: "pet-daily-click",
     title: "Daily Pet Clicks",
     description: "Complete today's required Pet clicks. Each click gives 1 coin.",
-    reward: 0,
+    reward: PET_TASK_REWARD,
     kind: "daily-click",
   },
   {
@@ -6720,7 +6720,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       });
       const result = (await response.json().catch(() => null)) as {
         error?: string;
-        profile?: { coins?: number };
+        profile?: { coins?: number; pet_score?: number };
         task?: UserPetTaskRow;
       } | null;
 
@@ -6731,6 +6731,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       if (typeof result?.profile?.coins === "number") {
         setCoins(result.profile.coins);
+      }
+
+      if (typeof result?.profile?.pet_score === "number") {
+        setPetScore(result.profile.pet_score);
       }
 
       if (result?.task) {

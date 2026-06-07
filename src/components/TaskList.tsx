@@ -164,7 +164,6 @@ export function TaskList({
   const [movementLastInputAt, setMovementLastInputAt] = useState(0);
   const [movementLastY, setMovementLastY] = useState<number | null>(null);
   const [movementLocalActive, setMovementLocalActive] = useState(false);
-  const [movementSyncedProgress, setMovementSyncedProgress] = useState(0);
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
@@ -357,16 +356,10 @@ export function TaskList({
     const nextProgress = Math.min(100, baseProgress + 1);
     setMovementDisplayProgress(nextProgress);
 
-    if (
-      nextProgress >= 99 ||
-      nextProgress - movementSyncedProgress >= 5
-    ) {
-      if (nextProgress >= 99) {
-        setMovementLocalActive(false);
-        resetMovementPointer();
-      }
+    if (nextProgress >= 99) {
+      setMovementLocalActive(false);
+      resetMovementPointer();
 
-      setMovementSyncedProgress(nextProgress);
       onMovementProgress(nextProgress);
     }
   };
@@ -389,7 +382,6 @@ export function TaskList({
     setMovementLastInputAt(0);
     setMovementIdleRemaining(4);
     setMovementLocalActive(true);
-    setMovementSyncedProgress(task.movementProgress ?? 0);
     setMovementDirection(null);
     setMovementTravel(0);
   };

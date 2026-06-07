@@ -7,6 +7,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 
 const TASK_ID = "pet-daily-click";
+const PET_SCORE_REWARD = 10;
 const CLICK_IMAGE_POOL = [
   "/pet/daily-click/click-01.png",
   "/pet/daily-click/click-02.png",
@@ -64,6 +65,7 @@ type TaskRow = {
 type ProfileRow = {
   coins: number;
   id: string;
+  pet_score: number | null;
 };
 
 type Body = {
@@ -148,7 +150,7 @@ export async function POST(request: Request) {
   const requestedClicks = Math.max(1, Math.min(100, Math.floor(body?.clicks ?? 1)));
   const supabase = createSupabaseAdminClient();
   const [profileResult, taskResult] = await Promise.all([
-    supabase.from("profiles").select("id, coins").eq("id", authData.user.id).single(),
+    supabase.from("profiles").select("id, coins, pet_score").eq("id", authData.user.id).single(),
     supabase
       .from("user_pet_tasks")
       .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
@@ -183,7 +185,7 @@ export async function POST(request: Request) {
       task: {
         completed_at: new Date().toISOString(),
         metadata: current.metadata,
-        reward_score: 0,
+        reward_score: PET_SCORE_REWARD,
         reviewed_at: new Date().toISOString(),
         status: "approved",
         task_id: TASK_ID,
@@ -195,6 +197,7 @@ export async function POST(request: Request) {
   const nextProgress = Math.min(current.requirement, current.progress + acceptedClicks);
   const now = new Date().toISOString();
   const completed = nextProgress >= current.requirement;
+  const petScoreReward = completed ? PET_SCORE_REWARD : 0;
   const metadata = {
     date: today,
     image: getDailyImage(),
@@ -202,12 +205,13 @@ export async function POST(request: Request) {
     requirement: current.requirement,
   };
   const nextCoins = profile.coins + acceptedClicks;
+  const nextPetScore = Math.min(1000, (profile.pet_score ?? 0) + petScoreReward);
 
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("profiles")
-    .update({ coins: nextCoins })
+    .update({ coins: nextCoins, pet_score: nextPetScore })
     .eq("id", profile.id)
-    .select("id, coins")
+    .select("id, coins, pet_score")
     .single();
 
   if (profileUpdateError || !updatedProfile) {
@@ -245,7 +249,7 @@ export async function POST(request: Request) {
         completed_at: completed ? now : null,
         metadata,
         reviewed_at: completed ? now : null,
-        reward_score: 0,
+        reward_score: petScoreReward,
         status: completed ? "approved" : "available",
         task_id: TASK_ID,
         user_id: authData.user.id,
