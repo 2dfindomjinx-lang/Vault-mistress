@@ -66,6 +66,10 @@ type ProfileRow = {
   id: string;
 };
 
+type Body = {
+  clicks?: number;
+};
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -128,7 +132,7 @@ function normalizeTask(row: TaskRow | null, dateKey: string) {
   };
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -140,6 +144,8 @@ export async function POST() {
     return jsonError(authError?.message ?? "Authentication required.", 401);
   }
 
+  const body = (await request.json().catch(() => null)) as Body | null;
+  const requestedClicks = Math.max(1, Math.min(100, Math.floor(body?.clicks ?? 1)));
   const supabase = createSupabaseAdminClient();
   const [profileResult, taskResult] = await Promise.all([
     supabase.from("profiles").select("id, coins").eq("id", authData.user.id).single(),
@@ -185,7 +191,8 @@ export async function POST() {
     });
   }
 
-  const nextProgress = Math.min(current.requirement, current.progress + 1);
+  const acceptedClicks = Math.min(requestedClicks, Math.max(0, current.requirement - current.progress));
+  const nextProgress = Math.min(current.requirement, current.progress + acceptedClicks);
   const now = new Date().toISOString();
   const completed = nextProgress >= current.requirement;
   const metadata = {
@@ -194,7 +201,7 @@ export async function POST() {
     progress: nextProgress,
     requirement: current.requirement,
   };
-  const nextCoins = profile.coins + 1;
+  const nextCoins = profile.coins + acceptedClicks;
 
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("profiles")
@@ -212,8 +219,9 @@ export async function POST() {
   }
 
   const { error: transactionError } = await supabase.from("coin_transactions").insert({
-    amount: 1,
+    amount: acceptedClicks,
     metadata: {
+      clicks: acceptedClicks,
       date: today,
       progress: nextProgress,
       requirement: current.requirement,

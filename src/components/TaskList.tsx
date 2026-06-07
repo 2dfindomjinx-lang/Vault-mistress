@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
 import { IRL_TASK_WHEEL_COST, irlTaskWheelSegments } from "@/lib/irl-task-wheel";
@@ -74,6 +74,7 @@ type TaskListProps = {
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
+  onMovementFail: () => void;
   onMovementFinishFakeHope: () => void;
   onMovementProgress: (progress: number) => void;
   onMovementStart: () => void;
@@ -107,6 +108,7 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
+  onMovementFail,
   onMovementFinishFakeHope,
   onMovementProgress,
   onMovementStart,
@@ -133,10 +135,16 @@ export function TaskList({
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
   const [showIrlTaskList, setShowIrlTaskList] = useState(false);
   const [movementDisplayProgress, setMovementDisplayProgress] = useState(0);
+  const [movementIdleRemaining, setMovementIdleRemaining] = useState(4);
+  const [movementLastInputAt, setMovementLastInputAt] = useState(0);
   const [movementLastY, setMovementLastY] = useState<number | null>(null);
+  const [movementLocalActive, setMovementLocalActive] = useState(false);
   const [movementSyncedProgress, setMovementSyncedProgress] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
-  const isTaskActionPending = (actionId: string) => pendingTaskActionIds.includes(actionId);
+  const isTaskActionPending = useCallback(
+    (actionId: string) => pendingTaskActionIds.includes(actionId),
+    [pendingTaskActionIds],
+  );
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
   const handleCooldownAttempt = (message: string) => {
     emitSoundEvent("button_click");
@@ -170,6 +178,53 @@ export function TaskList({
 
     return () => window.clearTimeout(timer);
   }, [movementTask?.movementFailAt, movementTask?.movementState, onMovementFinishFakeHope]);
+
+  useEffect(() => {
+    if (movementTask?.movementState === "completed" || movementTask?.movementState === "failed" || movementTask?.cooldownUntil) {
+      const timer = window.setTimeout(() => {
+        setMovementLocalActive(false);
+        setMovementLastInputAt(0);
+        setMovementLastY(null);
+        setMovementIdleRemaining(4);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+  }, [movementTask?.cooldownUntil, movementTask?.movementState]);
+
+  useEffect(() => {
+    const task = movementTask;
+    const movementActive =
+      movementLocalActive || task?.movementState === "active" || task?.movementState === "fake_hope";
+
+    if (!task || !movementActive || task.movementState === "failed" || task.movementState === "completed") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setMovementIdleRemaining((value) => Math.max(0, value - 0.25));
+    }, 250);
+
+    return () => window.clearInterval(timer);
+  }, [movementLocalActive, movementTask]);
+
+  useEffect(() => {
+    const movementActive =
+      movementLocalActive ||
+      movementTask?.movementState === "active" ||
+      movementTask?.movementState === "fake_hope";
+
+    if (!movementActive || movementIdleRemaining > 0 || isTaskActionPending("vertical-motion")) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setMovementLocalActive(false);
+      onMovementFail();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [isTaskActionPending, movementIdleRemaining, movementLocalActive, movementTask?.movementState, onMovementFail]);
 
   const handleIrlWheelSpinClick = () => {
     if (disabled || isIrlWheelSpinning) {
@@ -217,33 +272,35 @@ export function TaskList({
     return `${seconds}s`;
   };
 
-  const handleMovementInput = (clientY: number, task: TaskItem) => {
+  const handleMovementInput = (clientY: number, task: TaskItem, inputAt: number) => {
     if (disabled || task.movementState === "completed" || task.movementState === "failed") {
       return;
     }
 
-    if (task.movementState === "ready") {
-      emitSoundEvent("button_click");
-      setMovementDisplayProgress(task.movementProgress ?? 0);
-      setMovementSyncedProgress(task.movementProgress ?? 0);
-      onMovementStart();
+    if (!movementLocalActive && task.movementState !== "active" && task.movementState !== "fake_hope") {
+      return;
     }
 
     const lastY = movementLastY;
+    const lastInputAt = movementLastInputAt || inputAt;
     setMovementLastY(clientY);
+    setMovementLastInputAt(inputAt);
 
     if (lastY === null) {
       return;
     }
 
     const delta = Math.abs(clientY - lastY);
+    const elapsed = Math.max(1, inputAt - lastInputAt);
+    const velocity = delta / elapsed;
 
-    if (delta < 6) {
+    if (delta < 24 || velocity < 0.16) {
       return;
     }
 
+    setMovementIdleRemaining(4);
     const baseProgress = Math.max(movementDisplayProgress, task.movementProgress ?? 0);
-    const nextProgress = Math.min(100, baseProgress + delta * 0.2);
+    const nextProgress = Math.min(100, baseProgress + delta * 0.035);
     setMovementDisplayProgress(nextProgress);
 
     if (
@@ -256,20 +313,21 @@ export function TaskList({
   };
 
   const resetMovementPointer = () => {
+    setMovementLastInputAt(0);
     setMovementLastY(null);
   };
 
-  const handleMovementPointerDown = (clientY: number, task: TaskItem) => {
+  const handleMovementPointerDown = (clientY: number, inputAt: number) => {
+    setMovementLastInputAt(inputAt);
     setMovementLastY(clientY);
-
-    if (task.movementState === "ready") {
-      handleMovementInput(clientY, task);
-    }
   };
 
   const resetMovementAttempt = (task: TaskItem) => {
     setMovementLastY(null);
     setMovementDisplayProgress(task.movementProgress ?? 0);
+    setMovementLastInputAt(0);
+    setMovementIdleRemaining(4);
+    setMovementLocalActive(true);
     setMovementSyncedProgress(task.movementProgress ?? 0);
   };
 
@@ -651,7 +709,12 @@ export function TaskList({
 
           return (
             <article
-              className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4"
+              className={`rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
+                task.kind === "movement" &&
+                (movementLocalActive || task.movementState === "active" || task.movementState === "fake_hope")
+                  ? "md:col-span-2"
+                  : ""
+              }`}
               key={task.id}
             >
               <div className="flex items-start justify-between gap-4">
@@ -1019,6 +1082,10 @@ export function TaskList({
                     100,
                     Math.max(task.movementProgress ?? 0, movementDisplayProgress),
                   );
+                  const movementActive =
+                    movementLocalActive ||
+                    task.movementState === "active" ||
+                    task.movementState === "fake_hope";
                   const completeRevealVisible =
                     task.movementState === "completed" &&
                     Boolean(task.movementResolvedAt) &&
@@ -1026,57 +1093,85 @@ export function TaskList({
                   const movementStageImage = completeRevealVisible
                     ? MOVEMENT_COMPLETE_IMAGE
                     : getMovementStageImage(currentMovementProgress);
+                  const inactivityRemaining = movementActive
+                    ? Math.max(0, Math.ceil(movementIdleRemaining))
+                    : 4;
 
                   return (
                     <div
                       className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3"
                       onMouseLeave={resetMovementPointer}
-                      onPointerDown={(event) => handleMovementPointerDown(event.clientY, task)}
-                      onPointerMove={(event) => handleMovementInput(event.clientY, task)}
+                      onPointerDown={(event) => handleMovementPointerDown(event.clientY, event.timeStamp)}
+                      onPointerMove={(event) => handleMovementInput(event.clientY, task, event.timeStamp)}
                       onPointerUp={resetMovementPointer}
                       onTouchMove={(event) => {
                         const touch = event.touches[0];
 
                         if (touch) {
-                          handleMovementInput(touch.clientY, task);
+                          handleMovementInput(touch.clientY, task, event.timeStamp);
                         }
                       }}
                     >
-                      <p className="text-sm leading-6 text-zinc-400">
-                        Fill the bar with steady vertical movement. Tiny accidental movement is ignored.
-                      </p>
-                      <div className="relative mt-3 aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
-                        <Image
-                          alt="Daily Motion stage"
-                          className="object-cover"
-                          fill
-                          sizes="360px"
-                          src={movementStageImage}
-                          unoptimized
-                        />
-                      </div>
-                      <div className="mt-3 h-4 overflow-hidden rounded-full border border-pink-200/15 bg-black/55">
-                        <div
-                          className="h-full rounded-full bg-pink-400 transition-all"
-                          style={{ width: `${currentMovementProgress}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-pink-100/70">
-                        {task.movementState === "fake_hope"
-                          ? "So close. Keep going."
-                          : task.movementState === "failed"
-                            ? "Attempt failed"
-                            : task.movementState === "completed"
-                              ? "Completed"
-                              : `${Math.round(currentMovementProgress)}%`}
-                      </p>
+                      {!movementActive && !completeRevealVisible && (
+                        <p className="text-sm leading-6 text-zinc-400">
+                          Press Start, then use quick medium-length vertical movements. Slow or tiny
+                          movements do not count.
+                        </p>
+                      )}
+                      {(movementActive || completeRevealVisible) && (
+                        <>
+                          <div className="relative mx-auto mt-3 aspect-[1664/2432] max-h-[min(72vh,42rem)] w-full max-w-sm overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                            <Image
+                              alt="Daily Motion stage"
+                              className="object-contain"
+                              fill
+                              sizes="384px"
+                              src={movementStageImage}
+                              unoptimized
+                            />
+                          </div>
+                          {movementActive && (
+                            <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-yellow-100">
+                              No movement fail in {inactivityRemaining}s
+                            </div>
+                          )}
+                          <div className="mt-3 h-4 overflow-hidden rounded-full border border-pink-200/15 bg-black/55">
+                            <div
+                              className="h-full rounded-full bg-pink-400 transition-all"
+                              style={{ width: `${currentMovementProgress}%` }}
+                            />
+                          </div>
+                          <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-pink-100/70">
+                            {task.movementState === "fake_hope"
+                              ? "So close. Keep going."
+                              : task.movementState === "failed"
+                                ? "Attempt failed"
+                                : task.movementState === "completed"
+                                  ? "Completed"
+                                  : `${Math.round(currentMovementProgress)}%`}
+                          </p>
+                          {(task.movementState === "failed" || task.movementState === "completed") && (
+                            <p className="mt-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-semibold text-zinc-300">
+                              {task.movementOutcome === "success"
+                                ? "Outcome: success."
+                                : task.movementOutcome === "fake_hope"
+                                  ? "Outcome: fake hope."
+                                  : task.movementOutcome === "instant_denial"
+                                    ? "Outcome: instant denial."
+                                    : "Outcome resolved."}
+                            </p>
+                          )}
+                        </>
+                      )}
                       <button
                         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={
                           disabled ||
+                          movementActive ||
                           isTaskActionPending("vertical-motion") ||
                           task.movementState === "completed" ||
-                          task.movementState === "failed"
+                          task.movementState === "failed" ||
+                          isCoolingDown
                         }
                         onClick={() => {
                           emitSoundEvent("button_click");

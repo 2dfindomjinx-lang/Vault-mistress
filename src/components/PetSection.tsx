@@ -592,8 +592,9 @@ export function PetSection({
   const remainingDebtBalance = petDebtContract
     ? Math.max(0, (petDebtContract.duration_periods - petDebtContract.paid_periods) * petDebtContract.debt_amount)
     : 0;
+  const dailyClickTask = tasks.find((task) => task.kind === "daily-click");
   const regularTasks = tasks.filter(
-    (task) => task.kind !== "debt-contract" && task.kind !== "weekly-tax",
+    (task) => task.kind !== "debt-contract" && task.kind !== "weekly-tax" && task.kind !== "daily-click",
   );
   const evilWaitTask = tasks.find((task) => task.kind === "evil-wait");
   const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
@@ -939,18 +940,7 @@ export function PetSection({
       return;
     }
 
-    const confirmed = window.confirm(
-      "You are leaving the vault. The unknown destination may contain adult-oriented content, so be mindful of your surroundings before opening it.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     window.open(randomWebsiteLink, "_blank", "noopener,noreferrer");
-  }
-
-  function handleRandomWebsiteRefresh() {
     const nextState = pickRandomWebsiteLink(getRandomWebsiteState());
 
     setRandomWebsiteLink(nextState.currentLink);
@@ -1813,50 +1803,128 @@ export function PetSection({
             })}
           </div>
 
-          <article className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
-                  Mystery Link
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
+            {dailyClickTask && (
+              <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-black text-white">{dailyClickTask.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">{dailyClickTask.description}</p>
+                  </div>
+                  <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                    Task
+                  </span>
+                </div>
+                <p className="mt-3 text-xs font-bold text-red-100">
+                  Completion reward: +{dailyClickTask.reward} Pet Score, +{petTaskCoinReward} Coins
                 </p>
-                <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+                <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                  <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                    {(() => {
+                      const clickRequirement = dailyClickTask.clickRequirement ?? 0;
+                      const clickProgress = dailyClickTask.clickProgress ?? 0;
+                      const revealProgress =
+                        clickRequirement > 0
+                          ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
+                          : 0;
+                      const censorOpacity = Math.max(0, 1 - revealProgress);
+                      const censorBlur = Math.round(18 * censorOpacity);
+
+                      return (
+                        <>
+                          {dailyClickTask.clickImage ? (
+                            <Image
+                              alt="Daily pet click"
+                              className="object-cover"
+                              fill
+                              sizes="360px"
+                              src={dailyClickTask.clickImage}
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
+                              Image unlocks on first click
+                            </div>
+                          )}
+                          {censorOpacity > 0 && (
+                            <div
+                              className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
+                              style={{
+                                backdropFilter: `blur(${censorBlur}px)`,
+                                opacity: censorOpacity,
+                              }}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
+                    <div
+                      className="h-full rounded-full bg-pink-400 transition-all"
+                      style={{
+                        width:
+                          dailyClickTask.clickRequirement && dailyClickTask.clickRequirement > 0
+                            ? `${Math.min(100, ((dailyClickTask.clickProgress ?? 0) / dailyClickTask.clickRequirement) * 100)}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-bold text-pink-100/75">
+                    {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
+                    {(dailyClickTask.clickRequirement ?? 0) > 0
+                      ? dailyClickTask.clickRequirement?.toLocaleString()
+                      : "?"} clicks
+                  </p>
+                  <button
+                    className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={dailyClickTask.status === "approved"}
+                    onClick={onPetDailyClick}
+                    type="button"
+                  >
+                    {dailyClickTask.status === "approved" ? "Completed Today" : "Click"}
+                  </button>
+                </div>
+              </article>
+            )}
+
+            <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+                    Mystery Link
+                  </p>
+                  <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+                </div>
+                <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
+                  Mystery
+                </span>
               </div>
-              <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
-                Mystery
-              </span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-zinc-300">
-              Opens an unknown external destination. Refresh picks a different hidden link until
-              the whole pool has been used.
-            </p>
-            <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
-              The destination may contain adult-oriented content. Be mindful of your surroundings
-              before opening it.
-            </div>
-            <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
-              {randomWebsiteLink
-                ? "A mystery destination is ready."
-                : "No destination configured."}
-            </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <button
-                className="rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!randomWebsiteLink}
-                onClick={handleRandomWebsiteOpen}
-                type="button"
-              >
-                {randomWebsiteLink ? "Click" : "No destination configured"}
-              </button>
-              <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-zinc-100 transition enabled:hover:border-pink-200/35 enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={RANDOM_WEBSITE_LINK_POOL.length <= 1}
-                onClick={handleRandomWebsiteRefresh}
-                type="button"
-              >
-                Refresh
-              </button>
-            </div>
-          </article>
+              <p className="mt-3 text-sm leading-6 text-zinc-300">
+                Opens an unknown external destination. Each click prepares a different hidden link
+                until the whole pool has been used.
+              </p>
+              <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
+                The destination may contain adult-oriented content. Be mindful of your surroundings
+                before opening it.
+              </div>
+              <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
+                {randomWebsiteLink
+                  ? "A mystery destination is ready."
+                  : "No destination configured."}
+              </div>
+              <div className="mt-auto pt-4">
+                <button
+                  className="w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!randomWebsiteLink}
+                  onClick={handleRandomWebsiteOpen}
+                  type="button"
+                >
+                  {randomWebsiteLink ? "Click" : "No destination configured"}
+                </button>
+              </div>
+            </article>
+          </div>
 
           {debtTask && (
             <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">

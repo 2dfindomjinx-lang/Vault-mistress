@@ -10,7 +10,7 @@ const TASK_ID = "vertical-motion";
 const TASK_REWARD = 100;
 
 type Body = {
-  action?: "start" | "progress" | "finish_fake_hope";
+  action?: "start" | "progress" | "finish_fake_hope" | "fail";
   progress?: number;
 };
 
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Body | null;
   const action = body?.action;
 
-  if (!action || !["start", "progress", "finish_fake_hope"].includes(action)) {
+  if (!action || !["start", "progress", "finish_fake_hope", "fail"].includes(action)) {
     return jsonError("Invalid movement action.");
   }
 
@@ -211,6 +211,10 @@ export async function POST(request: Request) {
     }
 
     nextProgress = 99;
+    nextState = "failed";
+  }
+
+  if (action === "fail") {
     nextState = "failed";
   }
 

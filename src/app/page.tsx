@@ -1780,6 +1780,9 @@ export default function Home() {
   const falseHopePersistQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingTaskActionsRef = useRef(new Set<string>());
   const pendingPetActionsRef = useRef(new Set<string>());
+  const petDailyClickPendingRef = useRef(0);
+  const petDailyClickFlushTimerRef = useRef<number | null>(null);
+  const petDailyClickFlushInFlightRef = useRef(false);
   const isPreviewRestricted = isPreviewMode;
   const soundsMuted = !soundSettings.uiEnabled && !soundSettings.gameplayEnabled;
   const isVaultReady =
@@ -6661,6 +6664,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     });
   }, [beginTaskAction, finishTaskAction, persistVerticalMotionAction]);
 
+  const handleVerticalMotionFail = useCallback(() => {
+    if (!beginTaskAction("vertical-motion")) {
+      return;
+    }
+
+    persistVerticalMotionAction({ action: "fail" }).catch((error) => {
+      console.error("Failed to fail movement task", error);
+      setAuthError(describeError(error));
+    }).finally(() => {
+      finishTaskAction("vertical-motion");
+    });
+  }, [beginTaskAction, finishTaskAction, persistVerticalMotionAction]);
+
   const applyPetDailyClickTaskRow = useCallback((row: UserPetTaskRow) => {
     const requirement = getTaskMetadataNumber(row.metadata, "requirement", 0);
     const progress = getTaskMetadataNumber(row.metadata, "progress", 0);
@@ -6684,38 +6700,106 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
   }, [setPetTaskStateOptimistic]);
 
-  const handlePetDailyClick = useCallback(async () => {
+  async function flushPetDailyClicks() {
+    if (petDailyClickFlushInFlightRef.current || petDailyClickPendingRef.current <= 0) {
+      return;
+    }
+
+    const clicks = petDailyClickPendingRef.current;
+    petDailyClickPendingRef.current = 0;
+    petDailyClickFlushInFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/user/pet-daily-click", {
+        body: JSON.stringify({ clicks }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        profile?: { coins?: number };
+        task?: UserPetTaskRow;
+      } | null;
+
+      if (!response.ok) {
+        console.error("Failed to persist pet daily clicks", { clicks, result });
+        throw new Error(result?.error ?? "Pet daily click failed.");
+      }
+
+      if (typeof result?.profile?.coins === "number") {
+        setCoins(result.profile.coins);
+      }
+
+      if (result?.task) {
+        const previousTask = petTaskStateRef.current.find((entry) => entry.id === "pet-daily-click");
+        const wasCompleted = previousTask?.status === "approved";
+        applyPetDailyClickTaskRow(result.task);
+        const progress = getTaskMetadataNumber(result.task.metadata, "progress", 0);
+        const requirement = getTaskMetadataNumber(result.task.metadata, "requirement", 0);
+
+        if (!wasCompleted && requirement > 0 && progress >= requirement) {
+          emitSoundEvent("task_completion");
+          setAvatarMistressReply("Daily Pet Clicks completed.");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to flush pet daily clicks", error);
+      setAuthError(describeError(error));
+    } finally {
+      petDailyClickFlushInFlightRef.current = false;
+
+      if (petDailyClickPendingRef.current > 0) {
+        petDailyClickFlushTimerRef.current = window.setTimeout(() => {
+          petDailyClickFlushTimerRef.current = null;
+          void flushPetDailyClicks();
+        }, 120);
+      }
+    }
+  }
+
+  function schedulePetDailyClickFlush() {
+    if (petDailyClickFlushTimerRef.current !== null) {
+      window.clearTimeout(petDailyClickFlushTimerRef.current);
+    }
+
+    petDailyClickFlushTimerRef.current = window.setTimeout(() => {
+      petDailyClickFlushTimerRef.current = null;
+      void flushPetDailyClicks();
+    }, 300);
+  }
+
+  function handlePetDailyClick() {
     if (blockIfTimedOut()) {
       return;
     }
 
-    const response = await fetch("/api/user/pet-daily-click", { method: "POST" });
-    const result = (await response.json().catch(() => null)) as {
-      error?: string;
-      profile?: { coins?: number };
-      task?: UserPetTaskRow;
-    } | null;
-
-    if (!response.ok) {
-      console.error("Failed to persist pet daily click", result);
-      throw new Error(result?.error ?? "Pet daily click failed.");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-daily-click");
+    if (task?.status === "approved") {
+      return;
     }
 
-    if (typeof result?.profile?.coins === "number") {
-      setCoins(result.profile.coins);
+    petDailyClickPendingRef.current += 1;
+
+    if (task && (task.clickRequirement ?? 0) > 0) {
+      const requirement = task.clickRequirement ?? 0;
+      const nextProgress = Math.min(requirement, (task.clickProgress ?? 0) + 1);
+
+      setCoins((current) => current + 1);
+      setPetTaskStateOptimistic((current) =>
+        current.map((entry) =>
+          entry.id === "pet-daily-click"
+            ? {
+                ...entry,
+                clickProgress: nextProgress,
+                status: nextProgress >= requirement ? "approved" as const : "available" as const,
+              }
+            : entry,
+        ),
+      );
     }
 
-    if (result?.task) {
-      applyPetDailyClickTaskRow(result.task);
-      const progress = getTaskMetadataNumber(result.task.metadata, "progress", 0);
-      const requirement = getTaskMetadataNumber(result.task.metadata, "requirement", 0);
-
-      if (requirement > 0 && progress >= requirement) {
-        emitSoundEvent("task_completion");
-        setAvatarMistressReply("Daily Pet Clicks completed.");
-      }
-    }
-  }, [applyPetDailyClickTaskRow]);
+    schedulePetDailyClickFlush();
+  }
 
   const handlePetEvilWaitStart = async () => {
     if (blockIfTimedOut()) {
@@ -7611,6 +7695,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
               highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onIrlTaskSpin={handleIrlTaskSpin}
+              onMovementFail={handleVerticalMotionFail}
               onMovementFinishFakeHope={handleVerticalMotionFinishFakeHope}
               onMovementProgress={handleVerticalMotionProgress}
               onMovementStart={handleVerticalMotionStart}
@@ -7675,7 +7760,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
               onOpenCase={(caseItem) => runPetAction("pet-case-opening", () => handlePetCaseOpen(caseItem))}
-              onPetDailyClick={() => runPetAction("pet-daily-click", handlePetDailyClick)}
+              onPetDailyClick={handlePetDailyClick}
               onDebtAutoPayChange={handleDebtAutoPayChange}
               onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
               onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}
