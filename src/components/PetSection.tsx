@@ -1816,7 +1816,7 @@ export function PetSection({
                   </span>
                 </div>
                 <p className="mt-3 text-xs font-bold text-red-100">
-                  Completion reward: +{dailyClickTask.reward} Pet Score, +{petTaskCoinReward} Coins
+                  Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 250 Coins.
                 </p>
                 <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">

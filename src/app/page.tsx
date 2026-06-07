@@ -258,9 +258,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
-const PET_TASK_COIN_REWARD = 100;
+const PET_TASK_COIN_REWARD = 50;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
+const PET_DAILY_CLICK_MAX_COIN_REWARD = 250;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
@@ -404,7 +405,7 @@ const petTasks: PetTaskItem[] = [
   {
     id: "pet-daily-click",
     title: "Daily Pet Clicks",
-    description: "Complete today's required Pet clicks. Each click gives 1 coin.",
+    description: "Complete today's required Pet clicks. Each click gives 1 coin, up to 250 coins per day.",
     reward: PET_TASK_REWARD,
     kind: "daily-click",
   },
@@ -6795,8 +6796,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (task && (task.clickRequirement ?? 0) > 0) {
       const requirement = task.clickRequirement ?? 0;
       const nextProgress = Math.min(requirement, (task.clickProgress ?? 0) + 1);
+      const shouldRewardCoin = (task.clickProgress ?? 0) < PET_DAILY_CLICK_MAX_COIN_REWARD;
 
-      setCoins((current) => current + 1);
+      if (shouldRewardCoin) {
+        setCoins((current) => current + 1);
+      }
       setPetTaskStateOptimistic((current) =>
         current.map((entry) =>
           entry.id === "pet-daily-click"

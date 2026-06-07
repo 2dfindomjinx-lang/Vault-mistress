@@ -8,6 +8,7 @@ import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 
 const TASK_ID = "pet-daily-click";
 const PET_SCORE_REWARD = 10;
+const MAX_DAILY_COIN_REWARD = 250;
 const CLICK_IMAGE_POOL = [
   "/pet/daily-click/click-01.png",
   "/pet/daily-click/click-02.png",
@@ -195,6 +196,10 @@ export async function POST(request: Request) {
 
   const acceptedClicks = Math.min(requestedClicks, Math.max(0, current.requirement - current.progress));
   const nextProgress = Math.min(current.requirement, current.progress + acceptedClicks);
+  const rewardableClicks = Math.max(
+    0,
+    Math.min(acceptedClicks, MAX_DAILY_COIN_REWARD - current.progress),
+  );
   const now = new Date().toISOString();
   const completed = nextProgress >= current.requirement;
   const petScoreReward = completed ? PET_SCORE_REWARD : 0;
@@ -204,7 +209,7 @@ export async function POST(request: Request) {
     progress: nextProgress,
     requirement: current.requirement,
   };
-  const nextCoins = profile.coins + acceptedClicks;
+  const nextCoins = profile.coins + rewardableClicks;
   const nextPetScore = Math.min(1000, (profile.pet_score ?? 0) + petScoreReward);
 
   const { data: updatedProfile, error: profileUpdateError } = await supabase
@@ -222,24 +227,28 @@ export async function POST(request: Request) {
     return jsonError(profileUpdateError?.message ?? "Pet click coin update failed.", 500);
   }
 
-  const { error: transactionError } = await supabase.from("coin_transactions").insert({
-    amount: acceptedClicks,
-    metadata: {
-      clicks: acceptedClicks,
-      date: today,
-      progress: nextProgress,
-      requirement: current.requirement,
-      source: "pet_daily_click",
-    },
-    reason: "reward:pet-daily-click",
-    user_id: profile.id,
-  });
-
-  if (transactionError) {
-    console.error("[pet-daily-click] transaction insert failed", {
-      error: transactionError,
-      userId: authData.user.id,
+  if (rewardableClicks > 0) {
+    const { error: transactionError } = await supabase.from("coin_transactions").insert({
+      amount: rewardableClicks,
+      metadata: {
+        clicks: acceptedClicks,
+        coinRewardClicks: rewardableClicks,
+        date: today,
+        maxDailyCoinReward: MAX_DAILY_COIN_REWARD,
+        progress: nextProgress,
+        requirement: current.requirement,
+        source: "pet_daily_click",
+      },
+      reason: "reward:pet-daily-click",
+      user_id: profile.id,
     });
+
+    if (transactionError) {
+      console.error("[pet-daily-click] transaction insert failed", {
+        error: transactionError,
+        userId: authData.user.id,
+      });
+    }
   }
 
   const { data: task, error: taskUpdateError } = await supabase
