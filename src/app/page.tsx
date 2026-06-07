@@ -7542,6 +7542,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 <h2 className="mt-1 text-2xl font-black text-white">{activeEvent.name}</h2>
                 <p className="mt-1 text-sm leading-6 text-yellow-50/80">
                   {activeEvent.description}
+                  {activeEvent.effect.type === "speech_avatar_override" && (
+                    <>
+                      {" "}
+                      Selected speech bubble:{" "}
+                      {getReadableSpeechAvatarName(activeEvent.effect.speechAvatarId)}.
+                    </>
+                  )}
                 </p>
               </div>
               <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">

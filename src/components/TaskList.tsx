@@ -1179,12 +1179,14 @@ export function TaskList({
                           return;
                         }
 
+                        event.preventDefault();
                         const touch = event.touches[0];
 
                         if (touch) {
                           handleMovementInput(touch.clientY, task, event.timeStamp);
                         }
                       }}
+                      style={{ touchAction: movementInputActive ? "none" : "auto" }}
                     >
                       {!movementActive && !completeRevealVisible && (
                         <p className="text-sm leading-6 text-zinc-400">
