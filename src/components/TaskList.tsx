@@ -223,10 +223,16 @@ export function TaskList({
 
   useEffect(() => {
     const task = movementTask;
+    const movementResolved =
+      isTaskActionPending("vertical-motion") ||
+      task?.movementState === "failed" ||
+      task?.movementState === "completed" ||
+      Boolean(task?.cooldownUntil);
     const movementActive =
-      movementLocalActive || task?.movementState === "active" || task?.movementState === "fake_hope";
+      !movementResolved &&
+      (movementLocalActive || task?.movementState === "active" || task?.movementState === "fake_hope");
 
-    if (!task || !movementActive || task.movementState === "failed" || task.movementState === "completed") {
+    if (!task || !movementActive) {
       return;
     }
 
@@ -235,7 +241,7 @@ export function TaskList({
     }, 250);
 
     return () => window.clearInterval(timer);
-  }, [movementLocalActive, movementTask]);
+  }, [isTaskActionPending, movementLocalActive, movementTask]);
 
   useEffect(() => {
     const movementActive =
@@ -302,11 +308,18 @@ export function TaskList({
   };
 
   const handleMovementInput = (clientY: number, task: TaskItem, inputAt: number) => {
-    if (disabled || task.movementState === "completed" || task.movementState === "failed") {
+    if (
+      disabled ||
+      isTaskActionPending("vertical-motion") ||
+      task.movementState === "completed" ||
+      task.movementState === "failed" ||
+      task.movementState === "fake_hope" ||
+      Boolean(task.cooldownUntil)
+    ) {
       return;
     }
 
-    if (!movementLocalActive && task.movementState !== "active" && task.movementState !== "fake_hope") {
+    if (!movementLocalActive && task.movementState !== "active") {
       return;
     }
 
@@ -348,6 +361,11 @@ export function TaskList({
       nextProgress >= 99 ||
       nextProgress - movementSyncedProgress >= 5
     ) {
+      if (nextProgress >= 99) {
+        setMovementLocalActive(false);
+        resetMovementPointer();
+      }
+
       setMovementSyncedProgress(nextProgress);
       onMovementProgress(nextProgress);
     }
@@ -1127,10 +1145,16 @@ export function TaskList({
                     100,
                     Math.max(task.movementProgress ?? 0, movementDisplayProgress),
                   );
-                  const movementActive =
-                    movementLocalActive ||
-                    task.movementState === "active" ||
-                    task.movementState === "fake_hope";
+                  const movementResolved =
+                    task.movementState === "completed" ||
+                    task.movementState === "failed" ||
+                    isCoolingDown ||
+                    isTaskActionPending("vertical-motion");
+                  const movementInputActive =
+                    !movementResolved &&
+                    (movementLocalActive ||
+                      task.movementState === "active");
+                  const movementActive = movementInputActive || task.movementState === "fake_hope";
                   const completeRevealVisible =
                     task.movementState === "completed" &&
                     Boolean(task.movementResolvedAt) &&
@@ -1147,10 +1171,22 @@ export function TaskList({
                     <div
                       className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3"
                       onMouseLeave={resetMovementPointer}
-                      onPointerDown={(event) => handleMovementPointerDown(event.clientY, event.timeStamp)}
-                      onPointerMove={(event) => handleMovementInput(event.clientY, task, event.timeStamp)}
+                      onPointerDown={(event) => {
+                        if (movementInputActive) {
+                          handleMovementPointerDown(event.clientY, event.timeStamp);
+                        }
+                      }}
+                      onPointerMove={(event) => {
+                        if (movementInputActive) {
+                          handleMovementInput(event.clientY, task, event.timeStamp);
+                        }
+                      }}
                       onPointerUp={resetMovementPointer}
                       onTouchMove={(event) => {
+                        if (!movementInputActive) {
+                          return;
+                        }
+
                         const touch = event.touches[0];
 
                         if (touch) {

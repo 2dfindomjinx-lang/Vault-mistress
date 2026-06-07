@@ -259,6 +259,8 @@ const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
 const PET_TASK_COIN_REWARD = 100;
+const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
+const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
@@ -1783,6 +1785,7 @@ export default function Home() {
   const petDailyClickPendingRef = useRef(0);
   const petDailyClickFlushTimerRef = useRef<number | null>(null);
   const petDailyClickFlushInFlightRef = useRef(false);
+  const petDailyClickLastClickAtRef = useRef(0);
   const isPreviewRestricted = isPreviewMode;
   const soundsMuted = !soundSettings.uiEnabled && !soundSettings.gameplayEnabled;
   const isVaultReady =
@@ -6705,8 +6708,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const clicks = petDailyClickPendingRef.current;
-    petDailyClickPendingRef.current = 0;
+    const clicks = Math.min(PET_DAILY_CLICK_FLUSH_BATCH_SIZE, petDailyClickPendingRef.current);
+    petDailyClickPendingRef.current -= clicks;
     petDailyClickFlushInFlightRef.current = true;
 
     try {
@@ -6743,16 +6746,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
       }
     } catch (error) {
+      petDailyClickPendingRef.current += clicks;
       console.error("Failed to flush pet daily clicks", error);
       setAuthError(describeError(error));
     } finally {
       petDailyClickFlushInFlightRef.current = false;
 
       if (petDailyClickPendingRef.current > 0) {
+        const elapsedSinceLastClick = Date.now() - petDailyClickLastClickAtRef.current;
+        const nextFlushDelay = Math.max(120, PET_DAILY_CLICK_FLUSH_DELAY_MS - elapsedSinceLastClick);
+
         petDailyClickFlushTimerRef.current = window.setTimeout(() => {
           petDailyClickFlushTimerRef.current = null;
           void flushPetDailyClicks();
-        }, 120);
+        }, nextFlushDelay);
       }
     }
   }
@@ -6765,7 +6772,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     petDailyClickFlushTimerRef.current = window.setTimeout(() => {
       petDailyClickFlushTimerRef.current = null;
       void flushPetDailyClicks();
-    }, 300);
+    }, PET_DAILY_CLICK_FLUSH_DELAY_MS);
   }
 
   function handlePetDailyClick() {
@@ -6779,6 +6786,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     petDailyClickPendingRef.current += 1;
+    petDailyClickLastClickAtRef.current = Date.now();
 
     if (task && (task.clickRequirement ?? 0) > 0) {
       const requirement = task.clickRequirement ?? 0;
