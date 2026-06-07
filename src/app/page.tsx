@@ -529,7 +529,7 @@ const startingTasks: TaskItem[] = [
   },
   {
     id: "vertical-motion",
-    title: "Daily Motion",
+    title: "Daily Edge",
     reward: 100,
     completed: false,
     claimed: false,

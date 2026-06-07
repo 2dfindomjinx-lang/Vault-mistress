@@ -21,6 +21,7 @@ const MOVEMENT_STAGE_IMAGES = [
   { min: 0, src: "/tasks/daily-motion/motion-0.png" },
 ];
 const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.png";
+const MOVEMENT_STROKE_DISTANCE_PX = 80;
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
   return kind === expected;
@@ -47,6 +48,30 @@ function writingPreviewStartsWith(target: string, input: string) {
 
 function getMovementStageImage(progress: number) {
   return MOVEMENT_STAGE_IMAGES.find((image) => progress >= image.min)?.src ?? MOVEMENT_STAGE_IMAGES[0].src;
+}
+
+function getMovementLastResult(task: TaskItem) {
+  if (task.movementOutcome === "success") {
+    return "Last result: completed successfully.";
+  }
+
+  if (task.movementOutcome === "fake_hope") {
+    return "Last result: fake hope denial.";
+  }
+
+  if (task.movementOutcome === "instant_denial") {
+    return "Last result: instant denial.";
+  }
+
+  if (task.movementState === "failed") {
+    return "Last result: failed.";
+  }
+
+  if (task.movementState === "completed") {
+    return "Last result: completed.";
+  }
+
+  return null;
 }
 
 function CooldownButtonContent({ label }: { label: string }) {
@@ -140,6 +165,8 @@ export function TaskList({
   const [movementLastY, setMovementLastY] = useState<number | null>(null);
   const [movementLocalActive, setMovementLocalActive] = useState(false);
   const [movementSyncedProgress, setMovementSyncedProgress] = useState(0);
+  const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
+  const [movementTravel, setMovementTravel] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
@@ -185,6 +212,8 @@ export function TaskList({
         setMovementLocalActive(false);
         setMovementLastInputAt(0);
         setMovementLastY(null);
+        setMovementDirection(null);
+        setMovementTravel(0);
         setMovementIdleRemaining(4);
       }, 0);
 
@@ -290,7 +319,8 @@ export function TaskList({
       return;
     }
 
-    const delta = Math.abs(clientY - lastY);
+    const signedDelta = clientY - lastY;
+    const delta = Math.abs(signedDelta);
     const elapsed = Math.max(1, inputAt - lastInputAt);
     const velocity = delta / elapsed;
 
@@ -298,9 +328,20 @@ export function TaskList({
       return;
     }
 
+    const direction = signedDelta > 0 ? "down" : "up";
+    const nextTravel = movementDirection === direction ? movementTravel + delta : delta;
+
+    setMovementDirection(direction);
+    setMovementTravel(nextTravel);
+
+    if (nextTravel < MOVEMENT_STROKE_DISTANCE_PX) {
+      return;
+    }
+
+    setMovementTravel(0);
     setMovementIdleRemaining(4);
     const baseProgress = Math.max(movementDisplayProgress, task.movementProgress ?? 0);
-    const nextProgress = Math.min(100, baseProgress + delta * 0.035);
+    const nextProgress = Math.min(100, baseProgress + 1);
     setMovementDisplayProgress(nextProgress);
 
     if (
@@ -315,6 +356,8 @@ export function TaskList({
   const resetMovementPointer = () => {
     setMovementLastInputAt(0);
     setMovementLastY(null);
+    setMovementDirection(null);
+    setMovementTravel(0);
   };
 
   const handleMovementPointerDown = (clientY: number, inputAt: number) => {
@@ -329,6 +372,8 @@ export function TaskList({
     setMovementIdleRemaining(4);
     setMovementLocalActive(true);
     setMovementSyncedProgress(task.movementProgress ?? 0);
+    setMovementDirection(null);
+    setMovementTravel(0);
   };
 
   const renderStatus = (task: TaskItem, isCoolingDown: boolean) => (
@@ -1096,6 +1141,7 @@ export function TaskList({
                   const inactivityRemaining = movementActive
                     ? Math.max(0, Math.ceil(movementIdleRemaining))
                     : 4;
+                  const movementLastResult = getMovementLastResult(task);
 
                   return (
                     <div
@@ -1159,9 +1205,14 @@ export function TaskList({
                                   : task.movementOutcome === "instant_denial"
                                     ? "Outcome: instant denial."
                                     : "Outcome resolved."}
-                            </p>
+                              </p>
                           )}
                         </>
+                      )}
+                      {isCoolingDown && movementLastResult && (
+                        <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-semibold text-zinc-300">
+                          {movementLastResult}
+                        </p>
                       )}
                       <button
                         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
