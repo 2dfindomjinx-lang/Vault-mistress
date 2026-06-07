@@ -711,7 +711,7 @@ export function TaskList({
                             </p>
                           )}
                           <p className="mt-2 text-sm leading-6 text-pink-50">
-                            DM this task result to @Principessa2dfd with your app username.
+                            DM this task result to @VMPrincipessa with your app username.
                           </p>
                           <p className="mt-2 text-xs leading-5 text-rose-100/80">
                             If this task is not completed in time, admin may apply a
@@ -1394,7 +1394,7 @@ export function TaskList({
                         </p>
                       )}
                       <p className="mt-2 text-sm leading-6 text-pink-50">
-                        DM this task result to @Principessa2dfd with your app username.
+                        DM this task result to @VMPrincipessa with your app username.
                       </p>
                       <p className="mt-2 text-xs leading-5 text-rose-100/80">
                         If this task is not completed in time, admin may apply a

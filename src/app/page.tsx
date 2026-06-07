@@ -303,7 +303,7 @@ const TIMEOUT_RISK_CHANCE = 0.2;
 const HIGH_LOW_BET_ALLOWANCE = 4000;
 const HIGH_LOW_PROFIT_LIMIT = 4000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
-const OWNER_LIKENESS_PROTECTED_USERNAME = "principessa2dfd";
+const OWNER_LIKENESS_PROTECTED_USERNAME = "vmprincipessa";
 const STREAK_BONUSES = [
   { id: "streak-bonus-1", milestone: 1, reward: 40, title: "1 day streak bonus" },
   { id: "streak-bonus-3", milestone: 3, reward: 115, title: "3 day streak bonus" },
@@ -2035,7 +2035,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
     : 0;
   const timeoutMessage =
-    "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @Principessa2dfd for manual review to remove it.";
+    "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
   const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
   const isPetUnlocked = affection >= 100 || (petEverUnlocked && affection >= 85);
   const nextPetTaxDueAt = petUnlockedAt
@@ -4882,7 +4882,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             : entry,
         ),
       );
-      setAvatarMistressReply("Task assigned. DM @Principessa2dfd when it is done.");
+      setAvatarMistressReply("Task assigned. DM @VMPrincipessa when it is done.");
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to spin IRL task wheel", error);

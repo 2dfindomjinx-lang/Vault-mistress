@@ -4,7 +4,7 @@ export const IRL_TASK_APPROVAL_AFFECTION_GAIN = 10;
 export const irlTaskWheelTasks = [
   {
     title: "Rebrand Yourself for Principessa",
-    description: "DM @Principessa2dfd and get your materials. Become a board for Principessa.",
+    description: "DM @VMPrincipessa and get your materials. Become a board for Principessa.",
   },
   {
     title: "Property Marking",
@@ -60,7 +60,7 @@ export const irlTaskWheelTasks = [
   },
   {
     title: "Coin Loss",
-    description: "DM @principessa2dfd and beg her for drain your coins.",
+    description: "DM @VMPrincipessa and beg her for drain your coins.",
   },
   {
     title: "Ballbusting Goon",
@@ -80,7 +80,7 @@ export const irlTaskWheelTasks = [
   },
   {
     title: "Repost Task",
-    description: "Visit @principessa2dfd on X and repost at least 5 posts.",
+    description: "Visit @VMPrincipessa on X and repost at least 5 posts.",
   },
 ];
 
