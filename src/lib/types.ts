@@ -28,7 +28,8 @@ export type TaskItem = {
     | "timeout-risk"
     | "irl-task-wheel"
     | "affection"
-    | "affection-80";
+    | "affection-80"
+    | "vertical-motion";
   title: string;
   reward: number;
   completed: boolean;
@@ -40,7 +41,8 @@ export type TaskItem = {
     | "number-pick"
     | "wait-obediently"
     | "timeout-risk"
-    | "irl-wheel";
+    | "irl-wheel"
+    | "movement";
   cooldownUntil?: string | null;
   attemptsRemaining?: number;
   sentence?: string;
@@ -80,6 +82,12 @@ export type TaskItem = {
   assignedIrlDueAt?: string | null;
   assignedIrlPenaltyMinutes?: number | null;
   timeoutUntil?: string | null;
+  movementDate?: string | null;
+  movementFailAt?: string | null;
+  movementOutcome?: "success" | "instant_denial" | "fake_hope" | null;
+  movementProgress?: number;
+  movementResolvedAt?: string | null;
+  movementState?: "ready" | "active" | "fake_hope" | "failed" | "completed" | "cooldown";
 };
 
 export type MechanicsState = {
@@ -111,7 +119,8 @@ export type PetTaskItem = {
     | "randomized-rules"
     | "false-hope"
     | "favor-roulette"
-    | "debt-contract";
+    | "debt-contract"
+    | "daily-click";
   status?: "available" | "pending" | "approved" | "rejected" | "failed";
   cooldownUntil?: string | null;
   completedAt?: string | null;
@@ -135,6 +144,10 @@ export type PetTaskItem = {
   waitCountdownEndsAt?: string | null;
   waitEndsAt?: string | null;
   waitState?: "ready" | "countdown" | "waiting" | "failed" | "completed" | "cooldown";
+  clickDate?: string | null;
+  clickImage?: string | null;
+  clickProgress?: number;
+  clickRequirement?: number;
 };
 
 export type PetDebtContract = {

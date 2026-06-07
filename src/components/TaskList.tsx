@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
 import { IRL_TASK_WHEEL_COST, irlTaskWheelSegments } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
@@ -12,6 +13,14 @@ const JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY = "vault:jackpot-hide-contributors";
 const CLICKABLE_COOLDOWN_BUTTON_CLASS =
   "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-70";
+const MOVEMENT_STAGE_IMAGES = [
+  { min: 99, src: "/tasks/daily-motion/motion-99.png" },
+  { min: 75, src: "/tasks/daily-motion/motion-75.png" },
+  { min: 50, src: "/tasks/daily-motion/motion-50.png" },
+  { min: 25, src: "/tasks/daily-motion/motion-25.png" },
+  { min: 0, src: "/tasks/daily-motion/motion-0.png" },
+];
+const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.png";
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
   return kind === expected;
@@ -34,6 +43,10 @@ function normalizeWritingPreview(value: string) {
 
 function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
+}
+
+function getMovementStageImage(progress: number) {
+  return MOVEMENT_STAGE_IMAGES.find((image) => progress >= image.min)?.src ?? MOVEMENT_STAGE_IMAGES[0].src;
 }
 
 function CooldownButtonContent({ label }: { label: string }) {
@@ -61,6 +74,9 @@ type TaskListProps = {
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
+  onMovementFinishFakeHope: () => void;
+  onMovementProgress: (progress: number) => void;
+  onMovementStart: () => void;
   onCooldownAttempt?: (message: string) => void;
   onSacrifice: () => void;
   onSupport: () => void;
@@ -91,6 +107,9 @@ export function TaskList({
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
+  onMovementFinishFakeHope,
+  onMovementProgress,
+  onMovementStart,
   onCooldownAttempt,
   pendingTaskActionIds = [],
   onSacrifice,
@@ -113,6 +132,9 @@ export function TaskList({
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
   const [showIrlTaskList, setShowIrlTaskList] = useState(false);
+  const [movementDisplayProgress, setMovementDisplayProgress] = useState(0);
+  const [movementLastY, setMovementLastY] = useState<number | null>(null);
+  const [movementSyncedProgress, setMovementSyncedProgress] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
   const isTaskActionPending = (actionId: string) => pendingTaskActionIds.includes(actionId);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
@@ -133,6 +155,21 @@ export function TaskList({
       }
     };
   }, []);
+
+  const movementTask = tasks.find((task) => task.kind === "movement");
+
+  useEffect(() => {
+    if (movementTask?.movementState !== "fake_hope" || !movementTask.movementFailAt) {
+      return;
+    }
+
+    const remaining = Math.max(0, 10000 - (Date.now() - new Date(movementTask.movementFailAt).getTime()));
+    const timer = window.setTimeout(() => {
+      onMovementFinishFakeHope();
+    }, remaining);
+
+    return () => window.clearTimeout(timer);
+  }, [movementTask?.movementFailAt, movementTask?.movementState, onMovementFinishFakeHope]);
 
   const handleIrlWheelSpinClick = () => {
     if (disabled || isIrlWheelSpinning) {
@@ -180,6 +217,62 @@ export function TaskList({
     return `${seconds}s`;
   };
 
+  const handleMovementInput = (clientY: number, task: TaskItem) => {
+    if (disabled || task.movementState === "completed" || task.movementState === "failed") {
+      return;
+    }
+
+    if (task.movementState === "ready") {
+      emitSoundEvent("button_click");
+      setMovementDisplayProgress(task.movementProgress ?? 0);
+      setMovementSyncedProgress(task.movementProgress ?? 0);
+      onMovementStart();
+    }
+
+    const lastY = movementLastY;
+    setMovementLastY(clientY);
+
+    if (lastY === null) {
+      return;
+    }
+
+    const delta = Math.abs(clientY - lastY);
+
+    if (delta < 6) {
+      return;
+    }
+
+    const baseProgress = Math.max(movementDisplayProgress, task.movementProgress ?? 0);
+    const nextProgress = Math.min(100, baseProgress + delta * 0.2);
+    setMovementDisplayProgress(nextProgress);
+
+    if (
+      nextProgress >= 99 ||
+      nextProgress - movementSyncedProgress >= 5
+    ) {
+      setMovementSyncedProgress(nextProgress);
+      onMovementProgress(nextProgress);
+    }
+  };
+
+  const resetMovementPointer = () => {
+    setMovementLastY(null);
+  };
+
+  const handleMovementPointerDown = (clientY: number, task: TaskItem) => {
+    setMovementLastY(clientY);
+
+    if (task.movementState === "ready") {
+      handleMovementInput(clientY, task);
+    }
+  };
+
+  const resetMovementAttempt = (task: TaskItem) => {
+    setMovementLastY(null);
+    setMovementDisplayProgress(task.movementProgress ?? 0);
+    setMovementSyncedProgress(task.movementProgress ?? 0);
+  };
+
   const renderStatus = (task: TaskItem, isCoolingDown: boolean) => (
     <span
       className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -203,6 +296,10 @@ export function TaskList({
           : task.kind === "wait-obediently" && task.waitState === "waiting"
             ? "Waiting"
           : task.kind === "wait-obediently" && task.waitState === "failed"
+            ? "Failed"
+          : task.kind === "movement" && task.movementState === "fake_hope"
+            ? "Almost"
+          : task.kind === "movement" && task.movementState === "failed"
             ? "Failed"
           : task.kind === "high-low"
             ? "Open"
@@ -914,6 +1011,91 @@ export function TaskList({
                   onStart={onWaitObedientlyStart}
                   task={task}
                 />
+              )}
+
+              {task.kind === "movement" && (
+                (() => {
+                  const currentMovementProgress = Math.min(
+                    100,
+                    Math.max(task.movementProgress ?? 0, movementDisplayProgress),
+                  );
+                  const completeRevealVisible =
+                    task.movementState === "completed" &&
+                    Boolean(task.movementResolvedAt) &&
+                    now - new Date(task.movementResolvedAt ?? "").getTime() < 60 * 1000;
+                  const movementStageImage = completeRevealVisible
+                    ? MOVEMENT_COMPLETE_IMAGE
+                    : getMovementStageImage(currentMovementProgress);
+
+                  return (
+                    <div
+                      className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3"
+                      onMouseLeave={resetMovementPointer}
+                      onPointerDown={(event) => handleMovementPointerDown(event.clientY, task)}
+                      onPointerMove={(event) => handleMovementInput(event.clientY, task)}
+                      onPointerUp={resetMovementPointer}
+                      onTouchMove={(event) => {
+                        const touch = event.touches[0];
+
+                        if (touch) {
+                          handleMovementInput(touch.clientY, task);
+                        }
+                      }}
+                    >
+                      <p className="text-sm leading-6 text-zinc-400">
+                        Fill the bar with steady vertical movement. Tiny accidental movement is ignored.
+                      </p>
+                      <div className="relative mt-3 aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                        <Image
+                          alt="Daily Motion stage"
+                          className="object-cover"
+                          fill
+                          sizes="360px"
+                          src={movementStageImage}
+                          unoptimized
+                        />
+                      </div>
+                      <div className="mt-3 h-4 overflow-hidden rounded-full border border-pink-200/15 bg-black/55">
+                        <div
+                          className="h-full rounded-full bg-pink-400 transition-all"
+                          style={{ width: `${currentMovementProgress}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-pink-100/70">
+                        {task.movementState === "fake_hope"
+                          ? "So close. Keep going."
+                          : task.movementState === "failed"
+                            ? "Attempt failed"
+                            : task.movementState === "completed"
+                              ? "Completed"
+                              : `${Math.round(currentMovementProgress)}%`}
+                      </p>
+                      <button
+                        className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={
+                          disabled ||
+                          isTaskActionPending("vertical-motion") ||
+                          task.movementState === "completed" ||
+                          task.movementState === "failed"
+                        }
+                        onClick={() => {
+                          emitSoundEvent("button_click");
+                          resetMovementAttempt(task);
+                          onMovementStart();
+                        }}
+                        type="button"
+                      >
+                        {isTaskActionPending("vertical-motion")
+                          ? "Saving..."
+                          : isCoolingDown
+                            ? `Available in ${formatRemaining(cooldownRemaining)}`
+                          : task.movementState === "active" || task.movementState === "fake_hope"
+                            ? "Move Vertically"
+                            : "Start"}
+                      </button>
+                    </div>
+                  );
+                })()
               )}
 
               {task.kind === "timeout-risk" && (

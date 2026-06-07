@@ -37,6 +37,185 @@ const DEBT_RANDOM_DURATION_LIMITS = {
 };
 const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
+const RANDOM_WEBSITE_STATE_STORAGE_KEY = "vault:random-website-state";
+const RANDOM_WEBSITE_LINK_POOL: string[] = [
+	"https://www.pornhub.com/view_video.php?viewkey=6a1f53942933a",
+	"https://www.pornhub.com/view_video.php?viewkey=69f8c6731ca52",
+	"https://www.pornhub.com/view_video.php?viewkey=666f2ae4f1f41",
+	"https://www.pornhub.com/view_video.php?viewkey=6556c3724076e",
+	"https://www.pornhub.com/view_video.php?viewkey=67db128b05fe7",
+	"https://www.pornhub.com/view_video.php?viewkey=66d21b416e7c2",
+	"https://www.pornhub.com/view_video.php?viewkey=6966454464c90",
+	"https://www.pornhub.com/view_video.php?viewkey=6a1780573b173",
+	"https://www.pornhub.com/view_video.php?viewkey=67f019b588cfc",
+	"https://www.pornhub.com/view_video.php?viewkey=684150dcf1060",
+	"https://www.pornhub.com/view_video.php?viewkey=67e43d3864d62",
+	"https://www.pornhub.com/view_video.php?viewkey=685726b34361d",
+	"https://www.pornhub.com/view_video.php?viewkey=678fee7886ea2",
+	"https://www.pornhub.com/view_video.php?viewkey=68618783db7ae",
+	"https://www.pornhub.com/view_video.php?viewkey=66591cfa857f7",
+	"https://www.pornhub.com/view_video.php?viewkey=670a609a7ed90",
+	"https://www.pornhub.com/view_video.php?viewkey=670a51ab06e55",
+	"https://www.pornhub.com/view_video.php?viewkey=66a595ba6f060",
+	"https://www.pornhub.com/view_video.php?viewkey=65de9989ee17f",
+	"https://www.pornhub.com/view_video.php?viewkey=672a1bb01f946",
+	"https://www.pornhub.com/view_video.php?viewkey=6509af7f38e37",
+	"https://www.pornhub.com/view_video.php?viewkey=68ab2be30791f",
+	"https://www.pornhub.com/view_video.php?viewkey=6533705d6565e",
+	"https://www.pornhub.com/view_video.php?viewkey=654eebb6794c5",
+	"https://www.pornhub.com/view_video.php?viewkey=660fbbbfb3252",
+	"https://www.pornhub.com/view_video.php?viewkey=66ab6bb153441",
+	"https://www.pornhub.com/view_video.php?viewkey=66abd8d5e6ee7",
+	"https://www.pornhub.com/view_video.php?viewkey=66eacec376367",
+	"https://www.pornhub.com/view_video.php?viewkey=ph6305078de3dd8",
+	"https://www.pornhub.com/view_video.php?viewkey=6787823d1f3d5",
+	"https://www.pornhub.com/view_video.php?viewkey=645bab1de3d43",
+	"https://www.pornhub.com/view_video.php?viewkey=64956de900198",
+	"https://www.pornhub.com/view_video.php?viewkey=660c8b359c8f9",
+	"https://www.pornhub.com/view_video.php?viewkey=64c610a32505b",
+	"https://www.pornhub.com/view_video.php?viewkey=65d87bb9822f9",
+	"https://www.pornhub.com/view_video.php?viewkey=64922f8e63a69",
+	"https://www.pornhub.com/view_video.php?viewkey=6859a816115eb",
+	"https://www.pornhub.com/view_video.php?viewkey=662d1cbb379af",
+	"https://www.pornhub.com/view_video.php?viewkey=699db47fea2c2",
+	"https://www.pornhub.com/view_video.php?viewkey=672796900b71e",
+	"https://www.pornhub.com/view_video.php?viewkey=69e2b269376cd",
+	"https://www.pornhub.com/view_video.php?viewkey=6773c011a0024",
+	"https://www.pornhub.com/view_video.php?viewkey=69e6651302318",
+	"https://www.pornhub.com/view_video.php?viewkey=66ddeda55a909",
+	"https://www.pornhub.com/view_video.php?viewkey=66c3db87108b3",
+	"https://www.pornhub.com/view_video.php?viewkey=6849c93ee0633",
+	"https://www.pornhub.com/view_video.php?viewkey=671541a037e44",
+	"https://www.pornhub.com/view_video.php?viewkey=67081e511c8df",
+	"https://www.pornhub.com/view_video.php?viewkey=6822cfdd25cbb",
+	"https://www.pornhub.com/view_video.php?viewkey=678e7d61404da",
+	"https://www.pornhub.com/view_video.php?viewkey=ph5fc3cc23d32d5",
+	"https://www.pornhub.com/view_video.php?viewkey=646a7ab0bb318",
+	"https://www.pornhub.com/view_video.php?viewkey=67a895a969607",
+	"https://www.pornhub.com/view_video.php?viewkey=673de7e1425d8",
+	"https://www.pornhub.com/view_video.php?viewkey=6506856d8449d",
+	"https://www.pornhub.com/view_video.php?viewkey=67aa6991ab278",
+	"https://www.pornhub.com/view_video.php?viewkey=ph636047816fd4b",
+	"https://www.pornhub.com/view_video.php?viewkey=ph63365e7b0d1e8",
+	"https://www.pornhub.com/view_video.php?viewkey=66c3a01c41488",
+	"https://www.pornhub.com/view_video.php?viewkey=643e756bec400",
+	"https://www.pornhub.com/view_video.php?viewkey=672a23e95d57e",
+	"https://www.pornhub.com/view_video.php?viewkey=66da3ab7de6ca",
+	"https://www.pornhub.com/view_video.php?viewkey=68de75b4e830e",
+	"https://www.pornhub.com/view_video.php?viewkey=ph6202d02059f4f",
+	"https://x.com/Apenasumescravo/status/2062477929226059860?s=20",
+	"https://x.com/UnderAmberX/status/2061810916224585991?s=20",
+	"https://x.com/Shrimpy2026/status/2060501928702857223?s=20",
+	"https://x.com/doloresCBT666/status/2060448229339078697?s=20",
+	"https://x.com/SuperiorWomen83/status/2059559907716911588?s=20",
+	"https://x.com/MILKING_FARM/status/2058894058794217510?s=20",
+	"https://x.com/UnderAmberX/status/2059016904220541378?s=20",
+	"https://x.com/MILKING_FARM/status/2058438101278638282?s=20",
+	"https://x.com/noorthw/status/2058250872061047118?s=20",
+	"https://x.com/TightAndBright7/status/2057531031847162244?s=20",
+	"https://x.com/BallbustingZone/status/2057226359588684034?s=20",
+	"https://x.com/DominaFitness/status/2056744847495557322?s=20",
+	"https://x.com/x_Latrina_x/status/2057228972711428236?s=20",
+	"https://x.com/femdomBae/status/2056200844438073348?s=20",
+	"https://x.com/kan8setagaya/status/2056278604083081572?s=20",
+	"https://x.com/330_6459/status/2056436949196403130?s=20",
+	"https://x.com/FemdomConte/status/2056269555161502065?s=20",
+	"https://x.com/beastscage/status/2055947801226354973?s=20",
+	"https://x.com/FemdomC0ntr0L/status/2055968552759509113?s=20",
+	"https://x.com/kan8setagaya/status/2056278628825190423?s=20",
+	"https://x.com/CBTRug/status/2056460670812537157?s=20",
+	"https://x.com/Apenasumescravo/status/2055326088352665938?s=20",
+	"https://x.com/x_Latrina_x/status/2054420471110861031?s=20",
+	"https://x.com/G00N_OBSESSION/status/2053107062930854293?s=20",
+	"https://x.com/SubbyGooner_/status/2030123146603323836?s=20",
+	"https://x.com/SuperiorWomen83/status/2063374208185389279?s=20",
+	"https://x.com/SuperiorWomen83/status/2062739015711764887?s=20",
+	"https://x.com/Apenasumescravo/status/2063257388304736551?s=20",
+	"https://x.com/Apenasumescravo/status/2063256972020134394?s=20",
+	"https://x.com/Apenasumescravo/status/2062756340934811729?s=20",
+	"https://x.com/Apenasumescravo/status/2062756120851333487?s=20",
+	"https://x.com/Apenasumescravo/status/2062756020443869246?s=20",
+	"https://x.com/Apenasumescravo/status/2062753690449219885?s=20",
+	"https://x.com/Apenasumescravo/status/2062710071998771406?s=20",
+	"https://nhentai.net/g/366392/",
+	"https://nhentai.net/g/328759/",
+	"https://nhentai.net/g/284243/",
+	"https://nhentai.net/g/564007/",
+	"https://nhentai.net/g/361964/",
+	"https://nhentai.net/g/409775/",
+	"https://nhentai.net/g/506794/",
+	"https://nhentai.net/g/543216/",
+	"https://nhentai.net/g/566293/",
+	"https://nhentai.net/g/361003/",
+	"https://nhentai.net/g/421001/",
+	"https://nhentai.net/g/566294/",
+	"https://nhentai.net/g/624163/",
+	"https://nhentai.net/g/491537/",
+	"https://nhentai.net/g/491539/",
+	"https://nhentai.net/g/643570/",
+	"https://rule34.xxx/index.php?page=post&s=view&id=16773324&tags=irelia_xan+webm+futanari+",
+	"https://rule34.xxx/index.php?page=post&s=view&id=12418504&tags=femdom+webm+3d+longer_than_one_minute+league_of_legends+",
+	"https://rule34.xxx/index.php?page=post&s=view&id=9409558&tags=femdom+webm+3d+longer_than_one_minute+league_of_legends+",
+	"https://rule34.xxx/index.php?page=post&s=view&id=17155244&tags=femdom+webm+3d+longer_than_one_minute+",
+	"https://x.com/I5IN4I/status/2063358629898502395?s=20",
+	"https://x.com/doloresCBT666/status/2063154739567567178?s=20",
+	"https://x.com/WPigdog85059/status/2062839815540785204?s=20",
+	"https://x.com/zelden42/status/2063274250014740689?s=20",
+	"https://x.com/UnderAmberX/status/2063020868918272328?s=20",
+	"https://x.com/seasmallcock/status/2062759907615801801?s=20",
+	"https://x.com/doloresCBT666/status/2062430993542234362?s=20",
+	"https://x.com/mistressxalexis/status/2063014674405138543?s=20",
+	"https://x.com/zelden42/status/2062893735076040884?s=20",
+	"https://x.com/Ctfictionwriter/status/2063200352615166336?s=20",
+	"https://x.com/Shrimpy2026/status/2062723162387644452?s=20",
+	"https://x.com/doloresCBT666/status/2062754470493102133?s=20",
+	"https://x.com/SGbbns/status/2063364524946678067?s=20",
+	"https://x.com/kan8setagaya/status/2063038327197245515?s=20",
+	"https://x.com/kan8setagaya/status/2063172730627981366?s=20",
+	"https://x.com/slave_tom77/status/2063128107322642627?s=20",
+	"https://x.com/gottin_der/status/2062890660751896876?s=20",
+	"https://x.com/anzhai_1/status/2062852783762559182?s=20",
+	"https://x.com/MommyCynthia69/status/2063204337443062065?s=20",
+	"https://x.com/SnowBunBitch/status/2063240339910000872?s=20",
+	"https://x.com/NTR_Cuckold_M/status/2062872247812100426?s=20",
+	"https://x.com/MommyCynthia69/status/2063120016560595118?s=20",
+	"https://x.com/MommyCynthia69/status/2061856113574764585?s=20",
+	"https://x.com/BlackedTwoB/status/2063273780890275932?s=20",
+	"https://x.com/kicks_kinks/status/2063228636396650575?s=20",
+	"https://x.com/Ray_sub_6957/status/2062889969903968279?s=20",
+	"https://x.com/Slave882294/status/2062856267303968925?s=20",
+	"https://x.com/Ray_sub_6957/status/2062998865498784216?s=20",
+	"https://x.com/butter72145/status/2063142449619341390?s=20",
+	"https://x.com/TrainerCameron1/status/2063272187524428046?s=20",
+	"https://x.com/Ray_sub_6957/status/2062854078409949613?s=20",
+	"https://x.com/Bluebal82748283/status/2062077376217977107?s=20",
+	"https://x.com/xoxoxogirl_69/status/2063213178436096115?s=20",
+	"https://x.com/Ray_sub_6957/status/2062890602438549537?s=20",
+	"https://x.com/CuckManl/status/2063054905980469565?s=20",
+	"https://x.com/NTR_Cuckold_M/status/2062068247655297344?s=20",
+	"https://x.com/CagedBratTamer/status/2062682347250589901?s=20",
+	"https://x.com/DevilAlbedo/status/2063107753938244078?s=20",
+	"https://x.com/godesscynthiia/status/2062804445725945875?s=20",
+	"https://x.com/SubbyGooner_/status/2063226691896389907?s=20",
+	"https://x.com/Loseph35/status/2062949713012240792?s=20",
+	"https://x.com/Shrimpy2026/status/2063306116973330681?s=20",
+	"https://x.com/kan8setagaya/status/2063172689196675118?s=20",
+	"https://x.com/GoonaraEternal/status/2062451578989138283?s=20",
+	"https://x.com/Blackdomin9ewo/status/2063021801970487498?s=20",
+	"https://x.com/BallbustingTom/status/2062055717499007481?s=20",
+	"https://x.com/BWCwhiteboynyc/status/2062803553052188693?s=20",
+	"https://x.com/goddesselisaaa/status/2063131531992822080?s=20",
+	"https://x.com/Evil__Woman_/status/2062852014736896347?s=20",
+	"https://x.com/ShoeCashSlave/status/2063052497124565256?s=20",
+	"https://x.com/aelyahgoddess/status/2063204246527279279?s=20",
+	"https://x.com/6sjhg/status/2062734838352740389?s=20",
+	"https://x.com/footmnijob/status/2062758962685173884?s=20",
+];
+
+type RandomWebsiteState = {
+  currentLink: string | null;
+  seenLinks: string[];
+};
 
 const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
   ...rank,
@@ -92,6 +271,79 @@ function randomInteger(minimum: number, maximum: number) {
 
 function randomPetName() {
   return DEBT_PET_NAMES[Math.floor(Math.random() * DEBT_PET_NAMES.length)] ?? DEBT_PET_NAMES[0];
+}
+
+function getRandomWebsiteState(): RandomWebsiteState {
+  if (typeof window === "undefined") {
+    return { currentLink: null, seenLinks: [] };
+  }
+
+  try {
+    const stored = window.localStorage.getItem(RANDOM_WEBSITE_STATE_STORAGE_KEY);
+
+    if (!stored) {
+      return { currentLink: null, seenLinks: [] };
+    }
+
+    const parsed = JSON.parse(stored) as Partial<RandomWebsiteState>;
+    const validLinks = new Set(RANDOM_WEBSITE_LINK_POOL);
+
+    const currentLink =
+      typeof parsed.currentLink === "string" && validLinks.has(parsed.currentLink)
+        ? parsed.currentLink
+        : null;
+    const seenLinks = Array.isArray(parsed.seenLinks)
+        ? parsed.seenLinks.filter((link): link is string => typeof link === "string" && validLinks.has(link))
+        : [];
+
+    return {
+      currentLink,
+      seenLinks: currentLink ? Array.from(new Set([...seenLinks, currentLink])) : seenLinks,
+    };
+  } catch {
+    return { currentLink: null, seenLinks: [] };
+  }
+}
+
+function writeRandomWebsiteState(state: RandomWebsiteState) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(RANDOM_WEBSITE_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Mystery link state should never break the Pet section.
+  }
+}
+
+function pickRandomWebsiteLink(state: RandomWebsiteState): RandomWebsiteState {
+  if (RANDOM_WEBSITE_LINK_POOL.length === 0) {
+    return { currentLink: null, seenLinks: [] };
+  }
+
+  const seenSet = new Set(state.seenLinks);
+  let availableLinks = RANDOM_WEBSITE_LINK_POOL.filter(
+    (link) => !seenSet.has(link) && link !== state.currentLink,
+  );
+
+  if (availableLinks.length === 0) {
+    availableLinks = RANDOM_WEBSITE_LINK_POOL.filter((link) => link !== state.currentLink);
+  }
+
+  const selectedLink =
+    availableLinks[Math.floor(Math.random() * availableLinks.length)] ??
+    state.currentLink ??
+    RANDOM_WEBSITE_LINK_POOL[0];
+  const nextSeenLinks = Array.from(new Set([...state.seenLinks, selectedLink]));
+
+  return {
+    currentLink: selectedLink,
+    seenLinks:
+      nextSeenLinks.length >= RANDOM_WEBSITE_LINK_POOL.length
+        ? [selectedLink]
+        : nextSeenLinks,
+  };
 }
 
 function randomWeightedWeeklyDebtDuration(amount: number) {
@@ -222,6 +474,7 @@ export function PetSection({
   onFalseHopeKey,
   onFavorPick,
   onOpenCase,
+  onPetDailyClick,
   onPayWeeklyTax,
   onPetEvilWaitComplete,
   onPetEvilWaitFail,
@@ -260,6 +513,7 @@ export function PetSection({
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
   onOpenCase: (caseItem: PetCaseItem) => void;
+  onPetDailyClick: () => void;
   onPayWeeklyTax: () => void;
   onPetEvilWaitComplete: () => void;
   onPetEvilWaitFail: () => void;
@@ -306,6 +560,7 @@ export function PetSection({
   const [debtAmount, setDebtAmount] = useState("");
   const [debtDuration, setDebtDuration] = useState("");
   const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
+  const [randomWebsiteLink, setRandomWebsiteLink] = useState<string | null>(null);
   const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
@@ -375,6 +630,18 @@ export function PetSection({
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const storedState = getRandomWebsiteState();
+      const nextState = storedState.currentLink ? storedState : pickRandomWebsiteLink(storedState);
+
+      setRandomWebsiteLink(nextState.currentLink);
+      writeRandomWebsiteState(nextState);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -665,6 +932,29 @@ export function PetSection({
       periodType: draft.periodType,
       petName,
     });
+  }
+
+  function handleRandomWebsiteOpen() {
+    if (!randomWebsiteLink) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "You are leaving the vault. The unknown destination may contain adult-oriented content, so be mindful of your surroundings before opening it.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    window.open(randomWebsiteLink, "_blank", "noopener,noreferrer");
+  }
+
+  function handleRandomWebsiteRefresh() {
+    const nextState = pickRandomWebsiteLink(getRandomWebsiteState());
+
+    setRandomWebsiteLink(nextState.currentLink);
+    writeRandomWebsiteState(nextState);
   }
 
   function handleCaseOpen() {
@@ -1426,6 +1716,78 @@ export function PetSection({
                     </div>
                   )}
 
+                  {task.kind === "daily-click" && (
+                    <div className="mt-auto rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                      <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                        {(() => {
+                          const clickRequirement = task.clickRequirement ?? 0;
+                          const clickProgress = task.clickProgress ?? 0;
+                          const revealProgress =
+                            clickRequirement > 0
+                              ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
+                              : 0;
+                          const censorOpacity = Math.max(0, 1 - revealProgress);
+                          const censorBlur = Math.round(18 * censorOpacity);
+
+                          return (
+                            <>
+                              {task.clickImage ? (
+                                <Image
+                                  alt="Daily pet click"
+                                  className="object-cover"
+                                  fill
+                                  sizes="360px"
+                                  src={task.clickImage}
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
+                                  Image unlocks on first click
+                                </div>
+                              )}
+                              {censorOpacity > 0 && (
+                                <div
+                                  className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
+                                  style={{
+                                    backdropFilter: `blur(${censorBlur}px)`,
+                                    opacity: censorOpacity,
+                                  }}
+                                />
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
+                        <div
+                          className="h-full rounded-full bg-pink-400 transition-all"
+                          style={{
+                            width:
+                              task.clickRequirement && task.clickRequirement > 0
+                                ? `${Math.min(100, ((task.clickProgress ?? 0) / task.clickRequirement) * 100)}%`
+                                : "0%",
+                          }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs font-bold text-pink-100/75">
+                        {(task.clickProgress ?? 0).toLocaleString()} /{" "}
+                        {(task.clickRequirement ?? 0) > 0 ? task.clickRequirement?.toLocaleString() : "?"} clicks
+                      </p>
+                      <button
+                        className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={actionPending || task.status === "approved"}
+                        onClick={onPetDailyClick}
+                        type="button"
+                      >
+                        {actionPending
+                          ? "Saving..."
+                          : task.status === "approved"
+                            ? "Completed Today"
+                            : "Click"}
+                      </button>
+                    </div>
+                  )}
+
                   {task.kind === "review" && (
                     <button
                       aria-disabled={coolingDown || undefined}
@@ -1450,6 +1812,51 @@ export function PetSection({
               );
             })}
           </div>
+
+          <article className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+                  Mystery Link
+                </p>
+                <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+              </div>
+              <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
+                Mystery
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Opens an unknown external destination. Refresh picks a different hidden link until
+              the whole pool has been used.
+            </p>
+            <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
+              The destination may contain adult-oriented content. Be mindful of your surroundings
+              before opening it.
+            </div>
+            <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
+              {randomWebsiteLink
+                ? "A mystery destination is ready."
+                : "No destination configured."}
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                className="rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!randomWebsiteLink}
+                onClick={handleRandomWebsiteOpen}
+                type="button"
+              >
+                {randomWebsiteLink ? "Click" : "No destination configured"}
+              </button>
+              <button
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-zinc-100 transition enabled:hover:border-pink-200/35 enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={RANDOM_WEBSITE_LINK_POOL.length <= 1}
+                onClick={handleRandomWebsiteRefresh}
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+          </article>
 
           {debtTask && (
             <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">

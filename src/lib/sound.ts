@@ -138,12 +138,7 @@ export function unlockSoundPlayback() {
   }
 
   hydrateSoundSettings();
-
-  if (!soundSettings.uiEnabled || soundSettings.masterVolume <= 0) {
-    return;
-  }
-
-  emitSoundEvent("button_click");
+  playbackUnlocked = true;
 }
 
 function hydrateSoundSettings() {

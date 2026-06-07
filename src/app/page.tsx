@@ -26,6 +26,7 @@ import {
   getSpeechBubbleMessagePool,
   getSpeechBubbleResponseMessage,
   getTitleItem,
+  getUnlockedPetTitleIds,
   titleItems,
   type CosmeticItem,
   type CosmeticType,
@@ -399,6 +400,13 @@ const petTasks: PetTaskItem[] = [
     kind: "favor-roulette",
   },
   {
+    id: "pet-daily-click",
+    title: "Daily Pet Clicks",
+    description: "Complete today's required Pet clicks. Each click gives 1 coin.",
+    reward: 0,
+    kind: "daily-click",
+  },
+  {
     id: "pet-debt-contract",
     title: "Debt Contract",
     description: "Sign a recurring debt contract and pay the selected amount each period.",
@@ -518,6 +526,16 @@ const startingTasks: TaskItem[] = [
     completed: false,
     claimed: false,
     kind: "wait-obediently",
+  },
+  {
+    id: "vertical-motion",
+    title: "Daily Motion",
+    reward: 100,
+    completed: false,
+    claimed: false,
+    kind: "movement",
+    movementProgress: 0,
+    movementState: "ready",
   },
   {
     id: "affection",
@@ -1021,6 +1039,26 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
       };
     }
 
+    if (task.kind === "daily-click") {
+      const today = getDailyKey();
+      const metadataDate = getTaskMetadataString(row?.metadata, "date");
+      const isToday = metadataDate === today;
+      const requirement = isToday ? getTaskMetadataNumber(row?.metadata, "requirement", 0) : 0;
+      const progress = isToday ? getTaskMetadataNumber(row?.metadata, "progress", 0) : 0;
+      const completed = Boolean(isToday && requirement > 0 && progress >= requirement);
+
+      return {
+        ...task,
+        clickDate: isToday ? metadataDate : null,
+        clickImage: isToday ? getTaskMetadataString(row?.metadata, "image") : null,
+        clickProgress: isToday ? progress : 0,
+        clickRequirement: isToday ? requirement : 0,
+        completedAt: completed ? completedAt : null,
+        reviewedAt: completed ? row?.reviewed_at ?? null : null,
+        status: completed ? "approved" as const : "available" as const,
+      };
+    }
+
     if (task.id === "pet-voice-proof") {
       return {
         ...task,
@@ -1504,6 +1542,40 @@ function buildTasksFromRows(
       };
     }
 
+    if (task.id === "vertical-motion") {
+      const metadataDate = getTaskMetadataString(row?.metadata, "date");
+      const movementCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, DAY_MS);
+      const metadataActive = !row?.claimed_at || Boolean(movementCooldownUntil);
+      const rawState = metadataActive ? getTaskMetadataString(row?.metadata, "state") : null;
+      const movementState: TaskItem["movementState"] =
+        rawState === "active" ||
+        rawState === "fake_hope" ||
+        rawState === "failed" ||
+        rawState === "completed"
+          ? rawState
+          : "ready";
+      const rawOutcome = metadataActive ? getTaskMetadataString(row?.metadata, "outcome") : null;
+      const movementOutcome: TaskItem["movementOutcome"] =
+        rawOutcome === "success" || rawOutcome === "instant_denial" || rawOutcome === "fake_hope"
+          ? rawOutcome
+          : null;
+      const resolvedInCooldown =
+        Boolean(movementCooldownUntil) && (movementState === "failed" || movementState === "completed");
+
+      return {
+        ...task,
+        claimed: resolvedInCooldown,
+        completed: movementState === "completed",
+        cooldownUntil: movementCooldownUntil,
+        movementDate: metadataActive ? metadataDate : null,
+        movementFailAt: metadataActive ? getTaskMetadataString(row?.metadata, "fakeHopeStartedAt") : null,
+        movementOutcome,
+        movementProgress: metadataActive ? getTaskMetadataNumber(row?.metadata, "progress", 0) : 0,
+        movementResolvedAt: metadataActive ? row?.claimed_at ?? null : null,
+        movementState,
+      };
+    }
+
     if (task.id === "timeout-risk") {
       const resetAt = getTaskMetadataString(row?.metadata, "resetAt");
       const resetMs = resetAt ? new Date(resetAt).getTime() : 0;
@@ -1840,8 +1912,15 @@ export default function Home() {
   const highLowWinMultiplier = getEventMultiplier("high_low_bonus", 2);
   const eventBegReward = getEventTaskReward(BEG_REWARD);
   const eventFavorCoinReward = getEventTaskReward(PET_FAVOR_ROULETTE_COIN_REWARD);
-  const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
+const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const eventSafeReward = getEventTaskReward(SAFE_REWARD);
+  const getReadableSpeechAvatarName = useCallback((avatarId: string | null | undefined) => {
+    if (!avatarId) {
+      return "Unknown Avatar";
+    }
+
+    return getCosmeticItem(avatarId)?.name ?? avatarId.replace(/[-_]+/g, " ");
+  }, []);
   const unlockProgressionTitles = useCallback((nextTributeTotal: number) => {
     const unlockedProgressionTitleIds = getUnlockedProgressionTitleIds(nextTributeTotal);
     const previousDefaultTitleId = getDefaultTitleId(tributeTotal);
@@ -1910,6 +1989,39 @@ export default function Home() {
       }
     });
   }, [authUserId, equippedTitleId, isGuestMode, isTitleManuallySelected, ownedTitleIds, tributeTotal]);
+
+  useEffect(() => {
+    const unlockedPetTitleIds = getUnlockedPetTitleIds(petScore);
+    const missingTitleIds = unlockedPetTitleIds.filter((titleId) => !ownedTitleIds.includes(titleId));
+
+    if (missingTitleIds.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setOwnedTitleIds((current) => Array.from(new Set([...current, ...missingTitleIds])));
+    }, 0);
+
+    if (isGuestMode || !authUserId) {
+      return () => window.clearTimeout(timer);
+    }
+
+    void supabase.from("user_titles").upsert(
+      missingTitleIds.map((titleId) => ({
+        equipped: false,
+        source: "pet",
+        title_id: titleId,
+        user_id: authUserId,
+      })),
+      { onConflict: "user_id,title_id" },
+    ).then(({ error }) => {
+      if (error) {
+        console.error("Failed to persist pet title unlocks", error);
+      }
+    });
+
+    return () => window.clearTimeout(timer);
+  }, [authUserId, isGuestMode, ownedTitleIds, petScore]);
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
   const effectiveTimeoutDays = currentTime > 0
@@ -2162,6 +2274,12 @@ export default function Home() {
         setActiveEvent(payload.event ?? null);
         if (payload.event) {
           emitSoundEvent("random_event_activation");
+          if (payload.event.effect.type === "speech_avatar_override") {
+            const avatarName = getReadableSpeechAvatarName(payload.event.effect.speechAvatarId);
+            setAvatarMistressReply(
+              `Random Speech Bubble event triggered: ${avatarName} was selected.`,
+            );
+          }
         }
       } catch (error) {
         console.error("Failed to load active random event", error);
@@ -2169,7 +2287,7 @@ export default function Home() {
     };
 
     void loadActiveEvent();
-  }, []);
+  }, [getReadableSpeechAvatarName]);
 
   useEffect(() => {
     if (!activeEvent) {
@@ -6011,7 +6129,10 @@ export default function Home() {
     }
 
     if (options.cheated) {
-      setAvatarMistressReply("Trying to cheat your confession? Pathetic.");
+      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      setAvatarMistressReply(
+        getSpeechBubbleResponseMessage(avatarId, "cheat", "Trying to cheat your confession? Pathetic."),
+      );
       return;
     }
 
@@ -6258,11 +6379,6 @@ export default function Home() {
 
     setIsDebtAutoPayEnabled(enabled);
     writeDebtAutoPayEnabled(debtAutoPayUserId, enabled);
-    setAvatarMistressReply(
-      enabled
-        ? "Debt Contract auto-payment enabled. Installments pay automatically when they open."
-        : "Debt Contract auto-payment disabled. Missed debt collection still applies.",
-    );
   };
 
   const handleDebtContractPayment = async () => {
@@ -6424,6 +6540,182 @@ export default function Home() {
     const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
     setMistressReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
   }, [equippedSpeechAvatar?.id]);
+
+  const applyVerticalMotionTaskRow = useCallback((row: UserTaskRow) => {
+    const rawState = getTaskMetadataString(row.metadata, "state");
+    const movementState: TaskItem["movementState"] =
+      rawState === "active" ||
+      rawState === "fake_hope" ||
+      rawState === "failed" ||
+      rawState === "completed"
+        ? rawState
+        : "ready";
+    const rawOutcome = getTaskMetadataString(row.metadata, "outcome");
+    const movementOutcome: TaskItem["movementOutcome"] =
+      rawOutcome === "success" || rawOutcome === "instant_denial" || rawOutcome === "fake_hope"
+        ? rawOutcome
+        : null;
+
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === "vertical-motion"
+          ? {
+              ...entry,
+              claimed: movementState === "failed" || movementState === "completed",
+              completed: movementState === "completed",
+              cooldownUntil:
+                movementState === "failed" || movementState === "completed"
+                  ? getCooldownUntil(row.claimed_at ?? null, DAY_MS)
+                  : null,
+              movementDate: getTaskMetadataString(row.metadata, "date"),
+              movementFailAt: getTaskMetadataString(row.metadata, "fakeHopeStartedAt"),
+              movementOutcome,
+              movementProgress: getTaskMetadataNumber(row.metadata, "progress", 0),
+              movementResolvedAt: row.claimed_at ?? null,
+              movementState,
+            }
+          : entry,
+      ),
+    );
+  }, []);
+
+  const persistVerticalMotionAction = useCallback(async (body: { action: string; progress?: number }) => {
+    const response = await fetch("/api/user/task-actions/vertical-motion", {
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const result = (await response.json().catch(() => null)) as {
+      error?: string;
+      profile?: { coins?: number };
+      task?: UserTaskRow;
+    } | null;
+
+    if (!response.ok) {
+      throw new Error(result?.error ?? "Movement task update failed.");
+    }
+
+    if (typeof result?.profile?.coins === "number") {
+      setCoins(result.profile.coins);
+    }
+
+    if (result?.task) {
+      applyVerticalMotionTaskRow(result.task);
+      const state = getTaskMetadataString(result.task.metadata, "state");
+      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+
+      if (state === "completed") {
+        emitSoundEvent("task_completion");
+        setAvatarMistressReply(
+          getSpeechBubbleResponseMessage(avatarId, "taskComplete", "Daily Motion completed."),
+        );
+      } else if (state === "failed") {
+        emitSoundEvent("task_fail");
+        setAvatarMistressReply(
+          getSpeechBubbleResponseMessage(avatarId, "error", "Daily Motion failed."),
+        );
+      } else if (state === "fake_hope") {
+        setAvatarMistressReply(
+          getSpeechBubbleResponseMessage(avatarId, "task", "So close. Keep going."),
+        );
+      }
+    }
+  }, [applyVerticalMotionTaskRow, equippedSpeechAvatar?.id]);
+
+  const handleVerticalMotionStart = useCallback(() => {
+    if (!beginTaskAction("vertical-motion")) {
+      return;
+    }
+
+    persistVerticalMotionAction({ action: "start" }).catch((error) => {
+      console.error("Failed to start movement task", error);
+      setAuthError(describeError(error));
+    }).finally(() => {
+      finishTaskAction("vertical-motion");
+    });
+  }, [beginTaskAction, finishTaskAction, persistVerticalMotionAction]);
+
+  const handleVerticalMotionProgress = useCallback((progress: number) => {
+    if (!beginTaskAction("vertical-motion")) {
+      return;
+    }
+
+    persistVerticalMotionAction({ action: "progress", progress }).catch((error) => {
+      console.error("Failed to save movement task progress", error);
+      setAuthError(describeError(error));
+    }).finally(() => {
+      finishTaskAction("vertical-motion");
+    });
+  }, [beginTaskAction, finishTaskAction, persistVerticalMotionAction]);
+
+  const handleVerticalMotionFinishFakeHope = useCallback(() => {
+    if (!beginTaskAction("vertical-motion")) {
+      return;
+    }
+
+    persistVerticalMotionAction({ action: "finish_fake_hope" }).catch((error) => {
+      console.error("Failed to finish movement fake hope phase", error);
+      setAuthError(describeError(error));
+    }).finally(() => {
+      finishTaskAction("vertical-motion");
+    });
+  }, [beginTaskAction, finishTaskAction, persistVerticalMotionAction]);
+
+  const applyPetDailyClickTaskRow = useCallback((row: UserPetTaskRow) => {
+    const requirement = getTaskMetadataNumber(row.metadata, "requirement", 0);
+    const progress = getTaskMetadataNumber(row.metadata, "progress", 0);
+    const completed = requirement > 0 && progress >= requirement;
+
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === "pet-daily-click"
+          ? {
+              ...entry,
+              clickDate: getTaskMetadataString(row.metadata, "date"),
+              clickImage: getTaskMetadataString(row.metadata, "image"),
+              clickProgress: progress,
+              clickRequirement: requirement,
+              completedAt: completed ? row.completed_at : null,
+              reviewedAt: completed ? row.reviewed_at ?? null : null,
+              status: completed ? "approved" as const : "available" as const,
+            }
+          : entry,
+      ),
+    );
+  }, [setPetTaskStateOptimistic]);
+
+  const handlePetDailyClick = useCallback(async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const response = await fetch("/api/user/pet-daily-click", { method: "POST" });
+    const result = (await response.json().catch(() => null)) as {
+      error?: string;
+      profile?: { coins?: number };
+      task?: UserPetTaskRow;
+    } | null;
+
+    if (!response.ok) {
+      console.error("Failed to persist pet daily click", result);
+      throw new Error(result?.error ?? "Pet daily click failed.");
+    }
+
+    if (typeof result?.profile?.coins === "number") {
+      setCoins(result.profile.coins);
+    }
+
+    if (result?.task) {
+      applyPetDailyClickTaskRow(result.task);
+      const progress = getTaskMetadataNumber(result.task.metadata, "progress", 0);
+      const requirement = getTaskMetadataNumber(result.task.metadata, "requirement", 0);
+
+      if (requirement > 0 && progress >= requirement) {
+        emitSoundEvent("task_completion");
+        setAvatarMistressReply("Daily Pet Clicks completed.");
+      }
+    }
+  }, [applyPetDailyClickTaskRow]);
 
   const handlePetEvilWaitStart = async () => {
     if (blockIfTimedOut()) {
@@ -7319,6 +7611,9 @@ export default function Home() {
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
               highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onIrlTaskSpin={handleIrlTaskSpin}
+              onMovementFinishFakeHope={handleVerticalMotionFinishFakeHope}
+              onMovementProgress={handleVerticalMotionProgress}
+              onMovementStart={handleVerticalMotionStart}
               onNumberPick={handleNumberPick}
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
@@ -7380,6 +7675,7 @@ export default function Home() {
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
               onOpenCase={(caseItem) => runPetAction("pet-case-opening", () => handlePetCaseOpen(caseItem))}
+              onPetDailyClick={() => runPetAction("pet-daily-click", handlePetDailyClick)}
               onDebtAutoPayChange={handleDebtAutoPayChange}
               onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
               onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}

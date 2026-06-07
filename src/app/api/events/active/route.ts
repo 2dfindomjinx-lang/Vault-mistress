@@ -129,7 +129,7 @@ export async function GET() {
     return Response.json({ event });
   }
 
-  if (Math.random() > 0.15) {
+  if (Math.random() > 0.2) {
     const { error } = await supabase.from("random_events").insert({
       active: false,
       automatic_key: automaticKey,

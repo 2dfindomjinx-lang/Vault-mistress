@@ -32,15 +32,34 @@ export type SpeechBubbleMessageCategory =
   | "jackpot"
   | "cosmetic"
   | "title"
+  | "cheat"
   | "general";
+
+const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
+  "error",
+  "task",
+  "taskComplete",
+  "reward",
+  "cooldown",
+  "warning",
+  "contract",
+  "gallery",
+  "tribute",
+  "jackpot",
+  "cosmetic",
+  "title",
+  "cheat",
+  "general",
+];
 
 export type TitleItem = {
   id: string;
   name: string;
   description: string;
-  source: "progression" | "shop" | "throne" | "admin";
+  source: "progression" | "shop" | "throne" | "admin" | "pet";
   minTribute?: number;
   minThroneCoins?: number;
+  minPetScore?: number;
   price?: number;
 };
 
@@ -4502,6 +4521,16 @@ function classifySpeechBubbleMessage(message: string): SpeechBubbleMessageCatego
   const normalized = message.toLowerCase();
 
   if (
+    normalized.includes("cheat") ||
+    normalized.includes("paste") ||
+    normalized.includes("clipboard") ||
+    normalized.includes("ctrl+v") ||
+    normalized.includes("cmd+v")
+  ) {
+    return "cheat";
+  }
+
+  if (
     normalized.includes("failed") ||
     normalized.includes("try again") ||
     normalized.includes("rejected") ||
@@ -4558,6 +4587,20 @@ function getPlaceholderSpeechBubbleMessage(avatarId: string, category: SpeechBub
   const avatarName = cosmeticItems.find((item) => item.id === avatarId)?.name ?? "Selected avatar";
 
   return `${avatarName} ${category} message placeholder.`;
+}
+
+function ensureSpeechBubbleResponsePlaceholders() {
+  Object.entries(speechBubbleMessages).forEach(([avatarId, pool]) => {
+    pool.responses = pool.responses ?? {};
+    SPEECH_RESPONSE_CATEGORIES.forEach((category) => {
+      if (!pool.responses?.[category]?.length) {
+        pool.responses = {
+          ...pool.responses,
+          [category]: [getPlaceholderSpeechBubbleMessage(avatarId, category)],
+        };
+      }
+    });
+  });
 }
 
 function shouldKeepOriginalSpeechBubbleMessage(message: string) {
@@ -4962,6 +5005,8 @@ export const cosmeticItems: CosmeticItem[] = [
   },
 ];
 
+ensureSpeechBubbleResponsePlaceholders();
+
 export const titleItems: TitleItem[] = [
   ...LEADERSHIP_RANKS.map((rank) => ({
     id: `leadership-${rank.min}`,
@@ -5004,6 +5049,27 @@ export const titleItems: TitleItem[] = [
     description: "A manual admin-granted high-prestige title.",
     source: "admin",
   },
+  {
+    id: "pet-score-250",
+    name: "Collared Devotion",
+    description: "Unlocked at 250 Pet Score.",
+    source: "pet",
+    minPetScore: 250,
+  },
+  {
+    id: "pet-score-500",
+    name: "Owned Little Pet",
+    description: "Unlocked at 500 Pet Score.",
+    source: "pet",
+    minPetScore: 500,
+  },
+  {
+    id: "pet-score-1000",
+    name: "Perfect Pet",
+    description: "Unlocked at 1,000 Pet Score.",
+    source: "pet",
+    minPetScore: 1000,
+  },
 ];
 
 export function getCosmeticItem(id: string) {
@@ -5012,5 +5078,11 @@ export function getCosmeticItem(id: string) {
 
 export function getTitleItem(id: string) {
   return titleItems.find((item) => item.id === id) ?? null;
+}
+
+export function getUnlockedPetTitleIds(petScore: number) {
+  return titleItems
+    .filter((item) => item.source === "pet" && (item.minPetScore ?? Infinity) <= petScore)
+    .map((item) => item.id);
 }
 
