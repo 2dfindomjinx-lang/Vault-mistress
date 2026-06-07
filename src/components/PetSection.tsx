@@ -1760,8 +1760,7 @@ export function PetSection({
                         />
                       </div>
                       <p className="mt-2 text-xs font-bold text-pink-100/75">
-                        {(task.clickProgress ?? 0).toLocaleString()} /{" "}
-                        {(task.clickRequirement ?? 0) > 0 ? task.clickRequirement?.toLocaleString() : "?"} clicks
+                        {(task.clickProgress ?? 0).toLocaleString()} / ??? clicks
                       </p>
                       <button
                         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1871,10 +1870,7 @@ export function PetSection({
                     />
                   </div>
                   <p className="mt-2 text-xs font-bold text-pink-100/75">
-                    {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
-                    {(dailyClickTask.clickRequirement ?? 0) > 0
-                      ? dailyClickTask.clickRequirement?.toLocaleString()
-                      : "?"} clicks
+                    {(dailyClickTask.clickProgress ?? 0).toLocaleString()} / ??? clicks
                   </p>
                   <button
                     className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
