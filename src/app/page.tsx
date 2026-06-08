@@ -1144,10 +1144,13 @@ function randomChance(probability: number) {
 function normalizeWritingComparisonText(value: string) {
   return value
     .normalize("NFKC")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
     .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ")
     .replace(/[\u2018\u2019\u201A\u201B\u2032\u02BC\u02BB\uFF07\u00B4`]/g, "'")
-    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"');
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"')
+    .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
+    .replace(/\u2026/g, "...")
+    .trim();
 }
 
 function writingStartsWith(sentence: string, value: string) {
@@ -6179,82 +6182,72 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const actionId = "pet-confession-dm";
-
-    if (!beginPetAction(actionId)) {
-      return;
-    }
-
     const now = new Date().toISOString();
     const nextCount = Math.min(5, (task.confessionCount ?? 0) + 1);
     const completed = nextCount >= 5;
     const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
 
-    try {
-      if (!isGuestMode && authUserId) {
-        if (completed) {
-          try {
-            await persistPetProfilePatch(
-              { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
-              "reward:pet-confession",
-            );
-          } catch (error) {
-            setAuthError(describeError(error));
-            return;
-          }
-        }
-
+    if (!isGuestMode && authUserId) {
+      if (completed) {
         try {
-          const savedTask = await persistPetTask(
-          {
-            task_id: task.id,
-            completed_at: completed ? now : null,
-            reward_score: task.reward,
-            status: completed ? "approved" : "available",
-            reviewed_at: completed ? now : null,
-            metadata: {
-              count: nextCount,
-            },
-          },
+          await persistPetProfilePatch(
+            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
+            "reward:pet-confession",
           );
-
-          const savedCount = getTaskMetadataNumber(savedTask.metadata, "count", nextCount);
-          if (savedCount !== nextCount) {
-            console.warn("Pet confession saved count mismatch", { expected: nextCount, saved: savedCount });
-          }
         } catch (error) {
-          console.error("Failed to persist Pet confession progress", error);
           setAuthError(describeError(error));
           return;
         }
-      } else if (completed) {
-        setPetScore(nextPetScore);
       }
 
-      setPetTaskStateOptimistic((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                completedAt: completed ? now : entry.completedAt,
-                confessionCount: nextCount,
-                cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
-                reviewedAt: completed ? now : entry.reviewedAt,
-                status: completed ? "approved" : "available",
-              }
-            : entry,
-        ),
-      );
-      setAvatarMistressReply(
-        completed
-          ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
-          : `Good. ${nextCount}/5 confessions complete.`,
-      );
-      if (completed) {
-        emitSoundEvent("task_completion");
+      try {
+        const savedTask = await persistPetTask(
+        {
+          task_id: task.id,
+          completed_at: completed ? now : null,
+          reward_score: task.reward,
+          status: completed ? "approved" : "available",
+          reviewed_at: completed ? now : null,
+          metadata: {
+            count: nextCount,
+          },
+        },
+        );
+
+        const savedCount = getTaskMetadataNumber(savedTask.metadata, "count", nextCount);
+        if (savedCount !== nextCount) {
+          console.warn("Pet confession saved count mismatch", { expected: nextCount, saved: savedCount });
+        }
+      } catch (error) {
+        console.error("Failed to persist Pet confession progress", error);
+        setAuthError(describeError(error));
+        return;
       }
-    } finally {
-      finishPetAction(actionId);
+    } else if (completed) {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              confessionCount: nextCount,
+              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              reviewedAt: completed ? now : entry.reviewedAt,
+              status: completed ? "approved" : "available",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply(
+      completed
+        ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
+        : `Good. ${nextCount}/5 confessions complete.`,
+    );
+    if (completed) {
+      emitSoundEvent("task_completion");
     }
   };
 
