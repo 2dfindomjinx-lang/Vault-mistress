@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       user_id: authData.user.id,
       wheel_index: wheelIndex,
     })
-    .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
+    .select("id, task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
     .single();
 
   if (assignmentError || !assignment) {
@@ -185,6 +185,40 @@ export async function POST(request: Request) {
       message: transactionError.message,
       userId: authData.user.id,
     });
+
+    if (assignment?.id) {
+      const { error: assignmentCleanupError } = await supabase
+        .from("user_irl_tasks")
+        .delete()
+        .eq("id", assignment.id);
+
+      if (assignmentCleanupError) {
+        console.error("[irl-task-wheel] assignment cleanup failed", {
+          code: assignmentCleanupError.code,
+          message: assignmentCleanupError.message,
+          userId: authData.user.id,
+        });
+      }
+    }
+
+    const { error: rollbackError } = await supabase
+      .from("profiles")
+      .update({
+        coins: currentProfile.coins,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authData.user.id)
+      .eq("coins", nextCoins);
+
+    if (rollbackError) {
+      console.error("[irl-task-wheel] coin rollback after logging failure failed", {
+        code: rollbackError.code,
+        message: rollbackError.message,
+        userId: authData.user.id,
+      });
+    }
+
+    return jsonError("IRL wheel coin logging failed.", 500);
   }
 
   return Response.json({

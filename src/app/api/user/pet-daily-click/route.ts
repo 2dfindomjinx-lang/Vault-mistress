@@ -211,6 +211,7 @@ export async function POST(request: Request) {
   };
   const nextCoins = profile.coins + rewardableClicks;
   const nextPetScore = Math.min(1000, (profile.pet_score ?? 0) + petScoreReward);
+  let transactionId: string | null = null;
 
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("profiles")
@@ -228,7 +229,7 @@ export async function POST(request: Request) {
   }
 
   if (rewardableClicks > 0) {
-    const { error: transactionError } = await supabase.from("coin_transactions").insert({
+    const { data: transaction, error: transactionError } = await supabase.from("coin_transactions").insert({
       amount: rewardableClicks,
       metadata: {
         clicks: acceptedClicks,
@@ -241,13 +242,27 @@ export async function POST(request: Request) {
       },
       reason: "reward:pet-daily-click",
       user_id: profile.id,
-    });
+    }).select("id").single();
+    transactionId = transaction?.id ?? null;
 
     if (transactionError) {
       console.error("[pet-daily-click] transaction insert failed", {
         error: transactionError,
         userId: authData.user.id,
       });
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, pet_score: profile.pet_score })
+        .eq("id", profile.id);
+
+      if (rollbackProfileError) {
+        console.error("[pet-daily-click] profile rollback failed", {
+          error: rollbackProfileError,
+          userId: authData.user.id,
+        });
+      }
+
+      return jsonError("Pet click coin logging failed.", 500);
     }
   }
 
@@ -273,6 +288,31 @@ export async function POST(request: Request) {
       error: taskUpdateError,
       userId: authData.user.id,
     });
+    if (rewardableClicks > 0 && transactionId) {
+      const { error: txCleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .eq("id", transactionId);
+
+      if (txCleanupError) {
+        console.error("[pet-daily-click] transaction cleanup failed", {
+          error: txCleanupError,
+          userId: authData.user.id,
+        });
+      }
+
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, pet_score: profile.pet_score })
+        .eq("id", profile.id);
+
+      if (rollbackProfileError) {
+        console.error("[pet-daily-click] profile rollback after task failure failed", {
+          error: rollbackProfileError,
+          userId: authData.user.id,
+        });
+      }
+    }
     return jsonError(taskUpdateError?.message ?? "Pet click progress update failed.", 500);
   }
 

@@ -44,6 +44,76 @@ function stringFromMetadata(metadata: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : null;
 }
 
+function buildTransactionMetadata(
+  reason: string,
+  metadata: Record<string, unknown>,
+  current: ProfileRow,
+  next: Required<Pick<ProfileRow, "coins" | "affection">> & Partial<Pick<ProfileRow, "tribute_total">>,
+) {
+  const coinDelta = next.coins - current.coins;
+
+  if (reason === "tribute:coin-offer") {
+    return {
+      affectionGain: numberFromMetadata(metadata, "affectionGain"),
+      prestigeSource: stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
+      spendAmount: numberFromMetadata(metadata, "spendAmount"),
+    };
+  }
+
+  if (reason === "spend:gallery-unlock") {
+    return {
+      itemId: stringFromMetadata(metadata, "itemId"),
+      spendAmount: numberFromMetadata(metadata, "spendAmount"),
+    };
+  }
+
+  if (reason === "spend:irl-task-wheel") {
+    return {
+      spendAmount: IRL_TASK_WHEEL_COST,
+    };
+  }
+
+  if (reason === "spend:cosmetic") {
+    return {
+      cosmeticId: stringFromMetadata(metadata, "cosmeticId"),
+      cosmeticType: stringFromMetadata(metadata, "cosmeticType"),
+      spendAmount: numberFromMetadata(metadata, "spendAmount"),
+    };
+  }
+
+  if (reason === "spend:title") {
+    return {
+      spendAmount: numberFromMetadata(metadata, "spendAmount"),
+      titleId: stringFromMetadata(metadata, "titleId"),
+    };
+  }
+
+  if (reason === "streak_bonus") {
+    const taskId = stringFromMetadata(metadata, "taskId");
+
+    return {
+      rewardCoins: coinDelta,
+      taskId,
+    };
+  }
+
+  if (reason === "task:wait-obediently" || reason === "task:timeout-risk" || reason === "beg") {
+    return {
+      rewardCoins: coinDelta,
+      taskId: reason === "beg" ? "beg" : reason.replace("task:", ""),
+    };
+  }
+
+  if (reason === "tribute:sacrifice" || reason === "tribute:support" || reason === "tribute:coin-offer") {
+    return {
+      prestigeSource: stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
+      spendAmount: numberFromMetadata(metadata, "spendAmount"),
+    };
+  }
+
+  return {};
+}
+
 function validateTransition(
   current: ProfileRow,
   next: Required<Pick<ProfileRow, "coins" | "affection">> & Partial<Pick<ProfileRow, "tribute_total">>,
@@ -134,21 +204,21 @@ function validateTransition(
     return null;
   }
 
-  if (reason === "streak_bonus") {
-    const taskId = stringFromMetadata(metadata, "taskId");
-
-    if (!taskId || !getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Streak reward delta is invalid.";
-    }
-
-    return null;
-  }
-
   if (["task:wait-obediently", "task:timeout-risk", "beg"].includes(reason)) {
     const taskId = reason === "beg" ? "beg" : reason.replace("task:", "");
 
     if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
       return "Task profile delta is invalid.";
+    }
+
+    return null;
+  }
+
+  if (reason.startsWith("reward:task:")) {
+    const taskId = reason.replace("reward:task:", "");
+
+    if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
+      return "Task reward delta is invalid.";
     }
 
     return null;
@@ -235,16 +305,34 @@ export async function POST(request: Request) {
       amount: coinDelta,
       balance_after: updatedProfile.coins,
       balance_before: (currentProfile as ProfileRow).coins,
-      metadata: {
-        ...metadata,
-        tributeTotalChanged: typeof nextProfile.tribute_total === "number",
-      },
+      metadata: buildTransactionMetadata(reason, metadata, currentProfile as ProfileRow, {
+        affection: nextProfile.affection,
+        coins: nextProfile.coins,
+        ...(typeof nextProfile.tribute_total === "number" ? { tribute_total: nextProfile.tribute_total } : {}),
+      }),
       reason,
       user_id: authData.user.id,
     });
 
     if (transactionError) {
       console.error("Profile progress transaction insert failed", transactionError);
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({
+          affection: (currentProfile as ProfileRow).affection,
+          coins: (currentProfile as ProfileRow).coins,
+          ...(typeof currentProfile.tribute_total === "number"
+            ? { tribute_total: currentProfile.tribute_total }
+            : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", authData.user.id);
+
+      if (rollbackError) {
+        console.error("Profile progress rollback failed", rollbackError);
+      }
+
+      return jsonError("Profile progress coin logging failed.", 500);
     }
   }
 

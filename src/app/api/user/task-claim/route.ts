@@ -281,6 +281,49 @@ export async function POST(request: Request) {
 
   if (transactionError) {
     console.error("Task claim transaction insert failed", transactionError);
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({
+        coins: profile.coins,
+        updated_at: now,
+      })
+      .eq("id", authData.user.id);
+
+    if (rollbackProfileError) {
+      console.error("Task claim profile rollback failed", rollbackProfileError);
+    }
+
+    if (existingTask) {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .upsert(
+          {
+            claimed_at: existingTask.claimed_at,
+            completed_at: existingTask.completed_at,
+            metadata: existingTask.metadata ?? {},
+            reward_coins: existingTask.reward_coins,
+            task_id: taskId,
+            user_id: authData.user.id,
+          },
+          { onConflict: "user_id,task_id" },
+        );
+
+      if (rollbackTaskError) {
+        console.error("Task claim task rollback failed", rollbackTaskError);
+      }
+    } else {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .delete()
+        .eq("user_id", authData.user.id)
+        .eq("task_id", taskId);
+
+      if (rollbackTaskError) {
+        console.error("Task claim task delete rollback failed", rollbackTaskError);
+      }
+    }
+
+    return jsonError("Task reward logging failed.", 500);
   }
 
   return Response.json({

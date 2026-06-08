@@ -25,12 +25,31 @@ type ProfileRow = {
   id: string;
   coins: number;
   affection: number;
+  last_owner_likeness_at: string | null;
   last_pet_tax_at: string | null;
   owner_likeness: number;
   pet_unlocked_at: string | null;
   pet_score: number;
   tribute_total: number;
 };
+
+const allowedPetRewardReasons = new Set([
+  "reward:pet-affection-claim",
+  "reward:pet-case-opening",
+  "reward:pet-confession",
+  "reward:pet-evil-wait",
+  "reward:pet-false-hope",
+  "reward:pet-favor-roulette",
+  "reward:pet-perfect-writing",
+  "reward:pet-randomized-rules",
+]);
+
+function buildPetTransactionMetadata(reason: string, coinDelta: number) {
+  return {
+    reward: coinDelta,
+    source: reason,
+  };
+}
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -130,7 +149,11 @@ function validatePatch(
   }
 
   if (reason.startsWith("reward:pet-")) {
-    const allowedCoinRewards = new Set([100, 150, 200, 500, 750, 1000]);
+    const allowedCoinRewards = new Set([50, 100, 150, 200, 500, 750, 1000]);
+
+    if (!allowedPetRewardReasons.has(reason)) {
+      return "Unsupported Pet reward reason.";
+    }
 
     if (
       reason === "reward:pet-case-opening" &&
@@ -181,7 +204,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const { data: currentProfile, error: currentError } = await supabase
     .from("profiles")
-    .select("id, coins, affection, pet_score, owner_likeness, pet_unlocked_at, tribute_total, last_pet_tax_at")
+    .select("id, coins, affection, pet_score, owner_likeness, pet_unlocked_at, tribute_total, last_pet_tax_at, last_owner_likeness_at")
     .eq("id", authData.user.id)
     .single();
 
@@ -221,16 +244,33 @@ export async function POST(request: Request) {
       amount: coinDelta,
       balance_after: updatedProfile.coins,
       balance_before: (currentProfile as ProfileRow).coins,
-      metadata: {
-        ...metadata,
-        tributeTotalChanged: typeof patch.tribute_total === "number",
-      },
+      metadata: buildPetTransactionMetadata(reason, coinDelta),
       reason,
       user_id: authData.user.id,
     });
 
     if (transactionError) {
       console.error("Pet profile transaction insert failed", transactionError);
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({
+          affection: currentProfile.affection,
+          coins: currentProfile.coins,
+          last_owner_likeness_at: currentProfile.last_owner_likeness_at,
+          last_pet_tax_at: currentProfile.last_pet_tax_at,
+          owner_likeness: currentProfile.owner_likeness,
+          pet_score: currentProfile.pet_score,
+          pet_unlocked_at: currentProfile.pet_unlocked_at,
+          tribute_total: currentProfile.tribute_total,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", authData.user.id);
+
+      if (rollbackError) {
+        console.error("Pet profile rollback failed", rollbackError);
+      }
+
+      return jsonError("Pet profile coin logging failed.", 500);
     }
   }
 

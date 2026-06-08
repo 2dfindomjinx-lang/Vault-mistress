@@ -262,6 +262,19 @@ export async function POST(request: Request) {
         error: transactionError,
         userId: authData.user.id,
       });
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({ coins: profile.coins })
+        .eq("id", authData.user.id);
+
+      if (rollbackProfileError) {
+        console.error("[vertical-motion] profile rollback failed", {
+          error: rollbackProfileError,
+          userId: authData.user.id,
+        });
+      }
+
+      return jsonError("Movement coin logging failed.", 500);
     }
   }
 
@@ -282,6 +295,33 @@ export async function POST(request: Request) {
       error: taskUpdateError,
       userId: authData.user.id,
     });
+    if (shouldReward) {
+      const { error: txCleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .eq("user_id", authData.user.id)
+        .eq("reason", "reward:vertical-motion")
+        .eq("amount", TASK_REWARD);
+
+      if (txCleanupError) {
+        console.error("[vertical-motion] transaction cleanup failed", {
+          error: txCleanupError,
+          userId: authData.user.id,
+        });
+      }
+
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({ coins: profile.coins })
+        .eq("id", authData.user.id);
+
+      if (rollbackProfileError) {
+        console.error("[vertical-motion] profile rollback after task failure failed", {
+          error: rollbackProfileError,
+          userId: authData.user.id,
+        });
+      }
+    }
     return jsonError(taskUpdateError?.message ?? "Movement task update failed.", 500);
   }
 

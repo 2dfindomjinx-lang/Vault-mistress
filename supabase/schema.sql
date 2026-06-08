@@ -386,6 +386,12 @@ create trigger block_client_user_pet_gallery_mutations_trigger
   for each row
   execute function public.block_client_owned_table_mutations();
 
+drop trigger if exists block_client_coin_transactions_mutations_trigger on public.coin_transactions;
+create trigger block_client_coin_transactions_mutations_trigger
+  before insert or update or delete on public.coin_transactions
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
 create policy "Users can read own profile"
   on public.profiles for select
   to authenticated
@@ -422,11 +428,6 @@ create policy "Users can read own coin transactions"
   on public.coin_transactions for select
   to authenticated
   using (auth.uid() = user_id);
-
-create policy "Users can create own coin transactions"
-  on public.coin_transactions for insert
-  to authenticated
-  with check (auth.uid() = user_id);
 
 create policy "Users can read own gallery"
   on public.user_gallery for select

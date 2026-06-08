@@ -990,16 +990,24 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
       const dailyRules = getDailyPetRuleMechanics();
       const metadataDate = getTaskMetadataString(row?.metadata, "date");
       const isToday = metadataDate === getDailyKey();
-      const ruleAcknowledged = isToday && getTaskMetadataString(row?.metadata, "acknowledged") === "true";
+      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const storedBanned = getTaskMetadataStringArray(row?.metadata, "banned", []);
+      const keepStoredRules = Boolean(cooldownUntil && storedBanned.length > 0);
+      const activeBanned = keepStoredRules || isToday
+        ? getTaskMetadataStringArray(row?.metadata, "banned", dailyRules.map((rule) => rule.id))
+        : dailyRules.map((rule) => rule.id);
+      const ruleAcknowledged =
+        (keepStoredRules || isToday) &&
+        getTaskMetadataString(row?.metadata, "acknowledged") === "true";
 
       return {
         ...task,
-        completedAt: isToday ? completedAt : null,
-        cooldownUntil: isToday && completedAt ? getPetTaskCooldownUntil(completedAt) : null,
+        completedAt: keepStoredRules || isToday ? completedAt : null,
+        cooldownUntil: keepStoredRules || isToday ? cooldownUntil : null,
         reviewedAt: row?.reviewed_at ?? null,
         ruleAcknowledged,
-        ruleBannedMechanics: dailyRules.map((rule) => rule.id),
-        status: isToday ? baseStatus : "available",
+        ruleBannedMechanics: activeBanned,
+        status: keepStoredRules || isToday ? baseStatus : "available",
       };
     }
 
@@ -1381,6 +1389,22 @@ function getTaskMetadataNumberArray(
   );
 
   return numbers.length === value.length ? numbers : null;
+}
+
+function getTaskMetadataStringArray(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string[] = [],
+) {
+  const value = metadata?.[key];
+
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const strings = value.filter((entry): entry is string => typeof entry === "string");
+
+  return strings.length === value.length ? strings : fallback;
 }
 
 function getTaskMetadataNumber(
@@ -6117,6 +6141,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       ),
     );
     setAvatarMistressReply(`Perfect. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    emitSoundEvent("task_completion");
     finishPetAction(actionId);
   };
 
@@ -6173,10 +6198,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         await persistPetTask(
         {
           task_id: task.id,
-          completed_at: completed ? now : task.completedAt,
+          completed_at: completed ? now : null,
           reward_score: task.reward,
           status: completed ? "approved" : "available",
-          reviewed_at: completed ? now : task.reviewedAt,
+          reviewed_at: completed ? now : null,
           metadata: {
             count: nextCount,
           },
@@ -6210,6 +6235,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
         : `Good. ${nextCount}/5 confessions complete.`,
     );
+    if (completed) {
+      emitSoundEvent("task_completion");
+    }
   };
 
   const handlePetWeeklyTax = async () => {
@@ -6843,9 +6871,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         await persistPetTask(
         {
           task_id: task.id,
-          completed_at: now.toISOString(),
+          completed_at: null,
           reward_score: task.reward,
           status: "available",
+          reviewed_at: null,
           metadata: {
             countdownEndsAt,
             status: "countdown",
@@ -6865,7 +6894,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         entry.id === task.id
           ? {
               ...entry,
-              completedAt: now.toISOString(),
+              completedAt: null,
+              cooldownUntil: null,
+              reviewedAt: null,
               waitCountdownEndsAt: countdownEndsAt,
               waitEndsAt,
               waitState: "countdown",
@@ -6980,6 +7011,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       ),
     );
     setAvatarMistressReply(`Stillness accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    emitSoundEvent("task_completion");
   };
 
   const handlePetRulesAcknowledge = async (text: string) => {

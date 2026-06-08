@@ -220,6 +220,20 @@ export async function POST(request: Request) {
 
   if (transactionError) {
     console.error("Admin coin transaction insert failed", transactionError);
+    const { error: rollbackError } = await supabase
+      .from("profiles")
+      .update({
+        coins: previousCoins,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins);
+
+    if (rollbackError) {
+      console.error("Admin coin rollback failed", rollbackError);
+    }
+
+    return Response.json({ error: "Admin coin logging failed." }, { status: 500 });
   }
 
   let bonusTransaction: {
@@ -243,6 +257,31 @@ export async function POST(request: Request) {
 
     if (bonusUpdateError) {
       console.error("Admin give bonus coin update failed", bonusUpdateError);
+      if (transaction?.id) {
+        const { error: mainTxCleanupError } = await supabase
+          .from("coin_transactions")
+          .delete()
+          .eq("id", transaction.id);
+
+        if (mainTxCleanupError) {
+          console.error("Admin give main transaction cleanup after bonus failure failed", mainTxCleanupError);
+        }
+      }
+
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({
+          coins: previousCoins,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id)
+        .eq("coins", nextCoins);
+
+      if (rollbackError) {
+        console.error("Admin give profile rollback after bonus failure failed", rollbackError);
+      }
+
+      return Response.json({ error: "Admin bonus coin logging failed." }, { status: 500 });
     } else {
       finalCoins = bonusBalanceAfter;
 
@@ -271,6 +310,31 @@ export async function POST(request: Request) {
 
       if (bonusTransactionError) {
         console.error("Admin give bonus transaction insert failed", bonusTransactionError);
+        if (transaction?.id) {
+          const { error: mainTxCleanupError } = await supabase
+            .from("coin_transactions")
+            .delete()
+            .eq("id", transaction.id);
+
+          if (mainTxCleanupError) {
+            console.error("Admin give main transaction cleanup after bonus tx failure failed", mainTxCleanupError);
+          }
+        }
+
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update({
+            coins: previousCoins,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", profile.id)
+          .eq("coins", bonusBalanceAfter);
+
+        if (rollbackError) {
+          console.error("Admin give profile rollback after bonus tx failure failed", rollbackError);
+        }
+
+        return Response.json({ error: "Admin bonus coin logging failed." }, { status: 500 });
       } else {
         bonusTransaction = insertedBonusTransaction;
       }

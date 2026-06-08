@@ -93,6 +93,8 @@ drop trigger if exists block_client_user_tasks_mutations_trigger on public.user_
 drop trigger if exists block_client_user_gallery_mutations_trigger on public.user_gallery;
 drop trigger if exists block_client_unlocked_gallery_items_mutations_trigger on public.unlocked_gallery_items;
 drop trigger if exists block_client_user_pet_gallery_mutations_trigger on public.user_pet_gallery;
+drop trigger if exists block_client_coin_transactions_mutations_trigger on public.coin_transactions;
+drop policy if exists "Users can create own coin transactions" on public.coin_transactions;
 
 drop trigger if exists protect_profile_admin_fields_trigger on public.profiles;
 create trigger protect_profile_admin_fields_trigger
@@ -117,5 +119,10 @@ create trigger block_client_unlocked_gallery_items_mutations_trigger
 
 create trigger block_client_user_pet_gallery_mutations_trigger
   before insert or update or delete on public.user_pet_gallery
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+create trigger block_client_coin_transactions_mutations_trigger
+  before insert or update or delete on public.coin_transactions
   for each row
   execute function public.block_client_owned_table_mutations();

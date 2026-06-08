@@ -370,7 +370,14 @@ async function maybeSelectWinner(
   }
 
   const payoutAmounts = getPayoutAmounts(pool, winners.length);
-  const transactionRows = [];
+  const transactionRows: Array<{
+    user_id: string;
+    amount: number;
+    reason: string;
+    balance_before: number;
+    balance_after: number;
+    metadata: Record<string, unknown>;
+  }> = [];
 
   for (const [index, winner] of winners.entries()) {
     const amount = payoutAmounts[index] ?? 0;
@@ -405,10 +412,27 @@ async function maybeSelectWinner(
     });
   }
 
-  const { error: transactionError } = await supabase.from("coin_transactions").insert(transactionRows);
+  const { data: insertedTransactions, error: transactionError } = await supabase
+    .from("coin_transactions")
+    .insert(transactionRows)
+    .select("id, user_id");
 
   if (transactionError) {
     console.error("Jackpot reward transactions failed", transactionError);
+    for (const winner of winners) {
+      const originalCoins = Number(winner.coins ?? 0);
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({ coins: originalCoins, updated_at: now })
+        .eq("id", winner.id)
+        .eq("coins", originalCoins + (payoutAmounts[winners.indexOf(winner)] ?? 0));
+
+      if (rollbackError) {
+        console.error("Jackpot winner rollback failed", rollbackError);
+      }
+    }
+
+    throw transactionError;
   }
 
   const firstWinner = winners[0];
@@ -428,6 +452,30 @@ async function maybeSelectWinner(
 
   if (error) {
     console.error("Jackpot winner update failed", error);
+    if (insertedTransactions?.length) {
+      const { error: cleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .in("id", insertedTransactions.map((row) => row.id));
+
+      if (cleanupError) {
+        console.error("Jackpot winner transaction cleanup failed", cleanupError);
+      }
+    }
+
+    for (const [index, winner] of winners.entries()) {
+      const rollbackAmount = payoutAmounts[index] ?? 0;
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({ coins: Number(winner.coins ?? 0), updated_at: now })
+        .eq("id", winner.id)
+        .eq("coins", Number(winner.coins ?? 0) + rollbackAmount);
+
+      if (rollbackError) {
+        console.error("Jackpot winner profile cleanup failed", rollbackError);
+      }
+    }
+
     throw error;
   }
 
@@ -659,49 +707,114 @@ export async function POST(request: Request) {
       throw updateError;
     }
 
-    const { error: contributionError } = await supabase
+    const { data: contribution, error: contributionError } = await supabase
       .from("loyalty_jackpot_contributions")
       .insert({
         jackpot_id: jackpot.id,
         user_id: userId,
         username: profile.username,
         amount,
-      });
+      })
+      .select("id")
+      .single();
 
     if (contributionError) {
       console.error("Jackpot contribution insert failed", contributionError);
       throw contributionError;
     }
 
-    const { error: transactionError } = await supabase.from("coin_transactions").insert({
-      user_id: userId,
-      amount: -amount,
-      reason: "jackpot_contribution",
-      balance_before: currentCoins,
-      balance_after: nextCoins,
-      metadata: {
-        jackpotId: jackpot.id,
-        cycleKey: jackpot.cycle_key,
-        tributeTotalChanged: false,
-      },
-    });
+    const { data: contributionTransaction, error: transactionError } = await supabase
+      .from("coin_transactions")
+      .insert({
+        user_id: userId,
+        amount: -amount,
+        reason: "jackpot_contribution",
+        balance_before: currentCoins,
+        balance_after: nextCoins,
+        metadata: {
+          jackpotId: jackpot.id,
+          cycleKey: jackpot.cycle_key,
+          tributeTotalChanged: false,
+        },
+      })
+      .select("id")
+      .single();
 
     if (transactionError) {
       console.error("Jackpot contribution transaction failed", transactionError);
+      if (contribution?.id) {
+        const { error: contributionCleanupError } = await supabase
+          .from("loyalty_jackpot_contributions")
+          .delete()
+          .eq("id", contribution.id);
+
+        if (contributionCleanupError) {
+          console.error("Jackpot contribution cleanup failed", contributionCleanupError);
+        }
+      }
+
+      const { error: profileRollbackError } = await supabase
+        .from("profiles")
+        .update({ coins: currentCoins, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+
+      if (profileRollbackError) {
+        console.error("Jackpot contribution profile rollback failed", profileRollbackError);
+      }
+
+      return jsonError("Jackpot contribution logging failed.", 500);
     }
 
-    const contributionTotal = await getContributionTotal(supabase, jackpot.id);
-    const updatedJackpot = await maybeSelectWinner(
-      supabase,
-      jackpot,
-      cycle.phase,
-      Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal,
-    );
-    const state = await buildJackpotState(supabase, updatedJackpot, userId);
+    try {
+      const contributionTotal = await getContributionTotal(supabase, jackpot.id);
+      const updatedJackpot = await maybeSelectWinner(
+        supabase,
+        jackpot,
+        cycle.phase,
+        Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal,
+      );
+      const state = await buildJackpotState(supabase, updatedJackpot, userId);
 
-    return Response.json({ coins: nextCoins, jackpot: state });
+      return Response.json({ coins: nextCoins, jackpot: state });
+    } catch (error) {
+      console.error("Jackpot POST failed", error);
+      if (contribution?.id) {
+        const { error: contributionCleanupError } = await supabase
+          .from("loyalty_jackpot_contributions")
+          .delete()
+          .eq("id", contribution.id);
+
+        if (contributionCleanupError) {
+          console.error("Jackpot contribution cleanup after state failure failed", contributionCleanupError);
+        }
+      }
+
+      if (contributionTransaction?.id) {
+        const { error: txCleanupError } = await supabase
+          .from("coin_transactions")
+          .delete()
+          .eq("id", contributionTransaction.id);
+
+        if (txCleanupError) {
+          console.error("Jackpot contribution transaction cleanup after state failure failed", txCleanupError);
+        }
+      }
+
+      const { error: profileRollbackError } = await supabase
+        .from("profiles")
+        .update({ coins: currentCoins, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+
+      if (profileRollbackError) {
+        console.error("Jackpot contribution profile rollback after state failure failed", profileRollbackError);
+      }
+
+      return jsonError(error instanceof Error ? error.message : "Jackpot contribution failed.");
+    }
   } catch (error) {
-    console.error("Jackpot POST failed", error);
+    console.error("Jackpot POST failed before completion", error);
     return jsonError(error instanceof Error ? error.message : "Jackpot contribution failed.");
   }
 }

@@ -239,9 +239,53 @@ export async function POST(request: Request) {
       user_id: authData.user.id,
     });
 
-    if (transactionError) {
-      console.error("Number Pick transaction insert failed", transactionError);
+  if (transactionError) {
+    console.error("Number Pick transaction insert failed", transactionError);
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({
+        coins: profile.coins,
+        updated_at: now,
+      })
+      .eq("id", authData.user.id)
+      .eq("coins", nextCoins);
+
+    if (rollbackProfileError) {
+      console.error("[number-pick] profile rollback failed", rollbackProfileError);
     }
+
+    if (existingTask) {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .upsert(
+          {
+            claimed_at: existingTask.claimed_at,
+            completed_at: existingTask.completed_at,
+            metadata: existingTask.metadata ?? {},
+            reward_coins: existingTask.reward_coins,
+            task_id: "number-pick",
+            user_id: authData.user.id,
+          },
+          { onConflict: "user_id,task_id" },
+        );
+
+      if (rollbackTaskError) {
+        console.error("[number-pick] task rollback failed", rollbackTaskError);
+      }
+    } else {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .delete()
+        .eq("user_id", authData.user.id)
+        .eq("task_id", "number-pick");
+
+      if (rollbackTaskError) {
+        console.error("[number-pick] task delete rollback failed", rollbackTaskError);
+      }
+    }
+
+    return jsonError("Number Pick coin logging failed.", 500);
+  }
   }
 
   return Response.json({

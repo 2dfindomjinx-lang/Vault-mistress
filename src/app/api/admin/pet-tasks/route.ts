@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     return Response.json({ error: profileUpdateError.message }, { status: 500 });
   }
 
-  const { error: transactionError } = await supabase.from("coin_transactions").insert({
+  const { data: transaction, error: transactionError } = await supabase.from("coin_transactions").insert({
     user_id: profile.id,
     amount: PET_TASK_COIN_REWARD,
     reason: "pet_task_admin_approval",
@@ -186,10 +186,26 @@ export async function POST(request: Request) {
     metadata: {
       taskId: task.task_id,
     },
-  });
+  }).select("id").single();
 
   if (transactionError) {
     console.error("Admin pet task coin transaction insert failed", transactionError);
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({
+        coins: previousCoins,
+        pet_score: Number(profile.pet_score ?? 0),
+        updated_at: now,
+      })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
+
+    if (rollbackProfileError) {
+      console.error("Admin pet task profile rollback failed", rollbackProfileError);
+    }
+
+    return Response.json({ error: "Pet task approval logging failed." }, { status: 500 });
   }
 
   const { error: taskUpdateError } = await supabase
@@ -199,6 +215,32 @@ export async function POST(request: Request) {
 
   if (taskUpdateError) {
     console.error("Admin pet task approve failed", taskUpdateError);
+    if (transaction?.id) {
+      const { error: txCleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .eq("id", transaction.id);
+
+      if (txCleanupError) {
+        console.error("Admin pet task transaction cleanup failed", txCleanupError);
+      }
+    }
+
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({
+        coins: previousCoins,
+        pet_score: Number(profile.pet_score ?? 0),
+        updated_at: now,
+      })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
+
+    if (rollbackProfileError) {
+      console.error("Admin pet task profile rollback after task failure failed", rollbackProfileError);
+    }
+
     return Response.json({ error: taskUpdateError.message }, { status: 500 });
   }
 

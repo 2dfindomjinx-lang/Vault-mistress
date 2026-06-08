@@ -879,10 +879,6 @@ export function PetSection({
 
     setPerfectInput(value);
     onPerfectWritingProgress(value);
-
-    if (value === sentence) {
-      window.setTimeout(() => setPerfectInput(""), 0);
-    }
   }
 
   function showDebtSignedImage() {
