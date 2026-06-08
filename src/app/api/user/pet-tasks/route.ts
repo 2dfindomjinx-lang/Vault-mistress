@@ -5,7 +5,8 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-const PET_TASK_REWARD = 10;
+const DEFAULT_PET_TASK_REWARD = 10;
+const PET_WEEKLY_TAX_REWARD = 20;
 const allowedTaskIds = new Set([
   "pet-confession-dm",
   "pet-daily-report",
@@ -57,7 +58,11 @@ export async function POST(request: Request) {
     return jsonError("Invalid Pet task payload.");
   }
 
-  if (!Number.isInteger(rewardScore) || rewardScore !== PET_TASK_REWARD) {
+  const expectedRewardScore = taskId === "pet-weekly-throne-tax"
+    ? PET_WEEKLY_TAX_REWARD
+    : DEFAULT_PET_TASK_REWARD;
+
+  if (!Number.isInteger(rewardScore) || rewardScore !== expectedRewardScore) {
     return jsonError("Invalid Pet task reward.", 422);
   }
 

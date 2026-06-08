@@ -50,7 +50,7 @@ export type LoyaltyJackpotState = {
 };
 
 export function getJackpotCycle(now = new Date()) {
-  const epoch = Date.UTC(2026, 0, 1, 0, 0, 0, 0);
+  const epoch = Date.UTC(2025, 11, 31, 21, 0, 0, 0);
   const cycleMs = JACKPOT_CYCLE_DAYS * JACKPOT_DAY_MS;
   const nowMs = now.getTime();
   const cycleIndex = Math.max(0, Math.floor((nowMs - epoch) / cycleMs));

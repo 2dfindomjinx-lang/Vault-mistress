@@ -38,7 +38,7 @@ export async function POST() {
   };
 
   return Response.json({
-    count: counts.debtDue + counts.irlPending + counts.petPending,
+    count: counts.irlPending + counts.petPending,
     counts,
   });
 }

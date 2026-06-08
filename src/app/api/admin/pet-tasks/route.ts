@@ -6,7 +6,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
-const PET_TASK_COIN_REWARD = 100;
+const PET_TASK_COIN_REWARD = 50;
 
 async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();

@@ -236,8 +236,10 @@ function getPetRank(score: number) {
 function normalizeWritingPreview(value: string) {
   return value
     .normalize("NFKC")
-    .replace(/[\u2018\u2019\u201A\u201B\u2032\u00B4\u0060]/g, "'")
-    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ")
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u02BC\u02BB\uFF07\u00B4\u0060]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"');
 }
 
 function writingPreviewStartsWith(target: string, input: string) {
@@ -1304,6 +1306,8 @@ export function PetSection({
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petTaskCoinReward} Coins`
+                      : task.kind === "case-open"
+                        ? `Completion reward: +${task.reward} Pet Score. Case reward only.`
                       : `Completion reward: +${task.reward} Pet Score, +${
                           task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
                         } Coins`}

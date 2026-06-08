@@ -259,6 +259,7 @@ const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_COST = 5000;
 const PET_TASK_REWARD = 10;
 const PET_TASK_COIN_REWARD = 50;
+const PET_WEEKLY_TAX_REWARD = 20;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 250;
@@ -351,7 +352,7 @@ const petTasks: PetTaskItem[] = [
     id: "pet-weekly-throne-tax",
     title: "Weekly Throne Tax",
     description: "Send weekly Throne tax proof by DM.",
-    reward: PET_TASK_REWARD,
+    reward: PET_WEEKLY_TAX_REWARD,
     kind: "weekly-tax",
   },
   {
@@ -1143,8 +1144,10 @@ function randomChance(probability: number) {
 function normalizeWritingComparisonText(value: string) {
   return value
     .normalize("NFKC")
-    .replace(/[\u2018\u2019\u201A\u201B\u2032\u00B4`]/g, "'")
-    .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"');
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ")
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u02BC\u02BB\uFF07\u00B4`]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"');
 }
 
 function writingStartsWith(sentence: string, value: string) {
@@ -6171,8 +6174,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (value.trim() !== sentence) {
+    if (!writingEquals(sentence, value)) {
       setAvatarMistressReply("Exact words only. Start that line again.");
+      return;
+    }
+
+    const actionId = "pet-confession-dm";
+
+    if (!beginPetAction(actionId)) {
       return;
     }
 
@@ -6181,62 +6190,71 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const completed = nextCount >= 5;
     const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
 
-    if (!isGuestMode && authUserId) {
-      if (completed) {
+    try {
+      if (!isGuestMode && authUserId) {
+        if (completed) {
+          try {
+            await persistPetProfilePatch(
+              { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
+              "reward:pet-confession",
+            );
+          } catch (error) {
+            setAuthError(describeError(error));
+            return;
+          }
+        }
+
         try {
-          await persistPetProfilePatch(
-            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
-            "reward:pet-confession",
+          const savedTask = await persistPetTask(
+          {
+            task_id: task.id,
+            completed_at: completed ? now : null,
+            reward_score: task.reward,
+            status: completed ? "approved" : "available",
+            reviewed_at: completed ? now : null,
+            metadata: {
+              count: nextCount,
+            },
+          },
           );
+
+          const savedCount = getTaskMetadataNumber(savedTask.metadata, "count", nextCount);
+          if (savedCount !== nextCount) {
+            console.warn("Pet confession saved count mismatch", { expected: nextCount, saved: savedCount });
+          }
         } catch (error) {
+          console.error("Failed to persist Pet confession progress", error);
           setAuthError(describeError(error));
           return;
         }
+      } else if (completed) {
+        setPetScore(nextPetScore);
       }
 
-      try {
-        await persistPetTask(
-        {
-          task_id: task.id,
-          completed_at: completed ? now : null,
-          reward_score: task.reward,
-          status: completed ? "approved" : "available",
-          reviewed_at: completed ? now : null,
-          metadata: {
-            count: nextCount,
-          },
-        },
-        );
-      } catch (error) {
-        console.error("Failed to persist Pet confession progress", error);
-        setAuthError(describeError(error));
-        return;
+      setPetTaskStateOptimistic((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completedAt: completed ? now : entry.completedAt,
+                confessionCount: nextCount,
+                cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+                reviewedAt: completed ? now : entry.reviewedAt,
+                status: completed ? "approved" : "available",
+              }
+            : entry,
+        ),
+      );
+      setAvatarMistressReply(
+        completed
+          ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
+          : `Good. ${nextCount}/5 confessions complete.`,
+      );
+      if (completed) {
+        emitSoundEvent("task_completion");
       }
-    } else if (completed) {
-      setPetScore(nextPetScore);
-    }
-
-    setPetTaskStateOptimistic((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              completedAt: completed ? now : entry.completedAt,
-              confessionCount: nextCount,
-              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
-              reviewedAt: completed ? now : entry.reviewedAt,
-              status: completed ? "approved" : "available",
-            }
-          : entry,
-      ),
-    );
-    setAvatarMistressReply(
-      completed
-        ? `Confession accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
-        : `Good. ${nextCount}/5 confessions complete.`,
-    );
-    if (completed) {
-      emitSoundEvent("task_completion");
+    } finally {
+      finishPetAction(actionId);
     }
   };
 
@@ -6260,7 +6278,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST + eventPetTaskCoinReward;
+    const nextCoins = coinsRef.current - PET_WEEKLY_TAX_COST;
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -6274,7 +6292,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           "spend:pet-weekly-tax",
           {
             spendAmount: PET_WEEKLY_TAX_COST,
-            rewardCoins: eventPetTaskCoinReward,
+            rewardCoins: 0,
           },
         );
       } catch (error) {
@@ -6319,7 +6337,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           : entry,
       ),
     );
-    setAvatarMistressReply(`Weekly tax accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+    setAvatarMistressReply(`Weekly tax accepted. +${task.reward} Pet Score.`);
   };
 
   const handleDebtContractSign = async ({
@@ -6519,7 +6537,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const now = new Date().toISOString();
     const reward = caseItem.value > 0 ? getEventTaskReward(caseItem.value) : caseItem.value;
-    const nextCoins = Math.max(0, coinsRef.current + reward + eventPetTaskCoinReward);
+    const nextCoins = Math.max(0, coinsRef.current + reward);
     const nextPetScore = Math.min(1000, petScore + task.reward);
 
     if (!isGuestMode && authUserId) {
@@ -6570,7 +6588,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       ),
     );
     setAvatarMistressReply(
-      `Case result: ${reward > 0 ? "+" : ""}${reward + eventPetTaskCoinReward} coins. +${task.reward} Pet Score.`,
+      `Case result: ${reward > 0 ? "+" : ""}${reward} coins. +${task.reward} Pet Score.`,
     );
   };
 
@@ -7235,8 +7253,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (completed) {
       setAvatarMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
-    } else if (!(nextProgress === 0 && nextStage === 2)) {
-      setAvatarMistressReply(correct ? "Correct. Keep alternating." : "Wrong order. Progress slips.");
     }
   };
 
