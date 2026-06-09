@@ -270,6 +270,23 @@ function formatRemaining(target: string | null, now: number) {
   return `${minutes}m`;
 }
 
+function getGmt3DateKey(date: Date | number | string) {
+  return new Date(new Date(date).getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function isPetTaskApprovedToday(task: PetTaskItem, now: number) {
+  if (task.id === "pet-affection-claim" || task.status !== "approved" || now <= 0) {
+    return false;
+  }
+
+  const today = getGmt3DateKey(now);
+  const completedDate = task.completedAt ? getGmt3DateKey(task.completedAt) : null;
+  const reviewedDate = task.reviewedAt ? getGmt3DateKey(task.reviewedAt) : null;
+  const taskDate = task.clickDate ?? null;
+
+  return completedDate === today || reviewedDate === today || taskDate === today;
+}
+
 function randomInteger(minimum: number, maximum: number) {
   return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 }
@@ -578,7 +595,7 @@ export function PetSection({
     onCooldownAttempt?.(message);
   };
   const rank = getPetRank(petScore);
-  const approvedCount = tasks.filter((task) => task.id !== "pet-affection-claim" && task.status === "approved").length;
+  const approvedCount = tasks.filter((task) => isPetTaskApprovedToday(task, now)).length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
   const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
   const weeklyTaxCoolingDown =

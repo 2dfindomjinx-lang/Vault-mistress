@@ -5,6 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { getGmt3DateKey } from "@/lib/time";
 
 type Body = {
   metadata?: Record<string, unknown>;
@@ -58,6 +59,33 @@ function jsonError(message: string, status = 400) {
 function numberFromMetadata(metadata: Record<string, unknown>, key: string) {
   const value = metadata[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === "string" ? value : null;
+}
+
+function isPetTaskApprovedToday(row: {
+  completed_at: string | null;
+  metadata: Record<string, unknown> | null;
+  reviewed_at: string | null;
+  status: string | null;
+  task_id: string | null;
+}) {
+  if (row.task_id === "pet-affection-claim" || row.status !== "approved") {
+    return false;
+  }
+
+  const today = getGmt3DateKey();
+  const completedDate = row.completed_at ? getGmt3DateKey(row.completed_at) : null;
+  const reviewedDate = row.reviewed_at ? getGmt3DateKey(row.reviewed_at) : null;
+  const taskDate =
+    metadataString(row.metadata, "date") ??
+    metadataString(row.metadata, "completedDate") ??
+    null;
+
+  return completedDate === today || reviewedDate === today || taskDate === today;
 }
 
 function validatePatch(
@@ -216,6 +244,30 @@ export async function POST(request: Request) {
 
   if (validationError) {
     return jsonError(validationError, 422);
+  }
+
+  if (reason === "reward:pet-affection-claim") {
+    const { data: petTasks, error: petTasksError } = await supabase
+      .from("user_pet_tasks")
+      .select("task_id, completed_at, status, reviewed_at, metadata")
+      .eq("user_id", authData.user.id);
+
+    if (petTasksError) {
+      console.error("Pet milestone eligibility lookup failed", petTasksError);
+      return jsonError("Pet milestone eligibility lookup failed.", 500);
+    }
+
+    const approvedTodayCount = ((petTasks ?? []) as Array<{
+      completed_at: string | null;
+      metadata: Record<string, unknown> | null;
+      reviewed_at: string | null;
+      status: string | null;
+      task_id: string | null;
+    }>).filter(isPetTaskApprovedToday).length;
+
+    if (approvedTodayCount < 5) {
+      return jsonError("Pet milestone requires 5 approved Pet tasks today.", 422);
+    }
   }
 
   const { data: updatedProfile, error: updateError } = await supabase

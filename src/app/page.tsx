@@ -1345,6 +1345,18 @@ function getDailyKey(date: Date | number | string = new Date()) {
   return getGmt3DateKey(date);
 }
 
+function isPetTaskApprovedToday(task: PetTaskItem, today = getDailyKey()) {
+  if (task.id === "pet-affection-claim" || task.status !== "approved") {
+    return false;
+  }
+
+  const completedDate = task.completedAt ? getDailyKey(task.completedAt) : null;
+  const reviewedDate = task.reviewedAt ? getDailyKey(task.reviewedAt) : null;
+  const taskDate = task.clickDate ?? null;
+
+  return completedDate === today || reviewedDate === today || taskDate === today;
+}
+
 function normalizeUsernameKey(value: string | null | undefined) {
   return (value ?? "").replace(/^@+/, "").trim().toLowerCase();
 }
@@ -7385,9 +7397,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         const today = getDailyKey();
         const milestoneClaimedToday = petAffectionClaimDate === today;
-        const approvedCount = petTaskState.filter((task) =>
-          task.id !== "pet-affection-claim" && task.status === "approved"
-        ).length;
+        const approvedCount = petTaskState.filter((task) => isPetTaskApprovedToday(task, today)).length;
 
         if (approvedCount < 5 || milestoneClaimedToday) {
             return;
