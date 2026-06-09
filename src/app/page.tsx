@@ -279,7 +279,7 @@ const PET_X_POST_TEXT = [
   "https://vault-mistress.vercel.app",
   "Weak. Leaking. Addicted."
 ].join("\n");
-const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20Principessa.%20My%20small%20dick%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
+const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20small%20dick%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
 void PET_X_POST_TEXT;
 const PET_RULE_MECHANICS = [
   { id: "tribute", label: "Tribute" },
