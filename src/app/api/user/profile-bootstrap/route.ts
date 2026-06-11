@@ -48,6 +48,7 @@ export async function POST(request: Request) {
         last_login_at: new Date().toISOString(),
         owner_likeness: 100,
         pet_score: 0,
+        right_expirations: [],
         right_purchase_date: null,
         stored_rights: 0,
         tribute_total: 0,

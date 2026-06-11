@@ -17,6 +17,7 @@ export type Profile = {
   user_level?: number;
   user_xp?: number;
   stored_rights?: number;
+  right_expirations?: string[] | null;
   daily_purchase_count?: number;
   right_purchase_date?: string | null;
   pet_unlocked_at?: string | null;

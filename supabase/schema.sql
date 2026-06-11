@@ -392,85 +392,96 @@ create trigger block_client_coin_transactions_mutations_trigger
   for each row
   execute function public.block_client_owned_table_mutations();
 
+drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
   on public.profiles for select
   to authenticated
   using (auth.uid() = id);
 
+drop policy if exists "Users can create own profile" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can create own profile"
   on public.profiles for insert
   to authenticated
   with check (auth.uid() = id);
-
 create policy "Users can update own profile"
   on public.profiles for update
   to authenticated
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
+drop policy if exists "Users can read own gallery unlocks" on public.unlocked_gallery_items;
 create policy "Users can read own gallery unlocks"
   on public.unlocked_gallery_items for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can create own gallery unlocks" on public.unlocked_gallery_items;
+drop policy if exists "Users can update own gallery unlocks" on public.unlocked_gallery_items;
 create policy "Users can create own gallery unlocks"
   on public.unlocked_gallery_items for insert
   to authenticated
   with check (auth.uid() = user_id);
-
 create policy "Users can update own gallery unlocks"
   on public.unlocked_gallery_items for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can read own coin transactions" on public.coin_transactions;
 create policy "Users can read own coin transactions"
   on public.coin_transactions for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can read own gallery" on public.user_gallery;
 create policy "Users can read own gallery"
   on public.user_gallery for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own gallery" on public.user_gallery;
+drop policy if exists "Users can update own gallery" on public.user_gallery;
 create policy "Users can insert own gallery"
   on public.user_gallery for insert
   to authenticated
   with check (auth.uid() = user_id);
-
 create policy "Users can update own gallery"
   on public.user_gallery for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can read own tasks" on public.user_tasks;
 create policy "Users can read own tasks"
   on public.user_tasks for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own tasks" on public.user_tasks;
+drop policy if exists "Users can update own tasks" on public.user_tasks;
 create policy "Users can insert own tasks"
   on public.user_tasks for insert
   to authenticated
   with check (auth.uid() = user_id);
-
 create policy "Users can update own tasks"
   on public.user_tasks for update
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can read own pet tasks" on public.user_pet_tasks;
 create policy "Users can read own pet tasks"
   on public.user_pet_tasks for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own pet tasks" on public.user_pet_tasks;
+drop policy if exists "Users can update own pet tasks" on public.user_pet_tasks;
 create policy "Users can insert own pet tasks"
   on public.user_pet_tasks for insert
   to authenticated
   with check (auth.uid() = user_id);
-
 create policy "Users can update own pet tasks"
   on public.user_pet_tasks for update
   to authenticated
@@ -483,8 +494,30 @@ alter table public.profiles
   add column if not exists user_xp integer not null default 0,
   add column if not exists user_xp_migration_applied boolean not null default false,
   add column if not exists stored_rights integer not null default 0,
+  add column if not exists right_expirations jsonb not null default '[]'::jsonb,
   add column if not exists daily_purchase_count integer not null default 0,
   add column if not exists right_purchase_date text;
+
+update public.profiles
+set right_expirations = (
+  select coalesce(jsonb_agg(to_jsonb((now() + interval '3 days')::text)), '[]'::jsonb)
+  from generate_series(1, greatest(0, stored_rights))
+)
+where stored_rights > 0
+  and right_expirations = '[]'::jsonb;
+
+create or replace function public.active_right_expirations(raw_expirations jsonb)
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(jsonb_agg(to_jsonb(expires_at::text) order by expires_at), '[]'::jsonb)
+  from (
+    select value::timestamptz as expires_at
+    from jsonb_array_elements_text(coalesce(raw_expirations, '[]'::jsonb)) as entry(value)
+    where value::timestamptz > now()
+  ) active;
+$$;
 
 create or replace function public.calculate_user_level(total_xp integer)
 returns integer
@@ -873,10 +906,13 @@ as $$
 declare
   profile_row public.profiles%rowtype;
   today_key text := to_char((now() at time zone 'Europe/Istanbul')::date, 'YYYY-MM-DD');
+  active_rights jsonb;
+  active_right_count integer;
   daily_count integer;
   price integer;
   next_coins integer;
-  next_rights integer;
+  next_right_count integer;
+  next_right_expirations jsonb;
 begin
   select * into profile_row
   from public.profiles
@@ -891,13 +927,36 @@ begin
     when profile_row.right_purchase_date = today_key then profile_row.daily_purchase_count
     else 0
   end;
+  active_rights := public.active_right_expirations(profile_row.right_expirations);
+  active_right_count := jsonb_array_length(active_rights);
+
+  if profile_row.stored_rights <> active_right_count or profile_row.right_expirations <> active_rights then
+    update public.profiles
+    set
+      stored_rights = active_right_count,
+      right_expirations = active_rights,
+      daily_purchase_count = daily_count,
+      right_purchase_date = today_key,
+      updated_at = now()
+    where id = p_user_id;
+
+    profile_row.stored_rights := active_right_count;
+    profile_row.right_expirations := active_rights;
+    profile_row.daily_purchase_count := daily_count;
+    profile_row.right_purchase_date := today_key;
+  end if;
 
   if p_action = 'buy' then
+    if daily_count >= 5 then
+      raise exception 'Daily right purchase maximum reached.';
+    end if;
+
     price := case
-      when daily_count = 0 then 1000
+      when daily_count = 0 then 1500
       when daily_count = 1 then 2500
-      when daily_count = 2 then 4000
-      else 5000
+      when daily_count = 2 then 5000
+      when daily_count = 3 then 7500
+      else 10000
     end;
 
     if profile_row.coins < price then
@@ -905,12 +964,14 @@ begin
     end if;
 
     next_coins := profile_row.coins - price;
-    next_rights := profile_row.stored_rights + 1;
+    next_right_expirations := active_rights || jsonb_build_array(((now() + interval '3 days')::timestamptz)::text);
+    next_right_count := jsonb_array_length(next_right_expirations);
 
     update public.profiles
     set
       coins = next_coins,
-      stored_rights = next_rights,
+      stored_rights = next_right_count,
+      right_expirations = next_right_expirations,
       daily_purchase_count = daily_count + 1,
       right_purchase_date = today_key,
       updated_at = now()
@@ -938,18 +999,25 @@ begin
       'coins', next_coins,
       'dailyPurchaseCount', daily_count + 1,
       'price', price,
-      'storedRights', next_rights
+      'rightExpirations', next_right_expirations,
+      'storedRights', next_right_count
     );
   elsif p_action = 'use' then
-    if profile_row.stored_rights <= 0 then
+    if active_right_count <= 0 then
       raise exception 'No stored rights available.';
     end if;
 
-    next_rights := profile_row.stored_rights - 1;
+    select coalesce(jsonb_agg(value order by ordinality), '[]'::jsonb)
+    into next_right_expirations
+    from jsonb_array_elements(active_rights) with ordinality as entry(value, ordinality)
+    where ordinality > 1;
+
+    next_right_count := jsonb_array_length(next_right_expirations);
 
     update public.profiles
     set
-      stored_rights = next_rights,
+      stored_rights = next_right_count,
+      right_expirations = next_right_expirations,
       daily_purchase_count = daily_count,
       right_purchase_date = today_key,
       updated_at = now()
@@ -959,7 +1027,8 @@ begin
       'action', 'use',
       'coins', profile_row.coins,
       'dailyPurchaseCount', daily_count,
-      'storedRights', next_rights
+      'rightExpirations', next_right_expirations,
+      'storedRights', next_right_count
     );
   end if;
 
@@ -967,85 +1036,61 @@ begin
 end;
 $$;
 
+drop policy if exists "Users can read own pet gallery" on public.user_pet_gallery;
 create policy "Users can read own pet gallery"
   on public.user_pet_gallery for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own pet gallery"
-  on public.user_pet_gallery for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own pet gallery" on public.user_pet_gallery;
+drop policy if exists "Users can update own pet gallery" on public.user_pet_gallery;
 
+drop policy if exists "Users can read own cosmetics" on public.user_cosmetics;
 create policy "Users can read own cosmetics"
   on public.user_cosmetics for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own cosmetics"
-  on public.user_cosmetics for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own cosmetics" on public.user_cosmetics;
+drop policy if exists "Users can update own cosmetics" on public.user_cosmetics;
 
-create policy "Users can update own cosmetics"
-  on public.user_cosmetics for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
+drop policy if exists "Users can read own titles" on public.user_titles;
 create policy "Users can read own titles"
   on public.user_titles for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own titles"
-  on public.user_titles for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own titles" on public.user_titles;
+drop policy if exists "Users can update own titles" on public.user_titles;
 
-create policy "Users can update own titles"
-  on public.user_titles for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
+drop policy if exists "Users can read own debt contracts" on public.pet_debt_contracts;
 create policy "Users can read own debt contracts"
   on public.pet_debt_contracts for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own debt contracts"
-  on public.pet_debt_contracts for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own debt contracts" on public.pet_debt_contracts;
+drop policy if exists "Users can update own debt contracts" on public.pet_debt_contracts;
 
-create policy "Users can update own debt contracts"
-  on public.pet_debt_contracts for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
+drop policy if exists "Users can read jackpot cycles" on public.loyalty_jackpots;
 create policy "Users can read jackpot cycles"
   on public.loyalty_jackpots for select
   to authenticated
   using (true);
 
+drop policy if exists "Users can read jackpot contributions" on public.loyalty_jackpot_contributions;
 create policy "Users can read jackpot contributions"
   on public.loyalty_jackpot_contributions for select
   to authenticated
   using (true);
 
-create policy "Users can insert own jackpot contributions"
-  on public.loyalty_jackpot_contributions for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own jackpot contributions" on public.loyalty_jackpot_contributions;
 
+drop policy if exists "Users can read own irl tasks" on public.user_irl_tasks;
 create policy "Users can read own irl tasks"
   on public.user_irl_tasks for select
   to authenticated
   using (auth.uid() = user_id);
 
-create policy "Users can insert own irl tasks"
-  on public.user_irl_tasks for insert
-  to authenticated
-  with check (auth.uid() = user_id);
+drop policy if exists "Users can insert own irl tasks" on public.user_irl_tasks;
+drop policy if exists "Users can update own irl tasks" on public.user_irl_tasks;

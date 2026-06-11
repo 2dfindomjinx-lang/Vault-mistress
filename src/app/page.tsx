@@ -258,7 +258,7 @@ type UserPetTaskRow = {
 };
 
 const profileSelect =
-  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, user_level, user_xp, stored_rights, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -1760,6 +1760,7 @@ export default function Home() {
   const [petScore, setPetScore] = useState(0);
   const [ownerLikeness, setOwnerLikeness] = useState(100);
   const [storedRights, setStoredRights] = useState(0);
+  const [rightExpirations, setRightExpirations] = useState<string[]>([]);
   const [dailyPurchaseCount, setDailyPurchaseCount] = useState(0);
   const [globalPrincipessa, setGlobalPrincipessa] = useState<GlobalPrincipessaProgress>({
     level: 1,
@@ -2752,6 +2753,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetScore(profile.pet_score ?? 0);
     setOwnerLikeness(profile.owner_likeness ?? 100);
     setStoredRights(profile.stored_rights ?? 0);
+    setRightExpirations(Array.isArray(profile.right_expirations) ? profile.right_expirations : []);
     setDailyPurchaseCount(profile.daily_purchase_count ?? 0);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
@@ -4991,6 +4993,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           coins?: number;
           dailyPurchaseCount?: number;
           price?: number;
+          rightExpirations?: string[];
           storedRights?: number;
         };
       };
@@ -5005,6 +5008,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coinsRef.current = result.coins;
       }
       setStoredRights(result.storedRights ?? storedRights);
+      setRightExpirations(Array.isArray(result.rightExpirations) ? result.rightExpirations : rightExpirations);
       setDailyPurchaseCount(result.dailyPurchaseCount ?? dailyPurchaseCount);
       setAvatarMistressReply(
         action === "buy"
@@ -8015,6 +8019,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
               storedRights={storedRights}
+              rightExpirations={rightExpirations}
               dailyPurchaseCount={dailyPurchaseCount}
               pendingPetActionIds={pendingPetActionIds}
               tasks={petTaskState}

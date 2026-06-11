@@ -37,6 +37,13 @@ const DEBT_RANDOM_DURATION_LIMITS = {
 };
 const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
+const RIGHTS_TASK_TITLE = "Owned Orgasm Permission";
+const RIGHTS_TASK_DESCRIPTION =
+  "Pay for stored cumming rights or consume one after cumming. Stored rights persist for three day.";
+const RIGHTS_TASK_WARNING =
+  "This task depends entirely on your honesty. It is impossible for me to verify every real-world use automatically.";
+const RIGHTS_IMAGE_PATH_PREFIX = "/pet/rights/right";
+const DAILY_RIGHT_PRICES = [1500, 2500, 5000, 7500, 10000] as const;
 const RANDOM_WEBSITE_STATE_STORAGE_KEY = "vault:random-website-state";
 const RANDOM_WEBSITE_LINK_POOL: string[] = [
 	"https://www.pornhub.com/view_video.php?viewkey=6a1f53942933a",
@@ -271,19 +278,7 @@ function formatRemaining(target: string | null, now: number) {
 }
 
 function getNextRightPrice(dailyPurchaseCount: number) {
-  if (dailyPurchaseCount <= 0) {
-    return 1000;
-  }
-
-  if (dailyPurchaseCount === 1) {
-    return 2500;
-  }
-
-  if (dailyPurchaseCount === 2) {
-    return 4000;
-  }
-
-  return 5000;
+  return DAILY_RIGHT_PRICES[dailyPurchaseCount] ?? null;
 }
 
 function getGmt3DateKey(date: Date | number | string) {
@@ -529,6 +524,7 @@ export function PetSection({
   petAffectionClaimed,
   petTaskCoinReward,
   storedRights,
+  rightExpirations,
   dailyPurchaseCount,
   tasks,
   weeklyTaxCost,
@@ -572,6 +568,7 @@ export function PetSection({
   petAffectionClaimed: boolean;
   petTaskCoinReward: number;
   storedRights: number;
+  rightExpirations: string[];
   dailyPurchaseCount: number;
   tasks: PetTaskItem[];
   weeklyTaxCost: number;
@@ -618,6 +615,10 @@ export function PetSection({
   const handleCooldownAttempt = (message: string) => {
     onCooldownAttempt?.(message);
   };
+  const activeRightExpirations = rightExpirations
+    .filter((expiresAt) => now <= 0 || new Date(expiresAt).getTime() > now)
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
+  const displayedStoredRights = rightExpirations.length > 0 ? activeRightExpirations.length : storedRights;
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => isPetTaskApprovedToday(task, now)).length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
@@ -1851,46 +1852,81 @@ export function PetSection({
                 </article>
               );
             })}
-          </div>
-
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(16rem,0.75fr)_minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
-            <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+            <article className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
                     Rights
                   </p>
-                  <h3 className="mt-1 text-lg font-black text-white">Rights Ledger</h3>
+                  <h3 className="text-base font-black text-white sm:text-lg">{RIGHTS_TASK_TITLE}</h3>
                 </div>
                 <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
                   Task
                 </span>
               </div>
-              <p className="mt-3 text-sm leading-6 text-zinc-300">
-                Purchase stored rights or consume one after use. Stored rights persist forever.
-              </p>
-              <div className="mt-4 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{RIGHTS_TASK_DESCRIPTION}</p>
+              <div
+                className="mt-3 min-h-28 rounded-2xl border border-red-200/15 bg-black/35 bg-contain bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.png")`,
+                }}
+              />
+              <div className="mt-3 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
                 <div className="flex items-center justify-between gap-3">
                   <span>Stored rights</span>
-                  <span>{storedRights.toLocaleString()}</span>
+                  <span>{displayedStoredRights.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-zinc-300">
+                  <span>Daily purchases</span>
+                  <span>{Math.min(5, dailyPurchaseCount)}/5</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-zinc-300">
                   <span>Next price today</span>
-                  <span>{getNextRightPrice(dailyPurchaseCount).toLocaleString()} Coins</span>
+                  <span>
+                    {getNextRightPrice(dailyPurchaseCount) === null
+                      ? "Maxed"
+                      : `${getNextRightPrice(dailyPurchaseCount)?.toLocaleString()} Coins`}
+                  </span>
+                </div>
+                <div className="grid gap-1 border-t border-red-200/10 pt-2 text-xs text-zinc-300">
+                  {activeRightExpirations.length > 0 ? (
+                    activeRightExpirations.map((expiresAt, index) => (
+                      <div className="flex items-center justify-between gap-3" key={`${expiresAt}-${index}`}>
+                        <span>Right {index + 1}</span>
+                        <span>{formatRemaining(expiresAt, now)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>No stored rights</span>
+                      <span>--</span>
+                    </div>
+                  )}
                 </div>
               </div>
+              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold leading-5 text-yellow-50/85">
+                {RIGHTS_TASK_WARNING}
+              </p>
               <div className="mt-auto grid gap-2 pt-4">
                 <button
                   className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={isPetActionPending("rights:buy") || coins < getNextRightPrice(dailyPurchaseCount)}
+                  disabled={
+                    isPetActionPending("rights:buy") ||
+                    getNextRightPrice(dailyPurchaseCount) === null ||
+                    coins < (getNextRightPrice(dailyPurchaseCount) ?? Number.POSITIVE_INFINITY)
+                  }
                   onClick={onBuyRight}
                   type="button"
                 >
-                  {isPetActionPending("rights:buy") ? "Buying..." : "Buy Right"}
+                  {isPetActionPending("rights:buy")
+                    ? "Buying..."
+                    : getNextRightPrice(dailyPurchaseCount) === null
+                      ? "Daily Max Reached"
+                      : "Buy Right"}
                 </button>
                 <button
                   className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={isPetActionPending("rights:use") || storedRights <= 0}
+                  disabled={isPetActionPending("rights:use") || displayedStoredRights <= 0}
                   onClick={onUseRight}
                   type="button"
                 >
@@ -1898,7 +1934,9 @@ export function PetSection({
                 </button>
               </div>
             </article>
+          </div>
 
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
             {dailyClickTask && (
               <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
                 <div className="flex items-start justify-between gap-3">

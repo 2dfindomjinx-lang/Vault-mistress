@@ -501,13 +501,46 @@ export function TaskList({
         />
       </div>
 
-      <article className="mt-5 rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.38))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
-          <div className="min-w-0 flex-1">
+      <article className="mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
+          <div className="relative min-h-48 overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
+            <Image
+              alt="Global Principessa"
+              className="object-cover object-top opacity-90"
+              fill
+              sizes="280px"
+              src="/character-icon.png"
+              unoptimized
+            />
+            <div className="absolute inset-x-3 top-3 rounded-2xl border border-pink-100/35 bg-black/70 px-3 py-2 text-center shadow-[0_0_24px_rgba(236,72,153,0.35)] backdrop-blur">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-100/70">
+                Global Principessa
+              </p>
+              <p className="text-2xl font-black text-white">Level {globalPrincipessaLevel}</p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col">
             <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
               Level Drain
             </p>
-            <h3 className="mt-1 text-xl font-black text-white">Strengthen Global Principessa</h3>
+            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <h3 className="text-xl font-black text-white">Strengthen Global Principessa</h3>
+              <button
+                className="w-full rounded-xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  onLevelDrain();
+                }}
+                type="button"
+              >
+                {isTaskActionPending("level-drain")
+                  ? "Draining..."
+                  : userLevel < 2
+                    ? "Requires L2"
+                    : "Drain 1 Level"}
+              </button>
+            </div>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               Sacrifice exactly 1 user level. A quarter of that level value becomes Global Principessa XP.
             </p>
@@ -540,21 +573,6 @@ export function TaskList({
               </div>
             </div>
           </div>
-          <button
-            className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-5 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 lg:w-56"
-            disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
-            onClick={() => {
-              emitSoundEvent("button_click");
-              onLevelDrain();
-            }}
-            type="button"
-          >
-            {isTaskActionPending("level-drain")
-              ? "Draining..."
-              : userLevel < 2
-                ? "Requires Level 2"
-                : "Drain 1 Level"}
-          </button>
         </div>
       </article>
 
