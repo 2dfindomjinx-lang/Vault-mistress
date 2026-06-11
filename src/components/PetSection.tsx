@@ -270,6 +270,22 @@ function formatRemaining(target: string | null, now: number) {
   return `${minutes}m`;
 }
 
+function getNextRightPrice(dailyPurchaseCount: number) {
+  if (dailyPurchaseCount <= 0) {
+    return 1000;
+  }
+
+  if (dailyPurchaseCount === 1) {
+    return 2500;
+  }
+
+  if (dailyPurchaseCount === 2) {
+    return 4000;
+  }
+
+  return 5000;
+}
+
 function getGmt3DateKey(date: Date | number | string) {
   return new Date(new Date(date).getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
@@ -492,7 +508,9 @@ export function PetSection({
   onCooldownAttempt,
   onDebtAutoPayChange,
   onPayDebtPeriod,
+  onBuyRight,
   onSignDebtContract,
+  onUseRight,
   onFalseHopeKey,
   onFavorPick,
   onOpenCase,
@@ -510,6 +528,8 @@ export function PetSection({
   petDebtContract,
   petAffectionClaimed,
   petTaskCoinReward,
+  storedRights,
+  dailyPurchaseCount,
   tasks,
   weeklyTaxCost,
 }: {
@@ -525,6 +545,7 @@ export function PetSection({
   onCooldownAttempt?: (message: string) => void;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onPayDebtPeriod: () => void;
+  onBuyRight: () => void;
   onSignDebtContract: (form: {
     debtAmount: number;
     durationPeriods: number;
@@ -532,6 +553,7 @@ export function PetSection({
     periodType: "weekly" | "monthly";
     petName: string;
   }) => Promise<boolean> | boolean;
+  onUseRight: () => void;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
   onOpenCase: (caseItem: PetCaseItem) => void;
@@ -549,6 +571,8 @@ export function PetSection({
   petDebtContract: PetDebtContract | null;
   petAffectionClaimed: boolean;
   petTaskCoinReward: number;
+  storedRights: number;
+  dailyPurchaseCount: number;
   tasks: PetTaskItem[];
   weeklyTaxCost: number;
 }) {
@@ -1633,6 +1657,10 @@ export function PetSection({
                         <span>{task.falseHopeProgress ?? 0}%</span>
                         <span>Next: {(task.falseHopeExpectedKey ?? "a").toUpperCase()}</span>
                       </div>
+                      <div className="mt-2 flex items-center justify-between text-xs font-bold text-rose-100">
+                        <span>Wrong: {task.falseHopeWrongInputs ?? 0}/10</span>
+                        <span>{Math.max(0, 10 - (task.falseHopeWrongInputs ?? 0))} mistakes left</span>
+                      </div>
                       {showFalseHopeWarning && (
                         <p className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-2 text-sm font-black text-pink-50">
                           So close. Did you really think it would be that easy?
@@ -1825,7 +1853,52 @@ export function PetSection({
             })}
           </div>
 
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(16rem,0.75fr)_minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
+            <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
+                    Rights
+                  </p>
+                  <h3 className="mt-1 text-lg font-black text-white">Rights Ledger</h3>
+                </div>
+                <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                  Task
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-300">
+                Purchase stored rights or consume one after use. Stored rights persist forever.
+              </p>
+              <div className="mt-4 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Stored rights</span>
+                  <span>{storedRights.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-zinc-300">
+                  <span>Next price today</span>
+                  <span>{getNextRightPrice(dailyPurchaseCount).toLocaleString()} Coins</span>
+                </div>
+              </div>
+              <div className="mt-auto grid gap-2 pt-4">
+                <button
+                  className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isPetActionPending("rights:buy") || coins < getNextRightPrice(dailyPurchaseCount)}
+                  onClick={onBuyRight}
+                  type="button"
+                >
+                  {isPetActionPending("rights:buy") ? "Buying..." : "Buy Right"}
+                </button>
+                <button
+                  className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isPetActionPending("rights:use") || storedRights <= 0}
+                  onClick={onUseRight}
+                  type="button"
+                >
+                  {isPetActionPending("rights:use") ? "Using..." : "I Used My Right"}
+                </button>
+              </div>
+            </article>
+
             {dailyClickTask && (
               <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
                 <div className="flex items-start justify-between gap-3">

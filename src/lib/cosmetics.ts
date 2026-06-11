@@ -33,6 +33,8 @@ export type SpeechBubbleMessageCategory =
   | "cosmetic"
   | "title"
   | "cheat"
+  | "adding_xp"
+  | "level_up"
   | "general";
 
 const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
@@ -49,6 +51,8 @@ const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
   "cosmetic",
   "title",
   "cheat",
+  "adding_xp",
+  "level_up",
   "general",
 ];
 

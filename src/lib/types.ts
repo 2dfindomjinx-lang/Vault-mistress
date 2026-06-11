@@ -131,6 +131,7 @@ export type PetTaskItem = {
   falseHopeProgress?: number;
   falseHopeStage?: number;
   falseHopeExpectedKey?: "a" | "d";
+  falseHopeWrongInputs?: number;
   debtContract?: PetDebtContract | null;
   favorPickedIndex?: number | null;
   favorResult?: "win" | "loss" | "empty-day" | null;

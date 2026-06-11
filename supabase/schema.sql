@@ -477,6 +477,496 @@ create policy "Users can update own pet tasks"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- Independent user levels, monthly Global Principessa progress, and stored rights.
+alter table public.profiles
+  add column if not exists user_level integer not null default 1,
+  add column if not exists user_xp integer not null default 0,
+  add column if not exists user_xp_migration_applied boolean not null default false,
+  add column if not exists stored_rights integer not null default 0,
+  add column if not exists daily_purchase_count integer not null default 0,
+  add column if not exists right_purchase_date text;
+
+create or replace function public.calculate_user_level(total_xp integer)
+returns integer
+language plpgsql
+immutable
+as $$
+declare
+  remaining integer := greatest(0, coalesce(total_xp, 0));
+  current_level integer := 1;
+  requirement integer;
+begin
+  while current_level < 100 loop
+    requirement := case
+      when current_level < 30 then 5000
+      when current_level < 50 then 10000
+      when current_level < 75 then 15000
+      else 25000
+    end;
+
+    exit when remaining < requirement;
+    remaining := remaining - requirement;
+    current_level := current_level + 1;
+  end loop;
+
+  return current_level;
+end;
+$$;
+
+create or replace function public.user_level_floor_xp(target_level integer)
+returns integer
+language plpgsql
+immutable
+as $$
+declare
+  current_level integer := 1;
+  total integer := 0;
+  safe_level integer := least(100, greatest(1, coalesce(target_level, 1)));
+begin
+  while current_level < safe_level loop
+    total := total + case
+      when current_level < 30 then 5000
+      when current_level < 50 then 10000
+      when current_level < 75 then 15000
+      else 25000
+    end;
+    current_level := current_level + 1;
+  end loop;
+
+  return total;
+end;
+$$;
+
+create or replace function public.user_level_value(target_level integer)
+returns integer
+language sql
+immutable
+as $$
+  select case
+    when coalesce(target_level, 1) >= 76 then 25000
+    when coalesce(target_level, 1) >= 51 then 15000
+    when coalesce(target_level, 1) >= 31 then 10000
+    else 5000
+  end;
+$$;
+
+create or replace function public.add_user_xp(target_user_id uuid, xp_delta integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  next_xp integer;
+begin
+  if coalesce(xp_delta, 0) <= 0 then
+    return;
+  end if;
+
+  update public.profiles
+  set
+    user_xp = least(2147483647, greatest(0, user_xp + xp_delta)),
+    user_level = public.calculate_user_level(least(2147483647, greatest(0, user_xp + xp_delta))),
+    updated_at = now()
+  where id = target_user_id
+  returning user_xp into next_xp;
+end;
+$$;
+
+create or replace function public.apply_coin_transaction_user_xp()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  xp_delta integer := 0;
+begin
+  if new.amount < 0 then
+    xp_delta := abs(new.amount) * 2;
+  elsif new.amount > 0 and new.reason in ('throne_tribute', 'live_gift') then
+    xp_delta := floor(new.amount * 0.05);
+  end if;
+
+  if xp_delta > 0 then
+    perform public.add_user_xp(new.user_id, xp_delta);
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists apply_coin_transaction_user_xp_trigger on public.coin_transactions;
+create trigger apply_coin_transaction_user_xp_trigger
+  after insert on public.coin_transactions
+  for each row
+  execute function public.apply_coin_transaction_user_xp();
+
+update public.profiles
+set
+  user_xp = least(2147483647, greatest(0, coalesce(user_xp, 0) + greatest(0, coalesce(tribute_total, 0) * 10))),
+  user_level = public.calculate_user_level(
+    least(2147483647, greatest(0, coalesce(user_xp, 0) + greatest(0, coalesce(tribute_total, 0) * 10)))
+  ),
+  user_xp_migration_applied = true,
+  updated_at = now()
+where coalesce(user_xp_migration_applied, false) = false;
+
+create table if not exists public.global_principessa_progress (
+  id smallint primary key default 1 check (id = 1),
+  month integer not null,
+  year integer not null,
+  level integer not null default 1,
+  xp integer not null default 0,
+  updated_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.global_principessa_level_history (
+  id uuid primary key default gen_random_uuid(),
+  month integer not null,
+  year integer not null,
+  highest_level integer not null default 1,
+  finalized_at timestamp with time zone not null default now(),
+  unique (year, month)
+);
+
+create table if not exists public.global_principessa_xp_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  event_type text not null,
+  xp_amount integer not null default 0,
+  previous_user_level integer,
+  new_user_level integer,
+  previous_global_level integer,
+  new_global_level integer,
+  previous_global_xp integer,
+  new_global_xp integer,
+  created_at timestamp with time zone not null default now()
+);
+
+alter table public.global_principessa_progress enable row level security;
+alter table public.global_principessa_level_history enable row level security;
+alter table public.global_principessa_xp_events enable row level security;
+
+drop policy if exists "Users can read global principessa progress" on public.global_principessa_progress;
+create policy "Users can read global principessa progress"
+  on public.global_principessa_progress for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Users can read global principessa history" on public.global_principessa_level_history;
+create policy "Users can read global principessa history"
+  on public.global_principessa_level_history for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Users can read global principessa events" on public.global_principessa_xp_events;
+create policy "Users can read global principessa events"
+  on public.global_principessa_xp_events for select
+  to authenticated
+  using (true);
+
+create or replace function public.current_gmt3_month()
+returns table(month integer, year integer)
+language sql
+stable
+as $$
+  select
+    extract(month from (now() at time zone 'Europe/Istanbul'))::integer,
+    extract(year from (now() at time zone 'Europe/Istanbul'))::integer;
+$$;
+
+create or replace function public.global_principessa_requirement(current_level integer)
+returns integer
+language sql
+immutable
+as $$
+  select case
+    when coalesce(current_level, 1) >= 100 then null
+    else 10000 + (greatest(1, coalesce(current_level, 1)) - 1) * 2000
+  end;
+$$;
+
+create or replace function public.ensure_global_principessa_current_month()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_month integer;
+  current_year integer;
+  row_data public.global_principessa_progress%rowtype;
+begin
+  select month, year into current_month, current_year from public.current_gmt3_month();
+
+  insert into public.global_principessa_progress (id, month, year, level, xp)
+  values (1, current_month, current_year, 1, 0)
+  on conflict (id) do nothing;
+
+  select * into row_data
+  from public.global_principessa_progress
+  where id = 1
+  for update;
+
+  if row_data.month <> current_month or row_data.year <> current_year then
+    insert into public.global_principessa_level_history (month, year, highest_level)
+    values (row_data.month, row_data.year, row_data.level)
+    on conflict (year, month) do update
+      set highest_level = greatest(public.global_principessa_level_history.highest_level, excluded.highest_level),
+          finalized_at = now();
+
+    update public.global_principessa_progress
+    set month = current_month,
+        year = current_year,
+        level = 1,
+        xp = 0,
+        updated_at = now()
+    where id = 1
+    returning * into row_data;
+  end if;
+
+  return jsonb_build_object(
+    'month', row_data.month,
+    'year', row_data.year,
+    'level', row_data.level,
+    'xp', row_data.xp,
+    'updated_at', row_data.updated_at
+  );
+end;
+$$;
+
+create or replace function public.perform_level_drain(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  profile_row public.profiles%rowtype;
+  progress_row public.global_principessa_progress%rowtype;
+  previous_user_level integer;
+  new_user_level integer;
+  level_value integer;
+  transfer_xp integer;
+  previous_global_level integer;
+  previous_global_xp integer;
+  requirement integer;
+  event_id uuid;
+begin
+  perform public.ensure_global_principessa_current_month();
+
+  select * into profile_row
+  from public.profiles
+  where id = p_user_id
+  for update;
+
+  if not found then
+    raise exception 'Profile not found.';
+  end if;
+
+  previous_user_level := public.calculate_user_level(profile_row.user_xp);
+
+  if previous_user_level < 2 then
+    raise exception 'Level Drain requires user level 2 or higher.';
+  end if;
+
+  new_user_level := previous_user_level - 1;
+  level_value := public.user_level_value(previous_user_level);
+  transfer_xp := floor(level_value * 0.25);
+
+  select * into progress_row
+  from public.global_principessa_progress
+  where id = 1
+  for update;
+
+  previous_global_level := progress_row.level;
+  previous_global_xp := progress_row.xp;
+  progress_row.xp := progress_row.xp + transfer_xp;
+
+  while progress_row.level < 100 loop
+    requirement := public.global_principessa_requirement(progress_row.level);
+    exit when requirement is null or progress_row.xp < requirement;
+    progress_row.xp := progress_row.xp - requirement;
+    progress_row.level := progress_row.level + 1;
+  end loop;
+
+  update public.profiles
+  set
+    user_xp = public.user_level_floor_xp(new_user_level),
+    user_level = new_user_level,
+    updated_at = now()
+  where id = p_user_id;
+
+  update public.global_principessa_progress
+  set
+    level = progress_row.level,
+    xp = progress_row.xp,
+    updated_at = now()
+  where id = 1;
+
+  insert into public.global_principessa_xp_events (
+    user_id,
+    event_type,
+    xp_amount,
+    previous_user_level,
+    new_user_level,
+    previous_global_level,
+    new_global_level,
+    previous_global_xp,
+    new_global_xp
+  )
+  values (
+    p_user_id,
+    'level_drain',
+    transfer_xp,
+    previous_user_level,
+    new_user_level,
+    previous_global_level,
+    progress_row.level,
+    previous_global_xp,
+    progress_row.xp
+  )
+  returning id into event_id;
+
+  if progress_row.level > previous_global_level then
+    insert into public.global_principessa_xp_events (
+      user_id,
+      event_type,
+      xp_amount,
+      previous_global_level,
+      new_global_level,
+      previous_global_xp,
+      new_global_xp
+    )
+    values (
+      p_user_id,
+      'level_up',
+      transfer_xp,
+      previous_global_level,
+      progress_row.level,
+      previous_global_xp,
+      progress_row.xp
+    );
+  end if;
+
+  return jsonb_build_object(
+    'eventId', event_id,
+    'transferredXp', transfer_xp,
+    'previousUserLevel', previous_user_level,
+    'newUserLevel', new_user_level,
+    'userXp', public.user_level_floor_xp(new_user_level),
+    'previousGlobalLevel', previous_global_level,
+    'globalLevel', progress_row.level,
+    'globalXp', progress_row.xp,
+    'globalLevelUp', progress_row.level > previous_global_level
+  );
+end;
+$$;
+
+create or replace function public.perform_rights_action(p_user_id uuid, p_action text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  profile_row public.profiles%rowtype;
+  today_key text := to_char((now() at time zone 'Europe/Istanbul')::date, 'YYYY-MM-DD');
+  daily_count integer;
+  price integer;
+  next_coins integer;
+  next_rights integer;
+begin
+  select * into profile_row
+  from public.profiles
+  where id = p_user_id
+  for update;
+
+  if not found then
+    raise exception 'Profile not found.';
+  end if;
+
+  daily_count := case
+    when profile_row.right_purchase_date = today_key then profile_row.daily_purchase_count
+    else 0
+  end;
+
+  if p_action = 'buy' then
+    price := case
+      when daily_count = 0 then 1000
+      when daily_count = 1 then 2500
+      when daily_count = 2 then 4000
+      else 5000
+    end;
+
+    if profile_row.coins < price then
+      raise exception 'Not enough coins to buy a right.';
+    end if;
+
+    next_coins := profile_row.coins - price;
+    next_rights := profile_row.stored_rights + 1;
+
+    update public.profiles
+    set
+      coins = next_coins,
+      stored_rights = next_rights,
+      daily_purchase_count = daily_count + 1,
+      right_purchase_date = today_key,
+      updated_at = now()
+    where id = p_user_id;
+
+    insert into public.coin_transactions (
+      user_id,
+      amount,
+      reason,
+      balance_before,
+      balance_after,
+      metadata
+    )
+    values (
+      p_user_id,
+      -price,
+      'rights_purchase',
+      profile_row.coins,
+      next_coins,
+      jsonb_build_object('source', 'rights_task', 'dailyPurchaseNumber', daily_count + 1)
+    );
+
+    return jsonb_build_object(
+      'action', 'buy',
+      'coins', next_coins,
+      'dailyPurchaseCount', daily_count + 1,
+      'price', price,
+      'storedRights', next_rights
+    );
+  elsif p_action = 'use' then
+    if profile_row.stored_rights <= 0 then
+      raise exception 'No stored rights available.';
+    end if;
+
+    next_rights := profile_row.stored_rights - 1;
+
+    update public.profiles
+    set
+      stored_rights = next_rights,
+      daily_purchase_count = daily_count,
+      right_purchase_date = today_key,
+      updated_at = now()
+    where id = p_user_id;
+
+    return jsonb_build_object(
+      'action', 'use',
+      'coins', profile_row.coins,
+      'dailyPurchaseCount', daily_count,
+      'storedRights', next_rights
+    );
+  end if;
+
+  raise exception 'Invalid rights action.';
+end;
+$$;
+
 create policy "Users can read own pet gallery"
   on public.user_pet_gallery for select
   to authenticated

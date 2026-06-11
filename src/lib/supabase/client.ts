@@ -14,6 +14,11 @@ export type Profile = {
   hide_from_leaderboard?: boolean;
   pet_score?: number;
   owner_likeness?: number;
+  user_level?: number;
+  user_xp?: number;
+  stored_rights?: number;
+  daily_purchase_count?: number;
+  right_purchase_date?: string | null;
   pet_unlocked_at?: string | null;
   last_pet_decay_at?: string | null;
   last_owner_likeness_at?: string | null;

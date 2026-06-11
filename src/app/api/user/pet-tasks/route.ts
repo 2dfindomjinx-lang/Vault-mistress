@@ -16,7 +16,6 @@ const allowedTaskIds = new Set([
   "pet-perfect-writing",
   "pet-case-opening",
   "pet-evil-wait",
-  "pet-randomized-rules",
   "pet-false-hope",
   "pet-favor-roulette",
   "pet-debt-contract",

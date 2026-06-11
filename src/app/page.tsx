@@ -34,6 +34,11 @@ import {
 } from "@/lib/cosmetics";
 import type { RandomEvent } from "@/lib/events";
 import {
+  getGlobalPrincipessaProgressPercent,
+  getGlobalPrincipessaXpRequirement,
+  type GlobalPrincipessaProgress,
+} from "@/lib/global-principessa";
+import {
   getRandomIrlTaskDurationMinutes,
   getRandomIrlTaskPenaltyMinutes,
   IRL_TASK_WHEEL_COST,
@@ -42,6 +47,7 @@ import {
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { roundRewardToNearestFive } from "@/lib/server-game-rules";
+import { getUserLevelProgress } from "@/lib/levels";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 import {
   emitSoundEvent,
@@ -252,7 +258,7 @@ type UserPetTaskRow = {
 };
 
 const profileSelect =
-  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, user_level, user_xp, stored_rights, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -382,13 +388,6 @@ const petTasks: PetTaskItem[] = [
     description: "After a 3 second countdown, do nothing for 2 minutes while distractions appear.",
     reward: PET_TASK_REWARD,
     kind: "evil-wait",
-  },
-  {
-    id: "pet-randomized-rules",
-    title: "Randomized Rules",
-    description: "Daily forbidden mechanics. Type I understand to lock the rule until reset.",
-    reward: PET_TASK_REWARD,
-    kind: "randomized-rules",
   },
   {
     id: "pet-false-hope",
@@ -1018,6 +1017,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
       const hasActiveProgress = !completedAt;
       const progress = getTaskMetadataNumber(row?.metadata, "progress", 0);
       const stage = getTaskMetadataNumber(row?.metadata, "stage", 1);
+      const wrongInputs = getTaskMetadataNumber(row?.metadata, "wrongInputs", 0);
       const expectedKeyRaw = getTaskMetadataString(row?.metadata, "expectedKey");
       const expectedKey: "a" | "d" = expectedKeyRaw === "d" ? "d" : "a";
 
@@ -1028,8 +1028,9 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
         falseHopeExpectedKey: isCoolingDown || hasActiveProgress ? expectedKey : "a",
         falseHopeProgress: isCoolingDown || hasActiveProgress ? progress : 0,
         falseHopeStage: isCoolingDown || hasActiveProgress ? stage : 1,
+        falseHopeWrongInputs: isCoolingDown || hasActiveProgress ? wrongInputs : 0,
         reviewedAt: null,
-        status: "available" as const,
+        status: isCoolingDown ? baseStatus : "available" as const,
       };
     }
 
@@ -1754,8 +1755,19 @@ export default function Home() {
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [userLevel, setUserLevel] = useState(1);
+  const [userXp, setUserXp] = useState(0);
   const [petScore, setPetScore] = useState(0);
   const [ownerLikeness, setOwnerLikeness] = useState(100);
+  const [storedRights, setStoredRights] = useState(0);
+  const [dailyPurchaseCount, setDailyPurchaseCount] = useState(0);
+  const [globalPrincipessa, setGlobalPrincipessa] = useState<GlobalPrincipessaProgress>({
+    level: 1,
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    xp: 0,
+  });
+  const [latestGlobalLevelUpId, setLatestGlobalLevelUpId] = useState<string | null>(null);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
   const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
@@ -1877,6 +1889,12 @@ export default function Home() {
     color: equippedUsernameColor?.color,
     textShadow: equippedUsernameGlow?.glow,
   };
+  const userLevelProgress = getUserLevelProgress(userXp);
+  const globalPrincipessaRequirement = getGlobalPrincipessaXpRequirement(globalPrincipessa.level);
+  const globalPrincipessaProgressPercent = getGlobalPrincipessaProgressPercent(
+    globalPrincipessa.level,
+    globalPrincipessa.xp,
+  );
   const setAvatarMistressReply = useCallback(
     (message: string) => {
       const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
@@ -1884,6 +1902,43 @@ export default function Home() {
     },
     [equippedSpeechAvatar?.id],
   );
+  const loadGlobalPrincipessa = useCallback(async (announceLevelUp = false) => {
+    const response = await fetch("/api/global-principessa", { cache: "no-store" });
+    const payload = (await response.json()) as {
+      error?: string;
+      latestLevelUp?: { id: string; new_global_level: number | null } | null;
+      progress?: {
+        level?: number;
+        month?: number;
+        updated_at?: string | null;
+        xp?: number;
+        year?: number;
+      };
+    };
+
+    if (!response.ok || !payload.progress) {
+      throw createApiError("/api/global-principessa", response, payload);
+    }
+
+    setGlobalPrincipessa({
+      level: payload.progress.level ?? 1,
+      month: payload.progress.month ?? new Date().getMonth() + 1,
+      updated_at: payload.progress.updated_at ?? null,
+      xp: payload.progress.xp ?? 0,
+      year: payload.progress.year ?? new Date().getFullYear(),
+    });
+
+    if (announceLevelUp && payload.latestLevelUp?.id && payload.latestLevelUp.id !== latestGlobalLevelUpId) {
+      setLatestGlobalLevelUpId(payload.latestLevelUp.id);
+      setMistressReply(
+        getSpeechBubbleResponseMessage(
+          equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+          "level_up",
+          "I can feel my power growing.",
+        ),
+      );
+    }
+  }, [equippedSpeechAvatar?.id, latestGlobalLevelUpId]);
   const applySoundSettings = useCallback(
     (settings: Partial<SoundSettings>) => {
       const nextSettings = {
@@ -1900,6 +1955,29 @@ export default function Home() {
     },
     [soundSettings],
   );
+
+  useEffect(() => {
+    if (!isVaultReady || isGuestMode || isPreviewRestricted) {
+      return;
+    }
+
+    const initialTimer = window.setTimeout(() => {
+      void loadGlobalPrincipessa(false).catch((error) => {
+        console.error("Failed to load Global Principessa progress", error);
+      });
+    }, 0);
+
+    const interval = window.setInterval(() => {
+      void loadGlobalPrincipessa(true).catch((error) => {
+        console.error("Failed to refresh Global Principessa progress", error);
+      });
+    }, 30000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+    };
+  }, [isGuestMode, isPreviewRestricted, isVaultReady, loadGlobalPrincipessa]);
   const handleGlobalPointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
     const target = event.target;
 
@@ -2669,8 +2747,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setUserLevel(profile.user_level ?? getUserLevelProgress(profile.user_xp ?? 0).level);
+    setUserXp(profile.user_xp ?? 0);
     setPetScore(profile.pet_score ?? 0);
     setOwnerLikeness(profile.owner_likeness ?? 100);
+    setStoredRights(profile.stored_rights ?? 0);
+    setDailyPurchaseCount(profile.daily_purchase_count ?? 0);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
@@ -4574,7 +4656,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const actionId = "wait-obediently";
+    const actionId = "wait-obediently:fail";
 
     if (!beginTaskAction(actionId)) {
       return;
@@ -4810,6 +4892,136 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAvatarMistressReply("The risk ledger failed. Try again.");
     } finally {
       finishTaskAction(actionId);
+    }
+  };
+
+  const handleLevelDrain = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const actionId = "level-drain";
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/level-drain", { method: "POST" });
+      const payload = (await response.json()) as {
+        error?: string;
+        result?: {
+          globalLevel?: number;
+          globalLevelUp?: boolean;
+          globalXp?: number;
+          newUserLevel?: number;
+          transferredXp?: number;
+          userXp?: number;
+        };
+      };
+
+      if (!response.ok || !payload.result) {
+        throw createApiError("/api/user/level-drain", response, payload);
+      }
+
+      const result = payload.result;
+      setUserLevel(result.newUserLevel ?? userLevel);
+      setUserXp(result.userXp ?? userXp);
+      setGlobalPrincipessa((current) => ({
+        ...current,
+        level: result.globalLevel ?? current.level,
+        xp: result.globalXp ?? current.xp,
+      }));
+      setMistressReply(
+        getSpeechBubbleResponseMessage(
+          equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+          "adding_xp",
+          "Your sacrifice feeds my growth.",
+        ),
+      );
+      emitSoundEvent("task_completion");
+
+      if (result.globalLevelUp) {
+        window.setTimeout(() => {
+          setMistressReply(
+            getSpeechBubbleResponseMessage(
+              equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+              "level_up",
+              "I can feel my power growing.",
+            ),
+          );
+        }, 1400);
+      }
+
+      void resyncAuthenticatedProfile("Level Drain completed").catch((error) => {
+        console.error("[profile-resync] failed after level drain", error);
+      });
+      void loadGlobalPrincipessa(false).catch((error) => {
+        console.error("Failed to refresh Global Principessa after Level Drain", error);
+      });
+    } catch (error) {
+      console.error("Level Drain failed", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+    } finally {
+      finishTaskAction(actionId);
+    }
+  };
+
+  const handleRightsAction = async (action: "buy" | "use") => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const actionId = `rights:${action}`;
+
+    if (!beginPetAction(actionId)) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/rights", {
+        body: JSON.stringify({ action }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        result?: {
+          coins?: number;
+          dailyPurchaseCount?: number;
+          price?: number;
+          storedRights?: number;
+        };
+      };
+
+      if (!response.ok || !payload.result) {
+        throw createApiError("/api/user/rights", response, payload);
+      }
+
+      const result = payload.result;
+      if (typeof result.coins === "number") {
+        setCoins(result.coins);
+        coinsRef.current = result.coins;
+      }
+      setStoredRights(result.storedRights ?? storedRights);
+      setDailyPurchaseCount(result.dailyPurchaseCount ?? dailyPurchaseCount);
+      setAvatarMistressReply(
+        action === "buy"
+          ? `Right purchased. ${result.price ?? 0} coins spent.`
+          : "Right used.",
+      );
+      emitSoundEvent(action === "buy" ? "cosmetic_purchased" : "task_completion");
+      void resyncAuthenticatedProfile(`Rights ${action}`).catch((error) => {
+        console.error("[profile-resync] failed after rights action", error);
+      });
+    } catch (error) {
+      console.error("Rights action failed", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+      setAvatarMistressReply(describeError(error));
+    } finally {
+      finishPetAction(actionId);
     }
   };
 
@@ -7107,61 +7319,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const markPetRulesFailed = async (mechanicId: string) => {
-    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-randomized-rules");
-    const banned = task?.ruleBannedMechanics ?? [];
-
-    if (!task || !banned.includes(mechanicId)) {
-      return false;
-    }
-
-    const label = getPetRuleMechanicLabel(mechanicId);
-
-    if (task.ruleAcknowledged) {
-      setAvatarMistressReply(`${label} is forbidden today. Randomized Rules locked it.`);
-      return true;
-    }
-
-    const now = new Date().toISOString();
-
-    if (!isGuestMode && authUserId) {
-      try {
-        await persistPetTask(
-        {
-          task_id: task.id,
-          completed_at: now,
-          reward_score: task.reward,
-          status: "failed",
-          reviewed_at: now,
-          metadata: {
-            acknowledged: "false",
-            banned,
-            date: getDailyKey(),
-            failedBy: mechanicId,
-          },
-        },
-        );
-      } catch (error) {
-        console.error("Failed to persist Pet randomized rules failure", error);
-        emitSoundEvent("error");
-        setAuthError(describeError(error));
-        return false;
-      }
-    }
-
-    setPetTaskStateOptimistic((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              completedAt: now,
-              cooldownUntil: getPetTaskCooldownUntil(now),
-              status: "failed",
-            }
-          : entry,
-      ),
-    );
-    setAvatarMistressReply(`You used forbidden ${label}. Randomized Rules failed.`);
-    emitSoundEvent("task_fail");
+    void mechanicId;
     return false;
   };
 
@@ -7182,17 +7340,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const expectedKey = task.falseHopeExpectedKey ?? "a";
     const currentProgress = task.falseHopeProgress ?? 0;
     const currentStage = task.falseHopeStage ?? 1;
+    const currentWrongInputs = task.falseHopeWrongInputs ?? 0;
     const correct = key === expectedKey;
-    let nextProgress = Math.max(0, currentProgress + (correct ? 2 : -1));
+    const nextWrongInputs = correct ? currentWrongInputs : currentWrongInputs + 1;
+    let nextProgress = Math.max(0, currentProgress + (correct ? 1 : -5));
     let nextStage = currentStage;
     let completed = false;
+    const failed = nextWrongInputs >= 10;
     const nextExpectedKey: "a" | "d" = expectedKey === "a" ? "d" : "a";
 
-    if (nextProgress >= 99 && currentStage === 1) {
+    if (!failed && nextProgress >= 99 && currentStage === 1) {
       nextProgress = 0;
       nextStage = 2;
       setAvatarMistressReply("So close. Did you really think it would be that easy?");
-    } else if (nextProgress >= 100 && currentStage >= 2) {
+    } else if (!failed && nextProgress >= 100 && currentStage >= 2) {
       nextProgress = 100;
       completed = true;
     }
@@ -7204,13 +7365,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         entry.id === task.id
           ? {
               ...entry,
-              completedAt: completed ? now : entry.completedAt,
-              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              completedAt: completed || failed ? now : entry.completedAt,
+              cooldownUntil: completed || failed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
               falseHopeExpectedKey: nextExpectedKey,
               falseHopeProgress: nextProgress,
               falseHopeStage: nextStage,
+              falseHopeWrongInputs: nextWrongInputs,
               reviewedAt: null,
-              status: "available" as const,
+              status: failed ? "failed" as const : "available" as const,
             }
           : entry,
       ),
@@ -7234,14 +7396,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       await persistPetTask(
         {
           task_id: task.id,
-          completed_at: completed ? now : task.completedAt,
+          completed_at: completed || failed ? now : task.completedAt,
           reward_score: task.reward,
-          status: "available",
-          reviewed_at: null,
+          status: completed ? "approved" : failed ? "failed" : "available",
+          reviewed_at: completed || failed ? now : null,
           metadata: {
             expectedKey: nextExpectedKey,
             progress: nextProgress,
             stage: nextStage,
+            wrongInputs: nextWrongInputs,
           },
         },
       );
@@ -7258,6 +7421,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (completed) {
       setAvatarMistressReply(`Sequence completed. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`);
+      emitSoundEvent("task_completion");
+    } else if (failed) {
+      setAvatarMistressReply("Too many wrong inputs. Sequence failed.");
+      emitSoundEvent("task_fail");
     }
   };
 
@@ -7772,6 +7939,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               isJackpotBusy={isJackpotBusy}
               jackpot={jackpot}
               jackpotError={jackpotError}
+              globalPrincipessaLevel={globalPrincipessa.level}
+              globalPrincipessaProgressPercent={globalPrincipessaProgressPercent}
+              globalPrincipessaRequirement={globalPrincipessaRequirement}
+              globalPrincipessaXp={globalPrincipessa.xp}
               currentUsername={username}
               mechanics={displayMechanics}
               pendingTaskActionIds={pendingTaskActionIds}
@@ -7781,6 +7952,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onClaim={handleClaimTask}
               onCooldownAttempt={handleCooldownAttempt}
               onJackpotContribute={handleJackpotContribute}
+              onLevelDrain={handleLevelDrain}
               onHighLowPlay={handleHighLowPlay}
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
               highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
@@ -7798,6 +7970,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               timeoutRiskEffectiveDays={effectiveTimeoutDays}
               timeoutRiskMaxDays={MAX_TIMEOUT_DAYS}
               timeoutRiskReward={eventSafeReward}
+              userLevel={userLevel}
+              userLevelProgressPercent={userLevelProgress.progressPercent}
+              userXpIntoLevel={userLevelProgress.xpIntoLevel}
+              userXpRequiredForNext={userLevelProgress.xpRequiredForNext}
               onWaitObedientlyComplete={handleWaitObedientlyComplete}
               onWaitObedientlyFail={handleWaitObedientlyFail}
               onWaitObedientlyStart={handleWaitObedientlyStart}
@@ -7838,9 +8014,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
+              storedRights={storedRights}
+              dailyPurchaseCount={dailyPurchaseCount}
               pendingPetActionIds={pendingPetActionIds}
               tasks={petTaskState}
               weeklyTaxCost={PET_WEEKLY_TAX_COST}
+              onBuyRight={() => handleRightsAction("buy")}
               onClaimAffection={() => runPetAction("pet-affection-claim", handlePetAffectionClaim)}
               onConfessionSubmit={(value, options) =>
                 runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
@@ -7860,12 +8039,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onPerfectWritingProgress={handlePetPerfectWritingProgress}
               onRulesAcknowledge={(text) => runPetAction("pet-randomized-rules", () => handlePetRulesAcknowledge(text))}
               onSignDebtContract={handleDebtContractSign}
+              onUseRight={() => handleRightsAction("use")}
             />
           )}
         </section>
       </div>
       <FloatingDefneBubble
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
+        globalPrincipessaLevel={globalPrincipessa.level}
         message={mistressReply}
         messageStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
         onBubbleFullyHidden={handleBubbleFullyHidden}

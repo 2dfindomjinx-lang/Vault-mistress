@@ -98,9 +98,18 @@ type TaskListProps = {
   jackpotError?: string;
   currentUsername?: string;
   usernameStyle?: CSSProperties;
+  globalPrincipessaLevel: number;
+  globalPrincipessaProgressPercent: number;
+  globalPrincipessaRequirement: number | null;
+  globalPrincipessaXp: number;
+  userLevel: number;
+  userLevelProgressPercent: number;
+  userXpIntoLevel: number;
+  userXpRequiredForNext: number | null;
   onBeg: () => void;
   onClaim: (taskId: string) => void;
   onJackpotContribute: (amount: number) => void;
+  onLevelDrain: () => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
   onNumberPick: (selectedNumber: number) => void;
@@ -131,10 +140,15 @@ export function TaskList({
   jackpot,
   jackpotError = "",
   currentUsername,
+  globalPrincipessaLevel,
+  globalPrincipessaProgressPercent,
+  globalPrincipessaRequirement,
+  globalPrincipessaXp,
   mechanics,
   onBeg,
   onClaim,
   onJackpotContribute,
+  onLevelDrain,
   onHighLowPlay,
   onIrlTaskSpin,
   onNumberPick,
@@ -152,6 +166,10 @@ export function TaskList({
   timeoutRiskEffectiveDays,
   timeoutRiskMaxDays,
   timeoutRiskReward,
+  userLevel,
+  userLevelProgressPercent,
+  userXpIntoLevel,
+  userXpRequiredForNext,
   onWaitObedientlyComplete,
   onWaitObedientlyFail,
   onWaitObedientlyStart,
@@ -482,6 +500,63 @@ export function TaskList({
           formatRemaining={formatRemaining}
         />
       </div>
+
+      <article className="mt-5 rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.38))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+              Level Drain
+            </p>
+            <h3 className="mt-1 text-xl font-black text-white">Strengthen Global Principessa</h3>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              Sacrifice exactly 1 user level. A quarter of that level value becomes Global Principessa XP.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
+                <div className="flex items-center justify-between text-sm font-bold text-pink-50">
+                  <span>User Level {userLevel}</span>
+                  <span>
+                    {userXpRequiredForNext === null
+                      ? "MAX"
+                      : `${Math.floor(userXpIntoLevel).toLocaleString()} / ${userXpRequiredForNext.toLocaleString()} XP`}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
+                  <div className="h-full rounded-full bg-pink-400" style={{ width: `${userLevelProgressPercent}%` }} />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
+                <div className="flex items-center justify-between text-sm font-bold text-fuchsia-50">
+                  <span>Global Level {globalPrincipessaLevel}</span>
+                  <span>
+                    {globalPrincipessaRequirement === null
+                      ? "MAX"
+                      : `${globalPrincipessaXp.toLocaleString()} / ${globalPrincipessaRequirement.toLocaleString()} XP`}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
+                  <div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${globalPrincipessaProgressPercent}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-5 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 lg:w-56"
+            disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
+            onClick={() => {
+              emitSoundEvent("button_click");
+              onLevelDrain();
+            }}
+            type="button"
+          >
+            {isTaskActionPending("level-drain")
+              ? "Draining..."
+              : userLevel < 2
+                ? "Requires Level 2"
+                : "Drain 1 Level"}
+          </button>
+        </div>
+      </article>
 
       <LoyaltyJackpotTaskCard
         coins={coins}
@@ -2006,6 +2081,37 @@ function WaitObedientlyPanel({
     setPhase("countdown");
     onStart();
   };
+
+  useEffect(() => {
+    if (phase !== "countdown" && phase !== "waiting") {
+      return;
+    }
+
+    const failFromPageExit = () => {
+      if (finishedRef.current) {
+        return;
+      }
+
+      finishedRef.current = true;
+      setPhase("failed");
+      onFailRef.current();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        failFromPageExit();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", failFromPageExit);
+    window.addEventListener("pagehide", failFromPageExit);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", failFromPageExit);
+      window.removeEventListener("pagehide", failFromPageExit);
+    };
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "countdown") {

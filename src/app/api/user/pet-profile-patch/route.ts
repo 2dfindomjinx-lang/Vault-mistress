@@ -42,7 +42,6 @@ const allowedPetRewardReasons = new Set([
   "reward:pet-false-hope",
   "reward:pet-favor-roulette",
   "reward:pet-perfect-writing",
-  "reward:pet-randomized-rules",
 ]);
 
 function buildPetTransactionMetadata(reason: string, coinDelta: number) {
