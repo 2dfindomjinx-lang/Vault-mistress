@@ -22,6 +22,7 @@ const MOVEMENT_STAGE_IMAGES = [
 ];
 const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.png";
 const MOVEMENT_STROKE_DISTANCE_PX = 80;
+const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.png";
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
   return kind === expected;
@@ -503,13 +504,13 @@ export function TaskList({
 
       <article className="mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
         <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
-          <div className="relative min-h-48 overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
+          <div className="relative aspect-[3/2] w-full max-w-[18rem] overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45 mx-auto">
             <Image
-              alt="Global Principessa"
-              className="object-cover object-top opacity-90"
+              alt="Level Drain Principessa"
+              className="object-contain object-center opacity-90"
               fill
               sizes="280px"
-              src="/character-icon.png"
+              src={LEVEL_DRAIN_IMAGE_PATH}
               unoptimized
             />
             <div className="absolute inset-x-3 top-3 rounded-2xl border border-pink-100/35 bg-black/70 px-3 py-2 text-center shadow-[0_0_24px_rgba(236,72,153,0.35)] backdrop-blur">

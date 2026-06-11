@@ -331,69 +331,82 @@ export async function POST(request: Request) {
     }
 
     if (body.action === "pay") {
-      const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
-        {
-          completed_at: collectedAt,
-          metadata: {
-            contractId: contract.id,
-            paidPeriods: plan.nextPaidPeriods,
+      const { data: existingTask, error: existingTaskError } = await supabase
+        .from("user_pet_tasks")
+        .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+        .eq("user_id", userId)
+        .eq("task_id", "pet-debt-contract")
+        .maybeSingle();
+
+      if (existingTaskError) {
+        return jsonError(existingTaskError.message, 500);
+      }
+
+      if (!existingTask?.reviewed_at) {
+        const { error: taskError } = await supabase.from("user_pet_tasks").upsert(
+          {
+            completed_at: collectedAt,
+            metadata: {
+              contractId: contract.id,
+              paidPeriods: plan.nextPaidPeriods,
+            },
+            reviewed_at: collectedAt,
+            reward_score: 10,
+            status: "approved",
+            task_id: "pet-debt-contract",
+            user_id: userId,
           },
-          reviewed_at: collectedAt,
-          reward_score: 10,
-          status: "approved",
-          task_id: "pet-debt-contract",
-          user_id: userId,
-        },
-        { onConflict: "user_id,task_id" },
-      );
+          { onConflict: "user_id,task_id" },
+        );
 
-      if (taskError) {
-        console.error("Debt contract task marker failed", taskError);
-        if (transaction?.id) {
-          const { error: txCleanupError } = await supabase
-            .from("coin_transactions")
-            .delete()
-            .eq("id", transaction.id);
+        if (taskError) {
+          console.error("Debt contract task marker failed", taskError);
+          if (transaction?.id) {
+            const { error: txCleanupError } = await supabase
+              .from("coin_transactions")
+              .delete()
+              .eq("id", transaction.id);
 
-          if (txCleanupError) {
-            console.error("Debt contract transaction cleanup failed", txCleanupError);
+            if (txCleanupError) {
+              console.error("Debt contract transaction cleanup failed", txCleanupError);
+            }
           }
+
+          const { error: rollbackProfileError } = await supabase
+            .from("profiles")
+            .update({
+              coins: profile.coins,
+              tribute_total: profile.tribute_total,
+              updated_at: collectedAt,
+            })
+            .eq("id", userId)
+            .eq("coins", nextCoins)
+            .eq("tribute_total", nextTributeTotal);
+
+          if (rollbackProfileError) {
+            console.error("Debt contract profile rollback after task failure failed", rollbackProfileError);
+          }
+
+          const { error: rollbackContractError } = await supabase
+            .from("pet_debt_contracts")
+            .update({
+              missed_periods: contract.missed_periods,
+              next_due_at: contract.next_due_at,
+              paid_periods: contract.paid_periods,
+              status: contract.status,
+              updated_at: collectedAt,
+            })
+            .eq("id", contract.id)
+            .eq("paid_periods", plan.nextPaidPeriods)
+            .eq("next_due_at", plan.completed ? contract.next_due_at : plan.nextDueAt)
+            .eq("status", plan.completed ? "completed" : "active");
+
+          if (rollbackContractError) {
+            console.error("Debt contract contract rollback after task failure failed", rollbackContractError);
+          }
+
+          return jsonError("Debt contract task logging failed.", 500);
         }
-
-        const { error: rollbackProfileError } = await supabase
-          .from("profiles")
-          .update({
-            coins: profile.coins,
-            tribute_total: profile.tribute_total,
-            updated_at: collectedAt,
-          })
-          .eq("id", userId)
-          .eq("coins", nextCoins)
-          .eq("tribute_total", nextTributeTotal);
-
-        if (rollbackProfileError) {
-          console.error("Debt contract profile rollback after task failure failed", rollbackProfileError);
-        }
-
-        const { error: rollbackContractError } = await supabase
-          .from("pet_debt_contracts")
-          .update({
-            missed_periods: contract.missed_periods,
-            next_due_at: contract.next_due_at,
-            paid_periods: contract.paid_periods,
-            status: contract.status,
-            updated_at: collectedAt,
-          })
-          .eq("id", contract.id)
-          .eq("paid_periods", plan.nextPaidPeriods)
-          .eq("next_due_at", plan.completed ? contract.next_due_at : plan.nextDueAt)
-          .eq("status", plan.completed ? "completed" : "active");
-
-        if (rollbackContractError) {
-          console.error("Debt contract contract rollback after task failure failed", rollbackContractError);
-        }
-
-        return jsonError("Debt contract task logging failed.", 500);
       }
     }
 

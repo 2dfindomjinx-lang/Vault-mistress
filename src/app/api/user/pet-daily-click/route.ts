@@ -177,8 +177,16 @@ export async function POST(request: Request) {
   }
 
   const profile = profileResult.data as ProfileRow;
+  const existingTask = (taskResult.data as TaskRow | null) ?? null;
   const today = getGmt3DateKey();
-  const current = normalizeTask((taskResult.data as TaskRow | null) ?? null, today);
+  const current = normalizeTask(existingTask, today);
+
+  if (existingTask?.reviewed_at) {
+    return Response.json({
+      profile,
+      task: existingTask,
+    });
+  }
 
   if (current.completed) {
     return Response.json({

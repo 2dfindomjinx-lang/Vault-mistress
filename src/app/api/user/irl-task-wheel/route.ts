@@ -11,6 +11,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
 type IrlWheelBody = {
   wheelIndex?: number;
@@ -220,6 +221,15 @@ export async function POST(request: Request) {
 
     return jsonError("IRL wheel coin logging failed.", 500);
   }
+
+  sendAdminMobilePush({
+    title: "New IRL task",
+    body: `${assignedTask.title} is waiting for approval.`,
+    type: "irl_task",
+    important: true,
+  }).catch((pushError) => {
+    console.error("[irl-task-wheel] admin mobile push failed", pushError);
+  });
 
   return Response.json({
     assignment,

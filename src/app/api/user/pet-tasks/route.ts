@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
 const DEFAULT_PET_TASK_REWARD = 10;
 const PET_WEEKLY_TAX_REWARD = 20;
@@ -68,6 +69,21 @@ export async function POST(request: Request) {
   const payload = body;
 
   const supabase = createSupabaseAdminClient();
+  const { data: existingTask, error: existingTaskError } = await supabase
+    .from("user_pet_tasks")
+    .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+    .eq("user_id", authData.user.id)
+    .eq("task_id", taskId)
+    .maybeSingle();
+
+  if (existingTaskError) {
+    return jsonError(existingTaskError.message, 500);
+  }
+
+  if (existingTask?.reviewed_at) {
+    return Response.json({ task: existingTask });
+  }
+
   const { data, error } = await supabase
     .from("user_pet_tasks")
     .upsert(
@@ -87,6 +103,17 @@ export async function POST(request: Request) {
 
   if (error || !data) {
     return jsonError(error?.message ?? "Pet task update failed.", 500);
+  }
+
+  if (status === "pending") {
+    sendAdminMobilePush({
+      title: "New pet task",
+      body: `${taskId} is waiting for approval.`,
+      type: "pet_task",
+      important: true,
+    }).catch((pushError) => {
+      console.error("[pet-tasks] admin mobile push failed", pushError);
+    });
   }
 
   return Response.json({ task: data });
