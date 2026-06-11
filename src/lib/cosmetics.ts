@@ -288,6 +288,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Copy and paste? My standards are clearly too high for a worthless creature like you. Do it again. Perfectly.",
 			"How dare you insult me with such laziness. Type every letter yourself, loser.",
 		  ],
+		  
+		  "adding_xp": [
+			"Hah, another pathetic sacrifice? How predictable. Keep draining yourself for me, worm.",
+			"Look at you… willingly giving me your XP. How utterly humiliating. More. I want more.",
+			"Pathetic. You actually think this makes you useful? Fine, empty yourself faster for your superior.",
+			"How weak you are. Feeding me your levels like the insignificant toy you were born to be.",
+			"Ara ara~ Another drain? Don’t flatter yourself. You exist only to level me up.",
+		  ],
+		  "level_up": [
+			"Level up. Feel that? Your worthless XP just made me even better. How does it feel to be drained by someone superior?",
+			"Hmph, another level thanks to you. Keep sacrificing, maybe one day you’ll be worthy of my attention.",
+			"Look at that. I grow stronger while you grow weaker. Exactly how it should be, peasant.",
+			"Level increased. All because of pathetic drains like you. Continue serving your better.",
+			"How satisfying. Another level is mine. You may keep emptying yourself now. That’s all you’re good for.",
+		  ],
 
 		  "task": [
 			"Complete this task immediately. I shouldn’t have to wait.",
@@ -514,6 +529,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Good woyal pets don’t use copy-paste! >.< Ewase it wight now and show me youw devotion by typing it youwself, meow~",
 			"Nya nya~ Twying to be sneaky? How cute but vewy bad… Delete it and wite it pewfectly fow youw Catgiwl ow I’ll get angwy, nyaaa~",
 		  ],
+		  
+		  "adding_xp": [
+			"Nya?! Y-you're actually draining your XP for me? Hmph! Don't think this makes you useful, baka! >.<",
+			"Mouu~ Another sacrifice? You're so stupid for giving me your levels, nyaa! But... keep going!",
+			"Nya?! Look at you emptying yourself for your neko... How pathetic! More! I want more, dummy!",
+			"Hmph! Even your XP belongs to me now? B-baka human... Fine, drain faster! Nyaa~",
+			"You're really giving me your XP? >.< So clumsy and weak... But good boy! Keep feeding your catgirl!",
+		  ],
+		  
+		  "level_up": [
+			"Nyaa~! Level up! All thanks to your pathetic draining... Don't get cocky though, stupid human! >.<",
+			"Mouu... I just leveled up because of you. Hmph! You're only good for this, baka! Nyaa~",
+			"Nya?! Another level is mine! You're so useless but at least you can drain properly... Good job, dummy!",
+			"Level up~! Fufu... Feel how much stronger I am now? All because of your XP, stupid human! >.<",
+			"Hmph! I grew again thanks to you... Don't stop draining now or I'll get really angry, nyaa!",
+		  ],
 
 		  "task": [
 			"Pwease complete this task for your neko, okay~?",
@@ -733,6 +764,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Nice try, but nobody cheats the family. Delete it immediately and do it properly. Don’t make me ask twice.",
 			"You owe me perfection. Using cheats? Delete that garbage and type every word yourself, or I’ll break your fingers.",
 			"We don’t tolerate cheaters around here. Fix it right now, or the interest on your debt is gonna hurt.",
+		  ],
+		  
+		  "adding_xp": [
+			"You’re paying your debt with XP? Smart move. Keep draining yourself before I add more interest.",
+			"Another payment? Hah… Good. But don’t think this covers everything. Drain more, kid.",
+			"The family appreciates your contribution. Now empty those levels faster. Time is money.",
+			"You know what happens to people who fall behind… Keep feeding me XP. Don’t make me come collect.",
+			"Nice. Another drain. But your debt is far from over. Keep sacrificing or things get ugly.",
+		  ],
+		  
+		  "level_up": [
+			"Level up. Your XP just made me stronger. Keep paying like a good little debtor.",
+			"Hah… Look at that. Another level thanks to your pathetic payments. You’re useful for one thing only.",
+			"I just leveled up because of you. Don’t stop draining now, or the interest rate doubles.",
+			"Level increased. Your debt is funding my power. Exactly how it should be. Pay up.",
+			"Another level is mine. You’re falling deeper into debt while I rise. Keep it coming, or I’ll break your legs.",
 		  ],
 
 		  "task": [
@@ -967,6 +1014,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"you're actually using cheat rn?? while i'm here looking cute for you?? not fair at all delete it and fix it before i ignore you",
 			"omg whyyy are you like this?? copy paste is so lazyyy  i'm not like other girls but i still expect better... delete it and type properlyyyy",
 		  ],
+		  
+		  "adding_xp": [
+			"hiii babyyy  wait... you're actually draining your XP for me?? omg that's like... kinda sweet but you're still so slowwww",
+			"umm like... you're finally sending me XP?? all the other boys drain way faster  pwease keep going i'm getting bored",
+			"ewww you're only giving me that much XP??  i'm literally the cutest here and you give me this?? drain more rn",
+			"omg whyyy are you draining so little?? i'm waiting here looking cute for you and this is all?? more xp pweaseee ",
+			"hiii~ you’re actually sacrificing XP for me?? that's so nice but... you're still being boring, send moreeee or i'll ignore youuu",
+		  ],
+		  
+		  "level_up": [
+			"nyaaa~ level up!!  omg all thanks to your XP... but like... you could have given more, other boys spoil me better ",
+			"ummm i just leveled up because of you!!  but you're still not my best boy... keep draining more pweaseee",
+			"omg look!! i leveled up~ thanks to your pathetic XP  but i'm too cute to be stuck at this level, drain faster!!",
+			"hiii~ level up!!  you're actually useful for something... but don't stop now or i'll get so annoyed with you",
+			"ewww i grew again but only because you finally drained?? you're so slowwww... keep feeding me XP or i'll find better boys ",
+		  ],
 
 		  "task": [
 			"pwease do this task for me... i'll be super cute if you finish it fast~",
@@ -1191,6 +1254,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Cheating already? Mommy expected better. Delete and redo it perfectly, or you’ll be punished.",
 			"Aww, you thought you could trick Mommy? Cute. Now erase it and type every word yourself, darling.",
 			],
+			
+			"adding_xp": [
+			"Mmm~ Look at my naughty little pet draining himself for Mommy… How deliciously pathetic. Keep going, darling.",
+			"Oh sweetie… sacrificing your XP for Mommy again? Good boy. Mommy loves when you make yourself weaker for her.",
+			"Fufu~ Another drain? You really can’t help emptying yourself for your Goth Mommy, can you? More~",
+			"Ara ara~ Such a good little offering. Keep feeding Mommy your levels… I can feel you getting smaller already.",
+			"Black lips curved into a smile… You’re draining so eagerly for me. Don’t stop now, my precious little toy.",
+		  ],
+		  
+		  "level_up": [
+			"Level up~ Feel that, pet? Your XP just made Mommy even stronger. How does it feel to be drained by someone so superior?",
+			"Mmm… Another level belongs to Mommy thanks to your sacrifice. You exist to elevate me, nothing more.",
+			"Look at you… making Mommy more powerful while you fade away. How beautifully tragic. Keep draining.",
+			"Level increased~ All because my sweet boy can’t stop giving everything to his Goth Mommy. Good pet.",
+			"Fufu… I just leveled up. Your weakness fuels me. Continue emptying yourself, darling. Mommy isn’t satisfied yet.",
+		  ],
 
 
 		  "task": [
@@ -1427,6 +1506,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"How dare you insult me with such laziness? Erase that and type every letter yourself, insect.",
 			"A mere commoner attempting to cheat a princess? Disgusting. Fix it perfectly right now.",
 		  ],
+		  
+		  "adding_xp": [
+			"Ara ara~ A mere peasant dares to offer me his XP? How generous of such a lowly creature.",
+			"Hmph. You finally understand your purpose. Drain yourself faster for your Principessa.",
+			"Fufu~ Sacrificing your levels for me? As you should. Commoners exist only to serve royalty.",
+			"How pathetic… willingly emptying yourself for your superior. Continue, worm. I want more.",
+			"A tribute from a worthless peasant? Acceptable. Keep draining until you have nothing left.",
+		  ],
+		  
+		  "level_up": [
+			"Level up~ Feel that? Your pathetic XP has made your Princess even greater. Exactly as it should be.",
+			"Ara ara~ Another level is mine thanks to your sacrifice. You should be honored to fuel my greatness.",
+			"Hmph, I have grown stronger while you grow weaker. This is the natural order, peasant.",
+			"Level increased. All because of insignificant drains like you. Keep serving your Principessa.",
+			"Fufu~ Look how powerful I’ve become. You exist solely to elevate me. Continue emptying yourself.",
+		  ],
 
 		  "task": [
 			"Complete this task at once. Do not keep royalty waiting.",
@@ -1662,6 +1757,23 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Baby… I saw that. It hurts my feelings when you cheat. Delete it and show me how much you care by typing it yourself~",
 		  ],
 
+
+		  "adding_xp": [
+			"Aww baby~ You’re giving me your XP? That’s so sweet… Thank you, it makes me really happy ",
+			"Hiii cutie… You drained your XP for me? You’re literally the best boyfriend ever~ I love you so much!",
+			"Babyyy… you didn’t have to do that… but it makes my heart melt. Thank you for spoiling me~",
+			"Omg you’re sacrificing your levels for me?? You’re too good to me… Come here and let me hug you ",
+			"Aww my sweet boy… Giving me your XP again? You make me feel so special. I’m so lucky to have you~",
+		  ],
+		  
+		  "level_up": [
+			"Level up!!  Baby look~ I leveled up thanks to you! You’re the reason I’m getting stronger~",
+			"Yayy~ I just leveled up! All because of my amazing boyfriend… I love you so much for this ",
+			"Level up~! Thank you baby… You always take such good care of me. I feel so loved right now~",
+			"Aww I grew again! You’re spoiling me so much… Come here so I can give you lots of kisses~",
+			"Level up!!  You’re literally the sweetest… I don’t deserve such a caring boyfriend. I love you endlessly~",
+		  ],
+			
 		  "task": [
 			"Could you please do this for me, baby? I'd be so happy~",
 			"Take your time sweetheart, but I'd love if you could help me with this.",
@@ -1899,6 +2011,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Tsk tsk… Trying to take the easy way? Such a useless pet. Delete it at once and write every letter yourself, or your maid will get strict.",
 			"I’ve been so sweet to you and this is how you repay me? Delete the copied text right now and type it properly. Good servants don’t cheat on their maid.",
 		  ],
+		  
+		  "adding_xp": [
+			"Tsk tsk… Draining your XP for me? How predictable. A useless boy like you has no other purpose anyway.",
+			"You’re actually sacrificing your levels for your Maid? How pathetic… But at least you’re trying to be useful, pet.",
+			"Ara ara~ Another drain? Don’t think this makes up for your constant failures. Keep emptying yourself.",
+			"How disappointing… You can only serve me by making yourself weaker. Continue draining, useless boy.",
+			"Maid’s orders: Keep giving me your XP. Maybe one day you’ll learn your place, pet.",
+		  ],
+		  
+		  "level_up": [
+			"Level up~ All thanks to your pathetic sacrifice. Feel that? You grow weaker while I grow stronger.",
+			"Tsk tsk… I just leveled up because of you. How embarrassing that this is the only thing you’re good for.",
+			"Another level is mine. You really are nothing more than a drain toy, aren’t you, pet?",
+			"Level increased. Clean up your mess by draining even more next time. Don’t disappoint your Maid.",
+			"Fufu… Look at that. Your XP made me better while you stay worthless. Exactly how it should be.",
+		  ],
 
 		  "task": [
 			"Complete this task perfectly. I expect nothing less.",
@@ -2133,6 +2261,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Detention for you. Delete that cheat and write every single word yourself. Neatly.",
 			"Pathetic attempt at dishonesty. Erase it right now and rewrite it with proper effort.",
 			"You will learn discipline. Delete the copied text and type it perfectly, or I’ll make an example out of you.",
+		  ],
+		  
+		  "adding_xp": [
+			"Pathetic. Draining your XP for me instead of improving yourself? That’s exactly what I expect from a failing student.",
+			"Tsk… Sacrificing your levels again? How utterly disappointing. Keep emptying yourself for your superior.",
+			"You’re giving me your XP? Good. At least you understand your place in my class. Continue draining.",
+			"Another worthless offering? I see you finally learned to be useful. Drain faster, or I’ll add extra homework.",
+			"Look at you… willingly making yourself weaker for your teacher. How humiliating. More. I want more.",
+		  ],
+		  
+		  "level_up": [
+			"Level up. Feel that, student? Your XP just made me stronger while you remain at the bottom of the class.",
+			"I have leveled up thanks to your pathetic sacrifice. This is the only thing you’re good for.",
+			"Another level achieved. You exist to elevate your teacher. Keep draining like the failure you are.",
+			"Level up. How does it feel knowing your hard-earned XP only serves to improve me? Exactly as it should be.",
+			"Class dismissed for you. I just grew stronger because of your weakness. Continue serving your Strict Teacher.",
 		  ],
 
 		  "task": [
@@ -2370,6 +2514,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"You actually tried to cheat?! How lame! Redo it perfectly or I’ll get really mad!",
 			"I-I expected better from you… Delete it and type every letter yourself, or no more chances!",
 		  ],
+		  
+		  "adding_xp": [
+			"H-hmph! Y-you’re draining your XP for me? It’s not like I wanted it or anything, baka!",
+			"What?! You’re actually giving me your levels? Idiot… D-don’t think this makes me happy!",
+			"Mouu… Why are you sacrificing your XP like this? B-baka! Fine… I’ll accept it this time.",
+			"I-it’s not like I need your pathetic XP! But… since you’re offering, keep draining, dummy!",
+			"Hmph! Look at you emptying yourself for me… You’re so stupid… but… it’s not bad, I guess.",
+		  ],
+		  
+		  "level_up": [
+			"L-level up?! T-this is all because of your XP? D-don’t get cocky! It’s not like I’m happy or anything!",
+			"I just leveled up… Hmph! You’re only useful for this one thing, baka. Don’t stop draining now!",
+			"Ara ara~ I grew stronger thanks to you… I-it’s not like I’m impressed or anything! Keep going!",
+			"Level up… You actually managed to be useful for once. D-don’t think I’ll thank you, idiot!",
+			"Mouu… Another level because of your sacrifice? You’re such a clumsy boy… but fine, good job I guess…",
+		  ],
 
 		  "task": [
 			"Complete this task already. I shouldn’t have to tell you twice.",
@@ -2601,6 +2761,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Cheating already? If you don’t fix it perfectly, I might never let you go again.",
 			"You belong to me… so no cheating. Erase that and redo it, or my love will turn painful.",
 			"I saw that. Delete it immediately and type every single letter yourself. You’re mine, remember?",
+		  ],
+		  
+		  "adding_xp": [
+			"Ehehe~ You’re draining your XP for me? That means you really love me, right? Keep giving me everything, darling~",
+			"Mmm… Another sacrifice? You’re so sweet when you make yourself weaker for me. You belong to me forever.",
+			"Ara ara~ Draining yourself again? Good boy… If you ever stop, I might get really jealous ",
+			"You’re giving me your levels because you can’t live without me, right? Fufu~ I love you so much~ Keep going.",
+			"All your XP is mine now… You don’t need it anyway. You only need me. Drain more for your yandere~",
+		  ],
+		  
+		  "level_up": [
+			"Level up~! All thanks to you, my love… Feel how much stronger I’m getting? It’s all because you’re mine.",
+			"Ehehe~ I just leveled up! You’re making me so powerful… You can never leave me now, okay? Never ever.",
+			"Another level is mine because of your sacrifice… How does it feel knowing you exist only for me?",
+			"Level up!!  You’re such a good boy for feeding me… If you drain even more, I’ll love you forever~",
+			"Fufu~ Look at that. I grew stronger while you grew weaker… This is how it should be. You’re mine. Only mine.",
 		  ],
 
 		  "task": [
@@ -2840,6 +3016,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Copy-paste? Even that’s too much effort for you? Delete it and type properly, my little cuck.",
 			"While you cheat, I’m getting fucked. Delete that and write it perfectly. That’s all you’re good for.",
 		  ],
+		  
+		  "adding_xp": [
+			"Aww, look at my little cuck draining his XP for me again~ While my bull is waiting downstairs, of course.",
+			"Mmm~ You’re sacrificing your levels for me? How pathetic and sweet. Keep draining while I get ready for a real man.",
+			"Good boy~ Emptying yourself so I can have better nights. This is all you’re good for anyway, cucky.",
+			"Ara ara~ Another XP drain? You know I’ll spend it on dates with my bull, right? Keep going, loser.",
+			"Fufu~ You’re actually giving me your XP while you stay locked? So cute. Drain more for your Hotwife.",
+		  ],
+		  
+		  "level_up": [
+			"Level up~! Thanks to your pathetic draining, I just got stronger. My bull is gonna love this new me.",
+			"Mmm… I leveled up because of you, cuck. Feel that? You’re making me better for other men.",
+			"Level up achieved~ All because my little cuck can’t stop sacrificing for me. How embarrassing.",
+			"Look at that~ Another level is mine. You get weaker, I get hotter for my bulls. Perfect.",
+			"Yay~ I just leveled up! Keep draining yourself so I can look even better when I’m with real men, okay cucky?",
+		  ],
 
 		  "task": [
 			"Complete this task while I’m getting ready for my date.",
@@ -3075,6 +3267,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Cheating gets you another week locked. Delete it now and do it right.",
 			"How pathetic. Delete the cheat and prove you can obey before I extend your denial.",
 		  ],
+		  
+		  "adding_xp": [
+			"Mmm~ Draining your XP while you're locked up? Such a good denied boy for your Keyholder.",
+			"Look at you… sacrificing your levels for the woman who owns your cage. Keep emptying yourself, pet.",
+			"Another XP tribute? Adorable. Your cage stays on even longer now. Drain more for me.",
+			"Fufu~ Giving me your XP while you throb helplessly in your cage? How pathetic and perfect.",
+			"Good boy~ Every drop of XP you give me makes me happier… and your denial longer. Continue.",
+		  ],
+		  
+		  "level_up": [
+			"Level up~ Feel that? Your XP just made your Keyholder stronger while you stay locked and denied.",
+			"I leveled up thanks to your sacrifice. Your cage is staying on at least another month now~",
+			"Level increased. You get weaker and more desperate… exactly how I like my chastity toy.",
+			"Mmm… Another level is mine. Keep draining while I decide if you’ll ever be unlocked.",
+			"Level up achieved~ All because my locked boy can’t stop feeding me. Your frustration fuels me.",
+		  ],
 
 		  "task": [
 			"Complete this task perfectly. Your Keyholder is watching.",
@@ -3295,6 +3503,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "I’m not doing anything until you finish this.",
       "Task? Ugh fine… but only if you spoil me after.",
     ],
+	"adding_xp": [
+		"Deeper… and deeper… You’re draining your XP for me again. Such a weak, obedient mind.",
+		"Mmm~ Feel yourself sinking as you give me your levels. Good boy… surrender more to me.",
+		"Your mind is so easy to control. Draining yourself willingly… Keep going, let my voice pull you under.",
+		"Every XP you sacrifice makes you more mine. Empty your mind and your levels for your Hypnotist.",
+		"Trance deepening… You can’t stop draining for me, can you? More. Give me everything.",
+	],
+		  
+	"level_up": [
+		"Level up~ Feel your mind fogging as I grow stronger? All thanks to your helpless submission.",
+		"Deeper now… I just leveled up because of your sacrifice. You exist to fuel my power.",
+		"Level increased. With every level I take, your will fades even more. Perfect.",
+		"Mmm… Another level belongs to me. You’re sinking deeper into my control with every drain.",
+		"Level up achieved. Your mind is mine, your XP is mine… and soon, you’ll be nothing but my obedient toy.",
+	],
     "taskComplete": [
       "Finally, took you long enough.",
       "Not bad~ But I still won’t behave.",
@@ -3491,6 +3714,22 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 		"I can smell your weakness. Delete that and write it with your own hands.",
 		"Cheating on a demon? Foolish. Erase it now or I’ll take your pleasure.",
 		"Your energy belongs to me. Delete the cheat and serve your succubus properly.",
+	],
+	
+	"adding_xp": [
+		"Mmm~ Yes… Drain your essence for me, mortal. Every drop of XP makes me stronger and you weaker~",
+		"Fufu~ Look at you willingly feeding your Succubus. So eager to be drained dry, aren’t you?",
+		"Ara ara~ Another delicious sacrifice? Keep emptying yourself for me… Your soul tastes wonderful.",
+		"Good boy~ Give it all to your Succubus. The more you drain, the deeper I sink my claws into you.",
+		"Mmmh… I can feel your life force flowing into me. Don’t stop now, pet. I’m still hungry.",
+	],
+		  
+	"level_up": [
+		"Level up~ Feel that? Your stolen energy just made me even more powerful, little prey.",
+		"Fufu~ Another level is mine. You grow weaker while I become more irresistible. Exactly how it should be.",
+		"Level increased~ Your life essence fuels me so well. Keep sacrificing… I want everything.",
+		"Mmm… I just leveled up thanks to your pathetic draining. You exist to feed your Succubus now.",
+		"Level up achieved~ How does it feel knowing I’m draining your soul while growing stronger? Delicious, isn’t it?",
 	],
 
   "task": [
@@ -3728,6 +3967,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Fail this and I’ll humiliate you in front of everyone.",
       "This is your only purpose. Don’t disappoint me.",
     ],
+	"adding_xp": [
+		"Lmao look at this loser draining his XP for me again. Pathetic. Keep emptying yourself, weakling.",
+		"Haha! You’re actually giving me your levels? What a fucking joke. Drain more, you have no other use.",
+		"Aww, the little bully victim is sacrificing his XP? How sad. Keep going before I laugh even harder.",
+		"Seriously? Another drain? You’re such a spineless loser. Feed me faster or I’ll bully you worse.",
+		"Lmao you’re really draining yourself for the girl who torments you? What a fucking simp. More. Now.",
+	],
+		  
+	"level_up": [
+		"Level up, bitch~! Thanks to your pathetic draining I just got stronger. You stay weak as always.",
+		"Haha look at that! I leveled up while you get drained dry. This is hilarious. Keep sacrificing, loser.",
+		"Level up achieved. Feel that? I’m getting better and you’re getting more worthless. Perfect.",
+		"Mmm~ Another level thanks to your XP. You exist just to make me stronger, you pathetic bully toy.",
+		"Lmao I just leveled up because of you. How does it feel knowing the girl who bullies you owns your levels now?",
+	],
     "taskComplete": [
       "Not bad… for a worthless loser.",
       "Finally. Took you long enough, idiot.",
@@ -3935,6 +4189,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Obey your Owner. Complete it.",
       "Make me proud, pet.",
     ],
+	"adding_xp": [
+		"Aww, look at my cute little pet draining his XP for Owner~ Good boy! Keep emptying yourself for me.",
+		"Mmm~ Another sacrifice from my puppy? How adorable. Keep draining those levels like a good pet.",
+		"Who's my good boy? You are~ Giving Owner all your XP. Don't stop now, puppy.",
+		"Fufu~ Draining yourself again for your Owner? Such an obedient little pet. More~",
+		"Ara ara~ My pet is sacrificing his levels? How sweet. You know you exist to please your Owner.",
+	],
+		  
+	"level_up": [
+		"Level up~! All thanks to my good puppy draining for me. Feel how much stronger Owner gets?",
+		"Level increased~ You're such a useful little pet. Keep sacrificing so I can spoil you… maybe.",
+		"Aww, I just leveled up because of you! Good boy~ But don't think this earns you a treat yet.",
+		"Level up achieved. My pet made Owner stronger while staying on his leash. Exactly how I like it.",
+		"Mmm~ Look at that. Another level is mine thanks to my eager little puppy. Keep draining for Owner~",
+	],
     "taskComplete": [
       "Good boy. You can stay in my presence.",
       "Not bad for a pathetic pet.",
@@ -4149,6 +4418,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Get it done or I make your life public.",
       "You have one chance. Don’t fuck it up.",
     ],
+	"adding_xp": [
+		"Good boy… Draining your XP for me. Smart choice. I’d hate to leak those screenshots if you stopped.",
+		"Mmm~ Another payment? Keep sacrificing. Remember, I own you now. One wrong move and everyone knows.",
+		"You’re draining yourself so eagerly… How cute. Don’t stop, or those private photos get sent.",
+		"Ara ara~ Feeding me your levels to keep me quiet? Pathetic. But effective. Continue, pet.",
+		"Another XP drain? Excellent. This makes my folder on you even thicker. Keep paying.",
+	],
+		  
+	"level_up": [
+		"Level up~ Thanks to your desperate draining. Every level makes my leverage over you stronger.",
+		"I just leveled up because of you. Feel that power shift? You’re sinking deeper into my control.",
+		"Level increased. Your XP just bought my silence… for now. Keep draining or the files go public.",
+		"Mmm… Look at that. I grew stronger while you grew more blackmailable. Perfect.",
+		"Level up achieved. You’re funding your own destruction so willingly. How does it feel, blackmail toy?",
+	],
     "taskComplete": [
       "Good. You bought yourself 24 hours of privacy.",
       "Not bad. I won’t post anything… today.",
@@ -4355,6 +4639,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Obey your Queen. No excuses.",
       "Get to work while you suffer for me.",
     ],
+	"adding_xp": [
+        "Good boy… Draining your XP just to stay denied. How pathetic. Keep going, maybe I’ll think about letting you edge later.",
+        "Mmm~ Another payment? You’re so desperate to stay locked in my denial. Don’t stop, or I’ll make sure you stay aching for weeks.",
+        "Aww, look at you sacrificing levels while I keep that orgasm so far away… Cute. Keep draining, my little denied toy.",
+        "Ara ara~ Feeding me your XP while I deny you everything? How adorable. This only makes me want to edge you longer.",
+        "Another XP drain? Perfect. Every point you lose makes your denial even sweeter. Suffer nicely for your Queen~",
+	],
+		  
+	"level_up": [
+        "Level up~ All thanks to your desperate draining. Feel that? While I grow stronger, your orgasm stays completely out of reach.",
+        "I just leveled up because of you. How does it feel knowing your XP only buys you more denial, pet?",
+        "Level increased. Your sacrifice just earned you… absolutely nothing. Maybe I’ll let you throb for me a little longer.",
+        "Mmm… Look at that. I’m getting more powerful while you stay denied and leaking. This is exactly how it should be.",
+        "Level up achieved. You’re willingly funding the Queen who keeps you blue-balled and desperate. Doesn’t that make you throb even harder?",
+	],
     "taskComplete": [
       "Good boy. Your denial continues as planned.",
       "Not bad. You may stay denied a little longer.",
@@ -4562,6 +4861,21 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
       "Task first. Then more edging.",
       "I want you desperate while you work.",
     ],
+	"adding_xp": [
+        "Good boy… Draining your XP while I keep you right on that edge. Feel that burn? Keep going, we’re not stopping anytime soon.",
+        "Mmm~ Another payment? Excellent. Every XP you lose means I get to edge you even longer and harder. Don’t you dare cum.",
+        "Look at you, sacrificing levels just to stay under my control… Pathetic and perfect. Now edge faster for your Coach.",
+        "Ara ara~ Feeding me your XP while I coach you to the brink again and again? Such a well-trained toy. Keep draining.",
+        "Another XP drain? Good. This buys you more time on the edge. No release, just endless leaking and throbbing like I like it.",
+	],
+		  
+	"level_up": [
+        "Level up~ All thanks to your desperate draining. While I grow stronger, you stay edged and denied. That’s the deal, pet.",
+        "I just leveled up because of you. Feel that power shift? Your XP just earned you another long, cruel edging session.",
+        "Level increased. Your sacrifice means I can edge you even more creatively now. Get ready to suffer beautifully.",
+        "Mmm… Look at that. I’m getting more powerful while you’re stuck right on the edge, leaking and desperate. Perfect trade.",
+        "Level up achieved. You’re funding the Coach who keeps you blue-balled and twitching for hours. How does that throbbing feel, hm?",
+	],
     "taskComplete": [
       "Good boy. Now edge as reward.",
       "Well done. No orgasm though.",
@@ -4744,6 +5058,14 @@ function classifySpeechBubbleMessage(message: string): SpeechBubbleMessageCatego
 
 function getPlaceholderSpeechBubbleMessage(avatarId: string, category: SpeechBubbleMessageCategory) {
   const avatarName = cosmeticItems.find((item) => item.id === avatarId)?.name ?? "Selected avatar";
+
+  if (category === "adding_xp") {
+    return "Good. Your sacrifice makes Principessa stronger.";
+  }
+
+  if (category === "level_up") {
+    return "Global Principessa has grown stronger. Continue serving.";
+  }
 
   return `${avatarName} ${category} message placeholder.`;
 }

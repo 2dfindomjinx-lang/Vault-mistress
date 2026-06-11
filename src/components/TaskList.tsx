@@ -524,22 +524,24 @@ export function TaskList({
 
       <article className="mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
         <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
-          <div className="relative aspect-[3/2] w-full max-w-[18rem] overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45 mx-auto">
-            <Image
-              alt="Level Drain Principessa"
-              className="object-contain object-center opacity-90"
-              fill
-              sizes="280px"
-              src={LEVEL_DRAIN_IMAGE_PATH}
-              unoptimized
-            />
-            <div className="absolute inset-x-3 top-3 rounded-2xl border border-pink-100/35 bg-black/70 px-3 py-2 text-center shadow-[0_0_24px_rgba(236,72,153,0.35)] backdrop-blur">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-100/70">
-                Global Principessa
-              </p>
-              <p className="text-2xl font-black text-white">Level {globalPrincipessaLevel}</p>
-            </div>
-          </div>
+              <div className="mx-auto flex w-full max-w-[18rem] flex-col gap-2">
+                <div className="relative aspect-[3/2] w-full overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
+                  <Image
+                    alt="Level Drain Principessa"
+                    className="object-contain object-center opacity-90"
+                    fill
+                    sizes="280px"
+                    src={LEVEL_DRAIN_IMAGE_PATH}
+                    unoptimized
+                  />
+                </div>
+                <div className="rounded-2xl border border-pink-100/25 bg-black/55 px-3 py-2 text-center shadow-[0_0_18px_rgba(236,72,153,0.22)] backdrop-blur">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/65">
+                    Global Principessa
+                  </p>
+                  <p className="text-base font-black text-white">Level {globalPrincipessaLevel}</p>
+                </div>
+              </div>
           <div className="flex min-w-0 flex-col">
             <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
               Level Drain
