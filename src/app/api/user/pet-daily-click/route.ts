@@ -181,7 +181,9 @@ export async function POST(request: Request) {
   const today = getGmt3DateKey();
   const current = normalizeTask(existingTask, today);
 
-  if (existingTask?.reviewed_at) {
+  const existingTaskDate = getMetadataString(existingTask?.metadata, "date");
+
+  if (existingTask?.reviewed_at && existingTaskDate === today) {
     return Response.json({
       profile,
       task: existingTask,
@@ -239,6 +241,8 @@ export async function POST(request: Request) {
   if (rewardableClicks > 0) {
     const { data: transaction, error: transactionError } = await supabase.from("coin_transactions").insert({
       amount: rewardableClicks,
+      balance_after: nextCoins,
+      balance_before: profile.coins,
       metadata: {
         clicks: acceptedClicks,
         coinRewardClicks: rewardableClicks,
@@ -308,18 +312,20 @@ export async function POST(request: Request) {
           userId: authData.user.id,
         });
       }
+    }
 
-      const { error: rollbackProfileError } = await supabase
-        .from("profiles")
-        .update({ coins: profile.coins, pet_score: profile.pet_score })
-        .eq("id", profile.id);
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({ coins: profile.coins, pet_score: profile.pet_score })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
 
-      if (rollbackProfileError) {
-        console.error("[pet-daily-click] profile rollback after task failure failed", {
-          error: rollbackProfileError,
-          userId: authData.user.id,
-        });
-      }
+    if (rollbackProfileError) {
+      console.error("[pet-daily-click] profile rollback after task failure failed", {
+        error: rollbackProfileError,
+        userId: authData.user.id,
+      });
     }
     return jsonError(taskUpdateError?.message ?? "Pet click progress update failed.", 500);
   }

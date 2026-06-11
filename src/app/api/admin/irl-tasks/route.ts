@@ -177,14 +177,30 @@ export async function POST(request: Request) {
         return Response.json({ error: profileUpdateError.message }, { status: 500 });
       }
 
-      const { error: taskUpdateError } = await supabase
+      const { data: approvedTask, error: taskUpdateError } = await supabase
         .from("user_irl_tasks")
         .update({ completed_at: now, reviewed_at: now, status: "approved" })
-        .eq("id", task.id);
+        .eq("id", task.id)
+        .eq("status", "assigned")
+        .select("id")
+        .maybeSingle();
 
-      if (taskUpdateError) {
+      if (taskUpdateError || !approvedTask) {
         console.error("Admin IRL approve task update failed", taskUpdateError);
-        return Response.json({ error: taskUpdateError.message }, { status: 500 });
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update({ affection: Number(profile.affection ?? 0), updated_at: now })
+          .eq("id", profile.id)
+          .eq("affection", nextAffection);
+
+        if (rollbackError) {
+          console.error("Admin IRL approve affection rollback failed", rollbackError);
+        }
+
+        return Response.json(
+          { error: taskUpdateError?.message ?? "This IRL task has already been reviewed." },
+          { status: taskUpdateError ? 500 : 409 },
+        );
       }
 
       return Response.json({
@@ -210,7 +226,7 @@ export async function POST(request: Request) {
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("id, username, shame_count")
+        .select("id, username, shame_count, timeout_until")
         .eq("id", taskDetails.user_id)
         .maybeSingle();
 
@@ -251,14 +267,43 @@ export async function POST(request: Request) {
         return Response.json({ error: profileUpdateError.message }, { status: 500 });
       }
 
-      const { error: taskUpdateError } = await supabase
+      const { data: failedTask, error: taskUpdateError } = await supabase
         .from("user_irl_tasks")
         .update({ reviewed_at: now, shamed_at: now, status: "cancelled_failed" })
-        .eq("id", task.id);
+        .eq("id", task.id)
+        .eq("status", "assigned")
+        .select("id")
+        .maybeSingle();
 
-      if (taskUpdateError) {
+      if (taskUpdateError || !failedTask) {
         console.error("Admin IRL cancel/fail task update failed", taskUpdateError);
-        return Response.json({ error: taskUpdateError.message }, { status: 500 });
+        const rollbackPatch: {
+          shame_count: number;
+          timeout_until?: string | null;
+          updated_at: string;
+        } = {
+          shame_count: Number(profile.shame_count ?? 0),
+          updated_at: now,
+        };
+
+        if (timeoutUntil) {
+          rollbackPatch.timeout_until = profile.timeout_until ?? null;
+        }
+
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update(rollbackPatch)
+          .eq("id", profile.id)
+          .eq("shame_count", Number(profile.shame_count ?? 0) + 1);
+
+        if (rollbackError) {
+          console.error("Admin IRL cancel/fail rollback failed", rollbackError);
+        }
+
+        return Response.json(
+          { error: taskUpdateError?.message ?? "This IRL task has already been reviewed." },
+          { status: taskUpdateError ? 500 : 409 },
+        );
       }
 
       return Response.json({
@@ -266,14 +311,20 @@ export async function POST(request: Request) {
       });
     }
 
-    const { error: excuseError } = await supabase
+    const { data: excusedTask, error: excuseError } = await supabase
       .from("user_irl_tasks")
       .update({ completed_at: now, reviewed_at: now, status: "excused_throne" })
-      .eq("id", task.id);
+      .eq("id", task.id)
+      .eq("status", "assigned")
+      .select("id")
+      .maybeSingle();
 
-    if (excuseError) {
+    if (excuseError || !excusedTask) {
       console.error("Admin IRL Throne excuse update failed", excuseError);
-      return Response.json({ error: excuseError.message }, { status: 500 });
+      return Response.json(
+        { error: excuseError?.message ?? "This IRL task has already been reviewed." },
+        { status: excuseError ? 500 : 409 },
+      );
     }
 
     return Response.json({

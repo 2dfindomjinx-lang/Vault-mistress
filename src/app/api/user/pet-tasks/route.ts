@@ -8,6 +8,8 @@ import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
 const DEFAULT_PET_TASK_REWARD = 10;
 const PET_WEEKLY_TAX_REWARD = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 const allowedTaskIds = new Set([
   "pet-confession-dm",
   "pet-daily-report",
@@ -35,6 +37,31 @@ type Body = {
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
+}
+
+function getTaskCooldownMs(taskId: string) {
+  if (taskId === "pet-weekly-throne-tax") {
+    return WEEK_MS;
+  }
+
+  return DAY_MS;
+}
+
+function isDuplicateReviewedTask(taskId: string, completedAt: string | null, metadata: Record<string, unknown> | null) {
+  if (taskId === "pet-affection-claim") {
+    const date = typeof metadata?.date === "string" ? metadata.date : null;
+    const today = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    return date === today;
+  }
+
+  if (!completedAt) {
+    return false;
+  }
+
+  const completedMs = new Date(completedAt).getTime();
+
+  return Number.isFinite(completedMs) && Date.now() - completedMs < getTaskCooldownMs(taskId);
 }
 
 export async function POST(request: Request) {
@@ -80,7 +107,10 @@ export async function POST(request: Request) {
     return jsonError(existingTaskError.message, 500);
   }
 
-  if (existingTask?.reviewed_at) {
+  if (
+    existingTask?.reviewed_at &&
+    isDuplicateReviewedTask(taskId, existingTask.completed_at, existingTask.metadata as Record<string, unknown> | null)
+  ) {
     return Response.json({ task: existingTask });
   }
 

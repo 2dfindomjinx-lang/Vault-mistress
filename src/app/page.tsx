@@ -2071,51 +2071,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       (titleId) => !ownedTitleIds.includes(titleId),
     );
 
-    const persistUnlocks = missingTitleIds.length > 0
-      ? supabase.from("user_titles").upsert(
-        missingTitleIds.map((titleId) => ({
-          user_id: authUserId,
-          title_id: titleId,
-          source: "progression",
-          equipped: false,
-        })),
-        { onConflict: "user_id,title_id" },
-      )
-      : Promise.resolve({ error: null });
-
-    void persistUnlocks.then(async ({ error }) => {
-      if (error) {
-        console.error("Failed to persist progression title unlocks", error);
-        return;
+    void fetch("/api/user/titles", {
+      body: JSON.stringify({
+        action: "unlock",
+        equipTitleId: shouldAutoEquipProgressionTitle ? nextDefaultTitleId : null,
+        source: "progression",
+        titleIds: Array.from(new Set([...missingTitleIds, ...(shouldAutoEquipProgressionTitle ? [nextDefaultTitleId] : [])])),
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).then(async (response) => {
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw createApiError("/api/user/titles", response, payload);
       }
-
-      if (!shouldAutoEquipProgressionTitle) {
-        return;
-      }
-
-      const { error: clearError } = await supabase
-        .from("user_titles")
-        .update({ equipped: false })
-        .eq("user_id", authUserId);
-
-      if (clearError) {
-        console.error("Failed to clear equipped progression titles", clearError);
-        return;
-      }
-
-      const { error: equipError } = await supabase.from("user_titles").upsert(
-        {
-          user_id: authUserId,
-          title_id: nextDefaultTitleId,
-          source: "progression",
-          equipped: true,
-        },
-        { onConflict: "user_id,title_id" },
-      );
-
-      if (equipError) {
-        console.error("Failed to persist equipped progression title", equipError);
-      }
+    }).catch((error) => {
+      console.error("Failed to persist progression title unlocks", error);
     });
   }, [authUserId, equippedTitleId, isGuestMode, isTitleManuallySelected, ownedTitleIds, tributeTotal]);
 
@@ -2135,18 +2106,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return () => window.clearTimeout(timer);
     }
 
-    void supabase.from("user_titles").upsert(
-      missingTitleIds.map((titleId) => ({
-        equipped: false,
+    void fetch("/api/user/titles", {
+      body: JSON.stringify({
+        action: "unlock",
         source: "pet",
-        title_id: titleId,
-        user_id: authUserId,
-      })),
-      { onConflict: "user_id,title_id" },
-    ).then(({ error }) => {
-      if (error) {
-        console.error("Failed to persist pet title unlocks", error);
+        titleIds: missingTitleIds,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).then(async (response) => {
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw createApiError("/api/user/titles", response, payload);
       }
+    }).catch((error) => {
+      console.error("Failed to persist pet title unlocks", error);
     });
 
     return () => window.clearTimeout(timer);
@@ -2348,33 +2322,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       throw error;
     }
   }, [isGuestMode]);
-
-  const persistInBackground = useCallback((
-    promise: Promise<unknown>,
-    label: string,
-    options: {
-      onFinally?: () => void;
-      resyncOnFailure?: boolean;
-    } = {},
-  ) => {
-    void promise.catch((error) => {
-      console.error("[action-error] caught background action error", { error, label });
-      emitSoundEvent("error");
-      setAvatarMistressReply("The action worked locally, but the vault failed to save it. Resyncing the vault state.");
-
-      if (options.resyncOnFailure !== false) {
-        void resyncAuthenticatedProfile(label).catch((resyncError) => {
-          console.error("[profile-resync] failed after background action error", { label, resyncError });
-        });
-      }
-    }).finally(() => {
-      try {
-        options.onFinally?.();
-      } catch (cleanupError) {
-        console.error("[action-lock] cleanup callback failed", { cleanupError, label });
-      }
-    });
-  }, [resyncAuthenticatedProfile, setAvatarMistressReply]);
 
   useEffect(() => () => {
     if (highLowRefreshTimerRef.current !== null) {
@@ -2822,17 +2769,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
 
     if (autoTitleIds.length > 0) {
-      const { error: titleUpsertError } = await supabase.from("user_titles").upsert(
-        autoTitleIds.map((titleId) => ({
-          user_id: profile.id,
-          title_id: titleId,
-          source: getTitleItem(titleId)?.source ?? "progression",
-        })),
-        { onConflict: "user_id,title_id" },
-      );
+      try {
+        const response = await fetch("/api/user/titles", {
+          body: JSON.stringify({
+            action: "unlock",
+            titleIds: autoTitleIds,
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-      if (titleUpsertError) {
-        console.warn("Failed to upsert automatic titles", titleUpsertError);
+        if (!response.ok) {
+          throw createApiError("/api/user/titles", response, payload);
+        }
+      } catch (error) {
+        console.warn("Failed to upsert automatic titles", error);
       }
     }
 
@@ -2937,10 +2889,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             method: "POST",
           });
           const result = (await response.json()) as {
+            autoPaySkipped?: boolean;
             contract?: PetDebtContract | null;
             error?: string;
             plan?: { amount: number; missedPeriods: number };
             profile?: Profile;
+            reason?: string;
           };
 
           if (!response.ok) {
@@ -2962,11 +2916,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           }
 
           setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
-          setAvatarMistressReply(
-            (result.plan?.missedPeriods ?? 0) > 0
-              ? `Missed Debt Contract collected automatically. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`
-              : `Debt Contract auto-payment completed. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`,
-          );
+          if (result.autoPaySkipped) {
+            setAvatarMistressReply("Debt Contract auto-payment skipped. Not enough coins for the current installment.");
+          } else {
+            setAvatarMistressReply(
+              (result.plan?.missedPeriods ?? 0) > 0
+                ? `Missed Debt Contract collected automatically. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`
+                : `Debt Contract auto-payment completed. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`,
+            );
+          }
         } catch (error) {
           console.error("Failed to auto-collect overdue debt payment", error);
           setAuthError(describeError(error));
@@ -4154,9 +4112,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const nextAttempts = Math.max(0, (task.attemptsRemaining ?? 3) - 1);
       const failedAt = nextAttempts === 0 ? new Date().toISOString() : null;
 
-      if (!isGuestMode) {
-        persistInBackground(
-          persistUserTask({
+      try {
+        if (!isGuestMode) {
+          await persistUserTask({
             task_id: task.id,
             completed_at: null,
             claimed_at: null,
@@ -4165,11 +4123,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               attemptsRemaining: nextAttempts,
               failedAt,
             },
-          }),
-          "Failed to persist typing attempt",
-          { onFinally: () => finishTaskAction(actionId) },
-        );
-      } else {
+          });
+        }
+      } catch (error) {
+        console.error("Failed to persist typing attempt", error);
+        emitSoundEvent("error");
+        setAuthError(describeError(error));
+        setAvatarMistressReply("The typing attempt failed to save. Try again.");
+        return;
+      } finally {
         finishTaskAction(actionId);
       }
 
@@ -4201,9 +4163,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         return;
       }
 
-      if (!isGuestMode) {
-        persistInBackground(
-          persistUserTask({
+      try {
+        if (!isGuestMode) {
+          await persistUserTask({
             task_id: task.id,
             completed_at: new Date().toISOString(),
             claimed_at: null,
@@ -4211,11 +4173,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             metadata: {
               attemptsRemaining: task.attemptsRemaining ?? 3,
             },
-          }),
-          "Failed to persist typing success",
-          { onFinally: () => finishTaskAction(actionId) },
-        );
-      } else {
+          });
+        }
+      } catch (error) {
+        console.error("Failed to persist typing success", error);
+        emitSoundEvent("error");
+        setAuthError(describeError(error));
+        setAvatarMistressReply("Perfect text, but the vault failed to save it. Try again.");
+        return;
+      } finally {
         finishTaskAction(actionId);
       }
 
@@ -4613,6 +4579,29 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const waitEndsAt = new Date(now.getTime() + 63 * 1000).toISOString();
     const cooldownUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
+    try {
+      if (!isGuestMode) {
+        await persistUserTask({
+          task_id: task.id,
+          completed_at: now.toISOString(),
+          claimed_at: now.toISOString(),
+          reward_coins: 0,
+          metadata: {
+            countdownEndsAt,
+            status: "countdown",
+            waitEndsAt,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to start wait obediently task", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+      setAvatarMistressReply("Wait Obediently failed to start safely. Try again.");
+      finishTaskAction(actionId);
+      return;
+    }
+
     setTasks((current) =>
       current.map((entry) =>
         entry.id === task.id
@@ -4629,26 +4618,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       ),
     );
     setAvatarMistressReply("Now wait. One mistake and the vault closes.");
-
-    if (!isGuestMode) {
-      persistInBackground(
-        persistUserTask({
-            task_id: task.id,
-            completed_at: now.toISOString(),
-            claimed_at: now.toISOString(),
-            reward_coins: 0,
-            metadata: {
-              countdownEndsAt,
-              status: "countdown",
-              waitEndsAt,
-            },
-          }),
-        "Failed to start wait obediently task",
-        { onFinally: () => finishTaskAction(actionId) },
-      );
-    } else {
-      finishTaskAction(actionId);
-    }
+    finishTaskAction(actionId);
   };
 
   const handleWaitObedientlyFail = async () => {
@@ -4661,6 +4631,27 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const actionId = "wait-obediently:fail";
 
     if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      if (!isGuestMode) {
+        await persistUserTask({
+          task_id: task.id,
+          completed_at: new Date().toISOString(),
+          claimed_at: new Date().toISOString(),
+          reward_coins: 0,
+          metadata: {
+            status: "failed",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fail wait obediently task", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The fail state could not be saved. Resyncing the vault state.");
+      finishTaskAction(actionId);
       return;
     }
 
@@ -4677,24 +4668,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
     setAvatarMistressReply("You moved. Failed.");
     emitSoundEvent("task_fail");
-
-    if (!isGuestMode) {
-      persistInBackground(
-        persistUserTask({
-            task_id: task.id,
-            completed_at: new Date().toISOString(),
-            claimed_at: new Date().toISOString(),
-            reward_coins: 0,
-            metadata: {
-              status: "failed",
-            },
-          }),
-        "Failed to fail wait obediently task",
-        { onFinally: () => finishTaskAction(actionId) },
-      );
-    } else {
-      finishTaskAction(actionId);
-    }
+    finishTaskAction(actionId);
   };
 
   const handleWaitObedientlyComplete = async () => {
@@ -4712,6 +4686,33 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const rewardCoins = getEventTaskReward(task.reward);
     const nextCoins = coinsRef.current + rewardCoins;
+    try {
+      await persistProfileProgress(
+        { coins: nextCoins, affection },
+        "task:wait-obediently",
+      );
+      if (!isGuestMode) {
+        await persistUserTask({
+          task_id: task.id,
+          completed_at: new Date().toISOString(),
+          claimed_at: task.cooldownUntil
+            ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
+            : new Date().toISOString(),
+          reward_coins: rewardCoins,
+          metadata: {
+            status: "completed",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to complete wait obediently task", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+      setAvatarMistressReply("Wait Obediently completed locally, but the vault failed to save it. Try again.");
+      finishTaskAction(actionId);
+      return;
+    }
+
     setCoins(nextCoins);
     coinsRef.current = nextCoins;
     setTasks((current) =>
@@ -4727,30 +4728,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
     setAvatarMistressReply("Task completed. How cute. The pathetic loser can actually follow simple orders.");
     emitSoundEvent("task_completion");
-
-    persistInBackground(
-      (async () => {
-        await persistProfileProgress(
-          { coins: nextCoins, affection },
-          "task:wait-obediently",
-        );
-        if (!isGuestMode) {
-          await persistUserTask({
-            task_id: task.id,
-            completed_at: new Date().toISOString(),
-            claimed_at: task.cooldownUntil
-              ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
-              : new Date().toISOString(),
-            reward_coins: rewardCoins,
-            metadata: {
-              status: "completed",
-            },
-          });
-        }
-      })(),
-      "Failed to complete wait obediently task",
-      { onFinally: () => finishTaskAction(actionId) },
-    );
+    finishTaskAction(actionId);
   };
 
   const handleTimeoutRisk = async () => {
@@ -5834,31 +5812,35 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     try {
-      await persistProfileProgress(
-        { coins: coinsRef.current - item.price, affection },
-        "spend:cosmetic",
-        {
-          cosmeticId: item.id,
-          cosmeticType: item.type,
-          spendAmount: item.price,
-          tributeTotalChanged: false,
-        },
-      );
-
-      if (!isGuestMode) {
-        const { error } = await supabase.from("user_cosmetics").upsert(
+      if (isGuestMode) {
+        await persistProfileProgress(
+          { coins: coinsRef.current - item.price, affection },
+          "spend:cosmetic",
           {
-            user_id: authUserId,
-            item_id: item.id,
-            item_type: item.type,
-            equipped: false,
+            cosmeticId: item.id,
+            cosmeticType: item.type,
+            spendAmount: item.price,
+            tributeTotalChanged: false,
           },
-          { onConflict: "user_id,item_id" },
         );
+      } else {
+        const response = await fetch("/api/user/cosmetics", {
+          body: JSON.stringify({ action: "purchase", itemId: item.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          alreadyOwned?: boolean;
+          error?: string;
+          profile?: Profile;
+        };
 
-        if (error) {
-          console.error("Failed to persist cosmetic purchase", error);
-          throw error;
+        if (!response.ok) {
+          throw createApiError("/api/user/cosmetics", response, payload);
+        }
+
+        if (payload.profile) {
+          applyProfileStats(payload.profile);
         }
       }
 
@@ -5916,30 +5898,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       if (!isGuestMode) {
-        const { error: clearError } = await supabase
-          .from("user_cosmetics")
-          .update({ equipped: false })
-          .eq("user_id", authUserId)
-          .eq("item_type", item.type);
+        const response = await fetch("/api/user/cosmetics", {
+          body: JSON.stringify({ action: "equip", itemId: item.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as { error?: string };
 
-        if (clearError) {
-          console.error("Failed to clear equipped cosmetics", clearError);
-          throw clearError;
-        }
-
-        const { error: equipError } = await supabase.from("user_cosmetics").upsert(
-          {
-            user_id: authUserId,
-            item_id: item.id,
-            item_type: item.type,
-            equipped: true,
-          },
-          { onConflict: "user_id,item_id" },
-        );
-
-        if (equipError) {
-          console.error("Failed to equip cosmetic", equipError);
-          throw equipError;
+        if (!response.ok) {
+          throw createApiError("/api/user/cosmetics", response, payload);
         }
       }
 
@@ -5985,30 +5952,34 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     try {
-      await persistProfileProgress(
-        { coins: coinsRef.current - price, affection },
-        "spend:title",
-        {
-          spendAmount: price,
-          titleId: title.id,
-          tributeTotalChanged: false,
-        },
-      );
-
-      if (!isGuestMode) {
-        const { error } = await supabase.from("user_titles").upsert(
+      if (isGuestMode) {
+        await persistProfileProgress(
+          { coins: coinsRef.current - price, affection },
+          "spend:title",
           {
-            user_id: authUserId,
-            title_id: title.id,
-            source: title.source,
-            equipped: false,
+            spendAmount: price,
+            titleId: title.id,
+            tributeTotalChanged: false,
           },
-          { onConflict: "user_id,title_id" },
         );
+      } else {
+        const response = await fetch("/api/user/titles", {
+          body: JSON.stringify({ action: "purchase", titleId: title.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          alreadyOwned?: boolean;
+          error?: string;
+          profile?: Profile;
+        };
 
-        if (error) {
-          console.error("Failed to persist title purchase", error);
-          throw error;
+        if (!response.ok) {
+          throw createApiError("/api/user/titles", response, payload);
+        }
+
+        if (payload.profile) {
+          applyProfileStats(payload.profile);
         }
       }
 
@@ -6042,29 +6013,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     try {
       if (!isGuestMode) {
-        const { error: clearError } = await supabase
-          .from("user_titles")
-          .update({ equipped: false })
-          .eq("user_id", authUserId);
+        const response = await fetch("/api/user/titles", {
+          body: JSON.stringify({ action: "equip", titleId: title.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as { error?: string };
 
-        if (clearError) {
-          console.error("Failed to clear equipped title", clearError);
-          throw clearError;
-        }
-
-        const { error: equipError } = await supabase.from("user_titles").upsert(
-          {
-            user_id: authUserId,
-            title_id: title.id,
-            source: title.source,
-            equipped: true,
-          },
-          { onConflict: "user_id,title_id" },
-        );
-
-        if (equipError) {
-          console.error("Failed to equip title", equipError);
-          throw equipError;
+        if (!response.ok) {
+          throw createApiError("/api/user/titles", response, payload);
         }
       }
 
@@ -6097,6 +6054,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const currentCoins = coinsRef.current;
     let rewardCoins = getEventTaskReward(task.reward);
     const nextCoins = currentCoins + rewardCoins;
+    let confirmedCoins = nextCoins;
     const dailyCooldownActive =
       task.id === "daily-login" &&
       Boolean(task.cooldownUntil) &&
@@ -6115,8 +6073,56 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    setCoins(nextCoins);
-    coinsRef.current = nextCoins;
+    try {
+      if (isGuestMode) {
+        const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
+
+        await persistTaskClaim(task);
+        await persistProfileProgress(
+          { coins: nextCoins, affection },
+          streakBonus ? "streak_bonus" : `reward:task:${task.id}`,
+          streakBonus
+            ? {
+                milestone: streakBonus.milestone,
+                taskId: task.id,
+              }
+            : {},
+        );
+      } else {
+        const response = await fetch("/api/user/task-claim", {
+          body: JSON.stringify({ taskId: task.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          profile?: Profile;
+          rewardCoins?: number;
+          task?: UserTaskRow;
+        };
+
+        if (!response.ok || !payload.profile) {
+          throw createApiError("/api/user/task-claim", response, payload);
+        }
+
+        rewardCoins = payload.rewardCoins ?? rewardCoins;
+        confirmedCoins = payload.profile.coins;
+        applyProfileStats(payload.profile);
+      }
+    } catch (error) {
+      console.error("Failed to persist task reward", error);
+      emitSoundEvent("error");
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The reward failed to save. Resyncing the vault state.");
+      void resyncAuthenticatedProfile("Failed to persist task reward").catch((resyncError) => {
+        console.error("[profile-resync] failed after task claim error", resyncError);
+      });
+      finishTaskAction(actionId);
+      return;
+    }
+
+    setCoins(confirmedCoins);
+    coinsRef.current = confirmedCoins;
     setTasks((current) =>
       current.map((entry) =>
         entry.id === taskId
@@ -6139,47 +6145,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAvatarMistressReply(
       `Fine. ${rewardCoins} coins added. Spend them carefully.`,
     );
-
-    persistInBackground(
-      (async () => {
-        if (isGuestMode) {
-        const streakBonus = STREAK_BONUSES.find((bonus) => bonus.id === task.id);
-
-        await persistTaskClaim(task);
-        await persistProfileProgress(
-          { coins: nextCoins, affection },
-          streakBonus ? "streak_bonus" : `reward:task:${task.id}`,
-          streakBonus
-            ? {
-                milestone: streakBonus.milestone,
-                taskId: task.id,
-              }
-            : {},
-        );
-        } else {
-        const response = await fetch("/api/user/task-claim", {
-          body: JSON.stringify({ taskId: task.id }),
-          headers: { "Content-Type": "application/json" },
-          method: "POST",
-        });
-        const payload = (await response.json()) as {
-          error?: string;
-          profile?: Profile;
-          rewardCoins?: number;
-          task?: UserTaskRow;
-        };
-
-        if (!response.ok || !payload.profile) {
-          throw createApiError("/api/user/task-claim", response, payload);
-        }
-
-        rewardCoins = payload.rewardCoins ?? rewardCoins;
-        applyProfileStats(payload.profile);
-      }
-      })(),
-      "Failed to persist task reward",
-      { onFinally: () => finishTaskAction(actionId) },
-    );
+    finishTaskAction(actionId);
   };
 
   const handlePetTaskComplete = async (taskId: string) => {

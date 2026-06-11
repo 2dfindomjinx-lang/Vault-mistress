@@ -22,7 +22,21 @@ const MOVEMENT_STAGE_IMAGES = [
 ];
 const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.png";
 const MOVEMENT_STROKE_DISTANCE_PX = 80;
-const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.png";
+const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.png?v=2";
+const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function getNextGmt3MonthlyResetMs(now: number) {
+  if (now <= 0) {
+    return 0;
+  }
+
+  const shifted = new Date(now + GMT3_OFFSET_MS);
+  const nextResetUtc =
+    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, 1, 0, 0, 0) -
+    GMT3_OFFSET_MS;
+
+  return Math.max(0, nextResetUtc - now);
+}
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
   return kind === expected;
@@ -195,6 +209,7 @@ export function TaskList({
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
   );
+  const monthlyResetRemaining = getNextGmt3MonthlyResetMs(now);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
   const handleCooldownAttempt = (message: string) => {
     emitSoundEvent("button_click");
@@ -315,9 +330,14 @@ export function TaskList({
 
   const formatRemaining = (milliseconds: number) => {
     const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    }
 
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
@@ -544,6 +564,9 @@ export function TaskList({
             </div>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
               Sacrifice exactly 1 user level. A quarter of that level value becomes Global Principessa XP.
+            </p>
+            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+              Monthly reset in {formatRemaining(monthlyResetRemaining)}
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-black/35 p-3">

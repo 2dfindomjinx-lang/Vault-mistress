@@ -98,6 +98,21 @@ export async function POST(request: Request) {
     return jsonError("Finish your assigned task first. The wheel is locked until admin review.", 409);
   }
 
+  const { count: assignedTaskCount, error: assignedTaskCountError } = await supabase
+    .from("user_irl_tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "assigned");
+
+  if (assignedTaskCountError) {
+    console.error("[irl-task-wheel] assigned task count lookup failed", {
+      code: assignedTaskCountError.code,
+      message: assignedTaskCountError.message,
+      userId: authData.user.id,
+    });
+  }
+
+  const shouldSendMobilePush = !assignedTaskCountError && (assignedTaskCount ?? 0) === 0;
+
   const durationMinutes = getRandomIrlTaskDurationMinutes();
   const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
   const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
@@ -222,14 +237,16 @@ export async function POST(request: Request) {
     return jsonError("IRL wheel coin logging failed.", 500);
   }
 
-  sendAdminMobilePush({
-    title: "New IRL task",
-    body: `${assignedTask.title} is waiting for approval.`,
-    type: "irl_task",
-    important: true,
-  }).catch((pushError) => {
-    console.error("[irl-task-wheel] admin mobile push failed", pushError);
-  });
+  if (shouldSendMobilePush) {
+    sendAdminMobilePush({
+      title: "New IRL task",
+      body: `${assignedTask.title} is waiting for approval.`,
+      type: "irl_task",
+      important: true,
+    }).catch((pushError) => {
+      console.error("[irl-task-wheel] admin mobile push failed", pushError);
+    });
+  }
 
   return Response.json({
     assignment,

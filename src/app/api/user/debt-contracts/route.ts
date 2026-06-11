@@ -232,6 +232,17 @@ export async function POST(request: Request) {
 
     const profile = profileData as ProfileRow;
     const collectedAt = new Date().toISOString();
+
+    if (body.action === "autoCollect" && Boolean(body.autoPayEnabled) && profile.coins < plan.amount) {
+      return Response.json({
+        autoPaySkipped: true,
+        contract,
+        plan,
+        profile,
+        reason: "insufficient_coins",
+      });
+    }
+
     const nextCoins = profile.coins - plan.amount;
     const nextTributeTotal = (profile.tribute_total ?? 0) + plan.amount;
 

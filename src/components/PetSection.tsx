@@ -277,6 +277,19 @@ function formatRemaining(target: string | null, now: number) {
   return `${minutes}m`;
 }
 
+function getNextGmt3DailyReset(now: number) {
+  if (now <= 0) {
+    return null;
+  }
+
+  const shifted = new Date(now + 3 * 60 * 60 * 1000);
+  const nextResetUtc =
+    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate() + 1, 0, 0, 0) -
+    3 * 60 * 60 * 1000;
+
+  return new Date(nextResetUtc).toISOString();
+}
+
 function getNextRightPrice(dailyPurchaseCount: number) {
   return DAILY_RIGHT_PRICES[dailyPurchaseCount] ?? null;
 }
@@ -612,6 +625,7 @@ export function PetSection({
   const onFalseHopeKeyRef = useRef(onFalseHopeKey);
   const previousFalseHopeStageRef = useRef<number | null>(null);
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
+  const nextDailyResetAt = getNextGmt3DailyReset(now);
   const handleCooldownAttempt = (message: string) => {
     onCooldownAttempt?.(message);
   };
@@ -1694,8 +1708,8 @@ export function PetSection({
                   )}
 
                   {task.kind === "favor-roulette" && (
-                    <div className="mt-auto rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                      <div className="grid grid-cols-5 gap-2">
+                    <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                         {Array.from({ length: 5 }, (_, index) => {
                           const revealed = typeof task.favorPickedIndex === "number" && task.favorPickedIndex >= 0;
                           const picked = task.favorPickedIndex === index;
@@ -1708,7 +1722,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`min-h-16 rounded-xl border px-2 py-3 transition sm:min-h-24 sm:rounded-2xl ${
+                              className={`flex aspect-[4/5] min-h-[4.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:aspect-[5/4] sm:min-h-[5.5rem] sm:rounded-2xl ${
                                 picked && task.favorResult === "win"
                                   ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
                                   : picked
@@ -1733,6 +1747,9 @@ export function PetSection({
                               type="button"
                             >
                               <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
+                              <span aria-hidden="true" className="leading-tight text-pink-50/90">
+                                {!revealed ? "?" : winning ? "Favor" : "Empty"}
+                              </span>
                             </button>
                           );
                         })}
@@ -2226,6 +2243,9 @@ export function PetSection({
   		If at least 5 Pet tasks are approved,
   		claim +10 Pet Score.
 		</p>
+            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+              Daily reset in {formatRemaining(nextDailyResetAt, now)}
+            </p>
             <button
               className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!canClaimAffection || isPetActionPending("pet-affection-claim")}

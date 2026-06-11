@@ -677,9 +677,22 @@ create table if not exists public.global_principessa_xp_events (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.user_level_season_bonus_awards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  year integer not null,
+  month integer not null,
+  awarded_levels integer not null default 5,
+  previous_level integer not null,
+  new_level integer not null,
+  created_at timestamp with time zone not null default now(),
+  unique (user_id, year, month)
+);
+
 alter table public.global_principessa_progress enable row level security;
 alter table public.global_principessa_level_history enable row level security;
 alter table public.global_principessa_xp_events enable row level security;
+alter table public.user_level_season_bonus_awards enable row level security;
 
 drop policy if exists "Users can read global principessa progress" on public.global_principessa_progress;
 create policy "Users can read global principessa progress"
@@ -698,6 +711,12 @@ create policy "Users can read global principessa events"
   on public.global_principessa_xp_events for select
   to authenticated
   using (true);
+
+drop policy if exists "Users can read own level season bonus awards" on public.user_level_season_bonus_awards;
+create policy "Users can read own level season bonus awards"
+  on public.user_level_season_bonus_awards for select
+  to authenticated
+  using (auth.uid() = user_id);
 
 create or replace function public.current_gmt3_month()
 returns table(month integer, year integer)
@@ -718,6 +737,73 @@ as $$
     when coalesce(current_level, 1) >= 100 then null
     else 10000 + (greatest(1, coalesce(current_level, 1)) - 1) * 2000
   end;
+$$;
+
+create or replace function public.apply_user_level_season_bonus(p_year integer, p_month integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  awarded_count integer := 0;
+begin
+  if p_year is null or p_month is null or p_month < 1 or p_month > 12 then
+    raise exception 'Invalid season bonus period.';
+  end if;
+
+  with eligible as (
+    select
+      profiles.id,
+      least(100, greatest(1, coalesce(profiles.user_level, public.calculate_user_level(coalesce(profiles.user_xp, 0))))) as previous_level,
+      least(100, greatest(1, coalesce(profiles.user_level, public.calculate_user_level(coalesce(profiles.user_xp, 0)))) + 5) as new_level
+    from public.profiles
+    where not exists (
+      select 1
+      from public.user_level_season_bonus_awards awards
+      where awards.user_id = profiles.id
+        and awards.year = p_year
+        and awards.month = p_month
+    )
+  ),
+  inserted as (
+    insert into public.user_level_season_bonus_awards (
+      user_id,
+      year,
+      month,
+      awarded_levels,
+      previous_level,
+      new_level
+    )
+    select
+      id,
+      p_year,
+      p_month,
+      new_level - previous_level,
+      previous_level,
+      new_level
+    from eligible
+    on conflict (user_id, year, month) do nothing
+    returning user_id, new_level
+  ),
+  updated as (
+    update public.profiles profile
+    set
+      user_level = inserted.new_level,
+      user_xp = greatest(coalesce(profile.user_xp, 0), public.user_level_floor_xp(inserted.new_level)),
+      updated_at = now()
+    from inserted
+    where profile.id = inserted.user_id
+    returning profile.id
+  )
+  select count(*) into awarded_count from updated;
+
+  return jsonb_build_object(
+    'year', p_year,
+    'month', p_month,
+    'awardedUsers', awarded_count
+  );
+end;
 $$;
 
 create or replace function public.ensure_global_principessa_current_month()
@@ -748,6 +834,8 @@ begin
     on conflict (year, month) do update
       set highest_level = greatest(public.global_principessa_level_history.highest_level, excluded.highest_level),
           finalized_at = now();
+
+    perform public.apply_user_level_season_bonus(row_data.year, row_data.month);
 
     update public.global_principessa_progress
     set month = current_month,

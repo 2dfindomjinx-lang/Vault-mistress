@@ -262,6 +262,36 @@ export async function POST(request: Request) {
     .single();
 
   if (profileUpdateError || !updatedProfile) {
+    if (existingTask) {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .upsert(
+          {
+            claimed_at: existingTask.claimed_at,
+            completed_at: existingTask.completed_at,
+            metadata: existingTask.metadata ?? {},
+            reward_coins: existingTask.reward_coins,
+            task_id: taskId,
+            user_id: authData.user.id,
+          },
+          { onConflict: "user_id,task_id" },
+        );
+
+      if (rollbackTaskError) {
+        console.error("Task claim rollback after profile failure failed", rollbackTaskError);
+      }
+    } else {
+      const { error: rollbackTaskError } = await supabase
+        .from("user_tasks")
+        .delete()
+        .eq("user_id", authData.user.id)
+        .eq("task_id", taskId);
+
+      if (rollbackTaskError) {
+        console.error("Task claim delete rollback after profile failure failed", rollbackTaskError);
+      }
+    }
+
     return jsonError(profileUpdateError?.message ?? "Profile update failed.", 500);
   }
 

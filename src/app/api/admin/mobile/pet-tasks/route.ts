@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const PET_TASK_COIN_REWARD = 50;
+const PET_TASK_COIN_REWARD = 500;
 
 async function listPetTasks(supabase: SupabaseClient) {
   const { data, error } = await supabase
@@ -72,26 +72,65 @@ export async function POST(request: Request) {
   const previousCoins = Number(profile.coins ?? 0);
   const nextCoins = previousCoins + PET_TASK_COIN_REWARD;
   const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + Number(task.reward_score ?? 0));
+  const profilePatch: {
+    coins: number;
+    pet_score: number;
+    updated_at: string;
+    last_pet_tax_at?: string;
+  } = { coins: nextCoins, pet_score: nextPetScore, updated_at: now };
+
+  if (task.task_id === "pet-weekly-throne-tax") {
+    profilePatch.last_pet_tax_at = now;
+  }
+
   const { error: profileUpdateError } = await admin.supabase
     .from("profiles")
-    .update({ coins: nextCoins, pet_score: nextPetScore, updated_at: now })
+    .update(profilePatch)
     .eq("id", profile.id);
   if (profileUpdateError) return Response.json({ error: profileUpdateError.message }, { status: 500 });
 
-  await admin.supabase.from("coin_transactions").insert({
+  const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
     user_id: profile.id,
     amount: PET_TASK_COIN_REWARD,
     reason: "pet_task_admin_approval",
     balance_before: previousCoins,
     balance_after: nextCoins,
     metadata: { taskId: task.task_id },
-  });
+  }).select("id").single();
 
-  const { error: taskUpdateError } = await admin.supabase
+  if (transactionError) {
+    console.error("Mobile admin pet task transaction insert failed", transactionError);
+    await admin.supabase
+      .from("profiles")
+      .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
+    return Response.json({ error: "Pet task approval logging failed." }, { status: 500 });
+  }
+
+  const { data: approvedTask, error: taskUpdateError } = await admin.supabase
     .from("user_pet_tasks")
     .update({ status: "approved", reviewed_at: now })
-    .eq("id", task.id);
-  if (taskUpdateError) return Response.json({ error: taskUpdateError.message }, { status: 500 });
+    .eq("id", task.id)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (taskUpdateError || !approvedTask) {
+    if (transaction?.id) {
+      await admin.supabase.from("coin_transactions").delete().eq("id", transaction.id);
+    }
+    await admin.supabase
+      .from("profiles")
+      .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
+    return Response.json(
+      { error: taskUpdateError?.message ?? "Pet task is no longer pending review." },
+      { status: taskUpdateError ? 500 : 409 },
+    );
+  }
 
   return Response.json({ message: "Pet task approved.", tasks: await listPetTasks(admin.supabase) });
 }

@@ -6,7 +6,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUsername } from "@/lib/admin-identity";
 
-const PET_TASK_COIN_REWARD = 50;
+const PET_TASK_COIN_REWARD = 500;
 
 async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();
@@ -208,10 +208,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Pet task approval logging failed." }, { status: 500 });
   }
 
-  const { error: taskUpdateError } = await supabase
+  const { data: approvedTask, error: taskUpdateError } = await supabase
     .from("user_pet_tasks")
     .update({ status: "approved", reviewed_at: now })
-    .eq("id", task.id);
+    .eq("id", task.id)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
 
   if (taskUpdateError) {
     console.error("Admin pet task approve failed", taskUpdateError);
@@ -242,6 +245,37 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ error: taskUpdateError.message }, { status: 500 });
+  }
+
+  if (!approvedTask) {
+    console.error("Admin pet task approve skipped because task was no longer pending", { taskId: task.id });
+    if (transaction?.id) {
+      const { error: txCleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .eq("id", transaction.id);
+
+      if (txCleanupError) {
+        console.error("Admin pet task transaction cleanup after duplicate failed", txCleanupError);
+      }
+    }
+
+    const { error: rollbackProfileError } = await supabase
+      .from("profiles")
+      .update({
+        coins: previousCoins,
+        pet_score: Number(profile.pet_score ?? 0),
+        updated_at: now,
+      })
+      .eq("id", profile.id)
+      .eq("coins", nextCoins)
+      .eq("pet_score", nextPetScore);
+
+    if (rollbackProfileError) {
+      console.error("Admin pet task profile rollback after duplicate failed", rollbackProfileError);
+    }
+
+    return Response.json({ error: "Pet task is no longer pending review." }, { status: 409 });
   }
 
   return Response.json({
