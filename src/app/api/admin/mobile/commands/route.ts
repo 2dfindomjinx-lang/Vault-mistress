@@ -31,13 +31,14 @@ export async function POST(request: Request) {
   const command = body?.command?.trim() ?? "";
   const giveMatch = command.match(/^\/give\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const addMatch = command.match(/^\/add\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
+  const drainMatch = command.match(/^\/drain\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
   const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)$/);
 
-  if (!giveMatch && !addMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch) {
+  if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch) {
     return Response.json(
-      { error: "Use /give 500 @username, /add 500 @username, /timeout @username 30, /timeout remove @username, or /title @username" },
+      { error: "Use /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, or /title @username" },
       { status: 400 },
     );
   }
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
   const username = (
     giveMatch?.[2] ??
     addMatch?.[2] ??
+    drainMatch?.[2] ??
     timeoutMatch?.[1] ??
     timeoutRemoveMatch?.[1] ??
     titleMatch?.[1] ??
@@ -93,10 +95,11 @@ export async function POST(request: Request) {
     return Response.json({ message: `Granted Principessa's Chosen title to ${profile.username}.` });
   }
 
-  const amount = Number(giveMatch?.[1] ?? addMatch?.[1]);
+  const amount = Number(giveMatch?.[1] ?? addMatch?.[1] ?? drainMatch?.[1]);
   const previousCoins = Number(profile.coins ?? 0);
-  const nextCoins = previousCoins + amount;
-  const reason = giveMatch ? "throne_tribute" : "admin_add";
+  const coinDelta = drainMatch ? -amount : amount;
+  const nextCoins = previousCoins + coinDelta;
+  const reason = giveMatch ? "throne_tribute" : drainMatch ? "admin_drain" : "admin_add";
   const giveBonusPercent = giveMatch ? getGiveBonusPercent(amount) : 0;
   const giveBonusAmount = Math.floor(amount * giveBonusPercent);
 
@@ -109,14 +112,15 @@ export async function POST(request: Request) {
   const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
     user_id: profile.id,
     admin_user_id: admin.adminUser.id,
-    amount,
+    amount: coinDelta,
     reason,
     balance_before: previousCoins,
     balance_after: nextCoins,
     metadata: {
-      command: giveMatch ? "give" : "add",
-      kind: giveMatch ? "manual_coin_purchase" : "admin_adjustment",
+      command: giveMatch ? "give" : drainMatch ? "drain" : "add",
+      kind: giveMatch ? "manual_coin_purchase" : drainMatch ? "coin_loss_request" : "admin_adjustment",
       source: giveMatch ? "throne" : "mobile_admin",
+      requestedAmount: amount,
       tributeTotalChanged: false,
     },
   }).select("id").single();
@@ -180,6 +184,8 @@ export async function POST(request: Request) {
             ? `${amount.toLocaleString()} + ${giveBonusAmount.toLocaleString()} bonus`
             : amount.toLocaleString()
         } coins to ${profile.username}.`
+      : drainMatch
+        ? `Drained ${amount.toLocaleString()} coins from ${profile.username}.`
       : `Added ${amount.toLocaleString()} coins to ${profile.username}.`,
     coins: finalCoins,
   });
