@@ -32,6 +32,10 @@ const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
   "I consent that Principessa may use these images and I accept the consequences.";
+const EVIL_DEBT_TIMEZONE_OPTIONS = Array.from({ length: 25 }, (_, index) => {
+  const offset = index - 12;
+  return `UTC${offset >= 0 ? "+" : ""}${offset}`;
+});
 const DEBT_RANDOM_AMOUNT_LIMITS = {
   monthly: { max: 200000, min: 50000 },
   weekly: { max: 30000, min: 10000 },
@@ -642,7 +646,7 @@ export function PetSection({
   const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
   const [debtMode, setDebtMode] = useState<"normal" | "evil">("normal");
   const [evilFullName, setEvilFullName] = useState("");
-  const [evilTimezone, setEvilTimezone] = useState("");
+  const [evilTimezone, setEvilTimezone] = useState("UTC+3");
   const [evilCustomNote, setEvilCustomNote] = useState("");
   const [evilConsentPrimary, setEvilConsentPrimary] = useState("");
   const [evilConsentSecondary, setEvilConsentSecondary] = useState("");
@@ -2419,12 +2423,17 @@ export function PetSection({
                           placeholder="Full name"
                           value={evilFullName}
                         />
-                        <input
+                        <select
                           className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
                           onChange={(event) => setEvilTimezone(event.target.value)}
-                          placeholder="Timezone"
                           value={evilTimezone}
-                        />
+                        >
+                          {EVIL_DEBT_TIMEZONE_OPTIONS.map((timezone) => (
+                            <option key={timezone} value={timezone}>
+                              {timezone}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <textarea
                         className="min-h-24 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"

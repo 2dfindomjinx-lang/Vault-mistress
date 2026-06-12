@@ -462,6 +462,12 @@ const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
   "I consent that Principessa may use these images and I accept the consequences.";
+const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
+  Array.from({ length: 25 }, (_, index) => {
+    const offset = index - 12;
+    return `UTC${offset >= 0 ? "+" : ""}${offset}`;
+  }),
+);
 
 const petGalleryItems: PetGalleryItem[] = Array.from({ length: 30 }, (_, index) => ({
   id: `pet-gallery-${index + 1}`,
@@ -6678,6 +6684,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (contractType === "evil") {
       if (!fullName?.trim() || !timezone?.trim()) {
         setAvatarMistressReply("Evil Debt Contract requires full name and timezone.");
+        return false;
+      }
+
+      if (!EVIL_DEBT_TIMEZONE_OPTIONS.has(timezone.trim())) {
+        setAvatarMistressReply("Timezone must be selected from UTC-12 to UTC+12.");
         return false;
       }
 

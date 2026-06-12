@@ -12,6 +12,12 @@ const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
   "I consent that Principessa may use these images and I accept the consequences.";
+const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
+  Array.from({ length: 25 }, (_, index) => {
+    const offset = index - 12;
+    return `UTC${offset >= 0 ? "+" : ""}${offset}`;
+  }),
+);
 
 type ContractRow = {
   debt_amount: number;
@@ -170,8 +176,8 @@ export async function POST(request: Request) {
         return jsonError("Custom note must be 240 characters or fewer.", 422);
       }
 
-      if (cleanTimezone.length < 2) {
-        return jsonError("Timezone is required for Evil Debt Contract.");
+      if (!EVIL_DEBT_TIMEZONE_OPTIONS.has(cleanTimezone)) {
+        return jsonError("Timezone must be selected from UTC-12 to UTC+12.");
       }
 
       if (
