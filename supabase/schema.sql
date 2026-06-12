@@ -21,6 +21,7 @@ create table if not exists public.profiles (
   last_loyalty_at timestamp with time zone,
   last_login_at timestamp with time zone,
   timeout_until timestamp with time zone,
+  timeout_reason text,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
@@ -42,6 +43,7 @@ alter table public.profiles
   add column if not exists last_loyalty_at timestamp with time zone,
   add column if not exists last_login_at timestamp with time zone,
   add column if not exists timeout_until timestamp with time zone,
+  add column if not exists timeout_reason text,
   add column if not exists updated_at timestamp with time zone not null default now();
 
 create table if not exists public.x_rebrand_tokens (
@@ -190,6 +192,7 @@ create table if not exists public.pet_debt_contracts (
   started_at timestamp with time zone not null default now(),
   next_due_at timestamp with time zone not null,
   ends_at timestamp with time zone not null,
+  declared_age integer,
   full_name text,
   timezone text,
   custom_note text,
@@ -258,6 +261,7 @@ alter table public.pet_debt_contracts
   add column if not exists missed_periods integer not null default 0,
   add column if not exists random_generated boolean not null default false,
   add column if not exists contract_type text not null default 'normal',
+  add column if not exists declared_age integer,
   add column if not exists full_name text,
   add column if not exists timezone text,
   add column if not exists custom_note text,

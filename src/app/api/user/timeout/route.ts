@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   const { data: updatedProfile, error } = await supabase
     .from("profiles")
     .update({
+      timeout_reason: null,
       timeout_until: body.timeoutUntil,
       updated_at: new Date().toISOString(),
     })

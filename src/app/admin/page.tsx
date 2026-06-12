@@ -29,6 +29,7 @@ type TimedOutUser = {
   id: string;
   username: string;
   timeout_until: string;
+  timeout_reason?: string | null;
   shame_count: number | null;
 };
 
@@ -69,6 +70,7 @@ type AdminDebtContract = {
   started_at: string;
   next_due_at: string;
   ends_at: string;
+  declared_age?: number | null;
   full_name?: string | null;
   timezone?: string | null;
   custom_note?: string | null;
@@ -970,6 +972,11 @@ export default function AdminPage() {
                           <p className="mt-1 text-xs text-zinc-400">
                             Until {new Date(user.timeout_until).toLocaleString()} - fail {user.shame_count ?? 0}
                           </p>
+                          {user.timeout_reason === "evil_debt_underage" && (
+                            <p className="mt-2 inline-flex rounded-full border border-red-200/25 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-red-50">
+                              Evil Debt safety timeout
+                            </p>
+                          )}
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <button
@@ -1145,6 +1152,7 @@ export default function AdminPage() {
                             <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
                               <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
                                 <span>Full name: {contract.full_name ?? "-"}</span>
+                                <span>Age: {contract.declared_age ?? "-"}</span>
                                 <span>Username: {contract.username}</span>
                                 <span>User id: {contract.user_id}</span>
                                 <span>Timezone: {contract.timezone ?? "-"}</span>

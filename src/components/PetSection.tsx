@@ -575,6 +575,7 @@ export function PetSection({
   onPayDebtPeriod: () => void;
   onBuyRight: () => void;
   onSignDebtContract: (form: {
+    age?: number | string;
     consentPrimary?: boolean;
     consentPrimaryText?: string;
     consentSecondary?: boolean;
@@ -645,6 +646,7 @@ export function PetSection({
   const [debtDuration, setDebtDuration] = useState("");
   const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
   const [debtMode, setDebtMode] = useState<"normal" | "evil">("normal");
+  const [evilAge, setEvilAge] = useState("");
   const [evilFullName, setEvilFullName] = useState("");
   const [evilTimezone, setEvilTimezone] = useState("UTC+3");
   const [evilCustomNote, setEvilCustomNote] = useState("");
@@ -1007,6 +1009,7 @@ export function PetSection({
   }
 
   async function signDebtContract(form: {
+    age?: number | string;
     consentPrimary?: boolean;
     consentPrimaryText?: string;
     consentSecondary?: boolean;
@@ -1072,6 +1075,7 @@ export function PetSection({
     }
 
     await signDebtContract({
+      age: evilAge,
       consentPrimary: evilConsentPrimary.trim() === EVIL_CONSENT_PRIMARY_TEXT,
       consentPrimaryText: evilConsentPrimary.trim(),
       consentSecondary: evilConsentSecondary.trim() === EVIL_CONSENT_SECONDARY_TEXT,
@@ -2422,6 +2426,14 @@ export function PetSection({
                           onChange={(event) => setEvilFullName(event.target.value)}
                           placeholder="Full name"
                           value={evilFullName}
+                        />
+                        <input
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          inputMode="numeric"
+                          onChange={(event) => setEvilAge(event.target.value)}
+                          placeholder="Age"
+                          type="number"
+                          value={evilAge}
                         />
                         <select
                           className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"

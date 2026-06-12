@@ -2,7 +2,9 @@ import {
   EVENT_TEMPLATES,
   FIRST_DAY_EVENT_TEMPLATE,
   getEventDayKey,
+  getEventCategory,
   getUtcDayBounds,
+  isEventCompatibleWithActiveEvents,
   resolveEventEffect,
   type EventEffect,
   type EventTemplate,
@@ -88,16 +90,13 @@ export async function GET() {
     .lte("starts_at", now)
     .gt("ends_at", now)
     .order("starts_at", { ascending: false })
-    .limit(1);
 
   if (activeError) {
     console.error("Active event lookup failed", activeError);
     return Response.json({ event: null });
   }
 
-  if (activeEvents && activeEvents.length > 0) {
-    return Response.json({ event: toRandomEvent(activeEvents[0] as EventRow) });
-  }
+  const currentActiveEvents = (activeEvents ?? []).map((event) => toRandomEvent(event as EventRow));
 
   const dayKey = getEventDayKey();
   const automaticKey = `auto-${dayKey}`;
@@ -116,17 +115,23 @@ export async function GET() {
   }
 
   if (existingAutoEvent) {
-    return Response.json({ event: null });
+    return Response.json({
+      event: currentActiveEvents[0] ?? null,
+      events: currentActiveEvents,
+    });
   }
 
   if ((totalEventCount ?? 0) === 0) {
-    const event = await createAutomaticEvent(
-      supabase,
-      FIRST_DAY_EVENT_TEMPLATE,
-      automaticKey,
-    );
+    const event = isEventCompatibleWithActiveEvents(FIRST_DAY_EVENT_TEMPLATE.effect, currentActiveEvents)
+      ? await createAutomaticEvent(
+          supabase,
+          FIRST_DAY_EVENT_TEMPLATE,
+          automaticKey,
+        )
+      : null;
 
-    return Response.json({ event });
+    const nextEvents = event ? [event, ...currentActiveEvents] : currentActiveEvents;
+    return Response.json({ event: nextEvents[0] ?? null, events: nextEvents });
   }
 
   if (Math.random() > 0.2) {
@@ -144,11 +149,22 @@ export async function GET() {
       console.error("No-event marker insert failed", error);
     }
 
-    return Response.json({ event: null });
+    return Response.json({
+      event: currentActiveEvents[0] ?? null,
+      events: currentActiveEvents,
+    });
   }
 
-  const template = EVENT_TEMPLATES[Math.floor(Math.random() * EVENT_TEMPLATES.length)];
-  const event = await createAutomaticEvent(supabase, template, automaticKey);
+  const compatibleTemplates = EVENT_TEMPLATES.filter((template) =>
+    isEventCompatibleWithActiveEvents(template.effect, currentActiveEvents),
+  );
+  const nonEconomyTemplates = compatibleTemplates.filter(
+    (template) => getEventCategory(template.effect) !== "economy",
+  );
+  const templatePool = compatibleTemplates.length > 0 ? compatibleTemplates : nonEconomyTemplates;
+  const template = templatePool[Math.floor(Math.random() * templatePool.length)];
+  const event = template ? await createAutomaticEvent(supabase, template, automaticKey) : null;
+  const nextEvents = event ? [event, ...currentActiveEvents] : currentActiveEvents;
 
-  return Response.json({ event });
+  return Response.json({ event: nextEvents[0] ?? null, events: nextEvents });
 }

@@ -259,7 +259,7 @@ type UserPetTaskRow = {
 };
 
 const profileSelect =
-  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, email, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -1165,6 +1165,15 @@ function normalizeWritingComparisonText(value: string) {
     .trim();
 }
 
+function formatLongTimeoutDuration(milliseconds: number) {
+  const totalDays = Math.max(0, Math.ceil(milliseconds / DAY_MS));
+  const years = Math.floor(totalDays / 365);
+  const months = Math.floor((totalDays % 365) / 30);
+  const days = (totalDays % 365) % 30;
+
+  return `${years} years ${months} months ${days} days`;
+}
+
 function writingStartsWith(sentence: string, value: string) {
   return normalizeWritingComparisonText(sentence).startsWith(
     normalizeWritingComparisonText(value),
@@ -1790,6 +1799,7 @@ export default function Home() {
   const [petAffectionClaimDate, setPetAffectionClaimDate] = useState<string | null>(null);
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
   const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
+  const [timeoutReason, setTimeoutReason] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const petAffectionClaimed = petAffectionClaimDate === getDailyKey(currentTime);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
@@ -1803,7 +1813,7 @@ export default function Home() {
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
   const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
   const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
-  const [activeEvent, setActiveEvent] = useState<RandomEvent | null>(null);
+  const [activeEvents, setActiveEvents] = useState<RandomEvent[]>([]);
   const [freeFridaySpinAvailable, setFreeFridaySpinAvailable] = useState(false);
   const [temporarySpeechAvatar, setTemporarySpeechAvatar] =
     useState<TemporarySpeechAvatarState | null>(null);
@@ -1853,6 +1863,7 @@ export default function Home() {
   const updateLoyaltyForProfileRef = useRef<((profile: Profile) => Promise<Profile>) | null>(null);
   const authReplyRef = useRef<((message: string) => void) | null>(null);
   const timeoutUntilRef = useRef<string | null>(null);
+  const timeoutReasonRef = useRef<string | null>(null);
   const falseHopePersistQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingTaskActionsRef = useRef(new Set<string>());
   const pendingPetActionsRef = useRef(new Set<string>());
@@ -1868,24 +1879,26 @@ export default function Home() {
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
+  const speechAvatarEvent =
+    activeEvents.find((event) => event.effect.type === "speech_avatar_override") ?? null;
   const eventSpeechAvatarId =
-    activeEvent?.effect.type === "speech_avatar_override"
-      ? activeEvent.effect.speechAvatarId ?? null
+    speechAvatarEvent?.effect.type === "speech_avatar_override"
+      ? speechAvatarEvent.effect.speechAvatarId ?? null
       : null;
   const persistedSpeechAvatarId =
     equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID;
   const activeManualTemporarySpeechAvatar =
-    activeEvent &&
+    speechAvatarEvent &&
     eventSpeechAvatarId &&
-    temporarySpeechAvatar?.eventId === activeEvent.id &&
+    temporarySpeechAvatar?.eventId === speechAvatarEvent.id &&
     temporarySpeechAvatar.avatarId === eventSpeechAvatarId
       ? temporarySpeechAvatar
       : null;
   const autoEventSpeechAvatarId =
-    activeEvent &&
+    speechAvatarEvent &&
     eventSpeechAvatarId &&
     persistedSpeechAvatarId === DEFAULT_SPEECH_AVATAR_ID &&
-    dismissedSpeechAvatarEventId !== activeEvent.id
+    dismissedSpeechAvatarEventId !== speechAvatarEvent.id
       ? eventSpeechAvatarId
       : null;
   const displayedSpeechAvatarId =
@@ -2042,8 +2055,8 @@ export default function Home() {
   );
   const getEventMultiplier = useCallback(
     (type: RandomEvent["effect"]["type"], fallback = 1) =>
-      activeEvent?.effect.type === type ? activeEvent.effect.multiplier : fallback,
-    [activeEvent],
+      activeEvents.find((event) => event.effect.type === type)?.effect.multiplier ?? fallback,
+    [activeEvents],
   );
   const getEventTaskReward = useCallback(
     (baseReward: number) =>
@@ -2149,6 +2162,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [authUserId, isGuestMode, ownedTitleIds, petScore]);
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
+  const isUnderageTimeoutActive =
+    isTimeoutActive &&
+    (timeoutReason === "evil_debt_underage" || timeoutRemaining >= 9 * 365 * DAY_MS);
   const showAccountAnnouncement =
     currentTime < new Date(ACCOUNT_ANNOUNCEMENT_EXPIRES_AT).getTime();
   const isFreeFridayActive = isFreeTaskFriday(currentTime);
@@ -2160,7 +2176,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
     : 0;
   const timeoutMessage =
-    "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
+    isUnderageTimeoutActive
+      ? "This account is under a special Evil Debt Contract safety timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof."
+      : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
   const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
   const isPetUnlocked = affection >= 100 || (petEverUnlocked && affection >= 85);
   const nextPetTaxDueAt = petUnlockedAt
@@ -2245,6 +2263,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   useEffect(() => {
     timeoutUntilRef.current = timeoutUntil;
   }, [timeoutUntil]);
+
+  useEffect(() => {
+    timeoutReasonRef.current = timeoutReason;
+  }, [timeoutReason]);
 
   useEffect(() => {
     petTaskStateRef.current = petTaskState;
@@ -2370,17 +2392,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const loadActiveEvent = async () => {
       try {
         const response = await fetch("/api/events/active", { cache: "no-store" });
-        const payload = (await response.json()) as { event?: RandomEvent | null };
+        const payload = (await response.json()) as {
+          event?: RandomEvent | null;
+          events?: RandomEvent[];
+        };
 
         if (!response.ok) {
           throw new Error("Active event could not be loaded.");
         }
 
-        setActiveEvent(payload.event ?? null);
-        if (payload.event) {
+        const nextEvents = payload.events ?? (payload.event ? [payload.event] : []);
+        setActiveEvents(nextEvents);
+        for (const event of nextEvents) {
           emitSoundEvent("random_event_activation");
-          if (payload.event.effect.type === "speech_avatar_override") {
-            const avatarName = getReadableSpeechAvatarName(payload.event.effect.speechAvatarId);
+          if (event.effect.type === "speech_avatar_override") {
+            const avatarName = getReadableSpeechAvatarName(event.effect.speechAvatarId);
             setAvatarMistressReply(
               `Random Speech Bubble event triggered: ${avatarName} was selected.`,
             );
@@ -2433,15 +2459,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [authUserId, isGuestMode]);
 
   useEffect(() => {
-    if (!activeEvent) {
+    if (activeEvents.length === 0) {
       return;
     }
 
-    const remaining = Math.max(0, new Date(activeEvent.ends_at).getTime() - new Date().getTime());
-    const timer = window.setTimeout(() => setActiveEvent(null), remaining);
+    const eventEndTimes = activeEvents
+      .map((event) => new Date(event.ends_at).getTime())
+      .filter(Number.isFinite);
+
+    if (eventEndTimes.length === 0) {
+      return;
+    }
+
+    const nextEndAt = Math.min(...eventEndTimes);
+    const remaining = Math.max(0, nextEndAt - new Date().getTime());
+    const timer = window.setTimeout(
+      () =>
+        setActiveEvents((events) =>
+          events.filter((event) => new Date(event.ends_at).getTime() > Date.now()),
+        ),
+      remaining,
+    );
 
     return () => window.clearTimeout(timer);
-  }, [activeEvent]);
+  }, [activeEvents]);
 
   const handleBubbleFullyHidden = useCallback((hiddenMessage: string, hiddenMessageId: number) => {
     if (hiddenMessageId !== bubbleMessageIdRef.current) {
@@ -3113,7 +3154,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     timeoutUntilRef.current = profile.timeout_until ?? null;
+    timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
+    setTimeoutReason(profile.timeout_reason ?? null);
     setIsLoggedIn(true);
     setIsAdminUser(isTrustedAdminUsername(profile.username));
   }, []);
@@ -5579,7 +5622,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLoyaltyStreak(0);
     setLastLoyaltyAt(null);
     setTimeoutUntil(null);
+    setTimeoutReason(null);
     timeoutUntilRef.current = null;
+    timeoutReasonRef.current = null;
     setUnlockedGalleryIds([]);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -5956,17 +6001,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const hasTemporaryEventAccess =
       item.type === "speech-avatar" &&
       item.id === eventSpeechAvatarId &&
-      Boolean(activeEvent);
+      Boolean(speechAvatarEvent);
     const ownsCosmetic = ownedCosmeticIds.includes(item.id) || item.price <= 0;
 
     if (!ownsCosmetic && item.price > 0 && !hasTemporaryEventAccess) {
       return;
     }
 
-    if (hasTemporaryEventAccess && !ownsCosmetic && activeEvent) {
+    if (hasTemporaryEventAccess && !ownsCosmetic && speechAvatarEvent) {
       setTemporarySpeechAvatar({
         avatarId: item.id,
-        eventId: activeEvent.id,
+        eventId: speechAvatarEvent.id,
       });
       setDismissedSpeechAvatarEventId(null);
       setAvatarMistressReply(`${item.name} equipped for today's event.`);
@@ -5984,10 +6029,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     try {
-      if (item.type === "speech-avatar" && activeEvent) {
+      if (item.type === "speech-avatar" && speechAvatarEvent) {
         setTemporarySpeechAvatar(null);
         if (item.id !== eventSpeechAvatarId) {
-          setDismissedSpeechAvatarEventId(activeEvent.id);
+          setDismissedSpeechAvatarEventId(speechAvatarEvent.id);
         }
       }
 
@@ -6629,6 +6674,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     contractType = "normal",
     debtAmount,
     durationPeriods,
+    age,
     fullName,
     customNote,
     imageUrls,
@@ -6644,6 +6690,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
+    age?: number | string;
     fullName?: string;
     customNote?: string;
     imageUrls?: string[];
@@ -6671,6 +6718,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       min: contractType === "evil" ? Math.ceil(baseDurationLimit.min * 2.5) : baseDurationLimit.min,
     };
     const cleanCustomNote = String(customNote ?? "").trim();
+    const cleanAge = Math.floor(Number(age));
 
     if (petDebtContract && ["active", "pending"].includes(petDebtContract.status)) {
       return false;
@@ -6682,8 +6730,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     if (contractType === "evil") {
-      if (!fullName?.trim() || !timezone?.trim()) {
-        setAvatarMistressReply("Evil Debt Contract requires full name and timezone.");
+      if (!fullName?.trim() || !timezone?.trim() || !Number.isInteger(cleanAge) || cleanAge < 1) {
+        setAvatarMistressReply("Evil Debt Contract requires full name, age, and timezone.");
         return false;
       }
 
@@ -6750,6 +6798,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           contractType,
           debtAmount: cleanAmount,
           durationPeriods: cleanDuration,
+          age: cleanAge,
           fullName: fullName?.trim(),
           customNote: cleanCustomNote,
           imageUrls,
@@ -6764,7 +6813,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
       } catch (error) {
         console.error("Failed to create debt contract", error);
+        const maybeTimeoutUntil = (error as { payload?: { timeoutUntil?: unknown } })?.payload?.timeoutUntil;
+
+        if (typeof maybeTimeoutUntil === "string") {
+          timeoutUntilRef.current = maybeTimeoutUntil;
+          timeoutReasonRef.current = "evil_debt_underage";
+          setTimeoutUntil(maybeTimeoutUntil);
+          setTimeoutReason("evil_debt_underage");
+        }
+
         setAuthError(describeError(error));
+        setAvatarMistressReply(describeError(error));
         return false;
       }
     }
@@ -7925,33 +7984,40 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </div>
         </section>
 
-        {activeEvent && (
+        {activeEvents.length > 0 && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-100">
-                  Active Vault Event
-                </p>
-                <h2 className="mt-1 text-2xl font-black text-white">{activeEvent.name}</h2>
-                <p className="mt-1 text-sm leading-6 text-yellow-50/80">
-                  {activeEvent.description}
-                  {activeEvent.effect.type === "speech_avatar_override" && (
-                    <>
-                      {" "}
-                      Selected speech bubble:{" "}
-                      {getReadableSpeechAvatarName(activeEvent.effect.speechAvatarId)}.
-                    </>
-                  )}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-yellow-100/70">
-                  Ends In
-                </p>
-                <p className="mt-1 text-2xl font-black text-yellow-50">
-                  {formatEventCountdown(currentTime > 0 ? new Date(activeEvent.ends_at).getTime() - currentTime : 0)}
-                </p>
-              </div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-100">
+              Active Vault Events
+            </p>
+            <div className="mt-3 grid gap-3">
+              {activeEvents.map((event) => (
+                <div
+                  className="flex flex-col gap-3 rounded-2xl border border-yellow-100/15 bg-black/25 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  key={event.id}
+                >
+                  <div>
+                    <h2 className="text-xl font-black text-white">{event.name}</h2>
+                    <p className="mt-1 text-sm leading-6 text-yellow-50/80">
+                      {event.description}
+                      {event.effect.type === "speech_avatar_override" && (
+                        <>
+                          {" "}
+                          Selected speech bubble:{" "}
+                          {getReadableSpeechAvatarName(event.effect.speechAvatarId)}.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">
+                    <p className="text-xs uppercase tracking-[0.2em] text-yellow-100/70">
+                      Ends In
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-yellow-50">
+                      {formatEventCountdown(currentTime > 0 ? new Date(event.ends_at).getTime() - currentTime : 0)}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -7969,22 +8035,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         )}
 
         {isTimeoutActive && (
-          <section className="rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(250,204,21,0.14)]">
+          <section
+            className={`rounded-[1.5rem] border px-4 py-4 shadow-[0_0_34px_rgba(250,204,21,0.14)] ${
+              isUnderageTimeoutActive
+                ? "border-red-200/45 bg-[linear-gradient(135deg,rgba(127,29,29,0.45),rgba(236,72,153,0.13),rgba(0,0,0,0.72))]"
+                : "border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.1),rgba(0,0,0,0.55))]"
+            }`}
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-100">
-                  Timeout Active
+                <p
+                  className={`text-xs font-black uppercase tracking-[0.28em] ${
+                    isUnderageTimeoutActive ? "text-red-100" : "text-yellow-100"
+                  }`}
+                >
+                  {isUnderageTimeoutActive ? "Special Safety Timeout" : "Timeout Active"}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-yellow-50">
                   {timeoutMessage}
                 </p>
+                {isUnderageTimeoutActive && (
+                  <p className="mt-2 rounded-2xl border border-red-200/20 bg-black/35 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-red-50">
+                    This is a serious account restriction. Contact @VMPrincipessa only with proof.
+                  </p>
+                )}
               </div>
               <div className="rounded-2xl border border-yellow-100/25 bg-black/45 px-4 py-3 text-center">
                 <p className="text-xs uppercase tracking-[0.2em] text-yellow-100/70">
                   Time Remaining
                 </p>
                 <p className="mt-1 text-2xl font-black text-yellow-50">
-                  {formatDuration(timeoutRemaining)}
+                  {isUnderageTimeoutActive
+                    ? formatLongTimeoutDuration(timeoutRemaining)
+                    : formatDuration(timeoutRemaining)}
                 </p>
               </div>
             </div>

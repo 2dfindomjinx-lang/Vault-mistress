@@ -166,6 +166,7 @@ export type PetDebtContract = {
   started_at: string;
   next_due_at: string;
   ends_at: string;
+  declared_age?: number | null;
   full_name?: string | null;
   custom_note?: string | null;
   timezone?: string | null;

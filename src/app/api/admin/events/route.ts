@@ -1,5 +1,11 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
-import { getEventTemplate, getUtcDayBounds, resolveEventEffect, type EventEffect } from "@/lib/events";
+import {
+  getEventCategory,
+  getEventTemplate,
+  getUtcDayBounds,
+  resolveEventEffect,
+  type EventEffect,
+} from "@/lib/events";
 
 type AdminEventBody = {
   action?: "activate" | "create" | "end";
@@ -31,6 +37,61 @@ async function cleanupOldEventLogs(admin: Awaited<ReturnType<typeof requireAdmin
 
   if (error) {
     console.error("Admin event log cleanup failed", error);
+  }
+}
+
+async function getActiveEventRows(admin: Awaited<ReturnType<typeof requireAdminProfile>>) {
+  if ("error" in admin) {
+    return [];
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await admin.supabase
+    .from("random_events")
+    .select("id, effect")
+    .eq("active", true)
+    .lte("starts_at", now)
+    .gt("ends_at", now);
+
+  if (error) {
+    console.error("Admin active event compatibility lookup failed", error);
+    return [];
+  }
+
+  return (data ?? []) as Array<{ id: string; effect: EventEffect }>;
+}
+
+async function deactivateConflictingEvents(
+  admin: Awaited<ReturnType<typeof requireAdminProfile>>,
+  effect: EventEffect,
+  selfId?: string,
+) {
+  if ("error" in admin) {
+    return;
+  }
+
+  const category = getEventCategory(effect);
+  const activeRows = await getActiveEventRows(admin);
+  const conflictingIds = activeRows
+    .filter(
+      (event) =>
+        event.id !== selfId &&
+        (event.effect.type === effect.type ||
+          (category === "economy" && getEventCategory(event.effect) === "economy")),
+    )
+    .map((event) => event.id);
+
+  if (conflictingIds.length === 0) {
+    return;
+  }
+
+  const { error } = await admin.supabase
+    .from("random_events")
+    .update({ active: false, updated_at: new Date().toISOString() })
+    .in("id", conflictingIds);
+
+  if (error) {
+    console.error("Admin conflicting event deactivation failed", error);
   }
 }
 
@@ -93,10 +154,20 @@ export async function POST(request: Request) {
       return Response.json({ error: "eventId is required." }, { status: 400 });
     }
 
-    await admin.supabase
+    const { data: targetEvent, error: targetError } = await admin.supabase
       .from("random_events")
-      .update({ active: false, updated_at: now })
-      .eq("active", true);
+      .select("id, effect")
+      .eq("id", body.eventId)
+      .single();
+
+    if (targetError || !targetEvent) {
+      return Response.json(
+        { error: targetError?.message ?? "Event not found." },
+        { status: targetError ? 500 : 404 },
+      );
+    }
+
+    await deactivateConflictingEvents(admin, targetEvent.effect as EventEffect, targetEvent.id);
 
     const { data, error } = await admin.supabase
       .from("random_events")
@@ -127,17 +198,15 @@ export async function POST(request: Request) {
       );
     }
 
-    await admin.supabase
-      .from("random_events")
-      .update({ active: false, updated_at: now })
-      .eq("active", true);
+    const resolvedEffect = resolveEventEffect(effect);
+    await deactivateConflictingEvents(admin, resolvedEffect);
 
     const { data, error } = await admin.supabase
       .from("random_events")
       .insert({
         active: true,
         description,
-        effect: resolveEventEffect(effect),
+        effect: resolvedEffect,
         ends_at: body.endsAt ?? end.toISOString(),
         name,
         starts_at: body.startsAt ?? start.toISOString(),

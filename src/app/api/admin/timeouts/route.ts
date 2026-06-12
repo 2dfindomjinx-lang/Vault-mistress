@@ -49,7 +49,7 @@ async function listTimeouts(supabase: ReturnType<typeof createSupabaseAdminClien
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, timeout_until, shame_count")
+    .select("id, username, timeout_until, timeout_reason, shame_count")
     .gt("timeout_until", now)
     .order("timeout_until", { ascending: true });
 
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
       const { error } = await supabase
         .from("profiles")
-        .update({ timeout_until: null, updated_at: new Date().toISOString() })
+        .update({ timeout_reason: null, timeout_until: null, updated_at: new Date().toISOString() })
         .eq("id", body.userId);
 
       if (error) {
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       const timeoutUntil = new Date(Date.now() + durationMs).toISOString();
       const { error } = await supabase
         .from("profiles")
-        .update({ timeout_until: timeoutUntil, updated_at: new Date().toISOString() })
+        .update({ timeout_reason: null, timeout_until: timeoutUntil, updated_at: new Date().toISOString() })
         .eq("id", body.userId);
 
       if (error) {

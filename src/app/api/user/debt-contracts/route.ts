@@ -8,6 +8,9 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+const EVIL_DEBT_UNDERAGE_TIMEOUT_MS = 3650 * DAY_MS;
+const EVIL_DEBT_UNDERAGE_MESSAGE =
+  "This Evil Debt Contract submission triggered a special timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof.";
 const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
@@ -47,6 +50,7 @@ type Body =
       contractType?: "normal" | "evil";
       debtAmount?: number;
       durationPeriods?: number;
+      age?: number | string;
       fullName?: string;
       customNote?: string;
       imageUrls?: string[];
@@ -157,6 +161,7 @@ export async function POST(request: Request) {
     const cleanFullName = String(body.fullName ?? "").trim();
     const cleanCustomNote = String(body.customNote ?? "").trim();
     const cleanTimezone = String(body.timezone ?? "").trim();
+    const cleanAge = Math.floor(Number(body.age));
     const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter(isValidEvilDebtImage) : [];
 
     if (periodType !== "weekly" && periodType !== "monthly") {
@@ -170,6 +175,53 @@ export async function POST(request: Request) {
     if (contractType === "evil") {
       if (cleanFullName.length < 2) {
         return jsonError("Full name is required for Evil Debt Contract.");
+      }
+
+      if (!Number.isInteger(cleanAge) || cleanAge < 1 || cleanAge > 120) {
+        return jsonError("A valid age is required for Evil Debt Contract.", 422);
+      }
+
+      if (cleanAge < 18) {
+        const { data: profileTimeout, error: profileTimeoutError } = await supabase
+          .from("profiles")
+          .select("timeout_until")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (profileTimeoutError) {
+          console.error("Evil Debt underage timeout profile lookup failed", profileTimeoutError);
+          return jsonError("Evil Debt Contract safety check failed.", 500);
+        }
+
+        const existingTimeoutMs = new Date(String(profileTimeout?.timeout_until ?? 0)).getTime();
+        const timeoutUntil = new Date(
+          Math.max(
+            Date.now() + EVIL_DEBT_UNDERAGE_TIMEOUT_MS,
+            Number.isFinite(existingTimeoutMs) ? existingTimeoutMs : 0,
+          ),
+        ).toISOString();
+
+        const { error: timeoutError } = await supabase
+          .from("profiles")
+          .update({
+            timeout_reason: "evil_debt_underage",
+            timeout_until: timeoutUntil,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+
+        if (timeoutError) {
+          console.error("Evil Debt underage timeout update failed", timeoutError);
+          return jsonError("Evil Debt Contract safety timeout failed.", 500);
+        }
+
+        return Response.json(
+          {
+            error: EVIL_DEBT_UNDERAGE_MESSAGE,
+            timeoutUntil,
+          },
+          { status: 403 },
+        );
       }
 
       if (cleanCustomNote.length > 240) {
@@ -225,6 +277,7 @@ export async function POST(request: Request) {
         contract_type: contractType,
         consent_primary: contractType === "evil" ? true : false,
         consent_secondary: contractType === "evil" ? true : false,
+        declared_age: contractType === "evil" ? cleanAge : null,
         duration_periods: cleanDuration,
         ends_at: new Date(nowMs + periodMs * cleanDuration).toISOString(),
         full_name: contractType === "evil" ? cleanFullName : null,

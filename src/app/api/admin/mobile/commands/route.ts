@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const timeoutUntil = new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString();
     const { error } = await admin.supabase
       .from("profiles")
-      .update({ timeout_until: timeoutUntil, updated_at: new Date().toISOString() })
+      .update({ timeout_reason: null, timeout_until: timeoutUntil, updated_at: new Date().toISOString() })
       .eq("id", profile.id);
     if (error) return Response.json({ error: error.message }, { status: 500 });
     return Response.json({ message: `${profile.username} timed out for ${timeoutMinutes} minutes.` });
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   if (timeoutRemoveMatch) {
     const { error } = await admin.supabase
       .from("profiles")
-      .update({ timeout_until: null, updated_at: new Date().toISOString() })
+      .update({ timeout_reason: null, timeout_until: null, updated_at: new Date().toISOString() })
       .eq("id", profile.id);
     if (error) return Response.json({ error: error.message }, { status: 500 });
     return Response.json({ message: `${profile.username} timeout removed.` });

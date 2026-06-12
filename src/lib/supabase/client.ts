@@ -28,6 +28,7 @@ export type Profile = {
   last_loyalty_at: string | null;
   last_login_at?: string | null;
   timeout_until: string | null;
+  timeout_reason?: string | null;
   created_at?: string;
   updated_at?: string;
 };

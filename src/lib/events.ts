@@ -31,6 +31,51 @@ export type EventTemplate = {
   effect: EventEffect;
 };
 
+export type EventCategory = "economy" | "tribute" | "speech" | "utility";
+
+export function getEventCategory(effect: EventEffect): EventCategory {
+  if (effect.type === "tribute_affection_boost") {
+    return "tribute";
+  }
+
+  if (effect.type === "speech_avatar_override") {
+    return "speech";
+  }
+
+  if (
+    effect.type === "task_reward_multiplier" ||
+    effect.type === "high_low_bonus" ||
+    effect.type === "cooldown_reduction"
+  ) {
+    return "economy";
+  }
+
+  return "utility";
+}
+
+export function isEventCompatibleWithActiveEvents(
+  effect: EventEffect,
+  activeEvents: Array<{ effect: EventEffect; id?: string }>,
+  selfId?: string,
+) {
+  const category = getEventCategory(effect);
+  const hasSameEffectType = activeEvents.some(
+    (event) => event.id !== selfId && event.effect.type === effect.type,
+  );
+
+  if (hasSameEffectType) {
+    return false;
+  }
+
+  if (category !== "economy") {
+    return true;
+  }
+
+  return !activeEvents.some(
+    (event) => event.id !== selfId && getEventCategory(event.effect) === "economy",
+  );
+}
+
 export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     key: "task-reward-2x",
