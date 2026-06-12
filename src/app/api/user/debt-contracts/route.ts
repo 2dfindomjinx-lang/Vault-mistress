@@ -30,11 +30,18 @@ type ProfileRow = {
 type Body =
   | {
       action?: "sign";
+      consentPrimary?: boolean;
+      consentSecondary?: boolean;
+      contractType?: "normal" | "evil";
       debtAmount?: number;
       durationPeriods?: number;
+      fullName?: string;
+      customNote?: string;
+      imageUrls?: string[];
       periodType?: "weekly" | "monthly";
       petName?: string;
       randomGenerated?: boolean;
+      timezone?: string;
     }
   | {
       action?: "pay" | "autoCollect";
@@ -48,6 +55,14 @@ function jsonError(message: string, status = 400) {
 
 function getDebtPeriodMs(periodType: "weekly" | "monthly") {
   return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
+}
+
+function isValidEvilDebtImage(value: unknown) {
+  return (
+    typeof value === "string" &&
+    /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value) &&
+    value.length <= 1_500_000
+  );
 }
 
 function getDueDebtPaymentPlan(contract: ContractRow, autoPayEnabled: boolean) {
@@ -115,12 +130,22 @@ export async function POST(request: Request) {
 
   if (body?.action === "sign") {
     const periodType = body.periodType;
+    const contractType = body.contractType === "evil" ? "evil" : "normal";
     const cleanAmount = Math.floor(Number(body.debtAmount));
     const cleanDuration = Math.floor(Number(body.durationPeriods));
     const cleanPetName = String(body.petName ?? "").trim();
-    const minimum = periodType === "weekly" ? 10000 : 50000;
-    const amountStep = periodType === "weekly" ? 5000 : 10000;
-    const durationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };
+    const baseMinimum = periodType === "weekly" ? 10000 : 50000;
+    const minimum = contractType === "evil" ? Math.ceil(baseMinimum * 2.5) : baseMinimum;
+    const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
+    const baseDurationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };
+    const durationLimit = {
+      ...baseDurationLimit,
+      min: contractType === "evil" ? Math.ceil(baseDurationLimit.min * 2.5) : baseDurationLimit.min,
+    };
+    const cleanFullName = String(body.fullName ?? "").trim();
+    const cleanCustomNote = String(body.customNote ?? "").trim();
+    const cleanTimezone = String(body.timezone ?? "").trim();
+    const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter(isValidEvilDebtImage) : [];
 
     if (periodType !== "weekly" && periodType !== "monthly") {
       return jsonError("Invalid debt period type.");
@@ -128,6 +153,28 @@ export async function POST(request: Request) {
 
     if (cleanPetName.length < 2) {
       return jsonError("Invalid Pet name.");
+    }
+
+    if (contractType === "evil") {
+      if (cleanFullName.length < 2) {
+        return jsonError("Full name is required for Evil Debt Contract.");
+      }
+
+      if (cleanCustomNote.length > 240) {
+        return jsonError("Custom note must be 240 characters or fewer.", 422);
+      }
+
+      if (cleanTimezone.length < 2) {
+        return jsonError("Timezone is required for Evil Debt Contract.");
+      }
+
+      if (!body.consentPrimary || !body.consentSecondary) {
+        return jsonError("Both Evil Debt Contract consent confirmations are required.");
+      }
+
+      if (imageUrls.length < 1 || imageUrls.length > 8 || imageUrls.length !== (body.imageUrls?.length ?? 0)) {
+        return jsonError("Evil Debt Contract requires 1-8 valid image uploads.", 422);
+      }
     }
 
     if (!Number.isInteger(cleanAmount) || cleanAmount < minimum || cleanAmount % amountStep !== 0) {
@@ -160,13 +207,20 @@ export async function POST(request: Request) {
       .from("pet_debt_contracts")
       .insert({
         debt_amount: cleanAmount,
+        contract_type: contractType,
+        consent_primary: contractType === "evil" ? true : false,
+        consent_secondary: contractType === "evil" ? true : false,
         duration_periods: cleanDuration,
         ends_at: new Date(nowMs + periodMs * cleanDuration).toISOString(),
+        full_name: contractType === "evil" ? cleanFullName : null,
+        custom_note: contractType === "evil" ? cleanCustomNote : null,
+        image_urls: [],
         next_due_at: new Date(nowMs).toISOString(),
         period_type: periodType,
         pet_name: cleanPetName,
         random_generated: Boolean(body.randomGenerated),
         status: "active",
+        timezone: contractType === "evil" ? cleanTimezone : null,
         user_id: userId,
       })
       .select("*")
@@ -174,6 +228,22 @@ export async function POST(request: Request) {
 
     if (error || !data) {
       return jsonError(error?.message ?? "Debt contract creation failed.", 500);
+    }
+
+    if (contractType === "evil") {
+      const { error: imageInsertError } = await supabase.from("evil_debt_contract_images").insert(
+        imageUrls.map((imageUrl) => ({
+          contract_id: data.id,
+          image_url: imageUrl,
+          user_id: userId,
+        })),
+      );
+
+      if (imageInsertError) {
+        console.error("Evil Debt Contract image insert failed", imageInsertError);
+        await supabase.from("pet_debt_contracts").delete().eq("id", data.id).eq("user_id", userId);
+        return jsonError("Evil Debt Contract image save failed.", 500);
+      }
     }
 
     return Response.json({ contract: data });

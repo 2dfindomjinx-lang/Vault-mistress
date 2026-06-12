@@ -155,6 +155,7 @@ export type PetDebtContract = {
   id: string;
   user_id: string;
   pet_name: string;
+  contract_type?: "normal" | "evil";
   period_type: "weekly" | "monthly";
   debt_amount: number;
   duration_periods: number;
@@ -165,6 +166,12 @@ export type PetDebtContract = {
   started_at: string;
   next_due_at: string;
   ends_at: string;
+  full_name?: string | null;
+  custom_note?: string | null;
+  timezone?: string | null;
+  consent_primary?: boolean | null;
+  consent_secondary?: boolean | null;
+  image_urls?: string[] | null;
   created_at: string;
   updated_at?: string | null;
 };

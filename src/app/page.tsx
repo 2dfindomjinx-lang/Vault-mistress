@@ -6612,17 +6612,31 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleDebtContractSign = async ({
+    consentPrimary,
+    consentSecondary,
+    contractType = "normal",
     debtAmount,
     durationPeriods,
+    fullName,
+    customNote,
+    imageUrls,
     periodType,
     petName,
     randomGenerated = false,
+    timezone,
   }: {
+    consentPrimary?: boolean;
+    consentSecondary?: boolean;
+    contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
+    fullName?: string;
+    customNote?: string;
+    imageUrls?: string[];
     periodType: "weekly" | "monthly";
     petName: string;
     randomGenerated?: boolean;
+    timezone?: string;
   }) => {
     if (blockIfTimedOut()) {
       return false;
@@ -6631,12 +6645,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const cleanAmount = Math.floor(debtAmount);
     const cleanDuration = Math.floor(durationPeriods);
     const cleanPetName = petName.trim();
-    const minimum = periodType === "weekly" ? 10000 : 50000;
-    const amountStep = periodType === "weekly" ? 5000 : 10000;
-    const durationLimit =
+    const baseMinimum = periodType === "weekly" ? 10000 : 50000;
+    const minimum = contractType === "evil" ? Math.ceil(baseMinimum * 2.5) : baseMinimum;
+    const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
+    const baseDurationLimit =
       periodType === "weekly"
         ? { label: "weeks", max: 52, min: 1 }
         : { label: "months", max: 24, min: 1 };
+    const durationLimit = {
+      ...baseDurationLimit,
+      min: contractType === "evil" ? Math.ceil(baseDurationLimit.min * 2.5) : baseDurationLimit.min,
+    };
+    const cleanCustomNote = String(customNote ?? "").trim();
 
     if (petDebtContract?.status === "active") {
       return false;
@@ -6645,6 +6665,28 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (cleanPetName.length < 2) {
       setAvatarMistressReply("Choose a clear Pet name before signing.");
       return false;
+    }
+
+    if (contractType === "evil") {
+      if (!fullName?.trim() || !timezone?.trim()) {
+        setAvatarMistressReply("Evil Debt Contract requires full name and timezone.");
+        return false;
+      }
+
+      if (cleanCustomNote.length > 240) {
+        setAvatarMistressReply("Custom note must be 240 characters or fewer.");
+        return false;
+      }
+
+      if (!consentPrimary || !consentSecondary) {
+        setAvatarMistressReply("Both Evil Debt Contract consent confirmations are required.");
+        return false;
+      }
+
+      if (!imageUrls || imageUrls.length < 1 || imageUrls.length > 8) {
+        setAvatarMistressReply("Evil Debt Contract requires 1-8 uploaded images.");
+        return false;
+      }
     }
 
     if (
@@ -6679,11 +6721,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       try {
         const result = await persistDebtContractAction({
           action: "sign",
+          consentPrimary,
+          consentSecondary,
+          contractType,
           debtAmount: cleanAmount,
           durationPeriods: cleanDuration,
+          fullName: fullName?.trim(),
+          customNote: cleanCustomNote,
+          imageUrls,
           periodType,
           petName: cleanPetName,
           randomGenerated,
+          timezone: timezone?.trim(),
         });
 
         if (result.contract) {
@@ -6696,7 +6745,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     }
 
-    setAvatarMistressReply("Debt Contract signed. The schedule is now active.");
+    setAvatarMistressReply(
+      contractType === "evil"
+        ? "Evil Debt Contract signed. The schedule is now active."
+        : "Debt Contract signed. The schedule is now active.",
+    );
     emitSoundEvent("debt_contract_signed");
     return true;
   };

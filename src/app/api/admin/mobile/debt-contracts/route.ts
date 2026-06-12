@@ -20,9 +20,23 @@ async function listDebtContracts(supabase: SupabaseClient) {
     .in("id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]);
   const profileRows = (profiles ?? []) as Array<{ id: string; username: string }>;
   const profileMap = new Map(profileRows.map((profile) => [profile.id, profile.username]));
+  const contractIds = rows.map((entry) => entry.id as string);
+  const { data: imageRows } = await supabase
+    .from("evil_debt_contract_images")
+    .select("contract_id, image_url")
+    .in("contract_id", contractIds.length > 0 ? contractIds : ["00000000-0000-0000-0000-000000000000"])
+    .order("created_at", { ascending: true });
+  const imageMap = new Map<string, string[]>();
+
+  for (const row of (imageRows ?? []) as Array<{ contract_id: string; image_url: string }>) {
+    const current = imageMap.get(row.contract_id) ?? [];
+    current.push(row.image_url);
+    imageMap.set(row.contract_id, current);
+  }
 
   return rows.map((contract) => ({
     ...contract,
+    image_urls: imageMap.get(contract.id as string) ?? [],
     username: profileMap.get(contract.user_id) ?? "@unknown",
   }));
 }

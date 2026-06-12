@@ -58,6 +58,7 @@ type AdminDebtContract = {
   user_id: string;
   username: string;
   pet_name: string;
+  contract_type?: "normal" | "evil";
   period_type: "weekly" | "monthly";
   debt_amount: number;
   duration_periods: number;
@@ -68,6 +69,12 @@ type AdminDebtContract = {
   started_at: string;
   next_due_at: string;
   ends_at: string;
+  full_name?: string | null;
+  timezone?: string | null;
+  custom_note?: string | null;
+  consent_primary?: boolean | null;
+  consent_secondary?: boolean | null;
+  image_urls?: string[] | null;
 };
 
 type AdminEvent = RandomEvent & {
@@ -102,6 +109,8 @@ export default function AdminPage() {
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
   const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
+  const [expandedEvilDebtId, setExpandedEvilDebtId] = useState<string | null>(null);
+  const [previewDebtImage, setPreviewDebtImage] = useState<string | null>(null);
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
@@ -999,8 +1008,8 @@ export default function AdminPage() {
               </div>
               <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
                 <div className="grid gap-3">
-                  {debtContracts.length > 0 ? (
-                    debtContracts.map((contract) => (
+                  {debtContracts.filter((contract) => (contract.contract_type ?? "normal") !== "evil").length > 0 ? (
+                    debtContracts.filter((contract) => (contract.contract_type ?? "normal") !== "evil").map((contract) => (
                       <article
                         className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
                         key={contract.id}
@@ -1048,6 +1057,95 @@ export default function AdminPage() {
                       No debt contracts yet.
                     </p>
                   )}
+                </div>
+                <div className="mt-5 rounded-2xl border border-red-200/20 bg-red-950/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.22em] text-red-100">
+                        Evil Debt Contracts
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Separate signed Evil Debt submissions with image proofs.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
+                      debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
+                        const expanded = expandedEvilDebtId === contract.id;
+
+                        return (
+                          <article
+                            className="rounded-2xl border border-red-200/15 bg-black/35 p-3"
+                            key={contract.id}
+                          >
+                            <button
+                              className="grid w-full gap-2 text-left text-sm sm:grid-cols-[1.3fr_1fr_1fr_auto]"
+                              onClick={() => setExpandedEvilDebtId(expanded ? null : contract.id)}
+                              type="button"
+                            >
+                              <span className="font-black text-white">{contract.username}</span>
+                              <span className="text-red-50">{contract.full_name ?? "No name"}</span>
+                              <span className="text-zinc-300">
+                                {contract.debt_amount.toLocaleString()} / {contract.period_type}
+                              </span>
+                              <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                                {contract.status}
+                              </span>
+                            </button>
+                            {expanded && (
+                              <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                                <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                                  <span>Full name: {contract.full_name ?? "-"}</span>
+                                  <span>Username: {contract.username}</span>
+                                  <span>User id: {contract.user_id}</span>
+                                  <span>Timezone: {contract.timezone ?? "-"}</span>
+                                  <span>Custom note: {contract.custom_note ?? "-"}</span>
+                                  <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
+                                  <span>Duration: {contract.duration_periods}</span>
+                                  <span>Frequency: {contract.period_type}</span>
+                                  <span>Status: {contract.status}</span>
+                                  <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
+                                  <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
+                                  <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
+                                </div>
+                                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                  {(contract.image_urls ?? []).map((imageUrl, index) => (
+                                    <button
+                                      className="overflow-hidden rounded-xl border border-red-200/15 bg-black"
+                                      key={`${contract.id}-${index}`}
+                                      onClick={() => setPreviewDebtImage(imageUrl)}
+                                      type="button"
+                                    >
+                                      <img
+                                        alt={`Evil debt upload ${index + 1}`}
+                                        className="aspect-square w-full object-cover"
+                                        src={imageUrl}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                  <button
+                                    className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleRemoveDebtContract(contract.id)}
+                                    type="button"
+                                  >
+                                    Remove Evil Debt
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                        No Evil Debt Contracts yet.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1308,6 +1406,19 @@ export default function AdminPage() {
           </p>
         )}
       </section>
+      {previewDebtImage && (
+        <button
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setPreviewDebtImage(null)}
+          type="button"
+        >
+          <img
+            alt="Expanded Evil Debt Contract upload"
+            className="max-h-[90vh] max-w-[90vw] rounded-2xl border border-red-200/25 object-contain shadow-[0_0_40px_rgba(248,113,113,0.28)]"
+            src={previewDebtImage}
+          />
+        </button>
+      )}
       <FloatingDefneBubble message={defneMessage} />
     </main>
   );

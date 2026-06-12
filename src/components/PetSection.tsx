@@ -23,6 +23,7 @@ const DEBT_MINIMUM_PAYMENTS = {
   monthly: 50000,
   weekly: 10000,
 };
+const EVIL_DEBT_MINIMUM_MULTIPLIER = 2.5;
 const DEBT_RANDOM_AMOUNT_STEPS = {
   monthly: 10000,
   weekly: 5000,
@@ -319,6 +320,15 @@ function randomPetName() {
   return DEBT_PET_NAMES[Math.floor(Math.random() * DEBT_PET_NAMES.length)] ?? DEBT_PET_NAMES[0];
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Image upload failed."));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  });
+}
+
 function getRandomWebsiteState(): RandomWebsiteState {
   if (typeof window === "undefined") {
     return { currentLink: null, seenLinks: [] };
@@ -557,11 +567,17 @@ export function PetSection({
   onPayDebtPeriod: () => void;
   onBuyRight: () => void;
   onSignDebtContract: (form: {
+    consentPrimary?: boolean;
+    consentSecondary?: boolean;
+    contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
+    fullName?: string;
+    imageUrls?: string[];
     randomGenerated?: boolean;
     periodType: "weekly" | "monthly";
     petName: string;
+    timezone?: string;
   }) => Promise<boolean> | boolean;
   onUseRight: () => void;
   onFalseHopeKey: (key: "a" | "d") => void;
@@ -618,6 +634,14 @@ export function PetSection({
   const [debtAmount, setDebtAmount] = useState("");
   const [debtDuration, setDebtDuration] = useState("");
   const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
+  const [debtMode, setDebtMode] = useState<"normal" | "evil">("normal");
+  const [evilFullName, setEvilFullName] = useState("");
+  const [evilTimezone, setEvilTimezone] = useState("");
+  const [evilCustomNote, setEvilCustomNote] = useState("");
+  const [evilConsentPrimary, setEvilConsentPrimary] = useState("");
+  const [evilConsentSecondary, setEvilConsentSecondary] = useState("");
+  const [evilImageUrls, setEvilImageUrls] = useState<string[]>([]);
+  const [evilImageError, setEvilImageError] = useState("");
   const [randomWebsiteLink, setRandomWebsiteLink] = useState<string | null>(null);
   const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
@@ -649,8 +673,17 @@ export function PetSection({
     Boolean(weeklyTaxTask?.cooldownUntil) &&
     new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
   const debtTask = tasks.find((task) => task.kind === "debt-contract");
-  const debtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
-  const debtMinimumPayment = DEBT_MINIMUM_PAYMENTS[debtPeriodType];
+  const baseDebtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
+  const debtDurationLimit = {
+    ...baseDebtDurationLimit,
+    min: debtMode === "evil" ? Math.ceil(baseDebtDurationLimit.min * EVIL_DEBT_MINIMUM_MULTIPLIER) : baseDebtDurationLimit.min,
+  };
+  const debtMinimumPayment =
+    debtMode === "evil"
+      ? Math.ceil(DEBT_MINIMUM_PAYMENTS[debtPeriodType] * EVIL_DEBT_MINIMUM_MULTIPLIER)
+      : DEBT_MINIMUM_PAYMENTS[debtPeriodType];
+  const debtAmountStep = debtMode === "evil" ? 5000 : DEBT_RANDOM_AMOUNT_STEPS[debtPeriodType];
+  const activeDebtContractType = petDebtContract?.contract_type === "evil" ? "evil" : "normal";
   const debtPaymentDue =
     Boolean(petDebtContract) &&
     (petDebtContract?.paid_periods === 0 ||
@@ -959,11 +992,18 @@ export function PetSection({
   }
 
   async function signDebtContract(form: {
+    consentPrimary?: boolean;
+    consentSecondary?: boolean;
+    contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
+    fullName?: string;
+    customNote?: string;
+    imageUrls?: string[];
     randomGenerated?: boolean;
     periodType: "weekly" | "monthly";
     petName: string;
+    timezone?: string;
   }) {
     const signed = await onSignDebtContract(form);
 
@@ -980,6 +1020,52 @@ export function PetSection({
       durationPeriods: Number(debtDuration),
       periodType: debtPeriodType,
       petName: debtPetName,
+    });
+  }
+
+  async function handleEvilDebtImages(files: FileList | null) {
+    setEvilImageError("");
+    const selectedFiles = Array.from(files ?? []).slice(0, 8);
+
+    if (selectedFiles.length === 0) {
+      setEvilImageUrls([]);
+      return;
+    }
+
+    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
+      setEvilImageError("Only image files are accepted.");
+      return;
+    }
+
+    if (selectedFiles.some((file) => file.size > 1_000_000)) {
+      setEvilImageError("Each image must be 1MB or smaller.");
+      return;
+    }
+
+    try {
+      setEvilImageUrls(await Promise.all(selectedFiles.map(fileToDataUrl)));
+    } catch {
+      setEvilImageError("Images failed to load.");
+    }
+  }
+
+  async function handleEvilDebtSign() {
+    if (!window.confirm("Are you absolutely sure you want to sign the Evil Debt Contract?")) {
+      return;
+    }
+
+    await signDebtContract({
+      consentPrimary: evilConsentPrimary.trim().length >= 8,
+      consentSecondary: evilConsentSecondary.trim().length >= 8,
+      contractType: "evil",
+      debtAmount: Number(debtAmount),
+      durationPeriods: Number(debtDuration),
+      fullName: evilFullName,
+      customNote: evilCustomNote,
+      imageUrls: evilImageUrls,
+      periodType: debtPeriodType,
+      petName: "Evil Debt Contract",
+      timezone: evilTimezone,
     });
   }
 
@@ -2095,12 +2181,53 @@ export function PetSection({
           {debtTask && (
             <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-black text-white">{debtTask.title}</h3>
+                <h3 className="text-lg font-black text-white">
+                  {petDebtContract?.status === "active"
+                    ? activeDebtContractType === "evil"
+                      ? "Evil Debt Contract"
+                      : debtTask.title
+                    : debtMode === "evil"
+                      ? "Evil Debt Contract"
+                      : debtTask.title}
+                </h3>
                 <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  Contract
+                  {petDebtContract?.status === "active" && activeDebtContractType === "evil" ? "Evil" : "Contract"}
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
+              <div className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-2">
+                <button
+                  aria-pressed={debtMode === "evil"}
+                  className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={Boolean(petDebtContract?.status === "active")}
+                  onClick={() => setDebtMode((mode) => (mode === "normal" ? "evil" : "normal"))}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1 text-xs font-black uppercase tracking-[0.18em] text-red-50">
+                    {debtMode === "evil" ? "Evil Debt Contract" : "Normal Debt Contract"}
+                  </span>
+                  <span
+                    className={`relative h-7 w-16 rounded-full border transition ${
+                      debtMode === "evil"
+                        ? "border-red-200/50 bg-red-500/35"
+                        : "border-pink-200/25 bg-black/55"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 h-5 w-5 rounded-full transition ${
+                        debtMode === "evil"
+                          ? "left-9 bg-red-100 shadow-[0_0_14px_rgba(248,113,113,0.55)]"
+                          : "left-1 bg-pink-100/80"
+                      }`}
+                    />
+                  </span>
+                </button>
+                {petDebtContract?.status === "active" && (
+                  <p className="mt-2 text-xs font-semibold text-zinc-500">
+                    Debt Contract modes are mutually exclusive while a contract is active.
+                  </p>
+                )}
+              </div>
               {showDebtSigningImage && (
                 <div className="mt-4 overflow-hidden rounded-2xl border border-red-200/25 bg-black/45 shadow-[0_0_28px_rgba(248,113,113,0.18)]">
                   <div
@@ -2116,8 +2243,16 @@ export function PetSection({
               {petDebtContract && petDebtContract.status === "active" ? (
                 <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
-                    <span>Pet: {petDebtContract.pet_name}</span>
+                    <span>
+                      {activeDebtContractType === "evil" ? "Contract" : "Pet"}: {petDebtContract.pet_name}
+                    </span>
                     <span>{petDebtContract.period_type} debt</span>
+                    {activeDebtContractType === "evil" && (
+                      <>
+                        <span>Full name: {petDebtContract.full_name ?? "Stored"}</span>
+                        <span>Timezone: {petDebtContract.timezone ?? "Stored"}</span>
+                      </>
+                    )}
                     <span>
                       Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
                     </span>
@@ -2170,6 +2305,8 @@ export function PetSection({
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3">
+                  {debtMode === "normal" ? (
+                    <>
                   <select
                     className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
                     onChange={(event) => setDebtPetName(event.target.value)}
@@ -2246,6 +2383,117 @@ export function PetSection({
                   >
                     Sign Debt Contract
                   </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          onChange={(event) => setEvilFullName(event.target.value)}
+                          placeholder="Full name"
+                          value={evilFullName}
+                        />
+                        <input
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          onChange={(event) => setEvilTimezone(event.target.value)}
+                          placeholder="Timezone"
+                          value={evilTimezone}
+                        />
+                      </div>
+                      <textarea
+                        className="min-h-24 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                        maxLength={240}
+                        onChange={(event) => setEvilCustomNote(event.target.value)}
+                        placeholder="Optional note"
+                        value={evilCustomNote}
+                      />
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
+                        Optional note, max 240 characters.
+                      </p>
+                      <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
+                        Evil minimum: {debtMinimumPayment.toLocaleString()} Coins per{" "}
+                        {debtPeriodType === "weekly" ? "Week" : "Month"}
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <select
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          onChange={(event) => setDebtPeriodType(event.target.value as "weekly" | "monthly")}
+                          value={debtPeriodType}
+                        >
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                        <input
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          inputMode="numeric"
+                          min={debtMinimumPayment}
+                          onChange={(event) => setDebtAmount(event.target.value)}
+                          placeholder={`Min ${debtMinimumPayment.toLocaleString()}`}
+                          step={debtAmountStep}
+                          value={debtAmount}
+                        />
+                        <input
+                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                          inputMode="numeric"
+                          max={debtDurationLimit.max}
+                          min={debtDurationLimit.min}
+                          onChange={(event) => setDebtDuration(event.target.value)}
+                          placeholder={`${debtDurationLimit.label} ${debtDurationLimit.min}-${debtDurationLimit.max}`}
+                          value={debtDuration}
+                        />
+                      </div>
+                      <label className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
+                        Upload 1-8 BM images
+                        <input
+                          accept="image/*"
+                          className="mt-2 block w-full text-xs text-zinc-300 file:mr-3 file:rounded-full file:border-0 file:bg-red-500/20 file:px-3 file:py-2 file:text-xs file:font-bold file:text-red-50"
+                          multiple
+                          onChange={(event) => void handleEvilDebtImages(event.target.files)}
+                          type="file"
+                        />
+                      </label>
+                      {evilImageError && (
+                        <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-100">
+                          {evilImageError}
+                        </p>
+                      )}
+                      {evilImageUrls.length > 0 && (
+                        <div className="grid grid-cols-4 gap-2">
+                          {evilImageUrls.map((imageUrl, index) => (
+                            <img
+                              alt={`Evil Debt upload ${index + 1}`}
+                              className="aspect-square rounded-xl border border-red-200/15 object-cover"
+                              key={`${imageUrl.slice(0, 32)}-${index}`}
+                              src={imageUrl}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      <textarea
+                        className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                        onChange={(event) => setEvilConsentPrimary(event.target.value)}
+                        placeholder="Consent confirmation 1"
+                        value={evilConsentPrimary}
+                      />
+                      <textarea
+                        className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
+                        onChange={(event) => setEvilConsentSecondary(event.target.value)}
+                        placeholder="Consent confirmation 2"
+                        value={evilConsentSecondary}
+                      />
+                      <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
+                        Evil Debt Contract is mutually exclusive with normal Debt Contract. Final
+                        signing asks one last confirmation.
+                      </p>
+                      <button
+                        className="rounded-2xl border border-red-200/25 bg-red-700/25 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-700/35"
+                        onClick={handleEvilDebtSign}
+                        type="button"
+                      >
+                        Sign Evil Debt Contract
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </article>

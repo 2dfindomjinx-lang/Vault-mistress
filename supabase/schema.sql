@@ -179,6 +179,7 @@ create table if not exists public.pet_debt_contracts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   pet_name text not null,
+  contract_type text not null default 'normal' check (contract_type in ('normal', 'evil')),
   period_type text not null check (period_type in ('weekly', 'monthly')),
   debt_amount integer not null,
   duration_periods integer not null,
@@ -189,8 +190,22 @@ create table if not exists public.pet_debt_contracts (
   started_at timestamp with time zone not null default now(),
   next_due_at timestamp with time zone not null,
   ends_at timestamp with time zone not null,
+  full_name text,
+  timezone text,
+  custom_note text,
+  consent_primary boolean not null default false,
+  consent_secondary boolean not null default false,
+  image_urls jsonb not null default '[]'::jsonb,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.evil_debt_contract_images (
+  id uuid primary key default gen_random_uuid(),
+  contract_id uuid not null references public.pet_debt_contracts(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  image_url text not null,
+  created_at timestamp with time zone not null default now()
 );
 
 create table if not exists public.random_events (
@@ -236,11 +251,26 @@ create index if not exists loyalty_jackpot_contributions_jackpot_id_idx
 
 create index if not exists loyalty_jackpot_contributions_user_id_idx
   on public.loyalty_jackpot_contributions(user_id);
+create index if not exists evil_debt_contract_images_contract_id_idx
+  on public.evil_debt_contract_images(contract_id);
 
 alter table public.pet_debt_contracts
   add column if not exists missed_periods integer not null default 0,
   add column if not exists random_generated boolean not null default false,
+  add column if not exists contract_type text not null default 'normal',
+  add column if not exists full_name text,
+  add column if not exists timezone text,
+  add column if not exists custom_note text,
+  add column if not exists consent_primary boolean not null default false,
+  add column if not exists consent_secondary boolean not null default false,
+  add column if not exists image_urls jsonb not null default '[]'::jsonb,
   add column if not exists updated_at timestamp with time zone not null default now();
+
+alter table public.pet_debt_contracts
+  drop constraint if exists pet_debt_contracts_contract_type_check;
+alter table public.pet_debt_contracts
+  add constraint pet_debt_contracts_contract_type_check
+  check (contract_type in ('normal', 'evil'));
 
 alter table public.user_pet_tasks
   add column if not exists status text not null default 'pending',
@@ -275,6 +305,7 @@ alter table public.user_pet_gallery enable row level security;
 alter table public.user_cosmetics enable row level security;
 alter table public.user_titles enable row level security;
 alter table public.pet_debt_contracts enable row level security;
+alter table public.evil_debt_contract_images enable row level security;
 alter table public.random_events enable row level security;
 alter table public.loyalty_jackpots enable row level security;
 alter table public.loyalty_jackpot_contributions enable row level security;
@@ -1172,6 +1203,10 @@ create policy "Users can read own debt contracts"
 
 drop policy if exists "Users can insert own debt contracts" on public.pet_debt_contracts;
 drop policy if exists "Users can update own debt contracts" on public.pet_debt_contracts;
+drop policy if exists "Users can read own evil debt images" on public.evil_debt_contract_images;
+drop policy if exists "Users can insert own evil debt images" on public.evil_debt_contract_images;
+drop policy if exists "Users can update own evil debt images" on public.evil_debt_contract_images;
+drop policy if exists "Users can delete own evil debt images" on public.evil_debt_contract_images;
 
 drop policy if exists "Users can read jackpot cycles" on public.loyalty_jackpots;
 create policy "Users can read jackpot cycles"
