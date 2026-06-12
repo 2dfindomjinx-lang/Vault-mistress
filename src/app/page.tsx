@@ -1793,6 +1793,7 @@ export default function Home() {
   const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
   const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
   const [activeEvent, setActiveEvent] = useState<RandomEvent | null>(null);
+  const [freeFridaySpinAvailable, setFreeFridaySpinAvailable] = useState(false);
   const [temporarySpeechAvatar, setTemporarySpeechAvatar] =
     useState<TemporarySpeechAvatarState | null>(null);
   const [dismissedSpeechAvatarEventId, setDismissedSpeechAvatarEventId] = useState<string | null>(
@@ -2132,6 +2133,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const showAccountAnnouncement =
     currentTime < new Date(ACCOUNT_ANNOUNCEMENT_EXPIRES_AT).getTime();
   const isFreeFridayActive = isFreeTaskFriday(currentTime);
+  const isFreeFridaySpinAvailable = Boolean(authUserId) && isFreeFridayActive && freeFridaySpinAvailable;
   const freeFridayRemainingMs = isFreeFridayActive
     ? getNextGmt3Reset(currentTime).getTime() - currentTime
     : 0;
@@ -2372,6 +2374,44 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     void loadActiveEvent();
   }, [getReadableSpeechAvatarName]);
+
+  useEffect(() => {
+    if (!authUserId || isGuestMode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadFreeFridayStatus = async () => {
+      try {
+        const response = await fetch("/api/user/irl-task-wheel", { cache: "no-store" });
+        const payload = (await response.json()) as {
+          freeFridayAvailable?: boolean;
+          freeFridayActive?: boolean;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Free Task Friday status failed.");
+        }
+
+        if (!cancelled) {
+          setFreeFridaySpinAvailable(Boolean(payload.freeFridayAvailable));
+        }
+      } catch (error) {
+        console.error("Failed to load Free Task Friday status", error);
+        if (!cancelled) {
+          setFreeFridaySpinAvailable(false);
+        }
+      }
+    };
+
+    void loadFreeFridayStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authUserId, isGuestMode]);
 
   useEffect(() => {
     if (!activeEvent) {
@@ -5042,8 +5082,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const currentCoins = coinsRef.current;
-    const freeFridayActive = isFreeTaskFriday();
-    const wheelCost = freeFridayActive ? 0 : IRL_TASK_WHEEL_COST;
+    const wheelCost = isFreeFridaySpinAvailable ? 0 : IRL_TASK_WHEEL_COST;
 
     if (currentCoins < wheelCost) {
       setAvatarMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
@@ -5094,6 +5133,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             wheel_index: number;
           };
           code?: string;
+          freeFridayAvailable?: boolean;
           error?: string;
           profile?: Profile;
         };
@@ -5112,6 +5152,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
 
         applyProfileStats(result.profile);
+        setFreeFridaySpinAvailable(Boolean(result.freeFridayAvailable));
         assignedIrlTask = {
           due_at: result.assignment.due_at ?? assignedIrlTask.due_at,
           penalty_timeout_minutes: result.assignment.penalty_timeout_minutes ?? assignedIrlTask.penalty_timeout_minutes,
@@ -7948,6 +7989,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               isJackpotBusy={isJackpotBusy}
+              isFreeFridaySpinAvailable={isFreeFridaySpinAvailable}
               jackpot={jackpot}
               jackpotError={jackpotError}
               globalPrincipessaLevel={globalPrincipessa.level}

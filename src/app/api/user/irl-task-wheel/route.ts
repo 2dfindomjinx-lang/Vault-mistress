@@ -33,6 +33,60 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
+async function getFreeFridayAvailability(supabase: ReturnType<typeof createSupabaseAdminClient>, userId: string) {
+  const freeFridayKey = getFreeTaskFridayKey();
+  const freeFridayActive = isFreeTaskFriday();
+  const freeFridayBounds = getGmt3DayBounds();
+  const { data: freeFridayMarker, error: freeFridayMarkerError } = freeFridayActive
+    ? await supabase
+        .from("coin_transactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("reason", IRL_FREE_FRIDAY_MARKER_REASON)
+        .gte("created_at", freeFridayBounds.start.toISOString())
+        .lt("created_at", freeFridayBounds.end.toISOString())
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+
+  if (freeFridayMarkerError) {
+    throw freeFridayMarkerError;
+  }
+
+  return {
+    freeFridayActive,
+    freeFridayAvailable: freeFridayActive && !freeFridayMarker,
+    freeFridayKey,
+  };
+}
+
+export async function GET() {
+  if (!isSupabaseAdminConfigured) {
+    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    return jsonError(authError?.message ?? "Authentication required.", 401);
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const freeFriday = await getFreeFridayAvailability(supabase, authData.user.id);
+
+    return Response.json(freeFriday);
+  } catch (error) {
+    console.error("[irl-task-wheel] free friday status lookup failed", {
+      code: typeof error === "object" && error && "code" in error ? error.code : undefined,
+      message: error instanceof Error ? error.message : String(error),
+      userId: authData.user.id,
+    });
+    return jsonError("Free Task Friday eligibility check failed.", 500);
+  }
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -73,31 +127,19 @@ export async function POST(request: Request) {
 
   const currentProfile = profile as ProfileRow;
   const timeoutUntil = currentProfile.timeout_until ? new Date(currentProfile.timeout_until).getTime() : 0;
-  const freeFridayKey = getFreeTaskFridayKey();
-  const freeFridayActive = isFreeTaskFriday();
-  const freeFridayBounds = getGmt3DayBounds();
-  const { data: freeFridayMarker, error: freeFridayMarkerError } = freeFridayActive
-    ? await supabase
-        .from("coin_transactions")
-        .select("id")
-        .eq("user_id", authData.user.id)
-        .eq("reason", IRL_FREE_FRIDAY_MARKER_REASON)
-        .gte("created_at", freeFridayBounds.start.toISOString())
-        .lt("created_at", freeFridayBounds.end.toISOString())
-        .limit(1)
-        .maybeSingle()
-    : { data: null, error: null };
-
-  if (freeFridayMarkerError) {
+  let freeFriday;
+  try {
+    freeFriday = await getFreeFridayAvailability(supabase, authData.user.id);
+  } catch (freeFridayMarkerError) {
     console.error("[irl-task-wheel] free friday marker lookup failed", {
-      code: freeFridayMarkerError.code,
-      message: freeFridayMarkerError.message,
+      code: typeof freeFridayMarkerError === "object" && freeFridayMarkerError && "code" in freeFridayMarkerError ? freeFridayMarkerError.code : undefined,
+      message: freeFridayMarkerError instanceof Error ? freeFridayMarkerError.message : String(freeFridayMarkerError),
       userId: authData.user.id,
     });
     return jsonError("Free Task Friday eligibility check failed.", 500);
   }
 
-  const freeFridayAvailable = freeFridayActive && !freeFridayMarker;
+  const { freeFridayAvailable, freeFridayKey } = freeFriday;
 
   if (timeoutUntil > Date.now()) {
     return jsonError("Timeout is active. The wheel is not available yet.", 423);
@@ -301,6 +343,8 @@ export async function POST(request: Request) {
 
   return Response.json({
     assignment,
+    freeFridayAvailable: freeFridayAvailable ? false : freeFriday.freeFridayAvailable,
+    freeFridayUsed: freeFridayAvailable,
     profile: updatedProfile,
   });
 }

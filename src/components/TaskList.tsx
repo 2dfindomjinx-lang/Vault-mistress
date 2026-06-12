@@ -149,6 +149,7 @@ type TaskListProps = {
   onWaitObedientlyComplete: () => void;
   onWaitObedientlyFail: () => void;
   onWaitObedientlyStart: () => void;
+  isFreeFridaySpinAvailable?: boolean;
 };
 
 export function TaskList({
@@ -193,6 +194,7 @@ export function TaskList({
   onWaitObedientlyComplete,
   onWaitObedientlyFail,
   onWaitObedientlyStart,
+  isFreeFridaySpinAvailable = false,
   tasks,
   usernameStyle,
 }: TaskListProps) {
@@ -210,7 +212,7 @@ export function TaskList({
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
-  const isFreeFriday = isFreeTaskFriday(now);
+  const isFreeFriday = isFreeTaskFriday(now) && isFreeFridaySpinAvailable;
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
