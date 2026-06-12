@@ -131,7 +131,8 @@ type TaskListProps = {
   onJackpotContribute: (amount: number) => void;
   onLevelDrain: () => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
-  onIrlTaskSpin: (wheelIndex: number) => Promise<void> | void;
+  onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
+  onFreeFridaySpinConsumed?: () => void;
   onNumberPick: (selectedNumber: number) => void;
   onMovementFail: () => void;
   onMovementFinishFakeHope: () => void;
@@ -172,6 +173,7 @@ export function TaskList({
   onLevelDrain,
   onHighLowPlay,
   onIrlTaskSpin,
+  onFreeFridaySpinConsumed,
   onNumberPick,
   onMovementFail,
   onMovementFinishFakeHope,
@@ -314,7 +316,8 @@ export function TaskList({
 
     emitSoundEvent("button_click");
 
-    const freeFridayIndices = isFreeFriday ? getFreeFridayEligibleIrlTaskIndices() : [];
+    const useFreeFridaySpin = isFreeFriday;
+    const freeFridayIndices = useFreeFridaySpin ? getFreeFridayEligibleIrlTaskIndices() : [];
     const selectedIndex =
       freeFridayIndices.length > 0
         ? freeFridayIndices[Math.floor(Math.random() * freeFridayIndices.length)]
@@ -328,13 +331,16 @@ export function TaskList({
 
     setIsIrlWheelSpinning(true);
     setIrlWheelRotation(finalRotation);
+    if (useFreeFridaySpin) {
+      onFreeFridaySpinConsumed?.();
+    }
 
     if (irlWheelTimerRef.current) {
       window.clearTimeout(irlWheelTimerRef.current);
     }
 
     irlWheelTimerRef.current = window.setTimeout(() => {
-      void Promise.resolve(onIrlTaskSpin(selectedIndex)).finally(() => {
+      void Promise.resolve(onIrlTaskSpin(selectedIndex, useFreeFridaySpin)).finally(() => {
         setIsIrlWheelSpinning(false);
       });
     }, 3600);

@@ -5056,7 +5056,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleIrlTaskSpin = async (wheelIndex: number) => {
+  const handleIrlTaskSpin = async (wheelIndex: number, useFreeFridaySpin = isFreeFridaySpinAvailable) => {
     if (blockIfTimedOut()) {
       return;
     }
@@ -5082,7 +5082,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const currentCoins = coinsRef.current;
-    const wheelCost = isFreeFridaySpinAvailable ? 0 : IRL_TASK_WHEEL_COST;
+    const wheelCost = useFreeFridaySpin ? 0 : IRL_TASK_WHEEL_COST;
 
     if (currentCoins < wheelCost) {
       setAvatarMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
@@ -5140,6 +5140,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         if (!response.ok) {
           if (result.code === "free_friday_reroll") {
+            setFreeFridaySpinAvailable(true);
             setAvatarMistressReply(result.error ?? "Free Task Friday skipped a Throne task. Spin again.");
             return;
           }
@@ -5183,6 +5184,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to spin IRL task wheel", error);
+      if (useFreeFridaySpin) {
+        setFreeFridaySpinAvailable(true);
+      }
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The task wheel jammed. Try again.");
@@ -7990,6 +7994,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               disabled={isTimeoutActive || isPreviewRestricted}
               isJackpotBusy={isJackpotBusy}
               isFreeFridaySpinAvailable={isFreeFridaySpinAvailable}
+              onFreeFridaySpinConsumed={() => setFreeFridaySpinAvailable(false)}
               jackpot={jackpot}
               jackpotError={jackpotError}
               globalPrincipessaLevel={globalPrincipessa.level}
