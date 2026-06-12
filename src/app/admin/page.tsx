@@ -402,6 +402,39 @@ export default function AdminPage() {
     }
   };
 
+  const handleApproveEvilDebtContract = async (contractId: string) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/debt-contracts", {
+        body: JSON.stringify({ action: "approveEvil", contractId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        contracts?: AdminDebtContract[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Evil Debt approval failed.");
+      }
+
+      setDebtContracts(result.contracts ?? []);
+      setStatus("Evil Debt Contract approved.");
+      setDefneMessage("Evil debt approved. The repayment schedule is active.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Evil Debt approval failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -1125,7 +1158,17 @@ export default function AdminPage() {
                                     </button>
                                   ))}
                                 </div>
-                                <div className="mt-3 flex justify-end">
+                                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                  {contract.status === "pending" && (
+                                    <button
+                                      className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      disabled={isBusy}
+                                      onClick={() => void handleApproveEvilDebtContract(contract.id)}
+                                      type="button"
+                                    >
+                                      Approve Evil Debt
+                                    </button>
+                                  )}
                                   <button
                                     className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
                                     disabled={isBusy}

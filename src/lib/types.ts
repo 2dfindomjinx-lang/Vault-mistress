@@ -162,7 +162,7 @@ export type PetDebtContract = {
   paid_periods: number;
   missed_periods: number;
   random_generated?: boolean;
-  status: "active" | "expired" | "completed" | "cancelled";
+  status: "active" | "pending" | "expired" | "completed" | "cancelled";
   started_at: string;
   next_due_at: string;
   ends_at: string;

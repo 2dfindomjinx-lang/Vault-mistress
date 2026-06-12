@@ -1,6 +1,12 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getDebtPeriodMs(periodType: "weekly" | "monthly") {
+  return periodType === "weekly" ? 7 * DAY_MS : 30 * DAY_MS;
+}
+
 async function listDebtContracts(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
     .from("pet_debt_contracts")
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    action?: "expireOverdue" | "list" | "remove";
+    action?: "approveEvil" | "expireOverdue" | "list" | "remove";
     contractId?: string;
   };
 
@@ -88,6 +94,50 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Admin debt contract removal failed", error);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  if (body.action === "approveEvil") {
+    const contractId = body.contractId?.trim();
+
+    if (!contractId) {
+      return Response.json({ error: "Missing debt contract id." }, { status: 400 });
+    }
+
+    const { data: contract, error: readError } = await admin.supabase
+      .from("pet_debt_contracts")
+      .select("id, contract_type, duration_periods, period_type, status")
+      .eq("id", contractId)
+      .eq("contract_type", "evil")
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (readError) {
+      console.error("Admin evil debt approval lookup failed", readError);
+      return Response.json({ error: readError.message }, { status: 500 });
+    }
+
+    if (!contract) {
+      return Response.json({ error: "Pending Evil Debt Contract not found." }, { status: 404 });
+    }
+
+    const now = new Date();
+    const periodMs = getDebtPeriodMs(contract.period_type as "weekly" | "monthly");
+    const { error } = await admin.supabase
+      .from("pet_debt_contracts")
+      .update({
+        ends_at: new Date(now.getTime() + periodMs * Number(contract.duration_periods ?? 0)).toISOString(),
+        next_due_at: now.toISOString(),
+        started_at: now.toISOString(),
+        status: "active",
+        updated_at: now.toISOString(),
+      })
+      .eq("id", contract.id)
+      .eq("status", "pending");
+
+    if (error) {
+      console.error("Admin evil debt approval failed", error);
       return Response.json({ error: error.message }, { status: 500 });
     }
   }

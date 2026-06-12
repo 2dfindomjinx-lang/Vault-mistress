@@ -458,6 +458,10 @@ const petVoiceSentencePool = [
   "I work for you, I earn for you, and I want to give it all to you.",
   "Principessa, owning me financially is your right. I surrender completely.",
 ];
+const EVIL_CONSENT_PRIMARY_TEXT =
+  "I confirm that these images belong to me and I am sharing them with my own consent.";
+const EVIL_CONSENT_SECONDARY_TEXT =
+  "I consent that Principessa may use these images and I accept the consequences.";
 
 const petGalleryItems: PetGalleryItem[] = Array.from({ length: 30 }, (_, index) => ({
   id: `pet-gallery-${index + 1}`,
@@ -2920,7 +2924,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       .from("pet_debt_contracts")
       .select("*")
       .eq("user_id", profile.id)
-      .eq("status", "active")
+      .in("status", ["active", "pending"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -6613,7 +6617,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleDebtContractSign = async ({
     consentPrimary,
+    consentPrimaryText,
     consentSecondary,
+    consentSecondaryText,
     contractType = "normal",
     debtAmount,
     durationPeriods,
@@ -6626,7 +6632,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timezone,
   }: {
     consentPrimary?: boolean;
+    consentPrimaryText?: string;
     consentSecondary?: boolean;
+    consentSecondaryText?: string;
     contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
@@ -6646,7 +6654,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const cleanDuration = Math.floor(durationPeriods);
     const cleanPetName = petName.trim();
     const baseMinimum = periodType === "weekly" ? 10000 : 50000;
-    const minimum = contractType === "evil" ? Math.ceil(baseMinimum * 2.5) : baseMinimum;
+    const minimum = contractType === "evil" ? (periodType === "weekly" ? 50000 : 200000) : baseMinimum;
     const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
     const baseDurationLimit =
       periodType === "weekly"
@@ -6658,7 +6666,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     };
     const cleanCustomNote = String(customNote ?? "").trim();
 
-    if (petDebtContract?.status === "active") {
+    if (petDebtContract && ["active", "pending"].includes(petDebtContract.status)) {
       return false;
     }
 
@@ -6678,8 +6686,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         return false;
       }
 
-      if (!consentPrimary || !consentSecondary) {
-        setAvatarMistressReply("Both Evil Debt Contract consent confirmations are required.");
+      if (
+        consentPrimaryText?.trim() !== EVIL_CONSENT_PRIMARY_TEXT ||
+        consentSecondaryText?.trim() !== EVIL_CONSENT_SECONDARY_TEXT
+      ) {
+        setAvatarMistressReply("Both Evil Debt Contract consent confirmations must match exactly.");
         return false;
       }
 
@@ -6694,10 +6705,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       cleanAmount < minimum ||
       cleanAmount % amountStep !== 0
     ) {
-      setAvatarMistressReply(
-        periodType === "weekly"
-          ? "Weekly debt must be at least 10000 coins and a multiple of 5000."
-          : "Monthly debt must be at least 50000 coins and a multiple of 10000.",
+        setAvatarMistressReply(
+          periodType === "weekly"
+          ? `${contractType === "evil" ? "Evil weekly" : "Weekly"} debt must be at least ${minimum.toLocaleString()} coins and a multiple of ${amountStep.toLocaleString()}.`
+          : `${contractType === "evil" ? "Evil monthly" : "Monthly"} debt must be at least ${minimum.toLocaleString()} coins and a multiple of ${amountStep.toLocaleString()}.`,
       );
       return false;
     }
@@ -6722,7 +6733,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const result = await persistDebtContractAction({
           action: "sign",
           consentPrimary,
+          consentPrimaryText,
           consentSecondary,
+          consentSecondaryText,
           contractType,
           debtAmount: cleanAmount,
           durationPeriods: cleanDuration,
@@ -6747,7 +6760,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     setAvatarMistressReply(
       contractType === "evil"
-        ? "Evil Debt Contract signed. The schedule is now active."
+        ? "Evil Debt Contract submitted. It is waiting for admin approval."
         : "Debt Contract signed. The schedule is now active.",
     );
     emitSoundEvent("debt_contract_signed");

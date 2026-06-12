@@ -4,6 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getDebtPeriodMs(periodType: "weekly" | "monthly") {
+  return periodType === "weekly" ? 7 * DAY_MS : 30 * DAY_MS;
+}
+
 async function listDebtContracts(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("pet_debt_contracts")
@@ -46,7 +52,7 @@ export async function POST(request: Request) {
   if ("error" in admin) return Response.json({ error: admin.error }, { status: admin.status });
 
   const body = (await request.json().catch(() => ({}))) as {
-    action?: "expireOverdue" | "list" | "remove";
+    action?: "approveEvil" | "expireOverdue" | "list" | "remove";
     contractId?: string;
   };
 
@@ -54,6 +60,35 @@ export async function POST(request: Request) {
     const contractId = body.contractId?.trim();
     if (!contractId) return Response.json({ error: "Missing debt contract id." }, { status: 400 });
     const { error } = await admin.supabase.from("pet_debt_contracts").delete().eq("id", contractId);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  if (body.action === "approveEvil") {
+    const contractId = body.contractId?.trim();
+    if (!contractId) return Response.json({ error: "Missing debt contract id." }, { status: 400 });
+    const { data: contract, error: readError } = await admin.supabase
+      .from("pet_debt_contracts")
+      .select("id, duration_periods, period_type")
+      .eq("id", contractId)
+      .eq("contract_type", "evil")
+      .eq("status", "pending")
+      .maybeSingle();
+    if (readError) return Response.json({ error: readError.message }, { status: 500 });
+    if (!contract) return Response.json({ error: "Pending Evil Debt Contract not found." }, { status: 404 });
+
+    const now = new Date();
+    const periodMs = getDebtPeriodMs(contract.period_type as "weekly" | "monthly");
+    const { error } = await admin.supabase
+      .from("pet_debt_contracts")
+      .update({
+        ends_at: new Date(now.getTime() + periodMs * Number(contract.duration_periods ?? 0)).toISOString(),
+        next_due_at: now.toISOString(),
+        started_at: now.toISOString(),
+        status: "active",
+        updated_at: now.toISOString(),
+      })
+      .eq("id", contract.id)
+      .eq("status", "pending");
     if (error) return Response.json({ error: error.message }, { status: 500 });
   }
 

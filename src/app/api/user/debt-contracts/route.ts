@@ -8,6 +8,10 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+const EVIL_CONSENT_PRIMARY_TEXT =
+  "I confirm that these images belong to me and I am sharing them with my own consent.";
+const EVIL_CONSENT_SECONDARY_TEXT =
+  "I consent that Principessa may use these images and I accept the consequences.";
 
 type ContractRow = {
   debt_amount: number;
@@ -31,7 +35,9 @@ type Body =
   | {
       action?: "sign";
       consentPrimary?: boolean;
+      consentPrimaryText?: string;
       consentSecondary?: boolean;
+      consentSecondaryText?: string;
       contractType?: "normal" | "evil";
       debtAmount?: number;
       durationPeriods?: number;
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
     const cleanDuration = Math.floor(Number(body.durationPeriods));
     const cleanPetName = String(body.petName ?? "").trim();
     const baseMinimum = periodType === "weekly" ? 10000 : 50000;
-    const minimum = contractType === "evil" ? Math.ceil(baseMinimum * 2.5) : baseMinimum;
+    const minimum = contractType === "evil" ? (periodType === "weekly" ? 50000 : 200000) : baseMinimum;
     const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
     const baseDurationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };
     const durationLimit = {
@@ -168,8 +174,11 @@ export async function POST(request: Request) {
         return jsonError("Timezone is required for Evil Debt Contract.");
       }
 
-      if (!body.consentPrimary || !body.consentSecondary) {
-        return jsonError("Both Evil Debt Contract consent confirmations are required.");
+      if (
+        String(body.consentPrimaryText ?? "").trim() !== EVIL_CONSENT_PRIMARY_TEXT ||
+        String(body.consentSecondaryText ?? "").trim() !== EVIL_CONSENT_SECONDARY_TEXT
+      ) {
+        return jsonError("Both Evil Debt Contract consent confirmations must match the required text exactly.");
       }
 
       if (imageUrls.length < 1 || imageUrls.length > 8 || imageUrls.length !== (body.imageUrls?.length ?? 0)) {
@@ -189,7 +198,7 @@ export async function POST(request: Request) {
       .from("pet_debt_contracts")
       .select("id")
       .eq("user_id", userId)
-      .eq("status", "active")
+      .in("status", ["active", "pending"])
       .limit(1)
       .maybeSingle();
 
@@ -219,7 +228,7 @@ export async function POST(request: Request) {
         period_type: periodType,
         pet_name: cleanPetName,
         random_generated: Boolean(body.randomGenerated),
-        status: "active",
+        status: contractType === "evil" ? "pending" : "active",
         timezone: contractType === "evil" ? cleanTimezone : null,
         user_id: userId,
       })

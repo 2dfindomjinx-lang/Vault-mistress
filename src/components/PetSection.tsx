@@ -23,11 +23,15 @@ const DEBT_MINIMUM_PAYMENTS = {
   monthly: 50000,
   weekly: 10000,
 };
-const EVIL_DEBT_MINIMUM_MULTIPLIER = 2.5;
 const DEBT_RANDOM_AMOUNT_STEPS = {
   monthly: 10000,
   weekly: 5000,
 };
+const EVIL_DEBT_DURATION_MULTIPLIER = 2.5;
+const EVIL_CONSENT_PRIMARY_TEXT =
+  "I confirm that these images belong to me and I am sharing them with my own consent.";
+const EVIL_CONSENT_SECONDARY_TEXT =
+  "I consent that Principessa may use these images and I accept the consequences.";
 const DEBT_RANDOM_AMOUNT_LIMITS = {
   monthly: { max: 200000, min: 50000 },
   weekly: { max: 30000, min: 10000 },
@@ -568,7 +572,9 @@ export function PetSection({
   onBuyRight: () => void;
   onSignDebtContract: (form: {
     consentPrimary?: boolean;
+    consentPrimaryText?: string;
     consentSecondary?: boolean;
+    consentSecondaryText?: string;
     contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
@@ -676,14 +682,19 @@ export function PetSection({
   const baseDebtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
   const debtDurationLimit = {
     ...baseDebtDurationLimit,
-    min: debtMode === "evil" ? Math.ceil(baseDebtDurationLimit.min * EVIL_DEBT_MINIMUM_MULTIPLIER) : baseDebtDurationLimit.min,
+    min: debtMode === "evil" ? Math.ceil(baseDebtDurationLimit.min * EVIL_DEBT_DURATION_MULTIPLIER) : baseDebtDurationLimit.min,
   };
   const debtMinimumPayment =
     debtMode === "evil"
-      ? Math.ceil(DEBT_MINIMUM_PAYMENTS[debtPeriodType] * EVIL_DEBT_MINIMUM_MULTIPLIER)
+      ? debtPeriodType === "weekly"
+        ? 50000
+        : 200000
       : DEBT_MINIMUM_PAYMENTS[debtPeriodType];
   const debtAmountStep = debtMode === "evil" ? 5000 : DEBT_RANDOM_AMOUNT_STEPS[debtPeriodType];
   const activeDebtContractType = petDebtContract?.contract_type === "evil" ? "evil" : "normal";
+  const hasOpenDebtContract = Boolean(
+    petDebtContract && ["active", "pending"].includes(petDebtContract.status),
+  );
   const debtPaymentDue =
     Boolean(petDebtContract) &&
     (petDebtContract?.paid_periods === 0 ||
@@ -993,7 +1004,9 @@ export function PetSection({
 
   async function signDebtContract(form: {
     consentPrimary?: boolean;
+    consentPrimaryText?: string;
     consentSecondary?: boolean;
+    consentSecondaryText?: string;
     contractType?: "normal" | "evil";
     debtAmount: number;
     durationPeriods: number;
@@ -1007,7 +1020,7 @@ export function PetSection({
   }) {
     const signed = await onSignDebtContract(form);
 
-    if (signed) {
+    if (signed && form.contractType !== "evil") {
       showDebtSignedImage();
     }
 
@@ -1055,8 +1068,10 @@ export function PetSection({
     }
 
     await signDebtContract({
-      consentPrimary: evilConsentPrimary.trim().length >= 8,
-      consentSecondary: evilConsentSecondary.trim().length >= 8,
+      consentPrimary: evilConsentPrimary.trim() === EVIL_CONSENT_PRIMARY_TEXT,
+      consentPrimaryText: evilConsentPrimary.trim(),
+      consentSecondary: evilConsentSecondary.trim() === EVIL_CONSENT_SECONDARY_TEXT,
+      consentSecondaryText: evilConsentSecondary.trim(),
       contractType: "evil",
       debtAmount: Number(debtAmount),
       durationPeriods: Number(debtDuration),
@@ -2182,7 +2197,7 @@ export function PetSection({
             <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-black text-white">
-                  {petDebtContract?.status === "active"
+                  {hasOpenDebtContract
                     ? activeDebtContractType === "evil"
                       ? "Evil Debt Contract"
                       : debtTask.title
@@ -2191,7 +2206,7 @@ export function PetSection({
                       : debtTask.title}
                 </h3>
                 <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  {petDebtContract?.status === "active" && activeDebtContractType === "evil" ? "Evil" : "Contract"}
+                  {hasOpenDebtContract && activeDebtContractType === "evil" ? "Evil" : "Contract"}
                 </span>
               </div>
               <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
@@ -2199,7 +2214,7 @@ export function PetSection({
                 <button
                   aria-pressed={debtMode === "evil"}
                   className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={Boolean(petDebtContract?.status === "active")}
+                  disabled={hasOpenDebtContract}
                   onClick={() => setDebtMode((mode) => (mode === "normal" ? "evil" : "normal"))}
                   type="button"
                 >
@@ -2222,9 +2237,9 @@ export function PetSection({
                     />
                   </span>
                 </button>
-                {petDebtContract?.status === "active" && (
+                {hasOpenDebtContract && (
                   <p className="mt-2 text-xs font-semibold text-zinc-500">
-                    Debt Contract modes are mutually exclusive while a contract is active.
+                    Debt Contract modes are mutually exclusive while a contract is active or pending approval.
                   </p>
                 )}
               </div>
@@ -2240,7 +2255,7 @@ export function PetSection({
                   </div>
                 </div>
               )}
-              {petDebtContract && petDebtContract.status === "active" ? (
+              {hasOpenDebtContract && petDebtContract ? (
                 <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
                     <span>
@@ -2267,41 +2282,52 @@ export function PetSection({
                     </span>
                     <span>Paid periods: {petDebtContract.paid_periods}</span>
                     <span>Missed: {petDebtContract.missed_periods}</span>
+                    {petDebtContract.status === "pending" && (
+                      <span className="sm:col-span-2">Status: Pending admin approval</span>
+                    )}
                   </div>
-                  <p className="mt-3 rounded-2xl border border-red-200/10 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
-                    Future installments are locked. Only the current{" "}
-                    {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
-                  </p>
-                  <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-                    <AutoPaymentSwitch
-                      enabled={isDebtAutoPayEnabled}
-                      onChange={onDebtAutoPayChange}
-                    />
-                    <p className="mt-2 text-yellow-50/75">
-                      When enabled, each installment is paid automatically as soon as it becomes
-                      available.
+                  {petDebtContract.status === "active" ? (
+                    <>
+                      <p className="mt-3 rounded-2xl border border-red-200/10 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
+                        Future installments are locked. Only the current{" "}
+                        {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
+                      </p>
+                      <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
+                        <AutoPaymentSwitch
+                          enabled={isDebtAutoPayEnabled}
+                          onChange={onDebtAutoPayChange}
+                        />
+                        <p className="mt-2 text-yellow-50/75">
+                          When enabled, each installment is paid automatically as soon as it becomes
+                          available.
+                        </p>
+                        <p className="mt-2 text-yellow-50/75">
+                          If auto payment is off and an installment is missed, missed debt is still
+                          collected from coin balance and can push balance below zero.
+                        </p>
+                        <p className="mt-2 text-yellow-50/75">
+                          Debt contracts cannot be removed here. Only admin can delete or cancel debt
+                          records.
+                        </p>
+                      </div>
+                      <button
+                        className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
+                        onClick={onPayDebtPeriod}
+                        type="button"
+                      >
+                        {isPetActionPending("pet-debt-contract")
+                          ? "Saving..."
+                          : !debtPaymentDue
+                          ? "Next installment locked"
+                          : `Pay installment ${debtInstallmentNumber}`}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
+                      Evil Debt Contract was submitted and is waiting for admin approval.
                     </p>
-                    <p className="mt-2 text-yellow-50/75">
-                      If auto payment is off and an installment is missed, missed debt is still
-                      collected from coin balance and can push balance below zero.
-                    </p>
-                    <p className="mt-2 text-yellow-50/75">
-                      Debt contracts cannot be removed here. Only admin can delete or cancel debt
-                      records.
-                    </p>
-                  </div>
-                  <button
-                    className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
-                    onClick={onPayDebtPeriod}
-                    type="button"
-                  >
-                    {isPetActionPending("pet-debt-contract")
-                      ? "Saving..."
-                      : !debtPaymentDue
-                      ? "Next installment locked"
-                      : `Pay installment ${debtInstallmentNumber}`}
-                  </button>
+                  )}
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3">
@@ -2472,15 +2498,21 @@ export function PetSection({
                       <textarea
                         className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
                         onChange={(event) => setEvilConsentPrimary(event.target.value)}
-                        placeholder="Consent confirmation 1"
+                        placeholder={EVIL_CONSENT_PRIMARY_TEXT}
                         value={evilConsentPrimary}
                       />
+                      <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
+                        Consent 1 must be typed exactly: {EVIL_CONSENT_PRIMARY_TEXT}
+                      </p>
                       <textarea
                         className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
                         onChange={(event) => setEvilConsentSecondary(event.target.value)}
-                        placeholder="Consent confirmation 2"
+                        placeholder={EVIL_CONSENT_SECONDARY_TEXT}
                         value={evilConsentSecondary}
                       />
+                      <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
+                        Consent 2 must be typed exactly: {EVIL_CONSENT_SECONDARY_TEXT}
+                      </p>
                       <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
                         Evil Debt Contract is mutually exclusive with normal Debt Contract. Final
                         signing asks one last confirmation.
