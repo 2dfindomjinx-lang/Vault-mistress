@@ -628,7 +628,7 @@ as $$
 declare
   xp_delta integer := 0;
 begin
-  if new.amount < 0 then
+  if new.amount < 0 and coalesce(new.reason, '') <> 'admin_drain' then
     xp_delta := abs(new.amount) * 2;
   elsif new.amount > 0 and new.reason in ('throne_tribute', 'live_gift') then
     xp_delta := floor(new.amount * 0.05);
