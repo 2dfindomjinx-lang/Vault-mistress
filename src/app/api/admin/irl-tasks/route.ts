@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    action?: "approve" | "cancelShame" | "clearReviewed" | "countPending" | "excuse" | "removeTimeout";
+    action?: "approve" | "cancelShame" | "countPending" | "excuse" | "removeTimeout";
     taskId?: string;
     userId?: string;
   };
@@ -65,22 +65,6 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ count: count ?? 0 });
-  }
-
-  if (body.action === "clearReviewed") {
-    const { error: clearError } = await supabase
-      .from("user_irl_tasks")
-      .delete()
-      .not("reviewed_at", "is", null);
-
-    if (clearError) {
-      console.error("Admin IRL reviewed task manual clear failed", clearError);
-      return Response.json({ error: clearError.message }, { status: 500 });
-    }
-
-    return Response.json({
-      message: "Reviewed IRL task logs cleared. Pending tasks were kept.",
-    });
   }
 
   if (body.action === "removeTimeout") {
@@ -179,14 +163,14 @@ export async function POST(request: Request) {
 
       const { data: approvedTask, error: taskUpdateError } = await supabase
         .from("user_irl_tasks")
-        .update({ completed_at: now, reviewed_at: now, status: "approved" })
+        .delete()
         .eq("id", task.id)
         .eq("status", "assigned")
         .select("id")
         .maybeSingle();
 
       if (taskUpdateError || !approvedTask) {
-        console.error("Admin IRL approve task update failed", taskUpdateError);
+        console.error("Admin IRL approve task delete failed", taskUpdateError);
         const { error: rollbackError } = await supabase
           .from("profiles")
           .update({ affection: Number(profile.affection ?? 0), updated_at: now })
@@ -269,14 +253,14 @@ export async function POST(request: Request) {
 
       const { data: failedTask, error: taskUpdateError } = await supabase
         .from("user_irl_tasks")
-        .update({ reviewed_at: now, shamed_at: now, status: "cancelled_failed" })
+        .delete()
         .eq("id", task.id)
         .eq("status", "assigned")
         .select("id")
         .maybeSingle();
 
       if (taskUpdateError || !failedTask) {
-        console.error("Admin IRL cancel/fail task update failed", taskUpdateError);
+        console.error("Admin IRL cancel/fail task delete failed", taskUpdateError);
         const rollbackPatch: {
           shame_count: number;
           timeout_until?: string | null;
@@ -313,7 +297,7 @@ export async function POST(request: Request) {
 
     const { data: excusedTask, error: excuseError } = await supabase
       .from("user_irl_tasks")
-      .update({ completed_at: now, reviewed_at: now, status: "excused_throne" })
+      .delete()
       .eq("id", task.id)
       .eq("status", "assigned")
       .select("id")
@@ -332,11 +316,10 @@ export async function POST(request: Request) {
     });
   }
 
-  const cleanupBefore = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { error: cleanupError } = await supabase
     .from("user_irl_tasks")
     .delete()
-    .lt("reviewed_at", cleanupBefore);
+    .not("reviewed_at", "is", null);
 
   if (cleanupError) {
     console.error("Admin IRL reviewed task cleanup failed", cleanupError);
@@ -345,6 +328,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("user_irl_tasks")
     .select("id, user_id, task_label, task_description, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at")
+    .eq("status", "assigned")
     .order("assigned_at", { ascending: false })
     .limit(100);
 

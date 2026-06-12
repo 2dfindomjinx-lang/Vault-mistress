@@ -43,6 +43,7 @@ import {
   getRandomIrlTaskPenaltyMinutes,
   IRL_TASK_WHEEL_COST,
   irlTaskWheelSegments,
+  isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
@@ -5033,8 +5034,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const currentCoins = coinsRef.current;
+    const freeFridayActive = isFreeTaskFriday();
+    const wheelCost = freeFridayActive ? 0 : IRL_TASK_WHEEL_COST;
 
-    if (currentCoins < IRL_TASK_WHEEL_COST) {
+    if (currentCoins < wheelCost) {
       setAvatarMistressReply(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`);
       return;
     }
@@ -5064,7 +5067,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       };
 
       if (isGuestMode) {
-        const nextCoins = currentCoins - IRL_TASK_WHEEL_COST;
+        const nextCoins = currentCoins - wheelCost;
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
       } else {
@@ -5082,11 +5085,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             task_label: string;
             wheel_index: number;
           };
+          code?: string;
           error?: string;
           profile?: Profile;
         };
 
         if (!response.ok) {
+          if (result.code === "free_friday_reroll") {
+            setAvatarMistressReply(result.error ?? "Free Task Friday skipped a Throne task. Spin again.");
+            return;
+          }
+
           throw createApiError("/api/user/irl-task-wheel", response, result);
         }
 

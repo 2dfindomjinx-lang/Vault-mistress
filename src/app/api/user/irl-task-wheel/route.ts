@@ -1,8 +1,12 @@
 import {
+  getFreeTaskFridayKey,
   getRandomIrlTaskDurationMinutes,
   getRandomIrlTaskPenaltyMinutes,
+  IRL_FREE_FRIDAY_MARKER_REASON,
   IRL_TASK_WHEEL_COST,
   irlTaskWheelSegments,
+  isFreeTaskFriday,
+  isThroneIrlTask,
 } from "@/lib/irl-task-wheel";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
@@ -12,6 +16,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
+import { getGmt3DayBounds } from "@/lib/time";
 
 type IrlWheelBody = {
   wheelIndex?: number;
@@ -68,12 +73,49 @@ export async function POST(request: Request) {
 
   const currentProfile = profile as ProfileRow;
   const timeoutUntil = currentProfile.timeout_until ? new Date(currentProfile.timeout_until).getTime() : 0;
+  const freeFridayKey = getFreeTaskFridayKey();
+  const freeFridayActive = isFreeTaskFriday();
+  const freeFridayBounds = getGmt3DayBounds();
+  const { data: freeFridayMarker, error: freeFridayMarkerError } = freeFridayActive
+    ? await supabase
+        .from("coin_transactions")
+        .select("id")
+        .eq("user_id", authData.user.id)
+        .eq("reason", IRL_FREE_FRIDAY_MARKER_REASON)
+        .gte("created_at", freeFridayBounds.start.toISOString())
+        .lt("created_at", freeFridayBounds.end.toISOString())
+        .limit(1)
+        .maybeSingle()
+    : { data: null, error: null };
+
+  if (freeFridayMarkerError) {
+    console.error("[irl-task-wheel] free friday marker lookup failed", {
+      code: freeFridayMarkerError.code,
+      message: freeFridayMarkerError.message,
+      userId: authData.user.id,
+    });
+    return jsonError("Free Task Friday eligibility check failed.", 500);
+  }
+
+  const freeFridayAvailable = freeFridayActive && !freeFridayMarker;
 
   if (timeoutUntil > Date.now()) {
     return jsonError("Timeout is active. The wheel is not available yet.", 423);
   }
 
-  if (currentProfile.coins < IRL_TASK_WHEEL_COST) {
+  if (freeFridayAvailable && isThroneIrlTask(assignedTask)) {
+    return Response.json(
+      {
+        code: "free_friday_reroll",
+        error: "Free Task Friday skips Throne tasks. Spin again.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const costCoins = freeFridayAvailable ? 0 : IRL_TASK_WHEEL_COST;
+
+  if (currentProfile.coins < costCoins) {
     return jsonError(`The wheel costs ${IRL_TASK_WHEEL_COST} coins. Come back richer.`, 402);
   }
 
@@ -116,32 +158,37 @@ export async function POST(request: Request) {
   const durationMinutes = getRandomIrlTaskDurationMinutes();
   const penaltyMinutes = getRandomIrlTaskPenaltyMinutes();
   const dueAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
-  const nextCoins = currentProfile.coins - IRL_TASK_WHEEL_COST;
+  const nextCoins = currentProfile.coins - costCoins;
+  let updatedProfile = profile;
 
-  const { data: updatedProfile, error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      coins: nextCoins,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", authData.user.id)
-    .eq("coins", currentProfile.coins)
-    .select(profileSelect)
-    .maybeSingle();
+  if (costCoins > 0) {
+    const { data, error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        coins: nextCoins,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authData.user.id)
+      .eq("coins", currentProfile.coins)
+      .select(profileSelect)
+      .maybeSingle();
 
-  if (updateError || !updatedProfile) {
-    console.error("[irl-task-wheel] profile coin update failed", {
-      code: updateError?.code,
-      message: updateError?.message,
-      userId: authData.user.id,
-    });
-    return jsonError(updateError?.message ?? "IRL wheel coin update was stale or duplicated.", updateError ? 500 : 409);
+    if (updateError || !data) {
+      console.error("[irl-task-wheel] profile coin update failed", {
+        code: updateError?.code,
+        message: updateError?.message,
+        userId: authData.user.id,
+      });
+      return jsonError(updateError?.message ?? "IRL wheel coin update was stale or duplicated.", updateError ? 500 : 409);
+    }
+
+    updatedProfile = data;
   }
 
   const { data: assignment, error: assignmentError } = await supabase
     .from("user_irl_tasks")
     .insert({
-      cost_coins: IRL_TASK_WHEEL_COST,
+      cost_coins: costCoins,
       due_at: dueAt,
       penalty_timeout_minutes: penaltyMinutes,
       status: "assigned",
@@ -182,16 +229,18 @@ export async function POST(request: Request) {
   }
 
   const { error: transactionError } = await supabase.from("coin_transactions").insert({
-    amount: -IRL_TASK_WHEEL_COST,
+    amount: -costCoins,
     balance_after: nextCoins,
     balance_before: currentProfile.coins,
     metadata: {
       dueAt,
+      freeFriday: freeFridayAvailable,
+      freeFridayKey: freeFridayAvailable ? freeFridayKey : null,
       penaltyMinutes,
       taskLabel: assignedTask.title,
       wheelIndex,
     },
-    reason: "spend:irl-task-wheel",
+    reason: freeFridayAvailable ? IRL_FREE_FRIDAY_MARKER_REASON : "spend:irl-task-wheel",
     user_id: authData.user.id,
   });
 
@@ -217,21 +266,23 @@ export async function POST(request: Request) {
       }
     }
 
-    const { error: rollbackError } = await supabase
-      .from("profiles")
-      .update({
-        coins: currentProfile.coins,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", authData.user.id)
-      .eq("coins", nextCoins);
+    if (costCoins > 0) {
+      const { error: rollbackError } = await supabase
+        .from("profiles")
+        .update({
+          coins: currentProfile.coins,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", authData.user.id)
+        .eq("coins", nextCoins);
 
-    if (rollbackError) {
-      console.error("[irl-task-wheel] coin rollback after logging failure failed", {
-        code: rollbackError.code,
-        message: rollbackError.message,
-        userId: authData.user.id,
-      });
+      if (rollbackError) {
+        console.error("[irl-task-wheel] coin rollback after logging failure failed", {
+          code: rollbackError.code,
+          message: rollbackError.message,
+          userId: authData.user.id,
+        });
+      }
     }
 
     return jsonError("IRL wheel coin logging failed.", 500);

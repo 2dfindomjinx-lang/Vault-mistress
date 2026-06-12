@@ -5064,7 +5064,7 @@ function getPlaceholderSpeechBubbleMessage(avatarId: string, category: SpeechBub
   }
 
   if (category === "level_up") {
-    return "Global Principessa has grown stronger. Continue serving.";
+    return "Principessa has grown stronger. Continue serving.";
   }
 
   return `${avatarName} ${category} message placeholder.`;

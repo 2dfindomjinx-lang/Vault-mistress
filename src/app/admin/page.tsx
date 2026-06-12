@@ -602,37 +602,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleClearReviewedIrlLogs = async () => {
-    if (!isAdmin) {
-      setStatus("Admin access required.");
-      return;
-    }
-
-    setIsBusy(true);
-    setStatus("");
-
-    try {
-      const response = await fetch("/api/admin/irl-tasks", {
-        body: JSON.stringify({ action: "clearReviewed" }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const result = (await response.json()) as { error?: string; message?: string };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Reviewed log clear failed.");
-      }
-
-      setStatus(result.message ?? "Reviewed IRL logs cleared.");
-      setDefneMessage("Reviewed logs cleared. The pending ones remain.");
-      await loadIrlTasks({ keepStatus: true });
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Reviewed log clear failed.");
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
   const handleTimeoutAction = async (
     userId: string,
     action: "cancel" | "change",
@@ -829,24 +798,14 @@ export default function AdminPage() {
                 <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
                   Assigned IRL Tasks
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
-                    disabled={isBusy}
-                    onClick={() => void loadIrlTasks()}
-                    type="button"
-                  >
-                    Refresh
-                  </button>
-                  <button
-                    className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-xs font-bold text-rose-100 transition hover:border-rose-200/45 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isBusy}
-                    onClick={() => void handleClearReviewedIrlLogs()}
-                    type="button"
-                  >
-                    Clear Reviewed Logs
-                  </button>
-                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadIrlTasks()}
+                  type="button"
+                >
+                  Refresh
+                </button>
               </div>
               <div className="mt-4 grid gap-3">
                 {irlTasks.length > 0 ? (

@@ -9,6 +9,7 @@ async function listIrlTasks(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("user_irl_tasks")
     .select("id, user_id, task_label, task_description, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, assigned_at")
+    .eq("status", "assigned")
     .order("assigned_at", { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
 
     const { data: approvedTask, error } = await admin.supabase
       .from("user_irl_tasks")
-      .update({ completed_at: now, reviewed_at: now, status: "approved" })
+      .delete()
       .eq("id", task.id)
       .eq("status", "assigned")
       .select("id")
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
 
     const { data: failedTask, error } = await admin.supabase
       .from("user_irl_tasks")
-      .update({ reviewed_at: now, shamed_at: now, status: "cancelled_failed" })
+      .delete()
       .eq("id", task.id)
       .eq("status", "assigned")
       .select("id")
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
 
   const { data: excusedTask, error } = await admin.supabase
     .from("user_irl_tasks")
-    .update({ completed_at: now, reviewed_at: now, status: "excused_throne" })
+    .delete()
     .eq("id", task.id)
     .eq("status", "assigned")
     .select("id")

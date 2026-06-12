@@ -1708,7 +1708,7 @@ export function PetSection({
                   )}
 
                   {task.kind === "favor-roulette" && (
-                    <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                    <div className="mt-auto flex flex-1 flex-col justify-center rounded-2xl border border-pink-200/15 bg-black/35 p-3 sm:p-4">
                       <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                         {Array.from({ length: 5 }, (_, index) => {
                           const revealed = typeof task.favorPickedIndex === "number" && task.favorPickedIndex >= 0;
@@ -1722,7 +1722,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`flex aspect-[4/5] min-h-[4.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:aspect-[5/4] sm:min-h-[5.5rem] sm:rounded-2xl ${
+                              className={`flex min-h-[6.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:min-h-[8rem] sm:rounded-2xl md:min-h-[9.5rem] ${
                                 picked && task.favorResult === "win"
                                   ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
                                   : picked

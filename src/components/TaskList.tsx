@@ -2,7 +2,12 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
-import { IRL_TASK_WHEEL_COST, irlTaskWheelSegments } from "@/lib/irl-task-wheel";
+import {
+  getFreeFridayEligibleIrlTaskIndices,
+  IRL_TASK_WHEEL_COST,
+  irlTaskWheelSegments,
+  isFreeTaskFriday,
+} from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import { emitSoundEvent } from "@/lib/sound";
 import type { MechanicsState, TaskItem } from "@/lib/types";
@@ -205,6 +210,7 @@ export function TaskList({
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
+  const isFreeFriday = isFreeTaskFriday(now);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
@@ -306,7 +312,11 @@ export function TaskList({
 
     emitSoundEvent("button_click");
 
-    const selectedIndex = Math.floor(Math.random() * irlTaskWheelSegments.length);
+    const freeFridayIndices = isFreeFriday ? getFreeFridayEligibleIrlTaskIndices() : [];
+    const selectedIndex =
+      freeFridayIndices.length > 0
+        ? freeFridayIndices[Math.floor(Math.random() * freeFridayIndices.length)]
+        : Math.floor(Math.random() * irlTaskWheelSegments.length);
     const segmentDegrees = 360 / irlTaskWheelSegments.length;
     const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
     const currentRotation = ((irlWheelRotation % 360) + 360) % 360;
@@ -537,7 +547,7 @@ export function TaskList({
                 </div>
                 <div className="rounded-2xl border border-pink-100/25 bg-black/55 px-3 py-2 text-center shadow-[0_0_18px_rgba(236,72,153,0.22)] backdrop-blur">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/65">
-                    Global Principessa
+                    Principessa
                   </p>
                   <p className="text-base font-black text-white">Level {globalPrincipessaLevel}</p>
                 </div>
@@ -546,26 +556,9 @@ export function TaskList({
             <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
               Level Drain
             </p>
-            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <h3 className="text-xl font-black text-white">Strengthen Global Principessa</h3>
-              <button
-                className="w-full rounded-xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
-                disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
-                onClick={() => {
-                  emitSoundEvent("button_click");
-                  onLevelDrain();
-                }}
-                type="button"
-              >
-                {isTaskActionPending("level-drain")
-                  ? "Draining..."
-                  : userLevel < 2
-                    ? "Requires L2"
-                    : "Drain 1 Level"}
-              </button>
-            </div>
+            <h3 className="mt-1 text-xl font-black text-white">Strengthen Principessa</h3>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Sacrifice exactly 1 user level. A quarter of that level value becomes Global Principessa XP.
+              Sacrifice exactly 1 user level. A quarter of that level value becomes Principessa XP.
             </p>
             <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
               Monthly reset in {formatRemaining(monthlyResetRemaining)}
@@ -586,7 +579,7 @@ export function TaskList({
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
                 <div className="flex items-center justify-between text-sm font-bold text-fuchsia-50">
-                  <span>Global Level {globalPrincipessaLevel}</span>
+                  <span>Principessa Level {globalPrincipessaLevel}</span>
                   <span>
                     {globalPrincipessaRequirement === null
                       ? "MAX"
@@ -597,6 +590,23 @@ export function TaskList({
                   <div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${globalPrincipessaProgressPercent}%` }} />
                 </div>
               </div>
+            </div>
+            <div className="mt-4 flex justify-center">
+              <button
+                className="w-full max-w-sm rounded-xl border border-pink-200/25 bg-pink-500/15 px-5 py-2 text-xs font-black uppercase tracking-[0.16em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-56"
+                disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  onLevelDrain();
+                }}
+                type="button"
+              >
+                {isTaskActionPending("level-drain")
+                  ? "Draining..."
+                  : userLevel < 2
+                    ? "Requires L2"
+                    : "Drain Your XP"}
+              </button>
             </div>
           </div>
         </div>
@@ -642,6 +652,7 @@ export function TaskList({
               ? new Date(irlTask.cooldownUntil).getTime() - now
               : 0;
             const isIrlCoolingDown = irlCooldownRemaining > 0;
+            const irlWheelNeedsCoins = !isFreeFriday && coins < IRL_TASK_WHEEL_COST;
 
             return (
               <div
@@ -775,8 +786,9 @@ export function TaskList({
                     <div className="mt-4 flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <p className="text-sm leading-6 text-zinc-400">
-                          Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
-                          your assigned IRL task.
+                          {isFreeFriday
+                            ? "Free Task Friday: one non-Throne IRL wheel spin is free today."
+                            : `Spin the wheel for ${IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes your assigned IRL task.`}
                         </p>
                         <button
                           className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
@@ -853,7 +865,7 @@ export function TaskList({
                           isIrlWheelSpinning ||
                           disabled ||
                           isTaskActionPending("irl-task-wheel") ||
-                          coins < IRL_TASK_WHEEL_COST ||
+                          irlWheelNeedsCoins ||
                           Boolean(irlTask.assignedIrlTask) ||
                           Boolean(irlTask.timeoutUntil && new Date(irlTask.timeoutUntil).getTime() > now)
                         }
@@ -871,7 +883,9 @@ export function TaskList({
                           ? "Spinning..."
                           : irlTask.assignedIrlTask
                             ? "Awaiting Admin Review"
-                            : coins < IRL_TASK_WHEEL_COST
+                            : isFreeFriday
+                              ? "Free Friday Spin"
+                            : irlWheelNeedsCoins
                               ? `Need ${IRL_TASK_WHEEL_COST} Coins`
                               : `Spin — ${IRL_TASK_WHEEL_COST} Coins`}
                       </button>
@@ -1459,8 +1473,9 @@ export function TaskList({
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <p className="text-sm leading-6 text-zinc-400">
-                      Spin the wheel for {IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes
-                      your assigned IRL task.
+                      {isFreeFriday
+                        ? "Free Task Friday: one non-Throne IRL wheel spin is free today."
+                        : `Spin the wheel for ${IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes your assigned IRL task.`}
                     </p>
                     <button
                       className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
@@ -1536,7 +1551,7 @@ export function TaskList({
                       isIrlWheelSpinning ||
                       disabled ||
                       isTaskActionPending("irl-task-wheel") ||
-                      coins < IRL_TASK_WHEEL_COST ||
+                      (!isFreeFriday && coins < IRL_TASK_WHEEL_COST) ||
                       Boolean(task.assignedIrlTask) ||
                       Boolean(task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now)
                     }
@@ -1552,6 +1567,8 @@ export function TaskList({
                   >
                     {isIrlWheelSpinning ? "Spinning..." : task.assignedIrlTask
                       ? "Awaiting Admin Review"
+                        : isFreeFriday
+                          ? "Free Friday Spin"
                         : coins < IRL_TASK_WHEEL_COST
                           ? `Need ${IRL_TASK_WHEEL_COST} Coins`
                           : `Spin — ${IRL_TASK_WHEEL_COST} Coins`}

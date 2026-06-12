@@ -1,5 +1,8 @@
+import { getGmt3DateKey } from "@/lib/time";
+
 export const IRL_TASK_WHEEL_COST = 2500;
 export const IRL_TASK_APPROVAL_AFFECTION_GAIN = 10;
+export const IRL_FREE_FRIDAY_MARKER_REASON = "free_task_friday:irl-task-wheel";
 
 export const irlTaskWheelTasks = [
   {
@@ -85,6 +88,28 @@ export const irlTaskWheelTasks = [
 ];
 
 export const irlTaskWheelSegments = irlTaskWheelTasks;
+
+export function isFreeTaskFriday(date: Date | number | string = new Date()) {
+  const gmt3Date = new Date(`${getGmt3DateKey(date)}T00:00:00.000Z`);
+
+  return gmt3Date.getUTCDay() === 5;
+}
+
+export function getFreeTaskFridayKey(date: Date | number | string = new Date()) {
+  return getGmt3DateKey(date);
+}
+
+export function isThroneIrlTask(task: { description: string; title: string }) {
+  const text = `${task.title} ${task.description}`.toLowerCase();
+
+  return text.includes("throne") || text.includes("send $") || text.includes("send 1$") || text.includes("send 5$") || text.includes("send 10$");
+}
+
+export function getFreeFridayEligibleIrlTaskIndices() {
+  return irlTaskWheelSegments
+    .map((task, index) => (isThroneIrlTask(task) ? null : index))
+    .filter((index): index is number => typeof index === "number");
+}
 
 export function getRandomIrlTaskDurationMinutes() {
   return 24 * 60;
