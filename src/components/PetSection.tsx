@@ -39,7 +39,7 @@ const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
 const RIGHTS_TASK_TITLE = "Owned Orgasm Permission";
 const RIGHTS_TASK_DESCRIPTION =
-  "Pay for stored cumming rights or consume one after cumming. Stored rights persist for three day.";
+  "Pay for stored cumming rights or consume one after cumming. Stored rights persist for two days.";
 const RIGHTS_TASK_WARNING =
   "This task depends entirely on your honesty. It is impossible for me to verify every real-world use automatically.";
 const RIGHTS_IMAGE_PATH_PREFIX = "/pet/rights/right";
@@ -539,6 +539,7 @@ export function PetSection({
   storedRights,
   rightExpirations,
   dailyPurchaseCount,
+  rightPurchaseDate,
   tasks,
   weeklyTaxCost,
 }: {
@@ -583,6 +584,7 @@ export function PetSection({
   storedRights: number;
   rightExpirations: string[];
   dailyPurchaseCount: number;
+  rightPurchaseDate: string | null;
   tasks: PetTaskItem[];
   weeklyTaxCost: number;
 }) {
@@ -633,6 +635,12 @@ export function PetSection({
     .filter((expiresAt) => now <= 0 || new Date(expiresAt).getTime() > now)
     .sort((left, right) => new Date(left).getTime() - new Date(right).getTime());
   const displayedStoredRights = rightExpirations.length > 0 ? activeRightExpirations.length : storedRights;
+  const currentGmt3DateKey = getGmt3DateKey(now);
+  const effectiveDailyPurchaseCount =
+    rightPurchaseDate && getGmt3DateKey(rightPurchaseDate) === currentGmt3DateKey
+      ? dailyPurchaseCount
+      : 0;
+  const nextRightPrice = getNextRightPrice(effectiveDailyPurchaseCount);
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => isPetTaskApprovedToday(task, now)).length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
@@ -1717,8 +1725,8 @@ export function PetSection({
                           const label = !revealed
                             ? "?"
                             : winning
-                              ? "Special Favor"
-                              : "Disappointment";
+                              ? "FAVOR"
+                              : "EMPTY";
 
                           return (
                             <button
@@ -1747,8 +1755,16 @@ export function PetSection({
                               type="button"
                             >
                               <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
-                              <span aria-hidden="true" className="leading-tight text-pink-50/90">
-                                {!revealed ? "?" : winning ? "Favor" : "Empty"}
+                              <span aria-hidden="true" className="flex flex-col items-center justify-center leading-none text-pink-50/90">
+                                {!revealed ? (
+                                  "?"
+                                ) : (
+                                  label.split("").map((letter, letterIndex) => (
+                                    <span className="block" key={`${label}-${letter}-${letterIndex}`}>
+                                      {letter}
+                                    </span>
+                                  ))
+                                )}
                               </span>
                             </button>
                           );
@@ -1895,14 +1911,14 @@ export function PetSection({
                 </div>
                 <div className="flex items-center justify-between gap-3 text-zinc-300">
                   <span>Daily purchases</span>
-                  <span>{Math.min(5, dailyPurchaseCount)}/5</span>
+                  <span>{Math.min(5, effectiveDailyPurchaseCount)}/5</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-zinc-300">
                   <span>Next price today</span>
                   <span>
-                    {getNextRightPrice(dailyPurchaseCount) === null
-                      ? "Maxed"
-                      : `${getNextRightPrice(dailyPurchaseCount)?.toLocaleString()} Coins`}
+                    {nextRightPrice === null
+                      ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
+                      : `${nextRightPrice.toLocaleString()} Coins`}
                   </span>
                 </div>
                 <div className="grid gap-1 border-t border-red-200/10 pt-2 text-xs text-zinc-300">
@@ -1925,22 +1941,22 @@ export function PetSection({
                 {RIGHTS_TASK_WARNING}
               </p>
               <div className="mt-auto grid gap-2 pt-4">
-                <button
-                  className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={
-                    isPetActionPending("rights:buy") ||
-                    getNextRightPrice(dailyPurchaseCount) === null ||
-                    coins < (getNextRightPrice(dailyPurchaseCount) ?? Number.POSITIVE_INFINITY)
-                  }
-                  onClick={onBuyRight}
-                  type="button"
-                >
+                  <button
+                    className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={
+                      isPetActionPending("rights:buy") ||
+                      nextRightPrice === null ||
+                      coins < (nextRightPrice ?? Number.POSITIVE_INFINITY)
+                    }
+                    onClick={onBuyRight}
+                    type="button"
+                  >
                   {isPetActionPending("rights:buy")
                     ? "Buying..."
-                    : getNextRightPrice(dailyPurchaseCount) === null
-                      ? "Daily Max Reached"
+                  : nextRightPrice === null
+                    ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
                       : "Buy Right"}
-                </button>
+                  </button>
                 <button
                   className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={isPetActionPending("rights:use") || displayedStoredRights <= 0}

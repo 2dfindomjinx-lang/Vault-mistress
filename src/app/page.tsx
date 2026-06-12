@@ -49,7 +49,7 @@ import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpo
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { roundRewardToNearestFive } from "@/lib/server-game-rules";
 import { getUserLevelProgress } from "@/lib/levels";
-import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
+import { getGmt3DateKey, getGmt3DayIndex, getNextGmt3Reset } from "@/lib/time";
 import {
   emitSoundEvent,
   getSoundSettings,
@@ -1763,6 +1763,7 @@ export default function Home() {
   const [storedRights, setStoredRights] = useState(0);
   const [rightExpirations, setRightExpirations] = useState<string[]>([]);
   const [dailyPurchaseCount, setDailyPurchaseCount] = useState(0);
+  const [rightPurchaseDate, setRightPurchaseDate] = useState<string | null>(null);
   const [globalPrincipessa, setGlobalPrincipessa] = useState<GlobalPrincipessaProgress>({
     level: 1,
     month: new Date().getMonth() + 1,
@@ -2130,6 +2131,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const isTimeoutActive = timeoutRemaining > 0;
   const showAccountAnnouncement =
     currentTime < new Date(ACCOUNT_ANNOUNCEMENT_EXPIRES_AT).getTime();
+  const isFreeFridayActive = isFreeTaskFriday(currentTime);
+  const freeFridayRemainingMs = isFreeFridayActive
+    ? getNextGmt3Reset(currentTime).getTime() - currentTime
+    : 0;
   const effectiveTimeoutDays = currentTime > 0
     ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
     : 0;
@@ -2703,6 +2708,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setStoredRights(profile.stored_rights ?? 0);
     setRightExpirations(Array.isArray(profile.right_expirations) ? profile.right_expirations : []);
     setDailyPurchaseCount(profile.daily_purchase_count ?? 0);
+    setRightPurchaseDate(profile.right_purchase_date ?? null);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
@@ -4973,6 +4979,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           dailyPurchaseCount?: number;
           price?: number;
           rightExpirations?: string[];
+          rightPurchaseDate?: string | null;
           storedRights?: number;
         };
       };
@@ -4989,6 +4996,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setStoredRights(result.storedRights ?? storedRights);
       setRightExpirations(Array.isArray(result.rightExpirations) ? result.rightExpirations : rightExpirations);
       setDailyPurchaseCount(result.dailyPurchaseCount ?? dailyPurchaseCount);
+      setRightPurchaseDate(result.rightPurchaseDate ?? rightPurchaseDate);
       setAvatarMistressReply(
         action === "buy"
           ? `Right purchased. ${result.price ?? 0} coins spent.`
@@ -7699,6 +7707,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
+        {isFreeFridayActive && (
+          <section className="overflow-hidden rounded-[1.5rem] border border-emerald-200/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(236,72,153,0.12),rgba(0,0,0,0.6))] px-4 py-4 shadow-[0_0_34px_rgba(16,185,129,0.14)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-100">
+                  Active Vault Event
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-white">Free Task Friday</h2>
+                <p className="mt-1 text-sm leading-6 text-emerald-50/80">
+                  One non-Throne IRL Task Wheel spin is free today.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100/25 bg-black/45 px-4 py-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-emerald-100/70">
+                  Ends In
+                </p>
+                <p className="mt-1 text-2xl font-black text-emerald-50">
+                  {formatEventCountdown(freeFridayRemainingMs)}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         <RecentTributesTicker
           currentUsername={username}
           topTributes={topTributes}
@@ -7996,6 +8028,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               storedRights={storedRights}
               rightExpirations={rightExpirations}
               dailyPurchaseCount={dailyPurchaseCount}
+              rightPurchaseDate={rightPurchaseDate}
               pendingPetActionIds={pendingPetActionIds}
               tasks={petTaskState}
               weeklyTaxCost={PET_WEEKLY_TAX_COST}
