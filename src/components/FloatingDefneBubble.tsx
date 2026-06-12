@@ -6,9 +6,10 @@ import { getGlobalPrincipessaVisualTier } from "@/lib/global-principessa";
 type FloatingDefneBubbleProps = {
   avatarSrc?: string;
   message: string;
+  messageId?: number;
   messageStyle?: CSSProperties;
   globalPrincipessaLevel?: number;
-  onBubbleFullyHidden?: (message: string) => void;
+  onBubbleFullyHidden?: (message: string, messageId: number) => void;
 };
 
 const fadeDuration = 2000;
@@ -17,18 +18,19 @@ export function FloatingDefneBubble({
   avatarSrc = "/character-icon.png",
   globalPrincipessaLevel = 1,
   message,
+  messageId,
   messageStyle,
   onBubbleFullyHidden,
 }: FloatingDefneBubbleProps) {
-  const [bubbleVisible, setBubbleVisible] = useState(true);
-  const [lastMessage, setLastMessage] = useState(message);
+  const bubbleKey = messageId ?? message;
+  const [hiddenBubbleKey, setHiddenBubbleKey] = useState<number | string | null>(null);
   const visualTier = getGlobalPrincipessaVisualTier(globalPrincipessaLevel);
   const visualClass =
     visualTier === "maximum"
-      ? "border-red-200/80 shadow-[0_0_60px_rgba(248,113,113,0.75),0_0_100px_rgba(236,72,153,0.45)] animate-pulse"
+      ? "border-red-200/80 shadow-[0_0_60px_rgba(248,113,113,0.75),0_0_100px_rgba(236,72,153,0.45)]"
       : visualTier === "boss-fire"
-        ? "border-red-300/70 shadow-[0_0_54px_rgba(239,68,68,0.62)] animate-pulse"
-        : visualTier === "heavy-fire"
+        ? "border-red-300/70 shadow-[0_0_54px_rgba(239,68,68,0.62)]"
+      : visualTier === "heavy-fire"
           ? "border-orange-300/65 shadow-[0_0_48px_rgba(249,115,22,0.55)]"
           : visualTier === "burning-border"
             ? "border-orange-200/60 shadow-[0_0_42px_rgba(251,146,60,0.46)]"
@@ -43,32 +45,29 @@ export function FloatingDefneBubble({
                     : visualTier === "neon-border"
                       ? "border-pink-200/60 shadow-[0_0_40px_rgba(236,72,153,0.42)]"
                       : visualTier === "pulse"
-                        ? "border-pink-200/50 shadow-[0_0_36px_rgba(236,72,153,0.36)] animate-pulse"
+                        ? "principessa-aura-sparkle border-pink-200/50 shadow-[0_0_36px_rgba(236,72,153,0.36)]"
                         : visualTier === "strong-glow"
                           ? "border-pink-200/45 shadow-[0_0_34px_rgba(236,72,153,0.38)]"
                           : visualTier === "subtle-glow"
                             ? "border-pink-200/40 shadow-[0_0_30px_rgba(236,72,153,0.32)]"
                             : "border-pink-200/30 shadow-[0_0_34px_rgba(236,72,153,0.3)]";
 
-  if (message !== lastMessage) {
-    setLastMessage(message);
-    setBubbleVisible(true);
-  }
-
   useEffect(() => {
     const visibleDuration = Math.floor(Math.random() * 2001) + 4000;
     const hideTimer = window.setTimeout(() => {
-      setBubbleVisible(false);
+      setHiddenBubbleKey(bubbleKey);
     }, visibleDuration);
     const hiddenTimer = window.setTimeout(() => {
-      onBubbleFullyHidden?.(message);
+      onBubbleFullyHidden?.(message, messageId ?? 0);
     }, visibleDuration + fadeDuration);
 
     return () => {
       window.clearTimeout(hideTimer);
       window.clearTimeout(hiddenTimer);
     };
-  }, [message, onBubbleFullyHidden]);
+  }, [bubbleKey, message, messageId, onBubbleFullyHidden]);
+
+  const bubbleVisible = hiddenBubbleKey !== bubbleKey;
 
   return (
     <aside className="fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4">
@@ -78,7 +77,7 @@ export function FloatingDefneBubble({
         }`}
         style={messageStyle}
       >
-        {message}
+        <span className="relative z-10">{message}</span>
       </div>
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 shadow-[0_0_32px_rgba(236,72,153,0.44)] sm:h-22 sm:w-22">
         <Image

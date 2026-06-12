@@ -1784,6 +1784,7 @@ export default function Home() {
   const petAffectionClaimed = petAffectionClaimDate === getDailyKey(currentTime);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
   const [fullyHiddenBubbleMessage, setFullyHiddenBubbleMessage] = useState("");
+  const [fullyHiddenBubbleMessageId, setFullyHiddenBubbleMessageId] = useState(0);
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
@@ -1828,7 +1829,10 @@ export default function Home() {
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
+  const [bubbleMessageId, setBubbleMessageId] = useState(1);
   const lastIdleLineIndexRef = useRef(-1);
+  const bubbleMessageIdRef = useRef(1);
+  const lastAddingXpBubbleAtRef = useRef(0);
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const lastPlayedJackpotWinnerSoundKeyRef = useRef<string | null>(null);
   const profileIdRef = useRef<string | null>(null);
@@ -1899,12 +1903,17 @@ export default function Home() {
     globalPrincipessa.level,
     globalPrincipessa.xp,
   );
+  const setSpeechBubbleReply = useCallback((message: string) => {
+    bubbleMessageIdRef.current += 1;
+    setBubbleMessageId(bubbleMessageIdRef.current);
+    setMistressReply(message);
+  }, []);
   const setAvatarMistressReply = useCallback(
     (message: string) => {
       const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
-      setMistressReply(getSpeechBubbleMessageForText(avatarId, message));
+      setSpeechBubbleReply(getSpeechBubbleMessageForText(avatarId, message));
     },
-    [equippedSpeechAvatar?.id],
+    [equippedSpeechAvatar?.id, setSpeechBubbleReply],
   );
   const loadGlobalPrincipessa = useCallback(async (announceLevelUp = false) => {
     const response = await fetch("/api/global-principessa", { cache: "no-store" });
@@ -1934,7 +1943,7 @@ export default function Home() {
 
     if (announceLevelUp && payload.latestLevelUp?.id && payload.latestLevelUp.id !== latestGlobalLevelUpId) {
       setLatestGlobalLevelUpId(payload.latestLevelUp.id);
-      setMistressReply(
+      setSpeechBubbleReply(
         getSpeechBubbleResponseMessage(
           equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
           "level_up",
@@ -1942,7 +1951,7 @@ export default function Home() {
         ),
       );
     }
-  }, [equippedSpeechAvatar?.id, latestGlobalLevelUpId]);
+  }, [equippedSpeechAvatar?.id, latestGlobalLevelUpId, setSpeechBubbleReply]);
   const applySoundSettings = useCallback(
     (settings: Partial<SoundSettings>) => {
       const nextSettings = {
@@ -2424,8 +2433,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return () => window.clearTimeout(timer);
   }, [activeEvent]);
 
-  const handleBubbleFullyHidden = useCallback((hiddenMessage: string) => {
+  const handleBubbleFullyHidden = useCallback((hiddenMessage: string, hiddenMessageId: number) => {
+    if (hiddenMessageId !== bubbleMessageIdRef.current) {
+      return;
+    }
+
     setFullyHiddenBubbleMessage(hiddenMessage);
+    setFullyHiddenBubbleMessageId(hiddenMessageId);
     setBubbleHiddenTick((value) => value + 1);
   }, []);
 
@@ -2437,6 +2451,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
     if (fullyHiddenBubbleMessage !== mistressReply) {
+      return;
+    }
+    if (fullyHiddenBubbleMessageId !== bubbleMessageIdRef.current) {
       return;
     }
 
@@ -2473,6 +2490,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     bubbleHiddenTick,
     equippedSpeechAvatar?.id,
     fullyHiddenBubbleMessage,
+    fullyHiddenBubbleMessageId,
     isLoggedIn,
     mistressReply,
     petEverUnlocked,
@@ -4959,18 +4977,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         level: result.globalLevel ?? current.level,
         xp: result.globalXp ?? current.xp,
       }));
-      setMistressReply(
-        getSpeechBubbleResponseMessage(
-          equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
-          "adding_xp",
-          "Your sacrifice feeds my growth.",
-        ),
-      );
+      const now = Date.now();
+      if (now - lastAddingXpBubbleAtRef.current >= 8000) {
+        lastAddingXpBubbleAtRef.current = now;
+        setSpeechBubbleReply(
+          getSpeechBubbleResponseMessage(
+            equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+            "adding_xp",
+            "Your sacrifice feeds my growth.",
+          ),
+        );
+      }
       emitSoundEvent("task_completion");
 
       if (result.globalLevelUp) {
         window.setTimeout(() => {
-          setMistressReply(
+          setSpeechBubbleReply(
             getSpeechBubbleResponseMessage(
               equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
               "level_up",
@@ -6843,8 +6865,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleCooldownAttempt = useCallback((message: string) => {
     const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
-    setMistressReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
-  }, [equippedSpeechAvatar?.id]);
+    setSpeechBubbleReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
+  }, [equippedSpeechAvatar?.id, setSpeechBubbleReply]);
 
   const applyVerticalMotionTaskRow = useCallback((row: UserTaskRow) => {
     const rawState = getTaskMetadataString(row.metadata, "state");
@@ -8108,6 +8130,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
         globalPrincipessaLevel={globalPrincipessa.level}
         message={mistressReply}
+        messageId={bubbleMessageId}
         messageStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
         onBubbleFullyHidden={handleBubbleFullyHidden}
       />
