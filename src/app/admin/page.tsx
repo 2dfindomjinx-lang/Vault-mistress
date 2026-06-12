@@ -104,7 +104,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<
-    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "events"
+    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "evilDebt" | "events"
   >("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
@@ -762,6 +762,7 @@ export default function AdminPage() {
               ["irlTasks", "IRL Tasks"],
               ["petTasks", "Pet Tasks"],
               ["debt", "Debt"],
+              ["evilDebt", "Evil Debt"],
               ["events", "Events"],
               ["timeouts", "Active Timeouts"],
               ["maxAffection", "100 Affection"],
@@ -781,7 +782,7 @@ export default function AdminPage() {
                   if (key === "petTasks") {
                     void loadPetTasks();
                   }
-                  if (key === "debt") {
+                  if (key === "debt" || key === "evilDebt") {
                     void loadDebtContracts();
                   }
                   if (key === "events") {
@@ -1091,104 +1092,117 @@ export default function AdminPage() {
                     </p>
                   )}
                 </div>
-                <div className="mt-5 rounded-2xl border border-red-200/20 bg-red-950/20 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.22em] text-red-100">
-                        Evil Debt Contracts
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        Separate signed Evil Debt submissions with image proofs.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2">
-                    {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
-                      debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
-                        const expanded = expandedEvilDebtId === contract.id;
+              </div>
+            </div>
+          )}
 
-                        return (
-                          <article
-                            className="rounded-2xl border border-red-200/15 bg-black/35 p-3"
-                            key={contract.id}
+          {activeTab === "evilDebt" && (
+            <div className="mt-4 rounded-[1.5rem] border border-red-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(220,38,38,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">
+                    Evil Debt Contracts
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Separate Evil Debt submissions with consent details and image proofs.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadDebtContracts()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                <div className="grid gap-2">
+                  {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
+                    debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
+                      const expanded = expandedEvilDebtId === contract.id;
+
+                      return (
+                        <article
+                          className="rounded-2xl border border-red-200/15 bg-black/35 p-3"
+                          key={contract.id}
+                        >
+                          <button
+                            className="grid w-full gap-2 text-left text-sm sm:grid-cols-[1.3fr_1fr_1fr_auto]"
+                            onClick={() => setExpandedEvilDebtId(expanded ? null : contract.id)}
+                            type="button"
                           >
-                            <button
-                              className="grid w-full gap-2 text-left text-sm sm:grid-cols-[1.3fr_1fr_1fr_auto]"
-                              onClick={() => setExpandedEvilDebtId(expanded ? null : contract.id)}
-                              type="button"
-                            >
-                              <span className="font-black text-white">{contract.username}</span>
-                              <span className="text-red-50">{contract.full_name ?? "No name"}</span>
-                              <span className="text-zinc-300">
-                                {contract.debt_amount.toLocaleString()} / {contract.period_type}
-                              </span>
-                              <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
-                                {contract.status}
-                              </span>
-                            </button>
-                            {expanded && (
-                              <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
-                                <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
-                                  <span>Full name: {contract.full_name ?? "-"}</span>
-                                  <span>Username: {contract.username}</span>
-                                  <span>User id: {contract.user_id}</span>
-                                  <span>Timezone: {contract.timezone ?? "-"}</span>
-                                  <span>Custom note: {contract.custom_note ?? "-"}</span>
-                                  <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
-                                  <span>Duration: {contract.duration_periods}</span>
-                                  <span>Frequency: {contract.period_type}</span>
-                                  <span>Status: {contract.status}</span>
-                                  <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
-                                  <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
-                                  <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
-                                </div>
-                                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
-                                  {(contract.image_urls ?? []).map((imageUrl, index) => (
-                                    <button
-                                      className="overflow-hidden rounded-xl border border-red-200/15 bg-black"
-                                      key={`${contract.id}-${index}`}
-                                      onClick={() => setPreviewDebtImage(imageUrl)}
-                                      type="button"
-                                    >
-                                      <img
-                                        alt={`Evil debt upload ${index + 1}`}
-                                        className="aspect-square w-full object-cover"
-                                        src={imageUrl}
-                                      />
-                                    </button>
-                                  ))}
-                                </div>
-                                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                                  {contract.status === "pending" && (
-                                    <button
-                                      className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                                      disabled={isBusy}
-                                      onClick={() => void handleApproveEvilDebtContract(contract.id)}
-                                      type="button"
-                                    >
-                                      Approve Evil Debt
-                                    </button>
-                                  )}
+                            <span className="font-black text-white">{contract.username}</span>
+                            <span className="text-red-50">{contract.full_name ?? "No name"}</span>
+                            <span className="text-zinc-300">
+                              {contract.debt_amount.toLocaleString()} / {contract.period_type}
+                            </span>
+                            <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                              {contract.status}
+                            </span>
+                          </button>
+                          {expanded && (
+                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                              <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                                <span>Full name: {contract.full_name ?? "-"}</span>
+                                <span>Username: {contract.username}</span>
+                                <span>User id: {contract.user_id}</span>
+                                <span>Timezone: {contract.timezone ?? "-"}</span>
+                                <span>Custom note: {contract.custom_note ?? "-"}</span>
+                                <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
+                                <span>Duration: {contract.duration_periods}</span>
+                                <span>Frequency: {contract.period_type}</span>
+                                <span>Status: {contract.status}</span>
+                                <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
+                                <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
+                                <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
+                              </div>
+                              <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                {(contract.image_urls ?? []).map((imageUrl, index) => (
                                   <button
-                                    className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                                    disabled={isBusy}
-                                    onClick={() => void handleRemoveDebtContract(contract.id)}
+                                    className="overflow-hidden rounded-xl border border-red-200/15 bg-black"
+                                    key={`${contract.id}-${index}`}
+                                    onClick={() => setPreviewDebtImage(imageUrl)}
                                     type="button"
                                   >
-                                    Remove Evil Debt
+                                    <img
+                                      alt={`Evil debt upload ${index + 1}`}
+                                      className="aspect-square w-full object-cover"
+                                      src={imageUrl}
+                                    />
                                   </button>
-                                </div>
+                                ))}
                               </div>
-                            )}
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
-                        No Evil Debt Contracts yet.
-                      </p>
-                    )}
-                  </div>
+                              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                {contract.status === "pending" && (
+                                  <button
+                                    className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleApproveEvilDebtContract(contract.id)}
+                                    type="button"
+                                  >
+                                    Approve Evil Debt
+                                  </button>
+                                )}
+                                <button
+                                  className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={isBusy}
+                                  onClick={() => void handleRemoveDebtContract(contract.id)}
+                                  type="button"
+                                >
+                                  Remove Evil Debt
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No Evil Debt Contracts yet.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
