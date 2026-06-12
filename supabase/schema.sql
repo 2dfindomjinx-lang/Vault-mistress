@@ -91,6 +91,18 @@ alter table public.user_irl_tasks
   add column if not exists reviewed_at timestamp with time zone,
   add column if not exists shamed_at timestamp with time zone;
 
+create table if not exists public.irl_task_fail_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  task_id uuid not null unique,
+  task_label text,
+  failed_at timestamp with time zone not null default now(),
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists irl_task_fail_events_user_failed_at_idx
+  on public.irl_task_fail_events(user_id, failed_at);
+
 create table if not exists public.unlocked_gallery_items (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -268,6 +280,7 @@ alter table public.loyalty_jackpots enable row level security;
 alter table public.loyalty_jackpot_contributions enable row level security;
 alter table public.coin_transactions enable row level security;
 alter table public.user_irl_tasks enable row level security;
+alter table public.irl_task_fail_events enable row level security;
 
 create or replace function public.is_privileged_db_context()
 returns boolean
@@ -1182,3 +1195,9 @@ create policy "Users can read own irl tasks"
 
 drop policy if exists "Users can insert own irl tasks" on public.user_irl_tasks;
 drop policy if exists "Users can update own irl tasks" on public.user_irl_tasks;
+
+drop policy if exists "Users can read own irl fail events" on public.irl_task_fail_events;
+create policy "Users can read own irl fail events"
+  on public.irl_task_fail_events for select
+  to authenticated
+  using (auth.uid() = user_id);

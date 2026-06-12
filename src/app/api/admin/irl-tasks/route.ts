@@ -6,6 +6,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
+import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
 
 async function isAdminRequest() {
   const authSupabase = await createSupabaseServerClient();
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
     if (body.action === "cancelShame") {
       const { data: taskDetails, error: detailError } = await supabase
         .from("user_irl_tasks")
-        .select("id, user_id, penalty_timeout_minutes")
+        .select("id, user_id, task_label, penalty_timeout_minutes")
         .eq("id", task.id)
         .maybeSingle();
 
@@ -290,8 +291,17 @@ export async function POST(request: Request) {
         );
       }
 
+      const intentionalFailResult = await recordIrlFailureAndAutoApproveIntentionalFail(supabase, {
+        failedAtIso: now,
+        failedTaskId: taskDetails.id,
+        failedTaskLabel: taskDetails.task_label,
+        userId: taskDetails.user_id,
+      });
+
       return Response.json({
-        message: `Cancelled task and added +1 fail to ${profile.username}.`,
+        message: intentionalFailResult.autoApproved
+          ? `Cancelled task and added +1 fail to ${profile.username}. ${intentionalFailResult.message}`
+          : `Cancelled task and added +1 fail to ${profile.username}.`,
       });
     }
 

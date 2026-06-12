@@ -1,5 +1,6 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
+import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
   if (!body.taskId) return Response.json({ error: "Missing task id." }, { status: 400 });
   const { data: task, error: taskError } = await admin.supabase
     .from("user_irl_tasks")
-    .select("id, user_id, status, penalty_timeout_minutes")
+    .select("id, user_id, task_label, status, penalty_timeout_minutes")
     .eq("id", body.taskId)
     .maybeSingle();
   if (taskError) return Response.json({ error: taskError.message }, { status: 500 });
@@ -130,7 +131,18 @@ export async function POST(request: Request) {
         { status: error ? 500 : 409 },
       );
     }
-    return Response.json({ message: "IRL task failed and shame added.", tasks: await listIrlTasks(admin.supabase) });
+    const intentionalFailResult = await recordIrlFailureAndAutoApproveIntentionalFail(admin.supabase, {
+      failedAtIso: now,
+      failedTaskId: task.id,
+      failedTaskLabel: task.task_label,
+      userId: task.user_id,
+    });
+    return Response.json({
+      message: intentionalFailResult.autoApproved
+        ? `IRL task failed and shame added. ${intentionalFailResult.message}`
+        : "IRL task failed and shame added.",
+      tasks: await listIrlTasks(admin.supabase),
+    });
   }
 
   const { data: excusedTask, error } = await admin.supabase
