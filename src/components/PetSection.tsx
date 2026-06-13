@@ -258,6 +258,7 @@ function normalizeWritingPreview(value: string) {
     .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"')
     .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
     .replace(/\u2026/g, "...")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -521,6 +522,37 @@ function getCaseTierClass(tier: string) {
   }
 }
 
+function getPetTaskBadgeLabel(task: PetTaskItem, pending: boolean, approved: boolean, failed: boolean) {
+  if (pending) {
+    return "Review";
+  }
+
+  if (approved) {
+    return "Approved";
+  }
+
+  if (failed) {
+    return "Failed";
+  }
+
+  switch (task.kind) {
+    case "confession-writing":
+      return "Repetition";
+    case "perfect-writing":
+      return "Precision";
+    case "case-open":
+      return "Case";
+    case "evil-wait":
+      return "Stillness";
+    case "false-hope":
+      return "Sequence";
+    case "favor-roulette":
+      return "Roulette";
+    default:
+      return "Task";
+  }
+}
+
 export function PetSection({
   disabled = false,
   coins,
@@ -547,7 +579,6 @@ export function PetSection({
   onPetEvilWaitFail,
   onPetEvilWaitStart,
   onPerfectWritingProgress,
-  onRulesAcknowledge,
   petGalleryUnlockedIds,
   pendingPetActionIds = [],
   ownerLikeness,
@@ -602,7 +633,6 @@ export function PetSection({
   onPetEvilWaitFail: () => void;
   onPetEvilWaitStart: () => void;
   onPerfectWritingProgress: (value: string) => void;
-  onRulesAcknowledge: (text: string) => void;
   petGalleryUnlockedIds: string[];
   pendingPetActionIds?: string[];
   ownerLikeness: number;
@@ -640,7 +670,6 @@ export function PetSection({
   const [evilCountdown, setEvilCountdown] = useState(3);
   const [evilWaitRemaining, setEvilWaitRemaining] = useState(120);
   const [evilTeaseIndex, setEvilTeaseIndex] = useState(0);
-  const [ruleInput, setRuleInput] = useState("");
   const [confessionInput, setConfessionInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
   const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
@@ -1457,27 +1486,7 @@ export function PetSection({
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-base font-black text-white sm:text-lg">{task.title}</h3>
                     <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                      {pending
-                        ? "Review"
-                        : approved
-                          ? "Approved"
-                          : failed
-                            ? "Failed"
-                            : task.kind === "confession-writing"
-                              ? "Repetition"
-                              : task.kind === "perfect-writing"
-                                ? "Precision"
-                                : task.kind === "case-open"
-                                  ? "Case"
-                                  : task.kind === "evil-wait"
-                                    ? "Stillness"
-                                    : task.kind === "randomized-rules"
-                                      ? "Rules"
-                                      : task.kind === "false-hope"
-                                        ? "Sequence"
-                                        : task.kind === "favor-roulette"
-                                          ? "Roulette"
-                                        : "Task"}
+                      {getPetTaskBadgeLabel(task, pending, approved, failed)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
@@ -1575,7 +1584,7 @@ export function PetSection({
                       </p>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || pending || actionPending}
+                        disabled={disabled || coolingDown || pending || actionPending}
                         onCopy={(event) => event.preventDefault()}
                         onCut={(event) => event.preventDefault()}
                         onChange={(event) => handlePerfectInput(event.target.value, sentence)}
@@ -1680,7 +1689,7 @@ export function PetSection({
                             <button
                               className="absolute z-20 rounded-2xl border border-pink-100/50 bg-black/82 px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.42)] animate-[fadeOut_4.2s_linear_both] sm:px-4 sm:py-3 sm:text-xs"
                               key={box.id}
-                              disabled={actionPending}
+                              disabled={disabled || actionPending}
                               onClick={onPetEvilWaitFail}
                               style={{
                                 left: box.left,
@@ -1714,7 +1723,7 @@ export function PetSection({
                         className={`mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                           coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                         }`}
-                        disabled={actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
+                        disabled={disabled || actionPending || task.waitState === "countdown" || task.waitState === "waiting"}
                         onClick={() => {
                           if (coolingDown) {
                             handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
@@ -1726,51 +1735,6 @@ export function PetSection({
                         type="button"
                       >
                         {actionPending ? "Saving..." : coolingDown ? "Cooldown" : "Ready"}
-                      </button>
-                    </div>
-                  )}
-
-                  {task.kind === "randomized-rules" && (
-                    <div className="mt-auto rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-red-100/70">
-                        Forbidden Today
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {(task.ruleBannedMechanics ?? []).map((mechanic) => (
-                          <span
-                            className="rounded-full border border-red-200/20 bg-red-500/15 px-3 py-1 text-xs font-black text-red-50"
-                            key={mechanic}
-                          >
-                            {mechanic}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-xs leading-5 text-zinc-400">
-                        Type exactly I understand. If you use a forbidden mechanic before accepting,
-                        this task fails. After accepting, those mechanics stay locked until reset.
-                      </p>
-                      {task.status === "failed" && (
-                        <p className="mt-3 rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-black text-rose-100">
-                          Randomized rules failed.
-                        </p>
-                      )}
-                      <input
-                        className="mt-3 w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.ruleAcknowledged || actionPending}
-                        onChange={(event) => setRuleInput(event.target.value)}
-                        placeholder="I understand"
-                        value={ruleInput}
-                      />
-                      <button
-                        className="mt-3 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.ruleAcknowledged || actionPending || ruleInput !== "I understand"}
-                        onClick={() => {
-                          onRulesAcknowledge(ruleInput);
-                          setRuleInput("");
-                        }}
-                        type="button"
-                      >
-                        {task.ruleAcknowledged ? "Locked Until Reset" : "Submit"}
                       </button>
                     </div>
                   )}
@@ -2156,7 +2120,7 @@ export function PetSection({
                   </p>
                   <button
                     className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={dailyClickTask.status === "approved"}
+                    disabled={disabled || dailyClickTask.status === "approved"}
                     onClick={onPetDailyClick}
                     type="button"
                   >

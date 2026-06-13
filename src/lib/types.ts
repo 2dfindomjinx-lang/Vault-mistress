@@ -116,7 +116,6 @@ export type PetTaskItem = {
     | "weekly-tax"
     | "case-open"
     | "evil-wait"
-    | "randomized-rules"
     | "false-hope"
     | "favor-roulette"
     | "debt-contract"
@@ -136,8 +135,6 @@ export type PetTaskItem = {
   favorPickedIndex?: number | null;
   favorResult?: "win" | "loss" | "empty-day" | null;
   favorWinningIndex?: number | null;
-  ruleAcknowledged?: boolean;
-  ruleBannedMechanics?: string[];
   sentence?: string;
   attemptsRemaining?: number;
   reviewedAt?: string | null;

@@ -170,7 +170,6 @@ const taskLabelMap: Record<string, string> = {
   "pet:pet-false-hope": "Obedience Sequence",
   "pet:pet-favor-roulette": "Favor Roulette",
   "pet:pet-perfect-writing": "Perfect Pet Writing",
-  "pet:pet-randomized-rules": "Randomized Rules",
   "pet:pet-twitter-post": "X Post Assignment",
   "pet:pet-voice-proof": "Voice Proof",
   "pet:pet-weekly-throne-tax": "Weekly Throne Tax",
