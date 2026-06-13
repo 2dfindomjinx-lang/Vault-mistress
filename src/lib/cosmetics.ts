@@ -5185,7 +5185,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Catgirl",
     description: "Playful, sharp, and smug.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-catgirl.png",
   },
   {
@@ -5193,7 +5193,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Goth Girl",
     description: "Darker, colder, and more expensive.",
     type: "speech-avatar",
-    price: 15000,
+    price: 7500,
     image: "/cosmetics/avatar-goth.png",
   },
   {
@@ -5201,7 +5201,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Tsundere",
     description: "Dismissive, then barely pleased.",
     type: "speech-avatar",
-    price: 10000,
+    price: 5000,
     image: "/cosmetics/avatar-tsundere.png",
   },
   {
@@ -5209,7 +5209,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Yandere",
     description: "Possessive, intense, and locked on.",
     type: "speech-avatar",
-    price: 10000,
+    price: 5000,
     image: "/cosmetics/avatar-yandere.png",
   },
   {
@@ -5217,7 +5217,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Lovely",
     description: "A softer presentation.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-lovely.png",
   },
   {
@@ -5225,7 +5225,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Arrogant",
     description: "Superior, polished, and impossible to ignore.",
     type: "speech-avatar",
-    price: 5000,
+    price: 2500,
     image: "/cosmetics/avatar-arrogant.png",
   },
   {
@@ -5233,7 +5233,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Maid",
     description: "Polished service with strict expectations.",
     type: "speech-avatar",
-    price: 10000,
+    price: 5000,
     image: "/cosmetics/avatar-maid.png",
   },
   {
@@ -5241,7 +5241,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Debt Collector",
     description: "Ledger-focused, cold, and exacting.",
     type: "speech-avatar",
-    price: 10000,
+    price: 5000,
     image: "/cosmetics/avatar-debtcollector.png",
   },
   {
@@ -5249,7 +5249,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Egirl",
     description: "Online, teasing, and notification-ready.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-egirl.png",
   },
   {
@@ -5257,7 +5257,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Himedere",
     description: "Royal, demanding, and impossible to please.",
     type: "speech-avatar",
-    price: 20000,
+    price: 10000,
     image: "/cosmetics/avatar-himedere.png",
   },
   {
@@ -5265,7 +5265,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Strict Teacher",
     description: "Disciplined lessons with expensive standards.",
     type: "speech-avatar",
-    price: 10000,
+    price: 5000,
     image: "/cosmetics/avatar-strictteacher.png",
   },
   {
@@ -5273,7 +5273,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Cuckold",
     description: "Spoiled wife who fucks better men while you pay.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-cuckold.png",
   },
   {
@@ -5281,7 +5281,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Keyholder",
     description: "Your pleasure is locked. Your wallet is not.",
     type: "speech-avatar",
-    price: 20000,
+    price: 10000,
     image: "/cosmetics/avatar-keyholder.png",
   },
   {
@@ -5289,7 +5289,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Hypnotist",
     description: "Pixel trance, mind control, and financial surrender.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-hypnotist.png",
   },
   {
@@ -5297,7 +5297,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Succubus",
     description: "Hungry, seductive, and ruinously expensive.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-succubus.png",
   },
   {
@@ -5305,7 +5305,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Bully",
     description: "Cruel, bratty, and impossible to ignore.",
     type: "speech-avatar",
-    price: 15000,
+    price: 7500,
     image: "/cosmetics/avatar-bully.png",
   },
   {
@@ -5313,7 +5313,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Pet Owner",
     description: "Strict owner energy for obedient pets.",
     type: "speech-avatar",
-    price: 20000,
+    price: 10000,
     image: "/cosmetics/avatar-petowner.png",
   },
   {
@@ -5321,7 +5321,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Blackmail",
     description: "Exposure pressure with a cruel smile.",
     type: "speech-avatar",
-    price: 30000,
+    price: 20000,
     image: "/cosmetics/avatar-blackmail.png",
   },
   {
@@ -5329,7 +5329,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Denial Queen",
     description: "No release, no mercy, only obedience.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-denialqueen.png",
   },
   {
@@ -5337,7 +5337,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Edging Coach",
     description: "Teasing control with strict timing.",
     type: "speech-avatar",
-    price: 25000,
+    price: 15000,
     image: "/cosmetics/avatar-edging-coach.png",
   },
   {
@@ -5345,7 +5345,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Hot Pink Name",
     description: "A vivid pink username color.",
     type: "username-color",
-    price: 3000,
+    price: 5000,
     color: "#f472b6",
   },
   {
@@ -5361,7 +5361,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Gold Name",
     description: "A premium gold username color.",
     type: "username-color",
-    price: 3000,
+    price: 5000,
     color: "#facc15",
   },
   {
@@ -5369,7 +5369,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Emerald Name",
     description: "A sharp emerald username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#34d399",
   },
   {
@@ -5377,7 +5377,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Electric Cyan Name",
     description: "A bright cyan username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#22d3ee",
   },
   {
@@ -5385,7 +5385,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Crimson Name",
     description: "A bold red username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#fb7185",
   },
   {
@@ -5393,7 +5393,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Silver Name",
     description: "A clean silver username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#e5e7eb",
   },
   {
@@ -5401,7 +5401,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Ice Blue Name",
     description: "A pale blue username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#93c5fd",
   },
   {
@@ -5409,7 +5409,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Lavender Name",
     description: "A soft lavender username color.",
     type: "username-color",
-    price: 3000,
+    price: 2000,
     color: "#ddd6fe",
   },
   {
@@ -5417,7 +5417,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Pink Glow",
     description: "A soft pink username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 16px rgba(244,114,182,0.9)",
   },
   {
@@ -5425,7 +5425,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Purple Glow",
     description: "A deeper violet username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(192,132,252,0.9)",
   },
   {
@@ -5433,7 +5433,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Gold Glow",
     description: "A prestigious gold username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 20px rgba(250,204,21,0.95)",
   },
   {
@@ -5441,7 +5441,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Emerald Glow",
     description: "A clean green username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(52,211,153,0.9)",
   },
   {
@@ -5449,7 +5449,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Cyan Glow",
     description: "A bright electric username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(34,211,238,0.9)",
   },
   {
@@ -5457,7 +5457,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Crimson Glow",
     description: "A dramatic red username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(251,113,133,0.9)",
   },
   {
@@ -5465,7 +5465,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "White Glow",
     description: "A bright clean username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(255,255,255,0.85)",
   },
   {
@@ -5473,7 +5473,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Ice Blue Glow",
     description: "A cold pale blue username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(147,197,253,0.9)",
   },
   {
@@ -5481,7 +5481,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Lavender Glow",
     description: "A soft violet-white username glow.",
     type: "username-glow",
-    price: 3000,
+    price: 1000,
     glow: "0 0 18px rgba(221,214,254,0.9)",
   },
 ];
