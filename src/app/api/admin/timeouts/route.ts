@@ -3,33 +3,9 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
+import { requireAdminProfile } from "@/lib/admin-guard";
 
 type TimeoutAction = "cancel" | "change";
-
-async function isAdminRequest() {
-  const authSupabase = await createSupabaseServerClient();
-  const { data } = await authSupabase.auth.getUser();
-
-  if (!data.user) {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("username, is_admin")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Admin timeout auth profile lookup failed", error);
-    return false;
-  }
-
-  return isTrustedAdminUsername(profile?.username);
-}
 
 function parseDuration(duration: string) {
   const match = duration.trim().toLowerCase().match(/^([1-9]\d*)(m|h|d)$/);
@@ -72,8 +48,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await isAdminRequest())) {
-    return Response.json({ error: "Admin access required." }, { status: 401 });
+  const admin = await requireAdminProfile();
+
+  if ("error" in admin) {
+    return Response.json({ error: admin.error }, { status: admin.status });
   }
 
   const body = (await request.json()) as {
@@ -81,7 +59,7 @@ export async function POST(request: Request) {
     userId?: string;
     duration?: string;
   };
-  const supabase = createSupabaseAdminClient();
+  const supabase = admin.supabase;
 
   try {
     if (body.action === "cancel") {

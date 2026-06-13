@@ -1,35 +1,7 @@
-import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
+import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { requireAdminProfile } from "@/lib/admin-guard";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
-
-async function isAdminRequest() {
-  const authSupabase = await createSupabaseServerClient();
-  const { data } = await authSupabase.auth.getUser();
-
-  if (!data.user) {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("username, is_admin")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Admin auth profile lookup failed", error);
-    return false;
-  }
-
-  return isTrustedAdminUsername(profile?.username);
-}
 
 export async function POST(request: Request) {
   const configErrors = getSupabaseAdminConfigErrors();
@@ -48,11 +20,13 @@ export async function POST(request: Request) {
     userId?: string;
   };
 
-  if (!(await isAdminRequest())) {
-    return Response.json({ error: "Admin access required." }, { status: 401 });
+  const admin = await requireAdminProfile();
+
+  if ("error" in admin) {
+    return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = admin.supabase;
 
   if (body.action === "countPending") {
     const { count, error } = await supabase

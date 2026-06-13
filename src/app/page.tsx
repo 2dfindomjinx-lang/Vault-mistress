@@ -17,7 +17,6 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import {
   cosmeticItems,
   DEFAULT_SPEECH_AVATAR_ID,
@@ -2704,7 +2703,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    setIsAdminUser(isTrustedAdminUsername(profile.username));
+    setIsAdminUser(false);
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -3040,8 +3039,47 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
     setIsLoggedIn(true);
-    setIsAdminUser(isTrustedAdminUsername(profile.username));
+    setIsAdminUser(false);
   }, []);
+
+  const shouldHydrateAdminSession = isLoggedIn && Boolean(authUserId) && !isGuestMode;
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrateAdminSession = async () => {
+      if (!shouldHydrateAdminSession) {
+        await Promise.resolve();
+
+        if (active) {
+          setIsAdminUser(false);
+        }
+
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/admin/session", { cache: "no-store" });
+        const result = (await response.json().catch(() => null)) as { isAdmin?: boolean } | null;
+
+        if (active) {
+          setIsAdminUser(response.ok && result?.isAdmin === true);
+        }
+      } catch (error) {
+        console.error("Admin session hydration failed", error);
+
+        if (active) {
+          setIsAdminUser(false);
+        }
+      }
+    };
+
+    void hydrateAdminSession();
+
+    return () => {
+      active = false;
+    };
+  }, [shouldHydrateAdminSession]);
 
   useEffect(() => {
     if (!authUserId || isGuestMode) {

@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
-import { supabase } from "@/lib/supabase/client";
 
 type AdminIrlTask = {
   id: string;
@@ -444,41 +442,24 @@ export default function AdminPage() {
       setIsCheckingAdmin(true);
 
       try {
-        const { data, error: userError } = await supabase.auth.getUser();
-
-        if (userError) {
-          console.error("Admin user lookup failed", userError);
-        }
-
-        if (!data.user) {
-          if (mounted) {
-            setIsAdmin(false);
-          }
-          return;
-        }
-
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("username, is_admin")
-          .eq("id", data.user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Admin profile check failed", error);
-          if (mounted) {
-            setIsAdmin(false);
-            setStatus(error.message);
-          }
-          return;
-        }
-
-        const adminAllowed = isTrustedAdminUsername(profile?.username);
+        const response = await fetch("/api/admin/session", { cache: "no-store" });
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+          isAdmin?: boolean;
+        } | null;
+        const adminAllowed = response.ok && result?.isAdmin === true;
 
         if (mounted) {
           setIsAdmin(adminAllowed);
           if (!adminAllowed) {
-            setStatus("Admin access required.");
+            setStatus(result?.error ?? "Admin access required.");
           }
+        }
+      } catch (error) {
+        console.error("Admin session check failed", error);
+        if (mounted) {
+          setIsAdmin(false);
+          setStatus("Admin access required.");
         }
       } finally {
         if (mounted) {
@@ -711,7 +692,7 @@ export default function AdminPage() {
           </p>
           <h1 className="mt-2 text-3xl font-black">Admin Access Required</h1>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            This console is only visible to Supabase profile admins.
+            This console is only visible to allowlisted Supabase admin sessions.
           </p>
           {status && (
             <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
@@ -740,7 +721,7 @@ export default function AdminPage() {
             </p>
             <h1 className="text-3xl font-black">Vault Control Room</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Supabase admin-only controls. Access is based on profile admin status.
+              Supabase admin-only controls. Access is verified by your authenticated admin UUID.
             </p>
           </div>
           <Link

@@ -4,7 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 export async function requireAdminProfile() {
   const configErrors = getSupabaseAdminConfigErrors();
@@ -29,22 +29,20 @@ export async function requireAdminProfile() {
     return { error: "Admin access required.", status: 401 } as const;
   }
 
+  if (!isTrustedAdminUserId(data.user.id)) {
+    return { error: "Admin access required.", status: 401 } as const;
+  }
+
   const supabase = createSupabaseAdminClient();
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, username, is_admin")
+    .select("id, username")
     .eq("id", data.user.id)
     .maybeSingle();
 
   if (error) {
     console.error("Admin profile lookup failed", error);
     return { error: error.message, status: 500 } as const;
-  }
-
-  const isAdmin = isTrustedAdminUsername(profile?.username);
-
-  if (!isAdmin) {
-    return { error: "Admin access required.", status: 401 } as const;
   }
 
   return { adminUser: data.user, adminProfile: profile, supabase } as const;

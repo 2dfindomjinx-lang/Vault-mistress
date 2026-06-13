@@ -3,33 +3,9 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
+import { requireAdminProfile } from "@/lib/admin-guard";
 
 const PET_TASK_COIN_REWARD = 500;
-
-async function isAdminRequest() {
-  const authSupabase = await createSupabaseServerClient();
-  const { data } = await authSupabase.auth.getUser();
-
-  if (!data.user) {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("username, is_admin")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Admin pet task auth profile lookup failed", error);
-    return false;
-  }
-
-  return isTrustedAdminUsername(profile?.username);
-}
 
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
@@ -79,15 +55,17 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await isAdminRequest())) {
-    return Response.json({ error: "Admin access required." }, { status: 401 });
+  const admin = await requireAdminProfile();
+
+  if ("error" in admin) {
+    return Response.json({ error: admin.error }, { status: admin.status });
   }
 
   const body = (await request.json()) as {
     action?: "approve" | "reject";
     taskId?: string;
   };
-  const supabase = createSupabaseAdminClient();
+  const supabase = admin.supabase;
 
   if (!body.action) {
     return Response.json({ tasks: await listPetTasks(supabase) });

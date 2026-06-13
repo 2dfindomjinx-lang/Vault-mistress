@@ -1,4 +1,6 @@
-const DEFAULT_TRUSTED_ADMIN_USERNAMES = ["@vmprincipessa"];
+export function normalizeAdminUserId(userId?: string | null) {
+  return String(userId ?? "").trim().toLowerCase();
+}
 
 export function normalizeAdminUsername(username?: string | null) {
   return String(username ?? "")
@@ -7,11 +9,21 @@ export function normalizeAdminUsername(username?: string | null) {
     .replace(/^@+/, "");
 }
 
-export function getTrustedAdminUsernames() {
-  const configured = process.env.ADMIN_USERNAMES?.split(",") ?? DEFAULT_TRUSTED_ADMIN_USERNAMES;
-  return new Set(configured.map(normalizeAdminUsername).filter(Boolean));
+export function getTrustedAdminUserIds() {
+  return new Set(
+    (process.env.ADMIN_USER_IDS ?? "")
+      .split(",")
+      .map(normalizeAdminUserId)
+      .filter(Boolean),
+  );
 }
 
-export function isTrustedAdminUsername(username?: string | null) {
-  return getTrustedAdminUsernames().has(normalizeAdminUsername(username));
+export function isTrustedAdminUserId(userId?: string | null) {
+  const normalizedUserId = normalizeAdminUserId(userId);
+
+  if (!normalizedUserId) {
+    return false;
+  }
+
+  return getTrustedAdminUserIds().has(normalizedUserId);
 }

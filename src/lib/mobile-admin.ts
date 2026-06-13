@@ -1,4 +1,4 @@
-import { isTrustedAdminUsername, normalizeAdminUsername } from "@/lib/admin-identity";
+import { isTrustedAdminUserId, normalizeAdminUsername } from "@/lib/admin-identity";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function requireMobileAdmin(request: Request) {
@@ -16,6 +16,10 @@ export async function requireMobileAdmin(request: Request) {
     return { error: "Invalid session", status: 401 } as const;
   }
 
+  if (!isTrustedAdminUserId(data.user.id)) {
+    return { error: "Admin access only.", status: 403 } as const;
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, username")
@@ -26,15 +30,11 @@ export async function requireMobileAdmin(request: Request) {
     return { error: profileError.message, status: 500 } as const;
   }
 
-  if (!profile?.username || !isTrustedAdminUsername(profile.username)) {
-    return { error: "Admin access only.", status: 403 } as const;
-  }
-
   return {
     adminUser: data.user,
     adminProfile: {
-      ...profile,
-      username: normalizeAdminUsername(profile.username),
+      id: profile?.id ?? data.user.id,
+      username: normalizeAdminUsername(profile?.username ?? null),
     },
     supabase,
   } as const;

@@ -1,35 +1,5 @@
-import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUsername } from "@/lib/admin-identity";
-
-async function getAdminUserId() {
-  const authSupabase = await createSupabaseServerClient();
-  const { data } = await authSupabase.auth.getUser();
-
-  if (!data.user) {
-    return null;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("username, is_admin")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Admin command auth profile lookup failed", error);
-    return null;
-  }
-
-  const allowed = isTrustedAdminUsername(profile?.username);
-
-  return allowed ? data.user.id : null;
-}
+import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { requireAdminProfile } from "@/lib/admin-guard";
 
 function getGiveBonusPercent(giveAmount: number) {
   if (giveAmount >= 100000) {
@@ -68,10 +38,10 @@ export async function POST(request: Request) {
     command?: string;
   };
 
-  const adminUserId = await getAdminUserId();
+  const admin = await requireAdminProfile();
 
-  if (!adminUserId) {
-    return Response.json({ error: "Admin access required." }, { status: 401 });
+  if ("error" in admin) {
+    return Response.json({ error: admin.error }, { status: admin.status });
   }
 
   const command = body.command?.trim() ?? "";
@@ -104,7 +74,8 @@ export async function POST(request: Request) {
     || "";
   const normalizedUsername = username
     .toLowerCase();
-  const supabase = createSupabaseAdminClient();
+
+  const supabase = admin.supabase;
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -122,6 +93,10 @@ export async function POST(request: Request) {
       { error: "User not found in Supabase profiles." },
       { status: 404 },
     );
+  }
+
+  if ((giveMatch || addMatch || drainMatch) && profile.id === admin.adminUser.id) {
+    return Response.json({ error: "You cannot target your own account." }, { status: 403 });
   }
 
   if (timeoutMatch) {
@@ -207,7 +182,7 @@ export async function POST(request: Request) {
     .from("coin_transactions")
     .insert({
       user_id: profile.id,
-      admin_user_id: adminUserId,
+      admin_user_id: admin.adminUser.id,
       amount: coinDelta,
       reason: transactionReason,
       balance_before: previousCoins,
@@ -216,6 +191,7 @@ export async function POST(request: Request) {
         command: giveMatch ? "give" : drainMatch ? "drain" : "add",
         kind: giveMatch ? "manual_coin_purchase" : drainMatch ? "coin_loss_request" : "admin_adjustment",
         source: giveMatch ? "throne" : "admin",
+        verifiedAdminUserId: admin.adminUser.id,
         requestedAmount: amount,
         tributeTotalChanged: false,
       },
@@ -294,7 +270,7 @@ export async function POST(request: Request) {
         .from("coin_transactions")
         .insert({
           user_id: profile.id,
-          admin_user_id: adminUserId,
+          admin_user_id: admin.adminUser.id,
           amount: giveBonusAmount,
           reason: "give_bonus",
           balance_before: bonusBalanceBefore,
@@ -303,6 +279,7 @@ export async function POST(request: Request) {
             command: "give",
             kind: "admin_give_bonus",
             source: "admin",
+            verifiedAdminUserId: admin.adminUser.id,
             baseAmount: amount,
             bonusPercent: giveBonusPercent,
             bonusTierAmount: amount,

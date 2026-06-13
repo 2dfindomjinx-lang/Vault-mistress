@@ -61,6 +61,10 @@ export async function POST(request: Request) {
   if (profileError) return Response.json({ error: profileError.message }, { status: 500 });
   if (!profile) return Response.json({ error: "User not found." }, { status: 404 });
 
+  if ((giveMatch || addMatch || drainMatch) && profile.id === admin.adminUser.id) {
+    return Response.json({ error: "You cannot target your own account." }, { status: 403 });
+  }
+
   if (timeoutMatch) {
     const timeoutMinutes = Number(timeoutMatch[2]);
     const timeoutUntil = new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString();
@@ -96,6 +100,7 @@ export async function POST(request: Request) {
   }
 
   const amount = Number(giveMatch?.[1] ?? addMatch?.[1] ?? drainMatch?.[1]);
+
   const previousCoins = Number(profile.coins ?? 0);
   const coinDelta = drainMatch ? -amount : amount;
   const nextCoins = previousCoins + coinDelta;
@@ -120,6 +125,7 @@ export async function POST(request: Request) {
       command: giveMatch ? "give" : drainMatch ? "drain" : "add",
       kind: giveMatch ? "manual_coin_purchase" : drainMatch ? "coin_loss_request" : "admin_adjustment",
       source: giveMatch ? "throne" : "mobile_admin",
+      verifiedAdminUserId: admin.adminUser.id,
       requestedAmount: amount,
       tributeTotalChanged: false,
     },
@@ -158,6 +164,7 @@ export async function POST(request: Request) {
         command: "give",
         kind: "admin_give_bonus",
         source: "mobile_admin",
+        verifiedAdminUserId: admin.adminUser.id,
         baseAmount: amount,
         bonusPercent: giveBonusPercent,
         bonusTierAmount: amount,
