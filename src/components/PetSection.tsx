@@ -522,6 +522,7 @@ function getCaseTierClass(tier: string) {
 }
 
 export function PetSection({
+  disabled = false,
   coins,
   favorCoinReward,
   galleryItems,
@@ -561,6 +562,7 @@ export function PetSection({
   tasks,
   weeklyTaxCost,
 }: {
+  disabled?: boolean;
   coins: number;
   favorCoinReward: number;
   galleryItems: PetGalleryItem[];
@@ -1415,7 +1417,7 @@ export function PetSection({
               className={`mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                 weeklyTaxCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
               }`}
-              disabled={coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
+              disabled={disabled || coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
               onClick={() => {
                 if (weeklyTaxCoolingDown) {
                   handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(weeklyTaxTask?.cooldownUntil ?? null, now)}.`);
@@ -1530,7 +1532,7 @@ export function PetSection({
                       </p>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.status === "approved" || actionPending}
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
                         onKeyDown={(event) => {
                           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
                             event.preventDefault();
@@ -1547,7 +1549,7 @@ export function PetSection({
                       />
                       <button
                         className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={coolingDown || task.status === "approved" || actionPending || confessionInput.length === 0}
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending || confessionInput.length === 0}
                         onClick={handleConfessionSubmit}
                         type="button"
                       >
@@ -1621,7 +1623,7 @@ export function PetSection({
                         className={`mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                           coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                         }`}
-                        disabled={caseRolling || actionPending}
+                        disabled={disabled || caseRolling || actionPending}
                         onClick={() => {
                           if (coolingDown) {
                             handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
@@ -1805,7 +1807,7 @@ export function PetSection({
                             className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black uppercase text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                               coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                             }`}
-                            disabled={false}
+                            disabled={disabled}
                             key={key}
                             onClick={() => {
                               if (coolingDown) {
@@ -1851,7 +1853,7 @@ export function PetSection({
                                 coolingDown ? CLICKABLE_COOLDOWN_TILE_CLASS : ""
                               }`}
                               aria-disabled={coolingDown || undefined}
-                              disabled={revealed || actionPending}
+                              disabled={disabled || revealed || actionPending}
                               key={index}
                               onClick={() => {
                                 if (coolingDown) {
@@ -1958,7 +1960,7 @@ export function PetSection({
                       </p>
                       <button
                         className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={actionPending || task.status === "approved"}
+                        disabled={disabled || actionPending || task.status === "approved"}
                         onClick={onPetDailyClick}
                         type="button"
                       >
@@ -1977,7 +1979,7 @@ export function PetSection({
                       className={`mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                         coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                       }`}
-                      disabled={pending || actionPending}
+                      disabled={disabled || pending || actionPending}
                       onClick={() => {
                         if (coolingDown) {
                           handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
@@ -2053,6 +2055,7 @@ export function PetSection({
                   <button
                     className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={
+                      disabled ||
                       isPetActionPending("rights:buy") ||
                       nextRightPrice === null ||
                       coins < (nextRightPrice ?? Number.POSITIVE_INFINITY)
@@ -2068,7 +2071,7 @@ export function PetSection({
                   </button>
                 <button
                   className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={isPetActionPending("rights:use") || displayedStoredRights <= 0}
+                  disabled={disabled || isPetActionPending("rights:use") || displayedStoredRights <= 0}
                   onClick={onUseRight}
                   type="button"
                 >
@@ -2301,10 +2304,11 @@ export function PetSection({
                         {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
                       </p>
                       <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-                        <AutoPaymentSwitch
-                          enabled={isDebtAutoPayEnabled}
-                          onChange={onDebtAutoPayChange}
-                        />
+                    <AutoPaymentSwitch
+                      disabled={disabled}
+                      enabled={isDebtAutoPayEnabled}
+                      onChange={onDebtAutoPayChange}
+                    />
                         <p className="mt-2 text-yellow-50/75">
                           When enabled, each installment is paid automatically as soon as it becomes
                           available.
@@ -2406,12 +2410,14 @@ export function PetSection({
                   </p>
                   <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
                     <AutoPaymentSwitch
+                      disabled={disabled}
                       enabled={isDebtAutoPayEnabled}
                       onChange={onDebtAutoPayChange}
                     />
                   </div>
                   <button
                     className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
+                    disabled={disabled}
                     onClick={handleDebtSign}
                     type="button"
                   >
@@ -2565,7 +2571,7 @@ export function PetSection({
             </p>
             <button
               className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!canClaimAffection || isPetActionPending("pet-affection-claim")}
+              disabled={disabled || !canClaimAffection || isPetActionPending("pet-affection-claim")}
               onClick={onClaimAffection}
               type="button"
             >
@@ -2585,9 +2591,11 @@ export function PetSection({
 }
 
 function AutoPaymentSwitch({
+  disabled = false,
   enabled,
   onChange,
 }: {
+  disabled?: boolean;
   enabled: boolean;
   onChange: (enabled: boolean) => void;
 }) {
@@ -2596,6 +2604,7 @@ function AutoPaymentSwitch({
       aria-pressed={enabled}
       className="flex w-full items-center gap-3 text-left"
       onClick={() => onChange(!enabled)}
+      disabled={disabled}
       type="button"
     >
       <span className="min-w-0 flex-1">Auto payment</span>

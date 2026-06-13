@@ -5,6 +5,7 @@ type TitleCollectionProps = {
   equippedTitleId: string | null;
   ownedTitleIds: string[];
   titles: TitleItem[];
+  disabled?: boolean;
   onEquipTitle: (title: TitleItem) => void;
 };
 
@@ -40,6 +41,7 @@ function describeTitleUnlock(title: TitleItem) {
 
 export function TitleCollection({
   equippedTitleId,
+  disabled = false,
   ownedTitleIds,
   titles,
   onEquipTitle,
@@ -85,13 +87,15 @@ export function TitleCollection({
           return (
             <button
               className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
-                isOwned
+                disabled
+                  ? "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
+                  : isOwned
                   ? isEquipped
                     ? "border-pink-200/45 bg-pink-500/15"
                     : "border-white/10 bg-white/[0.035] hover:border-pink-200/30 hover:bg-pink-500/10"
                   : "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
               }`}
-              disabled={!isOwned}
+              disabled={disabled || !isOwned}
               key={title.id}
               onClick={() => handleSelect(title, isOwned)}
               type="button"
@@ -174,9 +178,9 @@ export function ProfileTaskCard({
           Authorize X and apply the configured profile rebrand. No coin reward, no cooldown.
         </p>
       </div>
-      <button
-        className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-3 py-2 text-xs font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-45"
-        disabled={disabled || isPending}
+        <button
+          className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-3 py-2 text-xs font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={disabled || isPending}
         onClick={onRebrandProfile}
         type="button"
       >

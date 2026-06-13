@@ -715,7 +715,7 @@ export function TaskList({
                         className={`mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40 ${
                           isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                         }`}
-                        disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                        disabled={disabled || task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays > timeoutRiskMaxDays}
                         onClick={() => {
                           emitSoundEvent("button_click");
                           if (isCoolingDown) {
@@ -729,7 +729,7 @@ export function TaskList({
                       >
                         {task.completed
                           ? "Daily limit reached"
-                          : timeoutRiskEffectiveDays >= timeoutRiskMaxDays
+                          : timeoutRiskEffectiveDays > timeoutRiskMaxDays
                             ? "Maximum timeout reached."
                             : "Attempt Risk"}
                       </button>
@@ -1457,7 +1457,7 @@ export function TaskList({
                     className={`mt-3 w-full rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/20 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                     }`}
-                    disabled={task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays >= timeoutRiskMaxDays}
+                    disabled={disabled || task.completed || isTaskActionPending("timeout-risk") || timeoutRiskEffectiveDays > timeoutRiskMaxDays}
                     onClick={() => {
                       if (isCoolingDown) {
                         handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
@@ -1470,7 +1470,7 @@ export function TaskList({
                   >
                     {task.completed
                       ? "Daily limit reached"
-                      : timeoutRiskEffectiveDays >= timeoutRiskMaxDays
+                      : timeoutRiskEffectiveDays > timeoutRiskMaxDays
                       ? "Maximum timeout reached."
                       : "Attempt Risk"}
                   </button>

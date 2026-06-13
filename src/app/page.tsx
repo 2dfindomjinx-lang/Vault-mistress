@@ -1105,20 +1105,6 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[]) {
   });
 }
 
-function getEffectiveTimeoutDays(timeoutValue: string | null, now = Date.now()) {
-  if (!timeoutValue) {
-    return 0;
-  }
-
-  const remainingMs = new Date(timeoutValue).getTime() - now;
-
-  if (remainingMs <= 0) {
-    return 0;
-  }
-
-  return Math.ceil(remainingMs / DAY_MS);
-}
-
 function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -2172,9 +2158,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const freeFridayRemainingMs = isFreeFridayActive
     ? getNextGmt3Reset(currentTime).getTime() - currentTime
     : 0;
-  const effectiveTimeoutDays = currentTime > 0
-    ? getEffectiveTimeoutDays(timeoutUntil, currentTime)
-    : 0;
+  const timeoutRiskProjectedDays = currentTime > 0
+    ? (Math.max(0, timeoutRemaining) + TIMEOUT_RISK_TIMEOUT_MS) / DAY_MS
+    : TIMEOUT_RISK_TIMEOUT_MS / DAY_MS;
   const timeoutMessage =
     isUnderageTimeoutActive
       ? "This account is under a special Evil Debt Contract safety timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof."
@@ -4862,9 +4848,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const activeTimeoutUntil = timeoutUntil && new Date(timeoutUntil).getTime() > nowMs
       ? timeoutUntil
       : null;
-    const effectiveDays = getEffectiveTimeoutDays(activeTimeoutUntil, nowMs);
-
-    if (effectiveDays >= MAX_TIMEOUT_DAYS) {
+    if (timeoutRiskProjectedDays > MAX_TIMEOUT_DAYS) {
       setAvatarMistressReply("Maximum timeout reached. The risk table refuses you.");
       return;
     }
@@ -5517,6 +5501,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleRebrandProfile = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (isGuestMode) {
       setAvatarMistressReply("Preview mode cannot edit an X profile.");
       return;
@@ -5998,6 +5986,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleEquipCosmetic = async (item: CosmeticItem) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const hasTemporaryEventAccess =
       item.type === "speech-avatar" &&
       item.id === eventSpeechAvatarId &&
@@ -6136,6 +6128,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleEquipTitle = async (title: TitleItem) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!ownedTitleIds.includes(title.id)) {
       return;
     }
@@ -6838,6 +6834,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleDebtAutoPayChange = (enabled: boolean) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     const debtAutoPayUserId = profileIdRef.current ?? authUserId ?? LOCAL_GUEST_USER_ID;
 
     setIsDebtAutoPayEnabled(enabled);
@@ -7791,6 +7791,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     };
 
   const runPetAction = useCallback(async (actionId: string, action: () => Promise<unknown> | unknown) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
     if (!beginPetAction(actionId)) {
       return;
     }
@@ -8091,6 +8095,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               </p>
             </section>
             <TitleCollection
+              disabled={isTimeoutActive || isPreviewRestricted}
               equippedTitleId={equippedTitleId}
               ownedTitleIds={ownedTitleIds}
               titles={titleItems}
@@ -8207,7 +8212,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onTimeoutRisk={handleTimeoutRisk}
               onTypingProgress={handleTypingProgress}
               timeoutRiskChance={TIMEOUT_RISK_CHANCE}
-              timeoutRiskEffectiveDays={effectiveTimeoutDays}
+              timeoutRiskEffectiveDays={timeoutRiskProjectedDays}
               timeoutRiskMaxDays={MAX_TIMEOUT_DAYS}
               timeoutRiskReward={eventSafeReward}
               userLevel={userLevel}

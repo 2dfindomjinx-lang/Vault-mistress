@@ -14,6 +14,16 @@ type FloatingDefneBubbleProps = {
 
 const fadeDuration = 2000;
 
+function sanitizeBubbleMessage(message: string) {
+  return message
+    .replace(/(?:https?:\/\/|www\.)\S+/gi, "")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function FloatingDefneBubble({
   avatarSrc = "/character-icon.png",
   globalPrincipessaLevel = 1,
@@ -23,6 +33,7 @@ export function FloatingDefneBubble({
   onBubbleFullyHidden,
 }: FloatingDefneBubbleProps) {
   const bubbleKey = messageId ?? message;
+  const displayMessage = sanitizeBubbleMessage(message);
   const [hiddenBubbleKey, setHiddenBubbleKey] = useState<number | string | null>(null);
   const visualTier = getGlobalPrincipessaVisualTier(globalPrincipessaLevel);
   const visualClass =
@@ -58,14 +69,14 @@ export function FloatingDefneBubble({
       setHiddenBubbleKey(bubbleKey);
     }, visibleDuration);
     const hiddenTimer = window.setTimeout(() => {
-      onBubbleFullyHidden?.(message, messageId ?? 0);
+      onBubbleFullyHidden?.(displayMessage, messageId ?? 0);
     }, visibleDuration + fadeDuration);
 
     return () => {
       window.clearTimeout(hideTimer);
       window.clearTimeout(hiddenTimer);
     };
-  }, [bubbleKey, message, messageId, onBubbleFullyHidden]);
+  }, [bubbleKey, displayMessage, messageId, onBubbleFullyHidden]);
 
   const bubbleVisible = hiddenBubbleKey !== bubbleKey;
 
@@ -77,7 +88,7 @@ export function FloatingDefneBubble({
         }`}
         style={messageStyle}
       >
-        <span className="relative z-10">{message}</span>
+        <span className="relative z-10">{displayMessage}</span>
       </div>
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 shadow-[0_0_32px_rgba(236,72,153,0.44)] sm:h-22 sm:w-22">
         <Image
