@@ -42,7 +42,6 @@ export async function POST(request: Request) {
         affection: 0,
         avatar_url: body?.avatarUrl ?? null,
         coins: 100,
-        email: authData.user.email ?? null,
         id: authData.user.id,
         daily_purchase_count: 0,
         last_login_at: new Date().toISOString(),

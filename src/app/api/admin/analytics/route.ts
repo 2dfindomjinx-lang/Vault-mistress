@@ -7,7 +7,6 @@ const ANALYTICS_PAGE_SIZE = 1000;
 type ProfileRow = {
   id: string;
   username: string;
-  email: string | null;
   avatar_url: string | null;
   coins: number | null;
   affection: number | null;
@@ -296,7 +295,7 @@ export async function GET(request: Request) {
     fetchAllRows<ProfileRow>(() =>
       supabase
         .from("profiles")
-        .select("id, username, email, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
+      .select("id, username, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
         .order("created_at", { ascending: false }),
     ),
     fetchAllRows<TaskRow>(() =>
@@ -496,7 +495,6 @@ export async function GET(request: Request) {
   const users = profiles.map((profile) => ({
     id: profile.id,
     username: profile.username,
-    email: profile.email,
     avatarUrl: profile.avatar_url,
     registrationDate: profile.created_at,
     lastLogin: profile.last_login_at,
@@ -511,7 +509,7 @@ export async function GET(request: Request) {
   const matchedUsers = query
     ? users.filter((user) =>
         user.username.toLowerCase().includes(query) ||
-        String(user.email ?? "").toLowerCase().includes(query),
+        user.id.toLowerCase().includes(query),
       )
     : users.slice(0, 20);
 

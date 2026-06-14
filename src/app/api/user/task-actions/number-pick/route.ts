@@ -198,6 +198,52 @@ export async function POST(request: Request) {
     selected: selectedNumber,
     wrongSelections,
   };
+
+  let transactionId: string | null = null;
+  if (reward > 0) {
+    const transactionPayload = {
+      amount: reward,
+      balance_after: nextCoins,
+      balance_before: profile.coins,
+      metadata: {
+        attemptsRemaining,
+        correct: correctNumber,
+        options,
+        selected: selectedNumber,
+      },
+      reason: "task:number-pick",
+      user_id: authData.user.id,
+    };
+    const { data: transaction, error: transactionError } = await supabase
+      .from("coin_transactions")
+      .insert(transactionPayload)
+      .select("id")
+      .single();
+
+    if (transactionError || !transaction) {
+      console.error("[number-pick] transaction insert failed", {
+        error: transactionError,
+        transactionPayload,
+      });
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({
+          coins: profile.coins,
+          updated_at: now,
+        })
+        .eq("id", authData.user.id)
+        .eq("coins", nextCoins);
+
+      if (rollbackProfileError) {
+        console.error("[number-pick] profile rollback failed after transaction failure", rollbackProfileError);
+      }
+
+      return jsonError("Number Pick could not be saved. Please try again.", 500);
+    }
+
+    transactionId = transaction.id;
+  }
+
   const { data: updatedTask, error: taskError } = await supabase
     .from("user_tasks")
     .upsert(
@@ -219,39 +265,34 @@ export async function POST(request: Request) {
       error: taskError,
       nextMetadata,
       reward,
+      transactionId,
       userId: authData.user.id,
     });
-    return jsonError(taskError?.message ?? "Number Pick task update failed.", 500);
-  }
 
-  if (reward > 0) {
-    const { error: transactionError } = await supabase.from("coin_transactions").insert({
-      amount: reward,
-      balance_after: nextCoins,
-      balance_before: profile.coins,
-      metadata: {
-        attemptsRemaining,
-        correct: correctNumber,
-        options,
-        selected: selectedNumber,
-      },
-      reason: "task:number-pick",
-      user_id: authData.user.id,
-    });
+    if (transactionId) {
+      const { error: transactionCleanupError } = await supabase
+        .from("coin_transactions")
+        .delete()
+        .eq("id", transactionId);
 
-  if (transactionError) {
-    console.error("Number Pick transaction insert failed", transactionError);
-    const { error: rollbackProfileError } = await supabase
-      .from("profiles")
-      .update({
-        coins: profile.coins,
-        updated_at: now,
-      })
-      .eq("id", authData.user.id)
-      .eq("coins", nextCoins);
+      if (transactionCleanupError) {
+        console.error("[number-pick] transaction cleanup failed after task failure", transactionCleanupError);
+      }
+    }
 
-    if (rollbackProfileError) {
-      console.error("[number-pick] profile rollback failed", rollbackProfileError);
+    if (reward > 0) {
+      const { error: rollbackProfileError } = await supabase
+        .from("profiles")
+        .update({
+          coins: profile.coins,
+          updated_at: now,
+        })
+        .eq("id", authData.user.id)
+        .eq("coins", nextCoins);
+
+      if (rollbackProfileError) {
+        console.error("[number-pick] profile rollback failed after task failure", rollbackProfileError);
+      }
     }
 
     if (existingTask) {
@@ -284,8 +325,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return jsonError("Number Pick coin logging failed.", 500);
-  }
+    return jsonError("Number Pick could not be saved. Please try again.", 500);
   }
 
   return Response.json({

@@ -1,3 +1,4 @@
+import { adminDebtContractSelect } from "@/lib/debt-contract-select";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -13,7 +14,7 @@ function getDebtPeriodMs(periodType: "weekly" | "monthly") {
 async function listDebtContracts(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("pet_debt_contracts")
-    .select("*")
+    .select(adminDebtContractSelect)
     .order("created_at", { ascending: false })
     .limit(120);
   if (error) throw error;

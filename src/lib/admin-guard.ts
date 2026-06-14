@@ -47,3 +47,5 @@ export async function requireAdminProfile() {
 
   return { adminUser: data.user, adminProfile: profile, supabase } as const;
 }
+
+export const requireAdmin = requireAdminProfile;

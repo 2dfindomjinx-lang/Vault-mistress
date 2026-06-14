@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:security": "node scripts/admin-security-checks.mjs"
+    "test:security": "node scripts/admin-security-checks.mjs && node scripts/security-integration-tests.mjs",
+    "test:security:http": "node scripts/security-integration-tests.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

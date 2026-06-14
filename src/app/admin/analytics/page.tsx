@@ -42,7 +42,6 @@ type AmountPoint = {
 type AnalyticsUser = {
   id: string;
   username: string;
-  email: string | null;
   avatarUrl: string | null;
   registrationDate: string | null;
   lastLogin: string | null;
@@ -415,7 +414,7 @@ export default function AdminAnalyticsPage() {
                           void loadAnalytics(query);
                         }
                       }}
-                      placeholder="Search username or email"
+                        placeholder="Search username or user id"
                       value={query}
                     />
                     <button
@@ -449,7 +448,7 @@ export default function AdminAnalyticsPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-black text-white">{user.username}</p>
-                            <p className="mt-1 text-xs text-zinc-500">{user.email ?? "no email"} - registered {date(user.registrationDate)}</p>
+                            <p className="mt-1 text-xs text-zinc-500">registered {date(user.registrationDate)}</p>
                             <p className="mt-1 text-xs text-zinc-500">last login {date(user.lastLogin)}</p>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">

@@ -1,13 +1,13 @@
 import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
+  createPublicSupabaseClient,
+  getSupabasePublicConfigErrors,
+  isSupabasePublicConfigured,
+} from "@/lib/supabase/public";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 export async function GET() {
-  if (!isSupabaseAdminConfigured) {
-    const configErrors = getSupabaseAdminConfigErrors();
+  if (!isSupabasePublicConfigured) {
+    const configErrors = getSupabasePublicConfigErrors();
     console.error("Public shame board route is not configured", configErrors);
     return Response.json(
       { error: `Public shame board is not configured: ${configErrors.join(", ")}` },
@@ -15,27 +15,23 @@ export async function GET() {
     );
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, username, shame_count")
-    .gt("shame_count", 0)
-    .order("shame_count", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(3);
+  const supabase = createPublicSupabaseClient();
+  const { data, error } = await supabase.rpc("get_public_shame_board", { p_limit: 3 });
 
   if (error) {
     console.error("Failed to load public shame board", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const userIds = (data ?? []).map((profile) => String(profile.id)).filter(Boolean);
-  const { data: cosmeticRows, error: cosmeticError } = await supabase
-    .from("user_cosmetics")
-    .select("user_id, item_id, item_type, equipped")
-    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("equipped", true)
-    .in("item_type", ["username-color", "username-glow"]);
+  const profiles = (data ?? []) as Array<{
+    id: string;
+    username: string;
+    shame_count: number;
+  }>;
+  const userIds = profiles.map((profile) => String(profile.id)).filter(Boolean);
+  const { data: cosmeticRows, error: cosmeticError } = await supabase.rpc("get_public_username_cosmetics", {
+    p_user_ids: userIds.length > 0 ? userIds : [],
+  });
 
   if (cosmeticError) {
     console.error("Public shame board username cosmetic lookup failed", cosmeticError);
@@ -44,7 +40,7 @@ export async function GET() {
   const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
   return Response.json({
-    shame: (data ?? []).map((profile) => ({
+    shame: profiles.map((profile) => ({
       shameCount: Number(profile.shame_count ?? 0),
       username: profile.username,
       usernameStyle: usernameStyles.get(String(profile.id)),

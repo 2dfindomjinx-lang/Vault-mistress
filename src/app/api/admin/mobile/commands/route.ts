@@ -1,3 +1,4 @@
+import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 
 export const dynamic = "force-dynamic";
@@ -60,10 +61,6 @@ export async function POST(request: Request) {
 
   if (profileError) return Response.json({ error: profileError.message }, { status: 500 });
   if (!profile) return Response.json({ error: "User not found." }, { status: 404 });
-
-  if ((giveMatch || addMatch || drainMatch) && profile.id === admin.adminUser.id) {
-    return Response.json({ error: "You cannot target your own account." }, { status: 403 });
-  }
 
   if (timeoutMatch) {
     const timeoutMinutes = Number(timeoutMatch[2]);
@@ -182,6 +179,15 @@ export async function POST(request: Request) {
     }
 
     finalCoins = bonusBalanceAfter;
+  }
+
+  if (giveMatch || addMatch) {
+    await maybeSendAdminCoinSecurityPush(admin.supabase, {
+      command: giveMatch ? "give" : "add",
+      amount,
+      username: profile.username,
+      transactionId: transaction?.id,
+    });
   }
 
   return Response.json({

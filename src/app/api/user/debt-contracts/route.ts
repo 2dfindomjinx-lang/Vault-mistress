@@ -1,3 +1,4 @@
+import { userDebtContractSelect } from "@/lib/debt-contract-select";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -217,7 +218,8 @@ export async function POST(request: Request) {
 
         return Response.json(
           {
-            error: EVIL_DEBT_UNDERAGE_MESSAGE,
+            error: "evil_debt_timeout",
+            message: EVIL_DEBT_UNDERAGE_MESSAGE,
             timeoutUntil,
           },
           { status: 403 },
@@ -291,7 +293,7 @@ export async function POST(request: Request) {
         timezone: contractType === "evil" ? cleanTimezone : null,
         user_id: userId,
       })
-      .select("*")
+      .select(userDebtContractSelect)
       .single();
 
     if (error || !data) {
@@ -326,7 +328,7 @@ export async function POST(request: Request) {
 
     const { data: contractData, error: contractError } = await supabase
       .from("pet_debt_contracts")
-      .select("*")
+      .select(userDebtContractSelect)
       .eq("id", contractId)
       .eq("user_id", userId)
       .eq("status", "active")
@@ -414,7 +416,7 @@ export async function POST(request: Request) {
       .eq("paid_periods", contract.paid_periods)
       .eq("next_due_at", contract.next_due_at)
       .eq("status", contract.status)
-      .select("*")
+      .select(userDebtContractSelect)
       .maybeSingle();
 
     if (updateContractError || !updatedContract) {

@@ -1,4 +1,5 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { adminDebtContractSelect } from "@/lib/debt-contract-select";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +11,7 @@ function getDebtPeriodMs(periodType: "weekly" | "monthly") {
 async function listDebtContracts(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
     .from("pet_debt_contracts")
-    .select("*")
+    .select(adminDebtContractSelect)
     .order("created_at", { ascending: false })
     .limit(120);
 

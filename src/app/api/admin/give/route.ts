@@ -1,4 +1,5 @@
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireAdminProfile } from "@/lib/admin-guard";
 
 function getGiveBonusPercent(giveAmount: number) {
@@ -93,10 +94,6 @@ export async function POST(request: Request) {
       { error: "User not found in Supabase profiles." },
       { status: 404 },
     );
-  }
-
-  if ((giveMatch || addMatch || drainMatch) && profile.id === admin.adminUser.id) {
-    return Response.json({ error: "You cannot target your own account." }, { status: 403 });
   }
 
   if (timeoutMatch) {
@@ -359,6 +356,15 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
+
+  if (giveMatch || addMatch) {
+    await maybeSendAdminCoinSecurityPush(supabase, {
+      command: giveMatch ? "give" : "add",
+      amount,
+      username: profile.username,
+      transactionId: transaction?.id,
+    });
   }
 
   return Response.json({

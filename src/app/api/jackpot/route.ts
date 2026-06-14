@@ -9,8 +9,13 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import {
+  getSupabasePublicConfigErrors,
+  isSupabasePublicConfigured,
+} from "@/lib/supabase/public";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type JackpotRow = {
   id: string;
@@ -40,21 +45,11 @@ type ContributionRow = {
   created_at: string;
 };
 
-type JackpotWinnerTransactionRow = {
-  user_id: string;
-  amount: number;
-  reason: string;
-  created_at: string;
-  metadata: Record<string, unknown> | null;
-};
-
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
+type SupabaseReadClient = SupabaseClient;
 const jackpotWinReasons = ["jackpot_win_1st", "jackpot_win_2nd", "jackpot_win_3rd"];
-const jackpotWinnerPlaces = {
-  jackpot_win_1st: 1,
-  jackpot_win_2nd: 2,
-  jackpot_win_3rd: 3,
-} as const;
+const jackpotSelect =
+  "id, cycle_key, starts_at, contribution_ends_at, ends_at, base_pool, winner_user_id, winner_username, winner_amount, winner_selected_at, skipped_at";
 
 function jsonError(message: string, status = 500) {
   return Response.json({ error: message }, { status });
@@ -75,7 +70,7 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
   const cycle = getJackpotCycle();
   const { data: existing, error: existingError } = await supabase
     .from("loyalty_jackpots")
-    .select("*")
+    .select(jackpotSelect)
     .eq("cycle_key", cycle.cycleKey)
     .maybeSingle();
 
@@ -97,7 +92,7 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
       ends_at: cycle.endsAt,
       base_pool: JACKPOT_BASE_POOL,
     })
-    .select("*")
+    .select(jackpotSelect)
     .single();
 
   if (createError) {
@@ -106,6 +101,22 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
   }
 
   return { cycle, jackpot: created as JackpotRow };
+}
+
+async function getCurrentJackpot(supabase: SupabaseReadClient) {
+  const cycle = getJackpotCycle();
+  const { data, error } = await supabase
+    .from("loyalty_jackpots")
+    .select(jackpotSelect)
+    .eq("cycle_key", cycle.cycleKey)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Current jackpot lookup failed", error);
+    throw error;
+  }
+
+  return { cycle, jackpot: (data as JackpotRow | null) ?? null };
 }
 
 type ExcludableQuery<T> = {
@@ -120,44 +131,17 @@ function withWinnerExclusion<T extends ExcludableQuery<T>>(query: T, winnerIds: 
   return query.not("id", "in", `(${winnerIds.join(",")})`);
 }
 
-async function getPreviousWinnerIds(supabase: SupabaseAdminClient, currentCycleKey: string) {
-  const { data: previousJackpots, error } = await supabase
-    .from("loyalty_jackpots")
-    .select("id, winner_user_id")
-    .neq("cycle_key", currentCycleKey)
-    .order("starts_at", { ascending: false })
-    .limit(2);
+async function getPreviousWinnerIds(supabase: SupabaseReadClient, currentCycleKey: string) {
+  const { data, error } = await supabase.rpc("get_previous_jackpot_winner_user_ids", {
+    p_current_cycle_key: currentCycleKey,
+  });
 
   if (error) {
     console.error("Previous jackpot winners lookup failed", error);
     return [];
   }
 
-  const legacyWinnerIds = (previousJackpots ?? [])
-    .map((row) => String(row.winner_user_id ?? ""))
-    .filter(Boolean);
-  const jackpotIds = (previousJackpots ?? []).map((row) => String(row.id ?? "")).filter(Boolean);
-
-  if (jackpotIds.length === 0) {
-    return legacyWinnerIds;
-  }
-
-  const { data: winnerTransactions, error: transactionError } = await supabase
-    .from("coin_transactions")
-    .select("user_id, reason, metadata")
-    .in("reason", jackpotWinReasons);
-
-  if (transactionError) {
-    console.error("Previous jackpot winner transaction lookup failed", transactionError);
-    return legacyWinnerIds;
-  }
-
-  const transactionWinnerIds = ((winnerTransactions ?? []) as Array<{ user_id: string; metadata: Record<string, unknown> | null }>)
-    .filter((row) => jackpotIds.includes(String(row.metadata?.jackpotId ?? "")))
-    .map((row) => row.user_id)
-    .filter(Boolean);
-
-  return Array.from(new Set([...legacyWinnerIds, ...transactionWinnerIds]));
+  return Array.isArray(data) ? data.map((value) => String(value)) : [];
 }
 
 async function getEligibleCount(
@@ -262,7 +246,7 @@ async function getRandomEligibleProfiles(
   return winners;
 }
 
-async function getContributionTotal(supabase: SupabaseAdminClient, jackpotId: string) {
+async function getContributionTotal(supabase: SupabaseReadClient, jackpotId: string) {
   const { data, error } = await supabase
     .from("loyalty_jackpot_contributions")
     .select("amount")
@@ -276,60 +260,43 @@ async function getContributionTotal(supabase: SupabaseAdminClient, jackpotId: st
   return (data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
 }
 
-async function getJackpotWinnersFromTransactions(
-  supabase: SupabaseAdminClient,
-  jackpotId: string,
-) {
-  const { data, error } = await supabase
-    .from("coin_transactions")
-    .select("user_id, amount, reason, created_at, metadata")
-    .in("reason", jackpotWinReasons);
+async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, jackpotId: string) {
+  const { data, error } = await supabase.rpc("get_jackpot_winner_display", {
+    p_jackpot_id: jackpotId,
+  });
 
   if (error) {
     console.error("Jackpot winner transaction display lookup failed", error);
     return [];
   }
 
-  const rows = ((data ?? []) as JackpotWinnerTransactionRow[])
-    .filter((row) => String(row.metadata?.jackpotId ?? "") === jackpotId)
-    .sort((a, b) => {
-      const aPlace = jackpotWinnerPlaces[a.reason as keyof typeof jackpotWinnerPlaces] ?? 99;
-      const bPlace = jackpotWinnerPlaces[b.reason as keyof typeof jackpotWinnerPlaces] ?? 99;
-      return aPlace - bPlace;
-    });
-
+  const rows = (data ?? []) as Array<{
+    user_id: string;
+    username: string;
+    amount: number;
+    reason: string;
+    created_at: string;
+    place: number;
+  }>;
   const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean)));
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .in("id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  if (profileError) {
-    console.error("Jackpot winner profile display lookup failed", profileError);
-  }
-
-  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile.username]));
   const usernameStyles = await getUsernameStylesForUserIds(supabase, userIds);
 
   return rows.map((row) => ({
-    username: profileMap.get(row.user_id) ?? String(row.metadata?.username ?? "@unknown"),
+    username: row.username,
     amount: Number(row.amount ?? 0),
     selectedAt: row.created_at,
-    place: jackpotWinnerPlaces[row.reason as keyof typeof jackpotWinnerPlaces],
+    place: row.place as 1 | 2 | 3,
     usernameStyle: usernameStyles.get(row.user_id),
   }));
 }
 
 async function getUsernameStylesForUserIds(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseReadClient,
   userIds: string[],
 ) {
-  const { data, error } = await supabase
-    .from("user_cosmetics")
-    .select("user_id, item_id, item_type, equipped")
-    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("equipped", true)
-    .in("item_type", ["username-color", "username-glow"]);
+  const { data, error } = await supabase.rpc("get_public_username_cosmetics", {
+    p_user_ids: userIds.length > 0 ? userIds : [],
+  });
 
   if (error) {
     console.error("Jackpot username cosmetic lookup failed", error);
@@ -358,7 +325,7 @@ async function maybeSelectWinner(
       .from("loyalty_jackpots")
       .update({ skipped_at: now, updated_at: now })
       .eq("id", jackpot.id)
-      .select("*")
+      .select(jackpotSelect)
       .single();
 
     if (error) {
@@ -447,7 +414,7 @@ async function maybeSelectWinner(
       updated_at: now,
     })
     .eq("id", jackpot.id)
-    .select("*")
+    .select(jackpotSelect)
     .single();
 
   if (error) {
@@ -483,7 +450,7 @@ async function maybeSelectWinner(
 }
 
 async function buildJackpotState(
-  supabase: SupabaseAdminClient,
+  supabase: SupabaseReadClient,
   jackpot: JackpotRow,
   userId: string | null,
 ): Promise<LoyaltyJackpotState> {
@@ -496,7 +463,15 @@ async function buildJackpotState(
   const contributionTotal = await getContributionTotal(supabase, jackpot.id);
   const pool = Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal;
   const previousWinnerIds = await getPreviousWinnerIds(supabase, jackpot.cycle_key);
-  const eligibleCount = await getEligibleCount(supabase, previousWinnerIds);
+  const { data: eligibleCountData, error: eligibleCountError } = await supabase.rpc("get_jackpot_eligible_count", {
+    p_excluded_user_ids: previousWinnerIds,
+  });
+
+  if (eligibleCountError) {
+    console.error("Jackpot eligible count failed", eligibleCountError);
+  }
+
+  const eligibleCount = Number(eligibleCountData ?? 0);
 
   const { data: contributionRows, error: contributionError } = await supabase
     .from("loyalty_jackpot_contributions")
@@ -621,20 +596,23 @@ async function buildJackpotState(
 }
 
 export async function GET() {
-  if (!isSupabaseAdminConfigured) {
-    const configErrors = getSupabaseAdminConfigErrors();
+  if (!isSupabasePublicConfigured) {
+    const configErrors = getSupabasePublicConfigErrors();
     console.error("Jackpot route is not configured", configErrors);
     return jsonError(`Jackpot is not configured: ${configErrors.join(", ")}`);
   }
 
   try {
     const userId = await getAuthedUserId();
-    const supabase = createSupabaseAdminClient();
-    const { cycle, jackpot } = await ensureCurrentJackpot(supabase);
+    const supabase = await createSupabaseServerClient();
+    const { jackpot } = await getCurrentJackpot(supabase);
+
+    if (!jackpot) {
+      return Response.json({ jackpot: null });
+    }
+
     const contributionTotal = await getContributionTotal(supabase, jackpot.id);
-    const pool = Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal;
-    const updatedJackpot = await maybeSelectWinner(supabase, jackpot, cycle.phase, pool);
-    const state = await buildJackpotState(supabase, updatedJackpot, userId);
+    const state = await buildJackpotState(supabase, jackpot, userId);
 
     return Response.json({ jackpot: state });
   } catch (error) {
@@ -668,7 +646,11 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
-    const { cycle, jackpot } = await ensureCurrentJackpot(supabase);
+    const { cycle, jackpot } = await getCurrentJackpot(supabase);
+
+    if (!jackpot) {
+      return jsonError("Jackpot is not available yet.", 404);
+    }
 
     if (cycle.phase !== "contribution") {
       return jsonError("Jackpot contributions are closed for this cycle.", 400);
@@ -768,13 +750,7 @@ export async function POST(request: Request) {
 
     try {
       const contributionTotal = await getContributionTotal(supabase, jackpot.id);
-      const updatedJackpot = await maybeSelectWinner(
-        supabase,
-        jackpot,
-        cycle.phase,
-        Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal,
-      );
-      const state = await buildJackpotState(supabase, updatedJackpot, userId);
+      const state = await buildJackpotState(supabase, jackpot, userId);
 
       return Response.json({ coins: nextCoins, jackpot: state });
     } catch (error) {

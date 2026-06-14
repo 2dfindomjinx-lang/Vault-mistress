@@ -1,14 +1,14 @@
-import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
 import { getLeadershipRank } from "@/lib/leadership";
+import {
+  createPublicSupabaseClient,
+  getSupabasePublicConfigErrors,
+  isSupabasePublicConfigured,
+} from "@/lib/supabase/public";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 export async function GET() {
-  if (!isSupabaseAdminConfigured) {
-    const configErrors = getSupabaseAdminConfigErrors();
+  if (!isSupabasePublicConfigured) {
+    const configErrors = getSupabasePublicConfigErrors();
     console.error("Leadership leaderboard route is not configured", configErrors);
     return Response.json(
       {
@@ -18,27 +18,24 @@ export async function GET() {
     );
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-  .from("profiles")
-  .select("id, username, tribute_total, created_at")
-  .eq("hide_from_leaderboard", false)
-  .order("tribute_total", { ascending: false })
-  .order("created_at", { ascending: true })
-  .limit(3);
+  const supabase = createPublicSupabaseClient();
+  const { data, error } = await supabase.rpc("get_public_leaderboard", { p_limit: 3 });
 
   if (error) {
     console.error("Failed to load leadership leaderboard", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const userIds = (data ?? []).map((profile) => String(profile.id)).filter(Boolean);
-  const { data: cosmeticRows, error: cosmeticError } = await supabase
-    .from("user_cosmetics")
-    .select("user_id, item_id, item_type, equipped")
-    .in("user_id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("equipped", true)
-    .in("item_type", ["username-color", "username-glow"]);
+  const leaders = (data ?? []) as Array<{
+    id: string;
+    username: string;
+    tribute_total: number;
+    created_at: string;
+  }>;
+  const userIds = leaders.map((profile) => String(profile.id)).filter(Boolean);
+  const { data: cosmeticRows, error: cosmeticError } = await supabase.rpc("get_public_username_cosmetics", {
+    p_user_ids: userIds.length > 0 ? userIds : [],
+  });
 
   if (cosmeticError) {
     console.error("Leadership username cosmetic lookup failed", cosmeticError);
@@ -47,7 +44,7 @@ export async function GET() {
   const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
   return Response.json({
-    leaders: (data ?? [])
+    leaders: leaders
       .map((profile) => {
         const tributeTotal = Number(profile.tribute_total ?? 0);
 

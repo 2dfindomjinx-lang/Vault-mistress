@@ -37,6 +37,7 @@ import {
   getGlobalPrincipessaXpRequirement,
   type GlobalPrincipessaProgress,
 } from "@/lib/global-principessa";
+import { userDebtContractSelect } from "@/lib/debt-contract-select";
 import {
   getRandomIrlTaskDurationMinutes,
   getRandomIrlTaskPenaltyMinutes,
@@ -797,7 +798,7 @@ function getPremiumShopTitle() {
 
 function describeError(error: unknown) {
   if (error instanceof Error) {
-    return error.stack || error.message;
+    return error.message;
   }
 
   if (typeof error === "object" && error !== null) {
@@ -817,8 +818,8 @@ function describeError(error: unknown) {
   return String(error);
 }
 
-function createApiError(endpoint: string, response: Response, payload: { error?: string }) {
-  const message = payload.error ?? `${endpoint} failed with HTTP ${response.status}`;
+function createApiError(endpoint: string, response: Response, payload: { error?: string; message?: string }) {
+  const message = payload.message ?? payload.error ?? `${endpoint} failed with HTTP ${response.status}`;
   const error = new Error(message) as Error & {
     endpoint?: string;
     payload?: unknown;
@@ -1748,6 +1749,7 @@ export default function Home() {
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
+  const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
     gameplayEnabled: true,
@@ -2703,7 +2705,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    setIsAdminUser(false);
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -2850,7 +2851,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const { data: debtData, error: debtError } = await supabase
       .from("pet_debt_contracts")
-      .select("*")
+      .select(userDebtContractSelect)
       .eq("user_id", profile.id)
       .in("status", ["active", "pending"])
       .order("created_at", { ascending: false })
@@ -3039,7 +3040,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
     setIsLoggedIn(true);
-    setIsAdminUser(false);
   }, []);
 
   const shouldHydrateAdminSession = isLoggedIn && Boolean(authUserId) && !isGuestMode;
@@ -3063,14 +3063,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const result = (await response.json().catch(() => null)) as { isAdmin?: boolean } | null;
 
         if (active) {
-          setIsAdminUser(response.ok && result?.isAdmin === true);
+          if (response.status === 401 || response.status === 403) {
+            setIsAdminUser(false);
+          } else if (response.ok) {
+            setIsAdminUser(result?.isAdmin === true);
+          }
         }
       } catch (error) {
         console.error("Admin session hydration failed", error);
-
-        if (active) {
-          setIsAdminUser(false);
-        }
       }
     };
 
@@ -3079,7 +3079,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return () => {
       active = false;
     };
-  }, [shouldHydrateAdminSession]);
+  }, [adminSessionRefreshNonce, shouldHydrateAdminSession]);
 
   useEffect(() => {
     if (!authUserId || isGuestMode) {
@@ -3170,7 +3170,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         .from("profiles")
         .update({
           avatar_url: avatarUrl,
-          email: user.email ?? null,
           last_login_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -3183,7 +3182,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const { error: loginError } = await supabase
         .from("profiles")
         .update({
-          email: user.email ?? null,
           last_login_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -3328,7 +3326,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           .from("profiles")
           .update({
             avatar_url: avatarUrl,
-            email: user.email ?? null,
             last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
@@ -3342,7 +3339,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         void supabase
           .from("profiles")
           .update({
-            email: user.email ?? null,
             last_login_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
@@ -4049,6 +4045,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         return;
       }
 
+      setAdminSessionRefreshNonce((current) => current + 1);
+
       void (async () => {
         try {
           setIsAuthLoading(true);
@@ -4575,7 +4573,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       console.error("Failed to complete number pick task", error);
       emitSoundEvent("error");
       setAuthError(describeError(error));
-      setAvatarMistressReply("The Number Pick ledger failed. Resyncing the vault state.");
+      setAvatarMistressReply("Number Pick could not be saved. Resyncing the vault state.");
       void resyncAuthenticatedProfile("Failed to complete number pick task").catch((resyncError) => {
         console.error("[profile-resync] failed after number-pick error", resyncError);
       });

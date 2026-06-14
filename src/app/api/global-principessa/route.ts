@@ -1,20 +1,24 @@
 import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
+  createPublicSupabaseClient,
+  getSupabasePublicConfigErrors,
+  isSupabasePublicConfigured,
+} from "@/lib/supabase/public";
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
 export async function GET() {
-  if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+  if (!isSupabasePublicConfigured) {
+    return jsonError(`Supabase public environment is not configured: ${getSupabasePublicConfigErrors().join(", ")}`, 500);
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase.rpc("ensure_global_principessa_current_month");
+  const supabase = createPublicSupabaseClient();
+  const { data, error } = await supabase
+    .from("global_principessa_progress")
+    .select("id, month, year, level, xp, updated_at")
+    .eq("id", 1)
+    .maybeSingle();
 
   if (error) {
     console.error("Global Principessa progress lookup failed", { code: error.code, message: error.message });
@@ -38,6 +42,6 @@ export async function GET() {
 
   return Response.json({
     latestLevelUp: latestLevelUp ?? null,
-    progress: data,
+    progress: data ?? null,
   });
 }
