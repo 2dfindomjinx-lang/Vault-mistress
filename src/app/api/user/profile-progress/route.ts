@@ -286,36 +286,6 @@ export async function POST(request: Request) {
     nextCoins = current.coins + proposedDelta;
     nextAffection = current.affection;
     nextTribute = current.tribute_total ?? 0;
-
-    // Side-effect: advance the action record in the task row using server time (prevents bypass even if client skipped persistUserTask)
-    if (taskId === "beg" || taskId === "timeout-risk") {
-      const metaUpdate: Record<string, unknown> = { ...(cooldownRow?.metadata ?? {}) };
-      if (taskId === "beg") {
-        metaUpdate.lastBegAt = now;
-        metaUpdate.lastReward = proposedDelta;
-      }
-      if (taskId === "timeout-risk" && proposedDelta > 0) {
-        const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
-        metaUpdate.safeWins = currentSafe + 1;
-        if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {
-          metaUpdate.resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        }
-      }
-      const { error: sideErr } = await supabase
-        .from("user_tasks")
-        .upsert(
-          {
-            user_id: authData.user.id,
-            task_id: taskId,
-            completed_at: now,
-            metadata: metaUpdate,
-          },
-          { onConflict: "user_id,task_id" },
-        );
-      if (sideErr) {
-        console.error("Side task row update for profile-progress failed", sideErr);
-      }
-    }
   } else {
     // All supported reasons are handled in the explicit server-computed branches above.
     // Unknown or unsupported reasons must be rejected immediately.
@@ -403,6 +373,59 @@ export async function POST(request: Request) {
         });
       }
       return jsonError("Profile progress coin logging failed.", 500);
+    }
+  }
+
+  // Side-effects for task state ONLY after reward (profile + tx) has succeeded.
+  // This guarantees: on any profile/tx failure above, no completed_at/claimed_at is written for reward tasks.
+  // Server time + authoritative; prevents client backdating and bypass.
+  if (isRewardReason) {
+    let taskIdForSide = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
+    if (reason === "streak_bonus") {
+      taskIdForSide = stringFromMetadata(metadata, "taskId") ?? "";
+    }
+    if (taskIdForSide === "beg" || taskIdForSide === "timeout-risk" || taskIdForSide === "wait-obediently") {
+      const metaUpdate: Record<string, unknown> = { ...(cooldownRow?.metadata ?? {}) };
+      if (taskIdForSide === "beg") {
+        metaUpdate.lastBegAt = now;
+        metaUpdate.lastReward = actualCoinDelta;
+      }
+      if (taskIdForSide === "timeout-risk" && actualCoinDelta > 0) {
+        const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
+        metaUpdate.safeWins = currentSafe + 1;
+        if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {
+          metaUpdate.resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        }
+        metaUpdate.lastResult = "safe";
+      }
+      if (taskIdForSide === "wait-obediently") {
+        metaUpdate.status = "completed";
+        // cooldownUntil will be derived from claimed_at in buildTasksFromRows
+      }
+      const { error: sideErr } = await supabase
+        .from("user_tasks")
+        .upsert(
+          {
+            user_id: authData.user.id,
+            task_id: taskIdForSide,
+            completed_at: now,
+            claimed_at: now,
+            reward_coins: actualCoinDelta,
+            metadata: metaUpdate,
+          },
+          { onConflict: "user_id,task_id" },
+        );
+      if (sideErr) {
+        console.error("[profile-progress] Side task row update (post-reward) failed", {
+          code: sideErr.code,
+          message: sideErr.message,
+          details: sideErr.details,
+          hint: sideErr.hint,
+          userId: authData.user.id,
+          reason,
+          taskId: taskIdForSide,
+        });
+      }
     }
   }
 

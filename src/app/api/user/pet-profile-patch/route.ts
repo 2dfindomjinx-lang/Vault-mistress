@@ -34,15 +34,6 @@ type ProfileRow = {
   tribute_total: number;
 };
 
-const allowedPetRewardReasons = new Set([
-  "reward:pet-affection-claim",
-  "reward:pet-case-opening",
-  "reward:pet-confession",
-  "reward:pet-evil-wait",
-  "reward:pet-false-hope",
-  "reward:pet-favor-roulette",
-  "reward:pet-perfect-writing",
-]);
 
 function buildPetTransactionMetadata(reason: string, coinDelta: number) {
   return {
@@ -251,6 +242,8 @@ export async function POST(request: Request) {
     return jsonError(validationError, 422);
   }
 
+  const now = new Date().toISOString();
+
   if (reason === "reward:pet-affection-claim") {
     const { data: petTasks, error: petTasksError } = await supabase
       .from("user_pet_tasks")
@@ -350,6 +343,45 @@ export async function POST(request: Request) {
       }
 
       return jsonError("Pet profile coin logging failed.", 500);
+    }
+  }
+
+  // Side-effect: mark the corresponding pet task approved/completed ONLY after reward grant + tx succeeded.
+  // This ensures pet task progress (for reward cases) is not recorded unless coins/pet_score were granted.
+  // Client may still call persistPetTask after (for count/meta), but side guarantees the record on reward path.
+  if (reason.startsWith("reward:pet-")) {
+    const taskId = reason.replace("reward:", ""); // e.g. "pet-perfect-writing"
+    const isAffectionClaim = reason === "reward:pet-affection-claim";
+    const isCase = reason === "reward:pet-case-opening";
+    const rewardScore = isAffectionClaim ? 10 : 10; // most are 10; tax separate but not via reward:pet- coin path
+    const meta: Record<string, unknown> = { ...( (body?.metadata as Record<string, unknown>) ?? {}) };
+    if (isAffectionClaim || isCase) {
+      meta.date = new Date().toISOString().slice(0, 10);
+    }
+    const { error: sidePetErr } = await supabase
+      .from("user_pet_tasks")
+      .upsert(
+        {
+          user_id: authData.user.id,
+          task_id: taskId,
+          completed_at: now,
+          reviewed_at: now,
+          reward_score: rewardScore,
+          status: "approved",
+          metadata: meta,
+        },
+        { onConflict: "user_id,task_id" },
+      );
+    if (sidePetErr) {
+      console.error("[pet-profile-patch] Side pet task mark (post-reward) failed", {
+        code: sidePetErr.code,
+        message: sidePetErr.message,
+        details: sidePetErr.details,
+        hint: sidePetErr.hint,
+        userId: authData.user.id,
+        reason,
+        taskId,
+      });
     }
   }
 

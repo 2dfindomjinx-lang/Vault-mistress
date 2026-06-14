@@ -3724,7 +3724,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return payload.task;
   }, []);
 
-  const persistTaskCompletion = useCallback((taskId: string) => {
+  const persistTaskCompletion = useCallback(async (taskId: string) => {
     if (isGuestMode) {
       return;
     }
@@ -3736,13 +3736,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const task = startingTasks.find((entry) => entry.id === taskId);
 
-    void persistUserTask({
+    await persistUserTask({
         task_id: taskId,
         completed_at: new Date().toISOString(),
         reward_coins: task?.reward ?? 0,
         metadata: {},
-    }).catch((error) => {
-        console.error("Failed to persist task completion", { taskId, error });
     });
   }, [authUserId, isGuestMode, persistUserTask]);
 
@@ -4113,13 +4111,26 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     [affection, isTimeoutActive],
   );
 
-  const completeTask = (taskId: string) => {
+  const completeTask = async (taskId: string) => {
+    // Set local for immediate feedback (affection milestones are also derived from current affection on rebuild).
+    // Persist after; only on success path we consider confirmed. On persist fail, resync will rebuild
+    // from affection (or row) so completed state stays consistent without "burn".
     setTasks((current) =>
       current.map((task) =>
         task.id === taskId ? { ...task, completed: true } : task,
       ),
     );
-    persistTaskCompletion(taskId);
+    if (isGuestMode) {
+      return;
+    }
+    try {
+      await persistTaskCompletion(taskId);
+    } catch (error) {
+      console.error("Failed to persist affection milestone completion", { taskId, error });
+      void resyncAuthenticatedProfile(`Failed completeTask ${taskId}`).catch((resyncError) => {
+        console.error("[profile-resync] after completeTask error", resyncError);
+      });
+    }
   };
 
   const handleTypingProgress = async (value: string) => {
@@ -4626,6 +4637,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("Wait Obediently failed to start safely. Try again.");
+      void resyncAuthenticatedProfile("Failed wait start").catch((resyncError) => {
+        console.error("[profile-resync] failed after wait start error", resyncError);
+      });
       finishTaskAction(actionId);
       return;
     }
@@ -4679,6 +4693,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The fail state could not be saved. Resyncing the vault state.");
+      void resyncAuthenticatedProfile("Failed wait fail state").catch((resyncError) => {
+        console.error("[profile-resync] failed after wait fail error", resyncError);
+      });
       finishTaskAction(actionId);
       return;
     }
@@ -4715,28 +4732,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const rewardCoins = getEventTaskReward(task.reward);
     const nextCoins = coinsRef.current + rewardCoins;
     try {
+      // Reward first via profile-progress; on success the route performs server-side task state
+      // (completed/claimed/status) as side-effect. Only then do we mark local cooldown/completed.
+      // If this fails, no reward and no completed_at/claimed_at is written.
       await persistProfileProgress(
         { coins: nextCoins, affection },
         "task:wait-obediently",
       );
-      if (!isGuestMode) {
-        await persistUserTask({
-          task_id: task.id,
-          completed_at: new Date().toISOString(),
-          claimed_at: task.cooldownUntil
-            ? new Date(new Date(task.cooldownUntil).getTime() - 24 * 60 * 60 * 1000).toISOString()
-            : new Date().toISOString(),
-          reward_coins: rewardCoins,
-          metadata: {
-            status: "completed",
-          },
-        });
-      }
     } catch (error) {
       console.error("Failed to complete wait obediently task", error);
       emitSoundEvent("error");
       setAuthError(describeError(error));
-      setAvatarMistressReply("Wait Obediently completed locally, but the vault failed to save it. Try again.");
+      setAvatarMistressReply("Wait Obediently reward failed to save. Resyncing the vault state.");
+      void resyncAuthenticatedProfile("Failed to complete wait obediently").catch((resyncError) => {
+        console.error("[profile-resync] failed after wait complete error", resyncError);
+      });
       finishTaskAction(actionId);
       return;
     }
@@ -4896,6 +4906,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The risk ledger failed. Try again.");
+      void resyncAuthenticatedProfile("Failed timeout-risk").catch((resyncError) => {
+        console.error("[profile-resync] failed after timeout-risk error", resyncError);
+      });
     } finally {
       finishTaskAction(actionId);
     }
@@ -5204,24 +5217,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const reward = randomChance(0.07) ? eventBegReward : 0;
 
       try {
+        // Always go through profile-progress for beg (even 0-reward): the route validates
+        // cooldown/delta then on success does the server-side task row side-effect (lastBegAt etc).
+        // This ensures state (cooldown) is only recorded if/after the action "grant" (0 or +) succeeds.
+        // Pre-persist removed to prevent marking cooldown without the (profile) grant path succeeding.
         if (!isGuestMode) {
-        await persistUserTask({
-            task_id: "beg",
-            completed_at: now,
-            reward_coins: reward,
-            metadata: {
-              lastBegAt: now,
-              lastReward: reward,
-            },
-          });
-      }
-
-      if (reward > 0) {
-        await persistProfileProgress(
-          { coins: coinsRef.current + reward, affection },
-          "beg",
-        );
-      }
+          await persistProfileProgress(
+            { coins: coinsRef.current + reward, affection },
+            "beg",
+          );
+        }
 
       setMechanics((current) => ({
         ...current,
@@ -5238,6 +5243,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The vault ignored the request. Try again.");
+      void resyncAuthenticatedProfile("Failed to complete beg").catch((resyncError) => {
+        console.error("[profile-resync] failed after beg error", resyncError);
+      });
     } finally {
       finishTaskAction(actionId);
     }
@@ -5343,6 +5351,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The sacrifice ledger failed. Try again.");
+      void resyncAuthenticatedProfile("Failed sacrifice").catch((resyncError) => {
+        console.error("[profile-resync] failed after sacrifice error", resyncError);
+      });
     } finally {
       finishTaskAction(actionId);
     }
@@ -5407,6 +5418,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("error");
       setAuthError(describeError(error));
       setAvatarMistressReply("The support ledger failed. Try again.");
+      void resyncAuthenticatedProfile("Failed support").catch((resyncError) => {
+        console.error("[profile-resync] failed after support error", resyncError);
+      });
     } finally {
       finishTaskAction(actionId);
     }
@@ -5687,10 +5701,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("affection_level_up");
     }
     if (nextAffection >= 50) {
-      completeTask("affection");
+      void completeTask("affection");
     }
     if (nextAffection >= 80) {
-      completeTask("affection-80");
+      void completeTask("affection-80");
     }
     setAvatarMistressReply(
       amount >= 5000
@@ -6337,6 +6351,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       } catch (error) {
         emitSoundEvent("error");
         setAuthError(describeError(error));
+        void resyncAuthenticatedProfile("Failed pet perfect writing reward").catch(() => {});
         finishPetAction(actionId);
         return;
       }
@@ -6358,6 +6373,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         console.error("Failed to persist Pet perfect writing success", error);
         emitSoundEvent("error");
         setAuthError(describeError(error));
+        void resyncAuthenticatedProfile("Failed pet perfect writing state").catch(() => {});
         finishPetAction(actionId);
         return;
       }
@@ -6429,6 +6445,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           );
         } catch (error) {
           setAuthError(describeError(error));
+          void resyncAuthenticatedProfile("Failed pet confession reward").catch(() => {});
           return;
         }
       }
@@ -6454,6 +6471,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       } catch (error) {
         console.error("Failed to persist Pet confession progress", error);
         setAuthError(describeError(error));
+        void resyncAuthenticatedProfile("Failed pet confession state").catch(() => {});
         return;
       }
     } else if (completed) {

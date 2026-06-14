@@ -257,71 +257,16 @@ export async function POST(request: Request) {
     metadata,
   };
 
-  // Atomic claim using conditional update to prevent parallel requests from both succeeding.
-  // We condition the write on the exact state we validated against.
-  // This ensures only one request "wins" the claim and the subsequent coin grant.
-  let updatedTask: UserTaskRow | null = null;
-  let taskUpdateError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
+  const reason = streakBonus ? "streak_bonus" : `reward:task:${taskId}`;
+  const transactionMetadata = streakBonus
+    ? { milestone: streakBonus.milestone, taskId }
+    : {};
 
-  if (existingTask) {
-    // Must still match the exact previous claimed_at we checked.
-    // Use .is() when previous was null to handle first-claim race for a task row that existed without claimed_at.
-    let conditionalUpdate = supabase
-      .from("user_tasks")
-      .update(claimPayload)
-      .eq("user_id", authData.user.id)
-      .eq("task_id", taskId);
-
-    if (existingTask.claimed_at) {
-      conditionalUpdate = conditionalUpdate.eq("claimed_at", existingTask.claimed_at);
-    } else {
-      conditionalUpdate = conditionalUpdate.is("claimed_at", null);
-    }
-
-    const { data, error } = await conditionalUpdate
-      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-      .single();
-
-    updatedTask = data;
-    taskUpdateError = error;
-
-    if (!updatedTask || updatedTask.claimed_at !== now) {
-      // Lost the race or already claimed in the tiny window
-      return jsonError("Task reward already claimed or cooldown active.", 422);
-    }
-  } else {
-    // First time this task row is being claimed for this user.
-    // Use insert; on unique conflict (parallel first claim) we treat as already claimed.
-    const { data: inserted, error: insErr } = await supabase
-      .from("user_tasks")
-      .insert(claimPayload)
-      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-      .single();
-
-    if (insErr && (insErr.code === "23505" || insErr.message?.toLowerCase().includes("duplicate"))) {
-      return jsonError("Task reward already claimed.", 422);
-    }
-
-    updatedTask = inserted;
-    taskUpdateError = insErr;
-
-    if (!updatedTask || updatedTask.claimed_at !== now) {
-      return jsonError("Failed to record task claim.", 500);
-    }
-  }
-
-  if (taskUpdateError || !updatedTask) {
-    console.error("[task-claim] Supabase error updating task state", {
-      code: taskUpdateError?.code,
-      message: taskUpdateError?.message,
-      details: taskUpdateError?.details,
-      hint: taskUpdateError?.hint,
-      taskId,
-      userId: authData.user.id,
-    });
-    return jsonError(taskUpdateError?.message ?? "Task claim failed.", 500);
-  }
-
+  // Reward grant first (profile coins + tx), task completion/claim record ONLY after reward succeeds.
+  // Use conditional profile update (.eq coins) as the atomic gate to serialize grants and prevent
+  // double-claiming / double-paying on concurrent claims (replaces prior task-conditional-as-lock).
+  // This ensures: if reward path fails for any reason (profile stale, tx, etc), NO task row is
+  // ever written with completed_at/claimed_at.
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("profiles")
     .update({
@@ -329,40 +274,22 @@ export async function POST(request: Request) {
       updated_at: now,
     })
     .eq("id", authData.user.id)
+    .eq("coins", profile.coins)
     .select(profileSelect)
     .single();
 
   if (profileUpdateError || !updatedProfile) {
-    // Best effort rollback of the claim we just won
-    if (existingTask) {
-      const { error: rbErr } = await supabase
-        .from("user_tasks")
-        .update({
-          claimed_at: existingTask.claimed_at,
-          completed_at: existingTask.completed_at,
-          metadata: existingTask.metadata ?? {},
-          reward_coins: existingTask.reward_coins,
-        })
-        .eq("user_id", authData.user.id)
-        .eq("task_id", taskId)
-        .eq("claimed_at", now); // only rollback if we still own the 'now' we set
-      if (rbErr) console.error("Task claim rollback failed", rbErr);
-    } else {
-      const { error: rbErr } = await supabase
-        .from("user_tasks")
-        .delete()
-        .eq("user_id", authData.user.id)
-        .eq("task_id", taskId);
-      if (rbErr) console.error("Task claim rollback delete failed", rbErr);
-    }
-
-    return jsonError(profileUpdateError?.message ?? "Profile update failed.", 500);
+    console.error("[task-claim] Supabase error updating profile (reward before task state)", {
+      code: profileUpdateError?.code,
+      message: profileUpdateError?.message,
+      details: profileUpdateError?.details,
+      hint: profileUpdateError?.hint,
+      taskId,
+      userId: authData.user.id,
+      attemptedCoins: nextCoins,
+    });
+    return jsonError(profileUpdateError?.message ?? "Profile update was stale or duplicated.", profileUpdateError ? 500 : 409);
   }
-
-  const reason = streakBonus ? "streak_bonus" : `reward:task:${taskId}`;
-  const transactionMetadata = streakBonus
-    ? { milestone: streakBonus.milestone, taskId }
-    : {};
 
   const { error: transactionError } = await supabase.from("coin_transactions").insert({
     amount: rewardCoins,
@@ -374,7 +301,7 @@ export async function POST(request: Request) {
   });
 
   if (transactionError) {
-    console.error("[task-claim] Supabase error inserting coin transaction", {
+    console.error("[task-claim] Supabase error inserting coin transaction (reverting profile, no task marked)", {
       code: transactionError.code,
       message: transactionError.message,
       details: transactionError.details,
@@ -384,37 +311,71 @@ export async function POST(request: Request) {
       rewardCoins,
     });
 
-    // Rollback coin
     const { error: profileRbErr } = await supabase
       .from("profiles")
       .update({ coins: profile.coins, updated_at: now })
       .eq("id", authData.user.id);
-    if (profileRbErr) console.error("Task claim profile rollback failed", profileRbErr);
-
-    // Rollback the claim we set
-    if (existingTask) {
-      const { error: taskRbErr } = await supabase
-        .from("user_tasks")
-        .update({
-          claimed_at: existingTask.claimed_at,
-          completed_at: existingTask.completed_at,
-          metadata: existingTask.metadata ?? {},
-          reward_coins: existingTask.reward_coins,
-        })
-        .eq("user_id", authData.user.id)
-        .eq("task_id", taskId)
-        .eq("claimed_at", now);
-      if (taskRbErr) console.error("Task claim task rollback failed", taskRbErr);
-    } else {
-      const { error: taskRbErr } = await supabase
-        .from("user_tasks")
-        .delete()
-        .eq("user_id", authData.user.id)
-        .eq("task_id", taskId);
-      if (taskRbErr) console.error("Task claim task delete rollback failed", taskRbErr);
-    }
+    if (profileRbErr) console.error("Task claim profile rollback after tx failed", profileRbErr);
 
     return jsonError("Task reward logging failed.", 500);
+  }
+
+  // Reward (profile + tx) succeeded. Now safely record completion/claim state.
+  // (If this final step fails we rollback the reward to ensure atomicity: no pay without state? Wait,
+  // per requirements we prefer no state without pay; on record fail we revert pay so neither sticks.)
+  let updatedTask: UserTaskRow | null = null;
+  let taskUpdateError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
+
+  if (existingTask) {
+    const { data, error } = await supabase
+      .from("user_tasks")
+      .update(claimPayload)
+      .eq("user_id", authData.user.id)
+      .eq("task_id", taskId)
+      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+      .single();
+    updatedTask = data;
+    taskUpdateError = error;
+  } else {
+    const { data: inserted, error: insErr } = await supabase
+      .from("user_tasks")
+      .insert(claimPayload)
+      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+      .single();
+    updatedTask = inserted;
+    taskUpdateError = insErr;
+    if (insErr && (insErr.code === "23505" || (insErr.message || "").toLowerCase().includes("duplicate"))) {
+      // Extremely rare: paid but row appeared; fetch current to return success state if possible
+      const { data: nowRow } = await supabase
+        .from("user_tasks")
+        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+        .eq("user_id", authData.user.id)
+        .eq("task_id", taskId)
+        .maybeSingle();
+      updatedTask = (nowRow as UserTaskRow | null) ?? null;
+      taskUpdateError = null;
+    }
+  }
+
+  if (taskUpdateError || !updatedTask) {
+    console.error("[task-claim] Supabase error recording task state AFTER successful reward grant -- reverting coins to keep atomic (no state without confirmed reward)", {
+      code: taskUpdateError?.code,
+      message: taskUpdateError?.message,
+      details: taskUpdateError?.details,
+      hint: taskUpdateError?.hint,
+      taskId,
+      userId: authData.user.id,
+      rewardCoins,
+    });
+
+    const { error: profileRbErr } = await supabase
+      .from("profiles")
+      .update({ coins: profile.coins, updated_at: now })
+      .eq("id", authData.user.id);
+    if (profileRbErr) console.error("Task claim profile rollback after post-reward task record fail", profileRbErr);
+
+    // tx log remains as audit of attempted (reverted) grant
+    return jsonError("Task state record failed after reward; reverted to keep completion atomic.", 500);
   }
 
   return Response.json({
