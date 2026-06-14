@@ -102,9 +102,14 @@ export async function POST(request: Request) {
     return jsonError("This task must use its dedicated action endpoint.", 409);
   }
 
-  if (REWARD_COOLDOWN_TASKS.has(taskId) && (task?.claimed_at != null || (task?.reward_coins != null && incomingReward !== 0))) {
+  if (
+    REWARD_COOLDOWN_TASKS.has(taskId) &&
+    taskId !== "support" &&
+    taskId !== "sacrifice" &&
+    (task?.claimed_at != null || (task?.reward_coins != null && incomingReward !== 0))
+  ) {
     return jsonError(
-      "Reward-bearing and cooldown-controlled tasks (daily-login, streaks, beg, sacrifice, etc.) can only have their claim state set through dedicated server endpoints. Generic sync is not allowed for claimed_at or reward_coins.",
+      "Reward-bearing and cooldown-controlled tasks (daily-login, streaks, beg, etc.) can only have their claim state set through dedicated server endpoints. Generic sync is not allowed for claimed_at or reward_coins.",
       409,
     );
   }
