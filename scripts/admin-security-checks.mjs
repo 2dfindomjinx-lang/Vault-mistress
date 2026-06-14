@@ -127,6 +127,30 @@ for (const file of explicitSelectChecks) {
   }
 }
 
+// Prevent email from leaking into any client-side profile selects or constants
+const clientEmailPattern = /email/i;
+const clientProfileSelectFiles = [
+  "src/app/page.tsx",
+  "src/lib/supabase/client.ts",
+];
+
+for (const file of clientProfileSelectFiles) {
+  const source = readFileSync(join(root, file), "utf8");
+  // Look for profile select strings or type definitions that mention email in client context
+  if (clientEmailPattern.test(source) && (source.includes("profileSelect") || source.includes("Profile"))) {
+    // Allow only if it's inside a comment explaining it's excluded
+    const lines = source.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes("email") && /profileSelect|type Profile|interface Profile/.test(source.substring(Math.max(0, source.lastIndexOf('\n', source.indexOf(line))), source.indexOf(line) + 200))) {
+        if (!/intentionally not populated|must never be returned|admin-only/i.test(line + (lines[i+1] || "") + (lines[i+2] || ""))) {
+          failures.push(`${file} still references email in client profile select/type without a clear exclusion comment.`);
+        }
+      }
+    }
+  }
+}
+
 const profileBootstrapSource = readFileSync(join(root, "src/app/api/user/profile-bootstrap/route.ts"), "utf8");
 
 if (/email\s*:/.test(profileBootstrapSource)) {
@@ -137,6 +161,35 @@ const eventsRollSource = readFileSync(join(root, "src/app/api/events/roll/route.
 
 if (!eventsRollSource.includes("requireAdmin") && !eventsRollSource.includes("CRON_SECRET")) {
   failures.push("Events roll route is not protected by admin guard or CRON_SECRET.");
+}
+
+// Generic task sync must not blindly trust client for claimed_at / reward_coins on reward-bearing/cooldown tasks.
+// This is the main vector for backdating daily-login, beg, streaks, etc. to farm rewards.
+const genericTasksSource = readFileSync(join(root, "src/app/api/user/tasks/route.ts"), "utf8");
+
+if (genericTasksSource.includes('claimed_at: task.claimed_at') || genericTasksSource.includes('reward_coins: rewardCoins')) {
+  // Old blind write pattern
+  failures.push("src/app/api/user/tasks/route.ts still writes client-provided claimed_at or reward_coins without sanitization/rejection for reward tasks.");
+}
+
+if (!genericTasksSource.includes("REWARD_COOLDOWN_TASKS") || !genericTasksSource.includes("daily-login") || !genericTasksSource.includes("This task must use its dedicated")) {
+  failures.push("src/app/api/user/tasks/route.ts must have strict REWARD_COOLDOWN_TASKS protection and reject claimed/reward for daily-login and similar tasks.");
+}
+
+// profile-progress must not trust client nextProfile.coins / deltas for reward mechanics
+// and must reject unknown reasons immediately without any legacy client-derived fallback.
+const profileProgressSource = readFileSync(join(root, "src/app/api/user/profile-progress/route.ts"), "utf8");
+
+if (profileProgressSource.includes("fallbackNext") || profileProgressSource.includes("Unknown or legacy - fall back")) {
+  failures.push("src/app/api/user/profile-progress/route.ts still contains legacy fallbackNext construction from client values.");
+}
+
+if (profileProgressSource.includes("validateTransition")) {
+  failures.push("src/app/api/user/profile-progress/route.ts still references the legacy validateTransition (should be removed for unknown reasons).");
+}
+
+if (!profileProgressSource.includes("Unsupported profile mutation reason") || !profileProgressSource.includes("return jsonError(`Unsupported")) {
+  failures.push("src/app/api/user/profile-progress/route.ts must explicitly reject unknown reasons with 422 immediately.");
 }
 
 if (failures.length > 0) {

@@ -30,6 +30,16 @@ const protectedUserRoutes = [
   { method: "POST", path: "/api/user/debt-contracts", body: { action: "pay", contractId: "00000000-0000-0000-0000-000000000000" } },
   { method: "POST", path: "/api/user/profile-bootstrap", body: { username: "test_user" } },
   { method: "POST", path: "/api/user/timeout", body: { timeoutUntil: null } },
+  // Generic task sync must not accept client-controlled claim/reward state for cooldown tasks (prevents backdating to farm)
+  { method: "POST", path: "/api/user/tasks", body: { task: { task_id: "daily-login", claimed_at: "2020-01-01T00:00:00.000Z", reward_coins: 9999 } } },
+  { method: "POST", path: "/api/user/tasks", body: { task: { task_id: "beg", claimed_at: "2020-01-01T00:00:00.000Z", reward_coins: 500, metadata: { lastBegAt: "2020-01-01T00:00:00.000Z" } } } },
+  { method: "POST", path: "/api/user/tasks", body: { task: { task_id: "timeout-risk", reward_coins: 999, metadata: { resetAt: "2020-01-01T00:00:00.000Z" } } } },
+  // profile-progress must not trust client coins/deltas for any reason (prevents direct coin farming via beg/timeout-risk etc.)
+  { method: "POST", path: "/api/user/profile-progress", body: { reason: "beg", nextProfile: { coins: 999999, affection: 50 }, metadata: {} } },
+  { method: "POST", path: "/api/user/profile-progress", body: { reason: "task:timeout-risk", nextProfile: { coins: 999999, affection: 50 }, metadata: { lastResult: "safe" } } },
+  // Unknown reasons must be rejected with 422, never apply any client-provided deltas
+  { method: "POST", path: "/api/user/profile-progress", body: { reason: "weird-unknown-reason-xyz", nextProfile: { coins: 123456, affection: 99, tribute_total: 99999 } } },
+  { method: "POST", path: "/api/user/profile-progress", body: { reason: "", nextProfile: { coins: 999, affection: 50 } } },
 ];
 
 async function isServerAvailable() {

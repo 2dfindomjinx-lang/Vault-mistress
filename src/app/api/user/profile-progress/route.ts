@@ -4,6 +4,7 @@ import {
   getTitlePrice,
   profileSelect,
   visibleGalleryCosts,
+  TIMEOUT_RISK_DAILY_SAFE_LIMIT,
 } from "@/lib/server-game-rules";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
 import {
@@ -12,6 +13,11 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getCooldownUntil,
+  getMetadataNumber,
+  getMetadataString,
+} from "@/lib/server-task-actions";
 
 type ProfilePatchBody = {
   metadata?: Record<string, unknown>;
@@ -114,129 +120,6 @@ function buildTransactionMetadata(
   return {};
 }
 
-function validateTransition(
-  current: ProfileRow,
-  next: Required<Pick<ProfileRow, "coins" | "affection">> & Partial<Pick<ProfileRow, "tribute_total">>,
-  reason: string,
-  metadata: Record<string, unknown>,
-) {
-  const coinDelta = next.coins - current.coins;
-  const tributeDelta = typeof next.tribute_total === "number"
-    ? next.tribute_total - (current.tribute_total ?? 0)
-    : 0;
-
-  if (!Number.isInteger(next.coins) || !Number.isInteger(next.affection)) {
-    return "Invalid profile values.";
-  }
-
-  if (next.affection < 0 || next.affection > 100) {
-    return "Affection must stay between 0 and 100.";
-  }
-
-  if (reason === "tribute:coin-offer") {
-    const spendAmount = numberFromMetadata(metadata, "spendAmount");
-    const affectionGain = numberFromMetadata(metadata, "affectionGain");
-    const allowedTributes = new Set([250, 1000, 5000]);
-
-    if (!spendAmount || !allowedTributes.has(spendAmount)) {
-      return "Invalid tribute amount.";
-    }
-
-    if (coinDelta !== -spendAmount || tributeDelta !== spendAmount) {
-      return "Tribute profile delta does not match the submitted amount.";
-    }
-
-    if (typeof affectionGain !== "number" || next.affection !== Math.min(100, current.affection + affectionGain)) {
-      return "Tribute affection delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "spend:gallery-unlock") {
-    const itemId = stringFromMetadata(metadata, "itemId");
-    const expectedCost = itemId ? visibleGalleryCosts.get(itemId) : null;
-
-    if (!expectedCost || coinDelta !== -expectedCost || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Gallery unlock delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "spend:irl-task-wheel") {
-    if (coinDelta !== -IRL_TASK_WHEEL_COST || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "IRL task wheel spend delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "spend:cosmetic") {
-    const itemId = stringFromMetadata(metadata, "cosmeticId");
-    const expectedPrice = itemId ? getCosmeticPrice(itemId) : null;
-
-    if (!expectedPrice || coinDelta !== -expectedPrice || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Cosmetic spend delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "spend:title") {
-    const titleId = stringFromMetadata(metadata, "titleId");
-    const expectedPrice = titleId ? getTitlePrice(titleId) : null;
-
-    if (!expectedPrice || coinDelta !== -expectedPrice || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Title spend delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason.startsWith("reward:task:")) {
-    const taskId = reason.replace("reward:task:", "");
-
-    if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Task reward delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (["task:wait-obediently", "task:timeout-risk", "beg"].includes(reason)) {
-    const taskId = reason === "beg" ? "beg" : reason.replace("task:", "");
-
-    if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Task profile delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason.startsWith("reward:task:")) {
-    const taskId = reason.replace("reward:task:", "");
-
-    if (!getAllowedTaskRewards(taskId).includes(coinDelta) || tributeDelta !== 0 || next.affection !== current.affection) {
-      return "Task reward delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "tribute:sacrifice" || reason === "tribute:support" || reason === "tribute:coin-offer") {
-    const spendAmount = numberFromMetadata(metadata, "spendAmount");
-
-    if (!spendAmount || coinDelta !== -spendAmount || tributeDelta !== spendAmount) {
-      return "Tribute spend delta is invalid.";
-    }
-
-    return null;
-  }
-
-  return `Unsupported profile mutation reason: ${reason}`;
-}
-
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -251,46 +134,204 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as ProfilePatchBody | null;
   const reason = body?.reason?.trim();
-  const nextProfile = body?.nextProfile;
+  const clientNext = body?.nextProfile ?? {};
   const metadata = body?.metadata ?? {};
 
-  if (!reason || typeof nextProfile?.coins !== "number" || typeof nextProfile.affection !== "number") {
+  if (!reason) {
     return jsonError("Invalid profile progress payload.");
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data: currentProfile, error: currentError } = await supabase
+  const { data: currentProfileData, error: currentError } = await supabase
     .from("profiles")
     .select("id, coins, affection, tribute_total")
     .eq("id", authData.user.id)
     .single();
 
-  if (currentError || !currentProfile) {
+  if (currentError || !currentProfileData) {
     return jsonError(currentError?.message ?? "Profile not found.", 404);
   }
 
-  const validationError = validateTransition(currentProfile as ProfileRow, {
-    affection: nextProfile.affection,
-    coins: nextProfile.coins,
-    ...(typeof nextProfile.tribute_total === "number" ? { tribute_total: nextProfile.tribute_total } : {}),
-  }, reason, metadata);
+  const current = currentProfileData as ProfileRow;
+  const now = new Date().toISOString();
 
-  if (validationError) {
-    return jsonError(validationError, 422);
+  // Server computes all sensitive values. Client nextProfile is only a hint for proposed delta (validated strictly).
+  let nextCoins = current.coins;
+  let nextAffection = current.affection;
+  let nextTribute = current.tribute_total ?? 0;
+
+  // Fetch task state for cooldown/reward cap enforcement on reward reasons
+  interface CooldownTaskRow {
+    task_id: string;
+    completed_at: string | null;
+    claimed_at: string | null;
+    metadata: Record<string, unknown> | null;
+  }
+  let cooldownRow: CooldownTaskRow | null = null;
+  const isRewardReason = reason === "beg" || reason.includes("timeout-risk") || reason.includes("wait-obediently") || reason.startsWith("reward:task:") || reason === "streak_bonus";
+
+  if (isRewardReason) {
+    let taskIdForRow = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
+    if (reason === "streak_bonus") {
+      taskIdForRow = stringFromMetadata(metadata, "taskId") ?? "streak-bonus-1";
+    }
+    const { data: row } = await supabase
+      .from("user_tasks")
+      .select("task_id, completed_at, claimed_at, metadata")
+      .eq("user_id", authData.user.id)
+      .eq("task_id", taskIdForRow)
+      .maybeSingle();
+    cooldownRow = row;
+  }
+
+  // Compute authoritative deltas. Never apply raw client nextProfile values.
+  if (reason === "tribute:coin-offer") {
+    const spendAmount = numberFromMetadata(metadata, "spendAmount") || 0;
+    const affectionGain = numberFromMetadata(metadata, "affectionGain") || 0;
+    const allowedTributes = new Set([250, 1000, 5000]);
+    if (!allowedTributes.has(spendAmount) || current.coins < spendAmount) {
+      return jsonError("Invalid or unaffordable tribute offer.", 422);
+    }
+    nextCoins = current.coins - spendAmount;
+    nextTribute = (current.tribute_total ?? 0) + spendAmount;
+    nextAffection = Math.min(100, current.affection + affectionGain);
+  } else if (reason === "spend:gallery-unlock") {
+    const itemId = stringFromMetadata(metadata, "itemId");
+    const cost = itemId ? visibleGalleryCosts.get(itemId) || 0 : 0;
+    if (!cost || current.coins < cost) {
+      return jsonError("Invalid gallery unlock or insufficient funds.", 422);
+    }
+    nextCoins = current.coins - cost;
+    nextAffection = current.affection;
+    nextTribute = current.tribute_total ?? 0;
+  } else if (reason === "spend:irl-task-wheel") {
+    if (current.coins < IRL_TASK_WHEEL_COST) {
+      return jsonError("Insufficient funds for IRL task wheel.", 422);
+    }
+    nextCoins = current.coins - IRL_TASK_WHEEL_COST;
+    nextAffection = current.affection;
+    nextTribute = current.tribute_total ?? 0;
+  } else if (reason === "spend:cosmetic") {
+    const itemId = stringFromMetadata(metadata, "cosmeticId");
+    const price = itemId ? getCosmeticPrice(itemId) || 0 : 0;
+    if (!price || current.coins < price) {
+      return jsonError("Invalid cosmetic or insufficient funds.", 422);
+    }
+    nextCoins = current.coins - price;
+    nextAffection = current.affection;
+    nextTribute = current.tribute_total ?? 0;
+  } else if (reason === "spend:title") {
+    const titleId = stringFromMetadata(metadata, "titleId");
+    const price = titleId ? getTitlePrice(titleId) || 0 : 0;
+    if (!price || current.coins < price) {
+      return jsonError("Invalid title or insufficient funds.", 422);
+    }
+    nextCoins = current.coins - price;
+    nextAffection = current.affection;
+    nextTribute = current.tribute_total ?? 0;
+  } else if (reason === "tribute:sacrifice" || reason === "tribute:support") {
+    const spendAmount = numberFromMetadata(metadata, "spendAmount") || 0;
+    if (!spendAmount || current.coins < spendAmount) {
+      return jsonError("Invalid tribute spend or insufficient funds.", 422);
+    }
+    nextCoins = current.coins - spendAmount;
+    nextTribute = (current.tribute_total ?? 0) + spendAmount;
+    nextAffection = current.affection;
+  } else if (isRewardReason) {
+    // Reward mechanics: validate proposed delta against allow-list + enforce server DB cooldown/caps
+    let taskId = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
+    if (reason === "streak_bonus") {
+      taskId = stringFromMetadata(metadata, "taskId") ?? "";
+    }
+    const allowed = getAllowedTaskRewards(taskId);
+    const proposedDelta = (typeof clientNext.coins === "number" ? clientNext.coins : current.coins) - current.coins;
+
+    if (!allowed.includes(proposedDelta)) {
+      return jsonError("Reward delta not allowed for this action.", 422);
+    }
+
+    // Enforce cooldown / daily caps from trusted task row (sanitized by generic tasks route)
+    if (cooldownRow) {
+      const lastAction = getMetadataString(cooldownRow.metadata, "lastBegAt")
+        || getMetadataString(cooldownRow.metadata, "resetAt")
+        || getMetadataString(cooldownRow.metadata, "lastClaimAt")
+        || cooldownRow.claimed_at
+        || cooldownRow.completed_at;
+
+      let cooldownMs = 60 * 1000; // beg default
+      if (taskId === "timeout-risk" || taskId.includes("wait")) cooldownMs = 24 * 60 * 60 * 1000;
+
+      const activeCooldown = getCooldownUntil(lastAction, cooldownMs);
+      if (activeCooldown && proposedDelta > 0) {
+        return jsonError("Action is on cooldown or daily limit reached.", 422);
+      }
+
+      // Additional daily cap for timeout-risk safe rewards
+      if (taskId === "timeout-risk" && proposedDelta > 0) {
+        const safeWins = getMetadataNumber(cooldownRow.metadata, "safeWins", 0);
+        if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
+          return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
+        }
+      }
+    }
+
+    nextCoins = current.coins + proposedDelta;
+    nextAffection = current.affection;
+    nextTribute = current.tribute_total ?? 0;
+
+    // Side-effect: advance the action record in the task row using server time (prevents bypass even if client skipped persistUserTask)
+    if (taskId === "beg" || taskId === "timeout-risk") {
+      const metaUpdate: Record<string, unknown> = { ...(cooldownRow?.metadata ?? {}) };
+      if (taskId === "beg") {
+        metaUpdate.lastBegAt = now;
+        metaUpdate.lastReward = proposedDelta;
+      }
+      if (taskId === "timeout-risk" && proposedDelta > 0) {
+        const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
+        metaUpdate.safeWins = currentSafe + 1;
+        if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {
+          metaUpdate.resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        }
+      }
+      const { error: sideErr } = await supabase
+        .from("user_tasks")
+        .upsert(
+          {
+            user_id: authData.user.id,
+            task_id: taskId,
+            completed_at: now,
+            metadata: metaUpdate,
+          },
+          { onConflict: "user_id,task_id" },
+        );
+      if (sideErr) {
+        console.error("Side task row update for profile-progress failed", sideErr);
+      }
+    }
+  } else {
+    // All supported reasons are handled in the explicit server-computed branches above.
+    // Unknown or unsupported reasons must be rejected immediately.
+    // Do not construct or apply any values derived from client-provided nextProfile.
+    return jsonError(`Unsupported profile mutation reason: ${reason}`, 422);
+  }
+
+  // Final safety clamps (only reached for explicitly supported reasons)
+  if (nextAffection < 0 || nextAffection > 100 || !Number.isInteger(nextCoins) || !Number.isInteger(nextAffection)) {
+    return jsonError("Computed profile values out of range.", 422);
   }
 
   const { data: updatedProfile, error: updateError } = await supabase
     .from("profiles")
     .update({
-      affection: nextProfile.affection,
-      coins: nextProfile.coins,
-      ...(typeof nextProfile.tribute_total === "number" ? { tribute_total: nextProfile.tribute_total } : {}),
-      updated_at: new Date().toISOString(),
+      affection: nextAffection,
+      coins: nextCoins,
+      ...(nextTribute !== (current.tribute_total ?? 0) ? { tribute_total: nextTribute } : {}),
+      updated_at: now,
     })
     .eq("id", authData.user.id)
-    .eq("coins", (currentProfile as ProfileRow).coins)
-    .eq("affection", (currentProfile as ProfileRow).affection)
-    .eq("tribute_total", (currentProfile as ProfileRow).tribute_total)
+    .eq("coins", current.coins)
+    .eq("affection", current.affection)
+    .eq("tribute_total", current.tribute_total ?? 0)
     .select(profileSelect)
     .maybeSingle();
 
@@ -298,40 +339,39 @@ export async function POST(request: Request) {
     return jsonError(updateError?.message ?? "Profile update was stale or duplicated.", updateError ? 500 : 409);
   }
 
-  const coinDelta = Number(updatedProfile.coins ?? 0) - Number((currentProfile as ProfileRow).coins ?? 0);
+  const actualCoinDelta = Number(updatedProfile.coins ?? 0) - Number(current.coins ?? 0);
 
-  if (coinDelta !== 0) {
+  if (actualCoinDelta !== 0) {
+    const txMetadata = buildTransactionMetadata(reason, metadata, current, {
+      affection: nextAffection,
+      coins: nextCoins,
+      ...(nextTribute !== (current.tribute_total ?? 0) ? { tribute_total: nextTribute } : {}),
+    });
+
     const { error: transactionError } = await supabase.from("coin_transactions").insert({
-      amount: coinDelta,
+      amount: actualCoinDelta,
       balance_after: updatedProfile.coins,
-      balance_before: (currentProfile as ProfileRow).coins,
-      metadata: buildTransactionMetadata(reason, metadata, currentProfile as ProfileRow, {
-        affection: nextProfile.affection,
-        coins: nextProfile.coins,
-        ...(typeof nextProfile.tribute_total === "number" ? { tribute_total: nextProfile.tribute_total } : {}),
-      }),
+      balance_before: current.coins,
+      metadata: txMetadata,
       reason,
       user_id: authData.user.id,
     });
 
     if (transactionError) {
       console.error("Profile progress transaction insert failed", transactionError);
+      // Rollback
       const { error: rollbackError } = await supabase
         .from("profiles")
         .update({
-          affection: (currentProfile as ProfileRow).affection,
-          coins: (currentProfile as ProfileRow).coins,
-          ...(typeof currentProfile.tribute_total === "number"
-            ? { tribute_total: currentProfile.tribute_total }
-            : {}),
-          updated_at: new Date().toISOString(),
+          affection: current.affection,
+          coins: current.coins,
+          ...(current.tribute_total != null ? { tribute_total: current.tribute_total } : {}),
+          updated_at: now,
         })
         .eq("id", authData.user.id);
-
       if (rollbackError) {
         console.error("Profile progress rollback failed", rollbackError);
       }
-
       return jsonError("Profile progress coin logging failed.", 500);
     }
   }

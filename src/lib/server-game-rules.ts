@@ -56,3 +56,5 @@ export function getCosmeticPrice(itemId: string) {
 export function getTitlePrice(titleId: string) {
   return titleItems.find((title) => title.id === titleId)?.price ?? null;
 }
+
+export const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
