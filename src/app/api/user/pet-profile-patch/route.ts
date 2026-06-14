@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { getAllowedTaskRewards, profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -176,11 +176,9 @@ function validatePatch(
   }
 
   if (reason.startsWith("reward:pet-")) {
-    const allowedCoinRewards = new Set([50, 100, 150, 200, 500, 750, 1000]);
-
-    if (!allowedPetRewardReasons.has(reason)) {
-      return "Unsupported Pet reward reason.";
-    }
+    // Use server-game-rules allowed list (includes event multipliers: 0, base, 1.5x, 2x) instead of limited hardcoded set.
+    // This prevents over-restriction after hardening while still validating against known possible deltas for pet coin rewards (mostly base-50 evented).
+    const petCoinAllowed = getAllowedTaskRewards("beg"); // beg uses base 50 like most pet task coin rewards
 
     if (
       reason === "reward:pet-case-opening" &&
@@ -196,7 +194,7 @@ function validatePatch(
     if (
       reason !== "reward:pet-case-opening" &&
       reason !== "reward:pet-affection-claim" &&
-      (!allowedCoinRewards.has(coinDelta) || petScoreDelta !== 10 || tributeDelta !== 0)
+      (!petCoinAllowed.includes(coinDelta) || petScoreDelta !== 10 || tributeDelta !== 0)
     ) {
       return "Pet reward profile delta is invalid.";
     }
@@ -236,6 +234,14 @@ export async function POST(request: Request) {
     .single();
 
   if (currentError || !currentProfile) {
+    console.error("[pet-profile-patch] Supabase error reading current profile", {
+      code: currentError?.code,
+      message: currentError?.message,
+      details: currentError?.details,
+      hint: currentError?.hint,
+      userId: authData.user.id,
+      reason,
+    });
     return jsonError(currentError?.message ?? "Profile not found.", 404);
   }
 
@@ -285,6 +291,15 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (updateError || !updatedProfile) {
+    console.error("[pet-profile-patch] Supabase error updating pet profile", {
+      code: updateError?.code,
+      message: updateError?.message,
+      details: updateError?.details,
+      hint: updateError?.hint,
+      userId: authData.user.id,
+      reason,
+      patch,
+    });
     return jsonError(updateError?.message ?? "Pet profile update was stale or duplicated.", updateError ? 500 : 409);
   }
 
@@ -301,7 +316,15 @@ export async function POST(request: Request) {
     });
 
     if (transactionError) {
-      console.error("Pet profile transaction insert failed", transactionError);
+      console.error("[pet-profile-patch] Supabase error inserting coin transaction", {
+        code: transactionError.code,
+        message: transactionError.message,
+        details: transactionError.details,
+        hint: transactionError.hint,
+        userId: authData.user.id,
+        reason,
+        coinDelta,
+      });
       const { error: rollbackError } = await supabase
         .from("profiles")
         .update({
@@ -318,7 +341,12 @@ export async function POST(request: Request) {
         .eq("id", authData.user.id);
 
       if (rollbackError) {
-        console.error("Pet profile rollback failed", rollbackError);
+        console.error("[pet-profile-patch] Pet profile rollback failed after tx error", {
+          code: rollbackError.code,
+          message: rollbackError.message,
+          userId: authData.user.id,
+          reason,
+        });
       }
 
       return jsonError("Pet profile coin logging failed.", 500);

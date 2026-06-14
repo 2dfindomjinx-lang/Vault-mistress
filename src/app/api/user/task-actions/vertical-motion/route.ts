@@ -237,8 +237,11 @@ export async function POST(request: Request) {
       .single();
 
     if (profileUpdateError || !profileData) {
-      console.error("[vertical-motion] profile reward update failed", {
-        error: profileUpdateError,
+      console.error("[vertical-motion] Supabase error updating profile for reward", {
+        code: profileUpdateError?.code,
+        message: profileUpdateError?.message,
+        details: profileUpdateError?.details,
+        hint: profileUpdateError?.hint,
         userId: authData.user.id,
       });
       return jsonError(profileUpdateError?.message ?? "Movement reward update failed.", 500);
@@ -258,8 +261,11 @@ export async function POST(request: Request) {
     });
 
     if (transactionError) {
-      console.error("[vertical-motion] transaction insert failed", {
-        error: transactionError,
+      console.error("[vertical-motion] Supabase error inserting coin transaction", {
+        code: transactionError.code,
+        message: transactionError.message,
+        details: transactionError.details,
+        hint: transactionError.hint,
         userId: authData.user.id,
       });
       const { error: rollbackProfileError } = await supabase

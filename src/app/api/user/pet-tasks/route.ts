@@ -104,6 +104,14 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (existingTaskError) {
+    console.error("[pet-tasks] Supabase error reading existing pet task", {
+      code: existingTaskError.code,
+      message: existingTaskError.message,
+      details: existingTaskError.details,
+      hint: existingTaskError.hint,
+      taskId,
+      userId: authData.user.id,
+    });
     return jsonError(existingTaskError.message, 500);
   }
 
@@ -132,6 +140,15 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
+    console.error("[pet-tasks] Supabase error upserting pet task state", {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      taskId,
+      userId: authData.user.id,
+      payload,
+    });
     return jsonError(error?.message ?? "Pet task update failed.", 500);
   }
 

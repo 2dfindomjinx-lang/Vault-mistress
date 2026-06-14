@@ -194,9 +194,12 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error || !data) {
-      console.error("[high-low] profile coin update failed", {
+      console.error("[high-low] Supabase error updating profile for coin change", {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
         coinDelta,
-        error,
         nextCoins,
         previousCoins: profile.coins,
         userId: authData.user.id,
@@ -285,7 +288,15 @@ export async function POST(request: Request) {
     });
 
   if (transactionError) {
-    console.error("Higher/Lower transaction insert failed", transactionError);
+    console.error("[high-low] Supabase error inserting coin transaction", {
+      code: transactionError.code,
+      message: transactionError.message,
+      details: transactionError.details,
+      hint: transactionError.hint,
+      userId: authData.user.id,
+      outcome,
+      actualCoinDelta,
+    });
     const { error: rollbackProfileError } = await supabase
       .from("profiles")
       .update({

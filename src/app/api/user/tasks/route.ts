@@ -102,38 +102,28 @@ export async function POST(request: Request) {
     return jsonError("This task must use its dedicated action endpoint.", 409);
   }
 
-  if (
-    REWARD_COOLDOWN_TASKS.has(taskId) &&
-    taskId !== "support" &&
-    taskId !== "sacrifice" &&
-    (task?.claimed_at != null || (task?.reward_coins != null && incomingReward !== 0))
-  ) {
-    return jsonError(
-      "Reward-bearing and cooldown-controlled tasks (daily-login, streaks, beg, etc.) can only have their claim state set through dedicated server endpoints. Generic sync is not allowed for claimed_at or reward_coins.",
-      409,
-    );
-  }
-
   if (taskId === "daily-login") {
     return jsonError("Daily login reward can only be claimed via the dedicated task claim endpoint.", 409);
   }
 
-  // Still validate what the client *thinks* the reward was for logging/compat, but we will not store client-controlled values.
+  // Validate reward_coins if provided (prevent arbitrary inflation via generic sync).
+  // For REWARD_COOLDOWN tasks we still allow recording their state (completed_at, claimed_at for cooldowns, metadata),
+  // but cap reward_coins to allowed values or 0.
+  let effectiveRewardCoins = incomingReward;
   if (!isRewardAllowed(taskId, incomingReward)) {
-    // Non-fatal for progress updates on some tasks, but keep the previous behavior for now.
-    // We proceed with sanitized data.
+    console.warn(`[user-tasks] client sent invalid reward_coins=${incomingReward} for ${taskId}; forcing 0`);
+    effectiveRewardCoins = 0;
   }
 
   const safeMetadata = sanitizeMetadata(taskId, task?.metadata ?? {});
   const safeTask = {
     user_id: authData.user.id,
     task_id: taskId,
-    // completed_at may be used to record that an action occurred (for progress UI).
+    // completed_at and claimed_at are used by many tasks for their own state/cooldown tracking; allow through generic sync
+    // (actual reward grants/claims are enforced in dedicated routes like task-claim or profile-progress).
     completed_at: task?.completed_at ?? null,
-    // Never trust client for when a reward was claimed. Dedicated routes set this.
-    claimed_at: null,
-    // Never trust client-provided reward amount for these tasks.
-    reward_coins: 0,
+    claimed_at: task?.claimed_at ?? null,
+    reward_coins: effectiveRewardCoins,
     metadata: safeMetadata,
   };
 
@@ -145,10 +135,14 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
-    console.error("[user-tasks] upsert failed (sanitized)", {
-      error,
+    console.error("[user-tasks] Supabase error upserting task state", {
+      code: error?.code,
+      message: error?.message,
+      details: error?.details,
+      hint: error?.hint,
       taskId,
       userId: authData.user.id,
+      attemptedTask: task,
     });
     return jsonError(error?.message ?? "Task update failed.", 500);
   }

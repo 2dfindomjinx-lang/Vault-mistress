@@ -149,6 +149,14 @@ export async function POST(request: Request) {
     .single();
 
   if (currentError || !currentProfileData) {
+    console.error("[profile-progress] Supabase error reading current profile", {
+      code: currentError?.code,
+      message: currentError?.message,
+      details: currentError?.details,
+      hint: currentError?.hint,
+      userId: authData.user.id,
+      reason,
+    });
     return jsonError(currentError?.message ?? "Profile not found.", 404);
   }
 
@@ -336,6 +344,15 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (updateError || !updatedProfile) {
+    console.error("[profile-progress] Supabase error updating profile", {
+      code: updateError?.code,
+      message: updateError?.message,
+      details: updateError?.details,
+      hint: updateError?.hint,
+      userId: authData.user.id,
+      reason,
+      computedNext: { nextCoins, nextAffection, nextTribute },
+    });
     return jsonError(updateError?.message ?? "Profile update was stale or duplicated.", updateError ? 500 : 409);
   }
 
@@ -358,7 +375,15 @@ export async function POST(request: Request) {
     });
 
     if (transactionError) {
-      console.error("Profile progress transaction insert failed", transactionError);
+      console.error("[profile-progress] Supabase error inserting coin transaction", {
+        code: transactionError.code,
+        message: transactionError.message,
+        details: transactionError.details,
+        hint: transactionError.hint,
+        userId: authData.user.id,
+        reason,
+        actualCoinDelta,
+      });
       // Rollback
       const { error: rollbackError } = await supabase
         .from("profiles")
@@ -370,7 +395,12 @@ export async function POST(request: Request) {
         })
         .eq("id", authData.user.id);
       if (rollbackError) {
-        console.error("Profile progress rollback failed", rollbackError);
+        console.error("[profile-progress] Profile rollback after tx error failed", {
+          code: rollbackError.code,
+          message: rollbackError.message,
+          userId: authData.user.id,
+          reason,
+        });
       }
       return jsonError("Profile progress coin logging failed.", 500);
     }

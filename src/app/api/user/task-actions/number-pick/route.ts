@@ -160,8 +160,11 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (error || !data) {
-      console.error("[number-pick] profile coin update failed", {
-        error,
+      console.error("[number-pick] Supabase error updating profile for coin change", {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
         nextCoins,
         previousCoins: profile.coins,
         reward,
@@ -221,8 +224,12 @@ export async function POST(request: Request) {
       .single();
 
     if (transactionError || !transaction) {
-      console.error("[number-pick] transaction insert failed", {
-        error: transactionError,
+      console.error("[number-pick] Supabase error inserting coin transaction", {
+        code: transactionError?.code,
+        message: transactionError?.message,
+        details: transactionError?.details,
+        hint: transactionError?.hint,
+        userId: authData.user.id,
         transactionPayload,
       });
       const { error: rollbackProfileError } = await supabase

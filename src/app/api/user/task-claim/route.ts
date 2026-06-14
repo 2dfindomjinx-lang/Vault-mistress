@@ -201,10 +201,26 @@ export async function POST(request: Request) {
   ]);
 
   if (profileResult.error || !profileResult.data) {
+    console.error("[task-claim] Supabase error reading profile", {
+      code: profileResult.error?.code,
+      message: profileResult.error?.message,
+      details: profileResult.error?.details,
+      hint: profileResult.error?.hint,
+      taskId,
+      userId: authData.user.id,
+    });
     return jsonError(profileResult.error?.message ?? "Profile not found.", 404);
   }
 
   if (taskResult.error) {
+    console.error("[task-claim] Supabase error reading task", {
+      code: taskResult.error.code,
+      message: taskResult.error.message,
+      details: taskResult.error.details,
+      hint: taskResult.error.hint,
+      taskId,
+      userId: authData.user.id,
+    });
     return jsonError(taskResult.error.message, 500);
   }
 
@@ -245,7 +261,7 @@ export async function POST(request: Request) {
   // We condition the write on the exact state we validated against.
   // This ensures only one request "wins" the claim and the subsequent coin grant.
   let updatedTask: UserTaskRow | null = null;
-  let taskUpdateError: { message?: string } | null = null;
+  let taskUpdateError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
 
   if (existingTask) {
     // Must still match the exact previous claimed_at we checked.
@@ -295,6 +311,14 @@ export async function POST(request: Request) {
   }
 
   if (taskUpdateError || !updatedTask) {
+    console.error("[task-claim] Supabase error updating task state", {
+      code: taskUpdateError?.code,
+      message: taskUpdateError?.message,
+      details: taskUpdateError?.details,
+      hint: taskUpdateError?.hint,
+      taskId,
+      userId: authData.user.id,
+    });
     return jsonError(taskUpdateError?.message ?? "Task claim failed.", 500);
   }
 
@@ -350,7 +374,15 @@ export async function POST(request: Request) {
   });
 
   if (transactionError) {
-    console.error("Task claim transaction insert failed", transactionError);
+    console.error("[task-claim] Supabase error inserting coin transaction", {
+      code: transactionError.code,
+      message: transactionError.message,
+      details: transactionError.details,
+      hint: transactionError.hint,
+      taskId,
+      userId: authData.user.id,
+      rewardCoins,
+    });
 
     // Rollback coin
     const { error: profileRbErr } = await supabase
