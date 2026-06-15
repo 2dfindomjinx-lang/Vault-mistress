@@ -79,9 +79,14 @@ export function CratesPanel({
   const [reelProgress, setReelProgress] = useState(0);
 
   const [isVerticalMode, setIsVerticalMode] = useState(false);
-  const [openQuantity, setOpenQuantity] = useState(1);
+  const [openQuantityByCase, setOpenQuantityByCase] = useState<Record<string, number>>({});
   const [wonItems, setWonItems] = useState<WonItem[]>([]);
   const [multiSpinSequences, setMultiSpinSequences] = useState<WonItem[][]>([]);
+
+  const getOpenQuantity = (caseType: string) => openQuantityByCase[caseType] || 1;
+  const setOpenQuantityForCase = (caseType: string, q: number) => {
+    setOpenQuantityByCase(prev => ({ ...prev, [caseType]: q }));
+  };
 
   // Square cards for better icon visibility (icons are square-designed).
   // Exactly 5 visible during slide. Larger squares, same overall area.
@@ -614,7 +619,8 @@ export function CratesPanel({
           )}
 
           {crates.map((crate) => {
-            const canAfford = coins >= crate.cost * openQuantity;
+            const currentQty = getOpenQuantity(crate.crate_type);
+            const canAfford = coins >= crate.cost * currentQty;
             const isThisOpening = openingCrate === crate.crate_type;
             const isFlipped = flippedCrate === crate.crate_type;
             const dropRates = getDropRates(crate.crate_type);
@@ -681,13 +687,13 @@ export function CratesPanel({
                       </div>
                     )}
 
-                    {/* Qty selector for multi open (up to 5) */}
+                    {/* Qty selector for multi open (up to 5) - per case */}
                     <div className="mt-2 flex justify-center gap-1 text-[10px]">
                       {[1,2,3,4,5].map(q => (
                         <button
                           key={q}
-                          onClick={(e) => { e.stopPropagation(); setOpenQuantity(q); }}
-                          className={`px-1.5 py-0.5 rounded border border-white/20 ${openQuantity === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+                          onClick={(e) => { e.stopPropagation(); setOpenQuantityForCase(crate.crate_type, q); }}
+                          className={`px-1.5 py-0.5 rounded border border-white/20 ${currentQty === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
                         >
                           {q}
                         </button>
@@ -697,11 +703,11 @@ export function CratesPanel({
                     <div className="flex-1" />
 
                     <button
-                      onClick={() => openCrate(crate, openQuantity)}
-                      disabled={disabled || pending || isOpening || wonItems.length > 0 || coins < crate.cost * openQuantity}
+                      onClick={() => openCrate(crate, currentQty)}
+                      disabled={disabled || pending || isOpening || wonItems.length > 0 || coins < crate.cost * currentQty}
                       className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                     >
-                      {isThisOpening ? "OPENING..." : coins >= crate.cost * openQuantity ? `Open ${openQuantity}` : "Not enough coins"}
+                      {isThisOpening ? "OPENING..." : coins >= crate.cost * currentQty ? `Open ${currentQty}` : "Not enough coins"}
                     </button>
                   </div>
 
@@ -980,23 +986,27 @@ export function CratesPanel({
                 <div className="text-sm font-semibold text-white/80">Results:</div>
               </div>
 
-              {/* Re-select quantity for next open from result screen */}
+              {/* Re-select quantity for next open from result screen - per last case */}
               <div className="mb-2 flex justify-center gap-1 text-[10px]">
                 <span className="self-center mr-1 text-zinc-400">Next open:</span>
-                {[1,2,3,4,5].map(q => (
-                  <button
-                    key={q}
-                    onClick={() => setOpenQuantity(q)}
-                    className={`px-1.5 py-0.5 rounded border border-white/20 ${openQuantity === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
-                  >
-                    {q}
-                  </button>
-                ))}
+                {[1,2,3,4,5].map(q => {
+                  const caseType = lastOpenedCrateType || '';
+                  const current = getOpenQuantity(caseType);
+                  return (
+                    <button
+                      key={q}
+                      onClick={() => setOpenQuantityForCase(caseType, q)}
+                      className={`px-1.5 py-0.5 rounded border border-white/20 ${current === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+                    >
+                      {q}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="flex flex-wrap gap-1 justify-center">
+              <div className="flex gap-2 justify-center flex-wrap">
                 {wonItems.map((item, idx) => (
-                  <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[70px]">
+                  <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[120px]">
                     <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name} className="h-10 w-10 object-cover" />
@@ -1034,19 +1044,21 @@ export function CratesPanel({
                 <button
                   onClick={() => {
                     const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
+                    const caseType = lastOpenedCrateType || '';
+                    const qty = getOpenQuantity(caseType);
                     if (crateToReopen) {
-                      openCrate(crateToReopen, openQuantity);
+                      openCrate(crateToReopen, qty);
                     }
                   }}
                   disabled={
                     disabled ||
                     pending ||
                     !lastOpenedCrateType ||
-                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0) * openQuantity
+                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0) * getOpenQuantity(lastOpenedCrateType || '')
                   }
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                 >
-                  Open Again ({openQuantity})
+                  Open Again ({getOpenQuantity(lastOpenedCrateType || '')})
                 </button>
               </div>
             </div>
