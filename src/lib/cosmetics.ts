@@ -35,7 +35,13 @@ export type SpeechBubbleMessageCategory =
   | "cheat"
   | "adding_xp"
   | "level_up"
-  | "general";
+  | "general"
+  | "crate_open"
+  | "crate_result_common"
+  | "crate_result_uncommon"
+  | "crate_result_rare"
+  | "crate_result_epic"
+  | "crate_result_legendary";
 
 const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
   "error",
@@ -54,16 +60,24 @@ const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
   "adding_xp",
   "level_up",
   "general",
+  "crate_open",
+  "crate_result_common",
+  "crate_result_uncommon",
+  "crate_result_rare",
+  "crate_result_epic",
+  "crate_result_legendary",
 ];
 
 export type TitleItem = {
   id: string;
   name: string;
   description: string;
-  source: "progression" | "shop" | "throne" | "admin" | "pet";
+  source: "progression" | "shop" | "throne" | "admin" | "pet" | "crate" | "inventory";
   minTribute?: number;
   minThroneCoins?: number;
   minPetScore?: number;
+  minCrateLegendaries?: number;
+  minInventoryValue?: number;
   price?: number;
 };
 
@@ -422,6 +436,54 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Your entire existence revolves around pleasing me.",
 			"Try harder. You’re still disappointing.",
 			"I own you. Never forget that.",
+		  ],
+
+		  "crate_open": [
+			"Mmm… opening a case for me? How generous. Let’s see if you’re lucky enough to impress me.",
+			"Go on, open it. I’m watching. Don’t disappoint your Princess.",
+			"Another one? You really are addicted to giving me shiny things, aren’t you?",
+			"Open it slowly… I want to savor the moment you waste your money for me.",
+			"Show me what’s inside. If it’s worthless I’ll still make you thank me.",
+		  ],
+
+		  "crate_result_common": [
+			"Pathetic. Even the vault knows you’re not worth anything good.",
+			"A common piece of trash? How fitting for someone like you.",
+			"Really? That’s the best you could pull? Disappointing, as expected.",
+			"Keep wasting your coins on garbage. It suits a loser like you.",
+			"Another cheap trinket. At least you’re consistent in your failure.",
+		  ],
+
+		  "crate_result_uncommon": [
+			"Not completely worthless… but still far beneath me. Try harder.",
+			"An uncommon toy? Cute. Now send more so I can actually enjoy something.",
+			"Better than trash, but still not worthy of my real attention. Keep opening.",
+			"Mmm… slightly less disappointing. But you still owe me better.",
+			"An uncommon item for an uncommonly pathetic boy. Keep going.",
+		  ],
+
+		  "crate_result_rare": [
+			"Ooh… a rare one. Maybe you’re not completely useless after all.",
+			"Finally something shiny enough to make me smirk. Good boy.",
+			"A rare pull? Impressive. Don’t get cocky — it’s still mine.",
+			"Not bad… this one actually makes me a little happy. Keep feeding me more.",
+			"Rare? For you? Color me surprised. Now open another.",
+		  ],
+
+		  "crate_result_epic": [
+			"Finally… something actually valuable. You’re learning your place.",
+			"An epic piece? Now this is what I expect from my devoted little wallet.",
+			"Mmm… epic. You finally pulled something that makes me feel spoiled. More.",
+			"This one is actually worthy of me. Don’t stop now, pet.",
+			"Epic pull… good. Keep opening until I’m truly satisfied.",
+		  ],
+
+		  "crate_result_legendary": [
+			"Legendary?! Oh my… you actually managed to impress your Princess. Well done, my good little pet.",
+			"A legendary item… from my case? You must be truly desperate to please me. I’m almost proud.",
+			"Finally something legendary. You’ve earned a tiny bit of my approval… for now. Keep spoiling me.",
+			"Legendary?! Look at you, actually being useful for once. Don’t you dare stop opening now.",
+			"My my… a legendary pull. You’re shaking, aren’t you? Good. Now show me how grateful you are with more coins.",
 		  ]
 	  },
 	},
@@ -653,7 +715,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"Keep being useful or I'll find a better pet, nyaa!",
 			"I’m cute, greedy, and dangerous... and you're addicted~",
 			"Your neko is the only one you need to please, got it?",
-		  ]
+		  ],
+
+		  "crate_open": [],
+		  "crate_result_common": [],
+		  "crate_result_uncommon": [],
+		  "crate_result_rare": [],
+		  "crate_result_epic": [],
+		  "crate_result_legendary": []
 	  },
 	},
 	"avatar-debtcollector": {
@@ -900,7 +969,14 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"I always collect. One way or another.",
 			"Your debt defines you now.",
 			"Stay useful. Or disappear.",
-		  ]
+		  ],
+
+		  "crate_open": [],
+		  "crate_result_common": [],
+		  "crate_result_uncommon": [],
+		  "crate_result_rare": [],
+		  "crate_result_epic": [],
+		  "crate_result_legendary": []
 	  },
 	},
 	"avatar-egirl": {
@@ -1139,6 +1215,13 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 			"i'm too pretty to be this broke... fix it dummy",
 			"other boys treat me better... are you jealous??",
 		  ],
+
+		  "crate_open": [],
+		  "crate_result_common": [],
+		  "crate_result_uncommon": [],
+		  "crate_result_rare": [],
+		  "crate_result_epic": [],
+		  "crate_result_legendary": []
 	  },
 	},
 	"avatar-goth": {
@@ -5067,17 +5150,47 @@ function getPlaceholderSpeechBubbleMessage(avatarId: string, category: SpeechBub
     return "Principessa has grown stronger. Continue serving.";
   }
 
-  return `${avatarName} ${category} message placeholder.`;
+  // Graceful fallback instead of ugly per-avatar placeholders.
+  // This should rarely be reached now thanks to default avatar fallback logic.
+  return `${avatarName} is thinking...`;
 }
 
 function ensureSpeechBubbleResponsePlaceholders() {
+  // Only auto-populate placeholders for the default Principessa avatar.
+  const defaultPool = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID];
+  if (!defaultPool) return;
+
+  defaultPool.responses = defaultPool.responses ?? {};
+  SPEECH_RESPONSE_CATEGORIES.forEach((category) => {
+    if (!defaultPool.responses?.[category]?.length) {
+      defaultPool.responses = {
+        ...defaultPool.responses,
+        [category]: [getPlaceholderSpeechBubbleMessage(DEFAULT_SPEECH_AVATAR_ID, category)],
+      };
+    }
+  });
+
+  // For custom speech avatars: ensure the new crate categories exist as empty arrays
+  // so the user can fill them without the system falling back immediately.
+  // Do not touch existing messages.
+  const crateCategories: SpeechBubbleMessageCategory[] = [
+    "crate_open",
+    "crate_result_common",
+    "crate_result_uncommon",
+    "crate_result_rare",
+    "crate_result_epic",
+    "crate_result_legendary",
+  ];
+
   Object.entries(speechBubbleMessages).forEach(([avatarId, pool]) => {
+    if (avatarId === DEFAULT_SPEECH_AVATAR_ID) return;
+
     pool.responses = pool.responses ?? {};
-    SPEECH_RESPONSE_CATEGORIES.forEach((category) => {
-      if (!pool.responses?.[category]?.length) {
+    crateCategories.forEach((category) => {
+      if (!(category in (pool.responses || {}))) {
         pool.responses = {
           ...pool.responses,
-          [category]: [getPlaceholderSpeechBubbleMessage(avatarId, category)],
+          [category]: [],
         };
       }
     });
@@ -5118,16 +5231,19 @@ export function getSpeechBubbleResponseMessage(
 ) {
   const selectedAvatarId = avatarId ?? DEFAULT_SPEECH_AVATAR_ID;
   const selectedPool = speechBubbleMessages[selectedAvatarId];
-  const selectedMessages = selectedPool?.responses?.[category];
+  let messages = selectedPool?.responses?.[category];
 
-  if (selectedMessages?.length) {
-    return selectedMessages[Math.floor(Math.random() * selectedMessages.length)];
+  // Prefer selected avatar's messages for this category
+  if (messages?.length) {
+    return messages[Math.floor(Math.random() * messages.length)];
   }
 
-  const defaultMessages = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID].responses?.[category];
+  // Fallback to default Principessa's messages for the category (so custom avatars don't need every category defined)
+  const defaultPool = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID];
+  messages = defaultPool?.responses?.[category];
 
-  if (defaultMessages?.length) {
-    return defaultMessages[Math.floor(Math.random() * defaultMessages.length)];
+  if (messages?.length) {
+    return messages[Math.floor(Math.random() * messages.length)];
   }
 
   if (fallbackMessage) {
@@ -5162,10 +5278,18 @@ export function getSpeechBubbleMessageForText(
   }
 
   const category = classifySpeechBubbleMessage(fallbackMessage);
-  const avatarMessages = selectedPool.responses?.[category];
+  let messages = selectedPool.responses?.[category];
 
-  if (avatarMessages?.length) {
-    return avatarMessages[Math.floor(Math.random() * avatarMessages.length)];
+  if (messages?.length) {
+    return messages[Math.floor(Math.random() * messages.length)];
+  }
+
+  // Fallback to default Principessa responses for the classified category
+  const defaultPool = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID];
+  messages = defaultPool?.responses?.[category];
+
+  if (messages?.length) {
+    return messages[Math.floor(Math.random() * messages.length)];
   }
 
   return getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
@@ -5551,6 +5675,43 @@ export const titleItems: TitleItem[] = [
     source: "pet",
     minPetScore: 1000,
   },
+  // Crate legendary pull title
+  {
+    id: "crate-legendary",
+    name: "Exalted Golden Pet",
+    description: "Unlocked by pulling a Legendary item straight from cases.",
+    source: "crate",
+    minCrateLegendaries: 1,
+  },
+  // Inventory value milestone titles
+  {
+    id: "inventory-50000",
+    name: "Valuable Rising Pet",
+    description: "Unlocked when your inventory value reaches 50,000 coins.",
+    source: "inventory",
+    minInventoryValue: 50000,
+  },
+  {
+    id: "inventory-100000",
+    name: "Elite Cherished Pet",
+    description: "Unlocked when your inventory value reaches 100,000 coins.",
+    source: "inventory",
+    minInventoryValue: 100000,
+  },
+  {
+    id: "inventory-250000",
+    name: "Luxury Owned Pet",
+    description: "Unlocked when your inventory value reaches 250,000 coins.",
+    source: "inventory",
+    minInventoryValue: 250000,
+  },
+  {
+    id: "inventory-1000000",
+    name: "Millionaire Milked Pet",
+    description: "Unlocked when your inventory value reaches 1,000,000 coins.",
+    source: "inventory",
+    minInventoryValue: 1000000,
+  },
 ];
 
 export function getCosmeticItem(id: string) {
@@ -5564,6 +5725,18 @@ export function getTitleItem(id: string) {
 export function getUnlockedPetTitleIds(petScore: number) {
   return titleItems
     .filter((item) => item.source === "pet" && (item.minPetScore ?? Infinity) <= petScore)
+    .map((item) => item.id);
+}
+
+export function getUnlockedCrateTitleIds(hasLegendary: boolean) {
+  return titleItems
+    .filter((item) => item.source === "crate" && (item.minCrateLegendaries ?? 0) <= (hasLegendary ? 1 : 0))
+    .map((item) => item.id);
+}
+
+export function getUnlockedInventoryTitleIds(inventoryValue: number) {
+  return titleItems
+    .filter((item) => item.source === "inventory" && inventoryValue >= (item.minInventoryValue ?? 0))
     .map((item) => item.id);
 }
 

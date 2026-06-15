@@ -117,6 +117,13 @@ export async function GET() {
     return jsonError("Failed to load inventory.", 500);
   }
 
+  // Pity counters for display (server side only for logic)
+  const { data: pityProfile } = await supabase
+    .from("profiles")
+    .select("principessa_case_bad_luck_count, blessing_case_legendary_pity_count")
+    .eq("id", userId)
+    .single();
+
   const inventory: UserCrateInventoryItem[] = [];
   for (const row of invRows ?? []) {
     const def = await getItemDefinition(supabase, row.item_id);
@@ -149,6 +156,10 @@ export async function GET() {
   return Response.json({
     crates: availableCrates,
     inventory,
+    pity: {
+      principessa_bad_luck: pityProfile?.principessa_case_bad_luck_count ?? 0,
+      blessing_legendary_pity: pityProfile?.blessing_case_legendary_pity_count ?? 0,
+    },
   });
 }
 
@@ -178,10 +189,10 @@ export async function POST(request: Request) {
       return jsonError("Invalid or disabled crate.", 422);
     }
 
-    // Get current coins (for validation + tx)
+    // Get current coins (for validation + tx) + pity counters
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
-      .select("coins")
+      .select("coins, principessa_case_bad_luck_count, blessing_case_legendary_pity_count")
       .eq("id", userId)
       .single();
 
@@ -194,14 +205,39 @@ export async function POST(request: Request) {
       return jsonError("Not enough coins to open this crate.", 422);
     }
 
+    let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
+    let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
+
     // === SERVER ROLLS THE RESULT (critical security point) ===
+    // Pity systems applied here (server authoritative)
     const possibleDrops = crateDef.drops.map((d) => ({
       item_id: d.item_id,
       weight: d.weight,
       variant: d.variant ?? "normal",
     }));
 
-    const rolled = weightedRandom(possibleDrops);
+    let rolled;
+    const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 9;
+    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 149;
+
+    if (isPrincipessaPity) {
+      // Bad luck protection: force Epic
+      const epicOnly = possibleDrops.filter((d) => {
+        const def = SAMPLE_CRATE_ITEMS[d.item_id];
+        return def && def.rarity === "epic";
+      });
+      rolled = weightedRandom(epicOnly.length ? epicOnly : possibleDrops);
+    } else if (isBlessingPity) {
+      // Legendary guarantee
+      const legOnly = possibleDrops.filter((d) => {
+        const def = SAMPLE_CRATE_ITEMS[d.item_id];
+        return def && def.rarity === "legendary";
+      });
+      rolled = weightedRandom(legOnly.length ? legOnly : possibleDrops);
+    } else {
+      rolled = weightedRandom(possibleDrops);
+    }
+
     if (!rolled) {
       return jsonError("Crate is empty. Contact support.", 500);
     }
@@ -314,6 +350,27 @@ export async function POST(request: Request) {
       received_sell_value: wonItemDef.sell_value,
     });
 
+    // Update pity counters (server only)
+    let updatedBadLuck = principessaBadLuck;
+    let updatedBlessPity = blessingPity;
+    const resultRarity = wonItemDef.rarity;
+
+    if (crateType === "principessa_case") {
+      updatedBadLuck = (resultRarity === "rare" || resultRarity === "epic" || resultRarity === "legendary")
+        ? 0
+        : (principessaBadLuck + 1);
+    }
+    if (crateType === "blessing_case") {
+      updatedBlessPity = (resultRarity === "legendary")
+        ? 0
+        : (blessingPity + 1);
+    }
+
+    await supabase.from("profiles").update({
+      principessa_case_bad_luck_count: updatedBadLuck,
+      blessing_case_legendary_pity_count: updatedBlessPity,
+    }).eq("id", userId);
+
     return Response.json({
       success: true,
       result: {
@@ -328,6 +385,10 @@ export async function POST(request: Request) {
           variant: rolled.variant,
         },
         newCoins: nextCoins,
+      },
+      pity: {
+        principessa_bad_luck: updatedBadLuck,
+        blessing_legendary_pity: updatedBlessPity,
       },
     });
   }
@@ -432,6 +493,115 @@ export async function POST(request: Request) {
         quantity: qtyToSell,
         value: totalSellValue,
       },
+      newCoins: nextCoins,
+    });
+  }
+
+  // Bulk sell all current inventory in a single server call (one coin update, atomic-ish)
+  if (action === "sell_all") {
+    // Fetch user's current full inventory
+    const { data: invRows, error: invErr } = await supabase
+      .from("user_crate_inventory")
+      .select("item_id, variant, quantity")
+      .eq("user_id", userId);
+
+    if (invErr) {
+      console.error("[crates] sell_all inventory read failed", invErr);
+      return jsonError("Failed to read inventory.", 500);
+    }
+
+    if (!invRows || invRows.length === 0) {
+      return jsonError("Your inventory is already empty.", 422);
+    }
+
+    // Get current coins
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("coins")
+      .eq("id", userId)
+      .single();
+
+    if (profileErr || !profile) return jsonError("Profile not found.", 500);
+
+    // Calculate total value server-side using item definitions
+    let totalSellValue = 0;
+    const sellDetails: Array<{ item_id: string; variant: string; quantity: number; value: number }> = [];
+
+    for (const row of invRows) {
+      const itemDef = await getItemDefinition(supabase, row.item_id);
+      if (itemDef && itemDef.sell_value > 0 && row.quantity > 0) {
+        const value = itemDef.sell_value * row.quantity;
+        totalSellValue += value;
+        sellDetails.push({
+          item_id: row.item_id,
+          variant: row.variant ?? "normal",
+          quantity: row.quantity,
+          value,
+        });
+      }
+    }
+
+    if (totalSellValue <= 0) {
+      return jsonError("Nothing of value to sell in inventory.", 422);
+    }
+
+    const nextCoins = profile.coins + totalSellValue;
+
+    // Single coin update with race protection
+    const { error: coinErr } = await supabase
+      .from("profiles")
+      .update({ coins: nextCoins, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .eq("coins", profile.coins);
+
+    if (coinErr) {
+      console.error("[crates] sell_all coin update failed", coinErr);
+      return jsonError("Sale failed (balance changed).", 409);
+    }
+
+    // Clear the entire user inventory in one go
+    const { error: deleteErr } = await supabase
+      .from("user_crate_inventory")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteErr) {
+      console.error("[crates] sell_all inventory delete failed", deleteErr);
+      // Best effort refund
+      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
+      return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
+    }
+
+    // One bulk coin transaction log
+    await supabase.from("coin_transactions").insert({
+      user_id: userId,
+      amount: totalSellValue,
+      balance_before: profile.coins,
+      balance_after: nextCoins,
+      reason: "crate:sell_all",
+      metadata: {
+        item_count: sellDetails.length,
+        items: sellDetails,
+      },
+    });
+
+    // History records (one per sold stack for audit)
+    for (const detail of sellDetails) {
+      await supabase.from("crate_opens").insert({
+        user_id: userId,
+        crate_type: "sell_all",
+        item_id: detail.item_id,
+        variant: detail.variant,
+        cost: 0,
+        received_sell_value: detail.value,
+      });
+    }
+
+    return Response.json({
+      success: true,
+      sold_all: true,
+      total_value: totalSellValue,
+      item_count: sellDetails.length,
       newCoins: nextCoins,
     });
   }

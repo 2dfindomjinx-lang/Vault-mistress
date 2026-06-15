@@ -113,6 +113,38 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       { item_id: "principessas-pet", weight: 6 },
     ],
   },
+  
+  blessing_case: {
+    name: "0.6% Blessing Case",
+    description: "Open the 0.6% Blessing Case • Pray for the Goddess’s rare favor • Only the luckiest pets receive Her blessing.",
+    cost: 1000,
+    enabled: true,
+    drops: [
+      // === COMPLETE LIST OF ALL 39 ITEMS (matching your 39 images) ===
+      // Weights distributed for fair but exciting drops (higher for common, low for legendary)
+      // Total weight = 1000
+
+      // Common
+      { item_id: "boxer", weight: 9940 },
+      { item_id: "classic-collar", weight: 9940 },
+      { item_id: "classic-ears", weight: 9940 },
+      { item_id: "classic-tail", weight: 9940 },
+      { item_id: "white-pawmitts", weight: 9940 },
+	  { item_id: "ballgag", weight: 9940 },
+	  { item_id: "pet-tag", weight: 9940 },
+	  { item_id: "classic-bra", weight: 9940 },
+      { item_id: "classic-blindfold", weight: 9940 },
+      { item_id: "classic-pawmitts", weight: 9940 },
+
+      // Legendary
+	  { item_id: "shiny-bra", weight: 100 },
+      { item_id: "shiny-highheels", weight: 100 },
+      { item_id: "shiny-panties", weight: 100 },
+      { item_id: "shiny-skirt", weight: 100 },
+      { item_id: "shiny-thighhighs", weight: 100 },
+      { item_id: "principessas-pet", weight: 100 },
+    ],
+  },
 };
 
 // Sample item catalog (in real V1 you would INSERT these into crate_items table)

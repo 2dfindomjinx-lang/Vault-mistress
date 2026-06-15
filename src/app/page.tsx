@@ -27,6 +27,8 @@ import {
   getSpeechBubbleMessagePool,
   getSpeechBubbleResponseMessage,
   getTitleItem,
+  getUnlockedCrateTitleIds,
+  getUnlockedInventoryTitleIds,
   getUnlockedPetTitleIds,
   titleItems,
   type CosmeticItem,
@@ -1715,6 +1717,10 @@ export default function Home() {
   // Crate system V1 (collectibles + coin sink) - integrated inside Cosmetics panel
   const [availableCrates, setAvailableCrates] = useState<CrateDefinition[]>([]);
   const [crateInventory, setCrateInventory] = useState<CrateInventoryItem[]>([]);
+  const [pityStats, setPityStats] = useState<{ principessa_bad_luck: number; blessing_legendary_pity: number }>({
+    principessa_bad_luck: 0,
+    blessing_legendary_pity: 0,
+  });
   const [cratePending, setCratePending] = useState(false);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
@@ -2098,6 +2104,49 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     return () => window.clearTimeout(timer);
   }, [authUserId, isGuestMode, ownedTitleIds, petScore]);
+
+  // Auto unlock crate legendary and inventory value titles
+  useEffect(() => {
+    const hasLegendary = crateInventory.some((item) => item.rarity === "legendary");
+    const invValue = crateInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
+
+    const unlockedCrateIds = getUnlockedCrateTitleIds(hasLegendary);
+    const unlockedInvIds = getUnlockedInventoryTitleIds(invValue);
+    const missingTitleIds = [...unlockedCrateIds, ...unlockedInvIds].filter(
+      (titleId) => !ownedTitleIds.includes(titleId)
+    );
+
+    if (missingTitleIds.length === 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setOwnedTitleIds((current) => Array.from(new Set([...current, ...missingTitleIds])));
+    }, 0);
+
+    if (isGuestMode || !authUserId) {
+      return () => window.clearTimeout(timer);
+    }
+
+    void fetch("/api/user/titles", {
+      body: JSON.stringify({
+        action: "unlock",
+        titleIds: missingTitleIds,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).then(async (response) => {
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw createApiError("/api/user/titles", response, payload);
+      }
+    }).catch((error) => {
+      console.error("Failed to persist crate/inventory title unlocks", error);
+    });
+
+    return () => window.clearTimeout(timer);
+  }, [authUserId, isGuestMode, ownedTitleIds, crateInventory]);
+
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
   const isUnderageTimeoutActive =
@@ -2514,6 +2563,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         error?: string;
         crates?: CrateDefinition[];
         inventory?: CrateInventoryItem[];
+        pity?: {
+          principessa_bad_luck?: number;
+          blessing_legendary_pity?: number;
+        };
       };
 
       if (!response.ok) {
@@ -2522,6 +2575,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       setAvailableCrates(result.crates ?? []);
       setCrateInventory(result.inventory ?? []);
+      if (result.pity) {
+        setPityStats({
+          principessa_bad_luck: result.pity.principessa_bad_luck ?? 0,
+          blessing_legendary_pity: result.pity.blessing_legendary_pity ?? 0,
+        });
+      }
     } catch (error) {
       console.error("Failed to load crate data", error);
     }
@@ -2531,6 +2590,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (cratePending) return { success: false };
 
     setCratePending(true);
+
+    const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+    setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, "crate_open"));
 
     try {
       const response = await fetch("/api/user/crates", {
@@ -2542,6 +2604,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         result?: { item: CrateInventoryItem & { sell_value: number }; newCoins: number };
+        pity?: {
+          principessa_bad_luck?: number;
+          blessing_legendary_pity?: number;
+        };
       };
 
       if (!response.ok || !payload.success || !payload.result) {
@@ -2552,6 +2618,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const won = payload.result.item;
       setCoins(payload.result.newCoins);
       coinsRef.current = payload.result.newCoins;
+
+      // Update pity AFTER result received, but visible counters (in shop) only reappear after reveal/close
+      // This satisfies the "no spoiler during animation" requirement
+      if (payload.pity) {
+        setPityStats({
+          principessa_bad_luck: payload.pity.principessa_bad_luck ?? pityStats.principessa_bad_luck,
+          blessing_legendary_pity: payload.pity.blessing_legendary_pity ?? pityStats.blessing_legendary_pity,
+        });
+      }
 
       // Merge into local inventory (increase quantity or add)
       setCrateInventory((current) => {
@@ -2566,6 +2641,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Refresh full data in background
       void loadCratesData();
+
+      // Speak based on the actual rarity of the pulled item
+      const rarityKey = `crate_result_${won.rarity}` as const;
+      setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, rarityKey));
 
       return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
     } catch (error) {
@@ -2611,6 +2690,53 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } catch (error) {
       console.error("Sell crate item failed", error);
       const errMsg = error instanceof Error ? error.message : "Sell failed.";
+      setAuthError(errMsg);
+      return { success: false, error: errMsg };
+    } finally {
+      setCratePending(false);
+    }
+  };
+
+  const handleSellAllCrateItems = async () => {
+    if (cratePending) return { success: false };
+
+    setCratePending(true);
+
+    try {
+      const response = await fetch("/api/user/crates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sell_all" }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        newCoins?: number;
+        total_value?: number;
+        item_count?: number;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? "Sell all failed.");
+      }
+
+      if (typeof payload.newCoins === "number") {
+        setCoins(payload.newCoins);
+        coinsRef.current = payload.newCoins;
+      }
+
+      // Refresh inventory + crates from server (now empty or reduced)
+      await loadCratesData();
+
+      return {
+        success: true,
+        newCoins: payload.newCoins,
+        totalValue: payload.total_value,
+        itemCount: payload.item_count,
+      };
+    } catch (error) {
+      console.error("Sell all crate items failed", error);
+      const errMsg = error instanceof Error ? error.message : "Sell all failed.";
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
@@ -2895,10 +3021,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       },
       0,
     );
+    const hasLegendary = crateInventory.some((item) => item.rarity === "legendary");
+    const invValue = crateInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
+
     const autoTitleIds = Array.from(
       new Set([
         ...getUnlockedProgressionTitleIds(profile.tribute_total ?? 0),
         ...getUnlockedThroneTitleIds(throneCoinTotal),
+        ...getUnlockedCrateTitleIds(hasLegendary),
+        ...getUnlockedInventoryTitleIds(invValue),
       ]),
     );
 
@@ -8225,6 +8356,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 pending={cratePending}
                 onOpenCrate={handleOpenCrate}
                 onSellItem={handleSellCrateItem}
+                onSellAll={handleSellAllCrateItems}
+                pityStats={pityStats}
               />
 
               {/* Original cosmetics shop below the crates */}

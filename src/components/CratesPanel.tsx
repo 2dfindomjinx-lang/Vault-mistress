@@ -43,7 +43,9 @@ type CratesPanelProps = {
   crates: CrateDefinition[];
   inventory: CrateInventoryItem[];
   onOpenCrate: (crateType: string) => Promise<{ success: boolean; result?: { item: WonItem; newCoins: number }; error?: string }>;
-  onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number }>;
+  onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
+  onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
+  pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
   pending?: boolean;
 };
 
@@ -54,6 +56,8 @@ export function CratesPanel({
   inventory,
   onOpenCrate,
   onSellItem,
+  onSellAll,
+  pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
   pending = false,
 }: CratesPanelProps) {
   const [activeSubTab, setActiveSubTab] = useState<"shop" | "inventory">("shop");
@@ -416,6 +420,8 @@ export function CratesPanel({
   };
 
   // Global Sell All for the entire inventory (only available in Inventory tab)
+  // Now uses a single backend call (action: "sell_all") instead of looping single sells.
+  // This performs one coin update + clears the whole inventory atomically on the server.
   const sellAll = async () => {
     if (disabled || sellPending || inventory.length === 0 || inventoryValue <= 0) return;
 
@@ -427,15 +433,12 @@ export function CratesPanel({
     setSellPending("all");
 
     try {
-      // Snapshot to avoid issues if parent updates inventory during the loop
-      const itemsToSell = [...inventory];
-      for (const item of itemsToSell) {
-        if (item.quantity > 0) {
-          const res = await onSellItem(item.item_id, item.variant, item.quantity);
-          if (res.success) {
-            emitSoundEvent("cosmetic_purchased");
-          }
-        }
+      const res = await (onSellAll ? onSellAll() : Promise.resolve({ success: false } as any));
+      if (res.success) {
+        // Play one purchase sound for the bulk operation
+        emitSoundEvent("cosmetic_purchased");
+      } else {
+        alert(res?.error || "Sale failed. You may no longer own some of these items.");
       }
     } catch (e) {
       console.error("Sell all error", e);
@@ -584,6 +587,18 @@ export function CratesPanel({
                         }}
                       />
                     </div>
+
+                    {/* Pity counters - only visible in shop grid. State update is delayed in parent until after reveal to prevent spoiling during reel spin. */}
+                    {crate.crate_type === "principessa_case" && (
+                      <div className="mt-1 text-[10px] text-center text-amber-400/80">
+                        Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/9
+                      </div>
+                    )}
+                    {crate.crate_type === "blessing_case" && (
+                      <div className="mt-1 text-[10px] text-center text-violet-400/80">
+                        Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
+                      </div>
+                    )}
 
                     <div className="flex-1" />
 

@@ -36,7 +36,15 @@ function describeTitleUnlock(title: TitleItem) {
     return "Manual admin-granted title.";
   }
 
-  return "Unlock through progression, shop purchases, Throne tribute, or admin rewards.";
+  if (title.source === "crate" && typeof title.minCrateLegendaries === "number") {
+    return `Pull ${title.minCrateLegendaries} Legendary item${title.minCrateLegendaries === 1 ? "" : "s"} from a crate.`;
+  }
+
+  if (title.source === "inventory" && typeof title.minInventoryValue === "number") {
+    return `Reach ${formatCoins(title.minInventoryValue)} in total crate inventory value.`;
+  }
+
+  return "Unlock through progression, shop purchases, Throne tribute, crates, inventory milestones, or admin rewards.";
 }
 
 export function TitleCollection({
@@ -76,7 +84,7 @@ export function TitleCollection({
 
       <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">
         {equippedTitle?.description ??
-          "Unlock titles through progression, shop purchases, and admin rewards."}
+          "Unlock titles through progression, shop purchases, Throne tribute, crates, inventory value milestones, and admin rewards."}
       </p>
 
       <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
