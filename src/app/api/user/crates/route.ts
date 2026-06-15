@@ -212,6 +212,39 @@ export async function POST(request: Request) {
       return jsonError("Crate configuration error.", 500);
     }
 
+    // V1 self-seeding: ensure all droppable item definitions exist in crate_items.
+    // This satisfies the FK constraint on user_crate_inventory.item_id (schema has REFERENCES crate_items).
+    // Without this, on a fresh DB (no manual seed of the 39 items) the inventory upsert fails
+    // after coins are already deducted → "Failed to grant item. Coins refunded."
+    if (crateDef?.drops?.length) {
+      const seeds = crateDef.drops
+        .map((d) => {
+          const s = SAMPLE_CRATE_ITEMS[d.item_id];
+          if (!s) return null;
+          return {
+            item_id: d.item_id,
+            name: s.name,
+            description: s.description || "",
+            image_url: getCrateItemImageUrl(d.item_id, (s as any).image_url),
+            rarity: s.rarity,
+            collection: s.collection || null,
+            sell_value: s.sell_value || 0,
+            enabled: true,
+            metadata: {},
+          };
+        })
+        .filter(Boolean) as any[];
+
+      if (seeds.length > 0) {
+        const { error: seedErr } = await supabase
+          .from("crate_items")
+          .upsert(seeds, { onConflict: "item_id" });
+        if (seedErr) {
+          console.warn("[crates] item definition seeding warning (continuing)", seedErr);
+        }
+      }
+    }
+
     const nextCoins = profile.coins - crateDef.cost;
 
     // Atomic: update coins + inventory quantity + tx + history
