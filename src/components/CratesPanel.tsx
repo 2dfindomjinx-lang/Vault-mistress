@@ -109,6 +109,11 @@ export function CratesPanel({
     return inventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
   }, [inventory]);
 
+  // Total number of items (sum of quantities) to display next to value
+  const totalItemCount = useMemo(() => {
+    return inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }, [inventory]);
+
   // Build a long ordered "tape" of items for the classic sliding reel.
   // Uses ONLY the actual items from this crate's drop pool (the 39 real ones).
   // Sampling is weighted by the original drop weights so the visual frequencies
@@ -650,6 +655,7 @@ export function CratesPanel({
               <span className="ml-2 font-bold text-pink-200">
                 <CoinAmount amount={inventoryValue} />
               </span>
+              <span className="ml-1 text-xs text-zinc-500">({totalItemCount} item{totalItemCount === 1 ? '' : 's'})</span>
             </div>
             {inventory.length > 0 && (
               <button
