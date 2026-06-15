@@ -241,7 +241,7 @@ export function CratesPanel({
       const res = await onOpenCrate(crate.crate_type);
 
       if (!(res.success && res.result)) {
-        const msg = res?.error || (res?.result ? "Something went wrong opening the crate." : "Crate open failed.");
+        const msg = res?.error || (res?.result ? "Something went wrong opening the case." : "Case open failed.");
         alert(msg);
         return;
       }
@@ -270,8 +270,8 @@ export function CratesPanel({
       setWonItem(realItem);
       // Parent will have already updated coins via response
     } catch (e) {
-      console.error("Crate open error", e);
-      alert("Failed to open crate.");
+      console.error("Case open error", e);
+      alert("Failed to open case.");
     } finally {
       setIsOpening(false);
       setOpeningCrate(null);
@@ -351,6 +351,9 @@ export function CratesPanel({
           finalReel[finalReel.length - 1] = realItem;
           setReelItems(finalReel);
           setReelProgress(TARGET_PROGRESS);
+
+          // One final reel tick just as the slide settles (landing clunk), before the reveal sound
+          emitSoundEvent("crate_reel_tick");
 
           // Reveal sound (after the slide has stopped)
           setTimeout(() => {
@@ -444,7 +447,7 @@ export function CratesPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Cosmetics • Collectibles</p>
-          <h2 className="text-3xl font-black">Vault Mistress Crates</h2>
+          <h2 className="text-3xl font-black">Vault Mistress Cases</h2>
         </div>
         <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
           <CoinAmount amount={coins} iconSize={15} label="coins" />
@@ -456,7 +459,7 @@ export function CratesPanel({
       {!isOpening && !wonItem && (
         <>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Open crates to collect rare memorabilia. Duplicates stack. Sell anything you don&apos;t want for a coin return.
+            Open cases to collect rare memorabilia. Duplicates stack. Sell anything you don&apos;t want for a coin return.
             This is a pure collection &amp; coin sink system.
           </p>
 
@@ -473,7 +476,7 @@ export function CratesPanel({
                 }`}
                 disabled={isOpening || !!sellPending}
               >
-                {tab === "shop" ? "Crates" : "Inventory"}
+                {tab === "shop" ? "Cases" : "Inventory"}
               </button>
             ))}
           </div>
@@ -484,7 +487,7 @@ export function CratesPanel({
       {activeSubTab === "shop" && !isOpening && !wonItem && (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
-            <p className="col-span-full text-sm text-zinc-400">No crates available right now.</p>
+            <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
 
           {crates.map((crate) => {
@@ -550,7 +553,7 @@ export function CratesPanel({
                       disabled={disabled || pending || isOpening || !!wonItem || !canAfford}
                       className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                     >
-                      {isThisOpening ? "OPENING..." : canAfford ? "Open Crate" : "Not enough coins"}
+                      {isThisOpening ? "OPENING..." : canAfford ? "Open Case" : "Not enough coins"}
                     </button>
                   </div>
 
@@ -608,7 +611,7 @@ export function CratesPanel({
         <div className="mt-6">
           {inventory.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-400">
-              Your inventory is empty. Open some crates to start hoarding.
+              Your inventory is empty. Open some cases to start hoarding.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -702,7 +705,7 @@ export function CratesPanel({
             <button
               onClick={closeReveal}
               className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full border border-white/30 bg-black/50 text-white text-xl hover:bg-white/20 hover:text-red-400 transition z-30"
-              title="Back to Crates"
+              title="Back to Cases"
             >
               ✕
             </button>
@@ -820,7 +823,7 @@ export function CratesPanel({
                     }
                     className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                   >
-                    Open Again
+                    Open Case Again
                   </button>
                 </div>
               </div>

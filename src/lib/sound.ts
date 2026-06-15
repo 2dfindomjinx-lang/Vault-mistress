@@ -54,9 +54,9 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   // These are pre-wired to the filenames you will place in public/sounds/.
   // Just drop your new audio files with these exact names and they will work.
   // (No need to edit sound.ts again)
-  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.6 },
-  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.85 },
-  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 1.0 },
+  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.35 },
+  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.5 },
+  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 0.6 },
 };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
