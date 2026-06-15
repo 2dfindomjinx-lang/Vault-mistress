@@ -7,6 +7,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import {
   CRATE_TYPES,
   SAMPLE_CRATE_ITEMS,
+  getCrateIconUrl,
   getCrateItemImageUrl,
   type CrateItem,
   type CrateRarity,
@@ -102,6 +103,7 @@ export async function GET() {
       name: def.name,
       description: def.description,
       cost: def.cost,
+      icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null),
     }));
 
   // User's inventory (joined with sample data)

@@ -2570,8 +2570,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
     } catch (error) {
       console.error("Open crate failed", error);
-      setAuthError(describeError(error));
-      return { success: false };
+      const errMsg = error instanceof Error ? error.message : "Crate open failed.";
+      setAuthError(errMsg);
+      return { success: false, error: errMsg };
     } finally {
       setCratePending(false);
     }
@@ -2609,8 +2610,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return { success: true, newCoins: payload.newCoins };
     } catch (error) {
       console.error("Sell crate item failed", error);
-      setAuthError(describeError(error));
-      return { success: false };
+      const errMsg = error instanceof Error ? error.message : "Sell failed.";
+      setAuthError(errMsg);
+      return { success: false, error: errMsg };
     } finally {
       setCratePending(false);
     }

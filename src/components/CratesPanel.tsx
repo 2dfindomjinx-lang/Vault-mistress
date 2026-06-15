@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
-import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER } from "@/lib/crates";
+import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER, getCrateIconUrl } from "@/lib/crates";
 import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
 
@@ -11,6 +11,7 @@ export type CrateDefinition = {
   name: string;
   description: string;
   cost: number;
+  icon_url?: string;
 };
 
 export type CrateInventoryItem = {
@@ -41,7 +42,7 @@ type CratesPanelProps = {
   disabled?: boolean;
   crates: CrateDefinition[];
   inventory: CrateInventoryItem[];
-  onOpenCrate: (crateType: string) => Promise<{ success: boolean; result?: { item: WonItem; newCoins: number } }>;
+  onOpenCrate: (crateType: string) => Promise<{ success: boolean; result?: { item: WonItem; newCoins: number }; error?: string }>;
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number }>;
   pending?: boolean;
 };
@@ -193,14 +194,6 @@ export function CratesPanel({
   const openCrate = async (crate: CrateDefinition) => {
     if (disabled || pending || isOpening || coins < crate.cost) return;
 
-    setIsOpening(true);
-    setOpeningCrate(crate.name);
-    setLastOpenedCrateType(crate.crate_type);
-    setWonItem(null);
-    setSpinSequence([]);
-    setReelProgress(0);
-    setReelItems([]);
-
     // Build visual pool from the ACTUAL crate drops (principessa_case etc.)
     // This ensures the reel ONLY shows the configured 39 items (with their real names, rarities, images).
     // No more generic fakes or items outside the pool.
@@ -244,26 +237,38 @@ export function CratesPanel({
       return { ...pick };
     });
 
-    setReelItems(fakeReel);
-
     try {
       const res = await onOpenCrate(crate.crate_type);
 
-      if (res.success && res.result) {
-        const realItem = res.result.item;
-
-        // Prepare long horizontal tape for the slide using the REAL drop pool (39 items only)
-        const sequence = buildSpinSequence(visualPool, realItem);
-        setSpinSequence(sequence);
-
-        // Run the reel animation (now drives slide progress + keeps mobile single view happy)
-        await runCrateAnimation(fakeReel, realItem, sequence);
-
-        setWonItem(realItem);
-        // Parent will have already updated coins via response
-      } else {
-        alert(res?.result ? "Something went wrong opening the crate." : "Crate open failed.");
+      if (!(res.success && res.result)) {
+        const msg = res?.error || (res?.result ? "Something went wrong opening the crate." : "Crate open failed.");
+        alert(msg);
+        return;
       }
+
+      const realItem = res.result.item;
+
+      // Only NOW start the opening UI + reel (server accepted, we have a real result).
+      // This prevents "Reel is spinning" + no animation when API fails (auth, coins, etc.).
+      setIsOpening(true);
+      setOpeningCrate(crate.name);
+      setLastOpenedCrateType(crate.crate_type);
+      setWonItem(null);
+      setSpinSequence([]);
+      setReelProgress(0);
+      setReelItems([]);
+
+      setReelItems(fakeReel);
+
+      // Prepare long horizontal tape for the slide using the REAL drop pool (39 items only)
+      const sequence = buildSpinSequence(visualPool, realItem);
+      setSpinSequence(sequence);
+
+      // Run the reel animation (now drives slide progress + keeps mobile single view happy)
+      await runCrateAnimation(fakeReel, realItem, sequence);
+
+      setWonItem(realItem);
+      // Parent will have already updated coins via response
     } catch (e) {
       console.error("Crate open error", e);
       alert("Failed to open crate.");
@@ -523,6 +528,21 @@ export function CratesPanel({
                       </div>
                     </div>
 
+                    {/* Principessa Case icon (or future crates).
+                        Path convention: /crate-icons/principessa-case.png (auto from crate_type)
+                        Drop your PNG in public/crate-icons/ — the file name will be crate_type with _ → - */}
+                    <div className="mt-1.5 flex justify-center">
+                      <img
+                        src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
+                        alt={crate.name}
+                        className="h-20 w-20 object-contain rounded-2xl border border-white/15 bg-black/40 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.opacity = "0.25";
+                        }}
+                      />
+                    </div>
+
                     <div className="flex-1" />
 
                     <button
@@ -688,8 +708,11 @@ export function CratesPanel({
             </button>
           )}
           <div className="mb-3 text-center">
-            <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
-            <h3 className="text-xl font-black text-white">Reel is spinning…</h3>
+            {!wonItem && openingCrate && (
+              <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
+            )}
+            {!wonItem && <h3 className="text-xl font-black text-white">Reel is spinning…</h3>}
+            {wonItem && <h3 className="text-xl font-black text-white">You received</h3>}
           </div>
 
           {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).

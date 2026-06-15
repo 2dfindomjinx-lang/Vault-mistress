@@ -52,7 +52,7 @@ export const RARITY_ORDER: CrateRarity[] = ["common", "uncommon", "rare", "epic"
 // These can (and should) later be moved to DB tables for full admin configurability.
 // For now they live here so the system works immediately after schema is applied.
 
-export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: Array<{ item_id: string; weight: number; variant?: string }> }> = {
+export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: Array<{ item_id: string; weight: number; variant?: string }>; icon_url?: string }> = {
   principessa_case: {
     name: "Principessa Case",
     description: "An exquisite and highly exclusive case containing rare memorabilia from Principessa's personal collection. Only the most devoted are permitted to open it.",
@@ -412,4 +412,16 @@ export function getRarityColor(rarity: CrateRarity): string {
 export function getCrateItemImageUrl(itemId: string, provided?: string | null): string | null {
   if (provided) return provided;
   return `/crate-items/${itemId}.png`;
+}
+
+/**
+ * Principessa Case (or future crates) icon.
+ * Defaults to /crate-icons/{crateType-kebab}.png
+ * e.g. "principessa_case" → "/crate-icons/principessa-case.png"
+ * You can override per-crate by putting icon_url in the CRATE_TYPES entry.
+ */
+export function getCrateIconUrl(crateType: string, provided?: string | null): string | null {
+  if (provided) return provided;
+  const fileName = crateType.replace(/_/g, "-");
+  return `/crate-icons/${fileName}.png`;
 }
