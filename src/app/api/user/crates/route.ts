@@ -226,6 +226,9 @@ export async function POST(request: Request) {
       // - If it landed on legendary → keep it
       // - Otherwise force Epic (so 99.5% epic + 0.5% legendary on pity opening)
       let tempRolled = weightedRandom(possibleDrops);
+      if (!tempRolled) {
+        return jsonError("Crate is empty. Contact support.", 500);
+      }
       const tempDef = SAMPLE_CRATE_ITEMS[tempRolled.item_id];
       if (tempDef && tempDef.rarity === "legendary") {
         rolled = tempRolled;
