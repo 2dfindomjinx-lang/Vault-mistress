@@ -46,6 +46,7 @@ type CratesPanelProps = {
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
+  onCrateResult?: (item: WonItem) => void;
   pending?: boolean;
 };
 
@@ -58,6 +59,7 @@ export function CratesPanel({
   onSellItem,
   onSellAll,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
+  onCrateResult,
   pending = false,
 }: CratesPanelProps) {
   const [activeSubTab, setActiveSubTab] = useState<"shop" | "inventory">("shop");
@@ -77,6 +79,7 @@ export function CratesPanel({
   const [isVerticalMode, setIsVerticalMode] = useState(false);
   const [openQuantity, setOpenQuantity] = useState(1);
   const [wonItems, setWonItems] = useState<WonItem[]>([]);
+  const [multiSpinSequences, setMultiSpinSequences] = useState<WonItem[][]>([]);
 
   // Square cards for better icon visibility (icons are square-designed).
   // Exactly 5 visible during slide. Larger squares, same overall area.
@@ -96,6 +99,7 @@ export function CratesPanel({
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const stripRef = useRef<HTMLDivElement>(null);
+  const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Real-looking item pool for the spinning reel visuals.
   // This lets us show actual item icons (from /crate-items/) during the slide instead of letters.
@@ -303,15 +307,24 @@ export function CratesPanel({
 
       setReelItems(fakeReel);
 
-      // Prepare long tape for the slide using the REAL drop pool. Use last for visual.
-      const lastWinner = results[results.length - 1];
-      const sequence = buildSpinSequence(visualPool, lastWinner, crate.crate_type);
-      setSpinSequence(sequence);
-
-      // Run the reel animation (vertical for multi to save space, only 1 item visible)
-      await runCrateAnimation(fakeReel, lastWinner, sequence, qty > 1);
+      if (qty > 1) {
+        verticalReelRefs.current = Array.from({ length: qty }, () => null);
+        const sequences = results.map(r => buildSpinSequence(visualPool, r, crate.crate_type));
+        setMultiSpinSequences(sequences);
+        // wait for render so refs are assigned
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await runCrateAnimation(fakeReel, results[0], sequences, true);
+      } else {
+        setMultiSpinSequences([]);
+        const sequence = buildSpinSequence(visualPool, results[0], crate.crate_type);
+        setSpinSequence(sequence);
+        await runCrateAnimation(fakeReel, results[0], sequence, false);
+      }
 
       setWonItems(results);
+      if (onCrateResult) {
+        results.forEach((item) => onCrateResult(item));
+      }
       // Parent will have already updated coins via response
     } finally {
       setIsOpening(false);
@@ -319,7 +332,7 @@ export function CratesPanel({
     }
   };
 
-  async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[], isVertical: boolean = false) {
+  async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[] | WonItem[][], isVertical: boolean = false) {
     // Proper optimized animation using requestAnimationFrame for true smooth 60fps+ slide.
     // Time-based easing over ~8.2 seconds. Direct ref.style.transform updates (no per-frame React re-renders of the strip).
     // Sounds scheduled separately to preserve the dramatic slowing "reel tick" rhythm without affecting visual smoothness.
@@ -365,20 +378,24 @@ export function CratesPanel({
         const newProg = Math.min(TARGET_PROGRESS, eased * TARGET_PROGRESS);
 
         // Direct DOM update = high FPS, no React overhead during spin
-        if (stripRef.current) {
-          if (isVertical) {
-            const y = -newProg * STEP + 12;
-            stripRef.current.style.transform = `translateY(${y}px)`;
-          } else {
-            const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
-            stripRef.current.style.transform = `translateX(${x}px)`;
-          }
+        if (isVertical) {
+          const seqs = sequence as WonItem[][];
+          seqs.forEach((s, i) => {
+            const strip = verticalReelRefs.current[i];
+            if (strip) {
+              const y = -newProg * STEP + 12;
+              strip.style.transform = `translateY(${y}px)`;
+            }
+          });
+        } else if (stripRef.current) {
+          const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
+          stripRef.current.style.transform = `translateX(${x}px)`;
         }
 
         // Very light state for mobile single-view sampling (throttled) - skip for vertical multi
         if (!isVertical && isMobile && soundTick % 3 === 0) {
-          const approxCenter = Math.max(0, Math.min(sequence.length - 1, Math.round(newProg)));
-          const displayForMobile = sequence[approxCenter] || realItem;
+          const approxCenter = Math.max(0, Math.min((sequence as WonItem[]).length - 1, Math.round(newProg)));
+          const displayForMobile = (sequence as WonItem[])[approxCenter] || realItem;
           const newReel = [...fakeReel];
           newReel[newReel.length - 1] = displayForMobile;
           setReelItems(newReel);
@@ -391,14 +408,18 @@ export function CratesPanel({
           // Final settle - force exact centering of the winner (the item we placed at WINNER_SLOT in the sequence)
           // This guarantees that the item visually under the marker at the end of the spin is the exact real result.
           const winnerIndexInSeq = WINNER_SLOT;
-          if (stripRef.current) {
-            if (isVertical) {
-              const exactY = -(winnerIndexInSeq * STEP) + 12;
-              stripRef.current.style.transform = `translateY(${exactY}px)`;
-            } else {
-              const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
-              stripRef.current.style.transform = `translateX(${exactX}px)`;
-            }
+          if (isVertical) {
+            const seqs = sequence as WonItem[][];
+            seqs.forEach((s, i) => {
+              const strip = verticalReelRefs.current[i];
+              if (strip) {
+                const exactY = -(winnerIndexInSeq * STEP) + 12;
+                strip.style.transform = `translateY(${exactY}px)`;
+              }
+            });
+          } else if (stripRef.current) {
+            const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
+            stripRef.current.style.transform = `translateX(${exactX}px)`;
           }
 
           // Ensure mobile shows the winner (skip for vertical)
@@ -425,12 +446,16 @@ export function CratesPanel({
       };
 
       // Prime the strip at starting position
-      if (stripRef.current) {
-        if (isVertical) {
-          stripRef.current.style.transform = `translateY(${12}px)`;
-        } else {
-          stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
-        }
+      if (isVertical) {
+        const seqs = sequence as WonItem[][];
+        seqs.forEach((s, i) => {
+          const strip = verticalReelRefs.current[i];
+          if (strip) {
+            strip.style.transform = `translateY(${12}px)`;
+          }
+        });
+      } else if (stripRef.current) {
+        stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
       }
 
       requestAnimationFrame(animate);
@@ -502,6 +527,8 @@ export function CratesPanel({
     setReelProgress(0);
     setLastOpenedCrateType(null);
     setIsVerticalMode(false);
+    setMultiSpinSequences([]);
+    verticalReelRefs.current = [];
   };
 
   const getDropRates = (crateType: string) => {
@@ -891,32 +918,35 @@ export function CratesPanel({
           )}
 
           {/* VERTICAL SLIDE for multi-open (saves horizontal space, only 1 item visible at a time) */}
-          {isVerticalMode && isOpening && spinSequence.length > 0 && (
-            <div className="relative mx-auto w-[128px] h-[128px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90">
-              <div
-                ref={stripRef}
-                className="absolute left-1/2 -translate-x-1/2 top-[12px] flex flex-col will-change-transform gap-2"
-                style={{ transform: `translateY(0px)` }}
-              >
-                {spinSequence.map((item, idx) => (
+          {isVerticalMode && (isOpening || wonItems.length > 0) && multiSpinSequences.length > 0 && (
+            <div className="flex gap-2 justify-center flex-wrap">
+              {multiSpinSequences.map((seq, idx) => (
+                <div key={idx} className="relative w-[120px] h-[120px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90 flex-shrink-0">
                   <div
-                    key={idx}
-                    className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
+                    ref={el => { verticalReelRefs.current[idx] = el; }}
+                    className="absolute left-1/2 -translate-x-1/2 top-[12px] flex flex-col will-change-transform gap-2"
                   >
-                    <img
-                      src={item.image_url || `/crate-items/${item.item_id}.png`}
-                      alt={item.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        const t = e.target as HTMLImageElement;
-                        t.style.display = "none";
-                      }}
-                    />
+                    {seq.map((item, sidx) => (
+                      <div
+                        key={sidx}
+                        className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
+                      >
+                        <img
+                          src={item.image_url || `/crate-items/${item.item_id}.png`}
+                          alt={item.name}
+                          className="w-full h-full object-contain"
+                          onError={(e) => {
+                            const t = e.target as HTMLImageElement;
+                            t.style.display = "none";
+                          }}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {/* Fixed center slot for the single visible item */}
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[112px] h-[112px] rounded-2xl border-[3.5px] border-yellow-400/95" />
+                  {/* Fixed center slot for the single visible item */}
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[112px] h-[112px] rounded-2xl border-[3.5px] border-yellow-400/95" />
+                </div>
+              ))}
             </div>
           )}
 
@@ -943,7 +973,7 @@ export function CratesPanel({
               <div className="text-center mb-3">
                 <div className="text-xl font-black">You received:</div>
               </div>
-              <div className="grid grid-cols-1 gap-3 max-h-60 overflow-auto pr-1">
+              <div className="flex flex-wrap gap-3 justify-center">
                 {wonItems.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3 border border-white/10 rounded p-2 bg-black/30">
                     <div className={`inline-block overflow-hidden rounded-2xl border-[4px] shadow-xl ${getRarityColor(item.rarity)}`}>

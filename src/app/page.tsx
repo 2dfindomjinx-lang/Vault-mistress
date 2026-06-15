@@ -2642,10 +2642,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // Refresh full data in background
       void loadCratesData();
 
-      // Speak based on the actual rarity of the pulled item
-      const rarityKey = `crate_result_${won.rarity}` as const;
-      setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, rarityKey));
-
       return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
     } catch (error) {
       console.error("Open crate failed", error);
@@ -8358,6 +8354,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onSellItem={handleSellCrateItem}
                 onSellAll={handleSellAllCrateItems}
                 pityStats={pityStats}
+                onCrateResult={(item) => {
+                  const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+                  const rarityKey = `crate_result_${item.rarity}` as const;
+                  setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, rarityKey));
+                }}
               />
 
               {/* Original cosmetics shop below the crates */}
