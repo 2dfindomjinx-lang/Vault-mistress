@@ -104,7 +104,8 @@ export async function GET() {
       description: def.description,
       cost: def.cost,
       icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null),
-    }));
+    }))
+    .sort((a, b) => a.cost - b.cost);
 
   // User's inventory (joined with sample data)
   const { data: invRows, error: invError } = await supabase

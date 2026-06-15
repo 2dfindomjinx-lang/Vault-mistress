@@ -62,7 +62,6 @@ export function CratesPanel({
 }: CratesPanelProps) {
   const [activeSubTab, setActiveSubTab] = useState<"shop" | "inventory">("shop");
   const [isOpening, setIsOpening] = useState(false);
-  const [wonItem, setWonItem] = useState<WonItem | null>(null);
   const [openingCrate, setOpeningCrate] = useState<string | null>(null);
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
   const [sellPending, setSellPending] = useState<string | null>(null);
@@ -74,6 +73,10 @@ export function CratesPanel({
   const [isMobile, setIsMobile] = useState(false);
   const [spinSequence, setSpinSequence] = useState<WonItem[]>([]);
   const [reelProgress, setReelProgress] = useState(0);
+
+  const [isVerticalMode, setIsVerticalMode] = useState(false);
+  const [openQuantity, setOpenQuantity] = useState(1);
+  const [wonItems, setWonItems] = useState<WonItem[]>([]);
 
   // Square cards for better icon visibility (icons are square-designed).
   // Exactly 5 visible during slide. Larger squares, same overall area.
@@ -223,8 +226,8 @@ export function CratesPanel({
     return seq;
   }
 
-  const openCrate = async (crate: CrateDefinition) => {
-    if (disabled || pending || isOpening || coins < crate.cost) return;
+  const openCrate = async (crate: CrateDefinition, qty: number = 1) => {
+    if (disabled || pending || isOpening || coins < crate.cost * qty) return;
 
     // Build visual pool from the ACTUAL crate drops (principessa_case etc.)
     // This ensures the reel ONLY shows the configured 39 items (with their real names, rarities, images).
@@ -269,48 +272,54 @@ export function CratesPanel({
       return { ...pick };
     });
 
-    try {
-      const res = await onOpenCrate(crate.crate_type);
+    setReelItems(fakeReel);
 
+    // Perform multiple opens (server calls) for multi
+    const results: WonItem[] = [];
+    for (let i = 0; i < qty; i++) {
+      const res = await onOpenCrate(crate.crate_type);
       if (!(res.success && res.result)) {
         const msg = res?.error || (res?.result ? "Something went wrong opening the case." : "Case open failed.");
         alert(msg);
-        return;
+        break;
       }
+      results.push(res.result.item);
+    }
 
-      const realItem = res.result.item;
+    if (results.length === 0) return;
 
+    try {
       // Only NOW start the opening UI + reel (server accepted, we have a real result).
       // This prevents "Reel is spinning" + no animation when API fails (auth, coins, etc.).
       setIsOpening(true);
       setOpeningCrate(crate.name);
       setLastOpenedCrateType(crate.crate_type);
-      setWonItem(null);
+      setWonItems([]);
       setSpinSequence([]);
       setReelProgress(0);
       setReelItems([]);
 
+      setIsVerticalMode(qty > 1);
+
       setReelItems(fakeReel);
 
-      // Prepare long horizontal tape for the slide using the REAL drop pool (39 items only)
-      const sequence = buildSpinSequence(visualPool, realItem, crate.crate_type);
+      // Prepare long tape for the slide using the REAL drop pool. Use last for visual.
+      const lastWinner = results[results.length - 1];
+      const sequence = buildSpinSequence(visualPool, lastWinner, crate.crate_type);
       setSpinSequence(sequence);
 
-      // Run the reel animation (now drives slide progress + keeps mobile single view happy)
-      await runCrateAnimation(fakeReel, realItem, sequence);
+      // Run the reel animation (vertical for multi to save space, only 1 item visible)
+      await runCrateAnimation(fakeReel, lastWinner, sequence, qty > 1);
 
-      setWonItem(realItem);
+      setWonItems(results);
       // Parent will have already updated coins via response
-    } catch (e) {
-      console.error("Case open error", e);
-      alert("Failed to open case.");
     } finally {
       setIsOpening(false);
       setOpeningCrate(null);
     }
   };
 
-  async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[]) {
+  async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[], isVertical: boolean = false) {
     // Proper optimized animation using requestAnimationFrame for true smooth 60fps+ slide.
     // Time-based easing over ~8.2 seconds. Direct ref.style.transform updates (no per-frame React re-renders of the strip).
     // Sounds scheduled separately to preserve the dramatic slowing "reel tick" rhythm without affecting visual smoothness.
@@ -323,6 +332,10 @@ export function CratesPanel({
       // We drive progress so that the item at WINNER_SLOT is the one centered at the end.
       const WINNER_SLOT = 43;
       const TARGET_PROGRESS = WINNER_SLOT; // the logical index we want under the marker at the end
+
+      const ITEM_SIZE = 104;
+      const ITEM_GAP = 8;
+      const STEP = ITEM_SIZE + ITEM_GAP;
 
       // Sound scheduler: mimics the old variable-delay ticks for authentic feel (independent of visual rAF)
       let soundTick = 0;
@@ -353,12 +366,17 @@ export function CratesPanel({
 
         // Direct DOM update = high FPS, no React overhead during spin
         if (stripRef.current) {
-          const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
-          stripRef.current.style.transform = `translateX(${x}px)`;
+          if (isVertical) {
+            const y = -newProg * STEP + 12;
+            stripRef.current.style.transform = `translateY(${y}px)`;
+          } else {
+            const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
+            stripRef.current.style.transform = `translateX(${x}px)`;
+          }
         }
 
-        // Very light state for mobile single-view sampling (throttled)
-        if (isMobile && soundTick % 3 === 0) {
+        // Very light state for mobile single-view sampling (throttled) - skip for vertical multi
+        if (!isVertical && isMobile && soundTick % 3 === 0) {
           const approxCenter = Math.max(0, Math.min(sequence.length - 1, Math.round(newProg)));
           const displayForMobile = sequence[approxCenter] || realItem;
           const newReel = [...fakeReel];
@@ -374,15 +392,22 @@ export function CratesPanel({
           // This guarantees that the item visually under the marker at the end of the spin is the exact real result.
           const winnerIndexInSeq = WINNER_SLOT;
           if (stripRef.current) {
-            const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
-            stripRef.current.style.transform = `translateX(${exactX}px)`;
+            if (isVertical) {
+              const exactY = -(winnerIndexInSeq * STEP) + 12;
+              stripRef.current.style.transform = `translateY(${exactY}px)`;
+            } else {
+              const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
+              stripRef.current.style.transform = `translateX(${exactX}px)`;
+            }
           }
 
-          // Ensure mobile shows the winner
-          const finalReel = [...fakeReel];
-          finalReel[finalReel.length - 1] = realItem;
-          setReelItems(finalReel);
-          setReelProgress(TARGET_PROGRESS);
+          // Ensure mobile shows the winner (skip for vertical)
+          if (!isVertical) {
+            const finalReel = [...fakeReel];
+            finalReel[finalReel.length - 1] = realItem;
+            setReelItems(finalReel);
+            setReelProgress(TARGET_PROGRESS);
+          }
 
           // One final reel tick just as the slide settles (landing clunk), before the reveal sound
           emitSoundEvent("crate_reel_tick");
@@ -401,7 +426,11 @@ export function CratesPanel({
 
       // Prime the strip at starting position
       if (stripRef.current) {
-        stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
+        if (isVertical) {
+          stripRef.current.style.transform = `translateY(${12}px)`;
+        } else {
+          stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
+        }
       }
 
       requestAnimationFrame(animate);
@@ -467,11 +496,12 @@ export function CratesPanel({
   };
 
   const closeReveal = () => {
-    setWonItem(null);
+    setWonItems([]);
     setReelItems([]);
     setSpinSequence([]);
     setReelProgress(0);
     setLastOpenedCrateType(null);
+    setIsVerticalMode(false);
   };
 
   const getDropRates = (crateType: string) => {
@@ -517,7 +547,7 @@ export function CratesPanel({
 
       {/* When opening a crate we give the ENTIRE remaining area to the opening experience (no tabs, no grids, full focus).
           After the user claims/closes it returns to normal crate view. */}
-      {!isOpening && !wonItem && (
+      {!isOpening && wonItems.length === 0 && (
         <>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
                       Open cases to uncover rare collectibles, exclusive cosmetics.
@@ -544,14 +574,14 @@ export function CratesPanel({
       )}
 
       {/* CRATES / SHOP - hidden during opening for full focus on the reel */}
-      {activeSubTab === "shop" && !isOpening && !wonItem && (
+      {activeSubTab === "shop" && !isOpening && wonItems.length === 0 && (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
 
           {crates.map((crate) => {
-            const canAfford = coins >= crate.cost;
+            const canAfford = coins >= crate.cost * openQuantity;
             const isThisOpening = openingCrate === crate.crate_type;
             const isFlipped = flippedCrate === crate.crate_type;
             const dropRates = getDropRates(crate.crate_type);
@@ -618,14 +648,27 @@ export function CratesPanel({
                       </div>
                     )}
 
+                    {/* Qty selector for multi open (up to 5) */}
+                    <div className="mt-2 flex justify-center gap-1 text-[10px]">
+                      {[1,2,3,4,5].map(q => (
+                        <button
+                          key={q}
+                          onClick={(e) => { e.stopPropagation(); setOpenQuantity(q); }}
+                          className={`px-1.5 py-0.5 rounded border border-white/20 ${openQuantity === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+
                     <div className="flex-1" />
 
                     <button
-                      onClick={() => openCrate(crate)}
-                      disabled={disabled || pending || isOpening || !!wonItem || !canAfford}
+                      onClick={() => openCrate(crate, openQuantity)}
+                      disabled={disabled || pending || isOpening || wonItems.length > 0 || coins < crate.cost * openQuantity}
                       className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                     >
-                      {isThisOpening ? "OPENING..." : canAfford ? "Open Case" : "Not enough coins"}
+                      {isThisOpening ? "OPENING..." : coins >= crate.cost * openQuantity ? `Open ${openQuantity}` : "Not enough coins"}
                     </button>
                   </div>
 
@@ -679,7 +722,7 @@ export function CratesPanel({
       )}
 
       {/* INVENTORY - hidden during opening for full focus on the reel */}
-      {activeSubTab === "inventory" && !isOpening && !wonItem && (
+      {activeSubTab === "inventory" && !isOpening && wonItems.length === 0 && (
         <div className="mt-6">
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
           <div className="mb-3 flex items-center justify-between">
@@ -791,9 +834,9 @@ export function CratesPanel({
       {/* INLINE CRATE OPENING REEL (no more popup/overlay for desktop) */}
       {/* Desktop: classic multi-item horizontal slide showing 5 items at once + center marker */}
       {/* Mobile: single updating card (current style kept as requested) */}
-      {(isOpening || wonItem) && (
+      {(isOpening || wonItems.length > 0) && (
         <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 relative">
-          {wonItem && (
+          {wonItems.length > 0 && (
             <button
               onClick={closeReveal}
               className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full border border-white/30 bg-black/50 text-white text-xl hover:bg-white/20 hover:text-red-400 transition z-30"
@@ -803,16 +846,15 @@ export function CratesPanel({
             </button>
           )}
           <div className="mb-3 text-center">
-            {!wonItem && openingCrate && (
+            {!wonItems.length && openingCrate && (
               <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
             )}
-            {!wonItem && <h3 className="text-xl font-black text-white">Reel is spinning…</h3>}
-            {wonItem && <h3 className="text-xl font-black text-white">You received</h3>}
+            {!wonItems.length && <h3 className="text-xl font-black text-white">Reel is spinning…</h3>}
           </div>
 
           {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).
               Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same. */}
-          {!isMobile && spinSequence.length > 0 && (
+          {!isVerticalMode && !isMobile && isOpening && spinSequence.length > 0 && (
             <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 160 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
@@ -823,7 +865,7 @@ export function CratesPanel({
                 {spinSequence.map((item, idx) => {
                   // Square card + actual item icon (png) inside.
                   // Rarity only via colored border + bg tint (getRarityColor). No letters.
-                  const isWinnerSlot = !!wonItem && item.item_id === wonItem.item_id;
+                  const isWinnerSlot = wonItems.length > 0 && wonItems.some(w => w.item_id === item.item_id);
                   return (
                     <div
                       key={idx}
@@ -848,8 +890,38 @@ export function CratesPanel({
             </div>
           )}
 
-          {/* MOBILE: single updating item (the previous popup content, now inline & contained) */}
-          {isMobile && (
+          {/* VERTICAL SLIDE for multi-open (saves horizontal space, only 1 item visible at a time) */}
+          {isVerticalMode && isOpening && spinSequence.length > 0 && (
+            <div className="relative mx-auto w-[128px] h-[128px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90">
+              <div
+                ref={stripRef}
+                className="absolute left-1/2 -translate-x-1/2 top-[12px] flex flex-col will-change-transform gap-2"
+                style={{ transform: `translateY(0px)` }}
+              >
+                {spinSequence.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
+                  >
+                    <img
+                      src={item.image_url || `/crate-items/${item.item_id}.png`}
+                      alt={item.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        t.style.display = "none";
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              {/* Fixed center slot for the single visible item */}
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[112px] h-[112px] rounded-2xl border-[3.5px] border-yellow-400/95" />
+            </div>
+          )}
+
+          {/* MOBILE: single updating item (the previous popup content, now inline & contained) - skip for vertical */}
+          {!isVerticalMode && isMobile && isOpening && (
             <div className="my-2 h-28 overflow-hidden rounded-2xl border border-white/10 bg-black/80 p-3">
               <div className="flex h-full flex-col items-center justify-center text-center">
                 {reelItems.length > 0 && (
@@ -865,64 +937,74 @@ export function CratesPanel({
             </div>
           )}
 
-          {/* Won item reveal - shown inline under the (stopped) reel, no popup */}
-          {wonItem && (
-            <div className="mt-4 text-center">
-              <div className={`mx-auto mb-3 inline-block overflow-hidden rounded-3xl border-[4px] shadow-xl ${getRarityColor(wonItem.rarity)}`}>
-                {wonItem.image_url ? (
-                  <img src={wonItem.image_url} alt={wonItem.name} className="h-32 w-32 object-cover" />
-                ) : (
-                  <div className="flex h-32 w-32 items-center justify-center bg-black/70 text-6xl">
-                    {wonItem.rarity === "legendary" ? "👑" : "📦"}
+          {/* Won items reveal - shown inline under the (stopped) reel, no popup. Supports multi open. */}
+          {wonItems.length > 0 && (
+            <div className="mt-4">
+              <div className="text-center mb-3">
+                <div className="text-xl font-black">You received:</div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 max-h-60 overflow-auto pr-1">
+                {wonItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 border border-white/10 rounded p-2 bg-black/30">
+                    <div className={`inline-block overflow-hidden rounded-2xl border-[4px] shadow-xl ${getRarityColor(item.rarity)}`}>
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="h-16 w-16 object-cover" />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center bg-black/70 text-3xl">
+                          {item.rarity === "legendary" ? "👑" : "📦"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-base font-black text-white truncate">{item.name}</div>
+                      <p className="text-xs text-zinc-300 line-clamp-1">{item.description}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (item.rarity === "legendary") {
+                          const confirmSell = window.confirm(
+                            `Sell "${item.name}" for ${item.sell_value} coins?`
+                          );
+                          if (!confirmSell) return;
+                        }
+                        await onSellItem(item.item_id, item.variant, 1);
+                        emitSoundEvent("cosmetic_purchased");
+                        setWonItems(prev => prev.filter((_, i) => i !== idx));
+                        if (wonItems.length <= 1) {
+                          closeReveal();
+                        }
+                      }}
+                      className="rounded-xl bg-emerald-500/90 px-2 py-1 text-xs font-bold text-black whitespace-nowrap"
+                    >
+                      Sell {item.sell_value}
+                    </button>
                   </div>
-                )}
+                ))}
               </div>
 
-              <div className="text-2xl font-black text-white">{wonItem.name}</div>
-              <p className="mx-auto mt-1 max-w-xs text-sm text-zinc-300">{wonItem.description}</p>
-
-              <div className="mt-4 flex justify-center">
-                <div className="flex gap-3">
-                  <button
-                    onClick={async () => {
-                      if (wonItem.rarity === "legendary") {
-                        const confirmSell = window.confirm(
-                          `Sell "${wonItem.name}" for ${wonItem.sell_value} coins?`
-                        );
-                        if (!confirmSell) return;
-                      }
-                      await onSellItem(wonItem.item_id, wonItem.variant, 1);
-                      emitSoundEvent("cosmetic_purchased");
-                      closeReveal();
-                    }}
-                    className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
-                  >
-                    Sell for {wonItem.sell_value} coins
-                  </button>
-                  <button
-                    onClick={() => {
-                      const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
-                      closeReveal();
-                      if (crateToReopen) {
-                        openCrate(crateToReopen);
-                      }
-                    }}
-                    disabled={
-                      disabled ||
-                      pending ||
-                      !lastOpenedCrateType ||
-                      coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0)
+              <div className="mt-4 flex justify-center gap-3">
+                <button
+                  onClick={() => {
+                    const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
+                    if (crateToReopen) {
+                      openCrate(crateToReopen, 1);
                     }
-                    className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
-                  >
-                    Open Case Again
-                  </button>
-                </div>
+                  }}
+                  disabled={
+                    disabled ||
+                    pending ||
+                    !lastOpenedCrateType ||
+                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0)
+                  }
+                  className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                >
+                  Open Again
+                </button>
               </div>
             </div>
           )}
 
-          {isOpening && !wonItem && (
+          {isOpening && wonItems.length === 0 && (
             <p className="mt-3 text-center text-xs text-pink-100/50">
               The result was decided server-side the moment your coins were accepted.
             </p>
