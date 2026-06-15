@@ -123,9 +123,10 @@ export function CratesPanel({
   // Sampling is weighted by the original drop weights so the visual frequencies
   // roughly reflect the real drop ratios (commons appear a lot, legendaries rarely).
   // Progressive near-miss bias: early = mostly low tier, late = tension with
-  // occasional higher tier teases (mostly epic/rare misses, minority legendary misses)
-  // + the actual winner.
-  function buildSpinSequence(pool: WonItem[], winner: WonItem): WonItem[] {
+  // occasional higher tier teases.
+  // For blessing_case: legendary near-misses are intentionally more frequent (high tension due to 0.6% base rate).
+  // For regular cases: mostly epic/rare misses, minority legendary misses + the actual winner.
+  function buildSpinSequence(pool: WonItem[], winner: WonItem, crateType: string = 'principessa_case'): WonItem[] {
     const seq: WonItem[] = [];
     const total = 52;
     const winnerSlot = 43;
@@ -153,25 +154,40 @@ export function CratesPanel({
       // Base pick always respects real drop weights/ratios
       let chosen: WonItem = pickWeighted();
 
+      const isBlessing = crateType === 'blessing_case';
+
       // Progressive near-miss / drama layer:
       // Early: mostly pool ratios (common/uncommon heavy).
       // Late: tension via near-miss teases.
-      // Majority of near-miss teases are epic/rare, minority legendary.
+      // For blessing_case: legendary near-misses are more frequent (stronger tension, high-risk case).
+      // For regular: majority epic/rare misses, minority legendary.
       // Very late still teases the actual winner sometimes.
-      const boostChance = Math.max(0, (p - 0.4) * 0.95);
+      const boostMult = isBlessing ? 1.2 : 0.95;
+      const boostChance = Math.max(0, (p - 0.4) * boostMult);
 
       if (Math.random() < boostChance) {
-        // Decide tease tier for near-miss feel (not always the absolute best)
+        // Decide tease tier for near-miss feel
         const r = Math.random();
         let targetTiers = [];
-        if (p > 0.78 && r < 0.12) {
-          // small chance for legendary tease very late (minority)
-          targetTiers = ["legendary"];
-        } else if (r < 0.72) {
-          // majority epic (sometimes rare) for epic misses
-          targetTiers = ["epic", "rare"];
+        if (isBlessing) {
+          // Blessing case: legendary misses more frequent, especially mid-late
+          if (p > 0.65 && r < 0.38) {
+            targetTiers = ["legendary"];
+          } else if (r < 0.55) {
+            targetTiers = ["epic", "rare", "legendary"];
+          } else {
+            targetTiers = ["rare", "uncommon"];
+          }
         } else {
-          targetTiers = ["rare", "uncommon"];
+          if (p > 0.78 && r < 0.12) {
+            // small chance for legendary tease very late (minority)
+            targetTiers = ["legendary"];
+          } else if (r < 0.72) {
+            // majority epic (sometimes rare) for epic misses
+            targetTiers = ["epic", "rare"];
+          } else {
+            targetTiers = ["rare", "uncommon"];
+          }
         }
 
         let candidates = pool.filter((it: any) =>
@@ -181,7 +197,8 @@ export function CratesPanel({
 
         if (candidates.length > 0) {
           // Prefer the actual winner in very late phase for the final tease
-          if (p > 0.78 && Math.random() < 0.5) {
+          const preferWinnerChance = isBlessing ? 0.55 : 0.5;
+          if (p > 0.78 && Math.random() < preferWinnerChance) {
             const winMatch = candidates.find((it: any) => it.item_id === winner.item_id);
             if (winMatch) {
               chosen = winMatch;
@@ -195,8 +212,9 @@ export function CratesPanel({
       }
 
       // Occasional winner near-miss tease in the final slowdown (classic CS feel)
-      // Reduced frequency so legendary misses aren't too common
-      if (p > 0.65 && p < 0.82 && Math.random() < 0.18) {
+      // For blessing_case: higher frequency so legendary misses feel more common
+      const winnerTeaseChance = isBlessing ? 0.32 : 0.18;
+      if (p > 0.65 && p < 0.82 && Math.random() < winnerTeaseChance) {
         chosen = winner;
       }
 
@@ -275,7 +293,7 @@ export function CratesPanel({
       setReelItems(fakeReel);
 
       // Prepare long horizontal tape for the slide using the REAL drop pool (39 items only)
-      const sequence = buildSpinSequence(visualPool, realItem);
+      const sequence = buildSpinSequence(visualPool, realItem, crate.crate_type);
       setSpinSequence(sequence);
 
       // Run the reel animation (now drives slide progress + keeps mobile single view happy)
@@ -576,11 +594,11 @@ export function CratesPanel({
                     {/* Principessa Case icon (or future crates).
                         Path convention: /crate-icons/principessa-case.png (auto from crate_type)
                         Drop your PNG in public/crate-icons/ — the file name will be crate_type with _ → - */}
-                    <div className="mt-1.5 flex justify-center">
+                    <div className="mt-1 flex justify-center">
                       <img
                         src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
                         alt={crate.name}
-                        className="h-20 w-20 object-contain rounded-2xl border border-white/15 bg-black/40 p-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
+                        className="h-16 w-16 object-contain rounded-2xl border border-white/15 bg-black/40 p-1 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
                         onError={(e) => {
                           const t = e.target as HTMLImageElement;
                           t.style.opacity = "0.25";
@@ -590,12 +608,12 @@ export function CratesPanel({
 
                     {/* Pity counters - only visible in shop grid. State update is delayed in parent until after reveal to prevent spoiling during reel spin. */}
                     {crate.crate_type === "principessa_case" && (
-                      <div className="mt-1 text-[10px] text-center text-amber-400/80">
+                      <div className="mt-0.5 text-[9px] text-center text-amber-400/80 whitespace-nowrap">
                         Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/9
                       </div>
                     )}
                     {crate.crate_type === "blessing_case" && (
-                      <div className="mt-1 text-[10px] text-center text-violet-400/80">
+                      <div className="mt-0.5 text-[9px] text-center text-violet-400/80 whitespace-nowrap">
                         Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
                       </div>
                     )}

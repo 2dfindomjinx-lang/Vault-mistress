@@ -221,14 +221,23 @@ export async function POST(request: Request) {
     const isBlessingPity = crateType === "blessing_case" && blessingPity >= 149;
 
     if (isPrincipessaPity) {
-      // Bad luck protection: force Epic
-      const epicOnly = possibleDrops.filter((d) => {
-        const def = SAMPLE_CRATE_ITEMS[d.item_id];
-        return def && def.rarity === "epic";
-      });
-      rolled = weightedRandom(epicOnly.length ? epicOnly : possibleDrops);
+      // Bad luck protection: 
+      // - First roll normally to preserve the base legendary chance (e.g. 0.5%)
+      // - If it landed on legendary → keep it
+      // - Otherwise force Epic (so 99.5% epic + 0.5% legendary on pity opening)
+      let tempRolled = weightedRandom(possibleDrops);
+      const tempDef = SAMPLE_CRATE_ITEMS[tempRolled.item_id];
+      if (tempDef && tempDef.rarity === "legendary") {
+        rolled = tempRolled;
+      } else {
+        const epicOnly = possibleDrops.filter((d) => {
+          const def = SAMPLE_CRATE_ITEMS[d.item_id];
+          return def && def.rarity === "epic";
+        });
+        rolled = weightedRandom(epicOnly.length ? epicOnly : possibleDrops);
+      }
     } else if (isBlessingPity) {
-      // Legendary guarantee
+      // Legendary guarantee: force legendary only
       const legOnly = possibleDrops.filter((d) => {
         const def = SAMPLE_CRATE_ITEMS[d.item_id];
         return def && def.rarity === "legendary";
