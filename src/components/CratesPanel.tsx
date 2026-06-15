@@ -502,6 +502,22 @@ export function CratesPanel({
     }
   };
 
+  const sellAllWonItems = async () => {
+    if (!wonItems.length) return;
+
+    const totalValue = wonItems.reduce((sum, item) => sum + item.sell_value, 0);
+    const confirmSell = window.confirm(
+      `Sell all ${wonItems.length} won items for ${totalValue} coins?`
+    );
+    if (!confirmSell) return;
+
+    for (const item of wonItems) {
+      await onSellItem(item.item_id, item.variant, 1);
+    }
+    emitSoundEvent("cosmetic_purchased");
+    closeReveal();
+  };
+
   // Global Sell All for the entire inventory (only available in Inventory tab)
   // Now uses a single backend call (action: "sell_all") instead of looping single sells.
   // This performs one coin update + clears the whole inventory atomically on the server.
@@ -1041,6 +1057,14 @@ export function CratesPanel({
               </div>
 
               <div className="mt-4 flex justify-center gap-3">
+                {wonItems.length > 1 && (
+                  <button
+                    onClick={sellAllWonItems}
+                    className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
+                  >
+                    Sell All
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
