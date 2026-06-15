@@ -46,6 +46,7 @@ type CratesPanelProps = {
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
+  onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
   pending?: boolean;
 };
@@ -59,6 +60,7 @@ export function CratesPanel({
   onSellItem,
   onSellAll,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
+  onCrateOpen,
   onCrateResult,
   pending = false,
 }: CratesPanelProps) {
@@ -233,6 +235,8 @@ export function CratesPanel({
   const openCrate = async (crate: CrateDefinition, qty: number = 1) => {
     if (disabled || pending || isOpening || coins < crate.cost * qty) return;
 
+    if (onCrateOpen) onCrateOpen();
+
     // Build visual pool from the ACTUAL crate drops (principessa_case etc.)
     // This ensures the reel ONLY shows the configured 39 items (with their real names, rarities, images).
     // No more generic fakes or items outside the pool.
@@ -349,6 +353,8 @@ export function CratesPanel({
       const ITEM_SIZE = 104;
       const ITEM_GAP = 8;
       const STEP = ITEM_SIZE + ITEM_GAP;
+      const VISIBLE_SIZE = 120;
+      const CENTER_OFFSET = (VISIBLE_SIZE - ITEM_SIZE) / 2; // 8px to center item in visible area
 
       // Sound scheduler: mimics the old variable-delay ticks for authentic feel (independent of visual rAF)
       let soundTick = 0;
@@ -383,7 +389,7 @@ export function CratesPanel({
           seqs.forEach((s, i) => {
             const strip = verticalReelRefs.current[i];
             if (strip) {
-              const y = -newProg * STEP + 12;
+              const y = -newProg * STEP + CENTER_OFFSET;
               strip.style.transform = `translateY(${y}px)`;
             }
           });
@@ -413,7 +419,7 @@ export function CratesPanel({
             seqs.forEach((s, i) => {
               const strip = verticalReelRefs.current[i];
               if (strip) {
-                const exactY = -(winnerIndexInSeq * STEP) + 12;
+                const exactY = -(winnerIndexInSeq * STEP) + CENTER_OFFSET;
                 strip.style.transform = `translateY(${exactY}px)`;
               }
             });
@@ -451,7 +457,7 @@ export function CratesPanel({
         seqs.forEach((s, i) => {
           const strip = verticalReelRefs.current[i];
           if (strip) {
-            strip.style.transform = `translateY(${12}px)`;
+            strip.style.transform = `translateY(${CENTER_OFFSET}px)`;
           }
         });
       } else if (stripRef.current) {
@@ -616,7 +622,7 @@ export function CratesPanel({
             return (
               <div key={crate.crate_type} className="[perspective:1000px]">
                 <div
-                  className={`relative h-[220px] w-full rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
+                  className={`relative h-[260px] w-full rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
                   style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', willChange: 'transform' }}
                 >
                   {/* FRONT - normal crate card */}
@@ -924,7 +930,7 @@ export function CratesPanel({
                 <div key={idx} className="relative w-[120px] h-[120px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90 flex-shrink-0">
                   <div
                     ref={el => { verticalReelRefs.current[idx] = el; }}
-                    className="absolute left-1/2 -translate-x-1/2 top-[12px] flex flex-col will-change-transform gap-2"
+                    className="absolute left-1/2 -translate-x-1/2 top-[8px] flex flex-col will-change-transform gap-2"
                   >
                     {seq.map((item, sidx) => (
                       <div
@@ -943,8 +949,8 @@ export function CratesPanel({
                       </div>
                     ))}
                   </div>
-                  {/* Fixed center slot for the single visible item */}
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[112px] h-[112px] rounded-2xl border-[3.5px] border-yellow-400/95" />
+                  {/* Fixed center slot exactly matching the item box */}
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[104px] h-[104px] rounded-xl border-[3.5px] border-yellow-400/95" />
                 </div>
               ))}
             </div>
@@ -970,25 +976,37 @@ export function CratesPanel({
           {/* Won items reveal - shown inline under the (stopped) reel, no popup. Supports multi open. */}
           {wonItems.length > 0 && (
             <div className="mt-4">
-              <div className="text-center mb-3">
-                <div className="text-xl font-black">You received:</div>
+              <div className="text-center mb-1">
+                <div className="text-sm font-semibold text-white/80">Results:</div>
               </div>
-              <div className="flex flex-wrap gap-3 justify-center">
+
+              {/* Re-select quantity for next open from result screen */}
+              <div className="mb-2 flex justify-center gap-1 text-[10px]">
+                <span className="self-center mr-1 text-zinc-400">Next open:</span>
+                {[1,2,3,4,5].map(q => (
+                  <button
+                    key={q}
+                    onClick={() => setOpenQuantity(q)}
+                    className={`px-1.5 py-0.5 rounded border border-white/20 ${openQuantity === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-1 justify-center">
                 {wonItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-3 border border-white/10 rounded p-2 bg-black/30">
-                    <div className={`inline-block overflow-hidden rounded-2xl border-[4px] shadow-xl ${getRarityColor(item.rarity)}`}>
+                  <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[70px]">
+                    <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="h-16 w-16 object-cover" />
+                        <img src={item.image_url} alt={item.name} className="h-10 w-10 object-cover" />
                       ) : (
-                        <div className="flex h-16 w-16 items-center justify-center bg-black/70 text-3xl">
+                        <div className="flex h-10 w-10 items-center justify-center bg-black/70 text-xl">
                           {item.rarity === "legendary" ? "👑" : "📦"}
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-base font-black text-white truncate">{item.name}</div>
-                      <p className="text-xs text-zinc-300 line-clamp-1">{item.description}</p>
-                    </div>
+                    <div className="mt-0.5 font-bold text-white text-center truncate w-full text-[8px] leading-tight">{item.name}</div>
                     <button
                       onClick={async () => {
                         if (item.rarity === "legendary") {
@@ -1004,7 +1022,7 @@ export function CratesPanel({
                           closeReveal();
                         }
                       }}
-                      className="rounded-xl bg-emerald-500/90 px-2 py-1 text-xs font-bold text-black whitespace-nowrap"
+                      className="mt-0.5 rounded bg-emerald-500/90 px-1 py-0 text-[7px] font-bold text-black leading-none"
                     >
                       Sell {item.sell_value}
                     </button>
@@ -1017,18 +1035,18 @@ export function CratesPanel({
                   onClick={() => {
                     const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
                     if (crateToReopen) {
-                      openCrate(crateToReopen, 1);
+                      openCrate(crateToReopen, openQuantity);
                     }
                   }}
                   disabled={
                     disabled ||
                     pending ||
                     !lastOpenedCrateType ||
-                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0)
+                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0) * openQuantity
                   }
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                 >
-                  Open Again
+                  Open Again ({openQuantity})
                 </button>
               </div>
             </div>

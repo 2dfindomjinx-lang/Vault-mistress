@@ -2591,9 +2591,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     setCratePending(true);
 
-    const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
-    setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, "crate_open"));
-
     try {
       const response = await fetch("/api/user/crates", {
         method: "POST",
@@ -8354,6 +8351,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onSellItem={handleSellCrateItem}
                 onSellAll={handleSellAllCrateItems}
                 pityStats={pityStats}
+                onCrateOpen={() => {
+                  const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+                  setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, "crate_open"));
+                }}
                 onCrateResult={(item) => {
                   const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
                   const rarityKey = `crate_result_${item.rarity}` as const;

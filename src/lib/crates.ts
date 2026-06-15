@@ -63,7 +63,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       // Weights distributed for fair but exciting drops (higher for common, low for legendary)
       // Total weight = 1000
 
-      // Common
+      // Common 4500
       { item_id: "boxer", weight: 600 },
       { item_id: "classic-collar", weight: 350 },
       { item_id: "classic-ears", weight: 350 },
@@ -75,7 +75,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       { item_id: "classic-blindfold", weight: 500 },
       { item_id: "classic-pawmitts", weight: 550 },
 
-      // Uncommon
+      // Uncommon 2500
 	  { item_id: "owned-tag", weight: 500 },
 	  { item_id: "pink-collar", weight: 300 },
       { item_id: "pink-ears", weight: 300 },
@@ -87,7 +87,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       { item_id: "classic-skirt", weight: 300 },
       { item_id: "classic-thighhighs", weight: 150 },
 
-      // Rare
+      // Rare 2050
       { item_id: "cute-miniskirt", weight: 200 },
       { item_id: "latex-thighhighs", weight: 400 },
 	  { item_id: "good-boy-tag", weight: 500 },
@@ -95,7 +95,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "cute-thighhighs", weight: 300 },
 	  { item_id: "pink-tail", weight: 350 },
 
-      // Epic
+      // Epic 900
 	  { item_id: "gorgeous-panties", weight: 140 },
       { item_id: "gorgeous-bra", weight: 140 },
       { item_id: "gorgeous-buttplug", weight: 155 },
@@ -103,7 +103,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       { item_id: "gorgeous-pawmitts", weight: 210 },
       { item_id: "gorgeous-thighhighs", weight: 130 },
 
-      // Legendary
+      // Legendary 50
 	  { item_id: "shiny-bra", weight: 6 },
       { item_id: "shiny-highheels", weight: 6 },
       { item_id: "shiny-panties", weight: 6 },
