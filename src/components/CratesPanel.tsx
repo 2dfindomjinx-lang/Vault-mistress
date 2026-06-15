@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
 import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER, getCrateIconUrl } from "@/lib/crates";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -103,6 +103,11 @@ export function CratesPanel({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  // Total sell value of current inventory (for display when viewing Inventory)
+  const inventoryValue = useMemo(() => {
+    return inventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
+  }, [inventory]);
 
   // Build a long ordered "tape" of items for the classic sliding reel.
   // Uses ONLY the actual items from this crate's drop pool (the 39 real ones).
@@ -405,6 +410,36 @@ export function CratesPanel({
     }
   };
 
+  // Global Sell All for the entire inventory (only available in Inventory tab)
+  const sellAll = async () => {
+    if (disabled || sellPending || inventory.length === 0 || inventoryValue <= 0) return;
+
+    const confirmSell = window.confirm(
+      `Sell ALL items in your inventory for ${inventoryValue} coins?\n\nThis will clear your entire collection.`
+    );
+    if (!confirmSell) return;
+
+    setSellPending("all");
+
+    try {
+      // Snapshot to avoid issues if parent updates inventory during the loop
+      const itemsToSell = [...inventory];
+      for (const item of itemsToSell) {
+        if (item.quantity > 0) {
+          const res = await onSellItem(item.item_id, item.variant, item.quantity);
+          if (res.success) {
+            emitSoundEvent("cosmetic_purchased");
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Sell all error", e);
+      alert("Failed to sell all items.");
+    } finally {
+      setSellPending(null);
+    }
+  };
+
   const closeReveal = () => {
     setWonItem(null);
     setReelItems([]);
@@ -459,8 +494,7 @@ export function CratesPanel({
       {!isOpening && !wonItem && (
         <>
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Open cases to collect rare memorabilia. Duplicates stack. Sell anything you don&apos;t want for a coin return.
-            This is a pure collection &amp; coin sink system.
+                      Open cases to uncover rare collectibles, exclusive cosmetics.
           </p>
 
           {/* Sub-tabs */}
@@ -609,6 +643,25 @@ export function CratesPanel({
       {/* INVENTORY - hidden during opening for full focus on the reel */}
       {activeSubTab === "inventory" && !isOpening && !wonItem && (
         <div className="mt-6">
+          {/* Inventory header: value on left, global Sell All on top-right as requested */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm">
+              <span className="text-zinc-400">Inventory Value</span>
+              <span className="ml-2 font-bold text-pink-200">
+                <CoinAmount amount={inventoryValue} />
+              </span>
+            </div>
+            {inventory.length > 0 && (
+              <button
+                onClick={sellAll}
+                disabled={disabled || !!sellPending}
+                className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold hover:bg-white/10 disabled:opacity-50 transition"
+              >
+                Sell All
+              </button>
+            )}
+          </div>
+
           {inventory.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-400">
               Your inventory is empty. Open some cases to start hoarding.
@@ -617,7 +670,7 @@ export function CratesPanel({
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {inventory.map((item) => {
                 const key = item.item_id + item.variant;
-                const isSelling = sellPending === key;
+                const isSelling = sellPending === key || sellPending === "all";
 
                 return (
                   <article

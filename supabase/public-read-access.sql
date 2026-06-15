@@ -274,6 +274,8 @@ stable
 security definer
 set search_path = public
 as $$
+  -- Respects hide_from_leaderboard like the other public leaderboards.
+  -- Users with hide_from_leaderboard = true are excluded from Top Valuable Inventories.
   select
     uci.user_id,
     sum(uci.quantity * ci.sell_value)::numeric as value
@@ -281,6 +283,9 @@ as $$
   join public.crate_items ci
     on ci.item_id = uci.item_id
    and ci.enabled = true
+  join public.profiles p
+    on p.id = uci.user_id
+   and p.hide_from_leaderboard = false
   group by uci.user_id
   order by value desc
   limit greatest(1, least(coalesce(p_limit, 3), 10));
