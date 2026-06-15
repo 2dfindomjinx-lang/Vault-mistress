@@ -13,6 +13,14 @@ export type RecentTribute = {
   usernameStyle?: CSSProperties;
 };
 
+export type TopInventory = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  value: number;
+  usernameStyle?: CSSProperties;
+};
+
 function getRelativeTime(createdAt: string) {
   const diffMs = Date.now() - new Date(createdAt).getTime();
   const diffMinutes = Math.floor(diffMs / 60000);
@@ -63,47 +71,25 @@ export function RecentTributesTicker({
   usernameStyle,
   topTributes = [],
   tributes,
+  topValuableInventories = [],
 }: {
   currentUsername?: string;
   usernameStyle?: CSSProperties;
   topTributes?: RecentTribute[];
   tributes: RecentTribute[];
+  topValuableInventories?: TopInventory[];
 }) {
   const visibleTributes = useMemo(() => {
-    const sorted = [...tributes].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    const kept: RecentTribute[] = [];
-    let smallRemovedBeforeLarge = 0;
-
-    sorted.forEach((tribute) => {
-      if (kept.length < 10) {
-        kept.push(tribute);
-        return;
-      }
-
-      const lowestIndex = kept
-        .map((entry, index) => ({ amount: entry.amount, index }))
-        .filter((entry) => entry.index >= 6)
-        .sort((a, b) => a.amount - b.amount)[0]?.index;
-
-      if (
-        lowestIndex !== undefined &&
-        tribute.amount > kept[lowestIndex].amount &&
-        (tribute.amount < 10000 || smallRemovedBeforeLarge >= 3)
-      ) {
-        if (kept[lowestIndex].amount < 10000) {
-          smallRemovedBeforeLarge += 1;
-        }
-        kept[lowestIndex] = tribute;
-      }
-    });
-
-    return kept
+    // Simple rule for Recent Tributes section: always show the 5 most recent
+    // (newest first). When a new tribute record arrives (new coin_transaction),
+    // the oldest of these 5 naturally drops off the list returned by the
+    // server query. We do not delete from coin_transactions (top tributors
+    // / all-time aggregates and history depend on the full rows).
+    return [...tributes]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10);
+      .slice(0, 5);
   }, [tributes]);
-  const displayTributes = visibleTributes.slice(0, 6);
+  const displayTributes = visibleTributes;
 
   return (
     <section className="space-y-3">

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import type { User } from "@supabase/supabase-js";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CosmeticShop } from "@/components/CosmeticShop";
+import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -12,6 +13,7 @@ import { PetSection } from "@/components/PetSection";
 import {
   RecentTributesTicker,
   type RecentTribute,
+  type TopInventory,
 } from "@/components/RecentTributesTicker";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
@@ -275,6 +277,7 @@ const ACCOUNT_ANNOUNCEMENT_EXPIRES_AT = "2026-06-12T00:00:00+03:00";
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 const LOCAL_GUEST_USER_ID = "local-guest-user";
+
 const DEBT_AUTO_PAY_STORAGE_PREFIX = "vault-debt-auto-pay-enabled";
 const PET_X_POST_TEXT = [
   "I belong to Principessa.",
@@ -1708,6 +1711,11 @@ export default function Home() {
     xp: 0,
   });
   const [latestGlobalLevelUpId, setLatestGlobalLevelUpId] = useState<string | null>(null);
+
+  // Crate system V1 (collectibles + coin sink) - integrated inside Cosmetics panel
+  const [availableCrates, setAvailableCrates] = useState<CrateDefinition[]>([]);
+  const [crateInventory, setCrateInventory] = useState<CrateInventoryItem[]>([]);
+  const [cratePending, setCratePending] = useState(false);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
   const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
@@ -1729,6 +1737,7 @@ export default function Home() {
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
+  const [topValuableInventories, setTopValuableInventories] = useState<TopInventory[]>([]);
   const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
   const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
   const [activeEvents, setActiveEvents] = useState<RandomEvent[]>([]);
@@ -1875,6 +1884,15 @@ export default function Home() {
       throw createApiError("/api/global-principessa", response, payload);
     }
 
+    const incomingLevelUpId = payload.latestLevelUp?.id ?? null;
+
+    // Always mark the current latest level-up event as "seen" when we load.
+    // This prevents the poller from re-playing old "I can feel my power growing."
+    // messages after drains that did not cause a level up.
+    if (incomingLevelUpId && incomingLevelUpId !== latestGlobalLevelUpId) {
+      setLatestGlobalLevelUpId(incomingLevelUpId);
+    }
+
     setGlobalPrincipessa({
       level: payload.progress.level ?? 1,
       month: payload.progress.month ?? new Date().getMonth() + 1,
@@ -1883,8 +1901,9 @@ export default function Home() {
       year: payload.progress.year ?? new Date().getFullYear(),
     });
 
-    if (announceLevelUp && payload.latestLevelUp?.id && payload.latestLevelUp.id !== latestGlobalLevelUpId) {
-      setLatestGlobalLevelUpId(payload.latestLevelUp.id);
+    // Only announce from background poller if it's a genuinely new level up event
+    // AND we were explicitly asked to announce (announceLevelUp=true).
+    if (announceLevelUp && incomingLevelUpId && incomingLevelUpId !== latestGlobalLevelUpId) {
       setSpeechBubbleReply(
         getSpeechBubbleResponseMessage(
           equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
@@ -2487,6 +2506,116 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, []);
 
+  // === CRATE SYSTEM (V1) ===
+  const loadCratesData = useCallback(async () => {
+    try {
+      const response = await fetch("/api/user/crates", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        crates?: CrateDefinition[];
+        inventory?: CrateInventoryItem[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Failed to load crates.");
+      }
+
+      setAvailableCrates(result.crates ?? []);
+      setCrateInventory(result.inventory ?? []);
+    } catch (error) {
+      console.error("Failed to load crate data", error);
+    }
+  }, [isPreviewMode, isGuestMode]);
+
+  const handleOpenCrate = async (crateType: string) => {
+    if (cratePending) return { success: false };
+
+    setCratePending(true);
+
+    try {
+      const response = await fetch("/api/user/crates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "open", crateType }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        result?: { item: CrateInventoryItem & { sell_value: number }; newCoins: number };
+      };
+
+      if (!response.ok || !payload.success || !payload.result) {
+        throw new Error(payload.error ?? "Crate open failed.");
+      }
+
+      // Update coins + inventory optimistically from server result
+      const won = payload.result.item;
+      setCoins(payload.result.newCoins);
+      coinsRef.current = payload.result.newCoins;
+
+      // Merge into local inventory (increase quantity or add)
+      setCrateInventory((current) => {
+        const idx = current.findIndex((i) => i.item_id === won.item_id && i.variant === (won.variant || "normal"));
+        if (idx >= 0) {
+          const copy = [...current];
+          copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
+          return copy;
+        }
+        return [...current, { ...won, quantity: 1 }];
+      });
+
+      // Refresh full data in background
+      void loadCratesData();
+
+      return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
+    } catch (error) {
+      console.error("Open crate failed", error);
+      setAuthError(describeError(error));
+      return { success: false };
+    } finally {
+      setCratePending(false);
+    }
+  };
+
+  const handleSellCrateItem = async (itemId: string, variant: string, quantity = 1) => {
+    if (cratePending) return { success: false };
+
+    setCratePending(true);
+
+    try {
+      const response = await fetch("/api/user/crates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sell", itemId, variant, quantity }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        newCoins?: number;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? "Sell failed.");
+      }
+
+      if (typeof payload.newCoins === "number") {
+        setCoins(payload.newCoins);
+        coinsRef.current = payload.newCoins;
+      }
+
+      // Refresh inventory from server
+      await loadCratesData();
+
+      return { success: true, newCoins: payload.newCoins };
+    } catch (error) {
+      console.error("Sell crate item failed", error);
+      setAuthError(describeError(error));
+      return { success: false };
+    } finally {
+      setCratePending(false);
+    }
+  };
+
   const loadLeadershipTop = useCallback(async () => {
     try {
       const response = await fetch("/api/leadership/top", {
@@ -2494,6 +2623,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       });
       const payload = (await response.json()) as {
         leaders?: LeadershipEntry[];
+        topInventories?: TopInventory[];
         error?: string;
       };
 
@@ -2502,6 +2632,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       setLeadershipTop(payload.leaders ?? []);
+      setTopValuableInventories(payload.topInventories ?? []);
     } catch (error) {
       console.error("Failed to load leadership top 3", error);
     }
@@ -2620,12 +2751,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isAdminUser, isLoggedIn, loadPendingIrlReviewCount]);
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    // Load crates data also for preview/guest so the crate UI is visible on localhost
+    // (the internal loadCratesData now falls back to in-memory for preview)
+    if (!isLoggedIn && !isPreviewMode && !isGuestMode) {
       return;
     }
 
     const initialTimer = window.setTimeout(() => {
       void loadRecentTributes();
+      void loadCratesData();
     }, 0);
 
     const refreshRecentTributes = () => {
@@ -4002,20 +4136,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     };
 
+    void bootInitialAuth();
+
     if (!isSupabaseConfigured) {
       console.info("[auth-init] Supabase env missing; showing login/preview screen");
       clearAuthState();
       finishAuthLoad();
-
       return () => {
         mounted = false;
       };
     }
 
-    void bootInitialAuth();
-
+    let subscription = null;
     const {
-      data: { subscription },
+      data: { subscription: sub },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       console.info("[auth-init] auth state changed", {
         event: _event,
@@ -4064,10 +4198,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
       })();
     });
+    subscription = sub;
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
     };
   }, []);
 
@@ -4979,6 +5114,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void resyncAuthenticatedProfile("Level Drain completed").catch((error) => {
         console.error("[profile-resync] failed after level drain", error);
       });
+      // After drain we explicitly load global progress. Thanks to the updated
+      // loadGlobalPrincipessa logic, this will also mark any current latest level_up
+      // event as seen, reducing the chance of stale "level up" bubbles replaying.
       void loadGlobalPrincipessa(false).catch((error) => {
         console.error("Failed to refresh Global Principessa after Level Drain", error);
       });
@@ -5539,6 +5677,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTimeoutReason(null);
     timeoutUntilRef.current = null;
     timeoutReasonRef.current = null;
+
     setUnlockedGalleryIds([]);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -7958,6 +8097,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               shameTop={shameTop}
               statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
               stats={stats}
+              topValuableInventories={topValuableInventories}
               username={username}
               usernameStyle={usernameStyle}
             />
@@ -8073,25 +8213,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
           {activePanel === "shop" && (
-            <CosmeticShop
-              coins={coins}
-              disabled={isTimeoutActive || isPreviewRestricted}
-              equippedCosmeticIds={effectiveEquippedCosmeticIds}
-              eventSpeechAvatarId={eventSpeechAvatarId}
-              ownedCosmeticIds={ownedCosmeticIds}
-              ownedTitleIds={ownedTitleIds}
-              pendingCosmeticIds={pendingTaskActionIds
-                .filter((id) => id.startsWith("cosmetic:"))
-                .map((id) => id.slice("cosmetic:".length))}
-              pendingTitleIds={pendingTaskActionIds
-                .filter((id) => id.startsWith("title:"))
-                .map((id) => id.slice("title:".length))}
-              premiumTitle={getPremiumShopTitle()}
-              shopItems={cosmeticItems}
-              onEquipCosmetic={handleEquipCosmetic}
-              onPurchaseCosmetic={handlePurchaseCosmetic}
-              onPurchaseTitle={handlePurchaseTitle}
-            />
+            <>
+              {/* Crates at the very top of the Cosmetics / shop area (as requested) */}
+              <CratesPanel
+                coins={coins}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                crates={availableCrates}
+                inventory={crateInventory}
+                pending={cratePending}
+                onOpenCrate={handleOpenCrate}
+                onSellItem={handleSellCrateItem}
+              />
+
+              {/* Original cosmetics shop below the crates */}
+              <CosmeticShop
+                coins={coins}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                equippedCosmeticIds={effectiveEquippedCosmeticIds}
+                eventSpeechAvatarId={eventSpeechAvatarId}
+                ownedCosmeticIds={ownedCosmeticIds}
+                ownedTitleIds={ownedTitleIds}
+                pendingCosmeticIds={pendingTaskActionIds
+                  .filter((id) => id.startsWith("cosmetic:"))
+                  .map((id) => id.slice("cosmetic:".length))}
+                pendingTitleIds={pendingTaskActionIds
+                  .filter((id) => id.startsWith("title:"))
+                  .map((id) => id.slice("title:".length))}
+                premiumTitle={getPremiumShopTitle()}
+                shopItems={cosmeticItems}
+                onEquipCosmetic={handleEquipCosmetic}
+                onPurchaseCosmetic={handlePurchaseCosmetic}
+                onPurchaseTitle={handlePurchaseTitle}
+              />
+            </>
           )}
           {activePanel === "pet" && isPetUnlocked && (
             <PetSection

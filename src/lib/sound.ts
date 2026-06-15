@@ -10,7 +10,10 @@ export type SoundEventName =
   | "cosmetic_purchased"
   | "jackpot_contribution"
   | "jackpot_win"
-  | "random_event_activation";
+  | "random_event_activation"
+  | "crate_reel_tick"
+  | "crate_reveal"
+  | "crate_legendary_reveal";
 
 export type SoundCategory = "ui" | "gameplay";
 
@@ -46,6 +49,14 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   jackpot_contribution: { category: "gameplay", src: "/sounds/jackpot-contribution.mp3" },
   jackpot_win: { category: "gameplay", src: "/sounds/jackpot-win.mp3" },
   random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3" },
+
+  // Crate opening sounds.
+  // These are pre-wired to the filenames you will place in public/sounds/.
+  // Just drop your new audio files with these exact names and they will work.
+  // (No need to edit sound.ts again)
+  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.6 },
+  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.85 },
+  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 1.0 },
 };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };

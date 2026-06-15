@@ -21,6 +21,7 @@ type StatsPanelProps = {
   usernameStyle?: CSSProperties;
   statValueStyle?: CSSProperties;
   equippedTitleName?: string;
+  topValuableInventories?: Array<{ username: string; value: number; usernameStyle?: CSSProperties }>;
 };
 
 export function StatsPanel({
@@ -29,6 +30,7 @@ export function StatsPanel({
   shameTop,
   statValueStyle,
   stats,
+  topValuableInventories = [],
   username,
   usernameStyle,
 }: StatsPanelProps) {
@@ -113,47 +115,81 @@ export function StatsPanel({
             : "Maximum leadership rank reached."}
         </p>
       </div>
-      <div className="col-span-2 rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-            Top 3 Leadership
-          </p>
-          <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
-        </div>
-        <div className="mt-3 space-y-2">
-          {leadershipTop.length > 0 ? (
-            leadershipTop.map((leader, index) => {
-              const isCurrentUser = leader.username === username;
+      <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Top 3 Leadership by Tribute Total */}
+        <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
+              Top 3 Leadership
+            </p>
+            <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            {leadershipTop.length > 0 ? (
+              leadershipTop.map((leader, index) => {
+                const isCurrentUser = leader.username === username;
 
-              return (
-                <div
-                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
-                    isCurrentUser
-                      ? "border-pink-200/30 bg-pink-500/10"
-                      : "border-white/10 bg-white/[0.035]"
-                  }`}
-                  key={leader.username}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">
-                      #{index + 1}{" "}
-                      <span style={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                        {leader.username}
-                      </span>
+                return (
+                  <div
+                    className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                      isCurrentUser
+                        ? "border-pink-200/30 bg-pink-500/10"
+                        : "border-white/10 bg-white/[0.035]"
+                    }`}
+                    key={leader.username}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-white">
+                        #{index + 1}{" "}
+                        <span style={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
+                          {leader.username}
+                        </span>
+                      </p>
+                      <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
+                    </div>
+                    <p className="shrink-0 text-sm font-black text-pink-100">
+                      <CoinAmount amount={leader.tributeTotal} iconSize={16} label="" />
                     </p>
-                    <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
                   </div>
-                  <p className="shrink-0 text-sm font-black text-pink-100">
-                    <CoinAmount amount={leader.tributeTotal} iconSize={16} label="" />
+                );
+              })
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
+                No leadership data yet.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Top 3 Valuable Inventories */}
+        <div className="rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">
+              Top 3 Valuable Inventories
+            </p>
+            <p className="text-xs font-semibold text-zinc-500">By Crate Value</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            {topValuableInventories.length > 0 ? (
+              topValuableInventories.map((entry, index) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 border-white/10 bg-white/[0.035]"
+                  key={entry.username}
+                >
+                  <p className="min-w-0 truncate text-sm font-black text-white">
+                    #{index + 1} {entry.username}
+                  </p>
+                  <p className="shrink-0 text-sm font-black text-amber-100">
+                    <CoinAmount amount={entry.value} iconSize={16} label="" />
                   </p>
                 </div>
-              );
-            })
-          ) : (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
-              No leadership data yet.
-            </p>
-          )}
+              ))
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
+                No valuable inventories yet.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       <div className="col-span-2 rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)]">

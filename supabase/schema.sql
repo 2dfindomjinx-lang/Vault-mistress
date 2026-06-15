@@ -1227,8 +1227,122 @@ create policy "Users can read jackpot contributions"
 drop policy if exists "Users can insert own jackpot contributions" on public.loyalty_jackpot_contributions;
 
 drop policy if exists "Users can read own irl tasks" on public.user_irl_tasks;
+
+-- ============================================================
+-- VAULT MISTRESS CRATE SYSTEM (V1)
+-- Collectibles only. No equip, no bonuses, no trading.
+-- Crates act as a coin sink.
+-- ============================================================
+
+-- Crate types (the things you buy and open, e.g. "Basic Crate")
+create table if not exists public.crate_types (
+  crate_type text primary key,
+  name text not null,
+  description text,
+  cost integer not null check (cost > 0),
+  enabled boolean not null default true,
+  metadata jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+-- Collectible item definitions (generic, future-proof)
+create table if not exists public.crate_items (
+  item_id text primary key,
+  name text not null,
+  description text,
+  image_url text,
+  rarity text not null,           -- e.g. common, uncommon, rare, epic, legendary
+  collection text,                -- e.g. "base-set", "throne-memories"
+  sell_value integer not null default 0,
+  enabled boolean not null default true,
+  metadata jsonb default '{}'::jsonb,  -- for variant info, tags etc. in future
+  created_at timestamptz default now()
+);
+
+-- Drop weights per crate (server uses this for weighted random)
+create table if not exists public.crate_drop_weights (
+  id uuid primary key default gen_random_uuid(),
+  crate_type text not null references public.crate_types(crate_type) on delete cascade,
+  item_id text not null references public.crate_items(item_id) on delete cascade,
+  weight integer not null default 100 check (weight > 0),
+  variant text not null default 'normal',
+  unique (crate_type, item_id, variant)
+);
+
+-- User inventory for collectibles (stacked by item + variant)
+create table if not exists public.user_crate_inventory (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  item_id text not null references public.crate_items(item_id) on delete cascade,
+  variant text not null default 'normal',
+  quantity integer not null default 1 check (quantity > 0),
+  acquired_at timestamptz not null default now(),
+  unique(user_id, item_id, variant)
+);
+
+-- Audit / history of opens (useful for future features, admin tools)
+create table if not exists public.crate_opens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  crate_type text not null,
+  item_id text,
+  variant text,
+  cost integer,
+  received_sell_value integer,
+  opened_at timestamptz default now()
+);
+
+-- Enable RLS
+alter table public.crate_types enable row level security;
+alter table public.crate_items enable row level security;
+alter table public.crate_drop_weights enable row level security;
+alter table public.user_crate_inventory enable row level security;
+alter table public.crate_opens enable row level security;
+
+-- Public read for crate definitions (so client can show shop)
+drop policy if exists "Authenticated can read enabled crate types" on public.crate_types;
+create policy "Authenticated can read enabled crate types"
+  on public.crate_types for select
+  to authenticated
+  using (enabled = true);
+
+drop policy if exists "Authenticated can read enabled crate items" on public.crate_items;
+create policy "Authenticated can read enabled crate items"
+  on public.crate_items for select
+  to authenticated
+  using (enabled = true);
+
+drop policy if exists "Authenticated can read crate drop weights" on public.crate_drop_weights;
+create policy "Authenticated can read crate drop weights"
+  on public.crate_drop_weights for select
+  to authenticated
+  using (true);
+
+-- Users can only see their own inventory
+drop policy if exists "Users can read own crate inventory" on public.user_crate_inventory;
+create policy "Users can read own crate inventory"
+  on public.user_crate_inventory for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Only service_role (admin client) can modify inventory and history (server authoritative)
+-- No user insert/update/delete policies on purpose.
+-- Additional protection via block_client_owned_table_mutations trigger (see security-hardening.sql).
+
+drop policy if exists "Users can read own crate history" on public.crate_opens;
+create policy "Users can read own crate history"
+  on public.crate_opens for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Note: All writes to these tables must go through server routes using the admin client.
+-- Existing is_privileged_db_context trigger (from security-hardening) will protect against direct client writes.
+drop policy if exists "Users can read own irl tasks"
+on public.user_irl_tasks;
+
 create policy "Users can read own irl tasks"
-  on public.user_irl_tasks for select
+  on public.user_irl_tasks
+  for select
   to authenticated
   using (auth.uid() = user_id);
 

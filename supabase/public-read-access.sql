@@ -260,6 +260,34 @@ as $$
   );
 $$;
 
+-- Safe public RPC for Top Valuable Inventories leaderboard.
+-- Server-side value = sum(quantity * sell_value from crate_items).
+-- Only returns user_id + value; API enriches with public profile data (username, avatar).
+-- SECURITY DEFINER so it can aggregate across users without exposing private RLS rows.
+create or replace function public.get_public_top_valuable_inventories(p_limit integer default 3)
+returns table (
+  user_id uuid,
+  value numeric
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    uci.user_id,
+    sum(uci.quantity * ci.sell_value)::numeric as value
+  from public.user_crate_inventory uci
+  join public.crate_items ci
+    on ci.item_id = uci.item_id
+   and ci.enabled = true
+  group by uci.user_id
+  order by value desc
+  limit greatest(1, least(coalesce(p_limit, 3), 10));
+$$;
+
+grant execute on function public.get_public_top_valuable_inventories(integer) to anon, authenticated;
+
 grant execute on function public.get_public_leaderboard(integer) to anon, authenticated;
 grant execute on function public.get_public_shame_board(integer) to anon, authenticated;
 grant execute on function public.get_public_recent_tribute_transactions(integer) to anon, authenticated;

@@ -36,32 +36,48 @@ export function FloatingDefneBubble({
   const displayMessage = sanitizeBubbleMessage(message);
   const [hiddenBubbleKey, setHiddenBubbleKey] = useState<number | string | null>(null);
   const visualTier = getGlobalPrincipessaVisualTier(globalPrincipessaLevel);
+
+  // Significantly stronger and more distinct visual progression so Level Drain
+  // power increases are actually visible and satisfying on the speech bubble.
   const visualClass =
     visualTier === "maximum"
-      ? "border-red-200/80 shadow-[0_0_60px_rgba(248,113,113,0.75),0_0_100px_rgba(236,72,153,0.45)]"
+      ? "border-red-300 shadow-[0_0_85px_rgba(248,113,113,0.95),0_0_150px_rgba(236,72,153,0.7),0_0_220px_rgba(248,113,113,0.5)] ring-2 ring-red-400/80"
       : visualTier === "boss-fire"
-        ? "border-red-300/70 shadow-[0_0_54px_rgba(239,68,68,0.62)]"
+        ? "border-red-300/90 shadow-[0_0_75px_rgba(239,68,68,0.88),0_0_120px_rgba(236,72,153,0.58)] ring-1 ring-red-400/70"
       : visualTier === "heavy-fire"
-          ? "border-orange-300/65 shadow-[0_0_48px_rgba(249,115,22,0.55)]"
-          : visualTier === "burning-border"
-            ? "border-orange-200/60 shadow-[0_0_42px_rgba(251,146,60,0.46)]"
-            : visualTier === "fire"
-              ? "border-amber-200/55 shadow-[0_0_40px_rgba(245,158,11,0.42)]"
-              : visualTier === "spark"
-                ? "border-yellow-200/55 shadow-[0_0_38px_rgba(250,204,21,0.38)]"
-                : visualTier === "energy"
-                  ? "border-cyan-200/50 shadow-[0_0_38px_rgba(34,211,238,0.34)]"
-                  : visualTier === "particles"
-                    ? "border-fuchsia-200/55 shadow-[0_0_38px_rgba(217,70,239,0.34)]"
-                    : visualTier === "neon-border"
-                      ? "border-pink-200/60 shadow-[0_0_40px_rgba(236,72,153,0.42)]"
-                      : visualTier === "pulse"
-                        ? "principessa-aura-sparkle border-pink-200/50 shadow-[0_0_36px_rgba(236,72,153,0.36)]"
-                        : visualTier === "strong-glow"
-                          ? "border-pink-200/45 shadow-[0_0_34px_rgba(236,72,153,0.38)]"
-                          : visualTier === "subtle-glow"
-                            ? "border-pink-200/40 shadow-[0_0_30px_rgba(236,72,153,0.32)]"
-                            : "border-pink-200/30 shadow-[0_0_34px_rgba(236,72,153,0.3)]";
+          ? "border-orange-300/90 shadow-[0_0_65px_rgba(249,115,22,0.82),0_0_100px_rgba(251,146,60,0.52)] ring-1 ring-orange-400/60"
+      : visualTier === "burning-border"
+          ? "border-orange-200/90 shadow-[0_0_58px_rgba(251,146,60,0.78),0_0_90px_rgba(249,115,22,0.48)]"
+      : visualTier === "fire"
+            ? "border-amber-300/90 shadow-[0_0_50px_rgba(245,158,11,0.75),0_0_78px_rgba(251,191,36,0.42)]"
+      : visualTier === "spark"
+              ? "border-yellow-300/85 shadow-[0_0_45px_rgba(250,204,21,0.72),0_0_68px_rgba(245,158,11,0.4)]"
+      : visualTier === "energy"
+                ? "border-cyan-300/80 shadow-[0_0_44px_rgba(103,232,249,0.68),0_0_65px_rgba(34,211,238,0.38)]"
+      : visualTier === "particles"
+                  ? "border-fuchsia-300/80 shadow-[0_0_42px_rgba(217,70,239,0.68),0_0_62px_rgba(192,38,211,0.38)]"
+      : visualTier === "neon-border"
+                    ? "border-pink-300/85 shadow-[0_0_44px_rgba(236,72,153,0.62),0_0_60px_rgba(217,70,239,0.35)]"
+      : visualTier === "pulse"
+                      ? "principessa-aura-sparkle border-pink-200/70 shadow-[0_0_40px_rgba(236,72,153,0.58),0_0_55px_rgba(217,70,239,0.3)]"
+      : visualTier === "strong-glow"
+                        ? "border-pink-200/60 shadow-[0_0_38px_rgba(236,72,153,0.52)]"
+      : visualTier === "subtle-glow"
+                          ? "border-pink-200/50 shadow-[0_0_30px_rgba(236,72,153,0.4)]"
+      : "border-pink-200/35 shadow-[0_0_24px_rgba(236,72,153,0.28)]";
+
+  // Make the Principessa avatar portrait also glow more as her global level rises.
+  // This makes the level progression feel much more impactful.
+  const portraitGlow =
+    visualTier === "maximum"
+      ? "shadow-[0_0_55px_rgba(248,113,113,0.9),0_0_90px_rgba(239,68,68,0.6)] ring-2 ring-red-400/80"
+      : visualTier === "boss-fire" || visualTier === "heavy-fire"
+        ? "shadow-[0_0_42px_rgba(239,68,68,0.75)] ring-1 ring-red-400/60"
+      : visualTier === "fire" || visualTier === "burning-border" || visualTier === "spark"
+        ? "shadow-[0_0_36px_rgba(249,115,22,0.65)] ring-1 ring-orange-400/50"
+      : visualTier === "energy" || visualTier === "particles"
+        ? "shadow-[0_0_32px_rgba(103,232,249,0.55)]"
+      : "shadow-[0_0_32px_rgba(236,72,153,0.44)]";
 
   useEffect(() => {
     const visibleDuration = Math.floor(Math.random() * 2001) + 4000;
@@ -90,7 +106,7 @@ export function FloatingDefneBubble({
       >
         <span className="relative z-10">{displayMessage}</span>
       </div>
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 shadow-[0_0_32px_rgba(236,72,153,0.44)] sm:h-22 sm:w-22">
+      <div className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}>
         <Image
           alt="Principessa avatar"
           className="object-cover object-top"

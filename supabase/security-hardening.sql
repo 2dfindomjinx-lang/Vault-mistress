@@ -126,3 +126,16 @@ create trigger block_client_coin_transactions_mutations_trigger
   before insert or update or delete on public.coin_transactions
   for each row
   execute function public.block_client_owned_table_mutations();
+
+-- Crate system tables: server-authoritative only (admin client writes)
+drop trigger if exists block_client_user_crate_inventory_mutations_trigger on public.user_crate_inventory;
+create trigger block_client_user_crate_inventory_mutations_trigger
+  before insert or update or delete on public.user_crate_inventory
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_crate_opens_mutations_trigger on public.crate_opens;
+create trigger block_client_crate_opens_mutations_trigger
+  before insert or update or delete on public.crate_opens
+  for each row
+  execute function public.block_client_owned_table_mutations();

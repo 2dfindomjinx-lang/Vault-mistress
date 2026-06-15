@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/public";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
+
 type CoinTransactionRow = {
   id: string;
   user_id: string;
@@ -37,7 +38,7 @@ export async function GET() {
   const supabase = createPublicSupabaseClient();
   const [{ data: transactions, error: transactionError }, { data: topRowsData, error: topRowsError }] =
     await Promise.all([
-      supabase.rpc("get_public_recent_tribute_transactions", { p_limit: 10 }),
+      supabase.rpc("get_public_recent_tribute_transactions", { p_limit: 5 }),
       supabase.rpc("get_public_top_tributors", { p_limit: 3 }),
     ]);
 

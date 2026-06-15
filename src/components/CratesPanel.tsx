@@ -1,0 +1,816 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import type { CrateRarity } from "@/lib/crates";
+import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER } from "@/lib/crates";
+import { CoinAmount } from "@/components/CoinAmount";
+import { emitSoundEvent } from "@/lib/sound";
+
+export type CrateDefinition = {
+  crate_type: string;
+  name: string;
+  description: string;
+  cost: number;
+};
+
+export type CrateInventoryItem = {
+  item_id: string;
+  name: string;
+  description: string;
+  image_url?: string | null;
+  rarity: CrateRarity;
+  collection?: string | null;
+  sell_value: number;
+  variant: string;
+  quantity: number;
+};
+
+type WonItem = {
+  item_id: string;
+  name: string;
+  description: string;
+  image_url?: string | null;
+  rarity: CrateRarity;
+  collection?: string | null;
+  sell_value: number;
+  variant: string;
+};
+
+type CratesPanelProps = {
+  coins: number;
+  disabled?: boolean;
+  crates: CrateDefinition[];
+  inventory: CrateInventoryItem[];
+  onOpenCrate: (crateType: string) => Promise<{ success: boolean; result?: { item: WonItem; newCoins: number } }>;
+  onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number }>;
+  pending?: boolean;
+};
+
+export function CratesPanel({
+  coins,
+  disabled = false,
+  crates,
+  inventory,
+  onOpenCrate,
+  onSellItem,
+  pending = false,
+}: CratesPanelProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"shop" | "inventory">("shop");
+  const [isOpening, setIsOpening] = useState(false);
+  const [wonItem, setWonItem] = useState<WonItem | null>(null);
+  const [openingCrate, setOpeningCrate] = useState<string | null>(null);
+  const [reelItems, setReelItems] = useState<WonItem[]>([]);
+  const [sellPending, setSellPending] = useState<string | null>(null);
+  const [lastOpenedCrateType, setLastOpenedCrateType] = useState<string | null>(null);
+  const [flippedCrate, setFlippedCrate] = useState<string | null>(null);
+
+  // Responsive: desktop = classic multi-item horizontal slide reel (5 visible)
+  // mobile = current single updating item style (kept as user requested)
+  const [isMobile, setIsMobile] = useState(false);
+  const [spinSequence, setSpinSequence] = useState<WonItem[]>([]);
+  const [reelProgress, setReelProgress] = useState(0);
+
+  // Square cards for better icon visibility (icons are square-designed).
+  // Exactly 5 visible during slide. Larger squares, same overall area.
+  const ITEM_WIDTH = 104;
+  const ITEM_GAP = 8; // matches gap-2
+  const FULL_SLOT = ITEM_WIDTH + ITEM_GAP;
+  const VISIBLE_COUNT = 5;
+  const CENTER_INDEX = 2; // middle of 5 (0-based)
+
+  // Compensation so that when progress = someIndex, that item is visually centered under the marker.
+  // Using approx center of the 680px container.
+  const CENTER_COMPENSATION = 340 - (ITEM_WIDTH / 2); // ~288
+
+  // For animation we use FULL_SLOT as the step
+  const SLOT_WIDTH = FULL_SLOT; // for progress calculations
+  const CENTER_OFFSET = CENTER_COMPENSATION; // for compatibility with previous naming in some places
+
+  // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  // Real-looking item pool for the spinning reel visuals.
+  // This lets us show actual item icons (from /crate-items/) during the slide instead of letters.
+  // Rarity is conveyed via the colored frame/background (getRarityColor).
+
+
+  // Mobile detection (affects only the reel visual, not logic)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Build a long ordered "tape" of items for the classic sliding reel.
+  // Uses ONLY the actual items from this crate's drop pool (the 39 real ones).
+  // Sampling is weighted by the original drop weights so the visual frequencies
+  // roughly reflect the real drop ratios (commons appear a lot, legendaries rarely).
+  // Progressive near-miss bias: early = mostly low tier, late = tension with
+  // occasional higher tier teases (mostly epic/rare misses, minority legendary misses)
+  // + the actual winner.
+  function buildSpinSequence(pool: WonItem[], winner: WonItem): WonItem[] {
+    const seq: WonItem[] = [];
+    const total = 52;
+    const winnerSlot = 43;
+
+    // Weighted picker that respects the configured weights (so visual "oranlarını yansıtacak şekilde")
+    const pickWeighted = (): WonItem => {
+      const p = pool as any[];
+      const totalW = p.reduce((sum, it) => sum + (it.weight || 1), 0);
+      let r = Math.random() * totalW;
+      for (const it of p) {
+        r -= (it.weight || 1);
+        if (r <= 0) return it as WonItem;
+      }
+      return p[p.length - 1] as WonItem;
+    };
+
+    for (let i = 0; i < total; i++) {
+      if (i === winnerSlot) {
+        seq.push({ ...winner });
+        continue;
+      }
+
+      const p = i / total;
+
+      // Base pick always respects real drop weights/ratios
+      let chosen: WonItem = pickWeighted();
+
+      // Progressive near-miss / drama layer:
+      // Early: mostly pool ratios (common/uncommon heavy).
+      // Late: tension via near-miss teases.
+      // Majority of near-miss teases are epic/rare, minority legendary.
+      // Very late still teases the actual winner sometimes.
+      const boostChance = Math.max(0, (p - 0.4) * 0.95);
+
+      if (Math.random() < boostChance) {
+        // Decide tease tier for near-miss feel (not always the absolute best)
+        const r = Math.random();
+        let targetTiers = [];
+        if (p > 0.78 && r < 0.12) {
+          // small chance for legendary tease very late (minority)
+          targetTiers = ["legendary"];
+        } else if (r < 0.72) {
+          // majority epic (sometimes rare) for epic misses
+          targetTiers = ["epic", "rare"];
+        } else {
+          targetTiers = ["rare", "uncommon"];
+        }
+
+        let candidates = pool.filter((it: any) =>
+          targetTiers.includes(it.rarity) ||
+          (p > 0.72 && it.item_id === winner.item_id)
+        );
+
+        if (candidates.length > 0) {
+          // Prefer the actual winner in very late phase for the final tease
+          if (p > 0.78 && Math.random() < 0.5) {
+            const winMatch = candidates.find((it: any) => it.item_id === winner.item_id);
+            if (winMatch) {
+              chosen = winMatch;
+            } else {
+              chosen = candidates[Math.floor(Math.random() * candidates.length)];
+            }
+          } else {
+            chosen = candidates[Math.floor(Math.random() * candidates.length)];
+          }
+        }
+      }
+
+      // Occasional winner near-miss tease in the final slowdown (classic CS feel)
+      // Reduced frequency so legendary misses aren't too common
+      if (p > 0.65 && p < 0.82 && Math.random() < 0.18) {
+        chosen = winner;
+      }
+
+      seq.push({ ...chosen });
+    }
+    return seq;
+  }
+
+  const openCrate = async (crate: CrateDefinition) => {
+    if (disabled || pending || isOpening || coins < crate.cost) return;
+
+    setIsOpening(true);
+    setOpeningCrate(crate.name);
+    setLastOpenedCrateType(crate.crate_type);
+    setWonItem(null);
+    setSpinSequence([]);
+    setReelProgress(0);
+    setReelItems([]);
+
+    // Build visual pool from the ACTUAL crate drops (principessa_case etc.)
+    // This ensures the reel ONLY shows the configured 39 items (with their real names, rarities, images).
+    // No more generic fakes or items outside the pool.
+    const crateDef = CRATE_TYPES[crate.crate_type];
+    let visualPool: WonItem[] = [];
+    if (crateDef?.drops?.length) {
+      visualPool = crateDef.drops
+        .map((d) => {
+          const s = SAMPLE_CRATE_ITEMS[d.item_id];
+          if (!s) return null;
+          return {
+            item_id: d.item_id,
+            name: s.name,
+            description: s.description || "",
+            image_url: s.image_url || `/crate-items/${d.item_id}.png`,
+            rarity: s.rarity,
+            sell_value: s.sell_value || 0,
+            variant: d.variant || "normal",
+            weight: d.weight || 1,  // carry original drop weight for realistic visual sampling
+          } as any; // extra weight for sampling, not in base WonItem type
+        })
+        .filter((x): x is WonItem => x !== null);
+    }
+
+    // Fallback (should rarely happen)
+    if (visualPool.length === 0) {
+      visualPool = Array.from({ length: 32 }).map((_, i) => ({
+        item_id: `fallback-${i}`,
+        name: "Mystery Item",
+        description: "",
+        rarity: "common" as CrateRarity,
+        sell_value: 0,
+        variant: "normal",
+        image_url: null,
+      }));
+    }
+
+    // Visual "fake" reel for animation: sample from the real droppables
+    const fakeReel: WonItem[] = Array.from({ length: 32 }).map(() => {
+      const pick = visualPool[Math.floor(Math.random() * visualPool.length)];
+      return { ...pick };
+    });
+
+    setReelItems(fakeReel);
+
+    try {
+      const res = await onOpenCrate(crate.crate_type);
+
+      if (res.success && res.result) {
+        const realItem = res.result.item;
+
+        // Prepare long horizontal tape for the slide using the REAL drop pool (39 items only)
+        const sequence = buildSpinSequence(visualPool, realItem);
+        setSpinSequence(sequence);
+
+        // Run the reel animation (now drives slide progress + keeps mobile single view happy)
+        await runCrateAnimation(fakeReel, realItem, sequence);
+
+        setWonItem(realItem);
+        // Parent will have already updated coins via response
+      } else {
+        alert(res?.result ? "Something went wrong opening the crate." : "Crate open failed.");
+      }
+    } catch (e) {
+      console.error("Crate open error", e);
+      alert("Failed to open crate.");
+    } finally {
+      setIsOpening(false);
+      setOpeningCrate(null);
+    }
+  };
+
+  async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[]) {
+    // Proper optimized animation using requestAnimationFrame for true smooth 60fps+ slide.
+    // Time-based easing over ~8.2 seconds. Direct ref.style.transform updates (no per-frame React re-renders of the strip).
+    // Sounds scheduled separately to preserve the dramatic slowing "reel tick" rhythm without affecting visual smoothness.
+    // The pre-built sequence already has near-miss bias (mostly epic/rare teases, few legendary) + winner placement for classic case opening feel.
+    return new Promise<void>((resolve) => {
+      const duration = 8200; // ms — solid 8+ seconds as requested
+      const startTime = performance.now();
+
+      // Winner placement from buildSpinSequence.
+      // We drive progress so that the item at WINNER_SLOT is the one centered at the end.
+      const WINNER_SLOT = 43;
+      const TARGET_PROGRESS = WINNER_SLOT; // the logical index we want under the marker at the end
+
+      // Sound scheduler: mimics the old variable-delay ticks for authentic feel (independent of visual rAF)
+      let soundTick = 0;
+      const maxSoundTicks = 65;
+      const scheduleSoundTick = (delay: number) => {
+        setTimeout(() => {
+          if (soundTick < maxSoundTicks) {
+            emitSoundEvent("crate_reel_tick");
+            soundTick++;
+            const p = soundTick / maxSoundTicks;
+            const nextDelay = Math.floor(38 + (240 - 38) * Math.pow(p, 1.7));
+            scheduleSoundTick(nextDelay);
+          }
+        }, delay);
+      };
+      scheduleSoundTick(38); // kick off the rhythmic ticks
+
+      // Pure rAF visual animation — buttery smooth motion
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        const p = Math.min(1, elapsed / duration);
+
+        // IMPORTANT: fast start, strong slowdown at the end (classic case opening feel)
+        // Early: strip flies by quickly. Late: crawls for near-miss suspense, then stops.
+        // Using ease-out on the reel progress (opposite of ease-in).
+        const eased = 1 - Math.pow(1 - p, 1.85);
+        const newProg = Math.min(TARGET_PROGRESS, eased * TARGET_PROGRESS);
+
+        // Direct DOM update = high FPS, no React overhead during spin
+        if (stripRef.current) {
+          const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
+          stripRef.current.style.transform = `translateX(${x}px)`;
+        }
+
+        // Very light state for mobile single-view sampling (throttled)
+        if (isMobile && soundTick % 3 === 0) {
+          const approxCenter = Math.max(0, Math.min(sequence.length - 1, Math.round(newProg)));
+          const displayForMobile = sequence[approxCenter] || realItem;
+          const newReel = [...fakeReel];
+          newReel[newReel.length - 1] = displayForMobile;
+          setReelItems(newReel);
+          setReelProgress(newProg);
+        }
+
+        if (p < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // Final settle - force exact centering of the winner (the item we placed at WINNER_SLOT in the sequence)
+          // This guarantees that the item visually under the marker at the end of the spin is the exact real result.
+          const winnerIndexInSeq = WINNER_SLOT;
+          if (stripRef.current) {
+            const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
+            stripRef.current.style.transform = `translateX(${exactX}px)`;
+          }
+
+          // Ensure mobile shows the winner
+          const finalReel = [...fakeReel];
+          finalReel[finalReel.length - 1] = realItem;
+          setReelItems(finalReel);
+          setReelProgress(TARGET_PROGRESS);
+
+          // Reveal sound (after the slide has stopped)
+          setTimeout(() => {
+            if (realItem.rarity === "legendary") {
+              emitSoundEvent("crate_legendary_reveal");
+            } else {
+              emitSoundEvent("crate_reveal");
+            }
+            resolve();
+          }, 280);
+        }
+      };
+
+      // Prime the strip at starting position
+      if (stripRef.current) {
+        stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
+      }
+
+      requestAnimationFrame(animate);
+    });
+  }
+
+  const sellItem = async (item: CrateInventoryItem, qty: number = 1) => {
+    if (disabled || sellPending) return;
+
+    // Only show confirmation for Legendary items
+    if (item.rarity === "legendary") {
+      const confirmSell = window.confirm(
+        `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?`
+      );
+      if (!confirmSell) return;
+    }
+
+    setSellPending(item.item_id + item.variant);
+
+    try {
+      const res = await onSellItem(item.item_id, item.variant, qty);
+      if (res.success) {
+        emitSoundEvent("cosmetic_purchased");
+        // Parent component should refetch or update state
+      } else {
+        alert("Sale failed. You may no longer own this item.");
+      }
+    } catch (e) {
+      console.error("Sell error", e);
+      alert("Failed to sell item.");
+    } finally {
+      setSellPending(null);
+    }
+  };
+
+  const closeReveal = () => {
+    setWonItem(null);
+    setReelItems([]);
+    setSpinSequence([]);
+    setReelProgress(0);
+    setLastOpenedCrateType(null);
+  };
+
+  const getDropRates = (crateType: string) => {
+    const def = CRATE_TYPES[crateType];
+    if (!def?.drops?.length) return [];
+    const total = def.drops.reduce((sum, d) => sum + (d.weight || 1), 0);
+    const rarityIndex: Record<string, number> = RARITY_ORDER.reduce((acc, r, i) => {
+      acc[r] = i;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return def.drops
+      .map((d) => {
+        const info = SAMPLE_CRATE_ITEMS[d.item_id];
+        if (!info) return null;
+        return {
+          item_id: d.item_id,
+          name: info.name,
+          rarity: info.rarity,
+          percentage: total > 0 ? ((d.weight || 1) / total) * 100 : 0,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => {
+        const ra = rarityIndex[a.rarity] ?? 99;
+        const rb = rarityIndex[b.rarity] ?? 99;
+        if (ra !== rb) return ra - rb; // common first, then uncommon, rare, epic, legendary
+        return b.percentage - a.percentage; // within rarity, highest probability first
+      });
+  };
+
+  return (
+    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Cosmetics • Collectibles</p>
+          <h2 className="text-3xl font-black">Vault Mistress Crates</h2>
+        </div>
+        <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
+          <CoinAmount amount={coins} iconSize={15} label="coins" />
+        </p>
+      </div>
+
+      {/* When opening a crate we give the ENTIRE remaining area to the opening experience (no tabs, no grids, full focus).
+          After the user claims/closes it returns to normal crate view. */}
+      {!isOpening && !wonItem && (
+        <>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            Open crates to collect rare memorabilia. Duplicates stack. Sell anything you don&apos;t want for a coin return.
+            This is a pure collection &amp; coin sink system.
+          </p>
+
+          {/* Sub-tabs */}
+          <div className="mt-6 flex gap-2 border-b border-white/10 pb-2">
+            {(["shop", "inventory"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveSubTab(tab)}
+                className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
+                  activeSubTab === tab
+                    ? "bg-white/10 text-white"
+                    : "text-pink-100/70 hover:text-pink-100"
+                }`}
+                disabled={isOpening || !!sellPending}
+              >
+                {tab === "shop" ? "Crates" : "Inventory"}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* CRATES / SHOP - hidden during opening for full focus on the reel */}
+      {activeSubTab === "shop" && !isOpening && !wonItem && (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {crates.length === 0 && (
+            <p className="col-span-full text-sm text-zinc-400">No crates available right now.</p>
+          )}
+
+          {crates.map((crate) => {
+            const canAfford = coins >= crate.cost;
+            const isThisOpening = openingCrate === crate.crate_type;
+            const isFlipped = flippedCrate === crate.crate_type;
+            const dropRates = getDropRates(crate.crate_type);
+
+            return (
+              <div key={crate.crate_type} className="[perspective:1000px]">
+                <div
+                  className={`relative h-[220px] w-full rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
+                  style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', willChange: 'transform' }}
+                >
+                  {/* FRONT - normal crate card */}
+                  <div
+                    className="absolute inset-0 p-4 flex flex-col backface-hidden"
+                    style={{ backfaceVisibility: 'hidden', zIndex: isFlipped ? 0 : 2 }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCrate(crate.crate_type);
+                      }}
+                      className="absolute top-2 right-2 z-20 w-5 h-5 rounded-full bg-black/40 text-white/70 hover:text-white text-[11px] leading-none flex items-center justify-center border border-white/20"
+                      title="View drop rates"
+                    >
+                      ?
+                    </button>
+
+                    <div className="flex items-start justify-between pr-8">
+                      <div>
+                        <p className="text-base font-black text-white">{crate.name}</p>
+                        <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{crate.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-pink-100/70">Cost</div>
+                        <div className="font-black text-pink-200">
+                          <CoinAmount amount={crate.cost} iconSize={13} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1" />
+
+                    <button
+                      onClick={() => openCrate(crate)}
+                      disabled={disabled || pending || isOpening || !!wonItem || !canAfford}
+                      className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                    >
+                      {isThisOpening ? "OPENING..." : canAfford ? "Open Crate" : "Not enough coins"}
+                    </button>
+                  </div>
+
+                  {/* BACK - drop rates with internal scroll (area fixed) */}
+                  <div
+                    className="absolute inset-0 p-4 flex flex-col backface-hidden"
+                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', zIndex: isFlipped ? 2 : 0 }}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCrate(null);
+                      }}
+                      className="absolute top-2 right-2 z-20 w-5 h-5 rounded-full bg-black/40 text-white/70 hover:text-white text-[11px] leading-none flex items-center justify-center border border-white/20"
+                      title="Close"
+                    >
+                      ✕
+                    </button>
+
+                    <div className="text-center">
+                      <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
+                      <div className="text-sm font-semibold mt-0.5 truncate">{crate.name}</div>
+                    </div>
+
+                    <div className="mt-2 flex-1 overflow-y-auto pr-1 text-[11px] space-y-1 bg-black/30 rounded p-1">
+                      {dropRates.length === 0 ? (
+                        <div className="text-center text-zinc-400 py-4 text-xs">No rates available</div>
+                      ) : (
+                        dropRates.map((rate: any) => (
+                          <div
+                            key={rate.item_id}
+                            className={`flex items-center justify-between rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
+                          >
+                            <span className="truncate font-medium text-white/90">{rate.name}</span>
+                            <span className="font-mono text-[10px] opacity-80 tabular-nums ml-2">
+                              {rate.percentage.toFixed(2)}%
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="text-[9px] text-center mt-1 opacity-50">
+                      {dropRates.length} items • Scroll for all
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* INVENTORY - hidden during opening for full focus on the reel */}
+      {activeSubTab === "inventory" && !isOpening && !wonItem && (
+        <div className="mt-6">
+          {inventory.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-400">
+              Your inventory is empty. Open some crates to start hoarding.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {inventory.map((item) => {
+                const key = item.item_id + item.variant;
+                const isSelling = sellPending === key;
+
+                return (
+                  <article
+                    key={key}
+                    className={`rounded-[1.35rem] border p-4 ${getRarityColor(item.rarity)}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            className="h-full w-full object-cover transition-transform hover:scale-110"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-black/70 text-3xl" aria-hidden>
+                            {item.rarity === "legendary" ? "👑" : "📦"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate font-black text-white">{item.name}</p>
+                          <span className="rounded bg-black/40 px-1.5 py-px text-[10px] font-mono uppercase tracking-widest">
+                            {item.rarity}
+                          </span>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-xs text-pink-100/80">{item.description}</p>
+
+                        <div className="mt-3 flex items-center justify-between text-xs">
+                          <div>
+                            Qty: <span className="font-mono text-white">{item.quantity}</span>
+                          </div>
+                          <div className="text-right">
+                            Sell for <span className="font-bold text-emerald-300">{item.sell_value}</span> each
+                          </div>
+                        </div>
+
+                        {item.quantity > 1 ? (
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              onClick={() => sellItem(item, 1)}
+                              disabled={disabled || isSelling || item.quantity < 1}
+                              className="flex-1 rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
+                            >
+                              {isSelling ? "SELLING..." : `Sell 1 for ${item.sell_value} coins`}
+                            </button>
+                            <button
+                              onClick={() => sellItem(item, item.quantity)}
+                              disabled={disabled || isSelling || item.quantity < 1}
+                              className="flex-1 rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
+                            >
+                              {isSelling ? "SELLING..." : `Sell All (${item.quantity}) for ${item.sell_value * item.quantity} coins`}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => sellItem(item, 1)}
+                            disabled={disabled || isSelling || item.quantity < 1}
+                            className="mt-3 w-full rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
+                          >
+                            {isSelling ? "SELLING..." : `Sell for ${item.sell_value} coins`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* INLINE CRATE OPENING REEL (no more popup/overlay for desktop) */}
+      {/* Desktop: classic multi-item horizontal slide showing 5 items at once + center marker */}
+      {/* Mobile: single updating card (current style kept as requested) */}
+      {(isOpening || wonItem) && (
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 relative">
+          {wonItem && (
+            <button
+              onClick={closeReveal}
+              className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full border border-white/30 bg-black/50 text-white text-xl hover:bg-white/20 hover:text-red-400 transition z-30"
+              title="Back to Crates"
+            >
+              ✕
+            </button>
+          )}
+          <div className="mb-3 text-center">
+            <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
+            <h3 className="text-xl font-black text-white">Reel is spinning…</h3>
+          </div>
+
+          {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).
+              Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same. */}
+          {!isMobile && spinSequence.length > 0 && (
+            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 160 }}>
+              {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
+              <div
+                ref={stripRef}
+                className="absolute top-2 flex h-[108px] gap-2 will-change-transform"
+                style={{ transform: `translateX(${CENTER_COMPENSATION}px)` }}
+              >
+                {spinSequence.map((item, idx) => {
+                  // Square card + actual item icon (png) inside.
+                  // Rarity only via colored border + bg tint (getRarityColor). No letters.
+                  const isWinnerSlot = !!wonItem && item.item_id === wonItem.item_id;
+                  return (
+                    <div
+                      key={idx}
+                      className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
+                    >
+                      <img
+                        src={item.image_url || `/crate-items/${item.item_id}.png`}
+                        alt={item.name}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const t = e.target as HTMLImageElement;
+                          t.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Fixed center selector / pointer (frames the middle square) */}
+              <div className="pointer-events-none absolute left-1/2 top-1.5 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
+            </div>
+          )}
+
+          {/* MOBILE: single updating item (the previous popup content, now inline & contained) */}
+          {isMobile && (
+            <div className="my-2 h-28 overflow-hidden rounded-2xl border border-white/10 bg-black/80 p-3">
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                {reelItems.length > 0 && (
+                  <div className={`inline-block rounded-2xl px-6 py-3 text-base font-bold transition-all ${getRarityColor(reelItems[reelItems.length - 1]?.rarity || "common")}`}>
+                    {reelItems[reelItems.length - 1]?.name || "???"}
+                    <div className="mt-0.5 text-[10px] opacity-70">{reelItems[reelItems.length - 1]?.rarity?.toUpperCase()}</div>
+                  </div>
+                )}
+                {isOpening && reelItems.length === 0 && (
+                  <div className="text-pink-100/60 text-sm">Spinning…</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Won item reveal - shown inline under the (stopped) reel, no popup */}
+          {wonItem && (
+            <div className="mt-4 text-center">
+              <div className={`mx-auto mb-3 inline-block overflow-hidden rounded-3xl border-[4px] shadow-xl ${getRarityColor(wonItem.rarity)}`}>
+                {wonItem.image_url ? (
+                  <img src={wonItem.image_url} alt={wonItem.name} className="h-32 w-32 object-cover" />
+                ) : (
+                  <div className="flex h-32 w-32 items-center justify-center bg-black/70 text-6xl">
+                    {wonItem.rarity === "legendary" ? "👑" : "📦"}
+                  </div>
+                )}
+              </div>
+
+              <div className="text-2xl font-black text-white">{wonItem.name}</div>
+              <p className="mx-auto mt-1 max-w-xs text-sm text-zinc-300">{wonItem.description}</p>
+
+              <div className="mt-4 flex justify-center">
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      if (wonItem.rarity === "legendary") {
+                        const confirmSell = window.confirm(
+                          `Sell "${wonItem.name}" for ${wonItem.sell_value} coins?`
+                        );
+                        if (!confirmSell) return;
+                      }
+                      await onSellItem(wonItem.item_id, wonItem.variant, 1);
+                      emitSoundEvent("cosmetic_purchased");
+                      closeReveal();
+                    }}
+                    className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
+                  >
+                    Sell for {wonItem.sell_value} coins
+                  </button>
+                  <button
+                    onClick={() => {
+                      const crateToReopen = crates.find((c) => c.crate_type === lastOpenedCrateType);
+                      closeReveal();
+                      if (crateToReopen) {
+                        openCrate(crateToReopen);
+                      }
+                    }}
+                    disabled={
+                      disabled ||
+                      pending ||
+                      !lastOpenedCrateType ||
+                      coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0)
+                    }
+                    className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                  >
+                    Open Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isOpening && !wonItem && (
+            <p className="mt-3 text-center text-xs text-pink-100/50">
+              The result was decided server-side the moment your coins were accepted.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
