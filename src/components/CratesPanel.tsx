@@ -138,8 +138,11 @@ export function CratesPanel({
   // roughly reflect the real drop ratios (commons appear a lot, legendaries rarely).
   // Progressive near-miss bias: early = mostly low tier, late = tension with
   // occasional higher tier teases.
-  // For blessing_case: legendary near-misses are intentionally more frequent (high tension due to 0.6% base rate).
-  // For regular cases: mostly epic/rare misses, minority legendary misses + the actual winner.
+  // For blessing_case: legendary near-misses more frequent (high tension due to low base rate).
+  // For premium_case: legendary near-misses *extremely* frequent (almost every open has 1-2 box kenarda leg tease).
+  //   This is PURELY VISUAL / animation only. Does not affect real drop rates or results at all
+  //   (server already decided the winner before building the sequence).
+  // For regular: majority epic/rare misses, minority legendary.
   function buildSpinSequence(pool: WonItem[], winner: WonItem, crateType: string = 'principessa_case'): WonItem[] {
     const seq: WonItem[] = [];
     const total = 52;
@@ -169,21 +172,34 @@ export function CratesPanel({
       let chosen: WonItem = pickWeighted();
 
       const isBlessing = crateType === 'blessing_case';
+      const isPremium = crateType === 'premium_case';
 
       // Progressive near-miss / drama layer:
       // Early: mostly pool ratios (common/uncommon heavy).
       // Late: tension via near-miss teases.
-      // For blessing_case: legendary near-misses are more frequent (stronger tension, high-risk case).
+      // For blessing_case: legendary near-misses more frequent.
+      // For premium_case: legendary near-misses extremely frequent (neredeyse her açışta, 1-2 box kenarda).
+      //   Pure visual only — real result already decided server-side, no drop rate impact.
       // For regular: majority epic/rare misses, minority legendary.
       // Very late still teases the actual winner sometimes.
-      const boostMult = isBlessing ? 1.2 : 0.95;
-      const boostChance = Math.max(0, (p - 0.4) * boostMult);
+      const boostMult = isPremium ? 1.6 : (isBlessing ? 1.2 : 0.95);
+      const boostChance = Math.max(0, (p - 0.35) * boostMult);
 
       if (Math.random() < boostChance) {
         // Decide tease tier for near-miss feel
         const r = Math.random();
         let targetTiers = [];
-        if (isBlessing) {
+        if (isPremium) {
+          // Premium case: legendary near-miss *very* frequent (almost every late phase)
+          // 1-2 boxes before winner for "kenarda" feel (handled below too)
+          if (p > 0.55) {
+            targetTiers = ["legendary"];
+          } else if (r < 0.65) {
+            targetTiers = ["legendary", "epic"];
+          } else {
+            targetTiers = ["epic", "rare"];
+          }
+        } else if (isBlessing) {
           // Blessing case: legendary misses more frequent, especially mid-late
           if (p > 0.65 && r < 0.38) {
             targetTiers = ["legendary"];
@@ -227,9 +243,22 @@ export function CratesPanel({
 
       // Occasional winner near-miss tease in the final slowdown (classic CS feel)
       // For blessing_case: higher frequency so legendary misses feel more common
-      const winnerTeaseChance = isBlessing ? 0.32 : 0.18;
+      // For premium_case: much higher to create extra tension / near-miss drama
+      const winnerTeaseChance = isPremium ? 0.72 : (isBlessing ? 0.32 : 0.18);
       if (p > 0.65 && p < 0.82 && Math.random() < winnerTeaseChance) {
         chosen = winner;
+      }
+
+      // Premium-case specific: force legendary near-miss exactly 1 or 2 slots before the winner.
+      // This guarantees "1 veya 2 box kenarda" legendary miss on most opens.
+      // Purely visual (post real-roll), does not touch drop rates or the actual result.
+      if (isPremium && (i === winnerSlot - 1 || i === winnerSlot - 2)) {
+        if (Math.random() < 0.88) {  // ~88% per slot → almost every open will have close leg tease
+          const legItems = (pool as any[]).filter((it: any) => it.rarity === "legendary");
+          if (legItems.length > 0) {
+            chosen = legItems[Math.floor(Math.random() * legItems.length)];
+          }
+        }
       }
 
       seq.push({ ...chosen });
@@ -924,7 +953,7 @@ export function CratesPanel({
                 {spinSequence.map((item, idx) => {
                   // Square card + actual item icon (png) inside.
                   // Rarity only via colored border + bg tint (getRarityColor). No letters.
-                  const isWinnerSlot = wonItems.length > 0 && wonItems.some(w => w.item_id === item.item_id);
+                  const isWinnerSlot = wonItems.length > 0 && idx === 43; // exact winner position in the tape (precise highlight on landed item, even with near-miss teases around it)
                   return (
                     <div
                       key={idx}
