@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     }));
 
     let rolled;
-    const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 9;
+    const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
     const isBlessingPity = crateType === "blessing_case" && blessingPity >= 149;
 
     if (isPrincipessaPity) {

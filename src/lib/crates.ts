@@ -145,6 +145,50 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       { item_id: "principessas-pet", weight: 100 },
     ],
   },
+  
+  premium_case: {
+    name: "Premium Case",
+    description: "A balanced case with reliable rewards, enhanced odds, and the chance to unlock truly valuable treasures.",
+    cost: 5000,
+    enabled: true,
+    drops: [
+      // === COMPLETE LIST OF ALL 39 ITEMS (matching your 39 images) ===
+      // Weights distributed for fair but exciting drops (higher for common, low for legendary)
+      // Total weight = 10000
+
+      // Common %12.5
+      { item_id: "classic-maid-outfit", weight: 625 },
+      { item_id: "classic-corset", weight: 625 },
+		
+	  // Uncommon %45
+	  { item_id: "pink-maid-outfit", weight: 1000 },
+	  { item_id: "classic-bunnysuit", weight:1000 },
+	  { item_id: "classic-thong", weight: 1250 },
+	  { item_id: "pink-corset", weight: 1250 },
+	  
+	  //Rare %30
+	  { item_id: "latex-maid-outfit", weight: 500 },
+	  { item_id: "pink-bunnysuit", weight: 500 },
+	  { item_id: "fishnet-croptop", weight: 500 },
+	  { item_id: "fishnet-stockings", weight: 500 },
+	  { item_id: "pink-thong", weight: 500 },
+	  { item_id: "pink-sheer-bikini", weight: 500 },
+	  
+	  // Epic %10
+	  { item_id: "gorgeous-bunnysuit", weight: 200 },
+	  { item_id: "fishnet-leotard", weight: 200 },
+	  { item_id: "gorgeous-thong", weight: 200 },
+	  { item_id: "gorgeous-corset", weight: 200 },
+	  { item_id: "gorgeous-sheer-bikini", weight: 200 },
+	  
+      // Legendary %2.5
+	  { item_id: "vibrator", weight: 50 },
+      { item_id: "shiny-maid-outfit", weight: 50 },
+      { item_id: "shiny-bunnysuit", weight: 50 },
+      { item_id: "shiny-thong", weight: 50 },
+      { item_id: "shiny-corset", weight: 50 },
+    ],
+  },
 };
 
 // Sample item catalog (in real V1 you would INSERT these into crate_items table)
@@ -220,6 +264,21 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "pet",
     sell_value: 125,
   },
+  
+  "classic-maid-outfit": {
+    name: "Classic Maid Outfit",
+    description: "Traditional black and white French maid dress complete with apron and frills. Service with a curtsy.",
+    rarity: "common",
+    collection: "maid",
+    sell_value: 250,
+  },
+  "classic-corset": {
+    name: "Classic Corset",
+    description: "Structured black corset. Breathe less, look better.",
+    rarity: "common",
+    collection: "classic",
+    sell_value: 150,
+  },
 
   // Uncommon
   "classic-buttplug": {
@@ -292,6 +351,34 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "classic",
     sell_value: 700,
   },
+  "pink-maid-outfit": {
+    name: "Pink Maid Outfit",
+    description: "A pastel pink take on the classic maid uniform. Extra cute, extra embarrassing.",
+    rarity: "uncommon",
+    collection: "maid",
+    sell_value: 1000,
+  },
+  "classic-bunnysuit": {
+    name: "Classic Bunnysuit",
+    description: "The iconic strapless bunny leotard. Ears sold separately, shame included.",
+    rarity: "uncommon",
+    collection: "bunny",
+    sell_value: 1000,
+  },
+  "classic-thong": {
+    name: "Classic Thong",
+    description: "Minimal black thong. Less fabric, more exposure.",
+    rarity: "uncommon",
+    collection: "classic",
+    sell_value: 900,
+  },
+  "pink-corset": {
+    name: "Pink Corset",
+    description: "Playful pink corset that cinches you in all the right (wrong) ways.",
+    rarity: "uncommon",
+    collection: "pink",
+    sell_value: 700,
+  },
 
   // Rare
   "cute-thighhighs": {
@@ -336,6 +423,48 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "pet",
     sell_value: 2600,
   },
+  "latex-maid-outfit": {
+    name: "Latex Maid Outfit",
+    description: "Shiny black latex version of the maid dress. Strict, tight, and perfect for cleaning on your knees.",
+    rarity: "rare",
+    collection: "maid",
+    sell_value: 3500,
+  },
+  "pink-bunnysuit": {
+    name: "Pink Bunnysuit",
+    description: "Soft pink bunny girl leotard. Hop to it, pet.",
+    rarity: "rare",
+    collection: "bunny",
+    sell_value: 3500,
+  },
+  "fishnet-croptop": {
+    name: "Fishnet Croptop",
+    description: "Open-weave fishnet crop top. Barely covers anything.",
+    rarity: "rare",
+    collection: "fishnet",
+    sell_value: 3000,
+  },
+  "fishnet-stockings": {
+    name: "Fishnet Stockings",
+    description: "Classic diamond fishnet thigh highs. The perfect accessory for any outfit.",
+    rarity: "rare",
+    collection: "fishnet",
+    sell_value: 2900,
+  },
+  "pink-thong": {
+    name: "Pink Thong",
+    description: "Bright pink micro thong. Cute and cruelly revealing.",
+    rarity: "rare",
+    collection: "pink",
+    sell_value: 3000,
+  },
+   "pink-sheer-bikini": {
+    name: "Pink Sheer Bikini",
+    description: "Flirty sheer pink bikini. The color draws the eye, the fabric hides nothing.",
+    rarity: "rare",
+    collection: "sheer",
+    sell_value: 3250,
+  },
 
   // Epic
   "gorgeous-panties": {
@@ -379,6 +508,41 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "epic",
     collection: "gorgeous",
     sell_value: 5750,
+  },
+  "gorgeous-bunnysuit": {
+    name: "Gorgeous Bunnysuit",
+    description: "Luxurious iridescent purple bunny suit with gem accents. High-class humiliation.",
+    rarity: "epic",
+    collection: "bunny",
+    sell_value: 11000,
+  },
+  "fishnet-leotard": {
+    name: "Fishnet Leotard",
+    description: "Full-body black fishnet bodysuit with long sleeves. Every inch on display.",
+    rarity: "epic",
+    collection: "fishnet",
+    sell_value: 11000,
+  },
+  "gorgeous-thong": {
+    name: "Gorgeous Thong",
+    description: "Delicate and expensive-looking thong. You don't deserve to wear something this nice.",
+    rarity: "epic",
+    collection: "gorgeous",
+    sell_value: 8000,
+  },
+  "gorgeous-corset": {
+    name: "Gorgeous Corset",
+    description: "Elegant and expensive corset. Pure luxury you can barely afford to wear.",
+    rarity: "epic",
+    collection: "gorgeous",
+    sell_value: 8000,
+  },
+  "gorgeous-sheer-bikini": {
+    name: "Gorgeous Sheer Bikini",
+    description: "Delicate sheer bikini set. Almost see-through luxury.",
+    rarity: "epic",
+    collection: "sheer",
+    sell_value: 10000,
   },
 
   // Legendary
@@ -430,6 +594,42 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "legendary",
     collection: "special",
     sell_value: 40000,
+  },
+  
+  "vibrator": {
+    name: "Vibrator",
+    description: "A sleek wand-style massager. Hands-free pleasure, or punishment.",
+    rarity: "legendary",
+    collection: "toy",
+    sell_value: 45000,
+  },
+  "shiny-maid-outfit": {
+    name: "Shiny Maid Outfit",
+    description: "Glossy, eye-catching maid uniform. You’ll sparkle while you serve.",
+    rarity: "legendary",
+    collection: "maid",
+    sell_value: 45000,
+  },
+  "shiny-bunnysuit": {
+    name: "Shiny Bunnysuit",
+    description: "Ultra glossy purple bunny leotard. Reflective, tight, and impossible to ignore.",
+    rarity: "legendary",
+    collection: "bunny",
+    sell_value: 45000,
+  },
+  "shiny-thong": {
+    name: "Shiny Thong",
+    description: "Glossy, skin-tight shiny thong. Every curve catches the light.",
+    rarity: "legendary",
+    collection: "shiny",
+    sell_value: 45000,
+  },
+  "shiny-corset": {
+    name: "Shiny Corset",
+    description: "High-gloss corset that hugs and shines. Restriction has never looked so polished.",
+    rarity: "legendary",
+    collection: "shiny",
+    sell_value: 45000,
   },
 };
 

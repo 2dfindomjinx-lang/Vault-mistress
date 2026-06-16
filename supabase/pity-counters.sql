@@ -10,7 +10,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS blessing_case_legendary_pity_count integer NOT NULL DEFAULT 0;
 
 COMMENT ON COLUMN public.profiles.principessa_case_bad_luck_count IS
-  'Consecutive Common/Uncommon opens on Principessa Case. When >=9 the next open is forced Epic (bad-luck protection). Reset on Rare+ or after guarantee.';
+  'Consecutive Common/Uncommon opens on Principessa Case. When >=4 the next open is forced Epic (bad-luck protection). Reset on Rare+ or after guarantee.';
 
 COMMENT ON COLUMN public.profiles.blessing_case_legendary_pity_count IS
   'Number of 0.6% Blessing Case opens since the last Legendary (natural or guaranteed). When >=149 the next open is forced Legendary. Reset on any Legendary.';

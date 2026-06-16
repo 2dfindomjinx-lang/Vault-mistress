@@ -331,8 +331,11 @@ export function CratesPanel({
       }
 
       setWonItems(results);
-      if (onCrateResult) {
-        results.forEach((item) => onCrateResult(item));
+      if (onCrateResult && results.length > 0) {
+        // Only fire ONE result speech even for multi-open (prevents rapid overwrites).
+        // Pick randomly from the batch so different rarities can appear across opens.
+        const pick = results[Math.floor(Math.random() * results.length)];
+        onCrateResult(pick);
       }
       // Parent will have already updated coins via response
     } finally {
@@ -694,7 +697,7 @@ export function CratesPanel({
                     {/* Pity counters - only visible in shop grid. State update is delayed in parent until after reveal to prevent spoiling during reel spin. */}
                     {crate.crate_type === "principessa_case" && (
                       <div className="mt-0.5 text-[9px] text-center text-amber-400/80 whitespace-nowrap">
-                        Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/9
+                        Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/4
                       </div>
                     )}
                     {crate.crate_type === "blessing_case" && (
@@ -908,14 +911,15 @@ export function CratesPanel({
           </div>
 
           {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).
-              Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same. */}
-          {!isVerticalMode && !isMobile && isOpening && spinSequence.length > 0 && (
+              Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
+              Shown both during spin and in result for single open (so result screen matches reel width). */}
+          {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
             <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 160 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
                 className="absolute top-2 flex h-[108px] gap-2 will-change-transform"
-                style={{ transform: `translateX(${CENTER_COMPENSATION}px)` }}
+                style={isOpening ? { transform: `translateX(${CENTER_COMPENSATION}px)` } : undefined}
               >
                 {spinSequence.map((item, idx) => {
                   // Square card + actual item icon (png) inside.
@@ -995,15 +999,70 @@ export function CratesPanel({
             </div>
           )}
 
-          {/* Won items reveal - shown inline under the (stopped) reel, no popup. Supports multi open. */}
+          {/* Won items reveal - shown inline under the (stopped) reel, no popup. Supports multi open.
+              For single: the reel above stays stopped (full width like during spin) + name label here.
+              For multi: vertical reels stay + compact list below. */}
           {wonItems.length > 0 && (
             <div className="mt-4">
-              <div className="text-center mb-1">
-                <div className="text-sm font-semibold text-white/80">Results:</div>
-              </div>
+              {/* Single result: prominent name/desc matching the full reel width (not the narrow 120px cards) */}
+              {wonItems.length === 1 ? (
+                <div className="mx-auto w-full max-w-[680px] mb-2 text-center">
+                  <div className={`inline-flex items-center gap-2 rounded-xl border px-4 py-1 ${getRarityColor(wonItems[0].rarity)} bg-opacity-30`}>
+                    <span className="font-black text-base text-white">{wonItems[0].name}</span>
+                    <span className="text-[10px] uppercase tracking-widest opacity-70">{wonItems[0].rarity}</span>
+                  </div>
+                  {wonItems[0].description && (
+                    <div className="mt-1 text-[11px] text-white/70 max-w-md mx-auto">{wonItems[0].description}</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center mb-1">
+                  <div className="text-sm font-semibold text-white/80">Results:</div>
+                </div>
+              )}
 
-              {/* Re-select quantity for next open from result screen - per last case */}
-              <div className="mb-2 flex justify-center gap-1 text-[10px]">
+              {/* Compact result cards only for multi (side-by-side verticals need labels + per-item sells) */}
+              {wonItems.length > 1 && (
+                <div className="flex gap-2 justify-center flex-wrap">
+                  {wonItems.map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[120px]">
+                      <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
+                        {item.image_url ? (
+                          <img src={item.image_url} alt={item.name} className="h-10 w-10 object-cover" />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center bg-black/70 text-xl">
+                            {item.rarity === "legendary" ? "👑" : "📦"}
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-0.5 font-bold text-white text-center truncate w-full text-[8px] leading-tight">{item.name}</div>
+                      <button
+                        onClick={async () => {
+                          if (item.rarity === "legendary") {
+                            const confirmSell = window.confirm(
+                              `Sell "${item.name}" for ${item.sell_value} coins?`
+                            );
+                            if (!confirmSell) return;
+                          }
+                          await onSellItem(item.item_id, item.variant, 1);
+                          emitSoundEvent("cosmetic_purchased");
+                          setWonItems(prev => prev.filter((_, i) => i !== idx));
+                          if (wonItems.length <= 1) {
+                            closeReveal();
+                          }
+                        }}
+                        className="mt-0.5 rounded bg-emerald-500/90 px-1 py-0 text-[7px] font-bold text-black leading-none"
+                      >
+                        Sell {item.sell_value}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Re-select quantity for next open from result screen - per last case.
+                  Positioned between the sonuç ekranı (name label or Results+cards) and the action buttons (incl. Open Again). */}
+              <div className="mt-3 mb-2 flex justify-center gap-1 text-[10px]">
                 <span className="self-center mr-1 text-zinc-400">Next open:</span>
                 {[1,2,3,4,5].map(q => {
                   const caseType = lastOpenedCrateType || '';
@@ -1020,43 +1079,26 @@ export function CratesPanel({
                 })}
               </div>
 
-              <div className="flex gap-2 justify-center flex-wrap">
-                {wonItems.map((item, idx) => (
-                  <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[120px]">
-                    <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="h-10 w-10 object-cover" />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center bg-black/70 text-xl">
-                          {item.rarity === "legendary" ? "👑" : "📦"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-0.5 font-bold text-white text-center truncate w-full text-[8px] leading-tight">{item.name}</div>
-                    <button
-                      onClick={async () => {
-                        if (item.rarity === "legendary") {
-                          const confirmSell = window.confirm(
-                            `Sell "${item.name}" for ${item.sell_value} coins?`
-                          );
-                          if (!confirmSell) return;
-                        }
-                        await onSellItem(item.item_id, item.variant, 1);
-                        emitSoundEvent("cosmetic_purchased");
-                        setWonItems(prev => prev.filter((_, i) => i !== idx));
-                        if (wonItems.length <= 1) {
-                          closeReveal();
-                        }
-                      }}
-                      className="mt-0.5 rounded bg-emerald-500/90 px-1 py-0 text-[7px] font-bold text-black leading-none"
-                    >
-                      Sell {item.sell_value}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
               <div className="mt-4 flex justify-center gap-3">
+                {wonItems.length === 1 && wonItems[0] && (
+                  <button
+                    onClick={async () => {
+                      const item = wonItems[0];
+                      if (item.rarity === "legendary") {
+                        const confirmSell = window.confirm(
+                          `Sell "${item.name}" for ${item.sell_value} coins?`
+                        );
+                        if (!confirmSell) return;
+                      }
+                      await onSellItem(item.item_id, item.variant, 1);
+                      emitSoundEvent("cosmetic_purchased");
+                      closeReveal();
+                    }}
+                    className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
+                  >
+                    Sell for {wonItems[0].sell_value} coins
+                  </button>
+                )}
                 {wonItems.length > 1 && (
                   <button
                     onClick={sellAllWonItems}
@@ -1082,7 +1124,7 @@ export function CratesPanel({
                   }
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                 >
-                  Open Again ({getOpenQuantity(lastOpenedCrateType || '')})
+                  Open Again
                 </button>
               </div>
             </div>

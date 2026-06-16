@@ -8353,12 +8353,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 pityStats={pityStats}
                 onCrateOpen={() => {
                   const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
-                  setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, "crate_open"));
+                  // Use direct set + explicit category so we hit the dedicated "crate_open" pool
+                  // (instead of going through setAvatarMistressReply → getSpeechBubbleMessageForText → classify → general).
+                  const msg = getSpeechBubbleResponseMessage(avatarId, "crate_open");
+                  setSpeechBubbleReply(msg);
                 }}
                 onCrateResult={(item) => {
                   const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
                   const rarityKey = `crate_result_${item.rarity}` as const;
-                  setAvatarMistressReply(getSpeechBubbleResponseMessage(avatarId, rarityKey));
+                  // Direct set ensures the specific crate_result_rarity category is used (random pick from its pool).
+                  // Avoids re-classification that was forcing "general" for equipped speech avatars.
+                  const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);
+                  setSpeechBubbleReply(msg);
                 }}
               />
 
