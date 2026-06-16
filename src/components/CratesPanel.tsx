@@ -104,6 +104,8 @@ export function CratesPanel({
   const SLOT_WIDTH = FULL_SLOT; // for progress calculations
   const CENTER_OFFSET = CENTER_COMPENSATION; // for compatibility with previous naming in some places
 
+  const WINNER_SLOT = 43; // fixed position in the built sequence where the real winner is placed (for exact final centering in result phase too)
+
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const stripRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -948,12 +950,16 @@ export function CratesPanel({
               <div
                 ref={stripRef}
                 className="absolute top-2 flex h-[108px] gap-2 will-change-transform"
-                style={isOpening ? { transform: `translateX(${CENTER_COMPENSATION}px)` } : undefined}
+                style={
+                  isOpening 
+                    ? { transform: `translateX(${CENTER_COMPENSATION}px)` } 
+                    : { transform: `translateX(${ -(WINNER_SLOT * FULL_SLOT) + CENTER_COMPENSATION }px)` }
+                }  // in result phase we explicitly set the exact final transform (same as animation's final settle) so the stopped reel stays perfectly centered under the marker, no shift to the side
               >
                 {spinSequence.map((item, idx) => {
                   // Square card + actual item icon (png) inside.
                   // Rarity only via colored border + bg tint (getRarityColor). No letters.
-                  const isWinnerSlot = wonItems.length > 0 && idx === 43; // exact winner position in the tape (precise highlight on landed item, even with near-miss teases around it)
+                  const isWinnerSlot = wonItems.length > 0 && idx === WINNER_SLOT; // exact winner position in the tape (precise highlight on landed item, even with near-miss teases around it)
                   return (
                     <div
                       key={idx}
