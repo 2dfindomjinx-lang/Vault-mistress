@@ -332,6 +332,23 @@ export function CratesPanel({
 
     if (results.length === 0) return;
 
+    // Helper for multi-open outcome based speech category (reuses the crate_result_* pools)
+    // Ranges relative to the case's single cost C.
+    // net = total won sell values - (C * qty)
+    function getOutcomeRarity(net: number, caseCost: number, hasLegendary: boolean): CrateRarity {
+      if (net <= -2 * caseCost) {
+        return "common"; // aşırı zarar
+      } else if (net < 0) {
+        return "uncommon"; // zarar
+      } else if (net < caseCost) {
+        return "rare"; // amorti / küçük kâr
+      } else if (net < 5 * caseCost || !hasLegendary) {
+        return "epic"; // kâr
+      } else {
+        return "legendary"; // aşırı kâr + en az 1 legendary
+      }
+    }
+
     try {
       // Only NOW start the opening UI + reel (server accepted, we have a real result).
       // This prevents "Reel is spinning" + no animation when API fails (auth, coins, etc.).
@@ -362,11 +379,34 @@ export function CratesPanel({
       }
 
       setWonItems(results);
+      // Play reveal sound based on whether the batch result includes a legendary (for multi or single)
+      // This ensures the special legendary reveal sound plays when a legendary is won, tied to the result reveal.
+      const hasLegInResult = results.some(r => r.rarity === "legendary");
+      if (hasLegInResult) {
+        emitSoundEvent("crate_legendary_reveal");
+      } else if (results.length > 0) {
+        emitSoundEvent("crate_reveal");
+      }
       if (onCrateResult && results.length > 0) {
-        // Only fire ONE result speech even for multi-open (prevents rapid overwrites).
-        // Pick randomly from the batch so different rarities can appear across opens.
-        const pick = results[Math.floor(Math.random() * results.length)];
-        onCrateResult(pick);
+        if (results.length > 1) {
+          // Multi-open: use net outcome to decide speech category (reuses crate_result_* message pools)
+          // net = total value won - (case cost * qty)
+          const totalWon = results.reduce((s, r) => s + r.sell_value, 0);
+          const batchNet = totalWon - (crate.cost * results.length);
+          const hasLeg = results.some(r => r.rarity === "legendary");
+          const effectiveRarity = getOutcomeRarity(batchNet, crate.cost, hasLeg);
+          const dummyItem: WonItem = {
+            item_id: "multi-outcome",
+            name: "Multi Outcome",
+            description: "",
+            rarity: effectiveRarity,
+            sell_value: 0,
+            variant: "normal",
+          };
+          onCrateResult(dummyItem);
+        } else {
+          onCrateResult(results[0]);
+        }
       }
       // Parent will have already updated coins via response
     } finally {
@@ -480,11 +520,6 @@ export function CratesPanel({
 
           // Reveal sound (after the slide has stopped)
           setTimeout(() => {
-            if (realItem.rarity === "legendary") {
-              emitSoundEvent("crate_legendary_reveal");
-            } else {
-              emitSoundEvent("crate_reveal");
-            }
             resolve();
           }, 280);
         }
