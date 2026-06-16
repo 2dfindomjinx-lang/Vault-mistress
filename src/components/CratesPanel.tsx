@@ -934,12 +934,14 @@ export function CratesPanel({
               ✕
             </button>
           )}
-          <div className="mb-3 text-center">
-            {!wonItems.length && openingCrate && (
-              <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
-            )}
-            {!wonItems.length && <h3 className="text-xl font-black text-white">Reel is spinning…</h3>}
-          </div>
+          {!wonItems.length && (
+            <div className="mb-3 text-center">
+              {openingCrate && (
+                <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
+              )}
+              <h3 className="text-xl font-black text-white">Reel is spinning…</h3>
+            </div>
+          )}
 
           {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).
               Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
@@ -1051,26 +1053,29 @@ export function CratesPanel({
                   )}
                 </div>
               ) : (
-                <div className="text-center mb-1">
+                <div className="text-center mb-1 flex items-center justify-center gap-2">
                   <div className="text-sm font-semibold text-white/80">Results:</div>
+                  <div className="text-sm font-bold text-emerald-300">
+                    +{wonItems.reduce((sum, item) => sum + item.sell_value, 0)} coins
+                  </div>
                 </div>
               )}
 
               {/* Compact result cards only for multi (side-by-side verticals need labels + per-item sells) */}
               {wonItems.length > 1 && (
-                <div className="flex gap-2 justify-center flex-wrap">
+                <div className="flex gap-3 justify-center flex-wrap">
                   {wonItems.map((item, idx) => (
-                    <div key={idx} className="flex flex-col items-center text-[9px] border border-white/10 rounded p-1 bg-black/20 w-[120px]">
+                    <div key={idx} className="flex flex-col items-center text-xs border border-white/10 rounded p-2.5 bg-black/20 w-40">
                       <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
-                          <img src={item.image_url} alt={item.name} className="h-10 w-10 object-cover" />
+                          <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover" />
                         ) : (
-                          <div className="flex h-10 w-10 items-center justify-center bg-black/70 text-xl">
+                          <div className="flex h-14 w-14 items-center justify-center bg-black/70 text-3xl">
                             {item.rarity === "legendary" ? "👑" : "📦"}
                           </div>
                         )}
                       </div>
-                      <div className="mt-0.5 font-bold text-white text-center truncate w-full text-[8px] leading-tight">{item.name}</div>
+                      <div className="mt-1.5 font-bold text-white text-center truncate w-full text-sm leading-tight">{item.name}</div>
                       <button
                         onClick={async () => {
                           if (item.rarity === "legendary") {
@@ -1086,9 +1091,9 @@ export function CratesPanel({
                             closeReveal();
                           }
                         }}
-                        className="mt-0.5 rounded bg-emerald-500/90 px-1 py-0 text-[7px] font-bold text-black leading-none"
+                        className="mt-1.5 rounded bg-emerald-500/90 px-3 py-1 text-xs font-bold text-black leading-none"
                       >
-                        Sell {item.sell_value}
+                        Sell for {item.sell_value}
                       </button>
                     </div>
                   ))}
