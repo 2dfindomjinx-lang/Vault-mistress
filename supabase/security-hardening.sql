@@ -127,6 +127,30 @@ create trigger block_client_coin_transactions_mutations_trigger
   for each row
   execute function public.block_client_owned_table_mutations();
 
+create trigger block_client_pending_admin_actions_mutations_trigger
+  before insert or update or delete on public.pending_admin_actions
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+-- Add explicit FK from coin_transactions.user_id to profiles.id so that
+-- PostgREST can discover the "profiles:user_id(...)" relationship for embeds
+-- in admin/mobile queries (e.g. notifications security alerts).
+-- This prevents "Could not find a relationship between 'coin_transactions' and 'user_id'"
+-- errors after security hardening / schema changes. The original FK to auth.users remains.
+-- Run this after schema changes and then refresh PostgREST schema cache if needed:
+--   NOTIFY pgrst, 'reload schema';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'coin_transactions_user_id_fkey_to_profiles'
+  ) THEN
+    ALTER TABLE public.coin_transactions
+      ADD CONSTRAINT coin_transactions_user_id_fkey_to_profiles
+      FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
 -- Crate system tables: server-authoritative only (admin client writes)
 drop trigger if exists block_client_user_crate_inventory_mutations_trigger on public.user_crate_inventory;
 create trigger block_client_user_crate_inventory_mutations_trigger

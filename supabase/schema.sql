@@ -293,6 +293,22 @@ create table if not exists public.coin_transactions (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.pending_admin_actions (
+  id uuid primary key default gen_random_uuid(),
+  action_type text not null,
+  requested_by_user_id uuid not null references auth.users(id) on delete cascade,
+  target_user_id uuid not null references auth.users(id) on delete cascade,
+  amount integer not null,
+  reason text,
+  command text,
+  metadata jsonb not null default '{}'::jsonb,
+  status text not null default 'pending',
+  created_at timestamp with time zone not null default now(),
+  expires_at timestamp with time zone not null default (now() + interval '10 minutes'),
+  approved_by_user_id uuid references auth.users(id) on delete set null,
+  approved_at timestamp with time zone
+);
+
 alter table public.coin_transactions
   add column if not exists admin_user_id uuid references auth.users(id) on delete set null,
   add column if not exists balance_before integer,
@@ -316,6 +332,7 @@ alter table public.loyalty_jackpot_contributions enable row level security;
 alter table public.coin_transactions enable row level security;
 alter table public.user_irl_tasks enable row level security;
 alter table public.irl_task_fail_events enable row level security;
+alter table public.pending_admin_actions enable row level security;
 
 create or replace function public.is_privileged_db_context()
 returns boolean
