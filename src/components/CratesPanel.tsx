@@ -184,19 +184,19 @@ export function CratesPanel({
       //   Pure visual only — real result already decided server-side, no drop rate impact.
       // For regular: majority epic/rare misses, minority legendary.
       // Very late still teases the actual winner sometimes.
-      const boostMult = isPremium ? 1.6 : (isBlessing ? 1.2 : 0.95);
-      const boostChance = Math.max(0, (p - 0.35) * boostMult);
+      const boostMult = isPremium ? 1.2 : (isBlessing ? 1.2 : 0.95);
+      const boostChance = Math.max(0, (p - 0.45) * boostMult);
 
       if (Math.random() < boostChance) {
         // Decide tease tier for near-miss feel
         const r = Math.random();
         let targetTiers = [];
         if (isPremium) {
-          // Premium case: legendary near-miss *very* frequent (almost every late phase)
-          // 1-2 boxes before winner for "kenarda" feel (handled below too)
-          if (p > 0.55) {
+          // Premium case: legendary near-misses frequent but toned down from previous exaggerated version.
+          // Still much more than normal cases (for tension on this high-cost no-pity case), but not almost every spin.
+          if (p > 0.65) {
             targetTiers = ["legendary"];
-          } else if (r < 0.65) {
+          } else if (r < 0.55) {
             targetTiers = ["legendary", "epic"];
           } else {
             targetTiers = ["epic", "rare"];
@@ -246,16 +246,16 @@ export function CratesPanel({
       // Occasional winner near-miss tease in the final slowdown (classic CS feel)
       // For blessing_case: higher frequency so legendary misses feel more common
       // For premium_case: much higher to create extra tension / near-miss drama
-      const winnerTeaseChance = isPremium ? 0.72 : (isBlessing ? 0.32 : 0.18);
+      const winnerTeaseChance = isPremium ? 0.5 : (isBlessing ? 0.32 : 0.18);
       if (p > 0.65 && p < 0.82 && Math.random() < winnerTeaseChance) {
         chosen = winner;
       }
 
-      // Premium-case specific: force legendary near-miss exactly 1 or 2 slots before the winner.
-      // This guarantees "1 veya 2 box kenarda" legendary miss on most opens.
+      // Premium-case specific: force legendary near-miss 1 or 2 slots before the winner.
+      // Frequent "1 veya 2 box kenarda" legendary miss for premium (much more than normal cases, but toned down from previous exaggerated version).
       // Purely visual (post real-roll), does not touch drop rates or the actual result.
       if (isPremium && (i === winnerSlot - 1 || i === winnerSlot - 2)) {
-        if (Math.random() < 0.88) {  // ~88% per slot → almost every open will have close leg tease
+        if (Math.random() < 0.45) {  // 45% per slot → ~70% of opens have at least one close leg tease (frequent but not abartı)
           const legItems = (pool as any[]).filter((it: any) => it.rarity === "legendary");
           if (legItems.length > 0) {
             chosen = legItems[Math.floor(Math.random() * legItems.length)];
