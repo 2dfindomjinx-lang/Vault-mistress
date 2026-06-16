@@ -949,7 +949,7 @@ export function CratesPanel({
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
-                className="absolute top-2 flex h-[108px] gap-2 will-change-transform"
+                className="absolute top-6 flex h-[112px] gap-2 items-center will-change-transform"
                 style={
                   isOpening 
                     ? { transform: `translateX(${CENTER_COMPENSATION}px)` } 
@@ -980,7 +980,7 @@ export function CratesPanel({
               </div>
 
               {/* Fixed center selector / pointer (frames the middle square) */}
-              <div className="pointer-events-none absolute left-1/2 top-1.5 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
+              <div className="pointer-events-none absolute left-1/2 top-6 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
             </div>
           )}
 
