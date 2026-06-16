@@ -1055,9 +1055,27 @@ export function CratesPanel({
               ) : (
                 <div className="text-center mb-1 flex items-center justify-center gap-2">
                   <div className="text-sm font-semibold text-white/80">Results:</div>
-                  <div className="text-sm font-bold text-emerald-300">
-                    +{wonItems.reduce((sum, item) => sum + item.sell_value, 0)} coins
-                  </div>
+                  {(() => {
+                    const totalWon = wonItems.reduce((sum, item) => sum + item.sell_value, 0);
+                    let netProfit = 0;
+                    if (lastOpenedCrateType) {
+                      const openedCrate = crates.find((c) => c.crate_type === lastOpenedCrateType);
+                      if (openedCrate) {
+                        const totalCost = openedCrate.cost * wonItems.length;
+                        netProfit = totalWon - totalCost;
+                      }
+                    }
+                    const netColor = netProfit >= 0 ? 'text-emerald-300' : 'text-red-400';
+                    const netSign = netProfit >= 0 ? '+' : '';
+                    return (
+                      <>
+                        <div className="text-sm font-bold text-emerald-300">+{totalWon} coins</div>
+                        <div className={`text-sm font-bold ${netColor}`}>
+                          (Net: {netSign}{netProfit})
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 

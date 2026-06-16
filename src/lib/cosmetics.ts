@@ -78,6 +78,7 @@ export type TitleItem = {
   minPetScore?: number;
   minCrateLegendaries?: number;
   minInventoryValue?: number;
+  requiresAllLegendaries?: boolean;
   price?: number;
 };
 
@@ -6492,6 +6493,14 @@ export const titleItems: TitleItem[] = [
     source: "inventory",
     minInventoryValue: 1000000,
   },
+  // Premium: own every single legendary item (very exclusive)
+  {
+    id: "inventory-all-legendaries",
+    name: "The Ultimate Owned Pet",
+    description: "Unlocked by owning every Legendary item in your inventory. True premium devotion.",
+    source: "inventory",
+    requiresAllLegendaries: true,
+  },
 ];
 
 export function getCosmeticItem(id: string) {
@@ -6514,9 +6523,14 @@ export function getUnlockedCrateTitleIds(hasLegendary: boolean) {
     .map((item) => item.id);
 }
 
-export function getUnlockedInventoryTitleIds(inventoryValue: number) {
+export function getUnlockedInventoryTitleIds(inventoryValue: number, hasAllLegendaries: boolean = false) {
   return titleItems
-    .filter((item) => item.source === "inventory" && inventoryValue >= (item.minInventoryValue ?? 0))
+    .filter((item) => {
+      if (item.source !== "inventory") return false;
+      if (inventoryValue < (item.minInventoryValue ?? 0)) return false;
+      if (item.requiresAllLegendaries && !hasAllLegendaries) return false;
+      return true;
+    })
     .map((item) => item.id);
 }
 

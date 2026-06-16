@@ -167,12 +167,12 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "pink-corset", weight: 875 },
 	  
 	  //Rare %35
-	  { item_id: "latex-maid-outfit", weight: 500 },
-	  { item_id: "pink-bunnysuit", weight: 500 },
-	  { item_id: "fishnet-croptop", weight: 500 },
-	  { item_id: "fishnet-stockings", weight: 500 },
-	  { item_id: "pink-thong", weight: 500 },
-	  { item_id: "pink-sheer-bikini", weight: 500 },
+	  { item_id: "latex-maid-outfit", weight: 600 },
+	  { item_id: "pink-bunnysuit", weight: 600 },
+	  { item_id: "fishnet-croptop", weight: 575 },
+	  { item_id: "fishnet-stockings", weight: 575 },
+	  { item_id: "pink-thong", weight: 575 },
+	  { item_id: "pink-sheer-bikini", weight: 575 },
 	  
 	  // Epic %15
 	  { item_id: "gorgeous-bunnysuit", weight: 300 },
@@ -632,6 +632,10 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     sell_value: 40000,
   },
 };
+
+export const ALL_LEGENDARY_ITEM_IDS = Object.keys(SAMPLE_CRATE_ITEMS).filter(
+  (id) => SAMPLE_CRATE_ITEMS[id].rarity === "legendary"
+);
 
 export function getRarityColor(rarity: CrateRarity): string {
   return RARITY_COLORS[rarity] ?? RARITY_COLORS.common;

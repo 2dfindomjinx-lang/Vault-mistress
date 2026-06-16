@@ -49,6 +49,7 @@ import {
   irlTaskWheelSegments,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
+import { ALL_LEGENDARY_ITEM_IDS } from "@/lib/crates";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { roundRewardToNearestFive } from "@/lib/server-game-rules";
@@ -2110,8 +2111,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const hasLegendary = crateInventory.some((item) => item.rarity === "legendary");
     const invValue = crateInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
 
+    const ownedLegendaryIds = new Set(
+      crateInventory
+        .filter((item) => item.rarity === "legendary")
+        .map((item) => item.item_id)
+    );
+    const hasAllLegendaries = ALL_LEGENDARY_ITEM_IDS.every((id) => ownedLegendaryIds.has(id));
+
     const unlockedCrateIds = getUnlockedCrateTitleIds(hasLegendary);
-    const unlockedInvIds = getUnlockedInventoryTitleIds(invValue);
+    const unlockedInvIds = getUnlockedInventoryTitleIds(invValue, hasAllLegendaries);
     const missingTitleIds = [...unlockedCrateIds, ...unlockedInvIds].filter(
       (titleId) => !ownedTitleIds.includes(titleId)
     );
@@ -3017,12 +3025,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const hasLegendary = crateInventory.some((item) => item.rarity === "legendary");
     const invValue = crateInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
 
+    const ownedLegendaryIds = new Set(
+      crateInventory
+        .filter((item) => item.rarity === "legendary")
+        .map((item) => item.item_id)
+    );
+    const hasAllLegendaries = ALL_LEGENDARY_ITEM_IDS.every((id) => ownedLegendaryIds.has(id));
+
     const autoTitleIds = Array.from(
       new Set([
         ...getUnlockedProgressionTitleIds(profile.tribute_total ?? 0),
         ...getUnlockedThroneTitleIds(throneCoinTotal),
         ...getUnlockedCrateTitleIds(hasLegendary),
-        ...getUnlockedInventoryTitleIds(invValue),
+        ...getUnlockedInventoryTitleIds(invValue, hasAllLegendaries),
       ]),
     );
 
