@@ -885,8 +885,9 @@ export function CratesPanel({
         </div>
       )}
 
+      <div className="cases-stack relative z-[5] mt-6 flex flex-col">
       {/* INVENTORY under Cases static */}
-      <div className="mt-6">
+      <div className="inventory-section relative z-[1] order-last">
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm">
@@ -1011,7 +1012,7 @@ export function CratesPanel({
       {(isOpening || wonItems.length > 0) && (
         <div
           ref={reelPanelRef}
-          className="order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto relative md:order-none"
+          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto md:order-none"
         >
           {wonItems.length > 0 && (
             <button
@@ -1292,12 +1293,13 @@ export function CratesPanel({
           )}
 
           {isOpening && wonItems.length === 0 && (
-            <p className="mt-3 text-center text-xs text-pink-100/50">
+          <p className="mt-3 text-center text-xs text-pink-100/50">
               The result was decided server-side the moment your coins were accepted.
             </p>
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

@@ -1,4 +1,5 @@
-import { CRATE_TYPES, SAMPLE_CRATE_ITEMS } from "@/lib/crates";
+import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemDropChancePercent, getCrateItemSellValue } from "@/lib/crates";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -17,12 +18,15 @@ type CaseOpeningRow = {
 type ProfileRow = {
   id: string;
   username: string;
+  display_name?: string | null;
   avatar_url?: string | null;
 };
 
 type CaseOpener = {
   id: string;
   username: string;
+  rawUsername: string;
+  displayName: string | null;
   avatarUrl: string | null;
   usernameStyle?: { color?: string; textShadow?: string };
   lastOpenedAt: string;
@@ -32,6 +36,8 @@ type CaseOpener = {
     crateName: string;
     itemName: string;
     itemRarity: string;
+    itemChancePercent: number | null;
+    itemSellValue: number | null;
     openedAt: string;
   }>;
 };
@@ -47,13 +53,15 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: openingRows, error: openingError } = await supabase
     .from("crate_opens")
     .select("id, user_id, crate_type, item_id, opened_at")
     .neq("crate_type", "sell")
     .neq("crate_type", "sell_all")
+    .gte("opened_at", since)
     .order("opened_at", { ascending: false })
-    .limit(50);
+    .limit(500);
 
   if (openingError) {
     console.error("Recent case openings lookup failed", openingError);
@@ -105,13 +113,17 @@ export async function GET() {
           crateName: crateDef?.name ?? row.crate_type,
           itemName: itemDef?.name ?? row.item_id ?? "Unknown item",
           itemRarity: itemDef?.rarity ?? "unknown",
+          itemChancePercent: row.item_id ? getCrateItemDropChancePercent(row.crate_type, row.item_id) : null,
+          itemSellValue: row.item_id ? getCrateItemSellValue(row.item_id) : null,
           openedAt: row.opened_at,
         };
       });
 
       return {
         id: userId,
-        username: profile?.username ?? "@unknown",
+        username: getDisplayNameOrUsername(profile?.display_name ?? null, profile?.username ?? "unknown"),
+        rawUsername: profile?.username ?? "unknown",
+        displayName: profile?.display_name ?? null,
         avatarUrl: profile?.avatar_url ?? null,
         usernameStyle: usernameStyles.get(userId),
         lastOpenedAt: userRows[0]?.opened_at ?? "",

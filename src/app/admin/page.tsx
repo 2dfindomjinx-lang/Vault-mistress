@@ -86,6 +86,8 @@ type CaseOpening = {
   crateName: string;
   itemName: string;
   itemRarity: string;
+  itemChancePercent: number | null;
+  itemSellValue: number | null;
   openedAt: string;
 };
 
@@ -886,10 +888,10 @@ export default function AdminPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/70">
-                    Recent Case Openers
+                    Recent Case Openers - Last 24h
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Sorted by the latest user to open a case. Click a user to expand their recent openings.
+                    Sorted by the latest user to open a case in the last 24 hours. Click a user to expand their recent openings.
                   </p>
                 </div>
                 <button
@@ -962,6 +964,20 @@ export default function AdminPage() {
                                       </p>
                                       <p className="truncate text-xs text-zinc-500">
                                         {opening.itemName}
+                                      </p>
+                                      <p className="mt-1 text-[11px] text-zinc-400">
+                                        Chance{" "}
+                                        <span className="font-bold text-cyan-100">
+                                          {opening.itemChancePercent === null
+                                            ? "n/a"
+                                            : `${opening.itemChancePercent.toFixed(2)}%`}
+                                        </span>{" "}
+                                        · Value{" "}
+                                        <span className="font-bold text-amber-100">
+                                          {opening.itemSellValue === null
+                                            ? "n/a"
+                                            : `${opening.itemSellValue.toLocaleString()} coins`}
+                                        </span>
                                       </p>
                                     </div>
                                     <div className="shrink-0 text-right">

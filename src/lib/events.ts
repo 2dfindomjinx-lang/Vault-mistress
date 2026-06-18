@@ -94,7 +94,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     key: "lucky-key",
     name: "Lucky Key",
-    description: "All crates are 40% cheaper while this event is active.",
+    description: "All cases are 40% cheaper while this event is active.",
     effect: { type: "crate_cost_discount", multiplier: 0.6, crateEventKey: "lucky_key" },
   },
   {
@@ -106,7 +106,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
   {
     key: "free-key",
     name: "Free Key",
-    description: "Each crate gets one free open for the day while this event is active.",
+    description: "Each case gets one free open for the day while this event is active.",
     effect: { type: "crate_free_open", multiplier: 1, crateEventKey: "free_key" },
   },
   {

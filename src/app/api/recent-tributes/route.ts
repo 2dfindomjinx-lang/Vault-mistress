@@ -3,6 +3,7 @@ import {
   getSupabasePublicConfigErrors,
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 
@@ -22,6 +23,7 @@ type TopTributorRow = {
 type ProfileRow = {
   id: string;
   username: string;
+  display_name?: string | null;
   avatar_url?: string | null;
 };
 
@@ -93,7 +95,9 @@ export async function GET() {
 
     return {
       id: row.id,
-      username: profile?.username ?? "@unknown",
+      username: getDisplayNameOrUsername(profile?.display_name ?? null, profile?.username ?? "unknown"),
+      displayName: profile?.display_name ?? null,
+      rawUsername: profile?.username ?? "unknown",
       avatarUrl: profile?.avatar_url ?? null,
       amount: row.amount,
       createdAt: row.created_at,
@@ -106,7 +110,9 @@ export async function GET() {
 
     return {
       id: row.userId,
-      username: profile?.username ?? "@unknown",
+      username: getDisplayNameOrUsername(profile?.display_name ?? null, profile?.username ?? "unknown"),
+      displayName: profile?.display_name ?? null,
+      rawUsername: profile?.username ?? "unknown",
       avatarUrl: profile?.avatar_url ?? null,
       amount: row.amount,
       createdAt: row.createdAt,

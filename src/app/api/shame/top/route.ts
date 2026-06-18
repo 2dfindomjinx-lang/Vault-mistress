@@ -3,6 +3,7 @@ import {
   getSupabasePublicConfigErrors,
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 export async function GET() {
@@ -26,6 +27,7 @@ export async function GET() {
   const profiles = (data ?? []) as Array<{
     id: string;
     username: string;
+    display_name?: string | null;
     shame_count: number;
   }>;
   const userIds = profiles.map((profile) => String(profile.id)).filter(Boolean);
@@ -42,7 +44,9 @@ export async function GET() {
   return Response.json({
     shame: profiles.map((profile) => ({
       shameCount: Number(profile.shame_count ?? 0),
-      username: profile.username,
+      username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
+      rawUsername: profile.username,
+      displayName: profile.display_name ?? null,
       usernameStyle: usernameStyles.get(String(profile.id)),
     })),
   });

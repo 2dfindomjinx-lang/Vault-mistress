@@ -3,10 +3,13 @@
 import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 
 export type RecentTribute = {
   id: string;
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   avatarUrl: string | null;
   amount: number;
   createdAt: string;
@@ -16,6 +19,8 @@ export type RecentTribute = {
 export type TopInventory = {
   id: string;
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   avatarUrl: string | null;
   value: number;
   usernameStyle?: CSSProperties;
@@ -144,8 +149,17 @@ export function RecentTributesTicker({
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-black text-white">
-                      <span style={tribute.usernameStyle ?? (tribute.username === currentUsername ? usernameStyle : undefined)}>
-                        {tribute.username}
+                      <span
+                        style={
+                          tribute.usernameStyle ??
+                          (tribute.rawUsername === currentUsername ||
+                          tribute.username === currentUsername ||
+                          getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username) === currentUsername
+                            ? usernameStyle
+                            : undefined)
+                        }
+                      >
+                        {getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username)}
                       </span>
                     </p>
                     <p className="text-[11px] font-bold text-yellow-50">
@@ -173,6 +187,12 @@ function TributeCard({
   tribute: RecentTribute;
   usernameStyle?: CSSProperties;
 }) {
+  const displayUsername = getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username);
+  const isCurrentUser =
+    tribute.rawUsername === currentUsername ||
+    tribute.username === currentUsername ||
+    displayUsername === currentUsername;
+
   return (
     <article
       className={`flex min-w-[210px] items-center gap-3 rounded-2xl border px-3 py-2 transition ${getGlowClass(tribute.amount)} ${
@@ -190,13 +210,16 @@ function TributeCard({
         />
       ) : (
         <div className="flex h-10 w-10 items-center justify-center rounded-full border border-pink-200/25 bg-gradient-to-br from-fuchsia-500/35 to-pink-500/20 text-sm font-black text-pink-50">
-          {tribute.username.replace("@", "").slice(0, 1).toUpperCase() || "P"}
+          {getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username)
+            .replace("@", "")
+            .slice(0, 1)
+            .toUpperCase() || "P"}
         </div>
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-black text-white">
-          <span style={tribute.usernameStyle ?? (tribute.username === currentUsername ? usernameStyle : undefined)}>
-            {tribute.username}
+          <span style={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
+            {displayUsername}
           </span>
         </p>
         <p className="text-xs font-bold text-pink-100">

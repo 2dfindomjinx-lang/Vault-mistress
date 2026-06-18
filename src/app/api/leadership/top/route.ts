@@ -1,4 +1,5 @@
 import { getLeadershipRank } from "@/lib/leadership";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   createPublicSupabaseClient,
   getSupabasePublicConfigErrors,
@@ -30,6 +31,7 @@ export async function GET() {
   const leaders = (data ?? []) as Array<{
     id: string;
     username: string;
+    display_name?: string | null;
     tribute_total: number;
     created_at: string;
   }>;
@@ -37,7 +39,14 @@ export async function GET() {
 
   // Top 5 most valuable inventories (sum of quantity * sell_value from crate items)
   // Uses safe RPC (server-side calc, only public fields)
-  let topInventories: Array<{ id: string; username: string; avatarUrl: string | null; value: number; usernameStyle?: any }> = [];
+  let topInventories: Array<{
+    id: string;
+    username: string;
+    displayName?: string | null;
+    avatarUrl: string | null;
+    value: number;
+    usernameStyle?: any;
+  }> = [];
   let invUids: string[] = [];
   try {
     const { data: invData, error: invErr } = await supabase.rpc("get_public_top_valuable_inventories", { p_limit: 5 });
@@ -54,7 +63,12 @@ export async function GET() {
       const invProfMap = new Map((invProfData ?? []).map((p: any) => [p.id, p]));
       topInventories = (invData as any[]).map((row: any) => ({
         id: row.user_id,
-        username: (invProfMap.get(row.user_id) as any)?.username || "Unknown",
+        username: getDisplayNameOrUsername(
+          (invProfMap.get(row.user_id) as any)?.display_name ?? null,
+          (invProfMap.get(row.user_id) as any)?.username || "unknown",
+        ),
+        rawUsername: (invProfMap.get(row.user_id) as any)?.username || "unknown",
+        displayName: (invProfMap.get(row.user_id) as any)?.display_name ?? null,
         avatarUrl: (invProfMap.get(row.user_id) as any)?.avatar_url || null,
         value: Number(row.value ?? 0),
         usernameStyle: undefined,
@@ -94,7 +108,9 @@ export async function GET() {
           id: String(profile.id),
           rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
           tributeTotal,
-          username: profile.username,
+          username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
+          rawUsername: profile.username,
+          displayName: profile.display_name ?? null,
         };
       })
       .sort((first, second) => {
@@ -109,6 +125,8 @@ export async function GET() {
         rankTitle: leader.rankTitle,
         tributeTotal: leader.tributeTotal,
         username: leader.username,
+        rawUsername: leader.rawUsername,
+        displayName: leader.displayName ?? null,
         usernameStyle: usernameStyles.get(leader.id),
       })),
     topInventories,

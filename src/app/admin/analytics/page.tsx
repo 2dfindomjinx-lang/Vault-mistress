@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 
 type Overview = {
   activeDebtContracts: number;
@@ -42,6 +43,8 @@ type AmountPoint = {
 type AnalyticsUser = {
   id: string;
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   avatarUrl: string | null;
   registrationDate: string | null;
   lastLogin: string | null;
@@ -57,12 +60,36 @@ type Transaction = {
   id: string;
   userId: string;
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   avatarUrl: string | null;
   amount: number;
   reason: string | null;
   balanceBefore: number | null;
   balanceAfter: number | null;
   createdAt: string;
+};
+
+type TopInventoryItem = {
+  itemId: string;
+  name: string;
+  rarity: string;
+  variant: string;
+  quantity: number;
+  sellValue: number;
+  subtotal: number;
+};
+
+type TopInventoryUser = {
+  id: string;
+  username: string;
+  rawUsername?: string;
+  displayName?: string | null;
+  avatarUrl: string | null;
+  inventoryValue: number;
+  totalQuantity: number;
+  distinctItems: number;
+  items: TopInventoryItem[];
 };
 
 type AnalyticsPayload = {
@@ -78,6 +105,7 @@ type AnalyticsPayload = {
     tributeByDay: AmountPoint[];
   };
   matchedUsers: AnalyticsUser[];
+  topInventoryUsers: TopInventoryUser[];
   transactionHistory: Transaction[];
   users: AnalyticsUser[];
 };
@@ -147,6 +175,7 @@ export default function AdminAnalyticsPage() {
   const [query, setQuery] = useState("");
   const [userSort, setUserSort] = useState<UserSortMode>("default");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedInventoryUserId, setSelectedInventoryUserId] = useState<string | null>(null);
   const [clockTick, setClockTick] = useState(0);
 
   const loadAnalytics = useCallback(async (search = "", userId?: string | null) => {
@@ -208,14 +237,31 @@ export default function AdminAnalyticsPage() {
     }
 
     const hasQuery = query.trim().length > 0;
-    const users = [...(hasQuery ? data.matchedUsers : data.users)];
+    const sourceUsers = [...(hasQuery ? data.matchedUsers : data.users)];
+    const queryText = query.trim().toLowerCase();
+    const users = hasQuery
+      ? sourceUsers.filter((user) => {
+          const displayUsername = getDisplayNameOrUsername(
+            user.displayName,
+            user.rawUsername ?? user.username,
+          ).toLowerCase();
+          const rawUsername = (user.rawUsername ?? user.username).toLowerCase();
+          return (
+            displayUsername.includes(queryText) ||
+            rawUsername.includes(queryText) ||
+            user.id.toLowerCase().includes(queryText)
+          );
+        })
+      : sourceUsers;
 
     if (userSort === "tribute") {
       users.sort(
         (a, b) =>
           b.tributeTotal - a.tributeTotal ||
           b.coins - a.coins ||
-          a.username.localeCompare(b.username),
+          getDisplayNameOrUsername(a.displayName, a.rawUsername ?? a.username).localeCompare(
+            getDisplayNameOrUsername(b.displayName, b.rawUsername ?? b.username),
+          ),
       );
     }
 
@@ -224,11 +270,13 @@ export default function AdminAnalyticsPage() {
         (a, b) =>
           b.coins - a.coins ||
           b.tributeTotal - a.tributeTotal ||
-          a.username.localeCompare(b.username),
+          getDisplayNameOrUsername(a.displayName, a.rawUsername ?? a.username).localeCompare(
+            getDisplayNameOrUsername(b.displayName, b.rawUsername ?? b.username),
+          ),
       );
     }
 
-    return hasQuery ? users : users.slice(0, 20);
+    return users.slice(0, 20);
   }, [data, query, userSort]);
 
   if (isLoading && !data) {
@@ -447,7 +495,9 @@ export default function AdminAnalyticsPage() {
                       >
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <p className="font-black text-white">{user.username}</p>
+                            <p className="font-black text-white">
+                              {getDisplayNameOrUsername(user.displayName, user.rawUsername ?? user.username)}
+                            </p>
                             <p className="mt-1 text-xs text-zinc-500">registered {date(user.registrationDate)}</p>
                             <p className="mt-1 text-xs text-zinc-500">last login {date(user.lastLogin)}</p>
                           </div>
@@ -485,7 +535,9 @@ export default function AdminAnalyticsPage() {
                     {data.transactionHistory.map((entry) => (
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-3 text-sm" key={entry.id}>
                         <div className="flex items-center justify-between gap-3">
-                          <span className="font-bold text-white">{entry.username}</span>
+                          <span className="font-bold text-white">
+                            {getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username)}
+                          </span>
                           <span className={entry.amount >= 0 ? "font-black text-emerald-100" : "font-black text-rose-100"}>
                             {entry.amount >= 0 ? "+" : ""}{number(entry.amount)}
                           </span>
@@ -503,6 +555,113 @@ export default function AdminAnalyticsPage() {
                 </div>
               </article>
             </div>
+
+            <article className="rounded-[1.5rem] border border-cyan-200/15 bg-black/50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black">Top Valuable Inventories</h2>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Top 20 inventories by total sell value. Click a user to expand their full inventory.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-zinc-300">
+                  {data.topInventoryUsers.length} loaded
+                </div>
+              </div>
+
+              <div className="mt-4 max-h-[36rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                <div className="grid gap-3">
+                  {data.topInventoryUsers.length > 0 ? (
+                    data.topInventoryUsers.map((entry, index) => {
+                      const expanded = selectedInventoryUserId === entry.id;
+
+                      return (
+                        <article
+                          className="rounded-2xl border border-white/10 bg-black/35 p-3"
+                          key={entry.id}
+                        >
+                          <button
+                            className="flex w-full items-center justify-between gap-3 text-left"
+                            onClick={() =>
+                              setSelectedInventoryUserId(expanded ? null : entry.id)
+                            }
+                            type="button"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {index + 1}. {entry.username}
+                              </p>
+                              <p className="mt-1 text-xs text-zinc-500">
+                                {number(entry.inventoryValue)} coins total
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="rounded-full border border-cyan-200/20 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-50">
+                                {number(entry.distinctItems)} items
+                              </span>
+                              <span className="text-cyan-100">{expanded ? "−" : "+"}</span>
+                            </div>
+                          </button>
+
+                          {expanded && (
+                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                  <p className="text-sm font-black text-white">{entry.username}</p>
+                                  <p className="mt-1 text-xs text-zinc-500">
+                                    Total value {number(entry.inventoryValue)} coins · {number(entry.totalQuantity)} total quantity
+                                  </p>
+                                </div>
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-100">
+                                  {entry.distinctItems} unique entries
+                                </p>
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                {entry.items.length > 0 ? (
+                                  entry.items.map((item) => (
+                                    <div
+                                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                                      key={`${item.itemId}:${item.variant}`}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-black text-white">
+                                          {item.name}
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-zinc-400">
+                                          {item.variant !== "normal" ? `${item.variant} · ` : ""}
+                                          rarity {item.rarity}
+                                        </p>
+                                      </div>
+                                      <div className="shrink-0 text-right">
+                                        <p className="text-xs font-black text-cyan-100">
+                                          x{number(item.quantity)}
+                                        </p>
+                                        <p className="text-[11px] text-zinc-500">
+                                          {number(item.sellValue)} each · {number(item.subtotal)} total
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-400">
+                                    No inventory items found.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-5 text-sm text-zinc-400">
+                      No valuable inventories found.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </article>
 
             <article className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-4">
               <h2 className="text-lg font-black">Gallery Unlock Statistics</h2>

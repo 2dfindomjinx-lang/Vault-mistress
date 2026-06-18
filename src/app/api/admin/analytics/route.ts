@@ -1,4 +1,6 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
+import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -7,6 +9,7 @@ const ANALYTICS_PAGE_SIZE = 1000;
 type ProfileRow = {
   id: string;
   username: string;
+  display_name: string | null;
   avatar_url: string | null;
   coins: number | null;
   affection: number | null;
@@ -16,6 +19,20 @@ type ProfileRow = {
   created_at: string | null;
   updated_at: string | null;
   last_login_at: string | null;
+};
+
+type CrateInventoryRow = {
+  user_id: string;
+  item_id: string;
+  variant: string | null;
+  quantity: number | null;
+};
+
+type CrateItemRow = {
+  item_id: string;
+  name: string;
+  rarity: string;
+  sell_value: number | null;
 };
 
 type CoinRow = {
@@ -40,6 +57,28 @@ type GalleryRow = {
   user_id: string;
   item_id: string;
   unlocked_at: string | null;
+};
+
+type TopInventoryItem = {
+  itemId: string;
+  name: string;
+  rarity: string;
+  variant: string;
+  quantity: number;
+  sellValue: number;
+  subtotal: number;
+};
+
+type TopInventoryUser = {
+  id: string;
+  username: string;
+  rawUsername: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  inventoryValue: number;
+  totalQuantity: number;
+  distinctItems: number;
+  items: TopInventoryItem[];
 };
 
 const galleryCatalog = [
@@ -280,6 +319,7 @@ export async function GET(request: Request) {
     authUsersCount,
     totalProfilesCountResult,
     profiles,
+    inventoryRows,
     userTaskRows,
     petTaskRows,
     irlTaskRows,
@@ -297,6 +337,9 @@ export async function GET(request: Request) {
         .from("profiles")
       .select("id, username, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
         .order("created_at", { ascending: false }),
+    ),
+    fetchAllRows<CrateInventoryRow>(() =>
+      supabase.from("user_crate_inventory").select("user_id, item_id, variant, quantity"),
     ),
     fetchAllRows<TaskRow>(() =>
       supabase
@@ -374,6 +417,35 @@ export async function GET(request: Request) {
   ];
   const selectedTransactions = (selectedTransactionsResult.data ?? []) as CoinRow[];
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  const uniqueInventoryItemIds = Array.from(
+    new Set((inventoryRows as CrateInventoryRow[]).map((row) => row.item_id).filter(Boolean)),
+  );
+  const sampleInventoryItemMap = new Map(
+    Object.entries(SAMPLE_CRATE_ITEMS).map(([itemId, item]) => [
+      itemId,
+      {
+        item_id: itemId,
+        name: item.name,
+        rarity: item.rarity,
+        sell_value: item.sell_value,
+      } satisfies CrateItemRow,
+    ]),
+  );
+  const missingInventoryItemIds = uniqueInventoryItemIds.filter((itemId) => !sampleInventoryItemMap.has(itemId));
+  const { data: missingInventoryItemRows } = missingInventoryItemIds.length > 0
+    ? await supabase
+        .from("crate_items")
+        .select("item_id, name, rarity, sell_value")
+        .in("item_id", missingInventoryItemIds)
+    : { data: [] };
+  const inventoryItemMap = new Map<string, CrateItemRow>();
+  for (const [itemId, item] of sampleInventoryItemMap.entries()) {
+    inventoryItemMap.set(itemId, item);
+  }
+  for (const row of (missingInventoryItemRows ?? []) as CrateItemRow[]) {
+    inventoryItemMap.set(row.item_id, row);
+  }
 
   const [registrationsByDay, activeByDay, newTodayResult] = await Promise.all([
     Promise.all(
@@ -491,10 +563,69 @@ export async function GET(request: Request) {
   const galleryByUser = countBy(galleryRows, (row) => row.user_id);
   const completedTaskMap = new Map(completedTasksByUser.map((entry) => [entry.key, entry.count]));
   const galleryMap = new Map(galleryByUser.map((entry) => [entry.key, entry.count]));
+  const inventoryRowsByUser = new Map<string, CrateInventoryRow[]>();
+  for (const row of inventoryRows as CrateInventoryRow[]) {
+    const current = inventoryRowsByUser.get(row.user_id) ?? [];
+    current.push(row);
+    inventoryRowsByUser.set(row.user_id, current);
+  }
+
+  const topInventoryUsers: TopInventoryUser[] = profiles
+    .map((profile) => {
+      const rows = inventoryRowsByUser.get(profile.id) ?? [];
+      const itemMap = new Map<string, TopInventoryItem>();
+
+      for (const row of rows) {
+        const itemDef = inventoryItemMap.get(row.item_id);
+        const quantity = Math.max(0, Number(row.quantity ?? 0));
+        const sellValue = Math.max(0, Number(itemDef?.sell_value ?? 0));
+        const variant = row.variant ?? "normal";
+        const itemKey = `${row.item_id}:${variant}`;
+        const subtotal = quantity * sellValue;
+
+        const existing = itemMap.get(itemKey);
+        if (existing) {
+          existing.quantity += quantity;
+          existing.subtotal += subtotal;
+          continue;
+        }
+
+        itemMap.set(itemKey, {
+          itemId: row.item_id,
+          name: itemDef?.name ?? row.item_id,
+          rarity: itemDef?.rarity ?? "unknown",
+          variant,
+          quantity,
+          sellValue,
+          subtotal,
+        });
+      }
+
+      const items = Array.from(itemMap.values()).sort((a, b) => b.subtotal - a.subtotal || a.name.localeCompare(b.name));
+      const inventoryValue = items.reduce((sum, item) => sum + item.subtotal, 0);
+      const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+      return {
+    id: profile.id,
+    username: getDisplayNameOrUsername(profile.display_name, profile.username),
+    rawUsername: profile.username,
+    displayName: profile.display_name,
+    avatarUrl: profile.avatar_url,
+    inventoryValue,
+        totalQuantity,
+        distinctItems: items.length,
+        items,
+      };
+    })
+    .filter((entry) => entry.inventoryValue > 0)
+    .sort((a, b) => b.inventoryValue - a.inventoryValue || a.username.localeCompare(b.username))
+    .slice(0, 20);
 
   const users = profiles.map((profile) => ({
     id: profile.id,
-    username: profile.username,
+    username: getDisplayNameOrUsername(profile.display_name, profile.username),
+    rawUsername: profile.username,
+    displayName: profile.display_name,
     avatarUrl: profile.avatar_url,
     registrationDate: profile.created_at,
     lastLogin: profile.last_login_at,
@@ -509,6 +640,7 @@ export async function GET(request: Request) {
   const matchedUsers = query
     ? users.filter((user) =>
         user.username.toLowerCase().includes(query) ||
+        (user.rawUsername ?? user.username).toLowerCase().includes(query) ||
         user.id.toLowerCase().includes(query),
       )
     : users.slice(0, 20);
@@ -519,7 +651,9 @@ export async function GET(request: Request) {
     return {
       id: transaction.id,
       userId: transaction.user_id,
-      username: profile?.username ?? "unknown",
+      username: profile ? getDisplayNameOrUsername(profile.display_name, profile.username) : "unknown",
+      rawUsername: profile?.username ?? "unknown",
+      displayName: profile?.display_name ?? null,
       avatarUrl: profile?.avatar_url ?? null,
       amount: transaction.amount,
       reason: transaction.reason,
@@ -583,5 +717,6 @@ export async function GET(request: Request) {
     users,
     matchedUsers,
     transactionHistory,
+    topInventoryUsers,
   });
 }

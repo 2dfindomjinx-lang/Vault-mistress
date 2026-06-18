@@ -3,6 +3,7 @@ import {
   type LeadershipEntry,
   type ShameEntry,
 } from "@/lib/leadership";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { CoinAmount } from "@/components/CoinAmount";
 import type { CSSProperties } from "react";
 
@@ -21,13 +22,21 @@ type StatsPanelProps = {
   usernameStyle?: CSSProperties;
   statValueStyle?: CSSProperties;
   equippedTitleName?: string;
-  topValuableInventories?: Array<{ username: string; value: number; usernameStyle?: CSSProperties }>;
+  topValuableInventories?: Array<{
+    username: string;
+    rawUsername?: string;
+    displayName?: string | null;
+    value: number;
+    usernameStyle?: CSSProperties;
+  }>;
   recentCaseOpenings?: RecentCaseOpening[];
 };
 
 export type RecentCaseOpening = {
   id: string;
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   itemName: string;
   crateName: string;
   itemRarity: string;
@@ -160,7 +169,11 @@ export function StatsPanel({
           <div className="mt-3 space-y-2">
             {leadershipTop.slice(0, 5).length > 0 ? (
               leadershipTop.slice(0, 5).map((leader, index) => {
-                const isCurrentUser = leader.username === username;
+                const displayUsername = getDisplayNameOrUsername(leader.displayName, leader.rawUsername ?? leader.username);
+                const isCurrentUser =
+                  leader.rawUsername === username ||
+                  leader.username === username ||
+                  displayUsername === username;
 
                 return (
                   <div
@@ -169,13 +182,13 @@ export function StatsPanel({
                         ? "border-pink-200/30 bg-pink-500/10"
                         : "border-white/10 bg-white/[0.035]"
                     }`}
-                    key={leader.username}
+                    key={leader.rawUsername ?? leader.username}
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-white">
                         #{index + 1}{" "}
                         <span style={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                          {leader.username}
+                          {displayUsername}
                         </span>
                       </p>
                       <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
@@ -207,10 +220,10 @@ export function StatsPanel({
               topValuableInventories.slice(0, 5).map((entry, index) => (
                 <div
                   className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 border-white/10 bg-white/[0.035]"
-                  key={entry.username}
+                  key={entry.rawUsername ?? entry.username}
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
-                    #{index + 1} {entry.username}
+                    #{index + 1} {getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username)}
                   </p>
                   <p className="shrink-0 text-sm font-black text-amber-100">
                     <CoinAmount amount={entry.value} iconSize={16} label="" />
@@ -235,7 +248,11 @@ export function StatsPanel({
         <div className="mt-3 space-y-2">
           {shameTop.slice(0, 5).length > 0 ? (
             shameTop.slice(0, 5).map((entry, index) => {
-              const isCurrentUser = entry.username === username;
+              const displayUsername = getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username);
+              const isCurrentUser =
+                entry.rawUsername === username ||
+                entry.username === username ||
+                displayUsername === username;
 
               return (
                 <div
@@ -244,12 +261,12 @@ export function StatsPanel({
                       ? "border-rose-200/30 bg-rose-500/10"
                       : "border-white/10 bg-white/[0.035]"
                   }`}
-                  key={entry.username}
+                  key={entry.rawUsername ?? entry.username}
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
                     #{index + 1}{" "}
                     <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                      {entry.username}
+                      {displayUsername}
                     </span>
                   </p>
                   <p className="shrink-0 text-sm font-black text-rose-100">
@@ -275,7 +292,11 @@ export function StatsPanel({
         <div className="mt-3 space-y-2">
           {recentCaseOpenings.length > 0 ? (
             recentCaseOpenings.slice(0, 5).map((entry, index) => {
-              const isCurrentUser = entry.username === username;
+              const displayUsername = getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username);
+              const isCurrentUser =
+                entry.rawUsername === username ||
+                entry.username === username ||
+                displayUsername === username;
 
               return (
                 <div
@@ -290,7 +311,7 @@ export function StatsPanel({
                     <p className="truncate text-sm font-black text-white">
                       #{index + 1}{" "}
                       <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                        {entry.username}
+                        {displayUsername}
                       </span>
                     </p>
                     <p className="truncate text-xs text-zinc-400">

@@ -10,6 +10,8 @@ export const LEADERSHIP_RANKS = [
 
 export type LeadershipEntry = {
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   tributeTotal: number;
   rankTitle: string;
   usernameStyle?: {
@@ -20,6 +22,8 @@ export type LeadershipEntry = {
 
 export type ShameEntry = {
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   shameCount: number;
   usernameStyle?: {
     color?: string;

@@ -741,3 +741,29 @@ export function getCrateIconUrl(crateType: string, provided?: string | null): st
   const fileName = crateType.replace(/_/g, "-");
   return `/crate-icons/${fileName}.png`;
 }
+
+export function getCrateItemSellValue(itemId: string): number | null {
+  return SAMPLE_CRATE_ITEMS[itemId]?.sell_value ?? null;
+}
+
+export function getCrateItemDropChancePercent(crateType: string, itemId: string): number | null {
+  const crate = CRATE_TYPES[crateType];
+  if (!crate) {
+    return null;
+  }
+
+  const totalWeight = crate.drops.reduce((sum, drop) => sum + drop.weight, 0);
+  if (totalWeight <= 0) {
+    return null;
+  }
+
+  const itemWeight = crate.drops
+    .filter((drop) => drop.item_id === itemId)
+    .reduce((sum, drop) => sum + drop.weight, 0);
+
+  if (itemWeight <= 0) {
+    return null;
+  }
+
+  return (itemWeight / totalWeight) * 100;
+}
