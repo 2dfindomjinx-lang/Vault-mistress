@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     coins: 100,
     id: authData.user.id,
     daily_purchase_count: 0,
-    equipped_avatar_slots: {},
+    equipped_avatar_slots: { fullBody: "classic" },
     has_uncensored_avatar: false,
     last_login_at: now,
     owner_likeness: 100,
@@ -144,10 +144,21 @@ export async function POST(request: Request) {
       if (fbErr || !fb) {
         return jsonError(fbErr?.message ?? "Profile could not be created.", 500);
       }
+      // Seed default fullbody for fallback
+      await supabase.from("user_crate_inventory").upsert(
+        { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
+        { onConflict: "user_id,item_id,variant" }
+      ).catch(() => {});
       return Response.json({ profile: fb });
     }
     return jsonError(createError?.message ?? "Profile could not be created.", 500);
   }
+
+  // Seed default "classic" fullbody unlocked + equipped for every new user
+  await supabase.from("user_crate_inventory").upsert(
+    { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
+    { onConflict: "user_id,item_id,variant" }
+  ).catch(() => {});
 
   return Response.json({ profile: created });
 }

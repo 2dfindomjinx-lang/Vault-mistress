@@ -72,6 +72,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "ballgag", weight: 400 },
 	  { item_id: "pet-tag", weight: 600 },
 	  { item_id: "classic-bra", weight: 300 },
+      { item_id: "classic", weight: 400 },
       { item_id: "classic-blindfold", weight: 500 },
       { item_id: "classic-pawmitts", weight: 550 },
 
@@ -301,6 +302,13 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "common",
     collection: "classic",
     sell_value: 250,
+  },
+  "classic": {
+    name: "Classic",
+    description: "The default full-body outfit. Simple and clean.",
+    rarity: "common",
+    collection: "classic",
+    sell_value: 50,
   },
 
   // Uncommon

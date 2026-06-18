@@ -60,6 +60,7 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["shiny-highheels", "shoes"],
   ["sneakers", "shoes"],
   // Full body outfits (override top + bottom)
+  ["classic", "fullBody"],
   ["classic-maid-outfit", "fullBody"],
   ["pink-maid-outfit", "fullBody"],
   ["latex-maid-outfit", "fullBody"],

@@ -1798,6 +1798,14 @@ export default function Home() {
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
   const [hasUncensoredAvatar, setHasUncensoredAvatar] = useState(false);
+  const [isAvatarActionPending, setIsAvatarActionPending] = useState(false);
+  const committedEquippedRef = useRef<EquippedAvatarSlots>({});
+
+  useEffect(() => {
+    if (!isAvatarActionPending) {
+      committedEquippedRef.current = equippedAvatarSlots;
+    }
+  }, [equippedAvatarSlots, isAvatarActionPending]);
   const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
@@ -3064,7 +3072,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    setEquippedAvatarSlots(profile.equipped_avatar_slots || {});
+    let slots = { ...(profile.equipped_avatar_slots || {}) };
+    if (!slots.fullBody) {
+      slots.fullBody = "classic";
+    }
+    setEquippedAvatarSlots(slots);
+    committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
@@ -3385,7 +3398,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     profileIdRef.current = profile.id;
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
-    setActivePanel("home");
+    // Removed automatic setActivePanel("home") — successful profile load / actions should not redirect.
+    // Only change panel if explicitly calling setActivePanel via navigation.
     void loadLeadershipTop();
     void loadShameTop();
     void loadJackpot();
@@ -3414,10 +3428,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
-    setEquippedAvatarSlots(profile.equipped_avatar_slots || {});
+    let slots = { ...(profile.equipped_avatar_slots || {}) };
+    if (!slots.fullBody) {
+      slots.fullBody = "classic";
+    }
+    setEquippedAvatarSlots(slots);
+    committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
     setIsLoggedIn(true);
-    setActivePanel("home");
+    // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
   }, []);
 
   const shouldHydrateAdminSession = isLoggedIn && Boolean(authUserId) && !isGuestMode;
@@ -5941,7 +5960,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetDebtContract(null);
     setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
-    setEquippedAvatarSlots({});
+    setEquippedAvatarSlots({ fullBody: "classic" });
+    committedEquippedRef.current = { fullBody: "classic" };
     setHasUncensoredAvatar(false);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
@@ -8834,7 +8854,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                           <LayeredAvatar
                             alt="Avatar wardrobe preview"
                             className="absolute inset-0"
-                            equipped={equippedAvatarSlots}
+                            equipped={isAvatarActionPending ? committedEquippedRef.current : equippedAvatarSlots}
                             hasUncensored={hasUncensoredAvatar}
                             imageClassName="object-contain object-center"
                           />
@@ -8884,8 +8904,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                               )}
                               <span className="flex-1 truncate">{equippedItemName}</span>
                               <button
+                                disabled={isAvatarActionPending}
                                 onClick={async (e) => {
                                   e.stopPropagation();
+                                  if (isAvatarActionPending) return;
+                                  setIsAvatarActionPending(true);
                                   try {
                                     const res = await fetch("/api/user/wardrobe", {
                                       method: "POST",
@@ -8895,9 +8918,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     const data = await res.json();
                                     if (res.ok && data.equipped) {
                                       setEquippedAvatarSlots(data.equipped);
+                                      committedEquippedRef.current = data.equipped;
                                     }
                                   } catch (err) {
                                     console.error("Unequip error", err);
+                                  } finally {
+                                    setIsAvatarActionPending(false);
                                   }
                                 }}
                                 className="text-pink-400 hover:text-red-400 px-0.5"
@@ -8996,11 +9022,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     <button
                                       className={`rounded-[1.1rem] border px-3 py-2 text-left ${getRarityCardClasses(item.rarity, isEquipped)}`}
                                       key={`${item.item_id}:${item.variant}`}
+                                      disabled={isAvatarActionPending}
                                       onClick={async () => {
+                                        if (isAvatarActionPending) return;
                                         const action = isEquipped ? "unequip" : "equip";
                                         const body: any = isEquipped
                                           ? { action: "unequip", slot }
                                           : { action: "equip", itemId: item.item_id };
+                                        setIsAvatarActionPending(true);
                                         try {
                                           const res = await fetch("/api/user/wardrobe", {
                                             method: "POST",
@@ -9014,9 +9043,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                           }
                                           if (data.equipped) {
                                             setEquippedAvatarSlots(data.equipped);
+                                            committedEquippedRef.current = data.equipped;
                                           }
                                         } catch (e) {
                                           console.error("Wardrobe equip error", e);
+                                        } finally {
+                                          setIsAvatarActionPending(false);
                                         }
                                       }}
                                       type="button"
