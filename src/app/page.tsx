@@ -8803,20 +8803,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onUnlock={handleUnlock}
             />
           )}
-          {activePanel === "rankings" && (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-              <StatsPanel
-                equippedTitleName={equippedTitle?.name}
-                leadershipTop={leadershipTop}
-                shameTop={shameTop}
-                statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
-                stats={stats}
-                topValuableInventories={topValuableInventories}
-                username={username}
-                usernameStyle={usernameStyle}
-              />
-            </div>
-          )}
           {activePanel === "tasks" && (
             <TaskList
               coins={coins}
