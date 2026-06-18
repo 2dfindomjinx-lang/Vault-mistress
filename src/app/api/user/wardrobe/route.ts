@@ -26,6 +26,63 @@ function jsonError(message: string, status = 400) {
 
 const UNCENSORED_COST = 10000;
 
+async function adjustInventoryQuantity(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  itemId: string,
+  variant: string,
+  delta: number,
+) {
+  if (delta === 0 || itemId === "classic") {
+    return;
+  }
+
+  const { data: existing, error: readErr } = await supabase
+    .from("user_crate_inventory")
+    .select("quantity")
+    .eq("user_id", userId)
+    .eq("item_id", itemId)
+    .eq("variant", variant)
+    .maybeSingle();
+
+  if (readErr) {
+    throw readErr;
+  }
+
+  const currentQuantity = Math.max(0, Number(existing?.quantity ?? 0));
+  const nextQuantity = Math.max(0, currentQuantity + delta);
+
+  if (nextQuantity <= 0) {
+    const { error: deleteErr } = await supabase
+      .from("user_crate_inventory")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", itemId)
+      .eq("variant", variant);
+
+    if (deleteErr) {
+      throw deleteErr;
+    }
+    return;
+  }
+
+  const { error: upsertErr } = await supabase
+    .from("user_crate_inventory")
+    .upsert(
+      {
+        user_id: userId,
+        item_id: itemId,
+        variant,
+        quantity: nextQuantity,
+      },
+      { onConflict: "user_id,item_id,variant" },
+    );
+
+  if (upsertErr) {
+    throw upsertErr;
+  }
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -82,6 +139,23 @@ export async function POST(request: Request) {
 
     // Server-side apply logic (trust only server)
     const next = equipAvatarItem(currentSlots, itemId);
+    const previousItemIds = new Set(Object.values(currentSlots).filter((value): value is string => typeof value === "string"));
+    const nextItemIds = new Set(Object.values(next).filter((value): value is string => typeof value === "string"));
+
+    try {
+      for (const removedItemId of previousItemIds) {
+        if (!nextItemIds.has(removedItemId)) {
+          await adjustInventoryQuantity(supabase, userId, removedItemId, "normal", 1);
+        }
+      }
+
+      if (!previousItemIds.has(itemId)) {
+        await adjustInventoryQuantity(supabase, userId, itemId, "normal", -1);
+      }
+    } catch (inventoryErr) {
+      console.error("[wardrobe] inventory reserve update failed", inventoryErr);
+      return jsonError("Failed to update inventory reserve.", 500);
+    }
 
     const { error: updateErr } = await supabase
       .from("profiles")
@@ -99,7 +173,16 @@ export async function POST(request: Request) {
     const slot = body?.slot;
     if (!slot) return jsonError("slot required.", 400);
 
+    const removedItemId = currentSlots[slot];
     const next = unequipAvatarSlot(currentSlots, slot);
+    if (removedItemId && removedItemId !== "classic") {
+      try {
+        await adjustInventoryQuantity(supabase, userId, removedItemId, "normal", 1);
+      } catch (inventoryErr) {
+        console.error("[wardrobe] inventory restore failed", inventoryErr);
+        return jsonError("Failed to restore inventory.", 500);
+      }
+    }
 
     const { error: updateErr } = await supabase
       .from("profiles")

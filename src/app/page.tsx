@@ -2265,31 +2265,44 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, []);
 
   useEffect(() => {
+    if (!hasHydratedInitialProfile || !isProfileVerified || !authUserId || isGuestMode) {
+      return;
+    }
+
+    const currentNormalized = normalizeEquipment(equippedAvatarSlots);
     const ownedItemIds = new Set(
       crateInventory
         .filter((item) => item.quantity > 0)
         .map((item) => item.item_id),
     );
+    Object.values(equippedAvatarSlots).forEach((itemId) => {
+      if (itemId) {
+        ownedItemIds.add(itemId);
+      }
+    });
     // "classic" fullbody is a default always-unlocked item (no need for DB inventory entry)
     ownedItemIds.add("classic");
 
-    setEquippedAvatarSlots((current) => {
-      const next = Object.fromEntries(
-        Object.entries(current).filter(([, itemId]) => ownedItemIds.has(itemId)),
-      ) as EquippedAvatarSlots;
+    const next = Object.fromEntries(
+      Object.entries(equippedAvatarSlots).filter(([, itemId]) => ownedItemIds.has(itemId)),
+    ) as EquippedAvatarSlots;
 
-      const cleaned = normalizeEquipment(next);
-      // Best effort sync to server (authoritative on mutations)
-      if (!isGuestMode && authUserId && JSON.stringify(cleaned) !== JSON.stringify(normalizeEquipment(current))) {
-        void fetch("/api/user/wardrobe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "set-equipped", equippedSlots: cleaned }),
-        }).catch(() => {});
-      }
-      return cleaned;
-    });
-  }, [crateInventory, isGuestMode, authUserId]);
+    const cleaned = normalizeEquipment(next);
+    if (JSON.stringify(cleaned) === JSON.stringify(currentNormalized)) {
+      return;
+    }
+
+    setEquippedAvatarSlots(cleaned);
+
+    // Best effort sync to server (authoritative on mutations)
+    if (!isGuestMode && authUserId) {
+      void fetch("/api/user/wardrobe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-equipped", equippedSlots: cleaned }),
+      }).catch(() => {});
+    }
+  }, [authUserId, crateInventory, equippedAvatarSlots, hasHydratedInitialProfile, isGuestMode, isProfileVerified]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -8947,6 +8960,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     if (res.ok && data.equipped) {
                                       setEquippedAvatarSlots(data.equipped);
                                       committedEquippedRef.current = data.equipped;
+                                      void loadCratesData();
                                     }
                                   } catch (err) {
                                     console.error("Unequip error", err);
@@ -9072,6 +9086,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                           if (data.equipped) {
                                             setEquippedAvatarSlots(data.equipped);
                                             committedEquippedRef.current = data.equipped;
+                                            void loadCratesData();
                                           }
                                         } catch (e) {
                                           console.error("Wardrobe equip error", e);
