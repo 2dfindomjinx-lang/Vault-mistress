@@ -20,6 +20,22 @@ type ProfileRow = {
   avatar_url?: string | null;
 };
 
+type CaseOpener = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  usernameStyle?: { color?: string; textShadow?: string };
+  lastOpenedAt: string;
+  totalOpens: number;
+  recentOpenings: Array<{
+    id: string;
+    crateName: string;
+    itemName: string;
+    itemRarity: string;
+    openedAt: string;
+  }>;
+};
+
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
     const configErrors = getSupabaseAdminConfigErrors();
@@ -37,7 +53,7 @@ export async function GET() {
     .neq("crate_type", "sell")
     .neq("crate_type", "sell_all")
     .order("opened_at", { ascending: false })
-    .limit(5);
+    .limit(50);
 
   if (openingError) {
     console.error("Recent case openings lookup failed", openingError);
@@ -45,10 +61,17 @@ export async function GET() {
   }
 
   const rows = (openingRows ?? []) as CaseOpeningRow[];
-  const userIds = Array.from(new Set(rows.map((row) => row.user_id)));
+  const groupedRows = new Map<string, CaseOpeningRow[]>();
+  for (const row of rows) {
+    const current = groupedRows.get(row.user_id) ?? [];
+    current.push(row);
+    groupedRows.set(row.user_id, current);
+  }
+
+  const openerUserIds = Array.from(groupedRows.keys());
 
   const { data: profiles, error: profileError } = await supabase.rpc("get_public_profile_snippets", {
-    p_user_ids: userIds.length > 0 ? userIds : [],
+    p_user_ids: openerUserIds.length > 0 ? openerUserIds : [],
   });
 
   if (profileError) {
@@ -57,7 +80,7 @@ export async function GET() {
   }
 
   const { data: cosmeticRows, error: cosmeticError } = await supabase.rpc("get_public_username_cosmetics", {
-    p_user_ids: userIds.length > 0 ? userIds : [],
+    p_user_ids: openerUserIds.length > 0 ? openerUserIds : [],
   });
 
   if (cosmeticError) {
@@ -69,22 +92,34 @@ export async function GET() {
   );
   const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
-  return Response.json({
-    openings: rows.map((row) => {
-      const profile = profileMap.get(row.user_id);
-      const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
-      const crateDef = CRATE_TYPES[row.crate_type];
+  const openers: CaseOpener[] = openerUserIds
+    .map((userId) => {
+      const userRows = groupedRows.get(userId) ?? [];
+      const profile = profileMap.get(userId);
+      const recentOpenings = userRows.slice(0, 5).map((row) => {
+        const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
+        const crateDef = CRATE_TYPES[row.crate_type];
+
+        return {
+          id: row.id,
+          crateName: crateDef?.name ?? row.crate_type,
+          itemName: itemDef?.name ?? row.item_id ?? "Unknown item",
+          itemRarity: itemDef?.rarity ?? "unknown",
+          openedAt: row.opened_at,
+        };
+      });
 
       return {
-        id: row.id,
+        id: userId,
         username: profile?.username ?? "@unknown",
         avatarUrl: profile?.avatar_url ?? null,
-        crateName: crateDef?.name ?? row.crate_type,
-        itemName: itemDef?.name ?? row.item_id ?? "Unknown item",
-        itemRarity: itemDef?.rarity ?? "unknown",
-        openedAt: row.opened_at,
-        usernameStyle: usernameStyles.get(row.user_id),
+        usernameStyle: usernameStyles.get(userId),
+        lastOpenedAt: userRows[0]?.opened_at ?? "",
+        recentOpenings,
+        totalOpens: userRows.length,
       };
-    }),
-  });
+    })
+    .sort((a, b) => new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime());
+
+  return Response.json({ openers });
 }

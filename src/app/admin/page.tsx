@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 
@@ -81,6 +81,24 @@ type AdminEvent = RandomEvent & {
   created_at?: string;
 };
 
+type CaseOpening = {
+  id: string;
+  crateName: string;
+  itemName: string;
+  itemRarity: string;
+  openedAt: string;
+};
+
+type CaseOpener = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  usernameStyle?: { color?: string; textShadow?: string };
+  lastOpenedAt: string;
+  totalOpens: number;
+  recentOpenings: CaseOpening[];
+};
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -104,7 +122,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<
-    "console" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "evilDebt" | "events"
+    "console" | "caseOpeners" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "evilDebt" | "events"
   >("console");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
@@ -115,6 +133,8 @@ export default function AdminPage() {
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
+  const [caseOpeners, setCaseOpeners] = useState<CaseOpener[]>([]);
+  const [expandedCaseOpenerId, setExpandedCaseOpenerId] = useState<string | null>(null);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
@@ -223,6 +243,35 @@ export default function AdminPage() {
       setMaxAffectionUsers(result.users ?? []);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Max affection list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const loadCaseOpeners = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/recent-case-openings", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        openers?: CaseOpener[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Recent case openers failed.");
+      }
+
+      setCaseOpeners(result.openers ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Recent case openers failed.");
     } finally {
       setIsBusy(false);
     }
@@ -485,6 +534,7 @@ export default function AdminPage() {
       void loadPetTasks({ keepStatus: true });
       void loadTimeouts({ keepStatus: true });
       void loadMaxAffectionUsers({ keepStatus: true });
+      void loadCaseOpeners({ keepStatus: true });
       void loadDebtContracts({ keepStatus: true });
       void loadEvents({ keepStatus: true });
     }, 0);
@@ -749,6 +799,7 @@ export default function AdminPage() {
           <div className="flex flex-wrap gap-2">
             {([
               ["console", "Command Console"],
+              ["caseOpeners", "Case Openers"],
               ["irlTasks", "IRL Tasks"],
               ["petTasks", "Pet Tasks"],
               ["debt", "Debt"],
@@ -768,6 +819,9 @@ export default function AdminPage() {
                   setActiveTab(key);
                   if (key === "irlTasks") {
                     void loadIrlTasks();
+                  }
+                  if (key === "caseOpeners") {
+                    void loadCaseOpeners();
                   }
                   if (key === "petTasks") {
                     void loadPetTasks();
@@ -823,6 +877,115 @@ export default function AdminPage() {
                 >
                   {isBusy ? "Running" : "Run"}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "caseOpeners" && (
+            <div className="mt-4 rounded-[1.5rem] border border-cyan-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(34,211,238,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/70">
+                    Recent Case Openers
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Sorted by the latest user to open a case. Click a user to expand their recent openings.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadCaseOpeners()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 max-h-[36rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                <div className="grid gap-3">
+                  {caseOpeners.length > 0 ? (
+                    caseOpeners.map((opener) => {
+                      const expanded = expandedCaseOpenerId === opener.id;
+
+                      return (
+                        <article
+                          className="rounded-2xl border border-cyan-200/15 bg-black/35 p-3"
+                          key={opener.id}
+                        >
+                          <button
+                            className="flex w-full items-center justify-between gap-3 text-left"
+                            onClick={() => setExpandedCaseOpenerId(expanded ? null : opener.id)}
+                            type="button"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-black text-white">
+                                {opener.username}
+                              </p>
+                              <p className="mt-1 text-xs text-zinc-500">
+                                Last open {new Date(opener.lastOpenedAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="rounded-full border border-cyan-200/20 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-50">
+                                {opener.totalOpens} opens
+                              </span>
+                              <span className="text-cyan-100">{expanded ? "−" : "+"}</span>
+                            </div>
+                          </button>
+
+                          {expanded && (
+                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black text-white">
+                                    {opener.username}
+                                  </p>
+                                  <p className="mt-1 text-xs text-zinc-500">
+                                    Latest case opening history
+                                  </p>
+                                </div>
+                                <p className="text-xs font-bold text-cyan-100">
+                                  {opener.totalOpens} total
+                                </p>
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                {opener.recentOpenings.map((opening) => (
+                                  <div
+                                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                                    key={opening.id}
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-black text-white">
+                                        {opening.crateName}
+                                      </p>
+                                      <p className="truncate text-xs text-zinc-500">
+                                        {opening.itemName}
+                                      </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
+                                        {opening.itemRarity}
+                                      </p>
+                                      <p className="text-[11px] text-zinc-500">
+                                        {new Date(opening.openedAt).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No recent case openers yet.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
