@@ -3,6 +3,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
+  twitter_handle text,
+  display_name text,
   avatar_url text,
   email text,
   coins integer not null default 100,
@@ -27,6 +29,8 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles
+  add column if not exists twitter_handle text,
+  add column if not exists display_name text,
   add column if not exists avatar_url text,
   add column if not exists email text,
   add column if not exists tribute_total integer not null default 0,
@@ -298,6 +302,7 @@ create table if not exists public.pending_admin_actions (
   action_type text not null,
   requested_by_user_id uuid not null references auth.users(id) on delete cascade,
   target_user_id uuid not null references auth.users(id) on delete cascade,
+  target_username_snapshot text,
   amount integer not null,
   reason text,
   command text,
@@ -562,6 +567,26 @@ alter table public.profiles
   add column if not exists right_expirations jsonb not null default '[]'::jsonb,
   add column if not exists daily_purchase_count integer not null default 0,
   add column if not exists right_purchase_date text;
+
+-- Display name constraints (cosmetic, non-unique, public-facing only)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_display_name_valid'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_display_name_valid
+      CHECK (
+        display_name IS NULL
+        OR (
+          length(btrim(display_name)) >= 2
+          AND length(btrim(display_name)) <= 24
+          AND display_name !~ '[\x00-\x1F\x7F\n\r]'
+          AND btrim(display_name) <> ''
+        )
+      );
+  END IF;
+END $$;
 
 update public.profiles
 set right_expirations = (

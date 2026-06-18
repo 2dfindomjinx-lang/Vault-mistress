@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { User } from "@supabase/supabase-js";
+import Image from "next/image";
+import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CosmeticShop } from "@/components/CosmeticShop";
 import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
+import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { PetSection } from "@/components/PetSection";
+import { ProfileHeader } from "@/components/ProfileHeader";
 import {
   RecentTributesTicker,
   type RecentTribute,
@@ -19,6 +23,19 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
+import type { DashboardPage } from "@/components/SidebarNav";
+import {
+  AVATAR_SLOT_ORDER,
+  resolveAvatarItemIconPath,
+  equipAvatarItem,
+  getItemAvatarSlot,
+  isAvatarEquippableItem,
+  normalizeEquipment,
+  unequipAvatarSlot,
+  SLOT_LABELS,
+  type AvatarSlot,
+  type EquippedAvatarSlots,
+} from "@/lib/avatar-slots";
 import {
   cosmeticItems,
   DEFAULT_SPEECH_AVATAR_ID,
@@ -49,7 +66,13 @@ import {
   irlTaskWheelSegments,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
-import { ALL_LEGENDARY_ITEM_IDS } from "@/lib/crates";
+import {
+  ALL_LEGENDARY_ITEM_IDS,
+  CRATE_TYPES,
+  SAMPLE_CRATE_ITEMS,
+  RARITY_ORDER,
+  getCrateIconUrl,
+} from "@/lib/crates";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
 import { roundRewardToNearestFive } from "@/lib/server-game-rules";
@@ -64,9 +87,9 @@ import {
 } from "@/lib/sound";
 import {
   profileAvatarFromUser,
-  profileUsernameFromUser,
   isSupabaseConfigured,
   supabase,
+  validateDisplayName,
   type Profile,
 } from "@/lib/supabase/client";
 import type {
@@ -264,7 +287,7 @@ type UserPetTaskRow = {
 };
 
 const profileSelect =
-  "id, username, avatar_url, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, has_uncensored_avatar, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -1693,6 +1716,15 @@ export default function Home() {
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [username, setUsername] = useState("@littledevotee");
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [showDisplayNameSetup, setShowDisplayNameSetup] = useState(false);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [displayNameError, setDisplayNameError] = useState("");
+  const [isSettingDisplayName, setIsSettingDisplayName] = useState(false);
+
+  // For using purchased Display Name Change right from Profile tab
+  const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+  const [displayNameEditInput, setDisplayNameEditInput] = useState("");
   const [coins, setCoins] = useState(100);
   const coinsRef = useRef(coins);
   const [affection, setAffection] = useState(0);
@@ -1764,6 +1796,9 @@ export default function Home() {
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>(["leadership-0"]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
+  const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
+  const [hasUncensoredAvatar, setHasUncensoredAvatar] = useState(false);
+  const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
   const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
@@ -1780,7 +1815,7 @@ export default function Home() {
     sacrificeComplete: false,
     allGalleryComplete: false,
   });
-  const [activePanel, setActivePanel] = useState<"tribute" | "gallery" | "tasks" | "shop" | "pet">("tribute");
+  const [activePanel, setActivePanel] = useState<DashboardPage>("home");
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
@@ -2221,6 +2256,31 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, []);
 
   useEffect(() => {
+    const ownedItemIds = new Set(
+      crateInventory
+        .filter((item) => item.quantity > 0)
+        .map((item) => item.item_id),
+    );
+
+    setEquippedAvatarSlots((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([, itemId]) => ownedItemIds.has(itemId)),
+      ) as EquippedAvatarSlots;
+
+      const cleaned = normalizeEquipment(next);
+      // Best effort sync to server (authoritative on mutations)
+      if (!isGuestMode && authUserId && JSON.stringify(cleaned) !== JSON.stringify(normalizeEquipment(current))) {
+        void fetch("/api/user/wardrobe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "set-equipped", equippedSlots: cleaned }),
+        }).catch(() => {});
+      }
+      return cleaned;
+    });
+  }, [crateInventory, isGuestMode, authUserId]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const rebrandResult = params.get("rebrand");
 
@@ -2565,6 +2625,41 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   // === CRATE SYSTEM (V1) ===
   const loadCratesData = useCallback(async () => {
+    // For preview / temporary test logins (the "extra login for testing"), always seed
+    // rich local data so Cases are visible and Profile avatar customization has every
+    // item in inventory (including all avatar-layer items).
+    if (isPreviewMode || isGuestMode) {
+      const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
+        .filter(([, def]) => (def as any).enabled !== false)
+        .map(([crate_type, def]) => ({
+          crate_type,
+          name: def.name,
+          description: def.description,
+          cost: def.cost,
+          icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
+        }))
+        .sort((a, b) => a.cost - b.cost);
+
+      const seededInventory: CrateInventoryItem[] = Object.entries(SAMPLE_CRATE_ITEMS).map(
+        ([item_id, def]) => ({
+          item_id,
+          name: def.name,
+          description: def.description || "",
+          image_url: null,
+          rarity: def.rarity,
+          collection: def.collection || null,
+          sell_value: def.sell_value || 0,
+          variant: "normal",
+          quantity: 50,
+        }),
+      );
+
+      setAvailableCrates(seededCrates);
+      setCrateInventory(seededInventory);
+      setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+      return;
+    }
+
     try {
       const response = await fetch("/api/user/crates", { cache: "no-store" });
       const result = (await response.json()) as {
@@ -2953,6 +3048,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const applyProfile = useCallback(async (profile: Profile) => {
     setAuthUserId(profile.id);
     setUsername(profile.username);
+    setDisplayName(profile.display_name ?? null);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
@@ -2968,6 +3064,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
+    setEquippedAvatarSlots(profile.equipped_avatar_slots || {});
+    setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -3287,6 +3385,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     profileIdRef.current = profile.id;
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
+    setActivePanel("home");
     void loadLeadershipTop();
     void loadShameTop();
     void loadJackpot();
@@ -3301,6 +3400,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
     setUsername(profile.username);
+    setDisplayName(profile.display_name ?? null);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
@@ -3314,7 +3414,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
+    setEquippedAvatarSlots(profile.equipped_avatar_slots || {});
+    setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
     setIsLoggedIn(true);
+    setActivePanel("home");
   }, []);
 
   const shouldHydrateAdminSession = isLoggedIn && Boolean(authUserId) && !isGuestMode;
@@ -3394,19 +3497,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [applyProfileStats, authUserId, isGuestMode]);
 
   const createProfileForUser = useCallback(async (user: User) => {
-    const fallbackUsername = profileUsernameFromUser(user);
     const avatarUrl = profileAvatarFromUser(user);
 
-    const createProfile = async (usernameForProfile: string) => {
+    const createProfile = async () => {
       console.info("Creating/upserting profile", {
         userId: user.id,
-        username: usernameForProfile,
       });
 
       const response = await fetch("/api/user/profile-bootstrap", {
         body: JSON.stringify({
           avatarUrl,
-          username: usernameForProfile,
+          // username generation handled server-side using X metadata + uniqueness suffixing on first creation only
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -3429,8 +3530,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return result;
     };
 
-    const { data: createdProfile, error: insertError } =
-      await createProfile(fallbackUsername);
+    const { data: createdProfile, error: insertError } = await createProfile();
 
     if (insertError || !createdProfile) {
       console.error("Profile create final failure", {
@@ -4246,7 +4346,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           fetch("/api/auth/session", { cache: "no-store" }),
           "server auth session fallback",
         );
-        const payload = (await response.json()) as { error?: string | null; user?: User | null };
+        const responseText = await response.text();
+        let payload: { error?: string | null; user?: User | null } = {};
+
+        if (responseText.trim()) {
+          try {
+            payload = JSON.parse(responseText) as { error?: string | null; user?: User | null };
+          } catch (parseError) {
+            console.warn("[auth-init] server session fallback returned non-JSON payload", {
+              parseError,
+              status: response.status,
+              responseText,
+            });
+          }
+        }
 
         console.info("[auth-init] server session fallback result", {
           hasUser: Boolean(payload.user),
@@ -5809,6 +5922,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     profileIdRef.current = null;
     setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(LOCAL_GUEST_USER_ID));
     setUsername("@preview");
+    setDisplayName("Preview User");
     setCoins(0);
     setAffection(0);
     setTributeTotal(0);
@@ -5827,6 +5941,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetDebtContract(null);
     setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
+    setEquippedAvatarSlots({});
+    setHasUncensoredAvatar(false);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
     setOwnedTitleIds(["leadership-0"]);
@@ -5843,8 +5959,135 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     });
     setJackpot(null);
     setJackpotError("");
-    setActivePanel("tribute");
-    setAvatarMistressReply("Preview Mode is read-only. Sign in to unlock progression.");
+
+    // Seed rich crates + full inventory immediately for avatar testing
+    const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
+      .filter(([, def]) => (def as any).enabled !== false)
+      .map(([crate_type, def]) => ({
+        crate_type,
+        name: def.name,
+        description: def.description,
+        cost: def.cost,
+        icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
+      }))
+      .sort((a, b) => a.cost - b.cost);
+    const seededInventory: CrateInventoryItem[] = Object.entries(SAMPLE_CRATE_ITEMS).map(
+      ([item_id, def]) => ({
+        item_id,
+        name: def.name,
+        description: def.description || "",
+        image_url: null,
+        rarity: def.rarity,
+        collection: def.collection || null,
+        sell_value: def.sell_value || 0,
+        variant: "normal",
+        quantity: 50,
+      }),
+    );
+    setAvailableCrates(seededCrates);
+    setCrateInventory(seededInventory);
+    setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+
+    setActivePanel("profile");
+    setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
+  }, [setAvatarMistressReply]);
+
+  // silinecek: wardrobe/task/economy testleri icin gecici zengin test girisi
+  const handleEnterTemporaryTestMode = useCallback(() => {
+    const now = new Date().toISOString();
+
+    authProfileLoadInFlightRef.current = null;
+    authProfileLoadedRef.current = null;
+    setAuthError("");
+    authBootstrappedRef.current = true;
+    setAuthBootstrapped(true);
+    setIsProfileVerified(true);
+    setIsProfileLoading(false);
+    setHasHydratedInitialProfile(true);
+    setIsAuthBusy(false);
+    setIsAuthLoading(false);
+    setIsPreviewMode(false);
+    previewModeRef.current = false;
+    setIsGuestMode(true);
+    setIsLoggedIn(true);
+    setAuthUserId(null);
+    profileIdRef.current = null;
+    setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(LOCAL_GUEST_USER_ID));
+    setUsername("@temporary-test");
+    setDisplayName("Test Pet");
+    setCoins(5_000_000);
+    setAffection(100);
+    setTributeTotal(2_500_000);
+    setLoyaltyStreak(30);
+    setLastLoyaltyAt(now);
+    setUserLevel(99);
+    setUserXp(999_999);
+    setTimeoutUntil(null);
+    setTimeoutReason(null);
+    timeoutUntilRef.current = null;
+    timeoutReasonRef.current = null;
+
+    setUnlockedGalleryIds(visibleGalleryItems.map((item) => item.id));
+    setPetScore(1000);
+    setOwnerLikeness(100);
+    setStoredRights(25);
+    setRightExpirations([]);
+    setDailyPurchaseCount(0);
+    setRightPurchaseDate(null);
+    setPetUnlockedAt(now);
+    setLastPetTaxAt(now);
+    setPetDebtContract(null);
+    setPetAffectionClaimDate(null);
+    setPetGalleryUnlockedIds(petGalleryItems.map((item) => item.id));
+    setEquippedAvatarSlots({});
+    setHasUncensoredAvatar(false);
+    setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
+    setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
+    setOwnedTitleIds(["leadership-0"]);
+    setEquippedTitleId("leadership-0");
+    setIsTitleManuallySelected(false);
+    setTasks(buildTasksFromRows([], 100, 30, now, null, null));
+    setPetTaskState(buildPetTasksFromRows([]));
+    setMechanics({
+      supportUnlocked: true,
+      sacrificeUnlockedCount: sacrificeGalleryItems.length,
+      sacrificeTotal: sacrificeGalleryItems.length,
+      sacrificeComplete: true,
+      allGalleryComplete: true,
+    });
+    setJackpot(null);
+    setJackpotError("");
+
+    // Seed rich crates + full inventory immediately for avatar testing (all items available)
+    const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
+      .filter(([, def]) => (def as any).enabled !== false)
+      .map(([crate_type, def]) => ({
+        crate_type,
+        name: def.name,
+        description: def.description,
+        cost: def.cost,
+        icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
+      }))
+      .sort((a, b) => a.cost - b.cost);
+    const seededInventory: CrateInventoryItem[] = Object.entries(SAMPLE_CRATE_ITEMS).map(
+      ([item_id, def]) => ({
+        item_id,
+        name: def.name,
+        description: def.description || "",
+        image_url: null,
+        rarity: def.rarity,
+        collection: def.collection || null,
+        sell_value: def.sell_value || 0,
+        variant: "normal",
+        quantity: 50,
+      }),
+    );
+    setAvailableCrates(seededCrates);
+    setCrateInventory(seededInventory);
+    setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+
+    setActivePanel("profile");
+    setAvatarMistressReply("Temporary test login (full crates + avatar items). Switch tabs to test Cases and Profile avatar customization.");
   }, [setAvatarMistressReply]);
 
   const handleLogout = async () => {
@@ -5863,6 +6106,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     previewModeRef.current = false;
     setIsLoggedIn(false);
     setAuthUserId(null);
+    setDisplayName(null);
+    setUsername("@littledevotee");
     profileIdRef.current = null;
     setUnlockedGalleryIds([]);
     setTasks([]);
@@ -5886,11 +6131,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetTaskState(petTasks);
     setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
+    setEquippedAvatarSlots({});
+    setHasUncensoredAvatar(false);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
     setOwnedTitleIds(["leadership-0"]);
     setEquippedTitleId("leadership-0");
     setIsTitleManuallySelected(false);
+    setCrateInventory([]);
     setAvatarMistressReply("Back at the gate. The vault can wait.");
   };
 
@@ -5930,7 +6178,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const affectionGain = getEventTributeAffection(tributeGains[amount] ?? 0);
 
     const nextAffection = Math.min(100, affection + affectionGain);
-    const nextCoins = Math.max(0, currentCoins - amount);
+    const nextCoins = currentCoins - amount;
     const nextTributeTotal = getNextTributeTotal(amount);
 
     try {
@@ -6081,7 +6329,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const nextCoins = Math.max(0, currentCoins - unlockCost);
+    const nextCoins = currentCoins - unlockCost;
 
     try {
       await persistProfileProgress(
@@ -6115,6 +6363,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (blockIfTimedOut()) {
       return;
     }
+
+    // display-name-change is now purchased normally like other items to grant a change right.
+    // The right is used from the Profile tab via the pencil icon.
 
     if (item.price <= 0 || ownedCosmeticIds.includes(item.id)) {
       await handleEquipCosmetic(item);
@@ -7947,6 +8198,302 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     loyaltyStreak,
     tributeTotal,
   };
+  const equippableInventoryItems = useMemo(
+    () => crateInventory.filter((item) => item.quantity > 0 && isAvatarEquippableItem(item.item_id)),
+    [crateInventory],
+  );
+  const inventoryItemNameById = useMemo(
+    () => new Map(crateInventory.map((item) => [item.item_id, item.name])),
+    [crateInventory],
+  );
+
+  const hasDisplayNameChangeRight = ownedCosmeticIds.includes("display-name-change");
+
+  // Group wardrobe items by their avatar slot category for cleaner UI
+  const equippableByCategory = useMemo(() => {
+    const groups: Partial<Record<AvatarSlot, typeof equippableInventoryItems>> = {};
+    for (const item of equippableInventoryItems) {
+      const slot = getItemAvatarSlot(item.item_id);
+      if (slot) {
+        if (!groups[slot]) groups[slot] = [];
+        groups[slot]!.push(item);
+      }
+    }
+    // Sort each category's items by rarity: common -> uncommon -> rare -> epic -> legendary
+    Object.keys(groups).forEach((slot) => {
+      const arr = groups[slot as AvatarSlot]!;
+      arr.sort((a, b) => {
+        const ia = RARITY_ORDER.indexOf((a.rarity || "").toLowerCase() as any);
+        const ib = RARITY_ORDER.indexOf((b.rarity || "").toLowerCase() as any);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+    });
+    return groups;
+  }, [equippableInventoryItems]);
+
+  const getRarityCardClasses = (rarity: string, isEquipped: boolean) => {
+    const r = (rarity || "").toLowerCase();
+
+    if (isEquipped) {
+      // Keep equipped prominent with pink, blend subtle rarity tint/border
+      let extra = "border-pink-300/40 bg-pink-500/10 text-pink-50 transition-all duration-200";
+      switch (r) {
+        case "uncommon":
+          extra += " border-emerald-400/20 ring-1 ring-emerald-400/10";
+          break;
+        case "rare":
+          extra += " border-sky-400/20 ring-1 ring-sky-400/10";
+          break;
+        case "epic":
+          extra += " border-violet-400/20 ring-1 ring-violet-400/10";
+          break;
+        case "legendary":
+          extra += " border-amber-400/25 ring-1 ring-amber-400/12";
+          break;
+        default:
+          extra += " border-zinc-500/20";
+      }
+      return extra;
+    }
+
+    // Non-equipped: subtle rarity tint + soft glow, dark base preserved
+    let classes = "border-white/10 hover:border-pink-300/30 transition-all duration-200";
+    switch (r) {
+      case "uncommon":
+        classes += " bg-emerald-900/5 border-emerald-700/20 shadow-[0_0_5px_rgba(16,185,129,0.1)] hover:shadow-[0_0_8px_rgba(16,185,129,0.18)]";
+        break;
+      case "rare":
+        classes += " bg-sky-900/5 border-sky-700/20 shadow-[0_0_5px_rgba(14,165,233,0.1)] hover:shadow-[0_0_8px_rgba(14,165,233,0.18)]";
+        break;
+      case "epic":
+        classes += " bg-violet-900/5 border-violet-700/20 shadow-[0_0_5px_rgba(139,92,246,0.1)] hover:shadow-[0_0_8px_rgba(139,92,246,0.18)]";
+        break;
+      case "legendary":
+        classes += " bg-amber-900/6 border-amber-600/25 shadow-[0_0_6px_rgba(245,158,11,0.12)] hover:shadow-[0_0_10px_rgba(245,158,11,0.22)]";
+        break;
+      case "common":
+      default:
+        classes += " bg-white/[0.03] border-zinc-700/30";
+        break;
+    }
+    return classes;
+  };
+
+  const dashboardNavItems = [
+    { key: "home" as const, label: "Home" },
+    { key: "tribute" as const, label: "Tribute" },
+    { key: "collection" as const, label: "Gallery" },
+    { key: "tasks" as const, label: "Tasks" },
+    {
+      key: "pet" as const,
+      label: "Pet",
+      disabled: !isPetUnlocked,
+      badge: isPetUnlocked ? undefined : "Locked",
+    },
+    { key: "crates" as const, label: "Cases" },
+    { key: "shop" as const, label: "Shop" },
+    { key: "profile" as const, label: "Profile" },
+  ];
+  const activePageLabel =
+    dashboardNavItems.find((item) => item.key === activePanel)?.label ?? "Home";
+  const soundControls = (
+    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">
+      <button
+        aria-label={soundsMuted ? "Unmute sound" : "Mute sound"}
+        aria-pressed={soundsMuted}
+        className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] transition ${
+          soundsMuted
+            ? "border-red-200/30 bg-red-500/15 text-red-50 hover:border-red-200/55"
+            : "border-emerald-200/30 bg-emerald-400/10 text-emerald-50 hover:border-emerald-200/55"
+        }`}
+        onClick={() =>
+          applySoundSettings({
+            gameplayEnabled: soundsMuted,
+            uiEnabled: soundsMuted,
+          })
+        }
+        type="button"
+      >
+        {soundsMuted ? "Muted" : "Sound"}
+      </button>
+      <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-300">
+        <span className="sr-only">Volume</span>
+        <input
+          aria-label="Volume"
+          className="w-20 accent-pink-400 sm:w-24"
+          max={100}
+          min={0}
+          onChange={(event) =>
+            applySoundSettings({ masterVolume: Number(event.target.value) / 100 })
+          }
+          type="range"
+          value={Math.round(soundSettings.masterVolume * 100)}
+        />
+        <span className="w-8 text-right text-pink-100">
+          {Math.round(soundSettings.masterVolume * 100)}%
+        </span>
+      </label>
+    </div>
+  );
+  const effectiveDisplayName = displayName && displayName.trim().length >= 2 ? displayName.trim() : null;
+  const requiresDisplayNameSetup = Boolean(authUserId) && !isGuestMode && !isPreviewMode && !effectiveDisplayName;
+
+  const performDisplayNameUpdate = async (rawInput: string, { forceFree = false }: { forceFree?: boolean } = {}) => {
+    const validation = validateDisplayName(rawInput);
+    if (!validation.valid || !validation.normalized) {
+      setDisplayNameError(validation.error ?? "Invalid display name.");
+      return false;
+    }
+    if (!authUserId) {
+      setDisplayNameError("Not authenticated.");
+      return false;
+    }
+
+    setIsSettingDisplayName(true);
+    setDisplayNameError("");
+
+    try {
+      const response = await fetch("/api/user/display-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: validation.normalized }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; profile?: Profile; isFirstSetup?: boolean };
+
+      if (!response.ok) {
+        const msg = payload.error ?? "Failed to set display name.";
+        setDisplayNameError(msg);
+        setAvatarMistressReply(msg);
+        return false;
+      }
+
+      if (payload.profile) {
+        applyProfileStats(payload.profile);
+      } else {
+        setDisplayName(validation.normalized);
+      }
+
+      setDisplayNameInput("");
+      setShowDisplayNameSetup(false);
+      emitSoundEvent("cosmetic_purchased");
+      const wasFirst = payload.isFirstSetup ?? forceFree;
+      setAvatarMistressReply(
+        wasFirst
+          ? "Display name set. Welcome."
+          : "Display name changed. 1000 coins spent."
+      );
+      return true;
+    } catch (err) {
+      console.error("Display name update failed", err);
+      const msg = describeError(err) || "Display name update failed.";
+      setDisplayNameError(msg);
+      setAvatarMistressReply(msg);
+      return false;
+    } finally {
+      setIsSettingDisplayName(false);
+    }
+  };
+
+  const handleConfirmDisplayNameSetup = async () => {
+    await performDisplayNameUpdate(displayNameInput, { forceFree: true });
+  };
+
+  // Paid change modal removed - use purchased rights via pencil in Profile tab instead.
+
+  const handleSaveDisplayNameChange = async () => {
+    if (!hasDisplayNameChangeRight || !authUserId) return;
+    const validation = validateDisplayName(displayNameEditInput);
+    if (!validation.valid || !validation.normalized) {
+      setDisplayNameError(validation.error || "Invalid display name.");
+      return;
+    }
+    setIsSettingDisplayName(true);
+    setDisplayNameError("");
+    try {
+      const response = await fetch("/api/user/display-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: validation.normalized,
+          useRight: true,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; profile?: Profile };
+      if (!response.ok) {
+        setDisplayNameError(payload.error || "Failed to update display name.");
+        return;
+      }
+      if (payload.profile) {
+        applyProfileStats(payload.profile);
+      } else {
+        setDisplayName(validation.normalized);
+      }
+      // consume the right
+      setOwnedCosmeticIds((prev) => prev.filter((id) => id !== "display-name-change"));
+      setIsEditingDisplayName(false);
+      setDisplayNameEditInput("");
+      emitSoundEvent("cosmetic_purchased");
+      setAvatarMistressReply("Display name updated using your change right.");
+    } catch (err) {
+      setDisplayNameError("Failed to update display name.");
+    } finally {
+      setIsSettingDisplayName(false);
+    }
+  };
+
+  const profileHeaderStats =
+    activePanel === "pet"
+      ? [
+          { label: "Pet Score", value: petScore.toLocaleString(), hint: "Pet progression" },
+          { label: "Likeness", value: `${ownerLikeness}/100`, hint: "Owner likeness" },
+          { label: "Rights", value: storedRights.toLocaleString(), hint: "Stored rights" },
+        ]
+      : activePanel === "tasks"
+        ? [
+            { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
+            { label: "User Level", value: userLevel.toLocaleString(), hint: "Independent level" },
+            { label: "Principessa", value: `Level ${globalPrincipessa.level}`, hint: "Monthly level" },
+          ]
+        : [
+            { label: "Affection", value: `${affection}/100`, hint: "Current mood" },
+            { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
+            { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
+          ];
+  const headerActions = (
+    <>
+      <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
+        Greedy Mode
+      </div>
+      {isAdminUser && (
+        <>
+          <Link
+            className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+            href="/admin"
+          >
+            Admin
+            {pendingIrlReviewCount > 0 && (
+              <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
+                {pendingIrlReviewCount}
+              </span>
+            )}
+          </Link>
+          <Link
+            className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
+            href="/admin/analytics"
+          >
+            Analytics
+          </Link>
+        </>
+      )}
+      <button
+        className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+        onClick={handleLogout}
+        type="button"
+      >
+        Logout
+      </button>
+    </>
+  );
 
   if (!authBootstrapped || isAuthLoading || isProfileLoading || (isLoggedIn && !isVaultReady)) {
     return (
@@ -7964,70 +8511,102 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         error={authError}
         isBusy={isAuthBusy}
         onEnterPreviewMode={handleEnterPreviewMode}
+        onEnterTemporaryTestMode={handleEnterTemporaryTestMode}
         onSignInWithX={handleSignInWithX}
       />
     );
   }
 
+  // First-time Display Name requirement blocks all normal access (free)
+  if (requiresDisplayNameSetup && authBootstrapped && isLoggedIn && !isPreviewMode) {
+    const setupDisabled = isSettingDisplayName || !displayNameInput.trim();
+    return (
+      <main className="min-h-screen bg-[#06030a] text-white flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-[2rem] border border-fuchsia-200/20 bg-black/70 p-8 shadow-[0_0_60px_rgba(217,70,239,0.2)]">
+          <p className="text-xs uppercase tracking-[0.3em] text-fuchsia-200/70">Welcome</p>
+          <h1 className="mt-2 text-3xl font-black">Choose your Display Name</h1>
+          <p className="mt-3 text-sm text-zinc-400">
+            This is public-facing only. Your @username remains your stable identity for admin and logs.
+            It cannot be changed later without the cosmetic purchase.
+          </p>
+
+          <div className="mt-6">
+            <label className="text-xs font-black uppercase tracking-[0.2em] text-pink-200/80">Display Name</label>
+            <input
+              className="mt-2 w-full rounded-xl border border-white/10 bg-black/60 px-4 py-3 text-lg font-black outline-none focus:border-pink-300/60"
+              value={displayNameInput}
+              onChange={(e) => {
+                setDisplayNameInput(e.target.value);
+                setDisplayNameError("");
+              }}
+              placeholder="e.g. Good Boy"
+              maxLength={24}
+              disabled={isSettingDisplayName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !setupDisabled) void handleConfirmDisplayNameSetup();
+              }}
+            />
+            {displayNameError && (
+              <p className="mt-2 text-sm text-red-400">{displayNameError}</p>
+            )}
+            <p className="mt-1 text-[10px] text-zinc-500">2–24 characters. No line breaks.</p>
+          </div>
+
+          <button
+            className="mt-6 w-full rounded-full bg-pink-500 py-3 text-sm font-black uppercase tracking-[0.2em] text-black disabled:opacity-50"
+            disabled={setupDisabled}
+            onClick={() => void handleConfirmDisplayNameSetup()}
+            type="button"
+          >
+            {isSettingDisplayName ? "Saving..." : "Set Display Name"}
+          </button>
+          <p className="mt-3 text-center text-[10px] text-zinc-500">Free for first setup. No coins charged.</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main
-      className="min-h-screen overflow-hidden bg-[#06030a] text-white"
+      className="min-h-screen overflow-x-hidden bg-[#06030a] text-white"
       onPointerDown={handleGlobalPointerDown}
     >
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex items-center justify-between rounded-[1.5rem] border border-fuchsia-300/15 bg-black/40 px-4 py-3 shadow-[0_0_40px_rgba(217,70,239,0.12)] backdrop-blur">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-fuchsia-200/70">
-              Vault Mistress
-            </p>
-            <h1 className="text-2xl font-semibold text-white sm:text-3xl">
-              Principessa&apos;s Premium Vault
-            </h1>
-            <p className="mt-1 text-sm text-pink-100/70">
-              Signed in as{" "}
-              <span className="font-bold text-pink-100" style={usernameStyle}>{username}</span>
-            </p>
-            {equippedTitle && (
-              <p className="mt-1 text-xs font-black uppercase tracking-[0.22em] text-fuchsia-200/80">
-                {equippedTitle.name}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-            <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
-              Greedy Mode
-            </div>
-            {isAdminUser && (
-              <>
-                <Link
-                  className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
-                  href="/admin"
-                >
-                  Admin
-                  {pendingIrlReviewCount > 0 && (
-                    <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
-                      {pendingIrlReviewCount}
-                    </span>
-                  )}
-                </Link>
-                <Link
-                  className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
-                  href="/admin/analytics"
-                >
-                  Analytics
-                </Link>
-              </>
-            )}
-            <button
-              className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
-              onClick={handleLogout}
-              type="button"
-            >
-              Logout
-            </button>
-          </div>
-        </header>
+      <AppShell
+        activePage={activePanel}
+        items={dashboardNavItems}
+        onNavigate={(page) => {
+          emitSoundEvent("button_click");
+          setActivePanel(page);
+        }}
+      >
+        <ProfileHeader
+          actions={headerActions}
+          avatarSrc={characterEvolutionStage.image}
+          coins={coins}
+          currentTitle={equippedTitle?.name}
+          displayName={effectiveDisplayName}
+          equippedAvatarSlots={equippedAvatarSlots}
+          hasUncensoredAvatar={hasUncensoredAvatar}
+          pageLabel={activePageLabel}
+          soundControls={soundControls}
+          stats={profileHeaderStats}
+          username={username}
+          usernameStyle={usernameStyle}
+          hasDisplayNameChangeRight={hasDisplayNameChangeRight}
+          isEditingDisplayName={isEditingDisplayName}
+          displayNameEditInput={displayNameEditInput}
+          onStartDisplayNameEdit={() => {
+            setDisplayNameEditInput(effectiveDisplayName ?? "");
+            setIsEditingDisplayName(true);
+          }}
+          onSaveDisplayNameEdit={handleSaveDisplayNameChange}
+          onCancelDisplayNameEdit={() => {
+            setIsEditingDisplayName(false);
+            setDisplayNameEditInput("");
+          }}
+          onDisplayNameEditInputChange={setDisplayNameEditInput}
+        />
 
         {showAccountAnnouncement && (
           <section className="rounded-[1.25rem] border border-pink-200/30 bg-[linear-gradient(135deg,rgba(236,72,153,0.18),rgba(0,0,0,0.58))] px-4 py-3 shadow-[0_0_28px_rgba(236,72,153,0.14)]">
@@ -8067,54 +8646,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         )}
 
         <RecentTributesTicker
-          currentUsername={username}
+          currentUsername={effectiveDisplayName ?? username}
           topTributes={topTributes}
           tributes={recentTributes}
           usernameStyle={usernameStyle}
         />
-
-        <section className="rounded-[1.25rem] border border-white/10 bg-black/35 px-4 py-3 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-fuchsia-200/70">
-              Sound
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                aria-pressed={soundsMuted}
-                className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition ${
-                  soundsMuted
-                    ? "border-red-200/30 bg-red-500/15 text-red-50 hover:border-red-200/55"
-                    : "border-emerald-200/30 bg-emerald-400/10 text-emerald-50 hover:border-emerald-200/55"
-                }`}
-                onClick={() =>
-                  applySoundSettings({
-                    gameplayEnabled: soundsMuted,
-                    uiEnabled: soundsMuted,
-                  })
-                }
-                type="button"
-              >
-                {soundsMuted ? "Unmute" : "Mute"}
-              </button>
-              <label className="flex min-w-0 items-center gap-3 text-xs font-bold text-zinc-300">
-                <span className="shrink-0">Volume</span>
-                <input
-                  className="w-44 accent-pink-400 sm:w-56"
-                  max={100}
-                  min={0}
-                  onChange={(event) =>
-                    applySoundSettings({ masterVolume: Number(event.target.value) / 100 })
-                  }
-                  type="range"
-                  value={Math.round(soundSettings.masterVolume * 100)}
-                />
-                <span className="w-10 text-right text-pink-100">
-                  {Math.round(soundSettings.masterVolume * 100)}%
-                </span>
-              </label>
-            </div>
-          </div>
-        </section>
 
         {activeEvents.length > 0 && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
@@ -8206,93 +8742,56 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-          <div className="flex flex-col gap-6">
-            <CharacterCard
-              dailyMessage={dailyMessage}
-              evolutionStage={characterEvolutionStage}
-              stageRevealToken={affectionStageRevealToken}
-            />
-            <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
-              <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
-                Affection Read
-              </p>
-              <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
-              <p className="mt-4 text-sm leading-6 text-pink-50">
-                {scriptedMessage}
-              </p>
-            </section>
-            <TitleCollection
-              disabled={isTimeoutActive || isPreviewRestricted}
-              equippedTitleId={equippedTitleId}
-              ownedTitleIds={ownedTitleIds}
-              titles={titleItems}
-              onEquipTitle={handleEquipTitle}
-            />
-          </div>
-
-          <div className="flex flex-col gap-6">
-            <StatsPanel
-              equippedTitleName={equippedTitle?.name}
-              leadershipTop={leadershipTop}
-              shameTop={shameTop}
-              statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
-              stats={stats}
-              topValuableInventories={topValuableInventories}
-              username={username}
-              usernameStyle={usernameStyle}
-            />
-            <ProfileTaskCard
-              disabled={isTimeoutActive || isPreviewRestricted}
-              isPending={pendingTaskActionIds.includes("rebrand-profile")}
-              onRebrandProfile={handleRebrandProfile}
-            />
-          </div>
-        </section>
-
-        <nav className="grid grid-cols-2 gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_28px_rgba(236,72,153,0.1)] md:grid-cols-5">
-          {[
-            ["tribute", "Tribute"],
-            ["gallery", "Gallery"],
-            ["tasks", "Tasks"],
-            ["shop", "Cosmetics"],
-            ["pet", "Principessa's Pet"],
-          ].map(([key, label]) => (
-            <button
-              className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                activePanel === key
-                  ? "bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_22px_rgba(236,72,153,0.35)]"
-                  : key === "pet" && !isPetUnlocked
-                    ? "border border-rose-200/10 bg-black/30 text-rose-100/45"
-                    : "border border-white/10 bg-black/40 text-pink-100 hover:border-pink-300/40"
-              }`}
-              disabled={key === "pet" && !isPetUnlocked}
-              key={key}
-              onClick={() => {
-                emitSoundEvent("button_click");
-                setActivePanel(key as typeof activePanel);
-              }}
-              type="button"
-            >
-              {label}
-              {key === "pet" && !isPetUnlocked && (
-                <span className="ml-2 text-xs text-rose-100/60">Locked</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
         <section className="pb-10">
+          {activePanel === "home" && (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <div className="flex flex-col gap-6">
+                <CharacterCard
+                  dailyMessage={dailyMessage}
+                  evolutionStage={characterEvolutionStage}
+                  stageRevealToken={affectionStageRevealToken}
+                />
+                <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
+                  <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
+                    Affection Read
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
+                  <p className="mt-4 text-sm leading-6 text-pink-50">
+                    {scriptedMessage}
+                  </p>
+                </section>
+                <ProfileTaskCard
+                  disabled={isTimeoutActive || isPreviewRestricted}
+                  isPending={pendingTaskActionIds.includes("rebrand-profile")}
+                  onRebrandProfile={handleRebrandProfile}
+                />
+              </div>
+
+              <div className="flex flex-col gap-6">
+                <StatsPanel
+                  equippedTitleName={equippedTitle?.name}
+                  leadershipTop={leadershipTop}
+                  shameTop={shameTop}
+                  statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
+                  stats={stats}
+                  topValuableInventories={topValuableInventories}
+                  username={effectiveDisplayName ?? username}
+                  usernameStyle={usernameStyle}
+                />
+              </div>
+            </div>
+          )}
           {activePanel === "tribute" && (
             <TributePanel
               affection={affection}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
+              hideAffectionOffer={affection >= 100}
               pending={pendingTaskActionIds.some((id) => id.startsWith("tribute:"))}
               onTribute={handleTribute}
             />
           )}
-          {activePanel === "gallery" && (
+          {activePanel === "collection" && (
             <GalleryGrid
               items={visibleGallery}
               coins={coins}
@@ -8303,6 +8802,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 .map((id) => id.slice("gallery:".length))}
               onUnlock={handleUnlock}
             />
+          )}
+          {activePanel === "rankings" && (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <StatsPanel
+                equippedTitleName={equippedTitle?.name}
+                leadershipTop={leadershipTop}
+                shameTop={shameTop}
+                statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
+                stats={stats}
+                topValuableInventories={topValuableInventories}
+                username={username}
+                usernameStyle={usernameStyle}
+              />
+            </div>
           )}
           {activePanel === "tasks" && (
             <TaskList
@@ -8353,9 +8866,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onWaitObedientlyStart={handleWaitObedientlyStart}
             />
           )}
-          {activePanel === "shop" && (
-            <>
-              {/* Crates at the very top of the Cosmetics / shop area (as requested) */}
+          {activePanel === "crates" && (
               <CratesPanel
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
@@ -8382,8 +8893,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   setSpeechBubbleReply(msg);
                 }}
               />
-
-              {/* Original cosmetics shop below the crates */}
+          )}
+          {activePanel === "shop" && (
               <CosmeticShop
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
@@ -8403,7 +8914,271 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onPurchaseCosmetic={handlePurchaseCosmetic}
                 onPurchaseTitle={handlePurchaseTitle}
               />
-            </>
+          )}
+          {activePanel === "profile" && (
+            <div className="flex flex-col gap-6">
+              <TitleCollection
+                disabled={isTimeoutActive || isPreviewRestricted}
+                equippedTitleId={equippedTitleId}
+                layout="horizontal"
+                ownedTitleIds={ownedTitleIds}
+                titles={titleItems}
+                onEquipTitle={handleEquipTitle}
+              />
+
+              <section className="rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
+                <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
+                  Avatar Wardrobe
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-white">Profile Customization</h2>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Items grouped by category (hands &amp; mouth added). Click items to equip or unequip. Avatar preview updates live.
+                </p>
+                <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] items-start">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-3 flex flex-col">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                      Avatar Preview
+                    </p>
+
+                    <div className="flex flex-col xl:flex-row gap-2 mt-1 flex-1 min-h-0">
+                      {/* Avatar */}
+                      <div className="flex-1 min-w-0">
+                        <div className="relative h-[440px] overflow-hidden rounded-[1.35rem] border border-white/10 bg-black/40">
+                          <LayeredAvatar
+                            alt="Avatar wardrobe preview"
+                            className="absolute inset-0"
+                            equipped={equippedAvatarSlots}
+                            hasUncensored={hasUncensoredAvatar}
+                            imageClassName="object-contain object-center"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Slim vertical equipped rail */}
+                      <div className="xl:w-52 w-full flex-shrink-0 xl:flex-col flex flex-row flex-wrap gap-1.5 text-xs xl:border-l xl:pl-2 xl:border-t-0 border-t xl:pt-0 pt-2 border-white/10">
+                        {AVATAR_SLOT_ORDER.map((slot) => {
+                          const equippedItemId = equippedAvatarSlots[slot];
+                          const isFiltered = wardrobeCategoryFilter === slot;
+
+                          if (!equippedItemId) {
+                            return (
+                              <div
+                                key={slot}
+                                onClick={() => setWardrobeCategoryFilter(wardrobeCategoryFilter === slot ? null : slot)}
+                                className={`flex items-center gap-1.5 px-1 py-0.5 rounded opacity-30 cursor-pointer hover:opacity-50 ${isFiltered ? 'opacity-60 bg-pink-500/5 ring-1 ring-pink-300/40' : ''}`}
+                              >
+                                <div className="w-5 h-5 rounded-sm bg-white/10" />
+                                <span className="truncate">{SLOT_LABELS[slot]}</span>
+                              </div>
+                            );
+                          }
+
+                          const equippedItemName = inventoryItemNameById.get(equippedItemId) ?? equippedItemId;
+                          const equippedItemIcon = resolveAvatarItemIconPath(equippedItemId);
+
+                          return (
+                            <div
+                              key={slot}
+                              className={`flex items-center gap-1.5 px-1 py-0.5 rounded border cursor-pointer transition text-[10px] ${isFiltered ? 'border-pink-300 bg-pink-500/10 ring-1 ring-pink-300/40' : 'border-white/10 hover:border-white/30'}`}
+                              onClick={() => setWardrobeCategoryFilter(wardrobeCategoryFilter === slot ? null : slot)}
+                            >
+                              {equippedItemIcon ? (
+                                <div className="relative w-5 h-5 shrink-0">
+                                  <Image
+                                    alt=""
+                                    src={equippedItemIcon}
+                                    fill
+                                    className="object-contain"
+                                    unoptimized
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 border rounded" />
+                              )}
+                              <span className="flex-1 truncate">{equippedItemName}</span>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ action: "unequip", slot }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok && data.equipped) {
+                                      setEquippedAvatarSlots(data.equipped);
+                                    }
+                                  } catch (err) {
+                                    console.error("Unequip error", err);
+                                  }
+                                }}
+                                className="text-pink-400 hover:text-red-400 px-0.5"
+                                aria-label="Unequip"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {Object.keys(equippedAvatarSlots).length === 0 && (
+                          <span className="text-zinc-500">None</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Uncensored - kept compact */}
+                    <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/25 p-2 text-[10px]">
+                      {hasUncensoredAvatar ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400">
+                          <span>✓</span>
+                          <span className="font-black uppercase tracking-widest">Uncensored Unlocked</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-zinc-300">Unlock full uncensored</span>
+                          <button
+                            className="rounded border border-pink-300/40 bg-pink-500/10 px-2 py-0.5 font-black text-pink-200 disabled:opacity-50"
+                            disabled={coins < 10000 || isTimeoutActive || isPreviewRestricted}
+                            onClick={async () => {
+                              try {
+                                const res = await fetch("/api/user/wardrobe", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "unlock-uncensored" }),
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  if (data.hasUncensored) setHasUncensoredAvatar(true);
+                                  if (typeof data.coins === "number") setCoins(data.coins);
+                                  emitSoundEvent("cosmetic_purchased");
+                                  setAvatarMistressReply("Uncensored unlocked.");
+                                } else {
+                                  setAvatarMistressReply(data.error || "Unlock failed.");
+                                }
+                              } catch (e) {
+                                setAvatarMistressReply("Unlock failed.");
+                              }
+                            }}
+                            type="button"
+                          >
+                            10k coins
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 rounded-[1.5rem] border border-white/5 bg-black/30 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                      Wardrobe Items
+                      {wardrobeCategoryFilter && (
+                        <button
+                          className="ml-2 text-[10px] uppercase tracking-[0.14em] text-pink-300 hover:underline"
+                          onClick={() => setWardrobeCategoryFilter(null)}
+                          type="button"
+                        >
+                          Show all
+                        </button>
+                      )}
+                    </p>
+                    {Object.keys(equippableByCategory).length === 0 ? (
+                      <div className="mt-4 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-zinc-400">
+                        No equippable crate items yet.
+                      </div>
+                    ) : (
+                      <div className="mt-1 h-[440px] overflow-y-auto pr-2 space-y-4">
+                        {AVATAR_SLOT_ORDER.map((slot) => {
+                          if (wardrobeCategoryFilter && slot !== wardrobeCategoryFilter) return null;
+                          const items = equippableByCategory[slot] || [];
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div key={slot}>
+                              <div className="mb-2 flex items-center justify-between">
+                                <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                                  {SLOT_LABELS[slot]}
+                                </p>
+                                <span className="text-[10px] text-zinc-500">{items.length} items</span>
+                              </div>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {items.map((item) => {
+                                  const isEquipped = equippedAvatarSlots[slot] === item.item_id;
+
+                                  return (
+                                    <button
+                                      className={`rounded-[1.1rem] border px-3 py-2 text-left ${getRarityCardClasses(item.rarity, isEquipped)}`}
+                                      key={`${item.item_id}:${item.variant}`}
+                                      onClick={async () => {
+                                        const action = isEquipped ? "unequip" : "equip";
+                                        const body: any = isEquipped
+                                          ? { action: "unequip", slot }
+                                          : { action: "equip", itemId: item.item_id };
+                                        try {
+                                          const res = await fetch("/api/user/wardrobe", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(body),
+                                          });
+                                          const data = await res.json();
+                                          if (!res.ok) {
+                                            console.error("Wardrobe action failed", data);
+                                            return;
+                                          }
+                                          if (data.equipped) {
+                                            setEquippedAvatarSlots(data.equipped);
+                                          }
+                                        } catch (e) {
+                                          console.error("Wardrobe equip error", e);
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            {(() => {
+                                              const iconSrc = resolveAvatarItemIconPath(item.item_id) || item.image_url || null;
+                                              return iconSrc ? (
+                                                <div className="relative w-5 h-5 flex-shrink-0">
+                                                  <Image
+                                                    alt={item.name}
+                                                    src={iconSrc}
+                                                    fill
+                                                    className="object-contain"
+                                                    unoptimized
+                                                  />
+                                                </div>
+                                              ) : null;
+                                            })()}
+                                            <p className="truncate text-sm font-black text-white">
+                                              {item.name}
+                                            </p>
+                                          </div>
+                                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-fuchsia-200/70">
+                                            {isEquipped ? "Equipped (tap to remove)" : slot}
+                                          </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-2">
+                                          <span className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-200">
+                                            x{item.quantity}
+                                          </span>
+                                          {isEquipped && <span className="text-pink-300">✓</span>}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            </div>
           )}
           {activePanel === "pet" && isPetUnlocked && (
             <PetSection
@@ -8450,7 +9225,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
         </section>
-      </div>
+      </AppShell>
       <FloatingDefneBubble
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
         globalPrincipessaLevel={globalPrincipessa.level}
@@ -8459,6 +9234,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         messageStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
         onBubbleFullyHidden={handleBubbleFullyHidden}
       />
+
+      {/* Display Name change is now done via pencil in Profile tab using purchased rights */}
     </main>
   );
 }

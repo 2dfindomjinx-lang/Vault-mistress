@@ -1,6 +1,6 @@
 import { LEADERSHIP_RANKS } from "@/lib/leadership";
 
-export type CosmeticType = "speech-avatar" | "username-color" | "username-glow";
+export type CosmeticType = "speech-avatar" | "username-color" | "username-glow" | "display-name-change";
 
 export type CosmeticItem = {
   id: string;
@@ -6388,6 +6388,14 @@ export const cosmeticItems: CosmeticItem[] = [
     type: "username-glow",
     price: 1000,
     glow: "0 0 18px rgba(221,214,254,0.9)",
+  },
+  {
+    id: "display-name-change",
+    name: "Display Name Change",
+    description: "Change your public-facing display name. @username stays your permanent identity.",
+    type: "display-name-change",
+    price: 1000,
+    image: "/icons/coin.png",
   },
 ];
 

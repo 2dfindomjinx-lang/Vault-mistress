@@ -4,6 +4,7 @@ type LoginScreenProps = {
   error?: string;
   isBusy?: boolean;
   onEnterPreviewMode: () => void;
+  onEnterTemporaryTestMode: () => void;
   onSignInWithX: () => Promise<void>;
 };
 
@@ -11,6 +12,7 @@ export function LoginScreen({
   error,
   isBusy = false,
   onEnterPreviewMode,
+  onEnterTemporaryTestMode,
   onSignInWithX,
 }: LoginScreenProps) {
   return (
@@ -45,6 +47,15 @@ export function LoginScreen({
         >
           Continue in Preview Mode
         </button>
+
+        <button
+          className="mt-3 w-full rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-emerald-50 transition hover:border-emerald-300/50 hover:bg-emerald-500/15"
+          onClick={onEnterTemporaryTestMode}
+          type="button"
+        >
+          Temporary Test Login
+        </button>
+        {/* silinecek: geçici test girişi butonu */}
 
         {error && (
           <p className="mt-4 rounded-2xl border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">

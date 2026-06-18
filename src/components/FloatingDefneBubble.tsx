@@ -95,18 +95,26 @@ export function FloatingDefneBubble({
   }, [bubbleKey, displayMessage, messageId, onBubbleFullyHidden]);
 
   const bubbleVisible = hiddenBubbleKey !== bubbleKey;
+  const hasActiveMessage = displayMessage.length > 0;
+  const showInteractive = bubbleVisible && hasActiveMessage;
 
   return (
-    <aside className="fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4">
+    <aside
+      className={`fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4 ${showInteractive ? "" : "pointer-events-none"}`}
+    >
+      {hasActiveMessage && (
+        <div
+          className={`flex min-h-16 items-center rounded-[1.5rem] border bg-black/80 px-4 py-3 text-base font-semibold leading-6 text-pink-50 ${visualClass} backdrop-blur transition-opacity duration-[2000ms] sm:min-h-20 sm:px-5 sm:py-4 sm:text-lg sm:leading-7 ${
+            bubbleVisible ? "opacity-100" : "opacity-0"
+          }`}
+          style={messageStyle}
+        >
+          <span className="relative z-10">{displayMessage}</span>
+        </div>
+      )}
       <div
-        className={`flex min-h-16 items-center rounded-[1.5rem] border bg-black/80 px-4 py-3 text-base font-semibold leading-6 text-pink-50 ${visualClass} backdrop-blur transition-opacity duration-[2000ms] sm:min-h-20 sm:px-5 sm:py-4 sm:text-lg sm:leading-7 ${
-          bubbleVisible ? "opacity-100" : "opacity-0"
-        }`}
-        style={messageStyle}
+        className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}
       >
-        <span className="relative z-10">{displayMessage}</span>
-      </div>
-      <div className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}>
         <Image
           alt="Principessa avatar"
           className="object-cover object-top"

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   ).toLowerCase();
   const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
-    .select("id, username, coins")
+    .select("id, username, twitter_handle, coins")
     .eq("username", username)
     .maybeSingle();
 
@@ -111,6 +111,7 @@ export async function POST(request: Request) {
     .eq("id", profile.id);
   if (updateError) return Response.json({ error: updateError.message }, { status: 500 });
 
+  const targetUsernameSnapshot = profile.username;
   const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
     user_id: profile.id,
     admin_user_id: admin.adminUser.id,
@@ -125,6 +126,7 @@ export async function POST(request: Request) {
       verifiedAdminUserId: admin.adminUser.id,
       requestedAmount: amount,
       tributeTotalChanged: false,
+      target_username_snapshot: targetUsernameSnapshot,
     },
   }).select("id").single();
 
@@ -167,6 +169,7 @@ export async function POST(request: Request) {
         bonusTierAmount: amount,
         balanceTierBeforeGive: previousCoins,
         tributeTotalChanged: false,
+        target_username_snapshot: targetUsernameSnapshot,
       },
     });
 

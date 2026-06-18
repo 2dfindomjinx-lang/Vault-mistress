@@ -4,6 +4,7 @@ type TributePanelProps = {
   affection: number;
   coins: number;
   disabled?: boolean;
+  hideAffectionOffer?: boolean;
   pending?: boolean;
   onTribute: (amount: number) => void;
 };
@@ -18,6 +19,7 @@ export function TributePanel({
   affection,
   coins,
   disabled = false,
+  hideAffectionOffer = false,
   pending = false,
   onTribute,
 }: TributePanelProps) {
@@ -30,43 +32,49 @@ export function TributePanel({
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
             Tribute System
           </p>
-          <h2 className="text-3xl font-black">Offer Principessa Coins</h2>
+          <h2 className="text-3xl font-black">
+            {hideAffectionOffer ? "Tribute Hub" : "Offer Principessa Coins"}
+          </h2>
         </div>
         <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-50">
           Balance: {coins.toLocaleString()} coins
         </p>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        {tributeOptions.map((option) => (
-          <button
-            className="group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={disabled || pending || isMaxAffection || coins < option.amount}
-            key={option.amount}
-            onClick={() => onTribute(option.amount)}
-            type="button"
-          >
-            <p className="text-sm font-semibold text-fuchsia-100">
-              {option.label}
-            </p>
-            <p className="mt-4 text-4xl font-black text-white">
-              {option.amount}
-            </p>
-            <p className="mt-1 text-sm text-zinc-400">coins</p>
-            <p className="mt-5 rounded-full border border-pink-200/20 bg-black/30 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-pink-100 group-hover:bg-pink-500/15">
-              {option.boost}
-            </p>
-          </button>
-        ))}
-      </div>
+      {!hideAffectionOffer && (
+        <>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {tributeOptions.map((option) => (
+              <button
+                className="group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={disabled || pending || isMaxAffection || coins < option.amount}
+                key={option.amount}
+                onClick={() => onTribute(option.amount)}
+                type="button"
+              >
+                <p className="text-sm font-semibold text-fuchsia-100">
+                  {option.label}
+                </p>
+                <p className="mt-4 text-4xl font-black text-white">
+                  {option.amount}
+                </p>
+                <p className="mt-1 text-sm text-zinc-400">coins</p>
+                <p className="mt-5 rounded-full border border-pink-200/20 bg-black/30 px-3 py-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-pink-100 group-hover:bg-pink-500/15">
+                  {option.boost}
+                </p>
+              </button>
+            ))}
+          </div>
 
-      <p className="mt-5 text-sm leading-6 text-zinc-400">
-        {isMaxAffection
-          ? "Principessa's mood is already at its peak. Tribute is locked until a future prestige system exists."
-          : disabled
-            ? "Timeout is active. Tribute actions are locked until the timer ends."
-          : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
-      </p>
+          <p className="mt-5 text-sm leading-6 text-zinc-400">
+            {isMaxAffection
+              ? "Principessa's mood is already at its peak. Tribute is locked until a future prestige system exists."
+              : disabled
+                ? "Timeout is active. Tribute actions are locked until the timer ends."
+              : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
+          </p>
+        </>
+      )}
 
       <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.34))] p-4 shadow-[0_0_28px_rgba(236,72,153,0.12)]">
         <a

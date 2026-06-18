@@ -157,36 +157,45 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
       // Total weight = 10000
 
       // Common %12
-      { item_id: "classic-maid-outfit", weight: 600 },
-      { item_id: "classic-corset", weight: 600 },
+	  { item_id: "sneakers", weight: 300 },
+	  { item_id: "cat-croptop", weight: 300 },
+      { item_id: "classic-maid-outfit", weight: 300 },
+      { item_id: "classic-corset", weight: 300 },
 		
 	  // Uncommon %35
-	  { item_id: "pink-maid-outfit", weight: 875 },
-	  { item_id: "classic-bunnysuit", weight:875 },
-	  { item_id: "classic-thong", weight: 875 },
-	  { item_id: "pink-corset", weight: 875 },
+	  { item_id: "pink-maid-outfit", weight: 500 },
+	  { item_id: "classic-bunnysuit", weight:500 },
+	  { item_id: "classic-thong", weight: 500 },
+	  { item_id: "pink-corset", weight: 500 },
+	  { item_id: "classic-anal-beads", weight: 500 },
+	  { item_id: "classic-dildo", weight: 500 },
+	  { item_id: "pink-small-vibrator", weight: 500 },
 	  
 	  //Rare %35
-	  { item_id: "latex-maid-outfit", weight: 600 },
-	  { item_id: "pink-bunnysuit", weight: 600 },
-	  { item_id: "fishnet-croptop", weight: 575 },
-	  { item_id: "fishnet-stockings", weight: 575 },
-	  { item_id: "pink-thong", weight: 575 },
-	  { item_id: "pink-sheer-bikini", weight: 575 },
+	  { item_id: "latex-maid-outfit", weight: 400 },
+	  { item_id: "pink-bunnysuit", weight: 400 },
+	  { item_id: "fishnet-croptop", weight: 450 },
+	  { item_id: "fishnet-stockings", weight: 500 },
+	  { item_id: "pink-thong", weight: 450 },
+	  { item_id: "pink-sheer-bikini", weight: 400 },
+	  { item_id: "remote-control-vibrator", weight: 450 },
+	  { item_id: "black-dildo", weight: 450 },
 	  
 	  // Epic %15
-	  { item_id: "gorgeous-bunnysuit", weight: 300 },
-	  { item_id: "fishnet-leotard", weight: 300 },
-	  { item_id: "gorgeous-thong", weight: 300 },
-	  { item_id: "gorgeous-corset", weight: 300 },
-	  { item_id: "gorgeous-sheer-bikini", weight: 300 },
+	  { item_id: "gorgeous-bunnysuit", weight: 250 },
+	  { item_id: "fishnet-leotard", weight: 250 },
+	  { item_id: "gorgeous-thong", weight: 250 },
+	  { item_id: "gorgeous-corset", weight: 250 },
+	  { item_id: "gorgeous-sheer-bikini", weight: 250 },
+	  { item_id: "rabbit-small-vibrator", weight: 250 },
 	  
       // Legendary %3
 	  { item_id: "vibrator", weight: 40 },
+	  { item_id: "ultra-vibrator", weight: 30 },
       { item_id: "shiny-maid-outfit", weight: 50 },
       { item_id: "shiny-bunnysuit", weight: 50 },
-      { item_id: "shiny-thong", weight: 80 },
-      { item_id: "shiny-corset", weight: 80 },
+      { item_id: "shiny-thong", weight: 60 },
+      { item_id: "shiny-corset", weight: 70 },
     ],
   },
 };
@@ -275,6 +284,20 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
   "classic-corset": {
     name: "Classic Corset",
     description: "Structured black corset. Breathe less, look better.",
+    rarity: "common",
+    collection: "classic",
+    sell_value: 250,
+  },
+  "cat-croptop": {
+    name: "Cat Crop Top",
+    description: "A simple crop top with cat design.",
+    rarity: "common",
+    collection: "classic",
+    sell_value: 250,
+  },
+  "sneakers": {
+    name: "Sneakers",
+    description: "Comfortable casual athletic shoes with cushioned sole and breathable design for everyday wear.",
     rarity: "common",
     collection: "classic",
     sell_value: 250,
@@ -379,6 +402,27 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "pink",
     sell_value: 600,
   },
+  "classic-anal-beads": {
+    name: "Anal Beads",
+    description: "Smooth graduated anal beads designed for wearable pleasure and easy control.",
+    rarity: "uncommon",
+    collection: "classic",
+    sell_value: 600,
+  },
+  "classic-dildo": {
+    name: "Classic Dildo",
+    description: "Classic smooth dildo with realistic shape and firm yet flexible design for comfortable use.",
+    rarity: "uncommon",
+    collection: "classic",
+    sell_value: 600,
+  },
+  "pink-small-vibrator": {
+    name: "Pink Small Vibrator",
+    description: "Compact pink small vibrator with powerful vibrations and smooth silicone finish for discreet pleasure.",
+    rarity: "uncommon",
+    collection: "pink",
+    sell_value: 600,
+  },
 
   // Rare
   "cute-thighhighs": {
@@ -465,6 +509,20 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "sheer",
     sell_value: 1750,
   },
+  "black-dildo": {
+    name: "Black Dildo",
+    description: "Deep black dildo with smooth surface and firm yet flexible design for comfortable use.",
+    rarity: "rare",
+    collection: "",
+    sell_value: 1750,
+  },
+  "remote-control-vibrator": {
+    name: "Remote Control Vibrator",
+    description: "Wireless remote control vibrator with powerful vibrations and smooth silicone body for discreet, hands-free pleasure.",
+    rarity: "rare",
+    collection: "pink",
+    sell_value: 1750,
+  },
 
   // Epic
   "gorgeous-panties": {
@@ -544,6 +602,13 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "sheer",
     sell_value: 6000,
   },
+  "rabbit-small-vibrator": {
+    name: "Small Rabbit Vibrator",
+    description: "Small rabbit vibrator with dual stimulation: smooth shaft and cute bunny-ear clitoral stimulator for powerful pleasure.",
+    rarity: "epic",
+    collection: "cute",
+    sell_value: 6000,
+  },
 
   // Legendary
   "shiny-bra": {
@@ -602,6 +667,13 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "legendary",
     collection: "toy",
     sell_value: 50000,
+  },
+  "ultra-vibrator": {
+    name: "Ultra Vibrator",
+    description: "Ultra vibrator with powerful vibrations and dedicated clitoral stimulator for intense dual pleasure.",
+    rarity: "legendary",
+    collection: "toy",
+    sell_value: 60000,
   },
   "shiny-maid-outfit": {
     name: "Shiny Maid Outfit",

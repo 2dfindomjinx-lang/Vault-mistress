@@ -40,6 +40,7 @@ create or replace function public.get_public_leaderboard(p_limit integer default
 returns table (
   id uuid,
   username text,
+  display_name text,
   tribute_total integer,
   created_at timestamptz
 )
@@ -48,7 +49,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.username, p.tribute_total, p.created_at
+  select p.id, p.username, p.display_name, p.tribute_total, p.created_at
   from public.profiles p
   where p.hide_from_leaderboard = false
   order by p.tribute_total desc, p.created_at asc
@@ -66,7 +67,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.username, p.shame_count
+  select p.id, p.username, p.display_name, p.shame_count
   from public.profiles p
   where p.shame_count > 0
   order by p.shame_count desc, p.created_at asc
@@ -133,6 +134,7 @@ create or replace function public.get_public_profile_snippets(p_user_ids uuid[])
 returns table (
   id uuid,
   username text,
+  display_name text,
   avatar_url text
 )
 language sql
@@ -140,7 +142,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.username, p.avatar_url
+  select p.id, p.username, p.display_name, p.avatar_url
   from public.profiles p
   where cardinality(coalesce(p_user_ids, array[]::uuid[])) > 0
     and p.id = any(p_user_ids);
@@ -183,6 +185,7 @@ create or replace function public.get_jackpot_winner_display(p_jackpot_id uuid)
 returns table (
   user_id uuid,
   username text,
+  display_name text,
   amount integer,
   reason text,
   created_at timestamptz,
@@ -213,6 +216,7 @@ as $$
   select
     w.user_id,
     coalesce(p.username, coalesce(w.metadata ->> 'username', '@unknown')) as username,
+    p.display_name,
     w.amount,
     w.reason,
     w.created_at,

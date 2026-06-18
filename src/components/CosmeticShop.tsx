@@ -36,10 +36,95 @@ export function CosmeticShop({
     [...items].sort((a, b) => a.price - b.price);
   const groupedItems = {
     "speech-avatar": sortByPrice(shopItems.filter((item) => item.type === "speech-avatar")),
-    "username-color": sortByPrice(shopItems.filter((item) => item.type === "username-color")),
-    "username-glow": sortByPrice(shopItems.filter((item) => item.type === "username-glow")),
   };
+  const usernameColorItems = sortByPrice(shopItems.filter((item) => item.type === "username-color"));
+  const usernameGlowItems = sortByPrice(shopItems.filter((item) => item.type === "username-glow"));
+  const displayNameChangeItem = shopItems.find((item) => item.id === "display-name-change");
   const premiumOwned = ownedTitleIds.includes(premiumTitle.id);
+
+  const renderCosmeticCards = (items: CosmeticItem[]) =>
+    items.map((item) => {
+      const eventAvailable =
+        item.type === "speech-avatar" &&
+        item.id === eventSpeechAvatarId &&
+        !ownedCosmeticIds.includes(item.id);
+      const owned = item.price === 0 || ownedCosmeticIds.includes(item.id) || eventAvailable;
+      const equipped = equippedCosmeticIds[item.type] === item.id;
+      const canAfford = coins >= item.price;
+      const pending = pendingCosmeticIds.includes(item.id);
+
+      const isDisplayNameChange = item.id === "display-name-change";
+      const displayChangeOwned = isDisplayNameChange && owned;
+
+      return (
+        <article
+          className={`rounded-[1.35rem] border p-4 transition ${
+            equipped
+              ? "border-pink-200/45 bg-pink-500/12 shadow-[0_0_24px_rgba(236,72,153,0.18)]"
+              : owned
+                ? "border-fuchsia-200/20 bg-white/[0.055]"
+                : "border-white/10 bg-white/[0.035]"
+          }`}
+          key={item.id}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p
+                className="truncate text-base font-black text-white"
+                style={{
+                  color: item.type === "username-color" ? item.color : undefined,
+                  textShadow: item.type === "username-glow" ? item.glow : undefined,
+                }}
+              >
+                {item.name}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                equipped
+                  ? "border-pink-200/35 bg-pink-500/15 text-pink-50"
+                  : owned
+                    ? "border-emerald-200/25 bg-emerald-400/10 text-emerald-100"
+                    : "border-white/10 bg-black/35 text-zinc-400"
+              }`}
+            >
+              {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
+            </span>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            {item.price > 0 && !owned && (
+              <CoinAmount amount={item.price} iconSize={16} label="" />
+            )}
+            <button
+              className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={disabled || pending || equipped || (isDisplayNameChange ? displayChangeOwned : (!owned && !canAfford))}
+              onClick={() => {
+                if (isDisplayNameChange && owned) return;
+                if (owned && !isDisplayNameChange) {
+                  onEquipCosmetic(item);
+                } else {
+                  onPurchaseCosmetic(item);
+                }
+              }}
+              type="button"
+            >
+              {pending
+                ? "Saving..."
+                : isDisplayNameChange
+                  ? (owned ? "Owned" : canAfford ? "Purchase" : "Need Coins")
+                  : equipped
+                  ? "Equipped"
+                  : owned
+                    ? "Equip"
+                    : canAfford
+                      ? "Purchase"
+                      : "Need Coins"}
+            </button>
+          </div>
+        </article>
+      );
+    });
 
   return (
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -62,92 +147,45 @@ export function CosmeticShop({
       {Object.entries(groupedItems).map(([type, items]) => (
         <div className="mt-6" key={type}>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">
-            {type === "speech-avatar"
-              ? "Speech Bubble Avatars"
-              : type === "username-color"
-                ? "Username Colors"
-                : "Username Glow"}
+            Speech Bubble Avatars
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => {
-              const eventAvailable =
-                item.type === "speech-avatar" &&
-                item.id === eventSpeechAvatarId &&
-                !ownedCosmeticIds.includes(item.id);
-              const owned = item.price === 0 || ownedCosmeticIds.includes(item.id) || eventAvailable;
-              const equipped = equippedCosmeticIds[item.type] === item.id;
-              const canAfford = coins >= item.price;
-              const pending = pendingCosmeticIds.includes(item.id);
-
-              return (
-                <article
-                  className={`rounded-[1.35rem] border p-4 transition ${
-                    equipped
-                      ? "border-pink-200/45 bg-pink-500/12 shadow-[0_0_24px_rgba(236,72,153,0.18)]"
-                      : owned
-                        ? "border-fuchsia-200/20 bg-white/[0.055]"
-                        : "border-white/10 bg-white/[0.035]"
-                  }`}
-                  key={item.id}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p
-                        className="truncate text-base font-black text-white"
-                        style={{
-                          color: item.type === "username-color" ? item.color : undefined,
-                          textShadow: item.type === "username-glow" ? item.glow : undefined,
-                        }}
-                      >
-                        {item.name}
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                        equipped
-                          ? "border-pink-200/35 bg-pink-500/15 text-pink-50"
-                          : owned
-                            ? "border-emerald-200/25 bg-emerald-400/10 text-emerald-100"
-                            : "border-white/10 bg-black/35 text-zinc-400"
-                      }`}
-                    >
-                      {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-pink-100">
-                      {eventAvailable ? (
-                        "Event Access"
-                      ) : item.price === 0 ? (
-                        "Default"
-                      ) : (
-                        <CoinAmount amount={item.price} iconSize={16} label="coins" />
-                      )}
-                    </p>
-                    <button
-                      className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled || pending || equipped || (!owned && !canAfford)}
-                      onClick={() => (owned ? onEquipCosmetic(item) : onPurchaseCosmetic(item))}
-                      type="button"
-                    >
-                      {pending
-                        ? "Saving..."
-                        : equipped
-                        ? "Equipped"
-                        : owned
-                          ? "Equip"
-                          : canAfford
-                            ? "Purchase"
-                            : "Need Coins"}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+            {renderCosmeticCards(items)}
           </div>
         </div>
       ))}
+
+      {/* Profile Identity category with sub items: colors, glows, and minimal display name */}
+      <div className="mt-6">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">Profile Identity</p>
+
+        {usernameColorItems.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Username Colors</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {renderCosmeticCards(usernameColorItems)}
+            </div>
+          </div>
+        )}
+
+        {usernameGlowItems.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Username Glow</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {renderCosmeticCards(usernameGlowItems)}
+            </div>
+          </div>
+        )}
+
+        {displayNameChangeItem && (
+          <div className="mt-3">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Display Name Change</p>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {renderCosmeticCards([displayNameChangeItem])}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="mt-6 rounded-[1.35rem] border border-yellow-200/25 bg-yellow-300/10 p-4 shadow-[0_0_28px_rgba(250,204,21,0.1)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

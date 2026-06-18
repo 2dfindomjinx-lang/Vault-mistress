@@ -6,6 +6,7 @@ type TitleCollectionProps = {
   ownedTitleIds: string[];
   titles: TitleItem[];
   disabled?: boolean;
+  layout?: "vertical" | "horizontal";
   onEquipTitle: (title: TitleItem) => void;
 };
 
@@ -50,6 +51,7 @@ function describeTitleUnlock(title: TitleItem) {
 export function TitleCollection({
   equippedTitleId,
   disabled = false,
+  layout = "vertical",
   ownedTitleIds,
   titles,
   onEquipTitle,
@@ -58,13 +60,25 @@ export function TitleCollection({
   const equippedTitle =
     titles.find((title) => title.id === equippedTitleId) ?? ownedTitles[0] ?? null;
 
+  // Sort: owned first, then non-owned. Within each group, preserve original order (general sorting rule from titleItems).
+  const displayTitles = [...titles].sort((a, b) => {
+    const aOwned = ownedTitleIds.includes(a.id);
+    const bOwned = ownedTitleIds.includes(b.id);
+    if (aOwned !== bOwned) {
+      return aOwned ? -1 : 1;
+    }
+    return titles.indexOf(a) - titles.indexOf(b);
+  });
+
   const handleSelect = (title: TitleItem, isOwned: boolean) => {
-    if (!isOwned || title.id === equippedTitleId) {
+    if (!isOwned) {
       return;
     }
 
     onEquipTitle(title);
   };
+
+  const isHorizontal = layout === "horizontal";
 
   return (
     <section className="rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
@@ -87,14 +101,20 @@ export function TitleCollection({
           "Unlock titles through progression, shop purchases, Throne tribute, crates, inventory value milestones, and admin rewards."}
       </p>
 
-      <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-        {titles.map((title) => {
+      <div
+        className={`mt-3 pr-1 ${
+          isHorizontal
+            ? "w-full flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-3 touch-pan-x scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-pink-400/40 scrollbar-track-transparent"
+            : "max-h-64 space-y-2 overflow-y-auto"
+        }`}
+      >
+        {displayTitles.map((title) => {
           const isOwned = ownedTitleIds.includes(title.id);
           const isEquipped = title.id === equippedTitle?.id;
 
           return (
             <button
-              className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
+              className={`${isHorizontal ? "min-h-[10rem] min-w-[17rem] max-w-[17rem] shrink-0 snap-start" : "w-full"} rounded-2xl border px-3 py-2 text-left transition ${
                 disabled
                   ? "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
                   : isOwned
@@ -127,7 +147,7 @@ export function TitleCollection({
                 </span>
               </div>
               <p
-                className={`mt-1 text-[11px] leading-4 ${
+                className={`mt-1 ${isHorizontal ? "line-clamp-4 min-h-[4rem]" : ""} text-[11px] leading-4 ${
                   isOwned ? "text-zinc-400" : "text-zinc-600"
                 }`}
               >

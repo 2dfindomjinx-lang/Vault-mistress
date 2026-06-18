@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, coins")
+    .select("id, username, twitter_handle, coins")
     .eq("username", normalizedUsername)
     .maybeSingle();
 
@@ -191,6 +191,7 @@ export async function POST(request: Request) {
         verifiedAdminUserId: admin.adminUser.id,
         requestedAmount: amount,
         tributeTotalChanged: false,
+        target_username_snapshot: profile.username,
       },
     })
     .select("id, amount, reason, created_at")

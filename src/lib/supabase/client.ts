@@ -4,7 +4,11 @@ import type { User } from "@supabase/supabase-js";
 export type Profile = {
   id: string;
   username: string;
+  twitter_handle?: string | null;
+  display_name?: string | null;
   avatar_url?: string | null;
+  equipped_avatar_slots?: Record<string, string> | null;
+  has_uncensored_avatar?: boolean;
   // email is intentionally not populated for regular client usage (security).
   // It may exist in the DB but must never be returned to non-admin clients.
   coins: number;
@@ -44,7 +48,7 @@ export const supabase = createBrowserClient(
   supabaseAnonKey ?? "missing-supabase-anon-key",
 );
 
-function cleanUsernameCandidate(value: string) {
+export function cleanUsernameCandidate(value: string) {
   return value
     .toLowerCase()
     .replace(/^@/, "")
@@ -80,4 +84,31 @@ export function profileAvatarFromUser(user: Pick<User, "user_metadata">) {
   return typeof avatar === "string" && avatar.trim().length > 0
     ? avatar
     : null;
+}
+
+export type DisplayNameValidation = {
+  valid: boolean;
+  normalized?: string;
+  error?: string;
+};
+
+export function validateDisplayName(raw: string | null | undefined): DisplayNameValidation {
+  if (!raw || typeof raw !== "string") {
+    return { valid: false, error: "Display name is required." };
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return { valid: false, error: "Display name cannot be empty." };
+  }
+  if (trimmed.length < 2) {
+    return { valid: false, error: "Display name must be at least 2 characters." };
+  }
+  if (trimmed.length > 24) {
+    return { valid: false, error: "Display name cannot exceed 24 characters." };
+  }
+  // Block control chars, line breaks, nulls
+  if (/[\x00-\x1F\x7F]/.test(raw)) {
+    return { valid: false, error: "Display name cannot contain line breaks or control characters." };
+  }
+  return { valid: true, normalized: trimmed };
 }
