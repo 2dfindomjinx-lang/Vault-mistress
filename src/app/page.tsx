@@ -2625,7 +2625,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   // === CRATE SYSTEM (V1) ===
   const loadCratesData = useCallback(async () => {
-    // For preview / temporary test logins (the "extra login for testing"), always seed
+    // For preview / guest mode (dev testing), always seed local rich data
     // rich local data so Cases are visible and Profile avatar customization has every
     // item in inventory (including all avatar-layer items).
     if (isPreviewMode || isGuestMode) {
@@ -5992,104 +5992,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
   }, [setAvatarMistressReply]);
 
-  // silinecek: wardrobe/task/economy testleri icin gecici zengin test girisi
-  const handleEnterTemporaryTestMode = useCallback(() => {
-    const now = new Date().toISOString();
-
-    authProfileLoadInFlightRef.current = null;
-    authProfileLoadedRef.current = null;
-    setAuthError("");
-    authBootstrappedRef.current = true;
-    setAuthBootstrapped(true);
-    setIsProfileVerified(true);
-    setIsProfileLoading(false);
-    setHasHydratedInitialProfile(true);
-    setIsAuthBusy(false);
-    setIsAuthLoading(false);
-    setIsPreviewMode(false);
-    previewModeRef.current = false;
-    setIsGuestMode(true);
-    setIsLoggedIn(true);
-    setAuthUserId(null);
-    profileIdRef.current = null;
-    setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(LOCAL_GUEST_USER_ID));
-    setUsername("@temporary-test");
-    setDisplayName("Test Pet");
-    setCoins(5_000_000);
-    setAffection(100);
-    setTributeTotal(2_500_000);
-    setLoyaltyStreak(30);
-    setLastLoyaltyAt(now);
-    setUserLevel(99);
-    setUserXp(999_999);
-    setTimeoutUntil(null);
-    setTimeoutReason(null);
-    timeoutUntilRef.current = null;
-    timeoutReasonRef.current = null;
-
-    setUnlockedGalleryIds(visibleGalleryItems.map((item) => item.id));
-    setPetScore(1000);
-    setOwnerLikeness(100);
-    setStoredRights(25);
-    setRightExpirations([]);
-    setDailyPurchaseCount(0);
-    setRightPurchaseDate(null);
-    setPetUnlockedAt(now);
-    setLastPetTaxAt(now);
-    setPetDebtContract(null);
-    setPetAffectionClaimDate(null);
-    setPetGalleryUnlockedIds(petGalleryItems.map((item) => item.id));
-    setEquippedAvatarSlots({});
-    setHasUncensoredAvatar(false);
-    setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
-    setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
-    setOwnedTitleIds(["leadership-0"]);
-    setEquippedTitleId("leadership-0");
-    setIsTitleManuallySelected(false);
-    setTasks(buildTasksFromRows([], 100, 30, now, null, null));
-    setPetTaskState(buildPetTasksFromRows([]));
-    setMechanics({
-      supportUnlocked: true,
-      sacrificeUnlockedCount: sacrificeGalleryItems.length,
-      sacrificeTotal: sacrificeGalleryItems.length,
-      sacrificeComplete: true,
-      allGalleryComplete: true,
-    });
-    setJackpot(null);
-    setJackpotError("");
-
-    // Seed rich crates + full inventory immediately for avatar testing (all items available)
-    const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
-      .filter(([, def]) => (def as any).enabled !== false)
-      .map(([crate_type, def]) => ({
-        crate_type,
-        name: def.name,
-        description: def.description,
-        cost: def.cost,
-        icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
-      }))
-      .sort((a, b) => a.cost - b.cost);
-    const seededInventory: CrateInventoryItem[] = Object.entries(SAMPLE_CRATE_ITEMS).map(
-      ([item_id, def]) => ({
-        item_id,
-        name: def.name,
-        description: def.description || "",
-        image_url: null,
-        rarity: def.rarity,
-        collection: def.collection || null,
-        sell_value: def.sell_value || 0,
-        variant: "normal",
-        quantity: 50,
-      }),
-    );
-    setAvailableCrates(seededCrates);
-    setCrateInventory(seededInventory);
-    setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
-
-    setActivePanel("profile");
-    setAvatarMistressReply("Temporary test login (full crates + avatar items). Switch tabs to test Cases and Profile avatar customization.");
-  }, [setAvatarMistressReply]);
-
   const handleLogout = async () => {
     if (!isGuestMode) {
       await supabase.auth.signOut();
@@ -8511,7 +8413,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         error={authError}
         isBusy={isAuthBusy}
         onEnterPreviewMode={handleEnterPreviewMode}
-        onEnterTemporaryTestMode={handleEnterTemporaryTestMode}
         onSignInWithX={handleSignInWithX}
       />
     );
