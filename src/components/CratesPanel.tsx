@@ -64,7 +64,6 @@ export function CratesPanel({
   onCrateResult,
   pending = false,
 }: CratesPanelProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"shop" | "inventory">("shop");
   const [isOpening, setIsOpening] = useState(false);
   const [openingCrate, setOpeningCrate] = useState<string | null>(null);
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
@@ -670,35 +669,16 @@ export function CratesPanel({
 
       {/* When opening a crate we give the ENTIRE remaining area to the opening experience (no tabs, no grids, full focus).
           After the user claims/closes it returns to normal crate view. */}
-      {!isOpening && wonItems.length === 0 && (
-        <>
-          <p className="mt-3 text-sm leading-6 text-zinc-400">
-                      Open cases to uncover rare collectibles, exclusive cosmetics.
-          </p>
-
-          {/* Sub-tabs */}
-          <div className="mt-6 flex gap-2 border-b border-white/10 pb-2">
-            {(["shop", "inventory"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveSubTab(tab)}
-                className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition ${
-                  activeSubTab === tab
-                    ? "bg-white/10 text-white"
-                    : "text-pink-100/70 hover:text-pink-100"
-                }`}
-                disabled={isOpening || !!sellPending}
-              >
-                {tab === "shop" ? "Cases" : "Inventory"}
-              </button>
-            ))}
-          </div>
-        </>
+      {! (isOpening || wonItems.length > 0) && (
+        <p className="mt-3 text-sm leading-6 text-zinc-400">
+          Open cases to uncover rare collectibles, exclusive cosmetics.
+        </p>
       )}
 
-      {/* CRATES / SHOP - hidden during opening for full focus on the reel */}
-      {activeSubTab === "shop" && !isOpening && wonItems.length === 0 && (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Static cases area */}
+      { ! (isOpening || wonItems.length > 0) && (
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -843,11 +823,11 @@ export function CratesPanel({
             );
           })}
         </div>
+        </div>
       )}
 
-      {/* INVENTORY - hidden during opening for full focus on the reel */}
-      {activeSubTab === "inventory" && !isOpening && wonItems.length === 0 && (
-        <div className="mt-6">
+      {/* INVENTORY under Cases static */}
+      <div className="mt-6">
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm">
@@ -953,13 +933,10 @@ export function CratesPanel({
             </div>
           )}
         </div>
-      )}
 
-      {/* INLINE CRATE OPENING REEL (no more popup/overlay for desktop) */}
-      {/* Desktop: classic multi-item horizontal slide showing 5 items at once + center marker */}
-      {/* Mobile: single updating card (current style kept as requested) */}
+      {/* Reel and cases area now same fixed size h-[440px] */}
       {(isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 relative">
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto relative">
           {wonItems.length > 0 && (
             <button
               onClick={closeReveal}

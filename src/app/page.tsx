@@ -2269,6 +2269,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         .filter((item) => item.quantity > 0)
         .map((item) => item.item_id),
     );
+    // "classic" fullbody is a default always-unlocked item (no need for DB inventory entry)
+    ownedItemIds.add("classic");
 
     setEquippedAvatarSlots((current) => {
       const next = Object.fromEntries(
@@ -8121,11 +8123,36 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     tributeTotal,
   };
   const equippableInventoryItems = useMemo(
-    () => crateInventory.filter((item) => item.quantity > 0 && isAvatarEquippableItem(item.item_id)),
+    () => {
+      const fromInv = crateInventory.filter((item) => item.quantity > 0 && isAvatarEquippableItem(item.item_id));
+      const hasClassic = fromInv.some((item) => item.item_id === "classic");
+      if (hasClassic) return fromInv;
+      // Always inject the default "classic" fullbody so it appears in wardrobe and is equippable
+      return [
+        ...fromInv,
+        {
+          item_id: "classic",
+          name: "Classic",
+          description: "Default full body outfit.",
+          image_url: null,
+          rarity: "common" as const,
+          collection: "classic",
+          sell_value: 50,
+          variant: "normal",
+          quantity: 1,
+        },
+      ];
+    },
     [crateInventory],
   );
   const inventoryItemNameById = useMemo(
-    () => new Map(crateInventory.map((item) => [item.item_id, item.name])),
+    () => {
+      const m = new Map(crateInventory.map((item) => [item.item_id, item.name]));
+      if (!m.has("classic")) {
+        m.set("classic", "Classic");
+      }
+      return m;
+    },
     [crateInventory],
   );
 

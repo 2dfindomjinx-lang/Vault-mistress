@@ -144,8 +144,18 @@ export async function POST(request: Request) {
       if (fbErr || !fb) {
         return jsonError(fbErr?.message ?? "Profile could not be created.", 500);
       }
-      // Seed default fullbody for fallback
+      // Seed default fullbody item definition + inventory for fallback
       try {
+        await supabase.from("crate_items").upsert({
+          item_id: "classic",
+          name: "Classic",
+          description: "The default full-body outfit. Simple and clean.",
+          rarity: "common",
+          collection: "classic",
+          sell_value: 50,
+          enabled: true,
+          metadata: {},
+        }, { onConflict: "item_id" });
         await supabase.from("user_crate_inventory").upsert(
           { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
           { onConflict: "user_id,item_id,variant" }
@@ -158,8 +168,18 @@ export async function POST(request: Request) {
     return jsonError(createError?.message ?? "Profile could not be created.", 500);
   }
 
-  // Seed default "classic" fullbody unlocked + equipped for every new user
+  // Seed default "classic" fullbody item definition + unlocked + equipped for every new user
   try {
+    await supabase.from("crate_items").upsert({
+      item_id: "classic",
+      name: "Classic",
+      description: "The default full-body outfit. Simple and clean.",
+      rarity: "common",
+      collection: "classic",
+      sell_value: 50,
+      enabled: true,
+      metadata: {},
+    }, { onConflict: "item_id" });
     await supabase.from("user_crate_inventory").upsert(
       { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
       { onConflict: "user_id,item_id,variant" }

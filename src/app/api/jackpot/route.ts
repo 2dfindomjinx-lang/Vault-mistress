@@ -51,6 +51,20 @@ const jackpotWinReasons = ["jackpot_win_1st", "jackpot_win_2nd", "jackpot_win_3r
 const jackpotSelect =
   "id, cycle_key, starts_at, contribution_ends_at, ends_at, base_pool, winner_user_id, winner_username, winner_amount, winner_selected_at, skipped_at";
 
+const VAULT_CHECK_TIMEOUT_MS = 25000; // 25s to prevent stuck "checking vault" on slow/failed DB ops
+
+async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([Promise.resolve(promise), timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 function jsonError(message: string, status = 500) {
   return Response.json({ error: message }, { status });
 }
@@ -66,13 +80,22 @@ async function getAuthedUserId() {
   return data.user?.id ?? null;
 }
 
-async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
+export async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
   const cycle = getJackpotCycle();
-  const { data: existing, error: existingError } = await supabase
+  const lookupPromise = supabase
     .from("loyalty_jackpots")
     .select(jackpotSelect)
     .eq("cycle_key", cycle.cycleKey)
     .maybeSingle();
+
+  const { data: existing, error: existingError } = await withTimeout(
+    lookupPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "ensureCurrentJackpot lookup",
+  ).catch((e) => {
+    console.error("Jackpot ensure lookup timed out or failed", e);
+    throw e;
+  });
 
   if (existingError) {
     console.error("Jackpot lookup failed", existingError);
@@ -83,7 +106,7 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
     return { cycle, jackpot: existing as JackpotRow };
   }
 
-  const { data: created, error: createError } = await supabase
+  const insertPromise = supabase
     .from("loyalty_jackpots")
     .insert({
       cycle_key: cycle.cycleKey,
@@ -95,6 +118,15 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
     .select(jackpotSelect)
     .single();
 
+  const { data: created, error: createError } = await withTimeout(
+    insertPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "ensureCurrentJackpot create",
+  ).catch((e) => {
+    console.error("Jackpot ensure create timed out or failed", e);
+    throw e;
+  });
+
   if (createError) {
     console.error("Jackpot create failed", createError);
     throw createError;
@@ -103,13 +135,22 @@ async function ensureCurrentJackpot(supabase: SupabaseAdminClient) {
   return { cycle, jackpot: created as JackpotRow };
 }
 
-async function getCurrentJackpot(supabase: SupabaseReadClient) {
+export async function getCurrentJackpot(supabase: SupabaseReadClient) {
   const cycle = getJackpotCycle();
-  const { data, error } = await supabase
+  const queryPromise = supabase
     .from("loyalty_jackpots")
     .select(jackpotSelect)
     .eq("cycle_key", cycle.cycleKey)
     .maybeSingle();
+
+  const { data, error } = await withTimeout(
+    queryPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getCurrentJackpot",
+  ).catch((e) => {
+    console.error("Current jackpot lookup timed out or failed", e);
+    throw e;
+  });
 
   if (error) {
     console.error("Current jackpot lookup failed", error);
@@ -132,8 +173,16 @@ function withWinnerExclusion<T extends ExcludableQuery<T>>(query: T, winnerIds: 
 }
 
 async function getPreviousWinnerIds(supabase: SupabaseReadClient, currentCycleKey: string) {
-  const { data, error } = await supabase.rpc("get_previous_jackpot_winner_user_ids", {
+  const rpcPromise = supabase.rpc("get_previous_jackpot_winner_user_ids", {
     p_current_cycle_key: currentCycleKey,
+  });
+  const { data, error } = await withTimeout(
+    rpcPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getPreviousWinnerIds",
+  ).catch((e) => {
+    console.error("Previous jackpot winners lookup timed out or failed", e);
+    return { data: null, error: null };
   });
 
   if (error) {
@@ -154,7 +203,15 @@ async function getEligibleCount(
     .gte("loyalty_streak", 3);
 
   query = withWinnerExclusion(query, excludedWinnerIds);
-  const { count, error } = await query;
+  const queryPromise = query;
+  const { count, error } = await withTimeout(
+    queryPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getEligibleCount",
+  ).catch((e) => {
+    console.error("Jackpot eligible count timed out or failed (vault check)", e);
+    return { count: 0 as any, error: null };
+  });
 
   if (error) {
     console.error("Jackpot eligible count failed", error);
@@ -182,7 +239,15 @@ async function getRandomEligibleProfile(
     .range(index, index);
 
   query = withWinnerExclusion(query, excludedWinnerIds);
-  const { data, error } = await query;
+  const queryPromise = query;
+  const { data, error } = await withTimeout(
+    queryPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getRandomEligibleProfile",
+  ).catch((e) => {
+    console.error("Jackpot winner candidate lookup timed out or failed (vault check)", e);
+    return { data: null, error: null };
+  });
 
   if (error) {
     console.error("Jackpot winner candidate lookup failed", error);
@@ -246,11 +311,20 @@ async function getRandomEligibleProfiles(
   return winners;
 }
 
-async function getContributionTotal(supabase: SupabaseReadClient, jackpotId: string) {
-  const { data, error } = await supabase
+export async function getContributionTotal(supabase: SupabaseReadClient, jackpotId: string) {
+  const queryPromise = supabase
     .from("loyalty_jackpot_contributions")
     .select("amount")
     .eq("jackpot_id", jackpotId);
+
+  const { data, error } = await withTimeout(
+    queryPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getContributionTotal",
+  ).catch((e) => {
+    console.error("Jackpot contribution total lookup timed out or failed (vault check)", e);
+    return { data: [], error: null };
+  });
 
   if (error) {
     console.error("Jackpot contribution total lookup failed", error);
@@ -261,8 +335,16 @@ async function getContributionTotal(supabase: SupabaseReadClient, jackpotId: str
 }
 
 async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, jackpotId: string) {
-  const { data, error } = await supabase.rpc("get_jackpot_winner_display", {
+  const rpcPromise = supabase.rpc("get_jackpot_winner_display", {
     p_jackpot_id: jackpotId,
+  });
+  const { data, error } = await withTimeout(
+    rpcPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getJackpotWinnersFromTransactions",
+  ).catch((e) => {
+    console.error("Jackpot winner transaction display lookup timed out or failed", e);
+    return { data: null, error: null };
   });
 
   if (error) {
@@ -294,8 +376,16 @@ async function getUsernameStylesForUserIds(
   supabase: SupabaseReadClient,
   userIds: string[],
 ) {
-  const { data, error } = await supabase.rpc("get_public_username_cosmetics", {
+  const rpcPromise = supabase.rpc("get_public_username_cosmetics", {
     p_user_ids: userIds.length > 0 ? userIds : [],
+  });
+  const { data, error } = await withTimeout(
+    rpcPromise.then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getUsernameStylesForUserIds",
+  ).catch((e) => {
+    console.error("Jackpot username cosmetic lookup timed out or failed", e);
+    return { data: null, error: null };
   });
 
   if (error) {
@@ -306,7 +396,7 @@ async function getUsernameStylesForUserIds(
   return getUsernameStylesByUserId((data ?? []) as EquippedUsernameCosmeticRow[]);
 }
 
-async function maybeSelectWinner(
+export async function maybeSelectWinner(
   supabase: SupabaseAdminClient,
   jackpot: JackpotRow,
   phase: string,
@@ -316,140 +406,167 @@ async function maybeSelectWinner(
     return jackpot;
   }
 
-  const previousWinnerIds = await getPreviousWinnerIds(supabase, jackpot.cycle_key);
-  const winners = await getRandomEligibleProfiles(supabase, previousWinnerIds, 3);
-  const now = new Date().toISOString();
+  const nowIso = new Date().toISOString();
 
-  if (winners.length === 0) {
+  try {
+    const previousWinnerIds = await getPreviousWinnerIds(supabase, jackpot.cycle_key);
+    const winners = await withTimeout(
+      getRandomEligibleProfiles(supabase, previousWinnerIds, 3),
+      VAULT_CHECK_TIMEOUT_MS,
+      "maybeSelectWinner:getRandomEligibleProfiles (vault check)",
+    );
+
+    if (winners.length === 0) {
+      const { data, error } = await supabase
+        .from("loyalty_jackpots")
+        .update({ skipped_at: nowIso, updated_at: nowIso })
+        .eq("id", jackpot.id)
+        .select(jackpotSelect)
+        .single();
+
+      if (error) {
+        console.error("Jackpot skip update failed", error);
+        throw error;
+      }
+
+      return data as JackpotRow;
+    }
+
+    const payoutAmounts = getPayoutAmounts(pool, winners.length);
+    const transactionRows: Array<{
+      user_id: string;
+      amount: number;
+      reason: string;
+      balance_before: number;
+      balance_after: number;
+      metadata: Record<string, unknown>;
+    }> = [];
+
+    for (const [index, winner] of winners.entries()) {
+      const amount = payoutAmounts[index] ?? 0;
+      const place = (index + 1) as 1 | 2 | 3;
+      const nextCoins = Number(winner.coins ?? 0) + amount;
+      const { data: updatedWinner, error: profileError } = await supabase
+        .from("profiles")
+        .update({ coins: nextCoins, updated_at: nowIso })
+        .eq("id", winner.id)
+        .eq("coins", Number(winner.coins ?? 0))
+        .select("id")
+        .maybeSingle();
+
+      if (profileError || !updatedWinner) {
+        console.error("Jackpot winner profile reward failed", profileError);
+        throw profileError ?? new Error("Jackpot winner balance was stale.");
+      }
+
+      transactionRows.push({
+        user_id: winner.id,
+        amount,
+        reason: jackpotWinReasons[index],
+        balance_before: Number(winner.coins ?? 0),
+        balance_after: nextCoins,
+        metadata: {
+          jackpotId: jackpot.id,
+          cycleKey: jackpot.cycle_key,
+          place,
+          username: winner.username,
+          tributeTotalChanged: false,
+        },
+      });
+    }
+
+    const { data: insertedTransactions, error: transactionError } = await supabase
+      .from("coin_transactions")
+      .insert(transactionRows)
+      .select("id, user_id");
+
+    if (transactionError) {
+      console.error("Jackpot reward transactions failed", transactionError);
+      for (const winner of winners) {
+        const originalCoins = Number(winner.coins ?? 0);
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update({ coins: originalCoins, updated_at: nowIso })
+          .eq("id", winner.id)
+          .eq("coins", originalCoins + (payoutAmounts[winners.indexOf(winner)] ?? 0));
+
+        if (rollbackError) {
+          console.error("Jackpot winner rollback failed", rollbackError);
+        }
+      }
+
+      throw transactionError;
+    }
+
+    const firstWinner = winners[0];
+    const firstAmount = payoutAmounts[0] ?? pool;
     const { data, error } = await supabase
       .from("loyalty_jackpots")
-      .update({ skipped_at: now, updated_at: now })
+      .update({
+        winner_user_id: firstWinner.id,
+        winner_username: firstWinner.username,
+        winner_amount: firstAmount,
+        winner_selected_at: nowIso,
+        updated_at: nowIso,
+      })
       .eq("id", jackpot.id)
       .select(jackpotSelect)
       .single();
 
     if (error) {
-      console.error("Jackpot skip update failed", error);
+      console.error("Jackpot winner update failed", error);
+      if (insertedTransactions?.length) {
+        const { error: cleanupError } = await supabase
+          .from("coin_transactions")
+          .delete()
+          .in("id", insertedTransactions.map((row) => row.id));
+
+        if (cleanupError) {
+          console.error("Jackpot winner transaction cleanup failed", cleanupError);
+        }
+      }
+
+      for (const [index, winner] of winners.entries()) {
+        const rollbackAmount = payoutAmounts[index] ?? 0;
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update({ coins: Number(winner.coins ?? 0), updated_at: nowIso })
+          .eq("id", winner.id)
+          .eq("coins", Number(winner.coins ?? 0) + rollbackAmount);
+
+        if (rollbackError) {
+          console.error("Jackpot winner profile cleanup failed", rollbackError);
+        }
+      }
+
       throw error;
     }
 
     return data as JackpotRow;
-  }
-
-  const payoutAmounts = getPayoutAmounts(pool, winners.length);
-  const transactionRows: Array<{
-    user_id: string;
-    amount: number;
-    reason: string;
-    balance_before: number;
-    balance_after: number;
-    metadata: Record<string, unknown>;
-  }> = [];
-
-  for (const [index, winner] of winners.entries()) {
-    const amount = payoutAmounts[index] ?? 0;
-    const place = (index + 1) as 1 | 2 | 3;
-    const nextCoins = Number(winner.coins ?? 0) + amount;
-    const { data: updatedWinner, error: profileError } = await supabase
-      .from("profiles")
-      .update({ coins: nextCoins, updated_at: now })
-      .eq("id", winner.id)
-      .eq("coins", Number(winner.coins ?? 0))
-      .select("id")
-      .maybeSingle();
-
-    if (profileError || !updatedWinner) {
-      console.error("Jackpot winner profile reward failed", profileError);
-      throw profileError ?? new Error("Jackpot winner balance was stale.");
-    }
-
-    transactionRows.push({
-      user_id: winner.id,
-      amount,
-      reason: jackpotWinReasons[index],
-      balance_before: Number(winner.coins ?? 0),
-      balance_after: nextCoins,
-      metadata: {
-        jackpotId: jackpot.id,
-        cycleKey: jackpot.cycle_key,
-        place,
-        username: winner.username,
-        tributeTotalChanged: false,
-      },
-    });
-  }
-
-  const { data: insertedTransactions, error: transactionError } = await supabase
-    .from("coin_transactions")
-    .insert(transactionRows)
-    .select("id, user_id");
-
-  if (transactionError) {
-    console.error("Jackpot reward transactions failed", transactionError);
-    for (const winner of winners) {
-      const originalCoins = Number(winner.coins ?? 0);
-      const { error: rollbackError } = await supabase
-        .from("profiles")
-        .update({ coins: originalCoins, updated_at: now })
-        .eq("id", winner.id)
-        .eq("coins", originalCoins + (payoutAmounts[winners.indexOf(winner)] ?? 0));
-
-      if (rollbackError) {
-        console.error("Jackpot winner rollback failed", rollbackError);
+  } catch (selectionError) {
+    // Vault check (eligible profiles, RPCs, contrib etc) or reward tx failed.
+    // Force skip so the cycle can transition out of "winner" into "preparing" and not stay locked.
+    // Future cron/advance runs will still ensure next cycles.
+    console.error("Jackpot winner selection failed (vault check or tx error), forcing skip for recovery", selectionError);
+    try {
+      const { data: skipped } = await supabase
+        .from("loyalty_jackpots")
+        .update({ skipped_at: nowIso, updated_at: nowIso })
+        .eq("id", jackpot.id)
+        .select(jackpotSelect)
+        .maybeSingle();
+      if (skipped) {
+        return skipped as JackpotRow;
       }
+    } catch (skipErr) {
+      console.error("Jackpot forced skip recovery also failed", skipErr);
     }
-
-    throw transactionError;
+    // Return original so caller can decide; next run will retry or cycle will roll anyway.
+    return jackpot;
   }
-
-  const firstWinner = winners[0];
-  const firstAmount = payoutAmounts[0] ?? pool;
-  const { data, error } = await supabase
-    .from("loyalty_jackpots")
-    .update({
-      winner_user_id: firstWinner.id,
-      winner_username: firstWinner.username,
-      winner_amount: firstAmount,
-      winner_selected_at: now,
-      updated_at: now,
-    })
-    .eq("id", jackpot.id)
-    .select(jackpotSelect)
-    .single();
-
-  if (error) {
-    console.error("Jackpot winner update failed", error);
-    if (insertedTransactions?.length) {
-      const { error: cleanupError } = await supabase
-        .from("coin_transactions")
-        .delete()
-        .in("id", insertedTransactions.map((row) => row.id));
-
-      if (cleanupError) {
-        console.error("Jackpot winner transaction cleanup failed", cleanupError);
-      }
-    }
-
-    for (const [index, winner] of winners.entries()) {
-      const rollbackAmount = payoutAmounts[index] ?? 0;
-      const { error: rollbackError } = await supabase
-        .from("profiles")
-        .update({ coins: Number(winner.coins ?? 0), updated_at: now })
-        .eq("id", winner.id)
-        .eq("coins", Number(winner.coins ?? 0) + rollbackAmount);
-
-      if (rollbackError) {
-        console.error("Jackpot winner profile cleanup failed", rollbackError);
-      }
-    }
-
-    throw error;
-  }
-
-  return data as JackpotRow;
 }
 
-async function buildJackpotState(
+export async function buildJackpotState(
   supabase: SupabaseReadClient,
   jackpot: JackpotRow,
   userId: string | null,
@@ -460,43 +577,83 @@ async function buildJackpotState(
   const phase = rawPhase === "winner" && (jackpot.winner_selected_at || jackpot.skipped_at)
     ? "preparing"
     : rawPhase;
+
   const contributionTotal = await getContributionTotal(supabase, jackpot.id);
   const pool = Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal;
   const previousWinnerIds = await getPreviousWinnerIds(supabase, jackpot.cycle_key);
-  const { data: eligibleCountData, error: eligibleCountError } = await supabase.rpc("get_jackpot_eligible_count", {
-    p_excluded_user_ids: previousWinnerIds,
-  });
 
-  if (eligibleCountError) {
-    console.error("Jackpot eligible count failed", eligibleCountError);
+  let eligibleCount = 0;
+  try {
+    const rpcPromise = supabase.rpc("get_jackpot_eligible_count", {
+      p_excluded_user_ids: previousWinnerIds,
+    });
+    const { data: eligibleCountData, error: eligibleCountError } = await withTimeout(
+      rpcPromise.then((r) => r),
+      VAULT_CHECK_TIMEOUT_MS,
+      "build:get_jackpot_eligible_count",
+    ).catch((e) => {
+      console.error("Jackpot eligible count RPC timed out or failed (vault check)", e);
+      return { data: 0, error: null };
+    });
+    if (eligibleCountError) {
+      console.error("Jackpot eligible count failed", eligibleCountError);
+    }
+    eligibleCount = Number(eligibleCountData ?? 0);
+  } catch (e) {
+    console.error("Jackpot eligible count vault check failed", e);
+    eligibleCount = 0;
   }
 
-  const eligibleCount = Number(eligibleCountData ?? 0);
-
-  const { data: contributionRows, error: contributionError } = await supabase
-    .from("loyalty_jackpot_contributions")
-    .select("user_id, username, amount, created_at")
-    .eq("jackpot_id", jackpot.id)
-    .order("created_at", { ascending: false });
-
-  if (contributionError) {
-    console.error("Jackpot recent contributors lookup failed", contributionError);
+  let contributionRowsData: any[] = [];
+  try {
+    const contribPromise = supabase
+      .from("loyalty_jackpot_contributions")
+      .select("user_id, username, amount, created_at")
+      .eq("jackpot_id", jackpot.id)
+      .order("created_at", { ascending: false });
+    const { data: contributionRows, error: contributionError } = await withTimeout(
+      contribPromise.then((r) => r),
+      VAULT_CHECK_TIMEOUT_MS,
+      "build:recent_contributors",
+    ).catch((e) => {
+      console.error("Jackpot recent contributors lookup timed out or failed", e);
+      return { data: [], error: null };
+    });
+    if (contributionError) {
+      console.error("Jackpot recent contributors lookup failed", contributionError);
+    }
+    contributionRowsData = contributionRows ?? [];
+  } catch (e) {
+    console.error("Jackpot contributors vault check failed", e);
   }
 
-  const allContributorRows = await supabase
-    .from("loyalty_jackpot_contributions")
-    .select("user_id, amount")
-    .eq("jackpot_id", jackpot.id);
-
-  if (allContributorRows.error) {
-    console.error("Jackpot participant lookup failed", allContributorRows.error);
+  let allContributorRowsData: any[] = [];
+  try {
+    const allContribPromise = supabase
+      .from("loyalty_jackpot_contributions")
+      .select("user_id, amount")
+      .eq("jackpot_id", jackpot.id);
+    const allContributorRows = await withTimeout(
+      allContribPromise.then((r) => r),
+      VAULT_CHECK_TIMEOUT_MS,
+      "build:all_participants",
+    ).catch((e) => {
+      console.error("Jackpot participant lookup timed out or failed", e);
+      return { data: [], error: null };
+    });
+    if (allContributorRows.error) {
+      console.error("Jackpot participant lookup failed", allContributorRows.error);
+    }
+    allContributorRowsData = allContributorRows.data ?? [];
+  } catch (e) {
+    console.error("Jackpot participants vault check failed", e);
   }
 
   const participantCount = new Set(
-    (allContributorRows.data ?? []).map((row) => String(row.user_id ?? "")),
+    (allContributorRowsData ?? []).map((row) => String(row.user_id ?? "")),
   ).size;
   const userContributionTotal = userId
-    ? (allContributorRows.data ?? [])
+    ? (allContributorRowsData ?? [])
         .filter((row) => row.user_id === userId)
         .reduce((sum, row) => sum + Number(row.amount ?? 0), 0)
     : 0;
@@ -563,7 +720,7 @@ async function buildJackpotState(
   const displayPreviousWinners = previousWinnerRows.flat();
   const previousWinnerRow = displayPreviousWinners[0];
   const contributorUserIds = Array.from(
-    new Set(((contributionRows ?? []) as ContributionRow[]).map((row) => String(row.user_id ?? "")).filter(Boolean)),
+    new Set(((contributionRowsData ?? []) as ContributionRow[]).map((row) => String(row.user_id ?? "")).filter(Boolean)),
   );
   const contributorUsernameStyles = await getUsernameStylesForUserIds(supabase, contributorUserIds);
 
@@ -582,7 +739,7 @@ async function buildJackpotState(
     userContributionTotal,
     userEligible,
     userProtected: Boolean(userId && previousWinnerIds.includes(userId)),
-    recentContributors: ((contributionRows ?? []) as ContributionRow[]).map((row) => ({
+    recentContributors: ((contributionRowsData ?? []) as ContributionRow[]).map((row) => ({
       username: row.username,
       amount: row.amount,
       createdAt: row.created_at,

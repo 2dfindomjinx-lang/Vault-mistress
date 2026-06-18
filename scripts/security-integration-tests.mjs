@@ -24,6 +24,9 @@ const adminRoutes = [
   { method: "POST", path: "/api/admin/events", body: { action: "list" } },
   { method: "POST", path: "/api/admin/debt-contracts", body: { action: "list" } },
   { method: "POST", path: "/api/events/roll", body: {} },
+  { method: "POST", path: "/api/jackpot/advance", body: {} },
+  { method: "GET", path: "/api/admin/mobile/pending-actions" },
+  { method: "POST", path: "/api/admin/mobile/pending-actions", body: { id: "00000000-0000-0000-0000-000000000000", decision: "approve" } },
 ];
 
 const protectedUserRoutes = [

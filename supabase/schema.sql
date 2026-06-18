@@ -309,7 +309,7 @@ create table if not exists public.pending_admin_actions (
   metadata jsonb not null default '{}'::jsonb,
   status text not null default 'pending',
   created_at timestamp with time zone not null default now(),
-  expires_at timestamp with time zone not null default (now() + interval '10 minutes'),
+  expires_at timestamp with time zone not null default (now() + interval '5 minutes'),
   approved_by_user_id uuid references auth.users(id) on delete set null,
   approved_at timestamp with time zone
 );
@@ -620,12 +620,7 @@ declare
   requirement integer;
 begin
   while current_level < 100 loop
-    requirement := case
-      when current_level < 30 then 5000
-      when current_level < 50 then 10000
-      when current_level < 75 then 15000
-      else 25000
-    end;
+    requirement := round(5000 + (current_level * 150) + (power(current_level::numeric, 1.2) * 25))::integer;
 
     exit when remaining < requirement;
     remaining := remaining - requirement;
@@ -647,12 +642,7 @@ declare
   safe_level integer := least(100, greatest(1, coalesce(target_level, 1)));
 begin
   while current_level < safe_level loop
-    total := total + case
-      when current_level < 30 then 5000
-      when current_level < 50 then 10000
-      when current_level < 75 then 15000
-      else 25000
-    end;
+    total := total + round(5000 + (current_level * 150) + (power(current_level::numeric, 1.2) * 25))::integer;
     current_level := current_level + 1;
   end loop;
 

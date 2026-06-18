@@ -14,19 +14,10 @@ export function getUserLevelXpRequirement(level: number) {
     return null;
   }
 
-  if (level < 30) {
-    return 5000;
-  }
+  const safeLevel = Math.max(1, Math.floor(level));
 
-  if (level < 50) {
-    return 10000;
-  }
-
-  if (level < 75) {
-    return 15000;
-  }
-
-  return 25000;
+  // Smooth progression: starts near 5k and rises gradually without sharp tier jumps.
+  return Math.round(5000 + safeLevel * 150 + Math.pow(safeLevel, 1.2) * 25);
 }
 
 export function getUserLevelFloorXp(level: number) {

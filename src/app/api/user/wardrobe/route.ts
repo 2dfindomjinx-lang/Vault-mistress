@@ -65,16 +65,19 @@ export async function POST(request: Request) {
     const slot = getItemAvatarSlot(itemId);
     if (!slot) return jsonError("Item not equippable.", 400);
 
-    // Verify ownership server-side: must have quantity > 0 in crate inventory
-    const { data: inv } = await supabase
-      .from("user_crate_inventory")
-      .select("quantity")
-      .eq("user_id", userId)
-      .eq("item_id", itemId)
-      .maybeSingle();
+    // "classic" is a default item always available (no DB ownership required)
+    if (itemId !== "classic") {
+      // Verify ownership server-side: must have quantity > 0 in crate inventory
+      const { data: inv } = await supabase
+        .from("user_crate_inventory")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("item_id", itemId)
+        .maybeSingle();
 
-    if (!inv || (inv.quantity ?? 0) < 1) {
-      return jsonError("You do not own this item.", 403);
+      if (!inv || (inv.quantity ?? 0) < 1) {
+        return jsonError("You do not own this item.", 403);
+      }
     }
 
     // Server-side apply logic (trust only server)
@@ -151,6 +154,11 @@ export async function POST(request: Request) {
     const cleaned: EquippedAvatarSlots = {};
     for (const [s, iid] of Object.entries(slots as Record<string, string>)) {
       if (!iid || typeof iid !== "string") continue;
+      if (iid === "classic") {
+        // default item always allowed
+        (cleaned as any)[s] = iid;
+        continue;
+      }
       const { data: inv } = await supabase
         .from("user_crate_inventory")
         .select("quantity")

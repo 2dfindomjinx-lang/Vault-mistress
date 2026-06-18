@@ -1,5 +1,6 @@
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
+import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,6 +62,31 @@ export async function POST(request: Request) {
 
   if (profileError) return Response.json({ error: profileError.message }, { status: 500 });
   if (!profile) return Response.json({ error: "User not found." }, { status: 404 });
+
+  const coinAmount = Number(giveMatch?.[1] ?? addMatch?.[1] ?? drainMatch?.[1] ?? 0);
+
+  // /add and /give require two-step via Companion App approval (even when issued from mobile)
+  if (giveMatch || addMatch) {
+    const cmd = giveMatch ? "give" : "add";
+    try {
+      const pending = await createPendingCoinAction({
+        requestedByUserId: admin.adminUser.id,
+        command: cmd,
+        targetUserId: profile.id,
+        targetUsername: profile.username,
+        amount: coinAmount,
+        originalCommand: command,
+      });
+      return Response.json({
+        pending: true,
+        actionId: pending.id,
+        message: `/${cmd} ${coinAmount} @${profile.username} requires Companion App approval.`,
+      });
+    } catch (e) {
+      console.error("Mobile: failed to queue pending", e);
+      return Response.json({ error: "Failed to queue for approval." }, { status: 500 });
+    }
+  }
 
   if (timeoutMatch) {
     const timeoutMinutes = Number(timeoutMatch[2]);

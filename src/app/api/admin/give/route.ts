@@ -1,6 +1,7 @@
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
 function getGiveBonusPercent(giveAmount: number) {
   if (giveAmount >= 100000) {
@@ -94,6 +95,32 @@ export async function POST(request: Request) {
       { error: "User not found in Supabase profiles." },
       { status: 404 },
     );
+  }
+
+  // /add and /give now require two-step approval via Companion App
+  if (giveMatch || addMatch) {
+    const cmd = giveMatch ? "give" : "add";
+    try {
+      const pending = await createPendingCoinAction({
+        requestedByUserId: admin.adminUser.id,
+        command: cmd,
+        targetUserId: profile.id,
+        targetUsername: profile.username,
+        amount,
+        originalCommand: command,
+      });
+      return Response.json({
+        pending: true,
+        actionId: pending.id,
+        message: `/${cmd} ${amount} @${profile.username} queued for Companion App approval (expires in ~5 min).`,
+        command: cmd,
+        username: profile.username,
+        amount,
+      });
+    } catch (e) {
+      console.error("Failed to queue pending admin action", e);
+      return Response.json({ error: "Failed to create approval request. Try again." }, { status: 500 });
+    }
   }
 
   if (timeoutMatch) {

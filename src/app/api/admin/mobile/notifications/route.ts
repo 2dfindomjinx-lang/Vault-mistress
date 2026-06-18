@@ -1,6 +1,27 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+async function getPendingAdminActionsCount(supabase: ReturnType<typeof createSupabaseAdminClient>) {
+  const now = new Date().toISOString();
+  // auto-expire
+  await supabase
+    .from("pending_admin_actions")
+    .update({ status: "expired" })
+    .eq("status", "pending")
+    .lt("expires_at", now);
+
+  const { count, error } = await supabase
+    .from("pending_admin_actions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  if (error) {
+    console.error("Pending admin actions count failed", error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -27,7 +48,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const [irl, pet, debtDue, securityAlerts] = await Promise.all([
+  const [irl, pet, debtDue, securityAlerts, pendingAdminCount] = await Promise.all([
     admin.supabase
       .from("user_irl_tasks")
       .select("id", { count: "exact", head: true })
@@ -42,6 +63,7 @@ export async function GET(request: Request) {
       .eq("status", "active")
       .lte("next_due_at", now),
     getAdminCoinSecurityAlerts(admin.supabase),
+    getPendingAdminActionsCount(admin.supabase),
   ]);
 
   const errors = [irl.error, pet.error, debtDue.error, securityAlerts.error].filter(Boolean);
@@ -51,6 +73,15 @@ export async function GET(request: Request) {
 
   const notifications = [
     ...securityAlerts.notifications,
+    pendingAdminCount > 0 && {
+      id: "pending-admin-actions",
+      title: "Admin Approvals",
+      body: `${pendingAdminCount} /add or /give action(s) pending your Companion App approval.`,
+      type: "admin_approvals",
+      created_at: now,
+      read_at: null,
+      action: "pending_actions",
+    },
     {
       id: "irl-tasks",
       title: "IRL tasks",
@@ -75,7 +106,7 @@ export async function GET(request: Request) {
       created_at: now,
       read_at: null,
     },
-  ].filter((notification) => !notification.body.startsWith("0 "));
+  ].filter(Boolean).filter((notification: any) => !notification.body?.startsWith("0 "));
 
   return Response.json({ notifications });
 }
