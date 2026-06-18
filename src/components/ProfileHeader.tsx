@@ -151,9 +151,9 @@ export function ProfileHeader({
                 {currentTitle ?? "No title equipped"}
               </p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {soundControls}
-              {actions}
+            <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
+              {soundControls && <div className="flex flex-wrap items-center gap-2">{soundControls}</div>}
+              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
           </div>
 

@@ -1,6 +1,5 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
 export const dynamic = "force-dynamic";
@@ -276,16 +275,6 @@ export async function POST(request: Request) {
           { onConflict: "user_id,title_id" }
         );
       }
-    }
-
-    // Security alert after successful execution
-    if (isGive || cmd === "add") {
-      await maybeSendAdminCoinSecurityPush(supabase, {
-        command: cmd as "give" | "add",
-        amount,
-        username: profile.username,
-        transactionId: transaction?.id,
-      });
     }
 
     // Log execution in the pending row metadata

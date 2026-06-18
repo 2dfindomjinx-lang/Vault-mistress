@@ -19,7 +19,7 @@ import {
   type RecentTribute,
   type TopInventory,
 } from "@/components/RecentTributesTicker";
-import { StatsPanel } from "@/components/StatsPanel";
+import { StatsPanel, type RecentCaseOpening } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
@@ -1777,6 +1777,7 @@ export default function Home() {
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
+  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpening[]>([]);
   const [topValuableInventories, setTopValuableInventories] = useState<TopInventory[]>([]);
   const [pendingTaskActionIds, setPendingTaskActionIds] = useState<string[]>([]);
   const [pendingPetActionIds, setPendingPetActionIds] = useState<string[]>([]);
@@ -2634,6 +2635,24 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, []);
 
+  const loadRecentCaseOpenings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/recent-case-openings", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        openings?: RecentCaseOpening[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Recent case openings failed.");
+      }
+
+      setRecentCaseOpenings(result.openings ?? []);
+    } catch (error) {
+      console.error("Failed to load recent case openings", error);
+    }
+  }, []);
+
   // === CRATE SYSTEM (V1) ===
   const loadCratesData = useCallback(async () => {
     // For preview / guest mode (dev testing), always seed local rich data
@@ -2760,6 +2779,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // Refresh full data in background
       void loadCratesData();
       void loadLeadershipTop();
+      void loadRecentCaseOpenings();
 
       return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
     } catch (error) {
@@ -2801,6 +2821,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // Refresh inventory from server
       await loadCratesData();
       void loadLeadershipTop();
+      void loadRecentCaseOpenings();
 
       return { success: true, newCoins: payload.newCoins };
     } catch (error) {
@@ -2844,6 +2865,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // Refresh inventory + crates from server (now empty or reduced)
       await loadCratesData();
       void loadLeadershipTop();
+      void loadRecentCaseOpenings();
 
       return {
         success: true,
@@ -3004,11 +3026,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const initialTimer = window.setTimeout(() => {
       void loadRecentTributes();
+      void loadRecentCaseOpenings();
       void loadCratesData();
     }, 0);
 
     const refreshRecentTributes = () => {
       void loadRecentTributes();
+      void loadRecentCaseOpenings();
     };
 
     window.addEventListener("focus", refreshRecentTributes);
@@ -3019,7 +3043,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.removeEventListener("focus", refreshRecentTributes);
       window.removeEventListener("storage", refreshRecentTributes);
     };
-  }, [isLoggedIn, loadRecentTributes]);
+  }, [isLoggedIn, loadRecentCaseOpenings, loadRecentTributes]);
 
   useEffect(() => {
     if (!isLoggedIn || isGuestMode || isPreviewMode) {
@@ -6044,6 +6068,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLeadershipTop([]);
     setShameTop([]);
     setTopTributes([]);
+    setRecentCaseOpenings([]);
     setJackpot(null);
     setJackpotError("");
     setIsAdminUser(false);
@@ -8728,6 +8753,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   shameTop={shameTop}
                   statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
                   stats={stats}
+                  recentCaseOpenings={recentCaseOpenings}
                   topValuableInventories={topValuableInventories}
                   username={effectiveDisplayName ?? username}
                   usernameStyle={usernameStyle}

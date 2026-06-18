@@ -160,6 +160,11 @@ function getTransactionUsername(row: AdminCoinTransactionRow) {
 
 function isAdminCoinCommandRow(row: AdminCoinTransactionRow) {
   const command = typeof row.metadata?.command === "string" ? row.metadata.command : "";
+  const source = typeof row.metadata?.source === "string" ? row.metadata.source : "";
+
+  if (source === "approved_admin_action") {
+    return false;
+  }
 
   return (
     row.admin_user_id

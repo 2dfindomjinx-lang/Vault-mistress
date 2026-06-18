@@ -120,6 +120,7 @@ export function CratesPanel({
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const stripRef = useRef<HTMLDivElement>(null);
+  const reelPanelRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Real-looking item pool for the spinning reel visuals.
@@ -135,6 +136,23 @@ export function CratesPanel({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  useEffect(() => {
+    if (!isMobile || !(isOpening || wonItems.length > 0)) {
+      return;
+    }
+
+    const target = reelPanelRef.current;
+    if (!target) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [isMobile, isOpening, wonItems.length]);
 
   // Total sell value of current inventory (for display when viewing Inventory)
   const inventoryValue = useMemo(() => {
@@ -991,7 +1009,10 @@ export function CratesPanel({
 
       {/* Reel and cases area now same fixed size h-[440px] */}
       {(isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto relative">
+        <div
+          ref={reelPanelRef}
+          className="order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto relative md:order-none"
+        >
           {wonItems.length > 0 && (
             <button
               onClick={closeReveal}

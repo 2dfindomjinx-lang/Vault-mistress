@@ -22,7 +22,39 @@ type StatsPanelProps = {
   statValueStyle?: CSSProperties;
   equippedTitleName?: string;
   topValuableInventories?: Array<{ username: string; value: number; usernameStyle?: CSSProperties }>;
+  recentCaseOpenings?: RecentCaseOpening[];
 };
+
+export type RecentCaseOpening = {
+  id: string;
+  username: string;
+  itemName: string;
+  crateName: string;
+  itemRarity: string;
+  openedAt: string;
+  usernameStyle?: CSSProperties;
+};
+
+function getRelativeTime(createdAt: string) {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 1) {
+    return "just now";
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+
+  return `${Math.floor(diffHours / 24)}d ago`;
+}
 
 export function StatsPanel({
   equippedTitleName,
@@ -30,6 +62,7 @@ export function StatsPanel({
   shameTop,
   statValueStyle,
   stats,
+  recentCaseOpenings = [],
   topValuableInventories = [],
   username,
   usernameStyle,
@@ -115,9 +148,9 @@ export function StatsPanel({
             : "Maximum leadership rank reached."}
         </p>
       </div>
-      <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2 items-stretch">
         {/* Top 5 Leadership by Tribute Total */}
-        <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="h-full rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
               Top 5 Leadership
@@ -125,8 +158,8 @@ export function StatsPanel({
             <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
           </div>
           <div className="mt-3 space-y-2">
-            {leadershipTop.length > 0 ? (
-              leadershipTop.map((leader, index) => {
+            {leadershipTop.slice(0, 5).length > 0 ? (
+              leadershipTop.slice(0, 5).map((leader, index) => {
                 const isCurrentUser = leader.username === username;
 
                 return (
@@ -162,7 +195,7 @@ export function StatsPanel({
         </div>
 
         {/* Top 5 Valuable Inventories */}
-        <div className="rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="h-full rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">
               Top 5 Valuable Inventories
@@ -170,8 +203,8 @@ export function StatsPanel({
             <p className="text-xs font-semibold text-zinc-500">By Inventory Value</p>
           </div>
           <div className="mt-3 space-y-2">
-            {topValuableInventories.length > 0 ? (
-              topValuableInventories.map((entry, index) => (
+            {topValuableInventories.slice(0, 5).length > 0 ? (
+              topValuableInventories.slice(0, 5).map((entry, index) => (
                 <div
                   className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 border-white/10 bg-white/[0.035]"
                   key={entry.username}
@@ -200,8 +233,8 @@ export function StatsPanel({
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
         </div>
         <div className="mt-3 space-y-2">
-          {shameTop.length > 0 ? (
-            shameTop.map((entry, index) => {
+          {shameTop.slice(0, 5).length > 0 ? (
+            shameTop.slice(0, 5).map((entry, index) => {
               const isCurrentUser = entry.username === username;
 
               return (
@@ -228,6 +261,54 @@ export function StatsPanel({
           ) : (
             <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
               Nobody has failed the wheel yet.
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="col-span-2 rounded-[1.5rem] border border-cyan-200/15 bg-[linear-gradient(145deg,rgba(34,211,238,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/75">
+            Recent Case Openings
+          </p>
+          <p className="text-xs font-semibold text-zinc-500">Latest crate pulls</p>
+        </div>
+        <div className="mt-3 space-y-2">
+          {recentCaseOpenings.length > 0 ? (
+            recentCaseOpenings.slice(0, 5).map((entry, index) => {
+              const isCurrentUser = entry.username === username;
+
+              return (
+                <div
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                    isCurrentUser
+                      ? "border-cyan-200/30 bg-cyan-500/10"
+                      : "border-white/10 bg-white/[0.035]"
+                  }`}
+                  key={entry.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-white">
+                      #{index + 1}{" "}
+                      <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
+                        {entry.username}
+                      </span>
+                    </p>
+                    <p className="truncate text-xs text-zinc-400">
+                      {entry.crateName} · {entry.itemName}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-black text-cyan-100">
+                      {entry.itemRarity}
+                    </p>
+                    <p className="text-[11px] text-zinc-400">{getRelativeTime(entry.openedAt)}</p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
+              No recent case openings yet.
             </p>
           )}
         </div>

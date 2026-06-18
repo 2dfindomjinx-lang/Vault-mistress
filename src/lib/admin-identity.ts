@@ -27,3 +27,22 @@ export function isTrustedAdminUserId(userId?: string | null) {
 
   return getTrustedAdminUserIds().has(normalizedUserId);
 }
+
+export function getDirectCoinAdminUserIds() {
+  return new Set(
+    (process.env.ADMIN_DIRECT_COIN_USER_IDS ?? "")
+      .split(",")
+      .map(normalizeAdminUserId)
+      .filter(Boolean),
+  );
+}
+
+export function isDirectCoinAdminUserId(userId?: string | null) {
+  const normalizedUserId = normalizeAdminUserId(userId);
+
+  if (!normalizedUserId) {
+    return false;
+  }
+
+  return getDirectCoinAdminUserIds().has(normalizedUserId);
+}

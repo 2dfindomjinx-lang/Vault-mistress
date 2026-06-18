@@ -1,4 +1,5 @@
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
@@ -97,8 +98,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // /add and /give now require two-step approval via Companion App
-  if (giveMatch || addMatch) {
+  // /add and /give require two-step approval unless the verified Supabase user id is explicitly allowlisted.
+  if ((giveMatch || addMatch) && !isDirectCoinAdminUserId(admin.adminUser.id)) {
     const cmd = giveMatch ? "give" : "add";
     try {
       const pending = await createPendingCoinAction({

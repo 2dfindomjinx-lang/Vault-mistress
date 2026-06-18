@@ -1,4 +1,5 @@
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
+import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
@@ -65,8 +66,8 @@ export async function POST(request: Request) {
 
   const coinAmount = Number(giveMatch?.[1] ?? addMatch?.[1] ?? drainMatch?.[1] ?? 0);
 
-  // /add and /give require two-step via Companion App approval (even when issued from mobile)
-  if (giveMatch || addMatch) {
+  // /add and /give require two-step approval unless the verified Supabase user id is explicitly allowlisted.
+  if ((giveMatch || addMatch) && !isDirectCoinAdminUserId(admin.adminUser.id)) {
     const cmd = giveMatch ? "give" : "add";
     try {
       const pending = await createPendingCoinAction({

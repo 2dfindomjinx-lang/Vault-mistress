@@ -168,10 +168,10 @@ export async function GET() {
     return jsonError("Failed to load inventory.", 500);
   }
 
-  const hasClassicItem = invRows?.some(
-    (row) => row.item_id === "classic" && (row.variant ?? "normal") === "normal" && row.quantity > 0,
+  const classicRow = invRows?.find(
+    (row) => row.item_id === "classic" && (row.variant ?? "normal") === "normal",
   );
-  if (!hasClassicItem) {
+  if (!classicRow) {
     const classicDef = await getItemDefinition(supabase, "classic");
     if (classicDef) {
       const { error: restoreClassicErr } = await supabase.from("user_crate_inventory").insert({
@@ -184,6 +184,17 @@ export async function GET() {
       if (restoreClassicErr && restoreClassicErr.code !== "23505") {
         console.error("[crates] classic restore failed", restoreClassicErr);
       }
+    }
+  } else if (classicRow.quantity > 1) {
+    const { error: clampClassicErr } = await supabase
+      .from("user_crate_inventory")
+      .update({ quantity: 1 })
+      .eq("user_id", userId)
+      .eq("item_id", "classic")
+      .eq("variant", "normal");
+
+    if (clampClassicErr) {
+      console.error("[crates] classic quantity clamp failed", clampClassicErr);
     }
   }
 
@@ -214,8 +225,11 @@ export async function GET() {
 
   const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
 
-  // Sort by rarity then name for nice display
+  // Sort by rarity then name for nice display, but keep classic pinned first.
   inventory.sort((a, b) => {
+    if (a.item_id === "classic" && b.item_id !== "classic") return -1;
+    if (b.item_id === "classic" && a.item_id !== "classic") return 1;
+
     const ra = a.rarity;
     const rb = b.rarity;
     if (ra !== rb) {
@@ -399,7 +413,9 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     const previousInventoryQty = existingInv?.quantity ?? 0;
-    const newQty = (existingInv?.quantity ?? 0) + 1;
+    const newQty = rolled.item_id === "classic"
+      ? 1
+      : (existingInv?.quantity ?? 0) + 1;
 
     const { error: invErr } = await supabase
       .from("user_crate_inventory")
