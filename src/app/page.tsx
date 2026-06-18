@@ -1754,6 +1754,7 @@ export default function Home() {
     principessa_bad_luck: 0,
     blessing_legendary_pity: 0,
   });
+  const [crateFreeOpensUsedToday, setCrateFreeOpensUsedToday] = useState<Record<string, boolean>>({});
   const [cratePending, setCratePending] = useState(false);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
@@ -2666,6 +2667,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       setAvailableCrates(seededCrates);
       setCrateInventory(seededInventory);
+      setCrateFreeOpensUsedToday({});
       setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
       return;
     }
@@ -2676,6 +2678,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         error?: string;
         crates?: CrateDefinition[];
         inventory?: CrateInventoryItem[];
+        free_opens_used_today?: Record<string, boolean>;
         pity?: {
           principessa_bad_luck?: number;
           blessing_legendary_pity?: number;
@@ -2688,6 +2691,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       setAvailableCrates(result.crates ?? []);
       setCrateInventory(result.inventory ?? []);
+      setCrateFreeOpensUsedToday(result.free_opens_used_today ?? {});
       if (result.pity) {
         setPityStats({
           principessa_bad_luck: result.pity.principessa_bad_luck ?? 0,
@@ -2714,6 +2718,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         result?: { item: CrateInventoryItem & { sell_value: number }; newCoins: number };
+        free_open_applied?: boolean;
         pity?: {
           principessa_bad_luck?: number;
           blessing_legendary_pity?: number;
@@ -2737,6 +2742,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           blessing_legendary_pity: payload.pity.blessing_legendary_pity ?? pityStats.blessing_legendary_pity,
         });
       }
+      if (payload.free_open_applied) {
+        setCrateFreeOpensUsedToday((current) => ({ ...current, [crateType]: true }));
+      }
 
       // Merge into local inventory (increase quantity or add)
       setCrateInventory((current) => {
@@ -2751,6 +2759,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Refresh full data in background
       void loadCratesData();
+      void loadLeadershipTop();
 
       return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
     } catch (error) {
@@ -2791,6 +2800,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Refresh inventory from server
       await loadCratesData();
+      void loadLeadershipTop();
 
       return { success: true, newCoins: payload.newCoins };
     } catch (error) {
@@ -2833,6 +2843,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Refresh inventory + crates from server (now empty or reduced)
       await loadCratesData();
+      void loadLeadershipTop();
 
       return {
         success: true,
@@ -2868,7 +2879,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setLeadershipTop(payload.leaders ?? []);
       setTopValuableInventories(payload.topInventories ?? []);
     } catch (error) {
-      console.error("Failed to load leadership top 3", error);
+      console.error("Failed to load leadership top 5", error);
     }
   }, []);
 
@@ -5548,12 +5559,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         };
 
         if (!response.ok) {
-          if (result.code === "free_friday_reroll") {
-            setFreeFridaySpinAvailable(true);
-            setAvatarMistressReply(result.error ?? "Free Task Friday skipped a Throne task. Spin again.");
-            return;
-          }
-
           throw createApiError("/api/user/irl-task-wheel", response, result);
         }
 
@@ -6008,6 +6013,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
     setAvailableCrates(seededCrates);
     setCrateInventory(seededInventory);
+    setCrateFreeOpensUsedToday({});
     setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
 
     setActivePanel("profile");
@@ -8578,7 +8584,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 </p>
                 <h2 className="mt-1 text-2xl font-black text-white">Free Task Friday</h2>
                 <p className="mt-1 text-sm leading-6 text-emerald-50/80">
-                  One non-Throne IRL Task Wheel spin is free today.
+                  One IRL Task Wheel spin is free today.
                 </p>
               </div>
               <div className="rounded-2xl border border-emerald-100/25 bg-black/45 px-4 py-3 text-center">
@@ -8806,6 +8812,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 crates={availableCrates}
                 inventory={crateInventory}
+                activeEvents={activeEvents}
+                freeOpensUsedToday={crateFreeOpensUsedToday}
                 pending={cratePending}
                 onOpenCrate={handleOpenCrate}
                 onSellItem={handleSellCrateItem}

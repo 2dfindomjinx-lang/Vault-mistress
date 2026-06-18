@@ -94,6 +94,7 @@ function validatePatch(
   const coinDelta = nextCoins - current.coins;
   const petScoreDelta = nextPetScore - current.pet_score;
   const tributeDelta = nextTributeTotal - current.tribute_total;
+  const rewardPetScoreDelta = Math.max(0, Math.min(10, 1000 - current.pet_score));
 
   if (
     !Number.isInteger(nextCoins) ||
@@ -173,19 +174,26 @@ function validatePatch(
 
     if (
       reason === "reward:pet-case-opening" &&
-      (!Number.isInteger(coinDelta) || coinDelta < 0 || coinDelta > 5000 || petScoreDelta !== 10 || tributeDelta !== 0)
+      (!Number.isInteger(coinDelta) ||
+        coinDelta < 0 ||
+        coinDelta > 5000 ||
+        petScoreDelta !== rewardPetScoreDelta ||
+        tributeDelta !== 0)
     ) {
       return "Pet case profile delta is invalid.";
     }
 
-    if (reason === "reward:pet-affection-claim" && (coinDelta !== 0 || petScoreDelta !== 10 || tributeDelta !== 0)) {
+    if (
+      reason === "reward:pet-affection-claim" &&
+      (coinDelta !== 0 || petScoreDelta !== rewardPetScoreDelta || tributeDelta !== 0)
+    ) {
       return "Pet affection claim profile delta is invalid.";
     }
 
     if (
       reason !== "reward:pet-case-opening" &&
       reason !== "reward:pet-affection-claim" &&
-      (!petCoinAllowed.includes(coinDelta) || petScoreDelta !== 10 || tributeDelta !== 0)
+      (!petCoinAllowed.includes(coinDelta) || petScoreDelta !== rewardPetScoreDelta || tributeDelta !== 0)
     ) {
       return "Pet reward profile delta is invalid.";
     }

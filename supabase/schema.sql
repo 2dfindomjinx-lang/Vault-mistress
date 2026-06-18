@@ -715,6 +715,141 @@ create trigger apply_coin_transaction_user_xp_trigger
   for each row
   execute function public.apply_coin_transaction_user_xp();
 
+create or replace function public.apply_admin_coin_commission()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  commission_total integer := 0;
+  recipient_count integer := 0;
+  base_share integer := 0;
+  remainder integer := 0;
+  recipient_index integer := 0;
+  share integer := 0;
+  recipient record;
+begin
+  if tg_op = 'INSERT' then
+    if new.amount >= 0 or coalesce(new.reason, '') = 'admin_commission' then
+      return new;
+    end if;
+
+    if exists (
+      select 1
+      from public.profiles
+      where id = new.user_id
+        and coalesce(is_admin, false) = true
+    ) then
+      return new;
+    end if;
+
+    commission_total := floor(abs(new.amount) * 0.10)::integer;
+
+    if commission_total <= 0 then
+      return new;
+    end if;
+
+    select count(*)
+    into recipient_count
+    from public.profiles
+    where coalesce(is_admin, false) = true
+      and id <> new.user_id;
+
+    if recipient_count <= 0 then
+      return new;
+    end if;
+
+    base_share := commission_total / recipient_count;
+    remainder := commission_total % recipient_count;
+
+    for recipient in
+      select id, coins
+      from public.profiles
+      where coalesce(is_admin, false) = true
+        and id <> new.user_id
+      order by id
+    loop
+      recipient_index := recipient_index + 1;
+      share := base_share + case when recipient_index <= remainder then 1 else 0 end;
+
+      if share <= 0 then
+        continue;
+      end if;
+
+      update public.profiles
+      set
+        coins = coalesce(coins, 0) + share,
+        updated_at = now()
+      where id = recipient.id;
+
+      insert into public.coin_transactions (
+        user_id,
+        admin_user_id,
+        amount,
+        reason,
+        balance_before,
+        balance_after,
+        metadata
+      ) values (
+        recipient.id,
+        recipient.id,
+        share,
+        'admin_commission',
+        recipient.coins,
+        recipient.coins + share,
+        jsonb_build_object(
+          'sourceTransactionId', new.id,
+          'sourceUserId', new.user_id,
+          'sourceReason', coalesce(new.reason, ''),
+          'commissionTotal', commission_total,
+          'commissionShare', share,
+          'recipientCount', recipient_count
+        )
+      );
+    end loop;
+
+    return new;
+  end if;
+
+  if tg_op = 'DELETE' then
+    if old.amount >= 0 or coalesce(old.reason, '') = 'admin_commission' then
+      return old;
+    end if;
+
+    with commission_totals as (
+      select
+        user_id,
+        sum(amount)::integer as total_amount
+      from public.coin_transactions
+      where reason = 'admin_commission'
+        and coalesce(metadata->>'sourceTransactionId', '') = old.id::text
+      group by user_id
+    )
+    update public.profiles profile
+    set
+      coins = coalesce(profile.coins, 0) - commission_totals.total_amount,
+      updated_at = now()
+    from commission_totals
+    where profile.id = commission_totals.user_id;
+
+    delete from public.coin_transactions
+    where reason = 'admin_commission'
+      and coalesce(metadata->>'sourceTransactionId', '') = old.id::text;
+
+    return old;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists apply_admin_coin_commission_trigger on public.coin_transactions;
+create trigger apply_admin_coin_commission_trigger
+  after insert or delete on public.coin_transactions
+  for each row
+  execute function public.apply_admin_coin_commission();
+
 update public.profiles
 set
   user_xp = least(2147483647, greatest(0, coalesce(user_xp, 0) + greatest(0, coalesce(tribute_total, 0) * 10))),

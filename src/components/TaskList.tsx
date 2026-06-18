@@ -3,9 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
 import {
-  getFreeFridayEligibleIrlTaskIndices,
+  getIrlTaskWheelSegments,
   IRL_TASK_WHEEL_COST,
-  irlTaskWheelSegments,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
@@ -214,7 +213,6 @@ export function TaskList({
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
   const irlWheelTimerRef = useRef<number | null>(null);
-  const isFreeFriday = isFreeTaskFriday(now) && isFreeFridaySpinAvailable;
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
@@ -316,13 +314,11 @@ export function TaskList({
 
     emitSoundEvent("button_click");
 
-    const useFreeFridaySpin = isFreeFriday;
-    const freeFridayIndices = useFreeFridaySpin ? getFreeFridayEligibleIrlTaskIndices() : [];
-    const selectedIndex =
-      freeFridayIndices.length > 0
-        ? freeFridayIndices[Math.floor(Math.random() * freeFridayIndices.length)]
-        : Math.floor(Math.random() * irlTaskWheelSegments.length);
-    const segmentDegrees = 360 / irlTaskWheelSegments.length;
+    const isFreeFridayEventActive = isFreeTaskFriday(now);
+    const useFreeFridaySpin = isFreeFridayEventActive && isFreeFridaySpinAvailable;
+    const wheelSegments = getIrlTaskWheelSegments(isFreeFridayEventActive);
+    const selectedIndex = Math.floor(Math.random() * wheelSegments.length);
+    const segmentDegrees = 360 / wheelSegments.length;
     const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
     const currentRotation = ((irlWheelRotation % 360) + 360) % 360;
     const targetRotation = (360 - selectedCenter) % 360;
@@ -486,6 +482,9 @@ export function TaskList({
     </span>
   );
   const visibleTasks = tasks.filter((task) => !isHiddenClaimedOneTimeTask(task));
+  const isFreeFridayEventActive = isFreeTaskFriday(now);
+  const wheelSegments = getIrlTaskWheelSegments(isFreeFridayEventActive);
+  const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
 
   return (
     <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -793,10 +792,10 @@ export function TaskList({
                     </div>
                     <div className="mt-4 flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <p className="text-sm leading-6 text-zinc-400">
-                          {isFreeFriday
-                            ? "Free Task Friday: one non-Throne IRL wheel spin is free today."
-                            : `Spin the wheel for ${IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes your assigned IRL task.`}
+                      <p className="text-sm leading-6 text-zinc-400">
+                        {isFreeFridayEventActive
+                          ? "Free Task Friday: one IRL wheel spin is free today."
+                          : `Spin the wheel for ${IRL_TASK_WHEEL_COST} Principessa Coins. The result becomes your assigned IRL task.`}
                         </p>
                         <button
                           className="shrink-0 rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-50 transition hover:border-pink-300/60 hover:bg-pink-500/20"
@@ -811,11 +810,15 @@ export function TaskList({
                       </div>
                       <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
                         {showIrlTaskList ? (
-                          <IrlTaskWheelTaskList onClose={() => setShowIrlTaskList(false)} />
+                          <IrlTaskWheelTaskList
+                            onClose={() => setShowIrlTaskList(false)}
+                            tasks={wheelSegments}
+                          />
                         ) : (
                           <WheelSpinner
                             rotation={irlWheelRotation}
                             selectedIndex={irlTask.assignedIrlWheelIndex ?? null}
+                            segmentCount={wheelSegments.length}
                             spinning={isIrlWheelSpinning}
                           />
                         )}
@@ -1498,11 +1501,15 @@ export function TaskList({
                   </div>
                   <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
                     {showIrlTaskList ? (
-                      <IrlTaskWheelTaskList onClose={() => setShowIrlTaskList(false)} />
+                      <IrlTaskWheelTaskList
+                        onClose={() => setShowIrlTaskList(false)}
+                        tasks={wheelSegments}
+                      />
                     ) : (
                       <WheelSpinner
                         rotation={irlWheelRotation}
                         selectedIndex={task.assignedIrlWheelIndex ?? null}
+                        segmentCount={wheelSegments.length}
                         spinning={isIrlWheelSpinning}
                       />
                     )}
@@ -1617,7 +1624,13 @@ export function TaskList({
   );
 }
 
-function IrlTaskWheelTaskList({ onClose }: { onClose: () => void }) {
+function IrlTaskWheelTaskList({
+  onClose,
+  tasks,
+}: {
+  onClose: () => void;
+  tasks: ReadonlyArray<{ description: string; title: string }>;
+}) {
   return (
     <div className="relative">
       <button
@@ -1640,7 +1653,7 @@ function IrlTaskWheelTaskList({ onClose }: { onClose: () => void }) {
         </p>
       </div>
       <div className="mt-4 grid max-h-[24rem] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-        {irlTaskWheelSegments.map((task, index) => (
+        {tasks.map((task, index) => (
           <div
             className="rounded-2xl border border-white/10 bg-black/35 p-3"
             key={`${task.title}-${index}`}
@@ -1664,20 +1677,23 @@ function IrlTaskWheelTaskList({ onClose }: { onClose: () => void }) {
 function WheelSpinner({
   rotation,
   selectedIndex,
+  segmentCount,
   spinning,
 }: {
   rotation: number;
   selectedIndex: number | null;
+  segmentCount: number;
   spinning: boolean;
 }) {
-  const segmentDegrees = 360 / 20;
+  const safeSegmentCount = Math.max(1, segmentCount);
+  const segmentDegrees = 360 / safeSegmentCount;
   const settledRotation =
     selectedIndex === null
       ? rotation
       : (360 - (selectedIndex * segmentDegrees + segmentDegrees / 2)) % 360;
   const displayRotation = rotation !== 0 ? rotation : settledRotation;
   const activeIndex = spinning ? null : selectedIndex;
-  const wheelGradient = Array.from({ length: 20 }, (_, index) => {
+  const wheelGradient = Array.from({ length: safeSegmentCount }, (_, index) => {
     const start = index * segmentDegrees;
     const end = (index + 1) * segmentDegrees;
     const color =
@@ -1700,7 +1716,7 @@ function WheelSpinner({
       >
         <div className="absolute inset-2 rounded-full border border-black/35" />
         <div className="absolute inset-[42%] rounded-full border border-pink-100/40 bg-black shadow-[0_0_18px_rgba(0,0,0,0.6)]" />
-        {Array.from({ length: 20 }, (_, index) => {
+        {Array.from({ length: safeSegmentCount }, (_, index) => {
           const angle = index * segmentDegrees + segmentDegrees / 2;
           const isActive = activeIndex === index;
 
@@ -1722,7 +1738,7 @@ function WheelSpinner({
         })}
       </div>
       <p className="mt-3 text-center text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
-        {spinning ? "Wheel Spinning" : "20-Segment IRL Wheel"}
+        {spinning ? "Wheel Spinning" : `${safeSegmentCount}-Segment IRL Wheel`}
       </p>
     </div>
   );

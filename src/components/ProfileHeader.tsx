@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+"use client";
+
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { PageStatCard } from "@/components/PageStatCard";
@@ -54,6 +56,25 @@ export function ProfileHeader({
   onCancelDisplayNameEdit,
   onDisplayNameEditInputChange,
 }: ProfileHeaderProps) {
+  useEffect(() => {
+    if (!isEditingDisplayName || !onCancelDisplayNameEdit) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancelDisplayNameEdit();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isEditingDisplayName, onCancelDisplayNameEdit]);
+
   return (
     <header className="overflow-hidden rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(135deg,rgba(18,7,27,0.96),rgba(79,13,68,0.48),rgba(0,0,0,0.78))] shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[180px_minmax(0,1fr)]">
@@ -90,26 +111,32 @@ export function ProfileHeader({
                   )}
                 </div>
               ) : (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative z-20 flex w-full flex-col gap-3">
                   <input
                     value={displayNameEditInput}
                     onChange={(e) => onDisplayNameEditInputChange?.(e.target.value)}
-                    className="rounded-xl border border-white/10 bg-black/60 px-3 py-1 text-3xl font-black text-white outline-none focus:border-pink-300/60"
+                    className="min-w-0 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-3xl font-black text-white outline-none focus:border-pink-300/60"
                     maxLength={24}
                     placeholder="New display name"
                     autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        onCancelDisplayNameEdit?.();
+                      }
+                    }}
                   />
-                  <div className="flex gap-2 text-sm">
+                  <div className="flex flex-wrap gap-2 text-sm">
                     <button
                       onClick={onSaveDisplayNameEdit}
-                      className="rounded-full bg-pink-500 px-3 py-0.5 font-black text-black"
+                      className="rounded-full bg-pink-500 px-4 py-2 font-black text-black transition hover:bg-pink-400"
                       type="button"
                     >
                       Save
                     </button>
                     <button
                       onClick={onCancelDisplayNameEdit}
-                      className="rounded-full border border-white/20 px-3 py-0.5 font-black"
+                      className="rounded-full border border-white/20 px-4 py-2 font-black transition hover:border-white/35 hover:bg-white/5"
                       type="button"
                     >
                       Cancel

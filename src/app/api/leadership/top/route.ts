@@ -20,7 +20,7 @@ export async function GET() {
   }
 
   const supabase = createPublicSupabaseClient();
-  const { data, error } = await supabase.rpc("get_public_leaderboard", { p_limit: 3 });
+  const { data, error } = await supabase.rpc("get_public_leaderboard", { p_limit: 5 });
 
   if (error) {
     console.error("Failed to load leadership leaderboard", error);
@@ -35,12 +35,12 @@ export async function GET() {
   }>;
   const userIds = leaders.map((profile) => String(profile.id)).filter(Boolean);
 
-  // Top 3 most valuable inventories (sum of quantity * sell_value from crate items)
+  // Top 5 most valuable inventories (sum of quantity * sell_value from crate items)
   // Uses safe RPC (server-side calc, only public fields)
   let topInventories: Array<{ id: string; username: string; avatarUrl: string | null; value: number; usernameStyle?: any }> = [];
   let invUids: string[] = [];
   try {
-    const { data: invData, error: invErr } = await supabase.rpc("get_public_top_valuable_inventories", { p_limit: 3 });
+    const { data: invData, error: invErr } = await supabase.rpc("get_public_top_valuable_inventories", { p_limit: 5 });
     if (invErr) {
       console.error("Failed to load top valuable inventories via RPC", invErr);
     } else if (invData) {
@@ -104,7 +104,7 @@ export async function GET() {
 
         return first.createdAt.localeCompare(second.createdAt);
       })
-      .slice(0, 3)
+      .slice(0, 5)
       .map((leader) => ({
         rankTitle: leader.rankTitle,
         tributeTotal: leader.tributeTotal,

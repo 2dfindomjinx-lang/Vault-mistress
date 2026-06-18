@@ -3,15 +3,21 @@ import { getGmt3DateKey, getGmt3DayBounds } from "@/lib/time";
 
 export type EventEffectType =
   | "cooldown_reduction"
+  | "crate_cost_discount"
+  | "crate_drop_adjustment"
+  | "crate_free_open"
   | "high_low_bonus"
   | "task_reward_multiplier"
   | "tribute_affection_boost"
   | "speech_avatar_override";
 
+export type CrateEventKey = "lucky_key" | "golden_key" | "free_key";
+
 export type EventEffect = {
   type: EventEffectType;
   multiplier: number;
   speechAvatarId?: string;
+  crateEventKey?: CrateEventKey;
 };
 
 export type RandomEvent = {
@@ -34,6 +40,14 @@ export type EventTemplate = {
 export type EventCategory = "economy" | "tribute" | "speech" | "utility";
 
 export function getEventCategory(effect: EventEffect): EventCategory {
+  if (
+    effect.type === "crate_cost_discount" ||
+    effect.type === "crate_drop_adjustment" ||
+    effect.type === "crate_free_open"
+  ) {
+    return "utility";
+  }
+
   if (effect.type === "tribute_affection_boost") {
     return "tribute";
   }
@@ -77,6 +91,24 @@ export function isEventCompatibleWithActiveEvents(
 }
 
 export const EVENT_TEMPLATES: EventTemplate[] = [
+  {
+    key: "lucky-key",
+    name: "Lucky Key",
+    description: "All crates are 40% cheaper while this event is active.",
+    effect: { type: "crate_cost_discount", multiplier: 0.6, crateEventKey: "lucky_key" },
+  },
+  {
+    key: "golden-key",
+    name: "Golden Key",
+    description: "Blessing Case common items drop to 9.90% each, with the missing chance added evenly to legendary items. Principessa Case common drops by 4% and Epic rises by 4%. Premium Case common drops by 2%, Epic rises by 1.5%, and Legendary rises by 0.5%.",
+    effect: { type: "crate_drop_adjustment", multiplier: 1, crateEventKey: "golden_key" },
+  },
+  {
+    key: "free-key",
+    name: "Free Key",
+    description: "Each crate gets one free open for the day while this event is active.",
+    effect: { type: "crate_free_open", multiplier: 1, crateEventKey: "free_key" },
+  },
   {
     key: "task-reward-2x",
     name: "Double Task Rewards",

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
 import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER, getCrateIconUrl } from "@/lib/crates";
+import { getAdjustedCrateDrops, getCrateBatchCost, getCrateOpenCost, hasFreeCrateOpen } from "@/lib/crate-events";
+import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
 
@@ -46,6 +48,8 @@ type CratesPanelProps = {
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
+  activeEvents?: RandomEvent[];
+  freeOpensUsedToday?: Record<string, boolean>;
   onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
   pending?: boolean;
@@ -60,6 +64,8 @@ export function CratesPanel({
   onSellItem,
   onSellAll,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
+  activeEvents = [],
+  freeOpensUsedToday = {},
   onCrateOpen,
   onCrateResult,
   pending = false,
@@ -69,6 +75,7 @@ export function CratesPanel({
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
   const [sellPending, setSellPending] = useState<string | null>(null);
   const [lastOpenedCrateType, setLastOpenedCrateType] = useState<string | null>(null);
+  const [lastOpenedBatchCost, setLastOpenedBatchCost] = useState(0);
   const [flippedCrate, setFlippedCrate] = useState<string | null>(null);
 
   // Responsive: desktop = classic multi-item horizontal slide reel (5 visible)
@@ -86,6 +93,12 @@ export function CratesPanel({
   const setOpenQuantityForCase = (caseType: string, q: number) => {
     setOpenQuantityByCase(prev => ({ ...prev, [caseType]: q }));
   };
+
+  const hasFreeOpenToday = (crateType: string) => Boolean(freeOpensUsedToday[crateType]);
+  const getDisplayedCost = (crate: CrateDefinition) =>
+    getCrateOpenCost(crate.cost, activeEvents, hasFreeOpenToday(crate.crate_type));
+  const getBatchOpenCost = (crate: CrateDefinition, qty: number) =>
+    getCrateBatchCost(crate.cost, qty, activeEvents, hasFreeOpenToday(crate.crate_type));
 
   // Square cards for better icon visibility (icons are square-designed).
   // Exactly 5 visible during slide. Larger squares, same overall area.
@@ -268,7 +281,8 @@ export function CratesPanel({
   }
 
   const openCrate = async (crate: CrateDefinition, qty: number = 1) => {
-    if (disabled || pending || isOpening || coins < crate.cost * qty) return;
+    const batchCost = getBatchOpenCost(crate, qty);
+    if (disabled || pending || isOpening || coins < batchCost) return;
 
     if (onCrateOpen) onCrateOpen();
 
@@ -278,7 +292,8 @@ export function CratesPanel({
     const crateDef = CRATE_TYPES[crate.crate_type];
     let visualPool: WonItem[] = [];
     if (crateDef?.drops?.length) {
-      visualPool = crateDef.drops
+      const adjustedDrops = getAdjustedCrateDrops(crate.crate_type, activeEvents);
+      visualPool = adjustedDrops
         .map((d) => {
           const s = SAMPLE_CRATE_ITEMS[d.item_id];
           if (!s) return null;
@@ -319,6 +334,8 @@ export function CratesPanel({
 
     // Perform multiple opens (server calls) for multi
     const results: WonItem[] = [];
+    let runningCoins = coins;
+    let totalPaid = 0;
     for (let i = 0; i < qty; i++) {
       const res = await onOpenCrate(crate.crate_type);
       if (!(res.success && res.result)) {
@@ -327,9 +344,12 @@ export function CratesPanel({
         break;
       }
       results.push(res.result.item);
+      totalPaid += Math.max(0, runningCoins - res.result.newCoins);
+      runningCoins = res.result.newCoins;
     }
 
     if (results.length === 0) return;
+    setLastOpenedBatchCost(totalPaid);
 
     // Helper for multi-open outcome based speech category (reuses the crate_result_* pools)
     // Ranges relative to the case's single cost C.
@@ -354,10 +374,10 @@ export function CratesPanel({
       setIsOpening(true);
       setOpeningCrate(crate.name);
       setLastOpenedCrateType(crate.crate_type);
-      setWonItems([]);
-      setSpinSequence([]);
-      setReelProgress(0);
-      setReelItems([]);
+    setWonItems([]);
+    setSpinSequence([]);
+    setReelProgress(0);
+    setReelItems([]);
 
       setIsVerticalMode(qty > 1);
 
@@ -389,11 +409,11 @@ export function CratesPanel({
       if (onCrateResult && results.length > 0) {
         if (results.length > 1) {
           // Multi-open: use net outcome to decide speech category (reuses crate_result_* message pools)
-          // net = total value won - (case cost * qty)
+          // net = total value won - the actual batch cost we paid
           const totalWon = results.reduce((s, r) => s + r.sell_value, 0);
-          const batchNet = totalWon - (crate.cost * results.length);
+          const batchNet = totalWon - lastOpenedBatchCost;
           const hasLeg = results.some(r => r.rarity === "legendary");
-          const effectiveRarity = getOutcomeRarity(batchNet, crate.cost, hasLeg);
+          const effectiveRarity = getOutcomeRarity(batchNet, Math.max(1, lastOpenedBatchCost || crate.cost), hasLeg);
           const dummyItem: WonItem = {
             item_id: "multi-outcome",
             name: "Multi Outcome",
@@ -543,6 +563,7 @@ export function CratesPanel({
 
   const sellItem = async (item: CrateInventoryItem, qty: number = 1) => {
     if (disabled || sellPending) return;
+    if (item.item_id === "classic") return;
 
     // Only show confirmation for Legendary items
     if (item.rarity === "legendary") {
@@ -573,13 +594,19 @@ export function CratesPanel({
   const sellAllWonItems = async () => {
     if (!wonItems.length) return;
 
-    const totalValue = wonItems.reduce((sum, item) => sum + item.sell_value, 0);
+    const sellableWonItems = wonItems.filter((item) => item.item_id !== "classic" && item.rarity !== "legendary");
+    if (sellableWonItems.length === 0) {
+      alert("There are no sellable won items.");
+      return;
+    }
+
+    const totalValue = sellableWonItems.reduce((sum, item) => sum + item.sell_value, 0);
     const confirmSell = window.confirm(
-      `Sell all ${wonItems.length} won items for ${totalValue} coins?`
+      `Sell ${sellableWonItems.length} sellable won items for ${totalValue} coins?`
     );
     if (!confirmSell) return;
 
-    for (const item of wonItems) {
+    for (const item of sellableWonItems) {
       await onSellItem(item.item_id, item.variant, 1);
     }
     emitSoundEvent("cosmetic_purchased");
@@ -621,21 +648,22 @@ export function CratesPanel({
     setSpinSequence([]);
     setReelProgress(0);
     setLastOpenedCrateType(null);
+    setLastOpenedBatchCost(0);
     setIsVerticalMode(false);
     setMultiSpinSequences([]);
     verticalReelRefs.current = [];
   };
 
   const getDropRates = (crateType: string) => {
-    const def = CRATE_TYPES[crateType];
-    if (!def?.drops?.length) return [];
-    const total = def.drops.reduce((sum, d) => sum + (d.weight || 1), 0);
+    const drops = getAdjustedCrateDrops(crateType, activeEvents);
+    if (!drops.length) return [];
+    const total = drops.reduce((sum, d) => sum + (d.weight || 1), 0);
     const rarityIndex: Record<string, number> = RARITY_ORDER.reduce((acc, r, i) => {
       acc[r] = i;
       return acc;
     }, {} as Record<string, number>);
 
-    return def.drops
+    return drops
       .map((d) => {
         const info = SAMPLE_CRATE_ITEMS[d.item_id];
         if (!info) return null;
@@ -685,7 +713,10 @@ export function CratesPanel({
 
           {crates.map((crate) => {
             const currentQty = getOpenQuantity(crate.crate_type);
-            const canAfford = coins >= crate.cost * currentQty;
+            const batchCost = getBatchOpenCost(crate, currentQty);
+            const displayCost = getDisplayedCost(crate);
+            const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !hasFreeOpenToday(crate.crate_type);
+            const canAfford = coins >= batchCost;
             const isThisOpening = openingCrate === crate.crate_type;
             const isFlipped = flippedCrate === crate.crate_type;
             const dropRates = getDropRates(crate.crate_type);
@@ -720,8 +751,18 @@ export function CratesPanel({
                       <div className="text-right">
                         <div className="text-xs text-pink-100/70">Cost</div>
                         <div className="font-black text-pink-200">
-                          <CoinAmount amount={crate.cost} iconSize={13} />
+                          {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={13} />}
                         </div>
+                        {freeOpenAvailable && (
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                            Free open today
+                          </div>
+                        )}
+                        {!freeOpenAvailable && displayCost < crate.cost && (
+                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
+                            Lucky Key
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -769,10 +810,10 @@ export function CratesPanel({
 
                     <button
                       onClick={() => openCrate(crate, currentQty)}
-                      disabled={disabled || pending || isOpening || wonItems.length > 0 || coins < crate.cost * currentQty}
+                      disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
                       className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                     >
-                      {isThisOpening ? "OPENING..." : coins >= crate.cost * currentQty ? `Open ${currentQty}` : "Not enough coins"}
+                      {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
                     </button>
                   </div>
 
@@ -857,6 +898,8 @@ export function CratesPanel({
               {inventory.map((item) => {
                 const key = item.item_id + item.variant;
                 const isSelling = sellPending === key || sellPending === "all";
+                const isClassicDefault = item.item_id === "classic";
+                const isProtected = isClassicDefault;
 
                 return (
                   <article
@@ -903,26 +946,38 @@ export function CratesPanel({
                           <div className="mt-3 flex gap-2">
                             <button
                               onClick={() => sellItem(item, 1)}
-                              disabled={disabled || isSelling || item.quantity < 1}
+                              disabled={disabled || isSelling || item.quantity < 1 || isProtected}
                               className="flex-1 rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
                             >
-                              {isSelling ? "SELLING..." : `Sell 1 for ${item.sell_value} coins`}
+                              {isProtected
+                                ? "Locked"
+                                : isSelling
+                                  ? "SELLING..."
+                                  : `Sell 1 for ${item.sell_value} coins`}
                             </button>
                             <button
                               onClick={() => sellItem(item, item.quantity)}
-                              disabled={disabled || isSelling || item.quantity < 1}
+                              disabled={disabled || isSelling || item.quantity < 1 || isProtected}
                               className="flex-1 rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
                             >
-                              {isSelling ? "SELLING..." : `Sell All (${item.quantity}) for ${item.sell_value * item.quantity} coins`}
+                              {isProtected
+                                ? "Locked"
+                                : isSelling
+                                  ? "SELLING..."
+                                  : `Sell All (${item.quantity}) for ${item.sell_value * item.quantity} coins`}
                             </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => sellItem(item, 1)}
-                            disabled={disabled || isSelling || item.quantity < 1}
+                            disabled={disabled || isSelling || item.quantity < 1 || isProtected}
                             className="mt-3 w-full rounded-2xl border border-white/20 bg-white/5 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-50"
                           >
-                            {isSelling ? "SELLING..." : `Sell for ${item.sell_value} coins`}
+                            {isProtected
+                              ? "Locked"
+                              : isSelling
+                                ? "SELLING..."
+                                : `Sell for ${item.sell_value} coins`}
                           </button>
                         )}
                       </div>
@@ -1069,14 +1124,7 @@ export function CratesPanel({
                   <div className="text-sm font-semibold text-white/80">Results:</div>
                   {(() => {
                     const totalWon = wonItems.reduce((sum, item) => sum + item.sell_value, 0);
-                    let netProfit = 0;
-                    if (lastOpenedCrateType) {
-                      const openedCrate = crates.find((c) => c.crate_type === lastOpenedCrateType);
-                      if (openedCrate) {
-                        const totalCost = openedCrate.cost * wonItems.length;
-                        netProfit = totalWon - totalCost;
-                      }
-                    }
+                    const netProfit = totalWon - lastOpenedBatchCost;
                     const netColor = netProfit >= 0 ? 'text-emerald-300' : 'text-red-400';
                     const netSign = netProfit >= 0 ? '+' : '';
                     return (
@@ -1096,6 +1144,13 @@ export function CratesPanel({
                 <div className="flex gap-3 justify-center flex-wrap">
                   {wonItems.map((item, idx) => (
                     <div key={idx} className="flex flex-col items-center text-xs border border-white/10 rounded p-2.5 bg-black/20 w-40">
+                      {(() => {
+                        const isLockedItem = item.item_id === "classic";
+                        const isLegendary = item.rarity === "legendary";
+                        const isSellBlocked = isLockedItem;
+
+                        return (
+                          <>
                       <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
                           <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover" />
@@ -1108,7 +1163,10 @@ export function CratesPanel({
                       <div className="mt-1.5 font-bold text-white text-center truncate w-full text-sm leading-tight">{item.name}</div>
                       <button
                         onClick={async () => {
-                          if (item.rarity === "legendary") {
+                          if (isLockedItem) {
+                            return;
+                          }
+                          if (isLegendary) {
                             const confirmSell = window.confirm(
                               `Sell "${item.name}" for ${item.sell_value} coins?`
                             );
@@ -1121,10 +1179,14 @@ export function CratesPanel({
                             closeReveal();
                           }
                         }}
+                        disabled={isSellBlocked}
                         className="mt-1.5 rounded bg-emerald-500/90 px-3 py-1 text-xs font-bold text-black leading-none"
                       >
-                        Sell for {item.sell_value}
+                        {isSellBlocked ? "Locked" : `Sell for ${item.sell_value}`}
                       </button>
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
@@ -1150,25 +1212,29 @@ export function CratesPanel({
               </div>
 
               <div className="mt-4 flex justify-center gap-3">
-                {wonItems.length === 1 && wonItems[0] && (
-                  <button
-                    onClick={async () => {
-                      const item = wonItems[0];
-                      if (item.rarity === "legendary") {
-                        const confirmSell = window.confirm(
-                          `Sell "${item.name}" for ${item.sell_value} coins?`
-                        );
-                        if (!confirmSell) return;
-                      }
-                      await onSellItem(item.item_id, item.variant, 1);
-                      emitSoundEvent("cosmetic_purchased");
-                      closeReveal();
-                    }}
-                    className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
-                  >
-                    Sell for {wonItems[0].sell_value} coins
-                  </button>
-                )}
+              {wonItems.length === 1 && wonItems[0] && (
+                <button
+                  onClick={async () => {
+                    const item = wonItems[0];
+                    if (item.item_id === "classic") {
+                      return;
+                    }
+                    if (item.rarity === "legendary") {
+                      const confirmSell = window.confirm(
+                        `Sell "${item.name}" for ${item.sell_value} coins?`
+                      );
+                      if (!confirmSell) return;
+                    }
+                    await onSellItem(item.item_id, item.variant, 1);
+                    emitSoundEvent("cosmetic_purchased");
+                    closeReveal();
+                  }}
+                  disabled={wonItems[0].item_id === "classic"}
+                  className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
+                >
+                  {wonItems[0].item_id === "classic" ? "Locked" : `Sell for ${wonItems[0].sell_value} coins`}
+                </button>
+              )}
                 {wonItems.length > 1 && (
                   <button
                     onClick={sellAllWonItems}
@@ -1190,7 +1256,11 @@ export function CratesPanel({
                     disabled ||
                     pending ||
                     !lastOpenedCrateType ||
-                    coins < (crates.find((c) => c.crate_type === lastOpenedCrateType)?.cost || 0) * getOpenQuantity(lastOpenedCrateType || '')
+                    !crates.find((c) => c.crate_type === lastOpenedCrateType) ||
+                    coins < getBatchOpenCost(
+                      crates.find((c) => c.crate_type === lastOpenedCrateType)!,
+                      getOpenQuantity(lastOpenedCrateType || "")
+                    )
                   }
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                 >

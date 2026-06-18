@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     }
 
     // Ledger
-    await supabase.from("coin_transactions").insert({
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
       user_id: userId,
       amount: -UNCENSORED_COST,
       balance_before: currentCoins,
@@ -144,6 +144,16 @@ export async function POST(request: Request) {
       reason: "spend:uncensored",
       metadata: { spendAmount: UNCENSORED_COST },
     });
+
+    if (txErr) {
+      console.error("[wardrobe] uncensored ledger insert failed", txErr);
+      await supabase
+        .from("profiles")
+        .update({ coins: currentCoins, has_uncensored_avatar: false, updated_at: now })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+      return jsonError("Unlock logging failed.", 500);
+    }
 
     return Response.json({ hasUncensored: true, coins: nextCoins });
   }

@@ -13,6 +13,13 @@ import {
   type CrateRarity,
   type UserCrateInventoryItem,
 } from "@/lib/crates";
+import {
+  getAdjustedCrateDrops,
+  getCrateOpenCost,
+  hasFreeCrateOpen,
+} from "@/lib/crate-events";
+import { getGmt3DayBounds } from "@/lib/time";
+import type { EventEffect } from "@/lib/events";
 
 type CrateActionBody = {
   action?: "open" | "sell";
@@ -24,6 +31,49 @@ type CrateActionBody = {
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
+}
+
+async function getActiveEvents(supabase: ReturnType<typeof createSupabaseAdminClient>) {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("random_events")
+    .select("id, effect")
+    .eq("active", true)
+    .lte("starts_at", now)
+    .gt("ends_at", now);
+
+  if (error) {
+    console.error("[crates] active event lookup failed", error);
+    return [] as Array<{ id: string; effect: EventEffect }>;
+  }
+
+  return (data ?? []) as Array<{ id: string; effect: EventEffect }>;
+}
+
+async function getFreeOpenUsageToday(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+) {
+  const { start, end } = getGmt3DayBounds();
+  const { data, error } = await supabase
+    .from("crate_opens")
+    .select("crate_type, cost, opened_at")
+    .eq("user_id", userId)
+    .gte("opened_at", start.toISOString())
+    .lt("opened_at", end.toISOString());
+
+  if (error) {
+    console.error("[crates] daily crate usage lookup failed", error);
+    return {} as Record<string, boolean>;
+  }
+
+  const used = new Set(
+    (data ?? [])
+      .filter((row) => (row.cost ?? 0) === 0)
+      .map((row) => row.crate_type as string),
+  );
+
+  return Object.fromEntries(Object.keys(CRATE_TYPES).map((crateType) => [crateType, used.has(crateType)]));
 }
 
 function weightedRandom<T extends { weight: number }>(items: T[]): T | null {
@@ -118,6 +168,25 @@ export async function GET() {
     return jsonError("Failed to load inventory.", 500);
   }
 
+  const hasClassicItem = invRows?.some(
+    (row) => row.item_id === "classic" && (row.variant ?? "normal") === "normal" && row.quantity > 0,
+  );
+  if (!hasClassicItem) {
+    const classicDef = await getItemDefinition(supabase, "classic");
+    if (classicDef) {
+      const { error: restoreClassicErr } = await supabase.from("user_crate_inventory").insert({
+        user_id: userId,
+        item_id: "classic",
+        quantity: 1,
+        variant: "normal",
+      });
+
+      if (restoreClassicErr && restoreClassicErr.code !== "23505") {
+        console.error("[crates] classic restore failed", restoreClassicErr);
+      }
+    }
+  }
+
   // Pity counters for display (server side only for logic)
   const { data: pityProfile } = await supabase
     .from("profiles")
@@ -143,6 +212,8 @@ export async function GET() {
     }
   }
 
+  const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
+
   // Sort by rarity then name for nice display
   inventory.sort((a, b) => {
     const ra = a.rarity;
@@ -161,6 +232,7 @@ export async function GET() {
       principessa_bad_luck: pityProfile?.principessa_case_bad_luck_count ?? 0,
       blessing_legendary_pity: pityProfile?.blessing_case_legendary_pity_count ?? 0,
     },
+    free_opens_used_today: freeOpensUsedToday,
   });
 }
 
@@ -189,6 +261,7 @@ export async function POST(request: Request) {
     if (!crateDef || !crateDef.enabled) {
       return jsonError("Invalid or disabled crate.", 422);
     }
+    const resolvedCrateType = crateType as keyof typeof CRATE_TYPES;
 
     // Get current coins (for validation + tx) + pity counters
     const { data: profile, error: profileErr } = await supabase
@@ -202,16 +275,24 @@ export async function POST(request: Request) {
       return jsonError("Could not verify balance.", 500);
     }
 
-    if (profile.coins < crateDef.cost) {
+    let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
+    let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
+    const activeEvents = await getActiveEvents(supabase);
+    const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
+    const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !freeOpensUsedToday[resolvedCrateType];
+    const openCost = getCrateOpenCost(
+      crateDef.cost,
+      activeEvents,
+      freeOpensUsedToday[resolvedCrateType],
+    );
+
+    if (profile.coins < openCost) {
       return jsonError("Not enough coins to open this crate.", 422);
     }
 
-    let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
-    let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
-
     // === SERVER ROLLS THE RESULT (critical security point) ===
     // Pity systems applied here (server authoritative)
-    const possibleDrops = crateDef.drops.map((d) => ({
+    const possibleDrops = getAdjustedCrateDrops(resolvedCrateType, activeEvents).map((d) => ({
       item_id: d.item_id,
       weight: d.weight,
       variant: d.variant ?? "normal",
@@ -294,7 +375,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const nextCoins = profile.coins - crateDef.cost;
+    const nextCoins = profile.coins - openCost;
 
     // Atomic: update coins + inventory quantity + tx + history
     const { error: coinUpdateErr } = await supabase
@@ -317,6 +398,7 @@ export async function POST(request: Request) {
       .eq("variant", rolled.variant)
       .maybeSingle();
 
+    const previousInventoryQty = existingInv?.quantity ?? 0;
     const newQty = (existingInv?.quantity ?? 0) + 1;
 
     const { error: invErr } = await supabase
@@ -339,9 +421,9 @@ export async function POST(request: Request) {
     }
 
     // Record negative coin transaction (crate purchase / sink)
-    await supabase.from("coin_transactions").insert({
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
       user_id: userId,
-      amount: -crateDef.cost,
+      amount: -openCost,
       balance_before: profile.coins,
       balance_after: nextCoins,
       reason: "crate:open",
@@ -350,8 +432,36 @@ export async function POST(request: Request) {
         item_id: rolled.item_id,
         variant: rolled.variant,
         rarity: wonItemDef.rarity,
+        free_open_applied: freeOpenAvailable,
       },
     });
+
+    if (txErr) {
+      console.error("[crates] open transaction logging failed", txErr);
+      await supabase.from("profiles").update({ coins: profile.coins, updated_at: new Date().toISOString() }).eq("id", userId);
+      if (previousInventoryQty > 0) {
+        const { error: restoreInvErr } = await supabase
+          .from("user_crate_inventory")
+          .update({ quantity: previousInventoryQty })
+          .eq("user_id", userId)
+          .eq("item_id", rolled.item_id)
+          .eq("variant", rolled.variant);
+        if (restoreInvErr) {
+          console.error("[crates] open inventory rollback failed", restoreInvErr);
+        }
+      } else {
+        const { error: restoreInvErr } = await supabase
+          .from("user_crate_inventory")
+          .delete()
+          .eq("user_id", userId)
+          .eq("item_id", rolled.item_id)
+          .eq("variant", rolled.variant);
+        if (restoreInvErr) {
+          console.error("[crates] open inventory rollback delete failed", restoreInvErr);
+        }
+      }
+      return jsonError("Crate purchase logging failed.", 500);
+    }
 
     // Record history
     await supabase.from("crate_opens").insert({
@@ -359,7 +469,7 @@ export async function POST(request: Request) {
       crate_type: crateType,
       item_id: rolled.item_id,
       variant: rolled.variant,
-      cost: crateDef.cost,
+      cost: openCost,
       received_sell_value: wonItemDef.sell_value,
     });
 
@@ -399,6 +509,7 @@ export async function POST(request: Request) {
         },
         newCoins: nextCoins,
       },
+      free_open_applied: freeOpenAvailable,
       pity: {
         principessa_bad_luck: updatedBadLuck,
         blessing_legendary_pity: updatedBlessPity,
@@ -414,7 +525,7 @@ export async function POST(request: Request) {
     if (!itemId) return jsonError("Missing item to sell.");
 
     const itemDef = await getItemDefinition(supabase, itemId);
-    if (!itemDef || itemDef.sell_value <= 0) {
+    if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic") {
       return jsonError("This item cannot be sold or has no value.", 422);
     }
 
@@ -474,7 +585,7 @@ export async function POST(request: Request) {
     }
 
     // Positive coin transaction for the sale
-    await supabase.from("coin_transactions").insert({
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
       user_id: userId,
       amount: totalSellValue,
       balance_before: profile.coins,
@@ -487,6 +598,33 @@ export async function POST(request: Request) {
         rarity: itemDef.rarity,
       },
     });
+
+    if (txErr) {
+      console.error("[crates] sell transaction logging failed", txErr);
+      await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+
+      if (invRow.quantity > 0) {
+        const { error: restoreInvErr } = await supabase
+          .from("user_crate_inventory")
+          .upsert(
+            {
+              user_id: userId,
+              item_id: itemId,
+              variant,
+              quantity: invRow.quantity,
+            },
+            { onConflict: "user_id,item_id,variant" },
+          );
+        if (restoreInvErr) {
+          console.error("[crates] sell inventory rollback failed", restoreInvErr);
+        }
+      }
+      return jsonError("Sale logging failed.", 500);
+    }
 
     // Optional history (we can reuse crate_opens or make a sell event, but for V1 this is fine)
     await supabase.from("crate_opens").insert({
@@ -523,14 +661,10 @@ export async function POST(request: Request) {
       return jsonError("Failed to read inventory.", 500);
     }
 
-    if (!invRows || invRows.length === 0) {
-      return jsonError("Your inventory is already empty.", 422);
-    }
-
-    // Get current coins
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("coins")
+  // Get current coins
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("coins")
       .eq("id", userId)
       .single();
 
@@ -542,7 +676,13 @@ export async function POST(request: Request) {
 
     for (const row of invRows) {
       const itemDef = await getItemDefinition(supabase, row.item_id);
-      if (itemDef && itemDef.sell_value > 0 && row.quantity > 0) {
+      const isSellable =
+        itemDef !== null &&
+        itemDef.sell_value > 0 &&
+        itemDef.item_id !== "classic" &&
+        itemDef.rarity !== "legendary";
+
+      if (itemDef && isSellable && row.quantity > 0) {
         const value = itemDef.sell_value * row.quantity;
         totalSellValue += value;
         sellDetails.push({
@@ -572,21 +712,25 @@ export async function POST(request: Request) {
       return jsonError("Sale failed (balance changed).", 409);
     }
 
-    // Clear the entire user inventory in one go
-    const { error: deleteErr } = await supabase
-      .from("user_crate_inventory")
-      .delete()
-      .eq("user_id", userId);
+    // Remove only the rows that were actually sold. Protected items stay in inventory.
+    for (const detail of sellDetails) {
+      const { error: deleteErr } = await supabase
+        .from("user_crate_inventory")
+        .delete()
+        .eq("user_id", userId)
+        .eq("item_id", detail.item_id)
+        .eq("variant", detail.variant);
 
-    if (deleteErr) {
-      console.error("[crates] sell_all inventory delete failed", deleteErr);
-      // Best effort refund
-      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
-      return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
+      if (deleteErr) {
+        console.error("[crates] sell_all inventory delete failed", deleteErr);
+        // Best effort refund
+        await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
+        return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
+      }
     }
 
     // One bulk coin transaction log
-    await supabase.from("coin_transactions").insert({
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
       user_id: userId,
       amount: totalSellValue,
       balance_before: profile.coins,
@@ -597,6 +741,40 @@ export async function POST(request: Request) {
         items: sellDetails,
       },
     });
+
+    if (txErr) {
+      console.error("[crates] sell_all transaction logging failed", txErr);
+
+      const { error: profileRestoreErr } = await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+
+      if (profileRestoreErr) {
+        console.error("[crates] sell_all profile rollback failed", profileRestoreErr);
+      }
+
+      for (const detail of sellDetails) {
+        const { error: restoreInvErr } = await supabase
+          .from("user_crate_inventory")
+          .upsert(
+            {
+              user_id: userId,
+              item_id: detail.item_id,
+              variant: detail.variant,
+              quantity: detail.quantity,
+            },
+            { onConflict: "user_id,item_id,variant" },
+          );
+
+        if (restoreInvErr) {
+          console.error("[crates] sell_all inventory rollback failed", restoreInvErr);
+        }
+      }
+
+      return jsonError("Sale logging failed.", 500);
+    }
 
     // History records (one per sold stack for audit)
     for (const detail of sellDetails) {

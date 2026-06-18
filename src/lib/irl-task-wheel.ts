@@ -89,6 +89,77 @@ export const irlTaskWheelTasks = [
 
 export const irlTaskWheelSegments = irlTaskWheelTasks;
 
+export const freeFridayIrlTaskWheelSegments = [
+  {
+    title: "Self Degradation",
+    description: "Record a video while crushing your balls/genitalia 5 times with a fist",
+  },
+  {
+    title: "Property Marking",
+    description: "Write 'Property of Principessa' visibly on your body (chest, thigh, or stomach). Add today’s date. Send clear timestamped proof.",
+  },
+  {
+    title: "Kneeling Begging Video",
+    description: "Get on your knees, put your hands behind your back, and record a video begging: I'm a worthless paypig for Principessa.",
+  },
+  {
+    title: "Self Degradation",
+    description: "Record a video while crushing your balls/genitalia 5 times with a fist",
+  },
+  {
+    title: "Sock Task",
+    description: "Kiss your own sock or shoe and say “I am below Principessa’s feet.” Record a 10-second video.",
+  },
+  {
+    title: "Name Calling",
+    description: "Write “Loser” or “Paypig” on your hand with a pen. Take a clear photo and send it with today’s date.",
+  },
+  {
+    title: "Sock Task",
+    description: "Kiss your own sock or shoe and say â€œI am below Principessaâ€™s feet.â€ Record a 10-second video.",
+  },
+  {
+    title: "Ballbusting Goon",
+    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+  {
+    title: "Porn Denial Loop",
+    description: "Go to a porn site and open 4 different videos. Edge to each one for exactly 3 minutes without cumming. Send a report of which video made you feel the weakest.",
+  },
+  {
+    title: "Ball Slaps",
+    description: "Slap your balls 20 times (not too hard) and send a short video of you doing it while saying “Thank you Principessa”.",
+  },
+  {
+    title: "Ice Play",
+    description: "Hold an ice cube on your balls for 60 seconds and send a video of your reaction.",
+  },
+  {
+    title: "Nipple Torture",
+    description: "Pinch and twist your nipples for 2 minutes straight. Send a short video showing it.",
+  },
+  {
+    title: "Denial Task",
+    description: "Stroke your cock for 15 minutes but stop every time you get close. Send a video of the final minute of the session.",
+  },
+  {
+    title: "Toy Tease",
+    description: "If you have a dildo/plug: suck it for 2 minutes and send video. (No toy? Use your finger and tell me.)",
+  },
+  {
+    title: "Clothed Quick Shower",
+    description: "Take a 20-second shower with all your clothes on (t-shirt, pants, underwear). Send me clear photos of your fully wet clothes from front and back.",
+  },
+  {
+    title: "Pet Play Crawl",
+    description: "Crawl on all fours around your room for 1 minute and barking. Send video.",
+  },
+] as const;
+
+export function getIrlTaskWheelSegments(isFreeFridayEvent = false) {
+  return isFreeFridayEvent ? freeFridayIrlTaskWheelSegments : irlTaskWheelSegments;
+}
+
 export function isFreeTaskFriday(date: Date | number | string = new Date()) {
   const gmt3Date = new Date(`${getGmt3DateKey(date)}T00:00:00.000Z`);
 
@@ -97,18 +168,6 @@ export function isFreeTaskFriday(date: Date | number | string = new Date()) {
 
 export function getFreeTaskFridayKey(date: Date | number | string = new Date()) {
   return getGmt3DateKey(date);
-}
-
-export function isThroneIrlTask(task: { description: string; title: string }) {
-  const text = `${task.title} ${task.description}`.toLowerCase();
-
-  return text.includes("throne") || text.includes("send $") || text.includes("send 1$") || text.includes("send 5$") || text.includes("send 10$");
-}
-
-export function getFreeFridayEligibleIrlTaskIndices() {
-  return irlTaskWheelSegments
-    .map((task, index) => (isThroneIrlTask(task) ? null : index))
-    .filter((index): index is number => typeof index === "number");
 }
 
 export function getRandomIrlTaskDurationMinutes() {

@@ -124,6 +124,7 @@ export async function POST(request: Request) {
     (left, right) => new Date(left).getTime() - new Date(right).getTime(),
   );
   const nextPurchaseCount = effectiveDailyPurchaseCount + 1;
+  const previousCoins = Number(profile.coins ?? 0);
   const nextCoins = Number(profile.coins ?? 0) - price;
   const { data: updatedProfile, error: updateError } = await supabase
     .from("profiles")
@@ -146,6 +147,50 @@ export async function POST(request: Request) {
       userId: authData.user.id,
     });
     return jsonError(updateError?.message || "Rights action failed.", 500);
+  }
+
+  const { error: txError } = await supabase.from("coin_transactions").insert({
+    user_id: authData.user.id,
+    amount: -price,
+    balance_before: previousCoins,
+    balance_after: nextCoins,
+    reason: "spend:rights",
+    metadata: {
+      dailyPurchaseCount: nextPurchaseCount,
+      spendAmount: price,
+      storedRights: nextExpirations.length,
+    },
+  });
+
+  if (txError) {
+    console.error("Rights buy transaction logging failed", {
+      code: txError.code,
+      message: txError.message,
+      userId: authData.user.id,
+    });
+
+    const { error: rollbackError } = await supabase
+      .from("profiles")
+      .update({
+        coins: previousCoins,
+        daily_purchase_count: effectiveDailyPurchaseCount,
+        right_expirations: activeRightExpirations,
+        right_purchase_date: profile.right_purchase_date,
+        stored_rights: currentStoredRights,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", authData.user.id)
+      .eq("coins", nextCoins);
+
+    if (rollbackError) {
+      console.error("Rights buy rollback failed", {
+        code: rollbackError.code,
+        message: rollbackError.message,
+        userId: authData.user.id,
+      });
+    }
+
+    return jsonError("Rights purchase logging failed.", 500);
   }
 
   return Response.json({

@@ -116,11 +116,11 @@ export function StatsPanel({
         </p>
       </div>
       <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {/* Top 3 Leadership by Tribute Total */}
+        {/* Top 5 Leadership by Tribute Total */}
         <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-              Top 3 Leadership
+              Top 5 Leadership
             </p>
             <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
           </div>
@@ -161,13 +161,13 @@ export function StatsPanel({
           </div>
         </div>
 
-        {/* Top 3 Valuable Inventories */}
+        {/* Top 5 Valuable Inventories */}
         <div className="rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">
-              Top 3 Valuable Inventories
+              Top 5 Valuable Inventories
             </p>
-            <p className="text-xs font-semibold text-zinc-500">By Crate Value</p>
+            <p className="text-xs font-semibold text-zinc-500">By Inventory Value</p>
           </div>
           <div className="mt-3 space-y-2">
             {topValuableInventories.length > 0 ? (

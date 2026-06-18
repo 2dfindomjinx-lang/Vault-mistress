@@ -4,9 +4,8 @@ import {
   getRandomIrlTaskPenaltyMinutes,
   IRL_FREE_FRIDAY_MARKER_REASON,
   IRL_TASK_WHEEL_COST,
-  irlTaskWheelSegments,
+  getIrlTaskWheelSegments,
   isFreeTaskFriday,
-  isThroneIrlTask,
 } from "@/lib/irl-task-wheel";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
@@ -101,13 +100,6 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as IrlWheelBody | null;
   const wheelIndex = body?.wheelIndex;
-  const assignedTask = typeof wheelIndex === "number" && Number.isInteger(wheelIndex)
-    ? irlTaskWheelSegments[wheelIndex]
-    : null;
-
-  if (!assignedTask || typeof wheelIndex !== "number") {
-    return jsonError("Invalid IRL wheel segment.", 422);
-  }
 
   const supabase = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await supabase
@@ -140,19 +132,11 @@ export async function POST(request: Request) {
   }
 
   const { freeFridayAvailable, freeFridayKey } = freeFriday;
+  const useFreeFridayPool = freeFriday.freeFridayActive;
+  const wheelSegments = getIrlTaskWheelSegments(useFreeFridayPool);
 
   if (timeoutUntil > Date.now()) {
     return jsonError("Timeout is active. The wheel is not available yet.", 423);
-  }
-
-  if (freeFridayAvailable && isThroneIrlTask(assignedTask)) {
-    return Response.json(
-      {
-        code: "free_friday_reroll",
-        error: "Free Task Friday skips Throne tasks. Spin again.",
-      },
-      { status: 409 },
-    );
   }
 
   const costCoins = freeFridayAvailable ? 0 : IRL_TASK_WHEEL_COST;
@@ -180,6 +164,14 @@ export async function POST(request: Request) {
 
   if (activeAssignment) {
     return jsonError("Finish your assigned task first. The wheel is locked until admin review.", 409);
+  }
+
+  const assignedTask = typeof wheelIndex === "number" && Number.isInteger(wheelIndex)
+    ? wheelSegments[wheelIndex]
+    : null;
+
+  if (!assignedTask || typeof wheelIndex !== "number") {
+    return jsonError("Invalid IRL wheel segment.", 422);
   }
 
   const { count: assignedTaskCount, error: assignedTaskCountError } = await supabase
