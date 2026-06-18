@@ -145,20 +145,28 @@ export async function POST(request: Request) {
         return jsonError(fbErr?.message ?? "Profile could not be created.", 500);
       }
       // Seed default fullbody for fallback
-      await supabase.from("user_crate_inventory").upsert(
-        { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
-        { onConflict: "user_id,item_id,variant" }
-      ).catch(() => {});
+      try {
+        await supabase.from("user_crate_inventory").upsert(
+          { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
+          { onConflict: "user_id,item_id,variant" }
+        );
+      } catch {
+        // ignore inventory seed error
+      }
       return Response.json({ profile: fb });
     }
     return jsonError(createError?.message ?? "Profile could not be created.", 500);
   }
 
   // Seed default "classic" fullbody unlocked + equipped for every new user
-  await supabase.from("user_crate_inventory").upsert(
-    { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
-    { onConflict: "user_id,item_id,variant" }
-  ).catch(() => {});
+  try {
+    await supabase.from("user_crate_inventory").upsert(
+      { user_id: authData.user.id, item_id: "classic", variant: "normal", quantity: 1 },
+      { onConflict: "user_id,item_id,variant" }
+    );
+  } catch {
+    // ignore inventory seed error
+  }
 
   return Response.json({ profile: created });
 }
