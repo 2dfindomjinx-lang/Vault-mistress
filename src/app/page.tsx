@@ -3085,10 +3085,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    let slots = { ...(profile.equipped_avatar_slots || {}) };
-    if (!slots.fullBody) {
-      slots.fullBody = "classic";
-    }
+    const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
@@ -3441,10 +3438,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
-    let slots = { ...(profile.equipped_avatar_slots || {}) };
-    if (!slots.fullBody) {
-      slots.fullBody = "classic";
-    }
+    const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
