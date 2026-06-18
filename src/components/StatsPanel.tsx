@@ -1,10 +1,10 @@
+import { CoinAmount } from "@/components/CoinAmount";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   getLeadershipRank,
   type LeadershipEntry,
   type ShameEntry,
 } from "@/lib/leadership";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
-import { CoinAmount } from "@/components/CoinAmount";
 import type { CSSProperties } from "react";
 
 const THRONE_URL = "https://throne.com/principessa2dfd";
@@ -29,41 +29,7 @@ type StatsPanelProps = {
     value: number;
     usernameStyle?: CSSProperties;
   }>;
-  recentCaseOpenings?: RecentCaseOpening[];
 };
-
-export type RecentCaseOpening = {
-  id: string;
-  username: string;
-  rawUsername?: string;
-  displayName?: string | null;
-  itemName: string;
-  crateName: string;
-  itemRarity: string;
-  openedAt: string;
-  usernameStyle?: CSSProperties;
-};
-
-function getRelativeTime(createdAt: string) {
-  const diffMs = Date.now() - new Date(createdAt).getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) {
-    return "just now";
-  }
-
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m ago`;
-  }
-
-  const diffHours = Math.floor(diffMinutes / 60);
-
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-
-  return `${Math.floor(diffHours / 24)}d ago`;
-}
 
 export function StatsPanel({
   equippedTitleName,
@@ -71,18 +37,12 @@ export function StatsPanel({
   shameTop,
   statValueStyle,
   stats,
-  recentCaseOpenings = [],
   topValuableInventories = [],
   username,
   usernameStyle,
 }: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
-  const statCards: Array<[
-    string,
-    string,
-    string,
-    number | null,
-  ]> = [
+  const statCards: Array<[string, string, string, number | null]> = [
     ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance", stats.coins],
     ["Affection", `${stats.affection}/100`, "Principessa's current approval", null],
     ["Loyalty Streak", `${stats.loyaltyStreak} days`, "Prototype daily streak", null],
@@ -96,19 +56,12 @@ export function StatsPanel({
           className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]"
           key={label}
         >
-          <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-            {label}
-          </p>
+          <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">{label}</p>
           <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
             {coinAmount === null ? (
               value
             ) : (
-              <CoinAmount
-                amount={coinAmount}
-                className="gap-2"
-                iconSize={28}
-                label=""
-              />
+              <CoinAmount amount={coinAmount} className="gap-2" iconSize={28} label="" />
             )}
           </p>
           <p className="mt-1 text-xs text-zinc-400">{hint}</p>
@@ -128,12 +81,11 @@ export function StatsPanel({
           )}
         </div>
       ))}
+
       <div className="col-span-2 rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-              Leadership
-            </p>
+            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Leadership</p>
             <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
               {equippedTitleName ?? leadership.currentRank.title}
             </p>
@@ -157,13 +109,11 @@ export function StatsPanel({
             : "Maximum leadership rank reached."}
         </p>
       </div>
-      <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-2 items-stretch">
-        {/* Top 5 Leadership by Tribute Total */}
+
+      <div className="col-span-2 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
         <div className="h-full rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-              Top 5 Leadership
-            </p>
+            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Top 5 Leadership</p>
             <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
           </div>
           <div className="mt-3 space-y-2">
@@ -178,9 +128,7 @@ export function StatsPanel({
                 return (
                   <div
                     className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
-                      isCurrentUser
-                        ? "border-pink-200/30 bg-pink-500/10"
-                        : "border-white/10 bg-white/[0.035]"
+                      isCurrentUser ? "border-pink-200/30 bg-pink-500/10" : "border-white/10 bg-white/[0.035]"
                     }`}
                     key={leader.rawUsername ?? leader.username}
                   >
@@ -207,19 +155,16 @@ export function StatsPanel({
           </div>
         </div>
 
-        {/* Top 5 Valuable Inventories */}
         <div className="h-full rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">
-              Top 5 Valuable Inventories
-            </p>
+            <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">Top 5 Valuable Inventories</p>
             <p className="text-xs font-semibold text-zinc-500">By Inventory Value</p>
           </div>
           <div className="mt-3 space-y-2">
             {topValuableInventories.slice(0, 5).length > 0 ? (
               topValuableInventories.slice(0, 5).map((entry, index) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 border-white/10 bg-white/[0.035]"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
                   key={entry.rawUsername ?? entry.username}
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
@@ -238,11 +183,10 @@ export function StatsPanel({
           </div>
         </div>
       </div>
+
       <div className="col-span-2 rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)]">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">
-            Public Fail Board
-          </p>
+          <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">Public Fail Board</p>
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
         </div>
         <div className="mt-3 space-y-2">
@@ -257,9 +201,7 @@ export function StatsPanel({
               return (
                 <div
                   className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
-                    isCurrentUser
-                      ? "border-rose-200/30 bg-rose-500/10"
-                      : "border-white/10 bg-white/[0.035]"
+                    isCurrentUser ? "border-rose-200/30 bg-rose-500/10" : "border-white/10 bg-white/[0.035]"
                   }`}
                   key={entry.rawUsername ?? entry.username}
                 >
@@ -269,67 +211,13 @@ export function StatsPanel({
                       {displayUsername}
                     </span>
                   </p>
-                  <p className="shrink-0 text-sm font-black text-rose-100">
-                    {entry.shameCount} fail
-                  </p>
+                  <p className="shrink-0 text-sm font-black text-rose-100">{entry.shameCount} fail</p>
                 </div>
               );
             })
           ) : (
             <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
               Nobody has failed the wheel yet.
-            </p>
-          )}
-        </div>
-      </div>
-      <div className="col-span-2 rounded-[1.5rem] border border-cyan-200/15 bg-[linear-gradient(145deg,rgba(34,211,238,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/75">
-            Recent Case Openings
-          </p>
-          <p className="text-xs font-semibold text-zinc-500">Latest crate pulls</p>
-        </div>
-        <div className="mt-3 space-y-2">
-          {recentCaseOpenings.length > 0 ? (
-            recentCaseOpenings.slice(0, 5).map((entry, index) => {
-              const displayUsername = getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username);
-              const isCurrentUser =
-                entry.rawUsername === username ||
-                entry.username === username ||
-                displayUsername === username;
-
-              return (
-                <div
-                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
-                    isCurrentUser
-                      ? "border-cyan-200/30 bg-cyan-500/10"
-                      : "border-white/10 bg-white/[0.035]"
-                  }`}
-                  key={entry.id}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">
-                      #{index + 1}{" "}
-                      <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                        {displayUsername}
-                      </span>
-                    </p>
-                    <p className="truncate text-xs text-zinc-400">
-                      {entry.crateName} · {entry.itemName}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-black text-cyan-100">
-                      {entry.itemRarity}
-                    </p>
-                    <p className="text-[11px] text-zinc-400">{getRelativeTime(entry.openedAt)}</p>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-zinc-400">
-              No recent case openings yet.
             </p>
           )}
         </div>

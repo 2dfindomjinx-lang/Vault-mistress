@@ -42,6 +42,7 @@ type CoinRow = {
   reason: string | null;
   balance_before: number | null;
   balance_after: number | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 };
 
@@ -166,6 +167,57 @@ function getCoinsEarnedAmount(row: CoinRow) {
 
 function getCoinsSpentAmount(row: CoinRow) {
   return Math.abs(Math.min(0, row.amount));
+}
+
+function getTransactionReasonLabel(row: CoinRow) {
+  const reason = row.reason ?? "unknown";
+  const metadata = row.metadata ?? {};
+
+  if (reason === "crate:open") {
+    const crateType = typeof metadata["crate_type"] === "string" ? metadata["crate_type"] : "crate";
+    return `Crate Open · ${crateType}`;
+  }
+
+  if (reason === "crate:sell") {
+    return "Crate Sell";
+  }
+
+  if (reason === "crate:sell_all") {
+    return "Crate Sell All";
+  }
+
+  return reason.replace(/:/g, " · ");
+}
+
+function getTransactionDetail(row: CoinRow) {
+  const metadata = row.metadata ?? {};
+
+  if (row.reason === "crate:open") {
+    const itemId = typeof metadata["item_id"] === "string" ? metadata["item_id"] : null;
+    const rarity = typeof metadata["rarity"] === "string" ? metadata["rarity"] : null;
+    const variant = typeof metadata["variant"] === "string" ? metadata["variant"] : null;
+
+    return [itemId ? `Item ${itemId}` : null, rarity ? `Rarity ${rarity}` : null, variant ? `Variant ${variant}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (row.reason === "crate:sell") {
+    const itemId = typeof metadata["item_id"] === "string" ? metadata["item_id"] : null;
+    const quantity = typeof metadata["quantity"] === "number" ? metadata["quantity"] : null;
+    const rarity = typeof metadata["rarity"] === "string" ? metadata["rarity"] : null;
+
+    return [itemId ? `Item ${itemId}` : null, quantity !== null ? `Qty ${quantity}` : null, rarity ? `Rarity ${rarity}` : null]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (row.reason === "crate:sell_all") {
+    const itemCount = typeof metadata["item_count"] === "number" ? metadata["item_count"] : null;
+    return itemCount !== null ? `Sold ${itemCount} item stacks` : "Bulk inventory sale";
+  }
+
+  return "";
 }
 
 function countBy<T>(rows: T[], getKey: (row: T) => string) {
@@ -361,7 +413,7 @@ export async function GET(request: Request) {
     fetchAllRows<CoinRow>(() =>
       supabase
         .from("coin_transactions")
-        .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+        .select("id, user_id, amount, reason, balance_before, balance_after, metadata, created_at")
         .gte("created_at", todayWindow.start)
         .lt("created_at", todayWindow.end)
         .order("created_at", { ascending: false }),
@@ -369,14 +421,14 @@ export async function GET(request: Request) {
     fetchAllRows<CoinRow>(() =>
       supabase
         .from("coin_transactions")
-        .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+        .select("id, user_id, amount, reason, balance_before, balance_after, metadata, created_at")
         .gte("created_at", sevenDaysAgo)
         .order("created_at", { ascending: false }),
     ),
     selectedUserId
       ? supabase
           .from("coin_transactions")
-          .select("id, user_id, amount, reason, balance_before, balance_after, created_at")
+          .select("id, user_id, amount, reason, balance_before, balance_after, metadata, created_at")
           .eq("user_id", selectedUserId)
           .order("created_at", { ascending: false })
           .limit(200)
@@ -648,20 +700,23 @@ export async function GET(request: Request) {
   const transactionHistory = selectedTransactions.map((transaction) => {
     const profile = profileById.get(transaction.user_id);
 
-    return {
-      id: transaction.id,
-      userId: transaction.user_id,
-      username: profile ? getDisplayNameOrUsername(profile.display_name, profile.username) : "unknown",
-      rawUsername: profile?.username ?? "unknown",
-      displayName: profile?.display_name ?? null,
-      avatarUrl: profile?.avatar_url ?? null,
-      amount: transaction.amount,
-      reason: transaction.reason,
-      balanceBefore: transaction.balance_before,
-      balanceAfter: transaction.balance_after,
-      createdAt: transaction.created_at,
-    };
-  });
+      return {
+        id: transaction.id,
+        userId: transaction.user_id,
+        username: profile ? getDisplayNameOrUsername(profile.display_name, profile.username) : "unknown",
+        rawUsername: profile?.username ?? "unknown",
+        displayName: profile?.display_name ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
+        amount: transaction.amount,
+        reason: transaction.reason,
+        reasonLabel: getTransactionReasonLabel(transaction),
+        detail: getTransactionDetail(transaction),
+        metadata: transaction.metadata,
+        balanceBefore: transaction.balance_before,
+        balanceAfter: transaction.balance_after,
+        createdAt: transaction.created_at,
+      };
+    });
 
   return Response.json({
     overview: {

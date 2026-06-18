@@ -65,6 +65,9 @@ type Transaction = {
   avatarUrl: string | null;
   amount: number;
   reason: string | null;
+  reasonLabel?: string;
+  detail?: string;
+  metadata?: Record<string, unknown> | null;
   balanceBefore: number | null;
   balanceAfter: number | null;
   createdAt: string;
@@ -278,6 +281,26 @@ export default function AdminAnalyticsPage() {
 
     return users.slice(0, 20);
   }, [data, query, userSort]);
+
+  const selectedTransactionReasonCounts = useMemo(() => {
+    if (!data?.transactionHistory.length) {
+      return [] as Array<{ key: string; count: number; amount: number }>;
+    }
+
+    const counts = new Map<string, { count: number; amount: number }>();
+
+    for (const entry of data.transactionHistory) {
+      const key = entry.reasonLabel ?? entry.reason ?? "unknown";
+      const current = counts.get(key) ?? { count: 0, amount: 0 };
+      current.count += 1;
+      current.amount += entry.amount;
+      counts.set(key, current);
+    }
+
+    return Array.from(counts.entries())
+      .map(([key, value]) => ({ key, ...value }))
+      .sort((a, b) => b.count - a.count || Math.abs(b.amount) - Math.abs(a.amount));
+  }, [data]);
 
   if (isLoading && !data) {
     return (
@@ -521,6 +544,19 @@ export default function AdminAnalyticsPage() {
                 <p className="mt-1 text-xs text-zinc-500">
                   {selectedUser ? `Showing recent entries for ${selectedUser.username}.` : "Select a user to view transaction history."}
                 </p>
+                {selectedUser && selectedTransactionReasonCounts.length > 0 && (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {selectedTransactionReasonCounts.slice(0, 6).map((entry) => (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2" key={entry.key}>
+                        <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{entry.key}</p>
+                        <p className="mt-1 text-sm font-black text-white">{number(entry.count)} entries</p>
+                        <p className={`text-xs font-bold ${entry.amount >= 0 ? "text-emerald-100" : "text-rose-100"}`}>
+                          Net {entry.amount >= 0 ? "+" : ""}{number(entry.amount)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
                   {!selectedUser ? (
                     <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-5 text-sm text-zinc-400">
@@ -542,9 +578,13 @@ export default function AdminAnalyticsPage() {
                             {entry.amount >= 0 ? "+" : ""}{number(entry.amount)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {entry.reason ?? "unknown"} - {date(entry.createdAt)}
+                        <p className="mt-1 text-xs font-bold text-fuchsia-100">
+                          {entry.reasonLabel ?? entry.reason ?? "unknown"}
                         </p>
+                        {entry.detail ? (
+                          <p className="mt-1 text-xs text-zinc-500">{entry.detail}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-zinc-500">{date(entry.createdAt)}</p>
                         <p className="mt-1 text-xs text-zinc-500">
                           {entry.balanceBefore ?? "?"} → {entry.balanceAfter ?? "?"}
                         </p>
