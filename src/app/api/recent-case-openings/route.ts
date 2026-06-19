@@ -106,11 +106,12 @@ export async function GET() {
       const userRows = groupedRows.get(userId) ?? [];
       const profile = profileMap.get(userId);
       const totalCoinsWon = userRows.reduce((sum, row) => {
-        if (!row.item_id) {
+        const itemId = row.item_id;
+        if (!itemId) {
           return sum;
         }
 
-        return sum + getCrateItemSellValue(row.item_id);
+        return sum + getCrateItemSellValue(itemId);
       }, 0);
       const recentOpenings = userRows.slice(0, 5).map((row) => {
         const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
