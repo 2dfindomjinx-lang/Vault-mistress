@@ -14,6 +14,7 @@ import {
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -43,6 +44,13 @@ type ContributionRow = {
   username: string;
   amount: number;
   created_at: string;
+};
+
+type ProfileSnippetRow = {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
 };
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -361,10 +369,31 @@ async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, j
     place: number;
   }>;
   const userIds = Array.from(new Set(rows.map((row) => row.user_id).filter(Boolean)));
+  const { data: profileSnippets, error: profileError } = await withTimeout(
+    supabase.rpc("get_public_profile_snippets", { p_user_ids: userIds.length > 0 ? userIds : [] }).then((r) => r),
+    VAULT_CHECK_TIMEOUT_MS,
+    "getJackpotWinnersFromTransactions profiles",
+  ).catch((e) => {
+    console.error("Jackpot winner profile lookup timed out or failed", e);
+    return { data: null, error: null };
+  });
+
+  if (profileError) {
+    console.error("Jackpot winner profile lookup failed", profileError);
+  }
+
+  const profileMap = new Map(
+    ((profileSnippets ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
+  );
   const usernameStyles = await getUsernameStylesForUserIds(supabase, userIds);
 
   return rows.map((row) => ({
-    username: row.username,
+    username: getDisplayNameOrUsername(
+      profileMap.get(row.user_id)?.display_name ?? null,
+      profileMap.get(row.user_id)?.username ?? row.username,
+    ),
+    rawUsername: profileMap.get(row.user_id)?.username ?? row.username,
+    displayName: profileMap.get(row.user_id)?.display_name ?? null,
     amount: Number(row.amount ?? 0),
     selectedAt: row.created_at,
     place: row.place as 1 | 2 | 3,
@@ -722,6 +751,17 @@ export async function buildJackpotState(
   const contributorUserIds = Array.from(
     new Set(((contributionRowsData ?? []) as ContributionRow[]).map((row) => String(row.user_id ?? "")).filter(Boolean)),
   );
+  const { data: contributorProfiles, error: contributorProfileError } = await supabase.rpc("get_public_profile_snippets", {
+    p_user_ids: contributorUserIds.length > 0 ? contributorUserIds : [],
+  });
+
+  if (contributorProfileError) {
+    console.error("Jackpot contributor profile lookup failed", contributorProfileError);
+  }
+
+  const contributorProfileMap = new Map(
+    ((contributorProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
+  );
   const contributorUsernameStyles = await getUsernameStylesForUserIds(supabase, contributorUserIds);
 
   return {
@@ -740,7 +780,12 @@ export async function buildJackpotState(
     userEligible,
     userProtected: Boolean(userId && previousWinnerIds.includes(userId)),
     recentContributors: ((contributionRowsData ?? []) as ContributionRow[]).map((row) => ({
-      username: row.username,
+      username: getDisplayNameOrUsername(
+        contributorProfileMap.get(String(row.user_id ?? ""))?.display_name ?? null,
+        contributorProfileMap.get(String(row.user_id ?? ""))?.username ?? row.username,
+      ),
+      rawUsername: contributorProfileMap.get(String(row.user_id ?? ""))?.username ?? row.username,
+      displayName: contributorProfileMap.get(String(row.user_id ?? ""))?.display_name ?? null,
       amount: row.amount,
       createdAt: row.created_at,
       usernameStyle: row.user_id ? contributorUsernameStyles.get(row.user_id) : undefined,

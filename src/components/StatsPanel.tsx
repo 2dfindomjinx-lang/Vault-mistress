@@ -111,12 +111,12 @@ export function StatsPanel({
       </div>
 
       <div className="col-span-2 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
-        <div className="h-full rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Top 5 Leadership</p>
             <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 flex flex-1 flex-col gap-2">
             {leadershipTop.slice(0, 5).length > 0 ? (
               leadershipTop.slice(0, 5).map((leader, index) => {
                 const displayUsername = getDisplayNameOrUsernamePlain(
@@ -130,7 +130,7 @@ export function StatsPanel({
 
                 return (
                   <div
-                    className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                    className={`flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
                       isCurrentUser ? "border-pink-200/30 bg-pink-500/10" : "border-white/10 bg-white/[0.035]"
                     }`}
                     key={leader.rawUsername ?? leader.username}
@@ -158,22 +158,25 @@ export function StatsPanel({
           </div>
         </div>
 
-        <div className="h-full rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">Top 5 Valuable Inventories</p>
             <p className="text-xs font-semibold text-zinc-500">By Inventory Value</p>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 flex flex-1 flex-col gap-2">
             {topValuableInventories.slice(0, 5).length > 0 ? (
               topValuableInventories.slice(0, 5).map((entry, index) => (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                  className="flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
                   key={entry.rawUsername ?? entry.username}
                 >
-                  <p className="min-w-0 truncate text-sm font-black text-white">
-                    #{index + 1}{" "}
-                    {getDisplayNameOrUsernamePlain(entry.displayName, entry.rawUsername ?? entry.username)}
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-white">
+                      #{index + 1}{" "}
+                      {getDisplayNameOrUsernamePlain(entry.displayName, entry.rawUsername ?? entry.username)}
+                    </p>
+                    <p className="text-xs text-zinc-400">Inventory value</p>
+                  </div>
                   <p className="shrink-0 text-sm font-black text-amber-100">
                     <CoinAmount amount={entry.value} iconSize={16} label="" />
                   </p>

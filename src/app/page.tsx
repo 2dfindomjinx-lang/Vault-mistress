@@ -4211,6 +4211,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timeoutClearFee,
   ]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [activePanel]);
+
   const persistUserTask = useCallback(async (task: {
     claimed_at?: string | null;
     completed_at?: string | null;
@@ -8624,6 +8628,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         onNavigate={(page) => {
           emitSoundEvent("button_click");
           setActivePanel(page);
+          window.scrollTo({ top: 0, left: 0, behavior: "auto" });
         }}
       >
         <ProfileHeader
@@ -8883,7 +8888,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               globalPrincipessaProgressPercent={globalPrincipessaProgressPercent}
               globalPrincipessaRequirement={globalPrincipessaRequirement}
               globalPrincipessaXp={globalPrincipessa.xp}
-              currentUsername={username}
+              currentUsername={effectiveDisplayName ?? username}
               mechanics={displayMechanics}
               pendingTaskActionIds={pendingTaskActionIds}
               tasks={tasks}

@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   getIrlTaskWheelSegments,
   IRL_TASK_WHEEL_COST,
@@ -12,7 +13,7 @@ import { emitSoundEvent } from "@/lib/sound";
 import type { MechanicsState, TaskItem } from "@/lib/types";
 
 const SACRIFICE_COST = 250;
-const SUPPORT_COST = 1000;
+const SUPPORT_COST = 2500;
 const JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY = "vault:jackpot-hide-contributors";
 const CLICKABLE_COOLDOWN_BUTTON_CLASS =
   "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
@@ -1862,6 +1863,7 @@ function LoyaltyJackpotTaskCard({
                   {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
                   <StyledUsername
                     currentUsername={currentUsername}
+                    displayName={winner.displayName}
                     displayUsernameStyle={winner.usernameStyle}
                     username={winner.username}
                     usernameStyle={usernameStyle}
@@ -1883,6 +1885,7 @@ function LoyaltyJackpotTaskCard({
                 {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
                 <StyledUsername
                   currentUsername={currentUsername}
+                  displayName={winner.displayName}
                   displayUsernameStyle={winner.usernameStyle}
                   username={winner.username}
                   usernameStyle={usernameStyle}
@@ -1965,6 +1968,7 @@ function LoyaltyJackpotTaskCard({
                   <span className="text-zinc-200">
                     <StyledUsername
                       currentUsername={currentUsername}
+                      displayName={contribution.displayName}
                       displayUsernameStyle={contribution.usernameStyle}
                       username={contribution.username}
                       usernameStyle={usernameStyle}
@@ -1987,16 +1991,28 @@ function LoyaltyJackpotTaskCard({
 
 function StyledUsername({
   currentUsername,
+  displayName,
   displayUsernameStyle,
   username,
   usernameStyle,
 }: {
   currentUsername?: string;
+  displayName?: string | null;
   displayUsernameStyle?: CSSProperties;
   username: string;
   usernameStyle?: CSSProperties;
 }) {
-  return <span style={displayUsernameStyle ?? (username === currentUsername ? usernameStyle : undefined)}>{username}</span>;
+  const visibleUsername = getDisplayNameOrUsername(displayName, username);
+  const isCurrentUser =
+    username === currentUsername ||
+    displayName === currentUsername ||
+    visibleUsername === currentUsername;
+
+  return (
+    <span style={displayUsernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
+      {visibleUsername}
+    </span>
+  );
 }
 
 function JackpotStat({ label, value }: { label: string; value: string }) {

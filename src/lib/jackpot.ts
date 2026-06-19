@@ -8,6 +8,8 @@ export type LoyaltyJackpotPhase = "contribution" | "winner" | "preparing";
 
 export type LoyaltyJackpotContributor = {
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   amount: number;
   createdAt: string;
   usernameStyle?: {
@@ -18,6 +20,8 @@ export type LoyaltyJackpotContributor = {
 
 export type LoyaltyJackpotWinner = {
   username: string;
+  rawUsername?: string;
+  displayName?: string | null;
   amount: number;
   selectedAt: string;
   place?: 1 | 2 | 3;
