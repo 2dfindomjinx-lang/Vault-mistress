@@ -70,6 +70,7 @@ export async function GET() {
         ),
         rawUsername: (invProfMap.get(row.user_id) as any)?.username || "unknown",
         displayName: (invProfMap.get(row.user_id) as any)?.display_name ?? null,
+        display_name: (invProfMap.get(row.user_id) as any)?.display_name ?? null,
         avatarUrl: (invProfMap.get(row.user_id) as any)?.avatar_url || null,
         value: Number(row.value ?? 0),
         usernameStyle: undefined,
@@ -112,6 +113,7 @@ export async function GET() {
           username: getDisplayNameOrUsernamePlain(profile.display_name ?? null, profile.username),
           rawUsername: profile.username,
           displayName: profile.display_name ?? null,
+          display_name: profile.display_name ?? null,
         };
       })
       .sort((first, second) => {
@@ -128,6 +130,7 @@ export async function GET() {
         username: leader.username,
         rawUsername: leader.rawUsername,
         displayName: leader.displayName ?? null,
+        display_name: leader.displayName ?? null,
         usernameStyle: usernameStyles.get(leader.id),
       })),
     topInventories,

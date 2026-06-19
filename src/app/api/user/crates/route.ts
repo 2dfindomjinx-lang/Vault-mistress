@@ -25,11 +25,16 @@ import type { EventEffect } from "@/lib/events";
 const MAX_CRATE_BATCH_OPEN = 5;
 
 type CrateActionBody = {
-  action?: "open" | "sell";
+  action?: "open" | "sell" | "sell_all" | "sell_many";
   crateType?: string;
   itemId?: string;
   variant?: string;
   quantity?: number;
+  items?: Array<{
+    itemId?: string;
+    variant?: string;
+    quantity?: number;
+  }>;
 };
 
 function jsonError(message: string, status = 400) {
@@ -358,6 +363,10 @@ async function openCrateBatch(
       blessing_legendary_pity: blessingPity,
     },
   });
+}
+
+function buildInventoryKey(itemId: string, variant: string) {
+  return `${itemId}:${variant}`;
 }
 
 export async function GET() {
@@ -1056,6 +1065,208 @@ export async function POST(request: Request) {
       sold_all: true,
       total_value: totalSellValue,
       item_count: sellDetails.length,
+      newCoins: nextCoins,
+    });
+  }
+
+  if (action === "sell_many") {
+    const requestedItems = Array.isArray(body?.items) ? body.items : [];
+
+    if (requestedItems.length === 0) {
+      return jsonError("No items provided.", 422);
+    }
+
+    const requestedMap = new Map<string, number>();
+    for (const entry of requestedItems) {
+      const itemId = typeof entry?.itemId === "string" ? entry.itemId : "";
+      const variant = typeof entry?.variant === "string" && entry.variant.trim().length > 0 ? entry.variant : "normal";
+      const quantity = Math.max(1, Math.floor(Number(entry?.quantity ?? 1)));
+
+      if (!itemId) {
+        return jsonError("Missing item to sell.", 422);
+      }
+
+      const key = buildInventoryKey(itemId, variant);
+      requestedMap.set(key, (requestedMap.get(key) ?? 0) + quantity);
+    }
+
+    const { data: invRows, error: invErr } = await supabase
+      .from("user_crate_inventory")
+      .select("item_id, variant, quantity")
+      .eq("user_id", userId);
+
+    if (invErr) {
+      console.error("[crates] sell_many inventory read failed", invErr);
+      return jsonError("Failed to read inventory.", 500);
+    }
+
+    const inventoryMap = new Map(
+      (invRows ?? []).map((row) => [buildInventoryKey(row.item_id, row.variant ?? "normal"), Number(row.quantity ?? 0)]),
+    );
+
+    const details: Array<{
+      item_id: string;
+      variant: string;
+      quantity: number;
+      value: number;
+    }> = [];
+
+    for (const [key, quantity] of requestedMap.entries()) {
+      const [itemId, variant] = key.split(":");
+      const itemDef = await getItemDefinition(supabase, itemId);
+
+      if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic" || itemDef.rarity === "legendary") {
+        return jsonError("This item cannot be sold or has no value.", 422);
+      }
+
+      const ownedQuantity = inventoryMap.get(key) ?? 0;
+      if (ownedQuantity < quantity) {
+        return jsonError("You do not own enough of this item.", 422);
+      }
+
+      details.push({
+        item_id: itemId,
+        variant,
+        quantity,
+        value: itemDef.sell_value * quantity,
+      });
+    }
+
+    if (details.length === 0) {
+      return jsonError("Nothing to sell.", 422);
+    }
+
+    const totalSellValue = details.reduce((sum, detail) => sum + detail.value, 0);
+
+    if (totalSellValue <= 0) {
+      return jsonError("Nothing of value to sell.", 422);
+    }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("coins")
+      .eq("id", userId)
+      .single();
+
+    if (profileErr || !profile) {
+      console.error("[crates] sell_many profile read failed", profileErr);
+      return jsonError("Profile not found.", 500);
+    }
+
+    const nextCoins = profile.coins + totalSellValue;
+    const nowIso = new Date().toISOString();
+    const appliedDetails: Array<{
+      item_id: string;
+      variant: string;
+      quantity: number;
+      value: number;
+    }> = [];
+
+    const { error: coinErr } = await supabase
+      .from("profiles")
+      .update({ coins: nextCoins, updated_at: nowIso })
+      .eq("id", userId)
+      .eq("coins", profile.coins);
+
+    if (coinErr) {
+      console.error("[crates] sell_many coin update failed", coinErr);
+      return jsonError("Sale failed (balance changed).", 409);
+    }
+
+    for (const detail of details) {
+      const currentQty = inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0;
+      const nextQty = currentQty - detail.quantity;
+
+      const mutation = nextQty > 0
+        ? supabase
+            .from("user_crate_inventory")
+            .update({ quantity: nextQty })
+            .eq("user_id", userId)
+            .eq("item_id", detail.item_id)
+            .eq("variant", detail.variant)
+        : supabase
+            .from("user_crate_inventory")
+            .delete()
+            .eq("user_id", userId)
+            .eq("item_id", detail.item_id)
+            .eq("variant", detail.variant);
+
+      const { error: invUpdateErr } = await mutation;
+      if (invUpdateErr) {
+        console.error("[crates] sell_many inventory mutation failed", invUpdateErr);
+        await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
+        await Promise.all(
+          appliedDetails.map((restored) =>
+            supabase
+              .from("user_crate_inventory")
+              .upsert(
+                {
+                  user_id: userId,
+                  item_id: restored.item_id,
+                  variant: restored.variant,
+                  quantity: (inventoryMap.get(buildInventoryKey(restored.item_id, restored.variant)) ?? 0),
+                },
+                { onConflict: "user_id,item_id,variant" },
+              ),
+          ),
+        );
+        return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
+      }
+
+      appliedDetails.push(detail);
+    }
+
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
+      user_id: userId,
+      amount: totalSellValue,
+      balance_before: profile.coins,
+      balance_after: nextCoins,
+      reason: "crate:sell_many",
+      metadata: {
+        item_count: details.length,
+        items: details,
+      },
+    });
+
+    if (txErr) {
+      console.error("[crates] sell_many transaction logging failed", txErr);
+      await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
+      await Promise.all(
+        details.map((detail) =>
+          supabase
+            .from("user_crate_inventory")
+            .upsert(
+              {
+                user_id: userId,
+                item_id: detail.item_id,
+                variant: detail.variant,
+                quantity: inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0,
+              },
+              { onConflict: "user_id,item_id,variant" },
+            ),
+        ),
+      );
+      return jsonError("Sale logging failed.", 500);
+    }
+
+    await Promise.all(
+      details.map((detail) =>
+        supabase.from("crate_opens").insert({
+          user_id: userId,
+          crate_type: "sell_many",
+          item_id: detail.item_id,
+          variant: detail.variant,
+          cost: 0,
+          received_sell_value: detail.value,
+        }),
+      ),
+    );
+
+    return Response.json({
+      success: true,
+      sold_many: true,
+      total_value: totalSellValue,
+      item_count: details.length,
       newCoins: nextCoins,
     });
   }

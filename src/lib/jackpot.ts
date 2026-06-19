@@ -10,6 +10,7 @@ export type LoyaltyJackpotContributor = {
   username: string;
   rawUsername?: string;
   displayName?: string | null;
+  display_name?: string | null;
   amount: number;
   createdAt: string;
   usernameStyle?: {
@@ -22,6 +23,7 @@ export type LoyaltyJackpotWinner = {
   username: string;
   rawUsername?: string;
   displayName?: string | null;
+  display_name?: string | null;
   amount: number;
   selectedAt: string;
   place?: 1 | 2 | 3;

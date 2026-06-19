@@ -1,5 +1,4 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -659,7 +658,7 @@ export async function GET(request: Request) {
 
       return {
     id: profile.id,
-    username: getDisplayNameOrUsername(profile.display_name, profile.username),
+    username: profile.username,
     rawUsername: profile.username,
     displayName: profile.display_name,
     avatarUrl: profile.avatar_url,
@@ -675,7 +674,7 @@ export async function GET(request: Request) {
 
   const users = profiles.map((profile) => ({
     id: profile.id,
-    username: getDisplayNameOrUsername(profile.display_name, profile.username),
+    username: profile.username,
     rawUsername: profile.username,
     displayName: profile.display_name,
     avatarUrl: profile.avatar_url,
@@ -703,7 +702,7 @@ export async function GET(request: Request) {
       return {
         id: transaction.id,
         userId: transaction.user_id,
-        username: profile ? getDisplayNameOrUsername(profile.display_name, profile.username) : "unknown",
+        username: profile?.username ?? "unknown",
         rawUsername: profile?.username ?? "unknown",
         displayName: profile?.display_name ?? null,
         avatarUrl: profile?.avatar_url ?? null,

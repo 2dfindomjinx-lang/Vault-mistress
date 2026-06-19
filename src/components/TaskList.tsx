@@ -1992,20 +1992,23 @@ function LoyaltyJackpotTaskCard({
 function StyledUsername({
   currentUsername,
   displayName,
+  display_name,
   displayUsernameStyle,
   username,
   usernameStyle,
 }: {
   currentUsername?: string;
   displayName?: string | null;
+  display_name?: string | null;
   displayUsernameStyle?: CSSProperties;
   username: string;
   usernameStyle?: CSSProperties;
 }) {
-  const visibleUsername = getDisplayNameOrUsername(displayName, username);
+  const visibleUsername = getDisplayNameOrUsername(displayName ?? display_name, username);
   const isCurrentUser =
     username === currentUsername ||
     displayName === currentUsername ||
+    display_name === currentUsername ||
     visibleUsername === currentUsername;
 
   return (

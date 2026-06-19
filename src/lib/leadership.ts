@@ -12,6 +12,7 @@ export type LeadershipEntry = {
   username: string;
   rawUsername?: string;
   displayName?: string | null;
+  display_name?: string | null;
   tributeTotal: number;
   rankTitle: string;
   usernameStyle?: {
@@ -24,6 +25,7 @@ export type ShameEntry = {
   username: string;
   rawUsername?: string;
   displayName?: string | null;
+  display_name?: string | null;
   shameCount: number;
   usernameStyle?: {
     color?: string;

@@ -47,6 +47,7 @@ export async function GET() {
       username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
       rawUsername: profile.username,
       displayName: profile.display_name ?? null,
+      display_name: profile.display_name ?? null,
       usernameStyle: usernameStyles.get(String(profile.id)),
     })),
   });

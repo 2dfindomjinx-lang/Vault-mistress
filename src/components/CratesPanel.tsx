@@ -54,6 +54,13 @@ type CratesPanelProps = {
   }>;
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
+  onSellWonItems?: (items: Array<{ itemId: string; variant: string; quantity: number }>) => Promise<{
+    success: boolean;
+    newCoins?: number;
+    totalValue?: number;
+    itemCount?: number;
+    error?: string;
+  }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
   activeEvents?: RandomEvent[];
   freeOpensUsedToday?: Record<string, boolean>;
@@ -70,6 +77,7 @@ export function CratesPanel({
   onOpenCrate,
   onSellItem,
   onSellAll,
+  onSellWonItems,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
   activeEvents = [],
   freeOpensUsedToday = {},
@@ -613,19 +621,39 @@ export function CratesPanel({
 
     const sellableWonItems = wonItems.filter((item) => item.item_id !== "classic" && item.rarity !== "legendary");
     if (sellableWonItems.length === 0) {
-      alert("There are no sellable won items.");
+      alert("There are no sellable won items. Legendary items stay locked and must be sold one by one.");
       return;
     }
 
     const totalValue = sellableWonItems.reduce((sum, item) => sum + item.sell_value, 0);
     const confirmSell = window.confirm(
-      `Sell ${sellableWonItems.length} sellable won items for ${totalValue} coins?`
+      `Sell ${sellableWonItems.length} sellable won items for ${totalValue} coins?\n\nLegendary items in this batch will stay locked and are not included.`
     );
     if (!confirmSell) return;
 
-    for (const item of sellableWonItems) {
-      await onSellItem(item.item_id, item.variant, 1);
+    const grouped = Array.from(
+      sellableWonItems.reduce((map, item) => {
+        const key = `${item.item_id}:${item.variant}`;
+        const current = map.get(key) ?? {
+          itemId: item.item_id,
+          variant: item.variant,
+          quantity: 0,
+        };
+        current.quantity += 1;
+        map.set(key, current);
+        return map;
+      }, new Map<string, { itemId: string; variant: string; quantity: number }>()),
+    ).map(([, value]) => value);
+
+    const res = onSellWonItems
+      ? await onSellWonItems(grouped)
+      : ({ success: false } as const);
+
+    if (!res.success) {
+      alert(("error" in res && res.error) || "Sale failed. You may no longer own some of these items.");
+      return;
     }
+
     emitSoundEvent("cosmetic_purchased");
     closeReveal();
   };
@@ -637,7 +665,7 @@ export function CratesPanel({
     if (disabled || sellPending || inventory.length === 0 || inventoryValue <= 0) return;
 
     const confirmSell = window.confirm(
-      `Sell ALL items in your inventory for ${inventoryValue} coins?\n\nThis will clear your entire collection.`
+      `Sell ALL non-legendary items in your inventory for ${inventoryValue} coins?\n\nLegendary items will remain in your inventory and must be sold one by one with the extra confirmation.`
     );
     if (!confirmSell) return;
 

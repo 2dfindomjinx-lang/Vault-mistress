@@ -404,16 +404,17 @@ async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, j
         profileByUsernameMap.get(normalizeUsernameLookup(row.username)) ??
         null;
 
-      return {
-        username: getDisplayNameOrUsername(
-          resolvedProfile?.display_name ?? null,
-          resolvedProfile?.username ?? row.username,
-        ),
-        rawUsername: resolvedProfile?.username ?? row.username,
-        displayName: resolvedProfile?.display_name ?? null,
-        usernameStyle: row.user_id ? usernameStyles.get(row.user_id) : undefined,
-      };
-    })(),
+        return {
+          username: getDisplayNameOrUsername(
+            resolvedProfile?.display_name ?? null,
+            resolvedProfile?.username ?? row.username,
+          ),
+          rawUsername: resolvedProfile?.username ?? row.username,
+          displayName: resolvedProfile?.display_name ?? null,
+          display_name: resolvedProfile?.display_name ?? null,
+          usernameStyle: row.user_id ? usernameStyles.get(row.user_id) : undefined,
+        };
+      })(),
     amount: Number(row.amount ?? 0),
     selectedAt: row.created_at,
     place: row.place as 1 | 2 | 3,
@@ -741,6 +742,7 @@ export async function buildJackpotState(
             ),
             rawUsername: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
             displayName: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
+            display_name: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
             amount: Number(jackpot.winner_amount ?? pool),
             selectedAt: jackpot.winner_selected_at,
             place: 1 as const,
@@ -776,6 +778,7 @@ export async function buildJackpotState(
             ),
             rawUsername: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
             displayName: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
+            display_name: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
             amount: Number(previousJackpot.winner_amount ?? 0),
             selectedAt: previousJackpot.winner_selected_at,
             place: 1 as const,
@@ -837,6 +840,7 @@ export async function buildJackpotState(
           ),
           rawUsername: resolvedProfile?.username ?? row.username,
           displayName: resolvedProfile?.display_name ?? null,
+          display_name: resolvedProfile?.display_name ?? null,
         };
       })(),
       amount: row.amount,

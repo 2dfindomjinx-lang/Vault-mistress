@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
 
 type Overview = {
   activeDebtContracts: number;
@@ -244,13 +243,8 @@ export default function AdminAnalyticsPage() {
     const queryText = query.trim().toLowerCase();
     const users = hasQuery
       ? sourceUsers.filter((user) => {
-          const displayUsername = getDisplayNameOrUsername(
-            user.displayName,
-            user.rawUsername ?? user.username,
-          ).toLowerCase();
           const rawUsername = (user.rawUsername ?? user.username).toLowerCase();
           return (
-            displayUsername.includes(queryText) ||
             rawUsername.includes(queryText) ||
             user.id.toLowerCase().includes(queryText)
           );
@@ -262,9 +256,7 @@ export default function AdminAnalyticsPage() {
         (a, b) =>
           b.tributeTotal - a.tributeTotal ||
           b.coins - a.coins ||
-          getDisplayNameOrUsername(a.displayName, a.rawUsername ?? a.username).localeCompare(
-            getDisplayNameOrUsername(b.displayName, b.rawUsername ?? b.username),
-          ),
+          (a.rawUsername ?? a.username).localeCompare(b.rawUsername ?? b.username),
       );
     }
 
@@ -273,9 +265,7 @@ export default function AdminAnalyticsPage() {
         (a, b) =>
           b.coins - a.coins ||
           b.tributeTotal - a.tributeTotal ||
-          getDisplayNameOrUsername(a.displayName, a.rawUsername ?? a.username).localeCompare(
-            getDisplayNameOrUsername(b.displayName, b.rawUsername ?? b.username),
-          ),
+          (a.rawUsername ?? a.username).localeCompare(b.rawUsername ?? b.username),
       );
     }
 
@@ -519,7 +509,7 @@ export default function AdminAnalyticsPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-black text-white">
-                              {getDisplayNameOrUsername(user.displayName, user.rawUsername ?? user.username)}
+                              {user.rawUsername ?? user.username}
                             </p>
                             <p className="mt-1 text-xs text-zinc-500">registered {date(user.registrationDate)}</p>
                             <p className="mt-1 text-xs text-zinc-500">last login {date(user.lastLogin)}</p>
@@ -572,7 +562,7 @@ export default function AdminAnalyticsPage() {
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-3 text-sm" key={entry.id}>
                         <div className="flex items-center justify-between gap-3">
                           <span className="font-bold text-white">
-                            {getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username)}
+                            {entry.rawUsername ?? entry.username}
                           </span>
                           <span className={entry.amount >= 0 ? "font-black text-emerald-100" : "font-black text-rose-100"}>
                             {entry.amount >= 0 ? "+" : ""}{number(entry.amount)}
@@ -629,7 +619,7 @@ export default function AdminAnalyticsPage() {
                           >
                             <div className="min-w-0">
                               <p className="truncate text-sm font-black text-white">
-                                {index + 1}. {entry.username}
+                                {index + 1}. {entry.rawUsername ?? entry.username}
                               </p>
                               <p className="mt-1 text-xs text-zinc-500">
                                 {number(entry.inventoryValue)} coins total
@@ -647,7 +637,7 @@ export default function AdminAnalyticsPage() {
                             <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                  <p className="text-sm font-black text-white">{entry.username}</p>
+                                  <p className="text-sm font-black text-white">{entry.rawUsername ?? entry.username}</p>
                                   <p className="mt-1 text-xs text-zinc-500">
                                     Total value {number(entry.inventoryValue)} coins · {number(entry.totalQuantity)} total quantity
                                   </p>

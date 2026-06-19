@@ -26,6 +26,7 @@ type StatsPanelProps = {
     username: string;
     rawUsername?: string;
     displayName?: string | null;
+    display_name?: string | null;
     value: number;
     usernameStyle?: CSSProperties;
   }>;
@@ -122,7 +123,7 @@ export function StatsPanel({
             {leadershipTop.slice(0, 5).length > 0 ? (
               leadershipTop.slice(0, 5).map((leader, index) => {
                 const displayUsername = getDisplayNameOrUsernamePlain(
-                  leader.displayName,
+                  leader.displayName ?? leader.display_name,
                   leader.rawUsername ?? leader.username,
                 );
                 const isCurrentUser =
@@ -175,7 +176,10 @@ export function StatsPanel({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-white">
                       #{index + 1}{" "}
-                      {getDisplayNameOrUsernamePlain(entry.displayName, entry.rawUsername ?? entry.username)}
+                      {getDisplayNameOrUsernamePlain(
+                        entry.displayName ?? entry.display_name,
+                        entry.rawUsername ?? entry.username,
+                      )}
                     </p>
                     <p className="text-xs text-zinc-400">Inventory value</p>
                   </div>
@@ -201,7 +205,10 @@ export function StatsPanel({
         <div className="mt-3 space-y-2">
           {shameTop.slice(0, 5).length > 0 ? (
             shameTop.slice(0, 5).map((entry, index) => {
-              const displayUsername = getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username);
+              const displayUsername = getDisplayNameOrUsername(
+                entry.displayName ?? entry.display_name,
+                entry.rawUsername ?? entry.username,
+              );
               const isCurrentUser =
                 entry.rawUsername === username ||
                 entry.username === username ||

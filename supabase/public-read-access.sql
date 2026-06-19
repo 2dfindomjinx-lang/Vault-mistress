@@ -60,6 +60,7 @@ create or replace function public.get_public_shame_board(p_limit integer default
 returns table (
   id uuid,
   username text,
+  display_name text,
   shame_count integer
 )
 language sql
