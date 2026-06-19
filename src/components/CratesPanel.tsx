@@ -44,7 +44,14 @@ type CratesPanelProps = {
   disabled?: boolean;
   crates: CrateDefinition[];
   inventory: CrateInventoryItem[];
-  onOpenCrate: (crateType: string) => Promise<{ success: boolean; result?: { item: WonItem; newCoins: number }; error?: string }>;
+  onOpenCrate: (
+    crateType: string,
+    quantity?: number,
+  ) => Promise<{
+    success: boolean;
+    result?: { item?: WonItem; items?: WonItem[]; newCoins: number };
+    error?: string;
+  }>;
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
@@ -350,24 +357,16 @@ export function CratesPanel({
 
     setReelItems(fakeReel);
 
-    // Perform multiple opens (server calls) for multi
-    const results: WonItem[] = [];
-    let runningCoins = coins;
-    let totalPaid = 0;
-    for (let i = 0; i < qty; i++) {
-      const res = await onOpenCrate(crate.crate_type);
-      if (!(res.success && res.result)) {
-        const msg = res?.error || (res?.result ? "Something went wrong opening the case." : "Case open failed.");
-        alert(msg);
-        break;
-      }
-      results.push(res.result.item);
-      totalPaid += Math.max(0, runningCoins - res.result.newCoins);
-      runningCoins = res.result.newCoins;
+    const res = await onOpenCrate(crate.crate_type, qty);
+    if (!(res.success && res.result)) {
+      const msg = res?.error || "Case open failed.";
+      alert(msg);
+      return;
     }
 
+    const results: WonItem[] = res.result.items ?? (res.result.item ? [res.result.item] : []);
     if (results.length === 0) return;
-    setLastOpenedBatchCost(totalPaid);
+    setLastOpenedBatchCost(batchCost);
 
     // Helper for multi-open outcome based speech category (reuses the crate_result_* pools)
     // Ranges relative to the case's single cost C.

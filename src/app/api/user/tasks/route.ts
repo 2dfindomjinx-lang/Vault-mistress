@@ -42,6 +42,14 @@ const DANGEROUS_METADATA_KEYS = [
   "date",
 ];
 
+type ExistingTaskRow = {
+  claimed_at: string | null;
+  completed_at: string | null;
+  metadata: Record<string, unknown> | null;
+  reward_coins: number | null;
+  task_id: string;
+};
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -116,18 +124,49 @@ export async function POST(request: Request) {
   }
 
   const safeMetadata = sanitizeMetadata(taskId, task?.metadata ?? {});
+  const supabase = createSupabaseAdminClient();
+  const { data: existingTask } = await supabase
+    .from("user_tasks")
+    .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+    .eq("user_id", authData.user.id)
+    .eq("task_id", taskId)
+    .maybeSingle();
+
+  const currentTask = (existingTask as ExistingTaskRow | null) ?? null;
+  const currentMetadata = currentTask?.metadata ?? {};
+  const mergedMetadata =
+    REWARD_COOLDOWN_TASKS.has(taskId) && currentTask
+      ? (() => {
+          const next = { ...currentMetadata, ...safeMetadata };
+          for (const key of DANGEROUS_METADATA_KEYS) {
+            if (key in currentMetadata) {
+              next[key] = currentMetadata[key];
+            }
+          }
+          return next;
+        })()
+      : safeMetadata;
+
   const safeTask = {
     user_id: authData.user.id,
     task_id: taskId,
-    // completed_at and claimed_at are used by many tasks for their own state/cooldown tracking; allow through generic sync
-    // (actual reward grants/claims are enforced in dedicated routes like task-claim or profile-progress).
-    completed_at: task?.completed_at ?? null,
-    claimed_at: task?.claimed_at ?? null,
-    reward_coins: effectiveRewardCoins,
-    metadata: safeMetadata,
+    // For cooldown/reward-bearing tasks, preserve server-recorded state once a row exists so
+    // client sync calls cannot rewind claimed/completed timestamps or cooldown anchors.
+    completed_at:
+      REWARD_COOLDOWN_TASKS.has(taskId) && currentTask?.completed_at
+        ? currentTask.completed_at
+        : task?.completed_at ?? null,
+    claimed_at:
+      REWARD_COOLDOWN_TASKS.has(taskId) && currentTask?.claimed_at
+        ? currentTask.claimed_at
+        : task?.claimed_at ?? null,
+    reward_coins:
+      REWARD_COOLDOWN_TASKS.has(taskId) && currentTask?.reward_coins != null
+        ? currentTask.reward_coins
+        : effectiveRewardCoins,
+    metadata: mergedMetadata,
   };
 
-  const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("user_tasks")
     .upsert(safeTask, { onConflict: "user_id,task_id" })

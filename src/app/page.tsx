@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import { AppShell } from "@/components/AppShell";
@@ -2702,7 +2702,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [isPreviewMode, isGuestMode]);
 
-  const handleOpenCrate = async (crateType: string) => {
+  const handleOpenCrate = async (crateType: string, quantity = 1) => {
     if (cratePending) return { success: false };
 
     setCratePending(true);
@@ -2711,12 +2711,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const response = await fetch("/api/user/crates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "open", crateType }),
+        body: JSON.stringify({ action: "open", crateType, quantity }),
       });
       const payload = (await response.json()) as {
         success?: boolean;
         error?: string;
-        result?: { item: CrateInventoryItem & { sell_value: number }; newCoins: number };
+        result?: { item?: CrateInventoryItem & { sell_value: number }; items?: Array<CrateInventoryItem & { sell_value: number }>; newCoins: number };
         free_open_applied?: boolean;
         pity?: {
           principessa_bad_luck?: number;
@@ -2729,7 +2729,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       // Update coins + inventory optimistically from server result
-      const won = payload.result.item;
+      const wonItems = payload.result.items ?? (payload.result.item ? [payload.result.item] : []);
       setCoins(payload.result.newCoins);
       coinsRef.current = payload.result.newCoins;
 
@@ -2747,20 +2747,25 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Merge into local inventory (increase quantity or add)
       setCrateInventory((current) => {
-        const idx = current.findIndex((i) => i.item_id === won.item_id && i.variant === (won.variant || "normal"));
-        if (idx >= 0) {
-          const copy = [...current];
-          copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
-          return copy;
+        const next = [...current];
+
+        for (const won of wonItems) {
+          const idx = next.findIndex((i) => i.item_id === won.item_id && i.variant === (won.variant || "normal"));
+          if (idx >= 0) {
+            next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+          } else {
+            next.push({ ...won, quantity: 1 });
+          }
         }
-        return [...current, { ...won, quantity: 1 }];
+
+        return next;
       });
 
       // Refresh full data in background
       void loadCratesData();
       void loadLeadershipTop();
 
-      return { success: true, result: { item: won, newCoins: payload.result.newCoins } };
+      return { success: true, result: { items: wonItems, newCoins: payload.result.newCoins } };
     } catch (error) {
       console.error("Open crate failed", error);
       const errMsg = error instanceof Error ? error.message : "Crate open failed.";
@@ -4212,7 +4217,38 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   ]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.history.scrollRestoration = "manual";
+
+    return () => {
+      window.history.scrollRestoration = "auto";
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    };
+
+    resetScroll();
+    const firstFrame = window.requestAnimationFrame(() => {
+      resetScroll();
+      window.requestAnimationFrame(resetScroll);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+    };
   }, [activePanel]);
 
   const persistUserTask = useCallback(async (task: {
@@ -8628,7 +8664,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         onNavigate={(page) => {
           emitSoundEvent("button_click");
           setActivePanel(page);
-          window.scrollTo({ top: 0, left: 0, behavior: "auto" });
         }}
       >
         <ProfileHeader
