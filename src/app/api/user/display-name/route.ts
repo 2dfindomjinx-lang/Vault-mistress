@@ -158,3 +158,36 @@ export async function POST(request: Request) {
 
   return Response.json({ profile: updatedProfile, isFirstSetup });
 }
+
+export async function GET() {
+  if (!isSupabaseAdminConfigured) {
+    return jsonError(
+      `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      500,
+    );
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    return jsonError(authError?.message ?? "Authentication required.", 401);
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, username, display_name")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+
+  if (error || !profile) {
+    return jsonError(error?.message ?? "Profile not found.", 404);
+  }
+
+  return Response.json({
+    displayName: profile.display_name ?? null,
+    profile,
+    username: profile.username,
+  });
+}

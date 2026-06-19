@@ -5,6 +5,7 @@ export type Profile = {
   id: string;
   username: string;
   twitter_handle?: string | null;
+  displayName?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
   equipped_avatar_slots?: Record<string, string> | null;

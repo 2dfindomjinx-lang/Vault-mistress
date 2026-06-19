@@ -302,7 +302,15 @@ function hasOwnProperty<T extends object>(value: T, key: PropertyKey) {
 }
 
 function resolveProfileDisplayName(profile: Partial<Profile>) {
-  return hasOwnProperty(profile, "display_name") ? profile.display_name ?? null : undefined;
+  if (hasOwnProperty(profile, "displayName")) {
+    return profile.displayName ?? null;
+  }
+
+  if (hasOwnProperty(profile, "display_name")) {
+    return profile.display_name ?? null;
+  }
+
+  return undefined;
 }
 
 const profileSelect =
@@ -3127,12 +3135,49 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [authUserId, isGuestMode]);
 
+  const refreshDisplayName = useCallback(async (userId?: string | null) => {
+    const targetUserId = userId ?? authUserId;
+
+    if (!targetUserId || isGuestMode || isPreviewMode) {
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/user/display-name", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as {
+        displayName?: string | null;
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const nextDisplayName = typeof payload?.displayName === "string" ? payload.displayName : null;
+      setDisplayName(nextDisplayName);
+      return nextDisplayName;
+    } catch (error) {
+      console.error("Failed to refresh display name", error);
+      return null;
+    }
+  }, [authUserId, isGuestMode, isPreviewMode]);
+
+  useEffect(() => {
+    if (!authBootstrapped || !isLoggedIn || isGuestMode || isPreviewMode) {
+      return;
+    }
+
+    void refreshDisplayName();
+  }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode, refreshDisplayName]);
+
   const applyProfile = useCallback(async (profile: Profile) => {
     setAuthUserId(profile.id);
     setUsername(profile.username);
     const nextDisplayName = resolveProfileDisplayName(profile);
     if (nextDisplayName !== undefined) {
       setDisplayName(nextDisplayName);
+    } else {
+      void refreshDisplayName(profile.id);
     }
     setCoins(profile.coins);
     setAffection(profile.affection);
@@ -3512,6 +3557,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     loadJackpot,
     loadLeadershipTop,
     loadShameTop,
+    refreshDisplayName,
     setAvatarMistressReply,
     unlockProgressionTitles,
   ]);
@@ -3522,6 +3568,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const nextDisplayName = resolveProfileDisplayName(profile);
     if (nextDisplayName !== undefined) {
       setDisplayName(nextDisplayName);
+    } else {
+      void refreshDisplayName(profile.id);
     }
     setCoins(profile.coins);
     setAffection(profile.affection);
@@ -4289,7 +4337,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return () => {
       window.history.scrollRestoration = "auto";
     };
-  }, []);
+  }, [refreshDisplayName]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") {
