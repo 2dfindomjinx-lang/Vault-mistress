@@ -1,5 +1,5 @@
 import { CoinAmount } from "@/components/CoinAmount";
-import { getDisplayNameOrUsernamePlain } from "@/lib/display-name";
+import { getDisplayNameOrUsername, getDisplayNameOrUsernamePlain } from "@/lib/display-name";
 import {
   getLeadershipRank,
   type LeadershipEntry,

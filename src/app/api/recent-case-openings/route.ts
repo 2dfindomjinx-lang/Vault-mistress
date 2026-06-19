@@ -111,7 +111,7 @@ export async function GET() {
           return sum;
         }
 
-        return sum + getCrateItemSellValue(itemId);
+        return sum + (getCrateItemSellValue(itemId) ?? 0);
       }, 0);
       const recentOpenings = userRows.slice(0, 5).map((row) => {
         const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
