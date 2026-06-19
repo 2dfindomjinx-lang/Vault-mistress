@@ -1024,7 +1024,7 @@ export function TaskList({
                     {task.currentNumber}
                   </p>
                   <p className="mt-2 text-xs text-zinc-500">
-                    Display starts at 2-9. Result rolls 1-10. New base appears in 10s; replay cooldown is 15s.
+                    Your base number is server-owned per user. Result rolls 1-25. Replay cooldown is 15s.
                   </p>
                   {isWaitingForNextBase && (
                     <p className="mt-2 text-sm font-semibold text-pink-100">
@@ -1075,7 +1075,7 @@ export function TaskList({
                           }`}
                         >
                           {task.resultOutcome === "tie"
-                            ? "Stake refunded"
+                            ? `Play fee -${Math.abs(task.resultCoinDelta ?? 0)} Principessa Coins`
                             : `${(task.resultCoinDelta ?? 0) > 0 ? "+" : ""}${task.resultCoinDelta ?? 0} Principessa Coins`}
                         </p>
                       </div>
@@ -1142,7 +1142,7 @@ export function TaskList({
                   )}
                   {!task.highLowDailyLocked && (
                     <p className="mt-3 text-xs font-semibold text-zinc-500">
-                      Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties refund and do not count.
+                      Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
                     </p>
                   )}
                   {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (

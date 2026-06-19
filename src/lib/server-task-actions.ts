@@ -2,19 +2,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 export { DAY_MS } from "@/lib/time";
 
-export const HIGH_LOW_BET_ALLOWANCE = 4000;
-export const HIGH_LOW_PROFIT_LIMIT = 4000;
+export const HIGH_LOW_BET_ALLOWANCE = 2500;
+export const HIGH_LOW_PROFIT_LIMIT = 2500;
+export const HIGH_LOW_TIE_FEE_RATIO = 0.25;
+export const HIGH_LOW_REVEAL_DELAY_MS = 10 * 1000;
+export const HIGH_LOW_REPLAY_COOLDOWN_MS = 15 * 1000;
+export const HIGH_LOW_DISPLAY_NUMBER_MIN = 2;
+export const HIGH_LOW_DISPLAY_NUMBER_MAX = 24;
+const HIGH_LOW_DISPLAY_NUMBER_CENTER = 13;
 
-const BASE_NUMBER_WEIGHTS = [
-  { value: 2, weight: 1 },
-  { value: 3, weight: 2 },
-  { value: 4, weight: 3 },
-  { value: 5, weight: 3 },
-  { value: 6, weight: 3 },
-  { value: 7, weight: 3 },
-  { value: 8, weight: 2 },
-  { value: 9, weight: 1 },
-];
+const HIGH_LOW_DISPLAY_WEIGHTS = Array.from(
+  { length: HIGH_LOW_DISPLAY_NUMBER_MAX - HIGH_LOW_DISPLAY_NUMBER_MIN + 1 },
+  (_, index) => {
+    const value = HIGH_LOW_DISPLAY_NUMBER_MIN + index;
+    const distance = Math.abs(value - HIGH_LOW_DISPLAY_NUMBER_CENTER);
+    const weight = Math.max(1, HIGH_LOW_DISPLAY_NUMBER_CENTER - distance + 1);
+
+    return { value, weight };
+  },
+);
 
 export type UserTaskActionRow = {
   claimed_at: string | null;
@@ -70,14 +76,14 @@ export function getMetadataNumberArray(
 }
 
 export function randomHighLowNumber() {
-  return Math.floor(Math.random() * 10) + 1;
+  return Math.floor(Math.random() * 25) + 1;
 }
 
 export function randomHighLowDisplayNumber() {
-  const totalWeight = BASE_NUMBER_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
+  const totalWeight = HIGH_LOW_DISPLAY_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
   let roll = Math.random() * totalWeight;
 
-  for (const entry of BASE_NUMBER_WEIGHTS) {
+  for (const entry of HIGH_LOW_DISPLAY_WEIGHTS) {
     roll -= entry.weight;
 
     if (roll <= 0) {
@@ -85,7 +91,18 @@ export function randomHighLowDisplayNumber() {
     }
   }
 
-  return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
+  return HIGH_LOW_DISPLAY_WEIGHTS[HIGH_LOW_DISPLAY_WEIGHTS.length - 1].value;
+}
+
+export function generateHighLowRoundNumbers() {
+  return {
+    currentNumber: randomHighLowDisplayNumber(),
+    nextNumber: randomHighLowDisplayNumber(),
+  };
+}
+
+export function getHighLowTieFee(stake: number) {
+  return Math.max(1, Math.floor(stake * HIGH_LOW_TIE_FEE_RATIO));
 }
 
 export function generateNumberPickOptions(seed = getGmt3DayIndex()) {
@@ -160,6 +177,10 @@ export function getEventCooldownMs(baseMilliseconds: number, cooldownMultiplier:
 
 export function getHighLowBetAllowance(dailyBetTotal: number) {
   return Math.max(0, HIGH_LOW_BET_ALLOWANCE - Math.max(0, dailyBetTotal));
+}
+
+export function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
+  return dailyBetTotal >= HIGH_LOW_BET_ALLOWANCE || dailyProfit >= HIGH_LOW_PROFIT_LIMIT;
 }
 
 export function validateNumberPickOptions(options: unknown) {

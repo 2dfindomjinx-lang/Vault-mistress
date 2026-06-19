@@ -1,4 +1,4 @@
-export const JACKPOT_BASE_POOL = 5000;
+export const JACKPOT_BASE_POOL = 2500;
 export const JACKPOT_MIN_CONTRIBUTION = 500;
 export const JACKPOT_CYCLE_DAYS = 3;
 export const JACKPOT_CONTRIBUTION_DAYS = 2;

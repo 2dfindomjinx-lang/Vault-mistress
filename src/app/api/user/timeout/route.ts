@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { getTimeoutClearFee, profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -7,6 +7,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Body = {
+  action?: "clear";
   timeoutUntil?: string | null;
 };
 
@@ -38,11 +39,68 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Body | null;
 
-  if (!body || !isValidTimeoutUntil(body.timeoutUntil)) {
+  if (!body) {
     return jsonError("Invalid timeout payload.", 422);
   }
 
   const supabase = createSupabaseAdminClient();
+
+  if (body.action === "clear") {
+    const { data: currentProfile, error: currentProfileError } = await supabase
+      .from("profiles")
+      .select("coins, timeout_until, timeout_reason")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (currentProfileError || !currentProfile) {
+      return jsonError(currentProfileError?.message ?? "Timeout lookup failed.", 500);
+    }
+
+    if (!currentProfile.timeout_until) {
+      return jsonError("No active timeout found.", 409);
+    }
+
+    if (currentProfile.timeout_reason === "evil_debt_underage") {
+      return jsonError("Age verification timeouts require admin review.", 403);
+    }
+
+    const clearFee = getTimeoutClearFee(currentProfile.timeout_until, currentProfile.timeout_reason);
+
+    if (currentProfile.coins < clearFee) {
+      return jsonError(`You need ${clearFee.toLocaleString()} coins to clear this timeout.`, 402);
+    }
+
+    const nextCoins = currentProfile.coins - clearFee;
+    const now = new Date().toISOString();
+    const { data: updatedProfile, error } = await supabase
+      .from("profiles")
+      .update({
+        coins: nextCoins,
+        timeout_reason: null,
+        timeout_until: null,
+        updated_at: now,
+      })
+      .eq("id", authData.user.id)
+      .eq("coins", currentProfile.coins)
+      .eq("timeout_until", currentProfile.timeout_until)
+      .select(profileSelect)
+      .single();
+
+    if (error || !updatedProfile) {
+      return jsonError(error?.message ?? "Timeout clear failed.", 500);
+    }
+
+    return Response.json({
+      clearFee,
+      message: clearFee > 0 ? `Timeout cleared for ${clearFee.toLocaleString()} coins.` : "Timeout cleared.",
+      profile: updatedProfile,
+    });
+  }
+
+  if (!isValidTimeoutUntil(body.timeoutUntil)) {
+    return jsonError("Invalid timeout payload.", 422);
+  }
+
   const { data: updatedProfile, error } = await supabase
     .from("profiles")
     .update({

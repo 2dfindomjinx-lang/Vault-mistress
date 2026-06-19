@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 
@@ -143,6 +143,7 @@ export default function AdminPage() {
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
   const [isBusy, setIsBusy] = useState(false);
   const [adminNow, setAdminNow] = useState(() => Date.now());
+  const didMountTabEffect = useRef(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setAdminNow(Date.now()), 1000);
@@ -545,6 +546,15 @@ export default function AdminPage() {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (!didMountTabEffect.current) {
+      didMountTabEffect.current = true;
+      return;
+    }
+
+    window.scrollTo({ left: 0, top: 0, behavior: "auto" });
+  }, [activeTab]);
 
   const handleRunCommand = async () => {
     if (!isAdmin) {

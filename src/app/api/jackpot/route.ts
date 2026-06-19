@@ -761,14 +761,20 @@ export async function GET() {
 
   try {
     const userId = await getAuthedUserId();
-    const supabase = await createSupabaseServerClient();
-    const { jackpot } = await getCurrentJackpot(supabase);
+    const supabase = isSupabaseAdminConfigured
+      ? createSupabaseAdminClient()
+      : await createSupabaseServerClient();
+
+    const jackpotResult = isSupabaseAdminConfigured
+      ? await ensureCurrentJackpot(supabase)
+      : await getCurrentJackpot(supabase);
+
+    const jackpot = jackpotResult.jackpot;
 
     if (!jackpot) {
       return Response.json({ jackpot: null });
     }
 
-    const contributionTotal = await getContributionTotal(supabase, jackpot.id);
     const state = await buildJackpotState(supabase, jackpot, userId);
 
     return Response.json({ jackpot: state });

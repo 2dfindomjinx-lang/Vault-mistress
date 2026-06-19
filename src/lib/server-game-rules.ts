@@ -10,17 +10,19 @@ export const visibleGalleryCosts = new Map<string, number>([
   ["common-rose-vault", 300],
 ]);
 
+export const TIMEOUT_CLEAR_FEE_PER_HOUR = 250;
+
 const baseTaskRewards = new Map<string, number>([
-  ["daily-login", 250],
-  ["streak-bonus-1", 40],
-  ["streak-bonus-3", 115],
-  ["streak-bonus-7", 300],
-  ["streak-bonus-15", 750],
-  ["streak-bonus-30", 1500],
+  ["daily-login", 200],
+  ["streak-bonus-1", 50],
+  ["streak-bonus-3", 125],
+  ["streak-bonus-7", 250],
+  ["streak-bonus-15", 500],
+  ["streak-bonus-30", 1000],
   ["typing-accuracy", 100],
   ["wait-obediently", 100],
   ["number-pick", 100],
-  ["timeout-risk", 150],
+  ["timeout-risk", 125],
   ["beg", 50],
   ["affection", 250],
   ["affection-80", 250],
@@ -55,6 +57,25 @@ export function getCosmeticPrice(itemId: string) {
 
 export function getTitlePrice(titleId: string) {
   return titleItems.find((title) => title.id === titleId)?.price ?? null;
+}
+
+export function getTimeoutClearFee(timeoutUntil: string | null, timeoutReason: string | null, now = Date.now()) {
+  if (!timeoutUntil) {
+    return 0;
+  }
+
+  if (timeoutReason === "evil_debt_underage") {
+    return 0;
+  }
+
+  const remainingMs = new Date(timeoutUntil).getTime() - now;
+
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+    return 0;
+  }
+
+  const hours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)));
+  return hours * TIMEOUT_CLEAR_FEE_PER_HOUR;
 }
 
 export const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;

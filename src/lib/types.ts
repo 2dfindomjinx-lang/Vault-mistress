@@ -47,6 +47,7 @@ export type TaskItem = {
   attemptsRemaining?: number;
   sentence?: string;
   currentNumber?: number;
+  highLowNextNumber?: number;
   highLowDailyDate?: string | null;
   highLowDailyBetTotal?: number;
   highLowDailyLocked?: boolean;
@@ -54,6 +55,7 @@ export type TaskItem = {
   highLowDailyWins?: number;
   highLowBetAllowance?: number;
   highLowResetAt?: string | null;
+  highLowRoundAvailableAt?: string | null;
   lastResult?: string | null;
   nextBaseRevealAt?: string | null;
   resultBaseNumber?: number;

@@ -8,7 +8,7 @@ import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 
 const TASK_ID = "pet-daily-click";
 const PET_SCORE_REWARD = 10;
-const MAX_DAILY_COIN_REWARD = 250;
+const MAX_DAILY_COIN_REWARD = 200;
 const CLICK_IMAGE_POOL = [
   "/pet/daily-click/click-01.png",
   "/pet/daily-click/click-02.png",

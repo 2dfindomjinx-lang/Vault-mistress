@@ -11,7 +11,7 @@ import {
   maybeSelectWinner,
   buildJackpotState,
 } from "@/app/api/jackpot/route";
-import { getJackpotCycle } from "@/lib/jackpot";
+import { JACKPOT_BASE_POOL, getJackpotCycle } from "@/lib/jackpot";
 
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
       try {
         // Compute a reasonable pool for winner_amount fallback if needed
         const contribTotal = await getContributionTotal(supabase, activeJackpot.id).catch(() => 0);
-        const poolForSelect = Number(activeJackpot.base_pool ?? 5000) + Number(contribTotal ?? 0);
+        const poolForSelect = Number(activeJackpot.base_pool ?? JACKPOT_BASE_POOL) + Number(contribTotal ?? 0);
         afterJackpot = await maybeSelectWinner(supabase, activeJackpot, "winner", poolForSelect);
         selectedOrSkipped = Boolean(afterJackpot.winner_selected_at || afterJackpot.skipped_at);
       } catch (selErr) {

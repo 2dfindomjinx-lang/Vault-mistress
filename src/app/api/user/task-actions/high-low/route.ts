@@ -1,15 +1,20 @@
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   DAY_MS,
+  generateHighLowRoundNumbers,
   getActiveEventMultipliers,
   getCooldownUntil,
   getDailyKey,
   getEventCooldownMs,
   getHighLowBetAllowance,
+  getHighLowTieFee,
+  isHighLowLocked,
   getMetadataNumber,
   getMetadataString,
   HIGH_LOW_BET_ALLOWANCE,
   HIGH_LOW_PROFIT_LIMIT,
+  HIGH_LOW_REPLAY_COOLDOWN_MS,
+  HIGH_LOW_REVEAL_DELAY_MS,
   randomHighLowNumber,
   type UserTaskActionRow,
 } from "@/lib/server-task-actions";
@@ -21,7 +26,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Body = {
-  currentNumber?: number;
+  action?: "seed" | "play";
   guess?: "higher" | "lower";
   stake?: number;
 };
@@ -34,6 +39,11 @@ type ProfileRow = {
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
+}
+
+function getRoundNumber(metadata: Record<string, unknown>, key: string) {
+  const value = getMetadataNumber(metadata, key, Number.NaN);
+  return Number.isInteger(value) ? value : null;
 }
 
 export async function POST(request: Request) {
@@ -49,16 +59,12 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as Body | null;
+  const action = body?.action ?? "play";
   const guess = body?.guess;
   const stake = Math.floor(body?.stake ?? 0);
-  const currentNumber = body?.currentNumber;
 
-  if ((guess !== "higher" && guess !== "lower") || !Number.isInteger(stake) || stake <= 0) {
+  if (action === "play" && ((guess !== "higher" && guess !== "lower") || !Number.isInteger(stake) || stake <= 0)) {
     return jsonError("Invalid Higher/Lower payload.");
-  }
-
-  if (typeof currentNumber !== "number" || !Number.isInteger(currentNumber) || currentNumber < 2 || currentNumber > 9) {
-    return jsonError("Invalid Higher/Lower base number.", 422);
   }
 
   const supabase = createSupabaseAdminClient();
@@ -99,11 +105,11 @@ export async function POST(request: Request) {
   const cooldownMs = getEventCooldownMs(15 * 1000, multipliers.cooldown_reduction);
   const cooldownUntil = getCooldownUntil(existingTask?.claimed_at, cooldownMs);
 
-  if (cooldownUntil) {
+  if (action !== "seed" && cooldownUntil) {
     return jsonError("Higher/Lower is still on cooldown.", 429);
   }
 
-  if (profile.coins < stake) {
+  if (action === "play" && profile.coins < stake) {
     return jsonError("Not enough coins for that stake.", 422);
   }
 
@@ -130,30 +136,119 @@ export async function POST(request: Request) {
     : 0;
   const currentBetAllowance = getHighLowBetAllowance(currentDailyBetTotal);
 
-  if (currentDailyProfit >= HIGH_LOW_PROFIT_LIMIT) {
+  if (action === "play" && currentDailyProfit >= HIGH_LOW_PROFIT_LIMIT) {
     return jsonError(
       `Higher or Lower ${HIGH_LOW_PROFIT_LIMIT.toLocaleString()} coin profit limit reached for this 24-hour window.`,
       422,
     );
   }
 
-  if (stake > currentBetAllowance) {
+  if (action === "play" && stake > currentBetAllowance) {
     return jsonError(
       `Higher or Lower bet allowance is ${currentBetAllowance.toLocaleString()} coins. Lower your stake.`,
       422,
     );
   }
 
+  let currentNumber = getRoundNumber(metadata, "highLowCurrentNumber") ?? getRoundNumber(metadata, "currentNumber");
+  let nextNumber = getRoundNumber(metadata, "highLowNextNumber") ?? getRoundNumber(metadata, "nextNumber");
+  let roundAvailableAt =
+    getMetadataString(metadata, "highLowRoundAvailableAt") ??
+    getMetadataString(metadata, "nextBaseRevealAt");
+
+  const shouldSeed = !Number.isInteger(currentNumber) || !Number.isInteger(nextNumber) || !roundAvailableAt;
+  if (action === "seed" && !shouldSeed) {
+    return Response.json({
+      seeded: false,
+      task: existingTask,
+      taskState: {
+        claimed: Boolean(existingTask?.claimed_at),
+        completed: Boolean(existingTask?.completed_at),
+        currentNumber: currentNumber as number,
+        highLowBetAllowance: currentBetAllowance,
+        highLowDailyBetTotal: currentDailyBetTotal,
+        highLowDailyDate: today,
+        highLowDailyLocked: isHighLowLocked(currentDailyBetTotal, currentDailyProfit),
+        highLowDailyProfit: currentDailyProfit,
+        highLowDailyWins: currentDailyWins,
+        highLowNextNumber: nextNumber as number,
+        highLowResetAt: windowResetAt,
+        highLowRoundAvailableAt: roundAvailableAt,
+        nextBaseRevealAt: roundAvailableAt,
+      },
+    });
+  }
+  if (shouldSeed) {
+    const generated = generateHighLowRoundNumbers();
+    currentNumber = generated.currentNumber;
+    nextNumber = generated.nextNumber;
+    roundAvailableAt = new Date(nowMs).toISOString();
+
+    const seededMetadata = {
+      ...metadata,
+      highLowCurrentNumber: currentNumber,
+      highLowNextNumber: nextNumber,
+      highLowRoundAvailableAt: roundAvailableAt,
+    };
+
+    const { data: seededTask, error: seedError } = await supabase
+      .from("user_tasks")
+      .upsert(
+        {
+          user_id: authData.user.id,
+          task_id: "high-low",
+          completed_at: existingTask?.completed_at ?? null,
+          claimed_at: existingTask?.claimed_at ?? null,
+          reward_coins: existingTask?.reward_coins ?? 0,
+          metadata: seededMetadata,
+        },
+        { onConflict: "user_id,task_id" },
+      )
+      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+      .single();
+
+    if (seedError || !seededTask) {
+      console.error("[high-low] seed upsert failed", {
+        error: seedError,
+        userId: authData.user.id,
+        metadata: seededMetadata,
+      });
+      return jsonError(seedError?.message ?? "Higher/Lower seed failed.", 500);
+    }
+
+    return Response.json({
+      seeded: true,
+      task: seededTask,
+      taskState: {
+        claimed: Boolean(seededTask.claimed_at),
+        completed: Boolean(seededTask.completed_at),
+        currentNumber,
+        highLowBetAllowance: currentBetAllowance,
+        highLowDailyBetTotal: currentDailyBetTotal,
+        highLowDailyDate: today,
+        highLowDailyLocked: isHighLowLocked(currentDailyBetTotal, currentDailyProfit),
+        highLowDailyProfit: currentDailyProfit,
+        highLowDailyWins: currentDailyWins,
+        highLowNextNumber: nextNumber,
+        highLowResetAt: windowResetAt,
+        highLowRoundAvailableAt: roundAvailableAt,
+        nextBaseRevealAt: roundAvailableAt,
+      },
+    });
+  }
+
+  const activeCurrentNumber = currentNumber as number;
   const resultNumber = randomHighLowNumber();
   const outcome =
-    resultNumber === currentNumber
+    resultNumber === activeCurrentNumber
       ? "tie"
-      : (guess === "higher" && resultNumber > currentNumber) ||
-          (guess === "lower" && resultNumber < currentNumber)
+      : (guess === "higher" && resultNumber > activeCurrentNumber) ||
+          (guess === "lower" && resultNumber < activeCurrentNumber)
         ? "win"
         : "loss";
   const winMultiplier = multipliers.high_low_bonus > 1 ? multipliers.high_low_bonus : 2;
-  const coinDelta = outcome === "win" ? Math.floor(stake * (winMultiplier - 1)) : outcome === "loss" ? -stake : 0;
+  const tieFee = getHighLowTieFee(stake);
+  const coinDelta = outcome === "win" ? Math.floor(stake * (winMultiplier - 1)) : outcome === "loss" ? -stake : -tieFee;
   const actualCoinDelta = coinDelta;
   const nextCoins = profile.coins + coinDelta;
   const now = new Date().toISOString();
@@ -169,15 +264,17 @@ export async function POST(request: Request) {
   }
 
   const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-  const allowanceCost = outcome === "tie" ? 0 : stake;
+  const allowanceCost = stake;
   const nextDailyBetTotal = Math.min(HIGH_LOW_BET_ALLOWANCE, currentDailyBetTotal + allowanceCost);
   const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
   const nextDailyLocked = nextBetAllowance <= 0 || nextDailyProfit >= HIGH_LOW_PROFIT_LIMIT;
-  const nextBaseRevealAt = new Date(Date.now() + getEventCooldownMs(10 * 1000, multipliers.cooldown_reduction)).toISOString();
+  const nextRound = generateHighLowRoundNumbers();
+  const activeNextNumber = nextRound.currentNumber;
+  const nextBaseRevealAt = new Date(Date.now() + getEventCooldownMs(HIGH_LOW_REVEAL_DELAY_MS, multipliers.cooldown_reduction)).toISOString();
   const lastResult =
     outcome === "tie"
-      ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
-      : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`;
+      ? `${activeCurrentNumber} -> ${resultNumber}. Tie. Play fee ${tieFee} coins kept. Next round is prepared server-side.`
+      : `${activeCurrentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. Next round is prepared server-side.`;
 
   let updatedProfile = profileResult.data;
 
@@ -228,7 +325,7 @@ export async function POST(request: Request) {
 
   const nextMetadata = {
     ...metadata,
-    baseNumber: currentNumber,
+    baseNumber: activeCurrentNumber,
     higherLowerDailyDate: today,
     higherLowerDailyBetTotal: nextDailyBetTotal,
     higherLowerDailyProfit: nextDailyProfit,
@@ -237,6 +334,9 @@ export async function POST(request: Request) {
     higherLowerWindowStartedAt: windowStartedAt,
     higherLowerAllowanceCost: allowanceCost,
     higherLowerBetAllowance: nextBetAllowance,
+    highLowCurrentNumber: activeCurrentNumber,
+    highLowNextNumber: activeNextNumber,
+    highLowRoundAvailableAt: nextBaseRevealAt,
     outcome,
     resultNumber,
     actualCoinDelta,
@@ -274,7 +374,7 @@ export async function POST(request: Request) {
       balance_after: nextCoins,
       balance_before: profile.coins,
       metadata: {
-        baseNumber: currentNumber,
+        baseNumber: activeCurrentNumber,
         resultNumber,
         stake,
         outcome,
@@ -361,7 +461,9 @@ export async function POST(request: Request) {
       highLowResetAt: windowResetAt,
       lastResult,
       nextBaseRevealAt,
-      resultBaseNumber: currentNumber,
+      highLowNextNumber: activeNextNumber,
+      highLowRoundAvailableAt: nextBaseRevealAt,
+      resultBaseNumber: activeCurrentNumber,
       resultCoinDelta: coinDelta,
       resultNumber,
       resultOutcome: outcome,

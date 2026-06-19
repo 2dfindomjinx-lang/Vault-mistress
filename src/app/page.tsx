@@ -75,8 +75,19 @@ import {
 } from "@/lib/crates";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
-import { roundRewardToNearestFive } from "@/lib/server-game-rules";
+import {
+  HIGH_LOW_BET_ALLOWANCE,
+  HIGH_LOW_PROFIT_LIMIT,
+  HIGH_LOW_REPLAY_COOLDOWN_MS,
+  HIGH_LOW_REVEAL_DELAY_MS,
+  getHighLowBetAllowance,
+  getHighLowTieFee,
+  isHighLowLocked,
+  randomHighLowDisplayNumber,
+  randomHighLowNumber,
+} from "@/lib/server-task-actions";
 import { getUserLevelProgress } from "@/lib/levels";
+import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import { getGmt3DateKey, getGmt3DayIndex, getNextGmt3Reset } from "@/lib/time";
 import {
   emitSoundEvent,
@@ -107,7 +118,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-velvet-arrival",
     title: "Dollar Rain",
     rarity: "Common",
-    unlockCost: 300,
+    unlockCost: 500,
     tag: "Pole Dancer",
     image: "/gallery/common-1.png",
     unlocked: false,
@@ -116,7 +127,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-midnight-maid",
     title: "Leather Eclipse",
     rarity: "Common",
-    unlockCost: 300,
+    unlockCost: 500,
     tag: "Rebel",
     image: "/gallery/common-2.png",
     unlocked: false,
@@ -125,7 +136,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-executive-glare",
     title: "Golden Lust",
     rarity: "Common",
-    unlockCost: 300,
+    unlockCost: 500,
     tag: "Gorgeous",
     image: "/gallery/common-3.png",
     unlocked: false,
@@ -134,7 +145,7 @@ const visibleGalleryItems: GalleryItem[] = [
     id: "common-rose-vault",
     title: "Silk & Vintage",
     rarity: "Common",
-    unlockCost: 300,
+    unlockCost: 500,
     tag: "Pantyhose",
     image: "/gallery/common-4.png",
     unlocked: false,
@@ -291,13 +302,13 @@ const profileSelect =
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
-const PET_WEEKLY_TAX_COST = 5000;
+const PET_WEEKLY_TAX_COST = 7000;
 const PET_TASK_REWARD = 10;
 const PET_TASK_COIN_REWARD = 50;
 const PET_WEEKLY_TAX_REWARD = 20;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
-const PET_DAILY_CLICK_MAX_COIN_REWARD = 250;
+const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const ACCOUNT_ANNOUNCEMENT_EXPIRES_AT = "2026-06-12T00:00:00+03:00";
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
@@ -320,34 +331,22 @@ void PET_X_POST_TEXT;
 const MAX_TIMEOUT_DAYS = 1;
 const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
-const SAFE_REWARD = 150;
+const SAFE_REWARD = 125;
 const BEG_REWARD = 50;
-const SACRIFICE_COST = 250;
+const SACRIFICE_COST = 500;
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
-const SACRIFICE_UNLOCK_CHANCE = 0.5;
-const SUPPORT_COST = 1000;
+const SACRIFICE_UNLOCK_CHANCE = 0.35;
+const SUPPORT_COST = 2500;
 const TIMEOUT_RISK_CHANCE = 0.2;
-const HIGH_LOW_BET_ALLOWANCE = 4000;
-const HIGH_LOW_PROFIT_LIMIT = 4000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const OWNER_LIKENESS_PROTECTED_USERNAME = "vmprincipessa";
 const STREAK_BONUSES = [
-  { id: "streak-bonus-1", milestone: 1, reward: 40, title: "1 day streak bonus" },
-  { id: "streak-bonus-3", milestone: 3, reward: 115, title: "3 day streak bonus" },
-  { id: "streak-bonus-7", milestone: 7, reward: 300, title: "7 day streak bonus" },
-  { id: "streak-bonus-15", milestone: 15, reward: 750, title: "15 day streak bonus" },
-  { id: "streak-bonus-30", milestone: 30, reward: 1500, title: "30 day streak bonus" },
+  { id: "streak-bonus-1", milestone: 1, reward: 50, title: "1 day streak bonus" },
+  { id: "streak-bonus-3", milestone: 3, reward: 125, title: "3 day streak bonus" },
+  { id: "streak-bonus-7", milestone: 7, reward: 250, title: "7 day streak bonus" },
+  { id: "streak-bonus-15", milestone: 15, reward: 500, title: "15 day streak bonus" },
+  { id: "streak-bonus-30", milestone: 30, reward: 1000, title: "30 day streak bonus" },
 ] as const;
-const BASE_NUMBER_WEIGHTS = [
-  { value: 2, weight: 1 },
-  { value: 3, weight: 2 },
-  { value: 4, weight: 3 },
-  { value: 5, weight: 3 },
-  { value: 6, weight: 3 },
-  { value: 7, weight: 3 },
-  { value: 8, weight: 2 },
-  { value: 9, weight: 1 },
-];
 
 const petTasks: PetTaskItem[] = [
   {
@@ -498,7 +497,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login Reward",
-    reward: 250,
+    reward: 200,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -1306,25 +1305,6 @@ function getDueDebtPaymentPlan(
   };
 }
 
-function randomHighLowNumber() {
-  return Math.floor(Math.random() * 10) + 1;
-}
-
-function randomHighLowDisplayNumber() {
-  const totalWeight = BASE_NUMBER_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const entry of BASE_NUMBER_WEIGHTS) {
-    roll -= entry.weight;
-
-    if (roll <= 0) {
-      return entry.value;
-    }
-  }
-
-  return BASE_NUMBER_WEIGHTS[BASE_NUMBER_WEIGHTS.length - 1].value;
-}
-
 function getDailyKey(date: Date | number | string = new Date()) {
   return getGmt3DateKey(date);
 }
@@ -1343,14 +1323,6 @@ function isPetTaskApprovedToday(task: PetTaskItem, today = getDailyKey()) {
 
 function normalizeUsernameKey(value: string | null | undefined) {
   return (value ?? "").replace(/^@+/, "").trim().toLowerCase();
-}
-
-function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
-  return dailyBetTotal >= HIGH_LOW_BET_ALLOWANCE || dailyProfit >= HIGH_LOW_PROFIT_LIMIT;
-}
-
-function getHighLowBetAllowance(dailyBetTotal: number) {
-  return Math.max(0, HIGH_LOW_BET_ALLOWANCE - Math.max(0, dailyBetTotal));
 }
 
 function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
@@ -1474,7 +1446,7 @@ function buildTasksFromRows(
     }
 
     if (task.id === "high-low") {
-      const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, 15 * 1000);
+      const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, HIGH_LOW_REPLAY_COOLDOWN_MS);
       const windowStartedAt =
         getTaskMetadataString(row?.metadata, "higherLowerWindowStartedAt") ??
         row?.claimed_at ??
@@ -1501,7 +1473,14 @@ function buildTasksFromRows(
         completed: Boolean(row?.completed_at),
         claimed: Boolean(highLowCooldownUntil),
         cooldownUntil: highLowCooldownUntil,
-        currentNumber: randomHighLowDisplayNumber(),
+        currentNumber:
+          getTaskMetadataNumber(row?.metadata, "highLowCurrentNumber", Number.NaN) ??
+          getTaskMetadataNumber(row?.metadata, "currentNumber", Number.NaN) ??
+          undefined,
+        highLowNextNumber:
+          getTaskMetadataNumber(row?.metadata, "highLowNextNumber", Number.NaN) ??
+          getTaskMetadataNumber(row?.metadata, "nextNumber", Number.NaN) ??
+          undefined,
         highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
         highLowDailyBetTotal: dailyBetTotal,
         highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
@@ -1509,6 +1488,10 @@ function buildTasksFromRows(
         highLowDailyWins: dailyWins,
         highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
         highLowResetAt,
+        highLowRoundAvailableAt:
+          getTaskMetadataString(row?.metadata, "highLowRoundAvailableAt") ??
+          getTaskMetadataString(row?.metadata, "nextBaseRevealAt") ??
+          null,
       };
     }
 
@@ -1766,6 +1749,7 @@ export default function Home() {
   const [petGalleryUnlockedIds, setPetGalleryUnlockedIds] = useState<string[]>([]);
   const [timeoutUntil, setTimeoutUntil] = useState<string | null>(null);
   const [timeoutReason, setTimeoutReason] = useState<string | null>(null);
+  const [isTimeoutClearPending, setIsTimeoutClearPending] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const petAffectionClaimed = petAffectionClaimDate === getDailyKey(currentTime);
   const [bubbleHiddenTick, setBubbleHiddenTick] = useState(0);
@@ -2204,6 +2188,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const isUnderageTimeoutActive =
     isTimeoutActive &&
     (timeoutReason === "evil_debt_underage" || timeoutRemaining >= 9 * 365 * DAY_MS);
+  const timeoutClearFee = getTimeoutClearFee(timeoutUntil, timeoutReason, currentTime);
+  const canSelfClearTimeout = isTimeoutActive && !isUnderageTimeoutActive;
   const showAccountAnnouncement =
     currentTime < new Date(ACCOUNT_ANNOUNCEMENT_EXPIRES_AT).getTime();
   const isFreeFridayActive = isFreeTaskFriday(currentTime);
@@ -3373,7 +3359,35 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       throw taskError;
     }
 
-    const taskRows = (taskData ?? []) as UserTaskRow[];
+    let taskRows = (taskData ?? []) as UserTaskRow[];
+    const highLowTaskRow = taskRows.find((entry) => entry.task_id === "high-low");
+    const highLowNeedsSeed =
+      !getTaskMetadataNumber(highLowTaskRow?.metadata, "highLowCurrentNumber", Number.NaN) ||
+      !getTaskMetadataNumber(highLowTaskRow?.metadata, "highLowNextNumber", Number.NaN) ||
+      !getTaskMetadataString(highLowTaskRow?.metadata, "highLowRoundAvailableAt");
+
+    if (highLowNeedsSeed) {
+      const seedResponse = await fetch("/api/user/task-actions/high-low", {
+        body: JSON.stringify({ action: "seed" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const seedResult = (await seedResponse.json().catch(() => null)) as { error?: string; seeded?: boolean } | null;
+
+      if (seedResponse.ok && seedResult?.seeded) {
+        const { data: reseededTaskData, error: reseedError } = await supabase
+          .from("user_tasks")
+          .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+          .eq("user_id", profile.id);
+
+        if (reseedError) {
+          console.warn("Failed to refetch high-low seed state", reseedError);
+        } else {
+          taskRows = (reseededTaskData ?? []) as UserTaskRow[];
+        }
+      }
+    }
+
       const { data: irlTaskData, error: irlTaskError } = await supabase
         .from("user_irl_tasks")
         .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
@@ -3408,6 +3422,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? {
               ...task,
               currentNumber: currentHighLow.currentNumber ?? task.currentNumber,
+              highLowNextNumber: currentHighLow.highLowNextNumber ?? task.highLowNextNumber,
+              highLowRoundAvailableAt:
+                currentHighLow.highLowRoundAvailableAt ?? task.highLowRoundAvailableAt,
               lastResult: currentHighLow.lastResult,
               nextBaseRevealAt: currentHighLow.nextBaseRevealAt,
               resultBaseNumber: currentHighLow.resultBaseNumber,
@@ -4114,6 +4131,86 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return result.profile;
   }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, tributeTotal, username]);
 
+  const handleTimeoutClear = useCallback(async () => {
+    if (isPreviewRestricted) {
+      setAvatarMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
+      return;
+    }
+
+    if (isGuestMode || !authUserId) {
+      setAvatarMistressReply("Timeout removal is only available on a signed-in account.");
+      return;
+    }
+
+    if (!isTimeoutActive) {
+      setAvatarMistressReply("No active timeout to clear.");
+      return;
+    }
+
+    if (isUnderageTimeoutActive) {
+      setAvatarMistressReply("This safety timeout needs manual review with proof.");
+      return;
+    }
+
+    if (isTimeoutClearPending) {
+      return;
+    }
+
+    if (coinsRef.current < timeoutClearFee) {
+      setAvatarMistressReply(`You need ${timeoutClearFee.toLocaleString()} coins to clear this timeout.`);
+      return;
+    }
+
+    setIsTimeoutClearPending(true);
+
+    try {
+      const response = await fetch("/api/user/timeout", {
+        body: JSON.stringify({ action: "clear" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        clearFee?: number;
+        error?: string;
+        message?: string;
+        profile?: Profile;
+      };
+
+      if (!response.ok || !result.profile) {
+        console.error("Failed to clear timeout", result.error);
+        throw createApiError("/api/user/timeout", response, result);
+      }
+
+      applyProfileStats(result.profile);
+      setTimeoutUntil(result.profile.timeout_until ?? null);
+      setTimeoutReason(result.profile.timeout_reason ?? null);
+      setCurrentTime(Date.now());
+      setAvatarMistressReply(
+        result.message ??
+          `Timeout cleared for ${(result.clearFee ?? timeoutClearFee).toLocaleString()} coins.`,
+      );
+      emitSoundEvent("task_completion");
+    } catch (error) {
+      console.error("Timeout clear failed", error);
+      setAvatarMistressReply(describeError(error));
+    } finally {
+      setIsTimeoutClearPending(false);
+    }
+  }, [
+    applyProfileStats,
+    authUserId,
+    coinsRef,
+    describeError,
+    emitSoundEvent,
+    isGuestMode,
+    isPreviewRestricted,
+    isTimeoutActive,
+    isTimeoutClearPending,
+    isUnderageTimeoutActive,
+    setAvatarMistressReply,
+    timeoutClearFee,
+  ]);
+
   const persistUserTask = useCallback(async (task: {
     claimed_at?: string | null;
     completed_at?: string | null;
@@ -4676,17 +4773,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.clearTimeout(highLowRefreshTimerRef.current);
     }
 
-    highLowRefreshTimerRef.current = window.setTimeout(() => {
-      const nextDisplayNumber = randomHighLowDisplayNumber();
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === "high-low"
-            ? { ...entry, currentNumber: nextDisplayNumber }
-            : entry,
-        ),
-      );
-    }, getEventCooldownMs(10 * 1000));
   }, [getEventCooldownMs]);
 
   const handleHighLowPlay = async (
@@ -4697,7 +4783,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
     const task = tasks.find((entry) => entry.id === "high-low");
-    const highLowCooldownMs = getEventCooldownMs(15 * 1000);
+    const highLowCooldownMs = getEventCooldownMs(HIGH_LOW_REPLAY_COOLDOWN_MS);
     const highLowCooldownActive =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
@@ -4741,7 +4827,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const currentNumber = task.currentNumber ?? randomHighLowDisplayNumber();
+    const currentNumber = task.currentNumber ?? task.highLowNextNumber ?? randomHighLowDisplayNumber();
     setAvatarMistressReply("Rolling the vault number...");
 
     try {
@@ -4759,7 +4845,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             ? Math.floor(stake * (highLowWinMultiplier - 1))
             : outcome === "loss"
               ? -stake
-              : 0;
+              : -getHighLowTieFee(stake);
         const nextCoins = currentCoins + coinDelta;
         const nowDate = new Date();
         const nowMs = nowDate.getTime();
@@ -4773,7 +4859,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? task.highLowResetAt
           : new Date(nowMs + DAY_MS).toISOString();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
-        const allowanceCost = outcome === "tie" ? 0 : stake;
+        const allowanceCost = stake;
         const nextDailyBetTotal = Math.min(
           HIGH_LOW_BET_ALLOWANCE,
           (task.highLowDailyBetTotal ?? 0) + allowanceCost,
@@ -4801,8 +4887,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   highLowResetAt,
                   lastResult:
                     outcome === "tie"
-                      ? `${currentNumber} -> ${resultNumber}. Tie. Stake refunded. New number appears in 10 seconds.`
-                      : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. New number appears soon.`,
+                      ? `${currentNumber} -> ${resultNumber}. Tie. Play fee ${Math.abs(coinDelta)} coins kept. Next round is prepared server-side.`
+                      : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. Next round is prepared server-side.`,
                   nextBaseRevealAt,
                   resultBaseNumber: currentNumber,
                   resultCoinDelta: coinDelta,
@@ -4822,7 +4908,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
 
         const response = await fetch("/api/user/task-actions/high-low", {
-          body: JSON.stringify({ currentNumber, guess, stake }),
+          body: JSON.stringify({ guess, stake }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
         });
@@ -4853,7 +4939,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const outcome = payload.taskState.resultOutcome;
         setAvatarMistressReply(
           outcome === "tie"
-            ? "A tie. Your stake returns, this time."
+            ? `A tie. The vault kept a ${Math.abs(payload.taskState.resultCoinDelta ?? 0)} coin play fee.`
             : outcome === "win"
               ? highLowWinMultiplier > 2
                 ? "Event luck. The vault boosted your winning payout."
@@ -8697,6 +8783,27 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                     ? formatLongTimeoutDuration(timeoutRemaining)
                     : formatDuration(timeoutRemaining)}
                 </p>
+                {canSelfClearTimeout ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-yellow-100/70">
+                      Clear fee: {TIMEOUT_CLEAR_FEE_PER_HOUR.toLocaleString()} coins per hour
+                    </p>
+                    <button
+                      className="w-full rounded-full border border-yellow-200/30 bg-yellow-400/10 px-3 py-2 text-sm font-black text-yellow-50 transition hover:bg-yellow-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isTimeoutClearPending || coins < timeoutClearFee}
+                      onClick={handleTimeoutClear}
+                      type="button"
+                    >
+                      {isTimeoutClearPending
+                        ? "Clearing..."
+                        : `Pay ${timeoutClearFee.toLocaleString()} coins to clear`}
+                    </button>
+                  </div>
+                ) : isUnderageTimeoutActive ? (
+                  <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-red-100/70">
+                    No unlock fee. Manual review only.
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
