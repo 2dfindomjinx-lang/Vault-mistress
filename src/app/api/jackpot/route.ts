@@ -770,15 +770,25 @@ export async function buildJackpotState(
         return winners;
       }
 
+      const fallbackProfileIds = previousJackpot.winner_user_id ? [previousJackpot.winner_user_id] : [];
+      const { data: fallbackProfiles } = fallbackProfileIds.length > 0
+        ? await supabase.rpc("get_public_profile_snippets", {
+            p_user_ids: fallbackProfileIds,
+          })
+        : { data: [] };
+      const fallbackProfileMap = new Map(
+        ((fallbackProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
+      );
+
       return previousJackpot.winner_selected_at && previousJackpot.winner_username
         ? [{
             username: getDisplayNameOrUsername(
-              winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
-              winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
+              fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
+              fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
             ),
-            rawUsername: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
-            displayName: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
-            display_name: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
+            rawUsername: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
+            displayName: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
+            display_name: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
             amount: Number(previousJackpot.winner_amount ?? 0),
             selectedAt: previousJackpot.winner_selected_at,
             place: 1 as const,
