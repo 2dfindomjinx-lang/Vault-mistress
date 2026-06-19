@@ -841,6 +841,10 @@ export function PetSection({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) {
+        return;
+      }
+
       const key = event.key.toLowerCase();
       const target = event.target as HTMLElement | null;
       const isTypingTarget =

@@ -23,8 +23,8 @@ export async function POST() {
     .from("profiles")
     .select("id, username, affection, tribute_total, updated_at")
     .gte("affection", 100)
-    .order("tribute_total", { ascending: false })
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .order("tribute_total", { ascending: false });
 
   if (error) {
     console.error("Admin max affection list failed", error);

@@ -1,5 +1,5 @@
 import { CoinAmount } from "@/components/CoinAmount";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
+import { getDisplayNameOrUsernamePlain } from "@/lib/display-name";
 import {
   getLeadershipRank,
   type LeadershipEntry,
@@ -119,7 +119,10 @@ export function StatsPanel({
           <div className="mt-3 space-y-2">
             {leadershipTop.slice(0, 5).length > 0 ? (
               leadershipTop.slice(0, 5).map((leader, index) => {
-                const displayUsername = getDisplayNameOrUsername(leader.displayName, leader.rawUsername ?? leader.username);
+                const displayUsername = getDisplayNameOrUsernamePlain(
+                  leader.displayName,
+                  leader.rawUsername ?? leader.username,
+                );
                 const isCurrentUser =
                   leader.rawUsername === username ||
                   leader.username === username ||
@@ -168,7 +171,8 @@ export function StatsPanel({
                   key={entry.rawUsername ?? entry.username}
                 >
                   <p className="min-w-0 truncate text-sm font-black text-white">
-                    #{index + 1} {getDisplayNameOrUsername(entry.displayName, entry.rawUsername ?? entry.username)}
+                    #{index + 1}{" "}
+                    {getDisplayNameOrUsernamePlain(entry.displayName, entry.rawUsername ?? entry.username)}
                   </p>
                   <p className="shrink-0 text-sm font-black text-amber-100">
                     <CoinAmount amount={entry.value} iconSize={16} label="" />

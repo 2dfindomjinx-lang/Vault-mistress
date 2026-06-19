@@ -31,6 +31,7 @@ type CaseOpener = {
   usernameStyle?: { color?: string; textShadow?: string };
   lastOpenedAt: string;
   totalOpens: number;
+  totalCoinsWon: number;
   recentOpenings: Array<{
     id: string;
     crateName: string;
@@ -104,6 +105,7 @@ export async function GET() {
     .map((userId) => {
       const userRows = groupedRows.get(userId) ?? [];
       const profile = profileMap.get(userId);
+      const totalCoinsWon = userRows.reduce((sum, row) => sum + (row.item_id ? getCrateItemSellValue(row.item_id) : 0), 0);
       const recentOpenings = userRows.slice(0, 5).map((row) => {
         const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
         const crateDef = CRATE_TYPES[row.crate_type];
@@ -129,6 +131,7 @@ export async function GET() {
         lastOpenedAt: userRows[0]?.opened_at ?? "",
         recentOpenings,
         totalOpens: userRows.length,
+        totalCoinsWon,
       };
     })
     .sort((a, b) => new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime());

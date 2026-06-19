@@ -7877,8 +7877,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               falseHopeProgress: nextProgress,
               falseHopeStage: nextStage,
               falseHopeWrongInputs: nextWrongInputs,
-              reviewedAt: null,
-              status: failed ? "failed" as const : "available" as const,
+              reviewedAt: completed || failed ? now : entry.reviewedAt,
+              status: completed ? "approved" as const : failed ? "failed" as const : "available" as const,
             }
           : entry,
       ),

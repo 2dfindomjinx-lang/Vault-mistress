@@ -1,5 +1,5 @@
 import { getLeadershipRank } from "@/lib/leadership";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
+import { getDisplayNameOrUsernamePlain } from "@/lib/display-name";
 import {
   createPublicSupabaseClient,
   getSupabasePublicConfigErrors,
@@ -42,6 +42,7 @@ export async function GET() {
   let topInventories: Array<{
     id: string;
     username: string;
+    rawUsername?: string;
     displayName?: string | null;
     avatarUrl: string | null;
     value: number;
@@ -63,7 +64,7 @@ export async function GET() {
       const invProfMap = new Map((invProfData ?? []).map((p: any) => [p.id, p]));
       topInventories = (invData as any[]).map((row: any) => ({
         id: row.user_id,
-        username: getDisplayNameOrUsername(
+        username: getDisplayNameOrUsernamePlain(
           (invProfMap.get(row.user_id) as any)?.display_name ?? null,
           (invProfMap.get(row.user_id) as any)?.username || "unknown",
         ),
@@ -108,7 +109,7 @@ export async function GET() {
           id: String(profile.id),
           rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
           tributeTotal,
-          username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
+          username: getDisplayNameOrUsernamePlain(profile.display_name ?? null, profile.username),
           rawUsername: profile.username,
           displayName: profile.display_name ?? null,
         };

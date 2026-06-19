@@ -98,6 +98,7 @@ type CaseOpener = {
   usernameStyle?: { color?: string; textShadow?: string };
   lastOpenedAt: string;
   totalOpens: number;
+  totalCoinsWon: number;
   recentOpenings: CaseOpening[];
 };
 
@@ -930,7 +931,7 @@ export default function AdminPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className="rounded-full border border-cyan-200/20 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-50">
-                                {opener.totalOpens} opens
+                                {opener.totalOpens} opens · {opener.totalCoinsWon.toLocaleString()} coins won
                               </span>
                               <span className="text-cyan-100">{expanded ? "−" : "+"}</span>
                             </div>
@@ -948,7 +949,7 @@ export default function AdminPage() {
                                   </p>
                                 </div>
                                 <p className="text-xs font-bold text-cyan-100">
-                                  {opener.totalOpens} total
+                                  {opener.totalCoinsWon.toLocaleString()} coins won
                                 </p>
                               </div>
 
