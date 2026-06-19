@@ -297,6 +297,14 @@ type UserPetTaskRow = {
   metadata: Record<string, unknown> | null;
 };
 
+function hasOwnProperty<T extends object>(value: T, key: PropertyKey) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function resolveProfileDisplayName(profile: Partial<Profile>) {
+  return hasOwnProperty(profile, "display_name") ? profile.display_name ?? null : undefined;
+}
+
 const profileSelect =
   "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, has_uncensored_avatar, coins, affection, tribute_total, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
 
@@ -3122,7 +3130,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const applyProfile = useCallback(async (profile: Profile) => {
     setAuthUserId(profile.id);
     setUsername(profile.username);
-    setDisplayName(profile.display_name ?? null);
+    const nextDisplayName = resolveProfileDisplayName(profile);
+    if (nextDisplayName !== undefined) {
+      setDisplayName(nextDisplayName);
+    }
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
@@ -3508,7 +3519,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
     setUsername(profile.username);
-    setDisplayName(profile.display_name ?? null);
+    const nextDisplayName = resolveProfileDisplayName(profile);
+    if (nextDisplayName !== undefined) {
+      setDisplayName(nextDisplayName);
+    }
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
