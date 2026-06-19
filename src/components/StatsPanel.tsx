@@ -113,7 +113,9 @@ export function StatsPanel({
       <div className="col-span-2 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
         <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Top 5 Leadership</p>
+            <p className="max-w-[7ch] text-xs uppercase leading-tight tracking-[0.22em] text-fuchsia-200/70">
+              Top 5 Leadership
+            </p>
             <p className="text-xs font-semibold text-zinc-500">By Tribute Total</p>
           </div>
           <div className="mt-3 flex flex-1 flex-col gap-2">

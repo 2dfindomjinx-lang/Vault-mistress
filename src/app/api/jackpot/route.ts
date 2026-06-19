@@ -77,6 +77,10 @@ function jsonError(message: string, status = 500) {
   return Response.json({ error: message }, { status });
 }
 
+function normalizeUsernameLookup(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/^@+/, "").toLowerCase();
+}
+
 async function getAuthedUserId() {
   const authSupabase = await createSupabaseServerClient();
   const { data, error } = await authSupabase.auth.getUser();
@@ -385,19 +389,34 @@ async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, j
   const profileMap = new Map(
     ((profileSnippets ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
   );
+  const profileByUsernameMap = new Map(
+    ((profileSnippets ?? []) as ProfileSnippetRow[]).map((profile) => [
+      normalizeUsernameLookup(profile.username),
+      profile,
+    ]),
+  );
   const usernameStyles = await getUsernameStylesForUserIds(supabase, userIds);
 
   return rows.map((row) => ({
-    username: getDisplayNameOrUsername(
-      profileMap.get(row.user_id)?.display_name ?? null,
-      profileMap.get(row.user_id)?.username ?? row.username,
-    ),
-    rawUsername: profileMap.get(row.user_id)?.username ?? row.username,
-    displayName: profileMap.get(row.user_id)?.display_name ?? null,
+    ...(() => {
+      const resolvedProfile =
+        profileMap.get(row.user_id) ??
+        profileByUsernameMap.get(normalizeUsernameLookup(row.username)) ??
+        null;
+
+      return {
+        username: getDisplayNameOrUsername(
+          resolvedProfile?.display_name ?? null,
+          resolvedProfile?.username ?? row.username,
+        ),
+        rawUsername: resolvedProfile?.username ?? row.username,
+        displayName: resolvedProfile?.display_name ?? null,
+        usernameStyle: row.user_id ? usernameStyles.get(row.user_id) : undefined,
+      };
+    })(),
     amount: Number(row.amount ?? 0),
     selectedAt: row.created_at,
     place: row.place as 1 | 2 | 3,
-    usernameStyle: usernameStyles.get(row.user_id),
   }));
 }
 
@@ -704,21 +723,34 @@ export async function buildJackpotState(
   }
 
   const currentWinners = await getJackpotWinnersFromTransactions(supabase, jackpot.id);
+  const winnerProfileIds = jackpot.winner_user_id ? [jackpot.winner_user_id] : [];
+  const { data: winnerProfiles } = await supabase.rpc("get_public_profile_snippets", {
+    p_user_ids: winnerProfileIds,
+  });
+  const winnerProfileMap = new Map(
+    ((winnerProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
+  );
   const displayCurrentWinners =
     currentWinners.length > 0
       ? currentWinners
       : jackpot.winner_selected_at && jackpot.winner_username
         ? [{
-            username: jackpot.winner_username,
+            username: getDisplayNameOrUsername(
+              winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
+              winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
+            ),
+            rawUsername: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
+            displayName: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
             amount: Number(jackpot.winner_amount ?? pool),
             selectedAt: jackpot.winner_selected_at,
             place: 1 as const,
+            usernameStyle: undefined,
           }]
         : [];
 
   const { data: previousJackpots, error: previousWinnerError } = await supabase
     .from("loyalty_jackpots")
-    .select("id, winner_username, winner_amount, winner_selected_at")
+    .select("id, winner_user_id, winner_username, winner_amount, winner_selected_at")
     .not("winner_user_id", "is", null)
     .neq("cycle_key", jackpot.cycle_key)
     .order("starts_at", { ascending: false })
@@ -738,10 +770,16 @@ export async function buildJackpotState(
 
       return previousJackpot.winner_selected_at && previousJackpot.winner_username
         ? [{
-            username: previousJackpot.winner_username,
+            username: getDisplayNameOrUsername(
+              winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
+              winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
+            ),
+            rawUsername: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
+            displayName: winnerProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
             amount: Number(previousJackpot.winner_amount ?? 0),
             selectedAt: previousJackpot.winner_selected_at,
             place: 1 as const,
+            usernameStyle: undefined,
           }]
         : [];
     }),
@@ -762,6 +800,12 @@ export async function buildJackpotState(
   const contributorProfileMap = new Map(
     ((contributorProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
   );
+  const contributorProfileByUsernameMap = new Map(
+    ((contributorProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [
+      normalizeUsernameLookup(profile.username),
+      profile,
+    ]),
+  );
   const contributorUsernameStyles = await getUsernameStylesForUserIds(supabase, contributorUserIds);
 
   return {
@@ -780,12 +824,21 @@ export async function buildJackpotState(
     userEligible,
     userProtected: Boolean(userId && previousWinnerIds.includes(userId)),
     recentContributors: ((contributionRowsData ?? []) as ContributionRow[]).map((row) => ({
-      username: getDisplayNameOrUsername(
-        contributorProfileMap.get(String(row.user_id ?? ""))?.display_name ?? null,
-        contributorProfileMap.get(String(row.user_id ?? ""))?.username ?? row.username,
-      ),
-      rawUsername: contributorProfileMap.get(String(row.user_id ?? ""))?.username ?? row.username,
-      displayName: contributorProfileMap.get(String(row.user_id ?? ""))?.display_name ?? null,
+      ...(() => {
+        const resolvedProfile =
+          contributorProfileMap.get(String(row.user_id ?? "")) ??
+          contributorProfileByUsernameMap.get(normalizeUsernameLookup(row.username)) ??
+          null;
+
+        return {
+          username: getDisplayNameOrUsername(
+            resolvedProfile?.display_name ?? null,
+            resolvedProfile?.username ?? row.username,
+          ),
+          rawUsername: resolvedProfile?.username ?? row.username,
+          displayName: resolvedProfile?.display_name ?? null,
+        };
+      })(),
       amount: row.amount,
       createdAt: row.created_at,
       usernameStyle: row.user_id ? contributorUsernameStyles.get(row.user_id) : undefined,
