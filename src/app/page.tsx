@@ -3172,7 +3172,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const applyProfile = useCallback(async (profile: Profile) => {
     setAuthUserId(profile.id);
-    setUsername(profile.username);
+    setUsername(profile.twitter_handle ?? profile.username);
     const nextDisplayName = resolveProfileDisplayName(profile);
     if (nextDisplayName !== undefined) {
       setDisplayName(nextDisplayName);
@@ -3564,7 +3564,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const applyProfileStats = useCallback((profile: Profile) => {
     setAuthUserId(profile.id);
-    setUsername(profile.username);
+    setUsername(profile.twitter_handle ?? profile.username);
     const nextDisplayName = resolveProfileDisplayName(profile);
     if (nextDisplayName !== undefined) {
       setDisplayName(nextDisplayName);
