@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
+import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
 
 export type RecentTribute = {
@@ -148,20 +149,20 @@ export function RecentTributesTicker({
                     #{index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-black text-white">
-                      <span
-                        style={
-                          tribute.usernameStyle ??
-                          (tribute.rawUsername === currentUsername ||
-                          tribute.username === currentUsername ||
-                          getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username) === currentUsername
-                            ? usernameStyle
-                            : undefined)
-                        }
-                      >
-                        {getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username)}
-                      </span>
-                    </p>
+                    <DisplayNameWithUsername
+                      displayName={tribute.displayName}
+                      primaryClassName="truncate text-xs font-black text-white"
+                      primaryStyle={
+                        tribute.usernameStyle ??
+                        (tribute.rawUsername === currentUsername ||
+                        tribute.username === currentUsername ||
+                        getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username) === currentUsername
+                          ? usernameStyle
+                          : undefined)
+                      }
+                      secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+                      username={tribute.rawUsername ?? tribute.username}
+                    />
                     <p className="text-[11px] font-bold text-yellow-50">
                       <CoinAmount amount={tribute.amount} iconSize={14} label="Total" />
                     </p>
@@ -217,11 +218,13 @@ function TributeCard({
         </div>
       )}
       <div className="min-w-0">
-        <p className="truncate text-sm font-black text-white">
-          <span style={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-            {displayUsername}
-          </span>
-        </p>
+        <DisplayNameWithUsername
+          displayName={tribute.displayName}
+          primaryClassName="truncate text-sm font-black text-white"
+          primaryStyle={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
+          secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+          username={tribute.rawUsername ?? tribute.username}
+        />
         <p className="text-xs font-bold text-pink-100">
           <CoinAmount amount={tribute.amount} iconSize={15} label="Principessa Coins" prefix="+" />
         </p>

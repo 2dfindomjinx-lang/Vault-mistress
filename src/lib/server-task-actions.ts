@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 export { DAY_MS } from "@/lib/time";
 
-export const HIGH_LOW_BET_ALLOWANCE = 2500;
+export const HIGH_LOW_BET_ALLOWANCE = 1000;
 export const HIGH_LOW_PROFIT_LIMIT = 2500;
 export const HIGH_LOW_TIE_FEE_RATIO = 0.25;
 export const HIGH_LOW_REVEAL_DELAY_MS = 10 * 1000;

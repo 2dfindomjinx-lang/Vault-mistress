@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
+import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import {
   getIrlTaskWheelSegments,
   IRL_TASK_WHEEL_COST,
@@ -2004,17 +2004,19 @@ function StyledUsername({
   username: string;
   usernameStyle?: CSSProperties;
 }) {
-  const visibleUsername = getDisplayNameOrUsername(displayName ?? display_name, username);
   const isCurrentUser =
     username === currentUsername ||
     displayName === currentUsername ||
-    display_name === currentUsername ||
-    visibleUsername === currentUsername;
+    display_name === currentUsername;
 
   return (
-    <span style={displayUsernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-      {visibleUsername}
-    </span>
+    <DisplayNameWithUsername
+      displayName={displayName ?? display_name}
+      primaryClassName="truncate text-sm font-black text-white"
+      primaryStyle={displayUsernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
+      secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+      username={username}
+    />
   );
 }
 

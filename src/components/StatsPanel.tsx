@@ -1,5 +1,6 @@
 import { CoinAmount } from "@/components/CoinAmount";
-import { getDisplayNameOrUsername, getDisplayNameOrUsernamePlain } from "@/lib/display-name";
+import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
+import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   getLeadershipRank,
   type LeadershipEntry,
@@ -124,14 +125,10 @@ export function StatsPanel({
           <div className="mt-3 flex flex-1 flex-col gap-2">
             {leadershipTop.slice(0, 5).length > 0 ? (
               leadershipTop.slice(0, 5).map((leader, index) => {
-                const displayUsername = getDisplayNameOrUsernamePlain(
-                  leader.displayName ?? leader.display_name,
-                  leader.rawUsername ?? leader.username,
-                );
                 const isCurrentUser =
                   leader.rawUsername === username ||
                   leader.username === username ||
-                  displayUsername === username;
+                  getDisplayNameOrUsername(leader.displayName ?? leader.display_name, leader.rawUsername ?? leader.username) === username;
 
                 return (
                   <div
@@ -141,12 +138,16 @@ export function StatsPanel({
                     key={leader.rawUsername ?? leader.username}
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-white">
-                        #{index + 1}{" "}
-                        <span style={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                          {displayUsername}
-                        </span>
-                      </p>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <p className="shrink-0 text-sm font-black text-white">#{index + 1}</p>
+                        <DisplayNameWithUsername
+                          displayName={leader.displayName ?? leader.display_name}
+                          primaryClassName="truncate text-sm font-black text-white"
+                          primaryStyle={leader.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
+                          secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+                          username={leader.rawUsername ?? leader.username}
+                        />
+                      </div>
                       <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
                     </div>
                     <p className="shrink-0 text-sm font-black text-pink-100">
@@ -171,18 +172,19 @@ export function StatsPanel({
           <div className="mt-3 flex flex-1 flex-col gap-2">
             {topValuableInventories.slice(0, 5).length > 0 ? (
               topValuableInventories.slice(0, 5).map((entry, index) => (
-                <div
+              <div
                   className="flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
                   key={entry.rawUsername ?? entry.username}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">
-                      #{index + 1}{" "}
-                      {getDisplayNameOrUsernamePlain(
-                        entry.displayName ?? entry.display_name,
-                        entry.rawUsername ?? entry.username,
-                      )}
-                    </p>
+                    <div className="flex min-w-0 items-start gap-2">
+                      <p className="shrink-0 text-sm font-black text-white">#{index + 1}</p>
+                      <DisplayNameWithUsername
+                        displayName={entry.displayName ?? entry.display_name}
+                        primaryClassName="truncate text-sm font-black text-white"
+                        username={entry.rawUsername ?? entry.username}
+                      />
+                    </div>
                     <p className="text-xs text-zinc-400">Inventory value</p>
                   </div>
                   <p className="shrink-0 text-sm font-black text-amber-100">
@@ -205,16 +207,12 @@ export function StatsPanel({
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
         </div>
         <div className="mt-3 space-y-2">
-          {shameTop.slice(0, 5).length > 0 ? (
-            shameTop.slice(0, 5).map((entry, index) => {
-              const displayUsername = getDisplayNameOrUsername(
-                entry.displayName ?? entry.display_name,
-                entry.rawUsername ?? entry.username,
-              );
+            {shameTop.slice(0, 5).length > 0 ? (
+              shameTop.slice(0, 5).map((entry, index) => {
               const isCurrentUser =
                 entry.rawUsername === username ||
                 entry.username === username ||
-                displayUsername === username;
+                getDisplayNameOrUsername(entry.displayName ?? entry.display_name, entry.rawUsername ?? entry.username) === username;
 
               return (
                 <div
@@ -223,12 +221,18 @@ export function StatsPanel({
                   }`}
                   key={entry.rawUsername ?? entry.username}
                 >
-                  <p className="min-w-0 truncate text-sm font-black text-white">
-                    #{index + 1}{" "}
-                    <span style={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}>
-                      {displayUsername}
-                    </span>
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-start gap-2">
+                      <p className="shrink-0 text-sm font-black text-white">#{index + 1}</p>
+                      <DisplayNameWithUsername
+                        displayName={entry.displayName ?? entry.display_name}
+                        primaryClassName="truncate text-sm font-black text-white"
+                        primaryStyle={entry.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
+                        secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+                        username={entry.rawUsername ?? entry.username}
+                      />
+                    </div>
+                  </div>
                   <p className="shrink-0 text-sm font-black text-rose-100">{entry.shameCount} fail</p>
                 </div>
               );

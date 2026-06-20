@@ -258,28 +258,30 @@ export async function POST(request: Request) {
       return jsonError("Reward delta not allowed for this action.", 422);
     }
 
+    if (!cooldownRow) {
+      return jsonError("Task state missing for reward action.", 409);
+    }
+
     // Enforce cooldown / daily caps from trusted task row (sanitized by generic tasks route)
-    if (cooldownRow) {
-      const lastAction = getMetadataString(cooldownRow.metadata, "lastBegAt")
-        || getMetadataString(cooldownRow.metadata, "resetAt")
-        || getMetadataString(cooldownRow.metadata, "lastClaimAt")
-        || cooldownRow.claimed_at
-        || cooldownRow.completed_at;
+    const lastAction = getMetadataString(cooldownRow.metadata, "lastBegAt")
+      || getMetadataString(cooldownRow.metadata, "resetAt")
+      || getMetadataString(cooldownRow.metadata, "lastClaimAt")
+      || cooldownRow.claimed_at
+      || cooldownRow.completed_at;
 
-      let cooldownMs = 60 * 1000; // beg default
-      if (taskId === "timeout-risk" || taskId.includes("wait")) cooldownMs = 24 * 60 * 60 * 1000;
+    let cooldownMs = 60 * 1000; // beg default
+    if (taskId === "timeout-risk" || taskId.includes("wait")) cooldownMs = 24 * 60 * 60 * 1000;
 
-      const activeCooldown = getCooldownUntil(lastAction, cooldownMs);
-      if (activeCooldown && proposedDelta > 0) {
-        return jsonError("Action is on cooldown or daily limit reached.", 422);
-      }
+    const activeCooldown = getCooldownUntil(lastAction, cooldownMs);
+    if (activeCooldown && proposedDelta > 0) {
+      return jsonError("Action is on cooldown or daily limit reached.", 422);
+    }
 
-      // Additional daily cap for timeout-risk safe rewards
-      if (taskId === "timeout-risk" && proposedDelta > 0) {
-        const safeWins = getMetadataNumber(cooldownRow.metadata, "safeWins", 0);
-        if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
-          return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
-        }
+    // Additional daily cap for timeout-risk safe rewards
+    if (taskId === "timeout-risk" && proposedDelta > 0) {
+      const safeWins = getMetadataNumber(cooldownRow.metadata, "safeWins", 0);
+      if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
+        return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
       }
     }
 
