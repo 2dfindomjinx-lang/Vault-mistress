@@ -159,8 +159,17 @@ function validatePatch(
   if (reason === "spend:pet-weekly-tax") {
     const spendAmount = numberFromMetadata(metadata, "spendAmount");
     const rewardCoins = numberFromMetadata(metadata, "rewardCoins");
+    const weeklyTaxPetScoreDelta = Math.max(
+      0,
+      Math.min(PET_WEEKLY_TAX_REWARD, 1000 - current.pet_score),
+    );
 
-    if (!spendAmount || typeof rewardCoins !== "number" || coinDelta !== rewardCoins - spendAmount || petScoreDelta !== 20) {
+    if (
+      !spendAmount ||
+      typeof rewardCoins !== "number" ||
+      coinDelta !== rewardCoins - spendAmount ||
+      petScoreDelta !== weeklyTaxPetScoreDelta
+    ) {
       return "Weekly tax profile delta is invalid.";
     }
 
