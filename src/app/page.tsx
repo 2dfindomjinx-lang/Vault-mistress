@@ -5558,8 +5558,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           entry.id === "timeout-risk"
             ? {
                 ...entry,
+                claimed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
                 completed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
                 lastResult: `Safe wins today: ${nextSafeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
+                cooldownUntil: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT ? nextResetAt : entry.cooldownUntil,
               }
             : entry,
         ),

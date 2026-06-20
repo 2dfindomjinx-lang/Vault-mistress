@@ -278,7 +278,7 @@ export async function POST(request: Request) {
     }
 
     // Additional daily cap for timeout-risk safe rewards
-    if (taskId === "timeout-risk" && proposedDelta > 0) {
+    if (taskId === "timeout-risk") {
       const safeWins = getMetadataNumber(cooldownRow.metadata, "safeWins", 0);
       if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
         return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
@@ -392,7 +392,7 @@ export async function POST(request: Request) {
         metaUpdate.lastBegAt = now;
         metaUpdate.lastReward = actualCoinDelta;
       }
-      if (taskIdForSide === "timeout-risk" && actualCoinDelta > 0) {
+      if (taskIdForSide === "timeout-risk") {
         const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
         metaUpdate.safeWins = currentSafe + 1;
         if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {

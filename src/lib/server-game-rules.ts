@@ -10,7 +10,7 @@ export const visibleGalleryCosts = new Map<string, number>([
   ["common-rose-vault", 300],
 ]);
 
-export const TIMEOUT_CLEAR_FEE_PER_HOUR = 250;
+export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 200],
