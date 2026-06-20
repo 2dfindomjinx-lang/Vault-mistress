@@ -3,6 +3,8 @@ import { requireAdminProfile } from "@/lib/admin-guard";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
 
+const ADMIN_IRL_TASK_LIST_LIMIT = 250;
+
 export async function POST(request: Request) {
   const configErrors = getSupabaseAdminConfigErrors();
 
@@ -314,7 +316,7 @@ export async function POST(request: Request) {
     .select("id, user_id, task_label, task_description, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at")
     .eq("status", "assigned")
     .order("assigned_at", { ascending: false })
-    .limit(100);
+    .limit(ADMIN_IRL_TASK_LIST_LIMIT);
 
   if (error) {
     console.error("Admin IRL task list failed", error);

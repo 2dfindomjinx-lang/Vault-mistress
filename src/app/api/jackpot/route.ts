@@ -14,7 +14,6 @@ import {
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -405,10 +404,7 @@ async function getJackpotWinnersFromTransactions(supabase: SupabaseReadClient, j
         null;
 
         return {
-          username: getDisplayNameOrUsername(
-            resolvedProfile?.display_name ?? null,
-            resolvedProfile?.username ?? row.username,
-          ),
+          username: resolvedProfile?.username ?? row.username,
           rawUsername: resolvedProfile?.username ?? row.username,
           displayName: resolvedProfile?.display_name ?? null,
           display_name: resolvedProfile?.display_name ?? null,
@@ -735,11 +731,8 @@ export async function buildJackpotState(
     currentWinners.length > 0
       ? currentWinners
       : jackpot.winner_selected_at && jackpot.winner_username
-        ? [{
-            username: getDisplayNameOrUsername(
-              winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
-              winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
-            ),
+          ? [{
+            username: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
             rawUsername: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.username ?? jackpot.winner_username,
             displayName: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
             display_name: winnerProfileMap.get(jackpot.winner_user_id ?? "")?.display_name ?? null,
@@ -782,10 +775,7 @@ export async function buildJackpotState(
 
       return previousJackpot.winner_selected_at && previousJackpot.winner_username
         ? [{
-            username: getDisplayNameOrUsername(
-              fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
-              fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
-            ),
+            username: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
             rawUsername: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.username ?? previousJackpot.winner_username,
             displayName: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
             display_name: fallbackProfileMap.get(previousJackpot.winner_user_id ?? "")?.display_name ?? null,
@@ -844,10 +834,7 @@ export async function buildJackpotState(
           null;
 
         return {
-          username: getDisplayNameOrUsername(
-            resolvedProfile?.display_name ?? null,
-            resolvedProfile?.username ?? row.username,
-          ),
+          username: resolvedProfile?.username ?? row.username,
           rawUsername: resolvedProfile?.username ?? row.username,
           displayName: resolvedProfile?.display_name ?? null,
           display_name: resolvedProfile?.display_name ?? null,
