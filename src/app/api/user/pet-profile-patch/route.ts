@@ -7,6 +7,8 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGmt3DateKey } from "@/lib/time";
 
+const PET_WEEKLY_TAX_REWARD = 20;
+
 type Body = {
   metadata?: Record<string, unknown>;
   patch?: {
