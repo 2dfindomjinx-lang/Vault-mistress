@@ -9010,6 +9010,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           currentUsername={effectiveDisplayName ?? username}
           topTributes={topTributes}
           tributes={recentTributes}
+          showRecentOpenings={activePanel === "crates"}
           usernameStyle={usernameStyle}
         />
 

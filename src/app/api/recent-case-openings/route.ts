@@ -1,4 +1,4 @@
-import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemDropChancePercent, getCrateItemSellValue } from "@/lib/crates";
+import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemDropChancePercent, getCrateItemSellValue } from "@/lib/crates";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   createSupabaseAdminClient,
@@ -35,6 +35,7 @@ type CaseOpener = {
   recentOpenings: Array<{
     id: string;
     crateName: string;
+    crateIconUrl: string | null;
     itemId: string;
     itemName: string;
     itemRarity: string;
@@ -122,6 +123,7 @@ export async function GET() {
         return {
           id: row.id,
           crateName: crateDef?.name ?? row.crate_type,
+          crateIconUrl: getCrateIconUrl(row.crate_type, crateDef?.icon_url ?? null),
           itemId: row.item_id ?? "unknown",
           itemName: itemDef?.name ?? row.item_id ?? "Unknown item",
           itemRarity: itemDef?.rarity ?? "unknown",

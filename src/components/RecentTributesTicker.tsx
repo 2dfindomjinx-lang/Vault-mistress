@@ -31,6 +31,7 @@ export type TopInventory = {
 type RecentCaseOpening = {
   id: string;
   crateName: string;
+  crateIconUrl: string | null;
   itemId: string;
   itemName: string;
   itemRarity: CrateRarity | "unknown";
@@ -42,8 +43,22 @@ type RecentCaseOpening = {
 
 type RecentCaseOpener = {
   id: string;
+  username: string;
+  rawUsername: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  usernameStyle?: CSSProperties;
   lastOpenedAt: string;
   recentOpenings: RecentCaseOpening[];
+};
+
+type RecentCaseOpeningCard = RecentCaseOpening & {
+  openerId: string;
+  openerUsername: string;
+  openerRawUsername: string;
+  openerDisplayName: string | null;
+  openerAvatarUrl: string | null;
+  openerUsernameStyle?: CSSProperties;
 };
 
 function getRelativeTime(createdAt: string) {
@@ -103,7 +118,7 @@ function getRarityGlowClass(rarity: CrateRarity | "unknown") {
       return "border-emerald-300/60 bg-[linear-gradient(145deg,rgba(6,78,59,0.86),rgba(16,185,129,0.18),rgba(0,0,0,0.74))] shadow-[0_0_20px_rgba(16,185,129,0.18)]";
     case "common":
     default:
-      return "border-fuchsia-300/45 bg-[linear-gradient(145deg,rgba(88,28,65,0.92),rgba(168,85,247,0.16),rgba(0,0,0,0.72))] shadow-[0_0_18px_rgba(236,72,153,0.16)]";
+      return "border-white/10 bg-[linear-gradient(145deg,rgba(18,18,24,0.96),rgba(10,10,14,0.95),rgba(0,0,0,0.92))] shadow-[0_0_12px_rgba(255,255,255,0.05)]";
   }
 }
 
@@ -123,20 +138,30 @@ function getRarityLabelClass(rarity: CrateRarity | "unknown") {
   }
 }
 
+function formatChancePercent(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return null;
+  }
+
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
+}
+
 export function RecentTributesTicker({
   currentUsername,
   usernameStyle,
   topTributes = [],
   tributes,
   topValuableInventories = [],
+  showRecentOpenings = true,
 }: {
   currentUsername?: string;
   usernameStyle?: CSSProperties;
   topTributes?: RecentTribute[];
   tributes: RecentTribute[];
   topValuableInventories?: TopInventory[];
+  showRecentOpenings?: boolean;
 }) {
-  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpening[]>([]);
+  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
   const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
   const visibleTributes = useMemo(() => {
     // Simple rule for Recent Tributes section: always show the 5 most recent
@@ -151,6 +176,12 @@ export function RecentTributesTicker({
   const displayTributes = visibleTributes;
 
   useEffect(() => {
+    if (!showRecentOpenings) {
+      setRecentCaseOpenings([]);
+      setRecentCaseOpeningsError("");
+      return;
+    }
+
     let mounted = true;
 
     const loadRecentCaseOpenings = async () => {
@@ -166,7 +197,18 @@ export function RecentTributesTicker({
         }
 
         const flattened = (payload.openers ?? [])
-          .flatMap((opener) => opener.recentOpenings ?? [])
+          .flatMap((opener) =>
+            (opener.recentOpenings ?? []).map((opening) => ({
+              ...opening,
+              crateIconUrl: opening.crateIconUrl,
+              openerId: opener.id,
+              openerUsername: opener.username,
+              openerRawUsername: opener.rawUsername,
+              openerDisplayName: opener.displayName,
+              openerAvatarUrl: opener.avatarUrl,
+              openerUsernameStyle: opener.usernameStyle,
+            })),
+          )
           .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
           .slice(0, 12);
 
@@ -187,7 +229,7 @@ export function RecentTributesTicker({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [showRecentOpenings]);
 
   return (
     <section className="space-y-3">
@@ -224,7 +266,7 @@ export function RecentTributesTicker({
             )}
           </div>
         </div>
-      </div>
+        </div>
       {topTributes.length > 0 && (
         <div className="rounded-[1.25rem] border border-yellow-200/15 bg-black/35 px-3 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -265,6 +307,7 @@ export function RecentTributesTicker({
           </div>
         </div>
       )}
+      {showRecentOpenings && (
       <div className="rounded-[1.35rem] border border-white/10 bg-black/35 px-3 py-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-200/80">
@@ -279,12 +322,44 @@ export function RecentTributesTicker({
             {recentCaseOpeningsError}
           </p>
         ) : recentCaseOpenings.length > 0 ? (
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 flex max-w-full gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentCaseOpenings.map((opening) => (
               <article
-                className={`group flex min-w-[118px] max-w-[118px] shrink-0 flex-col gap-2 rounded-2xl border p-2 transition-transform duration-200 hover:-translate-y-0.5 ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`group relative flex w-[112px] shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border p-2 transition-transform duration-200 hover:-translate-y-0.5 sm:w-[126px] ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
+                tabIndex={0}
+                title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
               >
+                <div className="pointer-events-none absolute inset-x-2 top-2 z-20 opacity-0 transition duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <div className="rounded-2xl border border-white/10 bg-black/90 px-3 py-2 shadow-[0_0_24px_rgba(0,0,0,0.45)] backdrop-blur">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/35">
+                        {opening.crateIconUrl ? (
+                          // Static crate item images are local and can be rendered with a plain img for simplicity.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            alt={opening.crateName}
+                            className="h-full w-full object-contain p-1"
+                            src={opening.crateIconUrl}
+                          />
+                        ) : (
+                          <div className="text-sm text-white/70">📦</div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-[11px] font-black text-white">
+                          {opening.crateName}
+                        </p>
+                        <p className="text-[10px] font-semibold text-zinc-300">
+                          {formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.16em] text-fuchsia-100/85">
+                      {getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}
+                    </p>
+                  </div>
+                </div>
                 <div className="flex h-[78px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
                   {opening.itemImageUrl ? (
                     // Static crate item images are local and can be rendered with a plain img for simplicity.
@@ -317,6 +392,7 @@ export function RecentTributesTicker({
           </p>
         )}
       </div>
+      )}
     </section>
   );
 }

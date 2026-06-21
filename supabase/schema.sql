@@ -519,6 +519,63 @@ create trigger apply_lifetime_spent_coins_from_transaction_trigger
   for each row
   execute function public.apply_lifetime_spent_coins_from_transaction();
 
+-- One-time backfill for existing profiles so badges reflect historical spending.
+update public.profiles profile
+set
+  lifetime_spent_coins = least(
+    2147483647,
+    greatest(
+      0,
+      coalesce((
+        select sum(abs(tx.amount))::bigint
+        from public.coin_transactions tx
+        where tx.user_id = profile.id
+          and tx.amount < 0
+          and tx.reason in (
+            'jackpot_contribution',
+            'spend:cosmetic',
+            'spend:gallery-unlock',
+            'spend:irl-task-wheel',
+            'spend:rights',
+            'spend:title',
+            'spend:pet-weekly-tax',
+            'spend:timeout-clear',
+            'crate:open',
+            'tribute:coin-offer',
+            'tribute:sacrifice',
+            'tribute:support',
+            'tribute:debt-contract',
+            'tribute:debt-contract:auto',
+            'tribute:debt-contract:missed'
+          )
+      ), 0)
+    )
+  ),
+  updated_at = now()
+where exists (
+  select 1
+  from public.coin_transactions tx
+  where tx.user_id = profile.id
+    and tx.amount < 0
+    and tx.reason in (
+      'jackpot_contribution',
+      'spend:cosmetic',
+      'spend:gallery-unlock',
+      'spend:irl-task-wheel',
+      'spend:rights',
+      'spend:title',
+      'spend:pet-weekly-tax',
+      'spend:timeout-clear',
+      'crate:open',
+      'tribute:coin-offer',
+      'tribute:sacrifice',
+      'tribute:support',
+      'tribute:debt-contract',
+      'tribute:debt-contract:auto',
+      'tribute:debt-contract:missed'
+    )
+);
+
 drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
   on public.profiles for select

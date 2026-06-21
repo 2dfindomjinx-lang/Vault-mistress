@@ -769,12 +769,12 @@ export function CratesPanel({
             return (
               <div key={crate.crate_type} className="[perspective:1000px]">
                 <div
-                  className={`relative h-[260px] w-full rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
+                  className={`relative h-[260px] w-full overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
                   style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', willChange: 'transform' }}
                 >
                   {/* FRONT - normal crate card */}
                   <div
-                    className="absolute inset-0 p-4 flex flex-col backface-hidden"
+                    className="absolute inset-0 flex flex-col p-4 backface-hidden"
                     style={{ backfaceVisibility: 'hidden', zIndex: isFlipped ? 0 : 2 }}
                   >
                     <button
@@ -788,12 +788,12 @@ export function CratesPanel({
                       ?
                     </button>
 
-                    <div className="flex items-start justify-between pr-8">
-                      <div>
+                    <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
+                      <div className="min-w-0 flex-1">
                         <p className="text-base font-black text-white">{crate.name}</p>
-                        <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{crate.description}</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-400 line-clamp-4">{crate.description}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="min-w-[92px] shrink-0 text-right">
                         <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
                           <span>{currentQty > 1 ? "Total cost" : "Cost"}</span>
                           {currentQty > 1 && (

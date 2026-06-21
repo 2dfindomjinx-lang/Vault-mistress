@@ -177,11 +177,6 @@ export function ProfileHeader({
               <p className="mt-1 text-sm font-black text-pink-100/70">
                 {displayName && displayName.trim() && !isEditingDisplayName ? username : null}
               </p>
-              {spendBadge && (
-                <p className="mt-1 text-[11px] font-black uppercase tracking-[0.18em] text-fuchsia-100/75">
-                  {spendBadge.summary}
-                </p>
-              )}
               <p className="mt-2 text-sm font-black uppercase tracking-[0.18em] text-pink-100/80">
                 {currentTitle ?? "No title equipped"}
               </p>
