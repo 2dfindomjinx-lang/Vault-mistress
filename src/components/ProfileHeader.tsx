@@ -241,12 +241,13 @@ type ProfileBorderLightRunnerProps = {
 
 function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProps) {
   const isRainbow = variant === "rainbow";
-  const glowFilterId = `${ids}-profile-border-glow`;
+  const baseGradientId = `${ids}-profile-border-base`;
   const coreGradientId = `${ids}-profile-border-core`;
   const auraGradientId = `${ids}-profile-border-aura`;
   const pathId = `${ids}-profile-border-path`;
-  const duration = isRainbow ? "8.8s" : "7.2s";
-  const halfDuration = isRainbow ? "4.4s" : "3.6s";
+  const duration = isRainbow ? "7.5s" : "6.2s";
+  const dashLength = isRainbow ? 64 : 72;
+  const gapLength = 360;
 
   return (
     <svg
@@ -256,99 +257,135 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
       preserveAspectRatio="none"
     >
       <defs>
+        <linearGradient id={baseGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+          {isRainbow ? (
+            <>
+              <stop offset="0%" stopColor="#2b173d" />
+              <stop offset="22%" stopColor="#47206a" />
+              <stop offset="50%" stopColor="#6d28d9" />
+              <stop offset="78%" stopColor="#22d3ee" />
+              <stop offset="100%" stopColor="#f472b6" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#251528" />
+              <stop offset="45%" stopColor="#5b2a58" />
+              <stop offset="100%" stopColor="#8b3a7f" />
+            </>
+          )}
+        </linearGradient>
         <linearGradient id={coreGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
           {isRainbow ? (
             <>
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="12%" stopColor="#f9a8d4" />
-              <stop offset="28%" stopColor="#a855f7" />
-              <stop offset="46%" stopColor="#22d3ee" />
-              <stop offset="64%" stopColor="#34d399" />
-              <stop offset="82%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#fb7185" />
+              <stop offset="12%" stopColor="#fb7185" />
+              <stop offset="28%" stopColor="#f472b6" />
+              <stop offset="44%" stopColor="#a855f7" />
+              <stop offset="60%" stopColor="#22d3ee" />
+              <stop offset="76%" stopColor="#34d399" />
+              <stop offset="92%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#ffffff" />
             </>
           ) : (
             <>
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="18%" stopColor="#fdf2f8" />
-              <stop offset="42%" stopColor="#f9a8d4" />
-              <stop offset="70%" stopColor="#fb7185" />
-              <stop offset="100%" stopColor="#ec4899" />
+              <stop offset="18%" stopColor="#fde7f3" />
+              <stop offset="45%" stopColor="#f9a8d4" />
+              <stop offset="72%" stopColor="#fb7185" />
+              <stop offset="100%" stopColor="#ffffff" />
             </>
           )}
         </linearGradient>
         <linearGradient id={auraGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
           {isRainbow ? (
             <>
-              <stop offset="0%" stopColor="#fb7185" stopOpacity="0.15" />
-              <stop offset="18%" stopColor="#f472b6" stopOpacity="0.55" />
-              <stop offset="36%" stopColor="#a855f7" stopOpacity="0.95" />
-              <stop offset="54%" stopColor="#22d3ee" stopOpacity="0.9" />
-              <stop offset="72%" stopColor="#34d399" stopOpacity="0.85" />
-              <stop offset="88%" stopColor="#f59e0b" stopOpacity="0.78" />
-              <stop offset="100%" stopColor="#fb7185" stopOpacity="0.22" />
+              <stop offset="0%" stopColor="#fb7185" />
+              <stop offset="20%" stopColor="#f472b6" />
+              <stop offset="40%" stopColor="#a855f7" />
+              <stop offset="60%" stopColor="#22d3ee" />
+              <stop offset="80%" stopColor="#34d399" />
+              <stop offset="100%" stopColor="#f59e0b" />
             </>
           ) : (
             <>
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
-              <stop offset="24%" stopColor="#f472b6" stopOpacity="0.42" />
-              <stop offset="58%" stopColor="#f9a8d4" stopOpacity="0.82" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.18" />
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="26%" stopColor="#fda4af" />
+              <stop offset="60%" stopColor="#f472b6" />
+              <stop offset="100%" stopColor="#ffffff" />
             </>
           )}
         </linearGradient>
-        <filter
-          id={glowFilterId}
-          x="-70%"
-          y="-70%"
-          width="240%"
-          height="240%"
-          colorInterpolationFilters="sRGB"
-        >
-          <feGaussianBlur stdDeviation={isRainbow ? 2.15 : 1.5} result="blur" />
-          <feColorMatrix
-            in="blur"
-            result="colorBlur"
-            type="matrix"
-            values={
-              isRainbow
-                ? "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6"
-                : "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 12 -4"
-            }
-          />
-        </filter>
       </defs>
 
-      <path id={pathId} d={PROFILE_BORDER_PATH} fill="none" />
-
-      <g filter={`url(#${glowFilterId})`}>
-        <g opacity={0.96}>
-          <animateMotion dur={duration} repeatCount="indefinite" rotate="auto">
-            <mpath href={`#${pathId}`} />
-          </animateMotion>
-          <rect
-            x="-10.5"
-            y="-2.1"
-            width="21"
-            height="4.2"
-            rx="2.1"
-            fill={`url(#${coreGradientId})`}
-          />
-        </g>
-        <g opacity={0.78}>
-          <animateMotion dur={duration} begin={`-${halfDuration}`} repeatCount="indefinite" rotate="auto">
-            <mpath href={`#${pathId}`} />
-          </animateMotion>
-          <rect
-            x="-8.5"
-            y="-1.6"
-            width="17"
-            height="3.2"
-            rx="1.6"
-            fill={`url(#${auraGradientId})`}
-          />
-        </g>
-      </g>
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
+        stroke={`url(#${baseGradientId})`}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={0.95}
+        strokeWidth={6}
+      />
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
+        stroke={`url(#${auraGradientId})`}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={0.55}
+        strokeWidth={11}
+        filter="blur(2px)"
+        strokeDasharray={`${dashLength} ${gapLength}`}
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          dur={duration}
+          repeatCount="indefinite"
+          from="0"
+          to="-1000"
+        />
+      </path>
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
+        stroke={`url(#${coreGradientId})`}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={1}
+        strokeWidth={4.2}
+        strokeDasharray={`${dashLength * 0.75} ${gapLength}`}
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          dur={duration}
+          repeatCount="indefinite"
+          from="0"
+          to="-1000"
+        />
+      </path>
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
+        stroke={`url(#${coreGradientId})`}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={1}
+        strokeWidth={4.2}
+        strokeDasharray={`${dashLength * 0.75} ${gapLength}`}
+        strokeDashoffset="-500"
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          dur={duration}
+          repeatCount="indefinite"
+          from="-500"
+          to="-1500"
+        />
+      </path>
     </svg>
   );
 }
