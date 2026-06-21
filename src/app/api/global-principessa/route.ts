@@ -40,8 +40,15 @@ export async function GET() {
     });
   }
 
-  return Response.json({
-    latestLevelUp: latestLevelUp ?? null,
-    progress: data ?? null,
-  });
+  return Response.json(
+    {
+      latestLevelUp: latestLevelUp ?? null,
+      progress: data ?? null,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300",
+      },
+    },
+  );
 }

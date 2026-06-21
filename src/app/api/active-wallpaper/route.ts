@@ -49,10 +49,17 @@ export async function GET() {
 
   const selectedFileName = availableWallpapers[windowNumber % availableWallpapers.length];
 
-  return Response.json({
-    wallpaperUrl: `${WALLPAPER_BASE_URL}/${selectedFileName}`,
-    version: `window-${windowNumber}-${selectedFileName}`,
-    updatedAt,
-    nextUpdateAt,
-  });
+  return Response.json(
+    {
+      wallpaperUrl: `${WALLPAPER_BASE_URL}/${selectedFileName}`,
+      version: `window-${windowNumber}-${selectedFileName}`,
+      updatedAt,
+      nextUpdateAt,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=14400, stale-while-revalidate=3600",
+      },
+    },
+  );
 }

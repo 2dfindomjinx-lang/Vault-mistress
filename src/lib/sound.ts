@@ -62,6 +62,7 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
 let hydrated = false;
 let playbackUnlocked = false;
+const audioCache = new Map<string, HTMLAudioElement>();
 
 export function getSoundSettings() {
   hydrateSoundSettings();
@@ -111,7 +112,14 @@ export function emitSoundEvent(eventName: SoundEventName) {
   }
 
   try {
-    const audio = new Audio(definition.src);
+    let audio = audioCache.get(definition.src);
+
+    if (!audio) {
+      audio = new Audio(definition.src);
+      audio.preload = "auto";
+      audioCache.set(definition.src, audio);
+    }
+
     audio.volume = clampVolume((definition.volume ?? 1) * soundSettings.masterVolume);
     audio.addEventListener("error", () => {
       console.error("[sound] audio file failed to load", {
@@ -127,6 +135,7 @@ export function emitSoundEvent(eventName: SoundEventName) {
       volume: audio.volume,
     });
 
+    audio.currentTime = 0;
     void audio.play().then(() => {
       playbackUnlocked = true;
       console.info("[sound] play succeeded", { eventName });

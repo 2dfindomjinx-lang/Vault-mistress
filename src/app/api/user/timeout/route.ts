@@ -90,6 +90,57 @@ export async function POST(request: Request) {
       return jsonError(error?.message ?? "Timeout clear failed.", 500);
     }
 
+    if (clearFee > 0) {
+      const { data: transaction, error: transactionError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          amount: -clearFee,
+          balance_before: currentProfile.coins,
+          balance_after: nextCoins,
+          metadata: {
+            clearFee,
+            timeoutReason: currentProfile.timeout_reason,
+            timeoutUntil: currentProfile.timeout_until,
+          },
+          reason: "spend:timeout-clear",
+          user_id: authData.user.id,
+        })
+        .select("id")
+        .single();
+
+      if (transactionError || !transaction) {
+        console.error("Timeout clear transaction logging failed", {
+          code: transactionError?.code,
+          message: transactionError?.message,
+          userId: authData.user.id,
+        });
+
+        const { error: rollbackError } = await supabase
+          .from("profiles")
+          .update({
+            coins: currentProfile.coins,
+            timeout_reason: currentProfile.timeout_reason,
+            timeout_until: currentProfile.timeout_until,
+            updated_at: now,
+          })
+          .eq("id", authData.user.id)
+          .eq("coins", nextCoins)
+          .eq("timeout_until", currentProfile.timeout_until)
+          .select(profileSelect)
+          .single();
+
+        if (rollbackError) {
+          console.error("Timeout clear rollback failed", {
+            code: rollbackError.code,
+            message: rollbackError.message,
+            userId: authData.user.id,
+          });
+        }
+
+        return jsonError("Timeout clear logging failed.", 500);
+      }
+    }
+
     return Response.json({
       clearFee,
       message: clearFee > 0 ? `Timeout cleared for ${clearFee.toLocaleString()} coins.` : "Timeout cleared.",

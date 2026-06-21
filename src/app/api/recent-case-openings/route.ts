@@ -35,10 +35,12 @@ type CaseOpener = {
   recentOpenings: Array<{
     id: string;
     crateName: string;
+    itemId: string;
     itemName: string;
     itemRarity: string;
     itemChancePercent: number | null;
     itemSellValue: number | null;
+    itemImageUrl: string | null;
     openedAt: string;
   }>;
 };
@@ -120,10 +122,12 @@ export async function GET() {
         return {
           id: row.id,
           crateName: crateDef?.name ?? row.crate_type,
+          itemId: row.item_id ?? "unknown",
           itemName: itemDef?.name ?? row.item_id ?? "Unknown item",
           itemRarity: itemDef?.rarity ?? "unknown",
           itemChancePercent: row.item_id ? getCrateItemDropChancePercent(row.crate_type, row.item_id) : null,
           itemSellValue: row.item_id ? getCrateItemSellValue(row.item_id) : null,
+          itemImageUrl: itemDef?.image_url ?? (row.item_id ? `/crate-items/${row.item_id}.png` : null),
           openedAt: row.opened_at,
         };
       });
@@ -143,5 +147,12 @@ export async function GET() {
     })
     .sort((a, b) => new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime());
 
-  return Response.json({ openers });
+  return Response.json(
+    { openers },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=15, stale-while-revalidate=60",
+      },
+    },
+  );
 }

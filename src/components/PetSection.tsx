@@ -518,15 +518,16 @@ function getRandomDebtDraft(): {
 }
 
 const PET_CASE_DISPLAY_POOL = [
-  { value: 100, tier: "ice", weight: 84 },
-  { value: 150, tier: "ice", weight: 78 },
-  { value: 200, tier: "blue", weight: 54 },
-  { value: 300, tier: "blue", weight: 42 },
-  { value: 500, tier: "pink", weight: 22 },
-  { value: 750, tier: "pink", weight: 12 },
-  { value: 1000, tier: "red", weight: 5 },
-  { value: 1250, tier: "red", weight: 3 },
-  { value: 1500, tier: "gold", weight: 1 },
+  { value: 100, tier: "ice", weight: 90 },
+  { value: 150, tier: "ice", weight: 82 },
+  { value: 200, tier: "blue", weight: 64 },
+  { value: 250, tier: "blue", weight: 56 },
+  { value: 300, tier: "blue", weight: 44 },
+  { value: 400, tier: "pink", weight: 30 },
+  { value: 500, tier: "pink", weight: 20 },
+  { value: 650, tier: "red", weight: 12 },
+  { value: 800, tier: "red", weight: 6 },
+  { value: 1000, tier: "gold", weight: 2 },
 ];
 
 const PET_CASE_DISPLAY_ITEMS = PET_CASE_DISPLAY_POOL.flatMap((item) =>
@@ -1487,7 +1488,7 @@ export function PetSection({
               </span>
             </div>
             <p className="mt-2 text-xs text-yellow-100/70">
-              Pay {weeklyTaxCost} Principessa Coins within the daily window. Missing it may reduce affection.
+              Tax amount: {weeklyTaxCost} Principessa Coins. Pay within the daily window. Missing it may reduce affection.
             </p>
             <button
               aria-disabled={weeklyTaxCoolingDown || undefined}

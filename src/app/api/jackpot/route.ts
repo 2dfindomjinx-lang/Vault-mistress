@@ -619,9 +619,7 @@ export async function buildJackpotState(
   const now = new Date();
   const contributionEndsAt = new Date(jackpot.contribution_ends_at).getTime();
   const rawPhase = now.getTime() < contributionEndsAt ? "contribution" : "winner";
-  const phase = rawPhase === "winner" && (jackpot.winner_selected_at || jackpot.skipped_at)
-    ? "preparing"
-    : rawPhase;
+  const phase = rawPhase;
 
   const contributionTotal = await getContributionTotal(supabase, jackpot.id);
   const pool = Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + contributionTotal;
@@ -874,7 +872,22 @@ export async function GET() {
       return Response.json({ jackpot: null });
     }
 
-    const state = await buildJackpotState(supabase, jackpot, userId);
+    const nowMs = Date.now();
+    const contributionEndsMs = new Date(jackpot.contribution_ends_at).getTime();
+    const rawPhase = nowMs < contributionEndsMs ? "contribution" : "winner";
+    const decided = Boolean(jackpot.winner_selected_at || jackpot.skipped_at);
+
+    const activeJackpot =
+      isSupabaseAdminConfigured && rawPhase === "winner" && !decided
+        ? await maybeSelectWinner(
+            supabase,
+            jackpot as JackpotRow,
+            "winner",
+            Number(jackpot.base_pool ?? JACKPOT_BASE_POOL) + (await getContributionTotal(supabase, jackpot.id)),
+          )
+        : jackpot;
+
+    const state = await buildJackpotState(supabase, activeJackpot as JackpotRow, userId);
 
     return Response.json({ jackpot: state });
   } catch (error) {

@@ -1,6 +1,11 @@
 import { LEADERSHIP_RANKS } from "@/lib/leadership";
 
-export type CosmeticType = "speech-avatar" | "username-color" | "username-glow" | "display-name-change";
+export type CosmeticType =
+  | "speech-avatar"
+  | "username-color"
+  | "username-glow"
+  | "display-name-change"
+  | "profile-border";
 
 export type CosmeticItem = {
   id: string;
@@ -11,6 +16,29 @@ export type CosmeticItem = {
   image?: string;
   color?: string;
   glow?: string;
+};
+
+export type SpendBadgeTierId = "bronze" | "silver" | "gold" | "emerald" | "diamond";
+
+export type SpendBadgeTier = {
+  id: SpendBadgeTierId;
+  label: string;
+  minSpentCoins: number;
+  imagePath: string;
+};
+
+export type SpendBadge = {
+  current: SpendBadgeTier;
+  currentLabel: string;
+  currentSpentCoins: number;
+  imagePath: string;
+  isEarned: boolean;
+  next: SpendBadgeTier | null;
+  nextLabel: string | null;
+  nextThreshold: number | null;
+  progress: number;
+  summary: string;
+  tooltip: string;
 };
 
 export type SpeechBubbleMessagePool = {
@@ -6397,6 +6425,67 @@ export const cosmeticItems: CosmeticItem[] = [
     price: 1000,
     image: "/icons/coin.png",
   },
+  {
+    id: "profile-border-animated",
+    name: "Animated Border",
+    description: "A lively animated frame for your profile header avatar.",
+    type: "profile-border",
+    price: 10000,
+    image: "/cosmetics/profile-border/animated-border.png",
+  },
+  {
+    id: "profile-border-rainbow-animated",
+    name: "Rainbow Animated Border",
+    description: "A flashy rainbow frame that keeps moving around your avatar.",
+    type: "profile-border",
+    price: 10000,
+    image: "/cosmetics/profile-border/rainbow-animated-border.png",
+  },
+  {
+    id: "profile-border-popular-pink",
+    name: "Popular Pink Border",
+    description: "A simple solid pink profile header frame.",
+    type: "profile-border",
+    price: 5000,
+    color: "#ec4899",
+    image: "/cosmetics/profile-border/simple-popular-pink.png",
+  },
+  {
+    id: "profile-border-popular-purple",
+    name: "Popular Purple Border",
+    description: "A simple solid purple profile header frame.",
+    type: "profile-border",
+    price: 5000,
+    color: "#a855f7",
+    image: "/cosmetics/profile-border/simple-popular-purple.png",
+  },
+  {
+    id: "profile-border-popular-emerald",
+    name: "Popular Emerald Border",
+    description: "A simple solid emerald profile header frame.",
+    type: "profile-border",
+    price: 5000,
+    color: "#10b981",
+    image: "/cosmetics/profile-border/simple-popular-emerald.png",
+  },
+  {
+    id: "profile-border-popular-gold",
+    name: "Popular Gold Border",
+    description: "A simple solid gold profile header frame.",
+    type: "profile-border",
+    price: 5000,
+    color: "#f59e0b",
+    image: "/cosmetics/profile-border/simple-popular-gold.png",
+  },
+  {
+    id: "profile-border-popular-ice",
+    name: "Popular Ice Border",
+    description: "A simple solid ice-blue profile header frame.",
+    type: "profile-border",
+    price: 5000,
+    color: "#38bdf8",
+    image: "/cosmetics/profile-border/simple-popular-ice.png",
+  },
 ];
 
 ensureSpeechBubbleResponsePlaceholders();
@@ -6511,6 +6600,39 @@ export const titleItems: TitleItem[] = [
   },
 ];
 
+export const spendBadgeTiers: SpendBadgeTier[] = [
+  {
+    id: "bronze",
+    label: "Bronze Badge",
+    minSpentCoins: 10_000,
+    imagePath: "/badges/bronze.png",
+  },
+  {
+    id: "silver",
+    label: "Silver Badge",
+    minSpentCoins: 50_000,
+    imagePath: "/badges/silver.png",
+  },
+  {
+    id: "gold",
+    label: "Gold Badge",
+    minSpentCoins: 150_000,
+    imagePath: "/badges/gold.png",
+  },
+  {
+    id: "emerald",
+    label: "Emerald Badge",
+    minSpentCoins: 500_000,
+    imagePath: "/badges/emerald.png",
+  },
+  {
+    id: "diamond",
+    label: "Diamond Badge",
+    minSpentCoins: 1_000_000,
+    imagePath: "/badges/diamond.png",
+  },
+];
+
 export function getCosmeticItem(id: string) {
   return cosmeticItems.find((item) => item.id === id) ?? null;
 }
@@ -6540,5 +6662,46 @@ export function getUnlockedInventoryTitleIds(inventoryValue: number, hasAllLegen
       return true;
     })
     .map((item) => item.id);
+}
+
+export function getSpendBadge(lifetimeSpentCoins: number): SpendBadge {
+  const spentCoins = Math.max(0, Math.floor(lifetimeSpentCoins));
+  const currentIndex = [...spendBadgeTiers]
+    .reverse()
+    .find((tier) => spentCoins >= tier.minSpentCoins);
+  const currentTier = currentIndex ?? spendBadgeTiers[0];
+  const currentTierIndex = spendBadgeTiers.findIndex((tier) => tier.id === currentTier.id);
+  const nextTier = spendBadgeTiers[currentTierIndex + 1] ?? null;
+  const nextThreshold = nextTier?.minSpentCoins ?? null;
+  const isEarned = spentCoins >= currentTier.minSpentCoins;
+  const progress = nextThreshold
+    ? Math.min(1, Math.max(0, (spentCoins - currentTier.minSpentCoins) / (nextThreshold - currentTier.minSpentCoins)))
+    : 1;
+  const currentSpentCoins = spentCoins;
+  const nextLabel = nextTier ? `${nextTier.label} at ${nextTier.minSpentCoins.toLocaleString()} all time coin spendings` : null;
+  const summary = !isEarned
+    ? `${currentTier.label} · ${spentCoins.toLocaleString()} / ${currentTier.minSpentCoins.toLocaleString()} all time coin spendings`
+    : nextTier
+      ? `${currentTier.label} · ${spentCoins.toLocaleString()} / ${nextTier.minSpentCoins.toLocaleString()} all time coin spendings`
+      : `${currentTier.label} · Max tier reached at ${spentCoins.toLocaleString()} all time coin spendings`;
+  const tooltip = !isEarned
+    ? `${currentTier.label} unlocks at ${currentTier.minSpentCoins.toLocaleString()} all time coin spendings.`
+    : nextTier
+      ? `${currentTier.label} — ${currentTier.minSpentCoins.toLocaleString()}+ all time coin spendings. Next: ${nextTier.label} at ${nextTier.minSpentCoins.toLocaleString()}`
+      : `${currentTier.label} — ${currentTier.minSpentCoins.toLocaleString()}+ all time coin spendings. Highest badge reached.`;
+
+  return {
+    current: currentTier,
+    currentLabel: currentTier.label,
+    currentSpentCoins,
+    imagePath: currentTier.imagePath,
+    isEarned,
+    next: nextTier,
+    nextLabel,
+    nextThreshold,
+    progress,
+    summary,
+    tooltip,
+  };
 }
 

@@ -120,8 +120,15 @@ export async function GET() {
     };
   };
 
-  return Response.json({
-    topTributes: topRows.map(mapTopTributor),
-    tributes: rows.map(mapTribute),
-  });
+  return Response.json(
+    {
+      topTributes: topRows.map(mapTopTributor),
+      tributes: rows.map(mapTribute),
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=15, stale-while-revalidate=60",
+      },
+    },
+  );
 }

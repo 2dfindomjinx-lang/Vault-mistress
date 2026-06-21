@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   coins integer not null default 100,
   affection integer not null default 0,
   tribute_total integer not null default 0,
+  lifetime_spent_coins integer not null default 0,
   shame_count integer not null default 0,
   is_admin boolean not null default false,
   hide_from_leaderboard boolean not null default false,
@@ -34,6 +35,7 @@ alter table public.profiles
   add column if not exists avatar_url text,
   add column if not exists email text,
   add column if not exists tribute_total integer not null default 0,
+  add column if not exists lifetime_spent_coins integer not null default 0,
   add column if not exists shame_count integer not null default 0,
   add column if not exists is_admin boolean not null default false,
   add column if not exists hide_from_leaderboard boolean not null default false,
@@ -363,6 +365,7 @@ begin
     new.coins := 100;
     new.affection := 0;
     new.tribute_total := 0;
+    new.lifetime_spent_coins := 0;
     new.shame_count := 0;
     new.is_admin := false;
     new.hide_from_leaderboard := false;
@@ -389,6 +392,10 @@ begin
 
   if new.tribute_total is distinct from old.tribute_total then
     raise exception 'tribute_total cannot be changed from the client';
+  end if;
+
+  if new.lifetime_spent_coins is distinct from old.lifetime_spent_coins then
+    raise exception 'lifetime_spent_coins cannot be changed from the client';
   end if;
 
   if new.shame_count is distinct from old.shame_count then
@@ -461,6 +468,56 @@ create trigger block_client_coin_transactions_mutations_trigger
   before insert or update or delete on public.coin_transactions
   for each row
   execute function public.block_client_owned_table_mutations();
+
+create or replace function public.apply_lifetime_spent_coins_from_transaction()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.amount >= 0 then
+    return new;
+  end if;
+
+  if new.reason not in (
+    'jackpot_contribution',
+    'spend:cosmetic',
+    'spend:gallery-unlock',
+    'spend:irl-task-wheel',
+    'spend:rights',
+    'spend:title',
+    'spend:pet-weekly-tax',
+    'spend:timeout-clear',
+    'crate:open',
+    'tribute:coin-offer',
+    'tribute:sacrifice',
+    'tribute:support',
+    'tribute:debt-contract',
+    'tribute:debt-contract:auto',
+    'tribute:debt-contract:missed'
+  ) then
+    return new;
+  end if;
+
+  update public.profiles
+  set
+    lifetime_spent_coins = least(
+      2147483647,
+      greatest(0, coalesce(lifetime_spent_coins, 0) + abs(new.amount))
+    ),
+    updated_at = now()
+  where id = new.user_id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists apply_lifetime_spent_coins_from_transaction_trigger on public.coin_transactions;
+create trigger apply_lifetime_spent_coins_from_transaction_trigger
+  after insert on public.coin_transactions
+  for each row
+  execute function public.apply_lifetime_spent_coins_from_transaction();
 
 drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile"
@@ -1108,8 +1165,9 @@ begin
   end if;
 
   new_user_level := previous_user_level - 1;
-  level_value := public.user_level_value(previous_user_level);
-  transfer_xp := floor(level_value * 0.25);
+  -- Use the exact XP required for this level, not the coarse tier bucket.
+  level_value := public.user_level_floor_xp(previous_user_level + 1) - public.user_level_floor_xp(previous_user_level);
+  transfer_xp := greatest(1, floor(level_value * 0.25));
 
   select * into progress_row
   from public.global_principessa_progress

@@ -41,14 +41,21 @@ export async function GET() {
 
   const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
-  return Response.json({
-    shame: profiles.map((profile) => ({
-      shameCount: Number(profile.shame_count ?? 0),
-      username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
-      rawUsername: profile.username,
-      displayName: profile.display_name ?? null,
-      display_name: profile.display_name ?? null,
-      usernameStyle: usernameStyles.get(String(profile.id)),
-    })),
-  });
+  return Response.json(
+    {
+      shame: profiles.map((profile) => ({
+        shameCount: Number(profile.shame_count ?? 0),
+        username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
+        rawUsername: profile.username,
+        displayName: profile.display_name ?? null,
+        display_name: profile.display_name ?? null,
+        usernameStyle: usernameStyles.get(String(profile.id)),
+      })),
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      },
+    },
+  );
 }

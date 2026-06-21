@@ -1,10 +1,11 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
+import type { CrateRarity } from "@/lib/crates";
 
 export type RecentTribute = {
   id: string;
@@ -25,6 +26,24 @@ export type TopInventory = {
   avatarUrl: string | null;
   value: number;
   usernameStyle?: CSSProperties;
+};
+
+type RecentCaseOpening = {
+  id: string;
+  crateName: string;
+  itemId: string;
+  itemName: string;
+  itemRarity: CrateRarity | "unknown";
+  itemChancePercent: number | null;
+  itemSellValue: number | null;
+  itemImageUrl: string | null;
+  openedAt: string;
+};
+
+type RecentCaseOpener = {
+  id: string;
+  lastOpenedAt: string;
+  recentOpenings: RecentCaseOpening[];
 };
 
 function getRelativeTime(createdAt: string) {
@@ -72,6 +91,38 @@ function getGlowClass(amount: number) {
   return "border-white/10 bg-white/[0.05] shadow-[0_0_10px_rgba(255,255,255,0.06)]";
 }
 
+function getRarityGlowClass(rarity: CrateRarity | "unknown") {
+  switch (rarity) {
+    case "legendary":
+      return "border-amber-300/70 bg-[linear-gradient(145deg,rgba(120,53,15,0.86),rgba(245,158,11,0.26),rgba(0,0,0,0.74))] shadow-[0_0_28px_rgba(245,158,11,0.28)]";
+    case "epic":
+      return "border-violet-300/65 bg-[linear-gradient(145deg,rgba(88,28,135,0.86),rgba(168,85,247,0.22),rgba(0,0,0,0.74))] shadow-[0_0_24px_rgba(168,85,247,0.24)]";
+    case "rare":
+      return "border-sky-300/65 bg-[linear-gradient(145deg,rgba(12,74,110,0.86),rgba(56,189,248,0.18),rgba(0,0,0,0.74))] shadow-[0_0_22px_rgba(56,189,248,0.22)]";
+    case "uncommon":
+      return "border-emerald-300/60 bg-[linear-gradient(145deg,rgba(6,78,59,0.86),rgba(16,185,129,0.18),rgba(0,0,0,0.74))] shadow-[0_0_20px_rgba(16,185,129,0.18)]";
+    case "common":
+    default:
+      return "border-fuchsia-300/45 bg-[linear-gradient(145deg,rgba(88,28,65,0.92),rgba(168,85,247,0.16),rgba(0,0,0,0.72))] shadow-[0_0_18px_rgba(236,72,153,0.16)]";
+  }
+}
+
+function getRarityLabelClass(rarity: CrateRarity | "unknown") {
+  switch (rarity) {
+    case "legendary":
+      return "text-amber-100";
+    case "epic":
+      return "text-violet-100";
+    case "rare":
+      return "text-sky-100";
+    case "uncommon":
+      return "text-emerald-100";
+    case "common":
+    default:
+      return "text-fuchsia-100";
+  }
+}
+
 export function RecentTributesTicker({
   currentUsername,
   usernameStyle,
@@ -85,6 +136,8 @@ export function RecentTributesTicker({
   tributes: RecentTribute[];
   topValuableInventories?: TopInventory[];
 }) {
+  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpening[]>([]);
+  const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
   const visibleTributes = useMemo(() => {
     // Simple rule for Recent Tributes section: always show the 5 most recent
     // (newest first). When a new tribute record arrives (new coin_transaction),
@@ -96,6 +149,45 @@ export function RecentTributesTicker({
       .slice(0, 5);
   }, [tributes]);
   const displayTributes = visibleTributes;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRecentCaseOpenings = async () => {
+      try {
+        const response = await fetch("/api/recent-case-openings");
+        const payload = (await response.json()) as {
+          error?: string;
+          openers?: RecentCaseOpener[];
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Recent openings could not be loaded.");
+        }
+
+        const flattened = (payload.openers ?? [])
+          .flatMap((opener) => opener.recentOpenings ?? [])
+          .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
+          .slice(0, 12);
+
+        if (mounted) {
+          setRecentCaseOpenings(flattened);
+          setRecentCaseOpeningsError("");
+        }
+      } catch (error) {
+        if (mounted) {
+          setRecentCaseOpenings([]);
+          setRecentCaseOpeningsError(error instanceof Error ? error.message : "Recent openings could not be loaded.");
+        }
+      }
+    };
+
+    void loadRecentCaseOpenings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section className="space-y-3">
@@ -173,6 +265,58 @@ export function RecentTributesTicker({
           </div>
         </div>
       )}
+      <div className="rounded-[1.35rem] border border-white/10 bg-black/35 px-3 py-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-200/80">
+            Recent Openings
+          </p>
+          <p className="text-xs text-zinc-500">
+            Latest case results in the vault
+          </p>
+        </div>
+        {recentCaseOpeningsError ? (
+          <p className="mt-3 rounded-2xl border border-rose-200/15 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+            {recentCaseOpeningsError}
+          </p>
+        ) : recentCaseOpenings.length > 0 ? (
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {recentCaseOpenings.map((opening) => (
+              <article
+                className={`group flex min-w-[118px] max-w-[118px] shrink-0 flex-col gap-2 rounded-2xl border p-2 transition-transform duration-200 hover:-translate-y-0.5 ${getRarityGlowClass(opening.itemRarity)}`}
+                key={opening.id}
+              >
+                <div className="flex h-[78px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
+                  {opening.itemImageUrl ? (
+                    // Static crate item images are local and can be rendered with a plain img for simplicity.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt={opening.itemName}
+                      className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] transition-transform duration-200 group-hover:scale-105"
+                      src={opening.itemImageUrl}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-3xl text-white/70">
+                      📦
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-black text-white">
+                    {opening.itemName}
+                  </p>
+                  <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${getRarityLabelClass(opening.itemRarity)}`}>
+                    {opening.itemRarity}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-zinc-400">
+            No recent openings yet.
+          </p>
+        )}
+      </div>
     </section>
   );
 }

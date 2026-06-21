@@ -100,8 +100,9 @@ export async function GET() {
     };
   });
 
-  return Response.json({
-    leaders: leaders
+  return Response.json(
+    {
+      leaders: leaders
       .map((profile) => {
         const tributeTotal = Number(profile.tribute_total ?? 0);
 
@@ -133,6 +134,12 @@ export async function GET() {
         display_name: leader.displayName ?? null,
         usernameStyle: usernameStyles.get(leader.id),
       })),
-    topInventories,
-  });
+      topInventories,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      },
+    },
+  );
 }

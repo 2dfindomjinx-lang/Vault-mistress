@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { CosmeticItem, TitleItem } from "@/lib/cosmetics";
 import { CoinAmount } from "@/components/CoinAmount";
 
@@ -36,6 +37,7 @@ export function CosmeticShop({
     [...items].sort((a, b) => a.price - b.price);
   const groupedItems = {
     "speech-avatar": sortByPrice(shopItems.filter((item) => item.type === "speech-avatar")),
+    "profile-border": sortByPrice(shopItems.filter((item) => item.type === "profile-border")),
   };
   const usernameColorItems = sortByPrice(shopItems.filter((item) => item.type === "username-color"));
   const usernameGlowItems = sortByPrice(shopItems.filter((item) => item.type === "username-glow"));
@@ -67,6 +69,17 @@ export function CosmeticShop({
           }`}
           key={item.id}
         >
+          {item.image && (
+            <div className="mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/35">
+              <Image
+                alt={item.name}
+                className="h-11 w-11 object-contain"
+                height={44}
+                src={item.image}
+                width={44}
+              />
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p
@@ -80,17 +93,30 @@ export function CosmeticShop({
               </p>
               <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
             </div>
-            <span
-              className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
-                equipped
-                  ? "border-pink-200/35 bg-pink-500/15 text-pink-50"
-                  : owned
-                    ? "border-emerald-200/25 bg-emerald-400/10 text-emerald-100"
-                    : "border-white/10 bg-black/35 text-zinc-400"
-              }`}
-            >
-              {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
-            </span>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <span
+                className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+                  equipped
+                    ? "border-pink-200/35 bg-pink-500/15 text-pink-50"
+                    : owned
+                      ? "border-emerald-200/25 bg-emerald-400/10 text-emerald-100"
+                      : "border-white/10 bg-black/35 text-zinc-400"
+                }`}
+              >
+                {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
+              </span>
+              {item.type === "speech-avatar" && item.image && (
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[0_0_18px_rgba(0,0,0,0.25)]">
+                  <Image
+                    alt={item.name}
+                    className="h-7 w-7 object-contain"
+                    height={28}
+                    src={item.image}
+                    width={28}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-4 flex items-center justify-between gap-3">
             {item.price > 0 && !owned && (
@@ -141,13 +167,13 @@ export function CosmeticShop({
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-400">
         Cosmetic purchases personalize your profile and speech bubble. They never increase Tribute
-        Total.
+        Total, and they also build your all time coin spendings badge progress.
       </p>
 
       {Object.entries(groupedItems).map(([type, items]) => (
         <div className="mt-6" key={type}>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">
-            Speech Bubble Avatars
+            {type === "speech-avatar" ? "Speech Bubble Avatars" : "Profile Header Borders"}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {renderCosmeticCards(items)}

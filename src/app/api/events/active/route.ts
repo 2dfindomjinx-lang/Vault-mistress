@@ -52,8 +52,15 @@ export async function GET() {
 
   const currentActiveEvents = (activeEvents ?? []).map((event) => toRandomEvent(event as EventRow));
 
-  return Response.json({
-    event: currentActiveEvents[0] ?? null,
-    events: currentActiveEvents,
-  });
+  return Response.json(
+    {
+      event: currentActiveEvents[0] ?? null,
+      events: currentActiveEvents,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=15, stale-while-revalidate=60",
+      },
+    },
+  );
 }

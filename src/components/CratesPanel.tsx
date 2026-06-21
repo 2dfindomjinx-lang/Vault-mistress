@@ -794,10 +794,22 @@ export function CratesPanel({
                         <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{crate.description}</p>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-pink-100/70">Cost</div>
-                        <div className="font-black text-pink-200">
-                          {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={13} />}
+                        <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
+                          <span>{currentQty > 1 ? "Total cost" : "Cost"}</span>
+                          {currentQty > 1 && (
+                            <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-pink-100/80">
+                              x{currentQty}
+                            </span>
+                          )}
                         </div>
+                        <div className="font-black text-pink-200">
+                          {batchCost === 0 ? "FREE" : <CoinAmount amount={batchCost} iconSize={13} />}
+                        </div>
+                        {currentQty > 1 && (
+                          <div className="mt-0.5 text-[10px] font-semibold text-pink-100/60">
+                            Each: {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={11} />}
+                          </div>
+                        )}
                         {freeOpenAvailable && (
                           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
                             Free open today
