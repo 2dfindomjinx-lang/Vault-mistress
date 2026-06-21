@@ -34,6 +34,7 @@ type ProfileHeaderProps = {
   hasDisplayNameChangeRight?: boolean;
   isEditingDisplayName?: boolean;
   displayNameEditInput?: string;
+  isDisplayNameSaveDisabled?: boolean;
   onStartDisplayNameEdit?: () => void;
   onSaveDisplayNameEdit?: () => void;
   onCancelDisplayNameEdit?: () => void;
@@ -59,6 +60,7 @@ export function ProfileHeader({
   hasDisplayNameChangeRight = false,
   isEditingDisplayName = false,
   displayNameEditInput = "",
+  isDisplayNameSaveDisabled = false,
   onStartDisplayNameEdit,
   onSaveDisplayNameEdit,
   onCancelDisplayNameEdit,
@@ -167,7 +169,8 @@ export function ProfileHeader({
                   <div className="flex flex-wrap gap-2 text-sm">
                     <button
                       onClick={onSaveDisplayNameEdit}
-                      className="rounded-full bg-pink-500 px-4 py-2 font-black text-black transition hover:bg-pink-400"
+                      disabled={isDisplayNameSaveDisabled}
+                      className="rounded-full bg-pink-500 px-4 py-2 font-black text-black transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:bg-pink-500/35 disabled:text-black/60"
                       type="button"
                     >
                       Save

@@ -149,6 +149,11 @@ export type PetTaskItem = {
   falseHopeStage?: number;
   falseHopeExpectedKey?: "a" | "d";
   falseHopeWrongInputs?: number;
+  lastResult?: string | null;
+  resultBaseNumber?: number;
+  resultCoinDelta?: number;
+  resultNumber?: number;
+  resultOutcome?: "win" | "loss" | "tie";
   debtContract?: PetDebtContract | null;
   favorPickedIndex?: number | null;
   favorResult?: "win" | "loss" | "empty-day" | null;

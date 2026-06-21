@@ -419,13 +419,6 @@ const petTasks: PetTaskItem[] = [
     kind: "perfect-writing",
   },
   {
-    id: "case-opening",
-    title: "Case Opening",
-    description: "Open a luxury case and let the vault decide your random coin reward.",
-    reward: 0,
-    kind: "case-open",
-  },
-  {
     id: "pet-evil-wait",
     title: "Evil Wait Obediently",
     description: "After a 3 second countdown, do nothing for 2 minutes while distractions appear.",
@@ -550,14 +543,6 @@ const startingTasks: TaskItem[] = [
     claimed: false,
     kind: "typing",
     attemptsRemaining: 3,
-  },
-  {
-    id: "case-opening",
-    title: "Case Opening",
-    reward: 0,
-    completed: false,
-    claimed: false,
-    kind: "case-open",
   },
   {
     id: "number-pick",
@@ -1996,12 +1981,12 @@ export default function Home() {
   };
   const avatarFrameClassName =
     equippedProfileBorder?.id === "profile-border-rainbow-animated"
-      ? "bg-[conic-gradient(from_180deg_at_50%_50%,#ec4899_0deg,#a855f7_60deg,#22d3ee_120deg,#10b981_180deg,#f59e0b_240deg,#f43f5e_300deg,#ec4899_360deg)] animate-spin"
+      ? "profile-border-frame profile-border-frame--rainbow"
       : equippedProfileBorder?.id === "profile-border-animated"
-        ? "bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.95),rgba(236,72,153,0.95)_28%,rgba(168,85,247,0.92)_58%,rgba(0,0,0,0)_78%)] animate-pulse"
+        ? "profile-border-frame profile-border-frame--runner"
         : equippedProfileBorder?.color
-          ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))]"
-          : "bg-white/10";
+          ? "profile-border-frame"
+          : "profile-border-frame";
   const avatarFrameStyle = equippedProfileBorder?.color
     ? {
         backgroundColor: equippedProfileBorder.color,
@@ -7775,7 +7760,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const actionId = "case-opening";
-    const task = tasks.find((entry) => entry.id === "case-opening");
+    const task = tasks.find((entry) => entry.id === "case-opening") ?? startingTasks.find((entry) => entry.id === "case-opening");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
@@ -8763,7 +8748,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const requiresDisplayNameSetup = Boolean(authUserId) && !isGuestMode && !isPreviewMode && !effectiveDisplayName;
 
   const performDisplayNameUpdate = async (rawInput: string, { forceFree = false }: { forceFree?: boolean } = {}) => {
-    const validation = validateDisplayName(rawInput);
+    const validation = validateDisplayName(rawInput, {
+      allowExactPrincipessa: isAdminUser,
+    });
     if (!validation.valid || !validation.normalized) {
       setDisplayNameError(validation.error ?? "Invalid display name.");
       return false;
@@ -8804,7 +8791,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAvatarMistressReply(
         wasFirst
           ? "Display name set. Welcome."
-          : "Display name changed. 1000 coins spent."
+          : "Display name changed. 2500 coins spent."
       );
       return true;
     } catch (err) {
@@ -8826,9 +8813,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleSaveDisplayNameChange = async () => {
     if (!hasDisplayNameChangeRight || !authUserId) return;
-    const validation = validateDisplayName(displayNameEditInput);
+    const validation = validateDisplayName(displayNameEditInput, {
+      allowExactPrincipessa: isAdminUser,
+    });
     if (!validation.valid || !validation.normalized) {
       setDisplayNameError(validation.error || "Invalid display name.");
+      return;
+    }
+    const currentDisplayNameNormalized = effectiveDisplayName?.trim().toLowerCase() ?? "";
+    if (currentDisplayNameNormalized && validation.normalized.toLowerCase() === currentDisplayNameNormalized) {
+      setDisplayNameError("Please choose a different display name.");
       return;
     }
     setIsSettingDisplayName(true);
@@ -8882,6 +8876,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
             { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
           ];
+  const displayNameEditValidation = validateDisplayName(displayNameEditInput, {
+    allowExactPrincipessa: isAdminUser,
+  });
+  const currentDisplayNameNormalized = effectiveDisplayName?.trim().toLowerCase() ?? "";
+  const canSaveDisplayNameEdit =
+    displayNameEditValidation.valid &&
+    !!displayNameEditValidation.normalized &&
+    (!currentDisplayNameNormalized ||
+      displayNameEditValidation.normalized.toLowerCase() !== currentDisplayNameNormalized);
   const headerActions = (
     <>
       <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
@@ -9023,6 +9026,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           hasDisplayNameChangeRight={hasDisplayNameChangeRight}
           isEditingDisplayName={isEditingDisplayName}
           displayNameEditInput={displayNameEditInput}
+          isDisplayNameSaveDisabled={isSettingDisplayName || !canSaveDisplayNameEdit}
           onStartDisplayNameEdit={() => {
             setDisplayNameEditInput(effectiveDisplayName ?? "");
             setIsEditingDisplayName(true);

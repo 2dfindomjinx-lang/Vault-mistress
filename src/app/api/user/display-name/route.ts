@@ -1,4 +1,5 @@
 import { validateDisplayName } from "@/lib/supabase/client";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -32,7 +33,9 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as Body | null;
-  const validation = validateDisplayName(body?.displayName);
+  const validation = validateDisplayName(body?.displayName, {
+    allowExactPrincipessa: isTrustedAdminUserId(authData.user.id),
+  });
 
   if (!validation.valid || !validation.normalized) {
     return jsonError(validation.error ?? "Invalid display name.", 400);
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
   const currentDisplay = (profile.display_name ?? "").trim();
   const isFirstSetup = currentDisplay.length === 0;
 
-  const cost = isFirstSetup ? 0 : 1000;
+  const cost = isFirstSetup ? 0 : 2500;
   const previousCoins = Number(profile.coins ?? 0);
 
   if (cost > 0 && previousCoins < cost) {

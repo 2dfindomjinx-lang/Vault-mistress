@@ -113,12 +113,14 @@ export function CosmeticShop({
               </span>
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-4 flex items-center justify-end gap-3">
             {item.price > 0 && !owned && (
-              <CoinAmount amount={item.price} iconSize={16} label="" />
+              <div className="shrink-0">
+                <CoinAmount amount={item.price} iconSize={16} label="" />
+              </div>
             )}
             <button
-              className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-w-[8.5rem] rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={disabled || pending || equipped || (isDisplayNameChange ? displayChangeOwned : (!owned && !canAfford))}
               onClick={() => {
                 if (isDisplayNameChange && owned) return;

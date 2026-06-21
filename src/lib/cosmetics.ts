@@ -6422,7 +6422,7 @@ export const cosmeticItems: CosmeticItem[] = [
     name: "Display Name Change",
     description: "Change your public-facing display name. @username stays your permanent identity.",
     type: "display-name-change",
-    price: 1000,
+    price: 2500,
     image: "/icons/coin.png",
   },
   {

@@ -246,3 +246,114 @@ button:disabled {
     principessaSparkleDrift 16s linear infinite,
     principessaSparkleTwinkle 6.5s ease-in-out infinite;
 }
+
+@keyframes profileBorderRunner {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.profile-border-frame {
+  isolation: isolate;
+  overflow: hidden;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.profile-border-frame::before,
+.profile-border-frame::after {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 3px;
+  transform: translateZ(0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.profile-border-frame--runner::before,
+.profile-border-frame--runner::after {
+  background-image: conic-gradient(
+    from 0deg,
+    transparent 0deg 72deg,
+    rgba(255, 255, 255, 0.08) 76deg,
+    rgba(255, 255, 255, 0.95) 80deg,
+    rgba(255, 255, 255, 0.2) 84deg,
+    transparent 90deg 360deg
+  );
+  animation: profileBorderRunner 5.8s linear infinite;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.35))
+    drop-shadow(0 0 16px rgba(236, 72, 153, 0.25));
+}
+
+.profile-border-frame--runner::before {
+  opacity: 0.95;
+}
+
+.profile-border-frame--runner::after {
+  animation-delay: -2.9s;
+  opacity: 0.72;
+  filter:
+    blur(0.8px)
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))
+    drop-shadow(0 0 18px rgba(236, 72, 153, 0.16));
+}
+
+.profile-border-frame--rainbow {
+  background: conic-gradient(
+    from 180deg,
+    rgba(236, 72, 153, 0.24) 0deg,
+    rgba(168, 85, 247, 0.24) 60deg,
+    rgba(34, 211, 238, 0.24) 120deg,
+    rgba(16, 185, 129, 0.24) 180deg,
+    rgba(245, 158, 11, 0.24) 240deg,
+    rgba(244, 63, 94, 0.24) 300deg,
+    rgba(236, 72, 153, 0.24) 360deg
+  );
+}
+
+.profile-border-frame--rainbow::before,
+.profile-border-frame--rainbow::after {
+  background-image: conic-gradient(
+    from 0deg,
+    transparent 0deg 71deg,
+    rgba(236, 72, 153, 0.3) 76deg,
+    rgba(168, 85, 247, 0.88) 80deg,
+    rgba(34, 211, 238, 0.92) 84deg,
+    rgba(16, 185, 129, 0.84) 88deg,
+    rgba(245, 158, 11, 0.72) 92deg,
+    transparent 96deg 360deg
+  );
+  animation: profileBorderRunner 5.8s linear infinite;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.28))
+    drop-shadow(0 0 18px rgba(236, 72, 153, 0.2))
+    drop-shadow(0 0 20px rgba(34, 211, 238, 0.18));
+}
+
+.profile-border-frame--rainbow::after {
+  animation-delay: -2.9s;
+  opacity: 0.68;
+  filter:
+    blur(1px)
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 0 18px rgba(168, 85, 247, 0.16));
+}

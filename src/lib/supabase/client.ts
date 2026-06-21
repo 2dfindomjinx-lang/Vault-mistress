@@ -94,7 +94,14 @@ export type DisplayNameValidation = {
   error?: string;
 };
 
-export function validateDisplayName(raw: string | null | undefined): DisplayNameValidation {
+type DisplayNameValidationOptions = {
+  allowExactPrincipessa?: boolean;
+};
+
+export function validateDisplayName(
+  raw: string | null | undefined,
+  options: DisplayNameValidationOptions = {},
+): DisplayNameValidation {
   if (!raw || typeof raw !== "string") {
     return { valid: false, error: "Display name is required." };
   }
@@ -111,6 +118,12 @@ export function validateDisplayName(raw: string | null | undefined): DisplayName
   // Block control chars, line breaks, nulls
   if (/[\x00-\x1F\x7F]/.test(raw)) {
     return { valid: false, error: "Display name cannot contain line breaks or control characters." };
+  }
+  if (!options.allowExactPrincipessa && trimmed.toLowerCase() === "principessa") {
+    return {
+      valid: false,
+      error: "Only the admin UUID account can use Principessa as the exact display name.",
+    };
   }
   return { valid: true, normalized: trimmed };
 }
