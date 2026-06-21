@@ -81,6 +81,17 @@ type AdminEvent = RandomEvent & {
   created_at?: string;
 };
 
+type AdminAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  active: boolean;
+  starts_at: string;
+  ends_at: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
 type CaseOpening = {
   id: string;
   crateName: string;
@@ -156,15 +167,22 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<
-    "console" | "caseOpeners" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "evilDebt" | "events"
+    "console" | "caseOpeners" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "events" | "announcements"
   >("console");
+  const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil">("normal");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
   const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
   const [expandedEvilDebtId, setExpandedEvilDebtId] = useState<string | null>(null);
   const [previewDebtImage, setPreviewDebtImage] = useState<string | null>(null);
   const [events, setEvents] = useState<AdminEvent[]>([]);
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
+  const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
+  const [announcementBody, setAnnouncementBody] = useState(
+    "Higher or Lower and Case Opening have swapped places. Please check the new task positions before playing.",
+  );
+  const [announcementDays, setAnnouncementDays] = useState("3");
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
   const [caseOpeners, setCaseOpeners] = useState<CaseOpener[]>([]);
@@ -407,6 +425,35 @@ export default function AdminPage() {
     }
   };
 
+  const loadAnnouncements = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/announcements", { cache: "no-store" });
+      const result = (await response.json()) as {
+        announcements?: AdminAnnouncement[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Announcement list failed.");
+      }
+
+      setAnnouncements(result.announcements ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Announcement list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const renderEventCard = (event: AdminEvent) => {
     const isExpired = new Date(event.ends_at).getTime() <= adminNow;
     const eventStatus = getEventAdminStatus(event, adminNow);
@@ -508,6 +555,46 @@ export default function AdminPage() {
       await loadEvents({ keepStatus: true });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Event action failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleAnnouncementAction = async (
+    action: "create" | "end",
+    announcementId?: string,
+  ) => {
+    if (!isAdmin) {
+      setStatus("Admin access required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/announcements", {
+        body: JSON.stringify({
+          action,
+          announcementId,
+          body: action === "create" ? announcementBody : undefined,
+          days: action === "create" ? announcementDays : undefined,
+          title: action === "create" ? announcementTitle : undefined,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Announcement action failed.");
+      }
+
+      setStatus(action === "create" ? "Announcement published." : "Announcement ended.");
+      setDefneMessage("Announcement ledger updated.");
+      await loadAnnouncements({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Announcement action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -632,6 +719,7 @@ export default function AdminPage() {
       void loadCaseOpeners({ keepStatus: true });
       void loadDebtContracts({ keepStatus: true });
       void loadEvents({ keepStatus: true });
+      void loadAnnouncements({ keepStatus: true });
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -901,17 +989,17 @@ export default function AdminPage() {
 
         <div className="mt-6">
           <div className="flex flex-wrap gap-2">
-            {([
-              ["console", "Command Console"],
-              ["caseOpeners", "Case Openers"],
-              ["irlTasks", "IRL Tasks"],
-              ["petTasks", "Pet Tasks"],
-              ["debt", "Debt"],
-              ["evilDebt", "Evil Debt"],
-              ["events", "Events"],
-              ["timeouts", "Active Timeouts"],
-              ["maxAffection", "100 Affection"],
-            ] as const).map(([key, label]) => (
+              {([
+                ["console", "Command Console"],
+                ["caseOpeners", "Case Openers"],
+                ["irlTasks", "IRL Tasks"],
+                ["petTasks", "Pet Tasks"],
+                ["debt", "Debt"],
+                ["events", "Events"],
+                ["announcements", "Announcements"],
+                ["timeouts", "Active Timeouts"],
+                ["maxAffection", "100 Affection"],
+              ] as const).map(([key, label]) => (
               <button
                 className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
                   activeTab === key
@@ -930,11 +1018,14 @@ export default function AdminPage() {
                   if (key === "petTasks") {
                     void loadPetTasks();
                   }
-                  if (key === "debt" || key === "evilDebt") {
+                  if (key === "debt") {
                     void loadDebtContracts();
                   }
                   if (key === "events") {
                     void loadEvents();
+                  }
+                  if (key === "announcements") {
+                    void loadAnnouncements();
                   }
                   if (key === "timeouts") {
                     void loadTimeouts();
@@ -1304,183 +1395,189 @@ export default function AdminPage() {
                     Debt Contracts
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Active and expired Pet debt schedules.
+                    Switch between normal and evil debts without leaving this section.
                   </p>
                 </div>
-                <button
-                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
-                  disabled={isBusy}
-                  onClick={() => void loadDebtContracts()}
-                  type="button"
-                >
-                  Refresh
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    className={`rounded-full px-3 py-1 text-xs font-black transition ${
+                      debtSubTab === "normal"
+                        ? "bg-red-500/20 text-red-50"
+                        : "border border-white/10 bg-white/[0.05] text-zinc-200"
+                    }`}
+                    disabled={isBusy}
+                    onClick={() => setDebtSubTab("normal")}
+                    type="button"
+                  >
+                    Normal Debts
+                  </button>
+                  <button
+                    className={`rounded-full px-3 py-1 text-xs font-black transition ${
+                      debtSubTab === "evil"
+                        ? "bg-red-500/20 text-red-50"
+                        : "border border-white/10 bg-white/[0.05] text-zinc-200"
+                    }`}
+                    disabled={isBusy}
+                    onClick={() => setDebtSubTab("evil")}
+                    type="button"
+                  >
+                    Evil Debts
+                  </button>
+                  <button
+                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                    disabled={isBusy}
+                    onClick={() => void loadDebtContracts()}
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
-                <div className="grid gap-3">
-                  {debtContracts.filter((contract) => (contract.contract_type ?? "normal") !== "evil").length > 0 ? (
-                    debtContracts.filter((contract) => (contract.contract_type ?? "normal") !== "evil").map((contract) => (
-                      <article
-                        className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
-                        key={contract.id}
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-black text-white">
-                              {contract.username} - {contract.pet_name}
-                            </p>
-                            <p className="mt-1 text-sm text-red-50">
-                              {contract.period_type} / {contract.debt_amount.toLocaleString()} coins
-                            </p>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              Duration {contract.duration_periods} periods - paid {contract.paid_periods} - missed {contract.missed_periods}
-                            </p>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-                            {contract.random_generated && (
-                              <span className="rounded-full border border-yellow-200/30 bg-yellow-400/10 px-3 py-1 text-xs font-black uppercase text-yellow-50">
-                                Random
-                              </span>
-                            )}
-                            <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
-                              {contract.status}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                            disabled={isBusy}
-                            onClick={() => void handleRemoveDebtContract(contract.id)}
-                            type="button"
+                {debtSubTab === "normal" ? (
+                  <div className="grid gap-3">
+                    {debtContracts.filter((contract) => (contract.contract_type ?? "normal") !== "evil").length > 0 ? (
+                      debtContracts
+                        .filter((contract) => (contract.contract_type ?? "normal") !== "evil")
+                        .map((contract) => (
+                          <article
+                            className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
+                            key={contract.id}
                           >
-                            Remove Debt
-                          </button>
-                        </div>
-                      </article>
-                    ))
-                  ) : (
-                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
-                      No debt contracts yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "evilDebt" && (
-            <div className="mt-4 rounded-[1.5rem] border border-red-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(220,38,38,0.08)]">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">
-                    Evil Debt Contracts
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Separate Evil Debt submissions with consent details and image proofs.
-                  </p>
-                </div>
-                <button
-                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
-                  disabled={isBusy}
-                  onClick={() => void loadDebtContracts()}
-                  type="button"
-                >
-                  Refresh
-                </button>
-              </div>
-              <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
-                <div className="grid gap-2">
-                  {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
-                    debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
-                      const expanded = expandedEvilDebtId === contract.id;
-
-                      return (
-                        <article
-                          className="rounded-2xl border border-red-200/15 bg-black/35 p-3"
-                          key={contract.id}
-                        >
-                          <button
-                            className="grid w-full gap-2 text-left text-sm sm:grid-cols-[1.3fr_1fr_1fr_auto]"
-                            onClick={() => setExpandedEvilDebtId(expanded ? null : contract.id)}
-                            type="button"
-                          >
-                            <span className="font-black text-white">{contract.username}</span>
-                            <span className="text-red-50">{contract.full_name ?? "No name"}</span>
-                            <span className="text-zinc-300">
-                              {contract.debt_amount.toLocaleString()} / {contract.period_type}
-                            </span>
-                            <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
-                              {contract.status}
-                            </span>
-                          </button>
-                          {expanded && (
-                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
-                              <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
-                                <span>Full name: {contract.full_name ?? "-"}</span>
-                                <span>Age: {contract.declared_age ?? "-"}</span>
-                                <span>Username: {contract.username}</span>
-                                <span>User id: {contract.user_id}</span>
-                                <span>Timezone: {contract.timezone ?? "-"}</span>
-                                <span>Custom note: {contract.custom_note ?? "-"}</span>
-                                <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
-                                <span>Duration: {contract.duration_periods}</span>
-                                <span>Frequency: {contract.period_type}</span>
-                                <span>Status: {contract.status}</span>
-                                <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
-                                <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
-                                <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-sm font-black text-white">
+                                  {contract.username} - {contract.pet_name}
+                                </p>
+                                <p className="mt-1 text-sm text-red-50">
+                                  {contract.period_type} / {contract.debt_amount.toLocaleString()} coins
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  Duration {contract.duration_periods} periods - paid {contract.paid_periods} - missed {contract.missed_periods}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
+                                </p>
                               </div>
-                              <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
-                                {(contract.image_urls ?? []).map((imageUrl, index) => (
-                                  <button
-                                    className="overflow-hidden rounded-xl border border-red-200/15 bg-black"
-                                    key={`${contract.id}-${index}`}
-                                    onClick={() => setPreviewDebtImage(imageUrl)}
-                                    type="button"
-                                  >
-                                    <img
-                                      alt={`Evil debt upload ${index + 1}`}
-                                      className="aspect-square w-full object-cover"
-                                      src={imageUrl}
-                                    />
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="mt-3 flex flex-wrap justify-end gap-2">
-                                {contract.status === "pending" && (
-                                  <button
-                                    className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                                    disabled={isBusy}
-                                    onClick={() => void handleApproveEvilDebtContract(contract.id)}
-                                    type="button"
-                                  >
-                                    Approve Evil Debt
-                                  </button>
+                              <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
+                                {contract.random_generated && (
+                                  <span className="rounded-full border border-yellow-200/30 bg-yellow-400/10 px-3 py-1 text-xs font-black uppercase text-yellow-50">
+                                    Random
+                                  </span>
                                 )}
-                                <button
-                                  className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                                  disabled={isBusy}
-                                  onClick={() => void handleRemoveDebtContract(contract.id)}
-                                  type="button"
-                                >
-                                  Remove Evil Debt
-                                </button>
+                                <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                                  {contract.status}
+                                </span>
                               </div>
                             </div>
-                          )}
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
-                      No Evil Debt Contracts yet.
-                    </p>
-                  )}
-                </div>
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={isBusy}
+                                onClick={() => void handleRemoveDebtContract(contract.id)}
+                                type="button"
+                              >
+                                Remove Debt
+                              </button>
+                            </div>
+                          </article>
+                        ))
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                        No debt contracts yet.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid gap-2">
+                    {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
+                      debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
+                        const expanded = expandedEvilDebtId === contract.id;
+
+                        return (
+                          <article
+                            className="rounded-2xl border border-red-200/15 bg-black/35 p-3"
+                            key={contract.id}
+                          >
+                            <button
+                              className="grid w-full gap-2 text-left text-sm sm:grid-cols-[1.3fr_1fr_1fr_auto]"
+                              onClick={() => setExpandedEvilDebtId(expanded ? null : contract.id)}
+                              type="button"
+                            >
+                              <span className="font-black text-white">{contract.username}</span>
+                              <span className="text-red-50">{contract.full_name ?? "No name"}</span>
+                              <span className="text-zinc-300">
+                                {contract.debt_amount.toLocaleString()} / {contract.period_type}
+                              </span>
+                              <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                                {contract.status}
+                              </span>
+                            </button>
+                            {expanded && (
+                              <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                                <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                                  <span>Full name: {contract.full_name ?? "-"}</span>
+                                  <span>Age: {contract.declared_age ?? "-"}</span>
+                                  <span>Username: {contract.username}</span>
+                                  <span>User id: {contract.user_id}</span>
+                                  <span>Timezone: {contract.timezone ?? "-"}</span>
+                                  <span>Custom note: {contract.custom_note ?? "-"}</span>
+                                  <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
+                                  <span>Duration: {contract.duration_periods}</span>
+                                  <span>Frequency: {contract.period_type}</span>
+                                  <span>Status: {contract.status}</span>
+                                  <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
+                                  <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
+                                  <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
+                                </div>
+                                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                  {(contract.image_urls ?? []).map((imageUrl, index) => (
+                                    <button
+                                      className="overflow-hidden rounded-xl border border-red-200/15 bg-black"
+                                      key={`${contract.id}-${index}`}
+                                      onClick={() => setPreviewDebtImage(imageUrl)}
+                                      type="button"
+                                    >
+                                      <img
+                                        alt={`Evil debt upload ${index + 1}`}
+                                        className="aspect-square w-full object-cover"
+                                        src={imageUrl}
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                                  {contract.status === "pending" && (
+                                    <button
+                                      className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      disabled={isBusy}
+                                      onClick={() => void handleApproveEvilDebtContract(contract.id)}
+                                      type="button"
+                                    >
+                                      Approve Evil Debt
+                                    </button>
+                                  )}
+                                  <button
+                                    className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleRemoveDebtContract(contract.id)}
+                                    type="button"
+                                  >
+                                    Remove Evil Debt
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                        No Evil Debt Contracts yet.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1537,6 +1634,110 @@ export default function AdminPage() {
                 ) : (
                   <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
                     No events yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "announcements" && (
+            <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+                    Site Announcements
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Create the banner shown on the homepage and retire old messages when needed.
+                  </p>
+                </div>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => void loadAnnouncements()}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-pink-200/15 bg-pink-400/10 p-3">
+                <p className="text-sm font-black text-pink-50">Create Active Announcement</p>
+                <div className="mt-3 grid gap-2">
+                  <input
+                    className="rounded-2xl border border-pink-200/20 bg-black/55 px-3 py-2 text-sm font-bold text-pink-50 outline-none placeholder:text-pink-100/35"
+                    onChange={(event) => setAnnouncementTitle(event.target.value)}
+                    placeholder="Announcement title"
+                    value={announcementTitle}
+                  />
+                  <textarea
+                    className="min-h-28 rounded-2xl border border-pink-200/20 bg-black/55 px-3 py-2 text-sm text-pink-50 outline-none placeholder:text-pink-100/35"
+                    onChange={(event) => setAnnouncementBody(event.target.value)}
+                    placeholder="Announcement body"
+                    value={announcementBody}
+                  />
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      className="w-full rounded-2xl border border-pink-200/20 bg-black/55 px-3 py-2 text-sm font-bold text-pink-50 outline-none placeholder:text-pink-100/35 sm:max-w-36"
+                      min={1}
+                      onChange={(event) => setAnnouncementDays(event.target.value)}
+                      placeholder="Days"
+                      type="number"
+                      value={announcementDays}
+                    />
+                    <button
+                      className="rounded-2xl border border-pink-100/30 bg-pink-300/15 px-4 py-2 text-sm font-black text-pink-50 transition hover:border-pink-100/60 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isBusy}
+                      onClick={() => void handleAnnouncementAction("create")}
+                      type="button"
+                    >
+                      Publish Announcement
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {announcements.length > 0 ? (
+                  announcements.map((announcement) => {
+                    const isExpired = new Date(announcement.ends_at).getTime() <= Date.now();
+
+                    return (
+                      <article className="rounded-2xl border border-white/10 bg-black/35 p-3" key={announcement.id}>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black text-white">{announcement.title}</p>
+                            <p className="mt-1 text-sm leading-6 text-zinc-300">{announcement.body}</p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {new Date(announcement.starts_at).toLocaleString()} - {new Date(announcement.ends_at).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
+                                announcement.active && !isExpired
+                                  ? "border-emerald-200/20 bg-emerald-400/10 text-emerald-50"
+                                  : "border-zinc-200/15 bg-zinc-500/10 text-zinc-100"
+                              }`}
+                            >
+                              {announcement.active && !isExpired ? "Active" : "Inactive"}
+                            </span>
+                            <button
+                              className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={isBusy}
+                              onClick={() => void handleAnnouncementAction("end", announcement.id)}
+                              type="button"
+                            >
+                              End
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                    No announcements yet.
                   </p>
                 )}
               </div>
