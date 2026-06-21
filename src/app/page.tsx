@@ -1985,13 +1985,27 @@ export default function Home() {
       : equippedProfileBorder?.id === "profile-border-animated"
         ? "runner"
         : null;
-  const avatarFrameClassName = "bg-white/10";
+  const avatarFrameClassName = equippedProfileBorder?.color
+    ? "bg-white/10"
+    : avatarFrameVariant === "rainbow"
+      ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(244,114,182,0.24),rgba(168,85,247,0.22),rgba(34,211,238,0.2),rgba(255,255,255,0.12))]"
+      : avatarFrameVariant === "runner"
+        ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.15),rgba(251,113,133,0.22),rgba(236,72,153,0.24),rgba(255,255,255,0.1))]"
+        : "bg-white/10";
   const avatarFrameStyle = equippedProfileBorder?.color
     ? {
         backgroundColor: equippedProfileBorder.color,
         boxShadow: `0 0 24px ${equippedProfileBorder.color}55`,
       }
-    : undefined;
+    : avatarFrameVariant === "rainbow"
+      ? {
+          boxShadow: "0 0 16px rgba(168, 85, 247, 0.18), 0 0 28px rgba(34, 211, 238, 0.12)",
+        }
+      : avatarFrameVariant === "runner"
+        ? {
+            boxShadow: "0 0 16px rgba(236, 72, 153, 0.18), 0 0 24px rgba(251, 113, 133, 0.12)",
+          }
+      : undefined;
   const userLevelProgress = getUserLevelProgress(userXp);
   const globalPrincipessaRequirement = getGlobalPrincipessaXpRequirement(globalPrincipessa.level);
   const globalPrincipessaProgressPercent = getGlobalPrincipessaProgressPercent(
