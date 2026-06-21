@@ -459,6 +459,11 @@ export async function GET(request: Request) {
       task_id: `irl:${row.task_id}`,
     })),
   ];
+  const obsoleteTaskIds = new Set([
+    "pet:case-opening",
+    "pet-case-opening",
+  ]);
+  const activeTaskRows = taskRows.filter((row) => !obsoleteTaskIds.has(row.task_id));
   const galleryRows = [
     ...userGalleryRows,
     ...petGalleryRows.map((row) => ({
@@ -560,7 +565,7 @@ export async function GET(request: Request) {
   }));
 
   const taskUsage = countBy(
-    taskRows.filter((row) => row.completed_at || row.claimed_at),
+    activeTaskRows.filter((row) => row.completed_at || row.claimed_at),
     (row) => row.task_id,
   ).map((entry) => ({ ...entry, label: getTaskLabel(entry.key) }));
   const galleryCountEntries = await Promise.all(
@@ -608,7 +613,7 @@ export async function GET(request: Request) {
     }).length,
   }));
   const completedTasksByUser = countBy(
-    taskRows.filter((row) => row.completed_at || row.claimed_at),
+    activeTaskRows.filter((row) => row.completed_at || row.claimed_at),
     (row) => row.user_id,
   );
   const galleryByUser = countBy(galleryRows, (row) => row.user_id);

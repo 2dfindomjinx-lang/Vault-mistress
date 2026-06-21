@@ -86,6 +86,7 @@ import {
   isHighLowLocked,
   randomHighLowDisplayNumber,
   randomHighLowNumber,
+  randomCaseOpeningReward,
 } from "@/lib/server-task-actions";
 import { getUserLevelProgress } from "@/lib/levels";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
@@ -107,7 +108,6 @@ import {
 import type {
   GalleryItem,
   MechanicsState,
-  PetCaseItem,
   PetDebtContract,
   PetGalleryItem,
   PetTaskItem,
@@ -328,7 +328,7 @@ const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
-const ACCOUNT_ANNOUNCEMENT_EXPIRES_AT = "2026-06-12T00:00:00+03:00";
+const ACCOUNT_ANNOUNCEMENT_EXPIRES_AT = "2026-06-24T00:00:00+03:00";
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 const LOCAL_GUEST_USER_ID = "local-guest-user";
@@ -419,10 +419,10 @@ const petTasks: PetTaskItem[] = [
     kind: "perfect-writing",
   },
   {
-    id: "pet-case-opening",
-    title: "Pet Case Opening",
+    id: "case-opening",
+    title: "Case Opening",
     description: "Open a luxury case and let the vault decide your random coin reward.",
-    reward: PET_TASK_REWARD,
+    reward: 0,
     kind: "case-open",
   },
   {
@@ -431,6 +431,13 @@ const petTasks: PetTaskItem[] = [
     description: "After a 3 second countdown, do nothing for 2 minutes while distractions appear.",
     reward: PET_TASK_REWARD,
     kind: "evil-wait",
+  },
+  {
+    id: "high-low",
+    title: "Higher or Lower",
+    description: "Choose higher or lower against the vault's next hidden number.",
+    reward: 0,
+    kind: "high-low",
   },
   {
     id: "pet-false-hope",
@@ -545,12 +552,12 @@ const startingTasks: TaskItem[] = [
     attemptsRemaining: 3,
   },
   {
-    id: "high-low",
-    title: "High or Lower",
+    id: "case-opening",
+    title: "Case Opening",
     reward: 0,
     completed: false,
     claimed: false,
-    kind: "high-low",
+    kind: "case-open",
   },
   {
     id: "number-pick",
@@ -952,11 +959,66 @@ function getWaitTaskState(
   return "ready";
 }
 
-function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | null) {
+function buildHighLowPetTask(task: PetTaskItem, highLowRow: UserTaskRow | null) {
+  const highLowCooldownUntil = getCooldownUntil(highLowRow?.claimed_at ?? null, HIGH_LOW_REPLAY_COOLDOWN_MS);
+  const windowStartedAt =
+    getTaskMetadataString(highLowRow?.metadata, "higherLowerWindowStartedAt") ??
+    highLowRow?.claimed_at ??
+    null;
+  const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
+  const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
+  const highLowResetAt = windowActive ? new Date(windowStartedMs + DAY_MS).toISOString() : null;
+  const dailyProfit = windowActive
+    ? getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyProfit", 0)
+    : 0;
+  const dailyWins = windowActive ? getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyWins", 0) : 0;
+  const dailyBetTotal = windowActive
+    ? getTaskMetadataNumber(
+        highLowRow?.metadata,
+        "higherLowerDailyBetTotal",
+        getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyWinningExposure", 0),
+      )
+    : 0;
+
+  return {
+    ...task,
+    completed: Boolean(highLowRow?.completed_at),
+    claimed: Boolean(highLowCooldownUntil),
+    cooldownUntil: highLowCooldownUntil,
+    currentNumber:
+      getTaskMetadataNumber(highLowRow?.metadata, "highLowCurrentNumber", Number.NaN) ??
+      getTaskMetadataNumber(highLowRow?.metadata, "currentNumber", Number.NaN) ??
+      undefined,
+    highLowNextNumber:
+      getTaskMetadataNumber(highLowRow?.metadata, "highLowNextNumber", Number.NaN) ??
+      getTaskMetadataNumber(highLowRow?.metadata, "nextNumber", Number.NaN) ??
+      undefined,
+    highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
+    highLowDailyBetTotal: dailyBetTotal,
+    highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
+    highLowDailyProfit: dailyProfit,
+    highLowDailyWins: dailyWins,
+    highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
+    highLowResetAt,
+    highLowRoundAvailableAt:
+      getTaskMetadataString(highLowRow?.metadata, "highLowRoundAvailableAt") ??
+      getTaskMetadataString(highLowRow?.metadata, "nextBaseRevealAt") ??
+      null,
+  };
+}
+
+function buildPetTasksFromRows(
+  rows: UserPetTaskRow[],
+  lastPetTaxAt?: string | null,
+  highLowRow?: UserTaskRow | null,
+) {
   return petTasks.map((task) => {
-    const row = rows.find((entry) => entry.task_id === task.id);
-    const baseStatus = (row?.status as PetTaskItem["status"]) ?? "available";
+    const petRow = task.id === "high-low" ? null : rows.find((entry) => entry.task_id === task.id) ?? null;
+    const row = task.id === "high-low" ? highLowRow ?? null : petRow;
+    const baseStatus =
+      task.id === "high-low" ? "available" : ((petRow?.status as PetTaskItem["status"]) ?? "available");
     const completedAt = row?.completed_at ?? null;
+    const reviewedAt = task.id === "high-low" ? null : petRow?.reviewed_at ?? null;
 
     if (task.kind === "perfect-writing") {
       const failedAt = getTaskMetadataString(row?.metadata, "failedAt");
@@ -967,7 +1029,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         attemptsRemaining: cooldownUntil ? 0 : 1,
         completedAt,
         cooldownUntil,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         sentence: getDailyPetPerfectWritingSentence(),
         status: cooldownUntil ? baseStatus : "available",
       };
@@ -983,7 +1045,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         completedAt,
         confessionCount,
         cooldownUntil,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         sentence: getDailyPetConfessionSentence(),
         status: cooldownUntil ? baseStatus : "available",
       };
@@ -999,7 +1061,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         ...task,
         completedAt: taxCompletedAt,
         cooldownUntil,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         status,
       };
     }
@@ -1008,20 +1070,57 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
       return {
         ...task,
         completedAt,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         status: baseStatus,
       };
     }
 
-    if (task.kind === "case-open") {
+    if (task.kind === "high-low") {
+      const highLowTaskRow = highLowRow ?? null;
+      const highLowCooldownUntil = getCooldownUntil(highLowTaskRow?.claimed_at ?? null, HIGH_LOW_REPLAY_COOLDOWN_MS);
+      const windowStartedAt =
+        getTaskMetadataString(highLowTaskRow?.metadata, "higherLowerWindowStartedAt") ??
+        highLowTaskRow?.claimed_at ??
+        null;
+      const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
+      const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
+      const highLowResetAt = windowActive ? new Date(windowStartedMs + DAY_MS).toISOString() : null;
+      const dailyProfit = windowActive
+        ? getTaskMetadataNumber(highLowTaskRow?.metadata, "higherLowerDailyProfit", 0)
+        : 0;
+      const dailyWins = windowActive ? getTaskMetadataNumber(highLowTaskRow?.metadata, "higherLowerDailyWins", 0) : 0;
+      const dailyBetTotal = windowActive
+        ? getTaskMetadataNumber(
+            highLowTaskRow?.metadata,
+            "higherLowerDailyBetTotal",
+            getTaskMetadataNumber(highLowTaskRow?.metadata, "higherLowerDailyWinningExposure", 0),
+          )
+        : 0;
+
       return {
         ...task,
-        caseReward: getTaskMetadataNumber(row?.metadata, "reward", 0) || null,
-        caseSpunAt: completedAt,
-        completedAt,
-        cooldownUntil: getPetTaskCooldownUntil(completedAt),
-        reviewedAt: row?.reviewed_at ?? null,
-        status: baseStatus,
+        completed: Boolean(highLowTaskRow?.completed_at),
+        claimed: Boolean(highLowCooldownUntil),
+        cooldownUntil: highLowCooldownUntil,
+        currentNumber:
+          getTaskMetadataNumber(highLowTaskRow?.metadata, "highLowCurrentNumber", Number.NaN) ??
+          getTaskMetadataNumber(highLowTaskRow?.metadata, "currentNumber", Number.NaN) ??
+          undefined,
+        highLowNextNumber:
+          getTaskMetadataNumber(highLowTaskRow?.metadata, "highLowNextNumber", Number.NaN) ??
+          getTaskMetadataNumber(highLowTaskRow?.metadata, "nextNumber", Number.NaN) ??
+          undefined,
+        highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
+        highLowDailyBetTotal: dailyBetTotal,
+        highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
+        highLowDailyProfit: dailyProfit,
+        highLowDailyWins: dailyWins,
+        highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
+        highLowResetAt,
+        highLowRoundAvailableAt:
+          getTaskMetadataString(highLowTaskRow?.metadata, "highLowRoundAvailableAt") ??
+          getTaskMetadataString(highLowTaskRow?.metadata, "nextBaseRevealAt") ??
+          null,
       };
     }
 
@@ -1036,7 +1135,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         ...task,
         completedAt,
         cooldownUntil,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         status: baseStatus,
         waitCountdownEndsAt,
         waitEndsAt,
@@ -1081,7 +1180,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         favorPickedIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "pickedIndex", -1) : null,
         favorResult: isCoolingDown ? typedResult : null,
         favorWinningIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "winningIndex", -1) : null,
-        reviewedAt: isCoolingDown ? row?.reviewed_at ?? null : null,
+        reviewedAt: isCoolingDown ? reviewedAt : null,
         status: isCoolingDown ? baseStatus : "available",
       };
     }
@@ -1101,7 +1200,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         clickProgress: isToday ? progress : 0,
         clickRequirement: isToday ? requirement : 0,
         completedAt: completed ? completedAt : null,
-        reviewedAt: completed ? row?.reviewed_at ?? null : null,
+        reviewedAt: completed ? reviewedAt : null,
         status: completed ? "approved" as const : "available" as const,
       };
     }
@@ -1111,7 +1210,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
         ...task,
         status: baseStatus,
         completedAt,
-        reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
         cooldownUntil: getPetTaskCooldownUntil(completedAt),
         voiceSentence: getDailyPetVoiceSentence(),
       };
@@ -1121,7 +1220,7 @@ function buildPetTasksFromRows(rows: UserPetTaskRow[], lastPetTaxAt?: string | n
       ...task,
       status: baseStatus,
       completedAt,
-      reviewedAt: row?.reviewed_at ?? null,
+        reviewedAt,
       cooldownUntil: getPetTaskCooldownUntil(completedAt),
     };
   });
@@ -1433,7 +1532,10 @@ function buildTasksFromRows(
   timeoutUntil: string | null,
 ) {
   return startingTasks.map((task) => {
-    const row = rows.find((entry) => entry.task_id === task.id);
+    const row =
+      task.id === "case-opening"
+        ? rows.find((entry) => entry.task_id === task.id || entry.task_id === "pet-case-opening")
+        : rows.find((entry) => entry.task_id === task.id);
     const claimedForever = Boolean(row?.claimed_at);
     const failureCooldownUntil = getDailyCooldownUntil(
       getTaskMetadataString(row?.metadata, "failedAt"),
@@ -1475,53 +1577,18 @@ function buildTasksFromRows(
       };
     }
 
-    if (task.id === "high-low") {
-      const highLowCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, HIGH_LOW_REPLAY_COOLDOWN_MS);
-      const windowStartedAt =
-        getTaskMetadataString(row?.metadata, "higherLowerWindowStartedAt") ??
-        row?.claimed_at ??
-        null;
-      const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
-      const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
-      const highLowResetAt = windowActive
-        ? new Date(windowStartedMs + DAY_MS).toISOString()
-        : null;
-      const dailyProfit = windowActive
-        ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyProfit", 0)
-        : 0;
-      const dailyWins = windowActive ? getTaskMetadataNumber(row?.metadata, "higherLowerDailyWins", 0) : 0;
-      const dailyBetTotal = windowActive
-        ? getTaskMetadataNumber(
-            row?.metadata,
-            "higherLowerDailyBetTotal",
-            getTaskMetadataNumber(row?.metadata, "higherLowerDailyWinningExposure", 0),
-          )
-        : 0;
+    if (task.id === "case-opening") {
+      const reward = getTaskMetadataNumber(row?.metadata, "reward", 0);
+      const completed = Boolean(row?.completed_at);
+      const caseCooldownUntil = getPetTaskCooldownUntil(row?.claimed_at ?? row?.completed_at ?? null);
 
       return {
         ...task,
-        completed: Boolean(row?.completed_at),
-        claimed: Boolean(highLowCooldownUntil),
-        cooldownUntil: highLowCooldownUntil,
-        currentNumber:
-          getTaskMetadataNumber(row?.metadata, "highLowCurrentNumber", Number.NaN) ??
-          getTaskMetadataNumber(row?.metadata, "currentNumber", Number.NaN) ??
-          undefined,
-        highLowNextNumber:
-          getTaskMetadataNumber(row?.metadata, "highLowNextNumber", Number.NaN) ??
-          getTaskMetadataNumber(row?.metadata, "nextNumber", Number.NaN) ??
-          undefined,
-        highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
-        highLowDailyBetTotal: dailyBetTotal,
-        highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
-        highLowDailyProfit: dailyProfit,
-        highLowDailyWins: dailyWins,
-        highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
-        highLowResetAt,
-        highLowRoundAvailableAt:
-          getTaskMetadataString(row?.metadata, "highLowRoundAvailableAt") ??
-          getTaskMetadataString(row?.metadata, "nextBaseRevealAt") ??
-          null,
+        caseReward: reward || null,
+        caseSpunAt: completed ? row?.completed_at ?? null : null,
+        claimed: Boolean(caseCooldownUntil),
+        completed,
+        cooldownUntil: caseCooldownUntil,
       };
     }
 
@@ -1735,6 +1802,17 @@ export default function Home() {
   const [displayNameError, setDisplayNameError] = useState("");
   const [isSettingDisplayName, setIsSettingDisplayName] = useState(false);
 
+  const resetViewportScroll = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
+
   // For using purchased Display Name Change right from Profile tab
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [displayNameEditInput, setDisplayNameEditInput] = useState("");
@@ -1849,6 +1927,7 @@ export default function Home() {
   const lastAddingXpBubbleAtRef = useRef(0);
   const highLowRefreshTimerRef = useRef<number | null>(null);
   const lastPlayedJackpotWinnerSoundKeyRef = useRef<string | null>(null);
+  const activeEventIdsRef = useRef<string[]>([]);
   const profileIdRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
@@ -1868,8 +1947,7 @@ export default function Home() {
   const isPreviewRestricted = isPreviewMode;
   const soundsMuted = !soundSettings.uiEnabled && !soundSettings.gameplayEnabled;
   const isVaultReady =
-    isPreviewMode ||
-    (isLoggedIn && hasHydratedInitialProfile && isProfileVerified && !isProfileLoading);
+    isPreviewMode || (isLoggedIn && hasHydratedInitialProfile && isProfileVerified && !isProfileLoading);
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
   const dailyMessage = getAffectionDailyMessage(affection);
@@ -1920,9 +1998,9 @@ export default function Home() {
     equippedProfileBorder?.id === "profile-border-rainbow-animated"
       ? "bg-[conic-gradient(from_180deg_at_50%_50%,#ec4899_0deg,#a855f7_60deg,#22d3ee_120deg,#10b981_180deg,#f59e0b_240deg,#f43f5e_300deg,#ec4899_360deg)] animate-spin"
       : equippedProfileBorder?.id === "profile-border-animated"
-        ? "bg-[conic-gradient(from_180deg_at_50%_50%,rgba(236,72,153,0.95),rgba(168,85,247,0.95),rgba(34,211,238,0.95),rgba(236,72,153,0.95))] animate-spin"
+        ? "bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.95),rgba(236,72,153,0.95)_28%,rgba(168,85,247,0.92)_58%,rgba(0,0,0,0)_78%)] animate-pulse"
         : equippedProfileBorder?.color
-          ? "bg-black/10"
+          ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))]"
           : "bg-white/10";
   const avatarFrameStyle = equippedProfileBorder?.color
     ? {
@@ -2501,9 +2579,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadActiveEvent = async () => {
       try {
-        const response = await fetch("/api/events/active");
+        const response = await fetch("/api/events/active", { cache: "no-store" });
         const payload = (await response.json()) as {
           event?: RandomEvent | null;
           events?: RandomEvent[];
@@ -2514,8 +2594,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
 
         const nextEvents = payload.events ?? (payload.event ? [payload.event] : []);
+        const previousEventIds = new Set(activeEventIdsRef.current);
+        const nextEventIds = nextEvents.map((event) => event.id);
+        const newlyActivatedEvents = nextEvents.filter((event) => !previousEventIds.has(event.id));
+
+        if (cancelled) {
+          return;
+        }
+
+        activeEventIdsRef.current = nextEventIds;
         setActiveEvents(nextEvents);
-        for (const event of nextEvents) {
+        for (const event of newlyActivatedEvents) {
           emitSoundEvent("random_event_activation");
           if (event.effect.type === "speech_avatar_override") {
             const avatarName = getReadableSpeechAvatarName(event.effect.speechAvatarId);
@@ -2529,7 +2618,27 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     };
 
-    void loadActiveEvent();
+    const refreshActiveEvent = () => {
+      void loadActiveEvent();
+    };
+
+    refreshActiveEvent();
+    const interval = window.setInterval(refreshActiveEvent, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshActiveEvent();
+      }
+    };
+
+    window.addEventListener("focus", refreshActiveEvent);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshActiveEvent);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [getReadableSpeechAvatarName]);
 
   useEffect(() => {
@@ -3464,29 +3573,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     }
 
-    const { data: petTaskData, error: petTaskError } = await supabase
-      .from("user_pet_tasks")
-      .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
-      .eq("user_id", profile.id);
-
-    if (petTaskError) {
-      console.warn("Failed to load pet task state", petTaskError);
-      setPetTaskState(petTasks);
-      setPetAffectionClaimDate(null);
-    } else {
-      const petRows = (petTaskData ?? []) as UserPetTaskRow[];
-      const petMilestoneClaimRow = petRows.find(
-        (entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved",
-      );
-      const petMilestoneClaimDate = getTaskMetadataString(
-        petMilestoneClaimRow?.metadata,
-        "date",
-      );
-
-      setPetTaskState(buildPetTasksFromRows(petRows, profile.last_pet_tax_at));
-      setPetAffectionClaimDate(petMilestoneClaimDate);
-    }
-
     const { data: taskData, error: taskError } = await supabase
       .from("user_tasks")
       .select("task_id, completed_at, claimed_at, reward_coins, metadata")
@@ -3526,21 +3612,44 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     }
 
-      const { data: irlTaskData, error: irlTaskError } = await supabase
-        .from("user_irl_tasks")
-        .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
-        .eq("user_id", profile.id)
-        .eq("status", "assigned")
-        .order("assigned_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data: petTaskData, error: petTaskError } = await supabase
+      .from("user_pet_tasks")
+      .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+      .eq("user_id", profile.id);
+
+    if (petTaskError) {
+      console.warn("Failed to load pet task state", petTaskError);
+      setPetTaskState(petTasks);
+      setPetAffectionClaimDate(null);
+    } else {
+      const petRows = (petTaskData ?? []) as UserPetTaskRow[];
+      const petMilestoneClaimRow = petRows.find(
+        (entry) => entry.task_id === "pet-affection-claim" && entry.status === "approved",
+      );
+      const petMilestoneClaimDate = getTaskMetadataString(
+        petMilestoneClaimRow?.metadata,
+        "date",
+      );
+
+      setPetTaskState(buildPetTasksFromRows(petRows, profile.last_pet_tax_at, highLowTaskRow));
+      setPetAffectionClaimDate(petMilestoneClaimDate);
+    }
+
+    const { data: irlTaskData, error: irlTaskError } = await supabase
+      .from("user_irl_tasks")
+      .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
+      .eq("user_id", profile.id)
+      .eq("status", "assigned")
+      .order("assigned_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (irlTaskError) {
       console.error("Failed to load assigned IRL task", irlTaskError);
       throw irlTaskError;
     }
 
-      const latestIrlTask = irlTaskData as UserIrlTaskRow | null;
+    const latestIrlTask = irlTaskData as UserIrlTaskRow | null;
 
     const rebuiltTasks = buildTasksFromRows(
       taskRows,
@@ -3550,29 +3659,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       latestIrlTask,
       profile.timeout_until ?? null,
     );
-    const shouldKeepLocalHighLow = profileIdRef.current === profile.id;
-
-    setTasks((current) => {
-      const currentHighLow = current.find((entry) => entry.id === "high-low");
-
-      return rebuiltTasks.map((task) =>
-        task.id === "high-low" && shouldKeepLocalHighLow && currentHighLow
-          ? {
-              ...task,
-              currentNumber: currentHighLow.currentNumber ?? task.currentNumber,
-              highLowNextNumber: currentHighLow.highLowNextNumber ?? task.highLowNextNumber,
-              highLowRoundAvailableAt:
-                currentHighLow.highLowRoundAvailableAt ?? task.highLowRoundAvailableAt,
-              lastResult: currentHighLow.lastResult,
-              nextBaseRevealAt: currentHighLow.nextBaseRevealAt,
-              resultBaseNumber: currentHighLow.resultBaseNumber,
-              resultCoinDelta: currentHighLow.resultCoinDelta,
-              resultNumber: currentHighLow.resultNumber,
-              resultOutcome: currentHighLow.resultOutcome,
-            }
-          : task,
-      );
-    });
+    setTasks(rebuiltTasks);
     profileIdRef.current = profile.id;
     setMechanics(buildMechanicsFromRows(taskRows, unlockedIds));
     setIsLoggedIn(true);
@@ -5031,14 +5118,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (blockIfTimedOut()) {
       return;
     }
-    const task = tasks.find((entry) => entry.id === "high-low");
+    const task = petTaskStateRef.current.find((entry) => entry.id === "high-low");
     const highLowCooldownMs = getEventCooldownMs(HIGH_LOW_REPLAY_COOLDOWN_MS);
     const highLowCooldownActive =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
     const highLowLocked = Boolean(task?.highLowDailyLocked);
 
-    if (!task || highLowCooldownActive || highLowLocked || !authUserId) {
+    if (!task || highLowCooldownActive || highLowLocked) {
       if (highLowLocked) {
         setAvatarMistressReply(
           `Higher or Lower ${HIGH_LOW_BET_ALLOWANCE.toLocaleString()} coin profit or bet allowance reached for today.`,
@@ -5118,7 +5205,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
-        setTasks((current) =>
+        setPetTaskStateOptimistic((current) =>
           current.map((entry) =>
             entry.id === task.id
               ? {
@@ -5172,13 +5259,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }
 
         applyProfileStats(payload.profile);
-        setTasks((current) =>
+        setPetTaskStateOptimistic((current) =>
           current.map((entry) =>
             entry.id === task.id
-              ? {
+              ? ({
                   ...entry,
                   ...payload.taskState,
-                }
+                } as PetTaskItem)
               : entry,
           ),
         );
@@ -6273,64 +6360,40 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleEnterPreviewMode = useCallback(() => {
+  const seedRichLocalTestData = useCallback(() => {
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
     setAuthError("");
     authBootstrappedRef.current = true;
     setAuthBootstrapped(true);
-    setIsProfileVerified(false);
     setIsProfileLoading(false);
     setHasHydratedInitialProfile(true);
     setIsAuthBusy(false);
     setIsAuthLoading(false);
-    setIsPreviewMode(true);
-    previewModeRef.current = true;
     setIsGuestMode(true);
     setIsLoggedIn(true);
-    setAuthUserId(null);
     profileIdRef.current = null;
     setIsDebtAutoPayEnabled(readDebtAutoPayEnabled(LOCAL_GUEST_USER_ID));
-    setUsername("@preview");
-    setDisplayName("Preview User");
-    setCoins(0);
-    setAffection(0);
-    setTributeTotal(0);
-    setLifetimeSpentCoins(0);
-    setLoyaltyStreak(0);
-    setLastLoyaltyAt(null);
     setTimeoutUntil(null);
     setTimeoutReason(null);
     timeoutUntilRef.current = null;
     timeoutReasonRef.current = null;
-
     setUnlockedGalleryIds([]);
     setPetScore(0);
-    setOwnerLikeness(100);
     setPetUnlockedAt(null);
     setLastPetTaxAt(null);
     setPetDebtContract(null);
     setPetAffectionClaimDate(null);
     setPetGalleryUnlockedIds([]);
+    setLoyaltyStreak(0);
+    setLastLoyaltyAt(null);
+
+    setOwnerLikeness(100);
     setEquippedAvatarSlots({ fullBody: "classic" });
     committedEquippedRef.current = { fullBody: "classic" };
     setHasUncensoredAvatar(false);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
-    setOwnedTitleIds(["leadership-0"]);
-    setEquippedTitleId("leadership-0");
-    setIsTitleManuallySelected(false);
-    setTasks(buildTasksFromRows([], 0, 0, null, null, null));
-    setPetTaskState(buildPetTasksFromRows([]));
-    setMechanics({
-      supportUnlocked: false,
-      sacrificeUnlockedCount: 0,
-      sacrificeTotal: sacrificeGalleryItems.length,
-      sacrificeComplete: false,
-      allGalleryComplete: false,
-    });
-    setJackpot(null);
-    setJackpotError("");
 
     // Seed rich crates + full inventory immediately for avatar testing
     const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
@@ -6360,10 +6423,56 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCrateInventory(seededInventory);
     setCrateFreeOpensUsedToday({});
     setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+  }, [
+    CRATE_TYPES,
+    LOCAL_GUEST_USER_ID,
+    SAMPLE_CRATE_ITEMS,
+    getCrateIconUrl,
+    readDebtAutoPayEnabled,
+    sacrificeGalleryItems,
+    setAuthError,
+  ]);
+
+  const handleEnterPreviewMode = useCallback(() => {
+    seedRichLocalTestData();
+    setIsProfileVerified(false);
+    setIsPreviewMode(true);
+    previewModeRef.current = true;
+    setAuthUserId(null);
+    setUsername("@preview");
+    setDisplayName("Preview User");
+    setCoins(0);
+    setAffection(0);
+    setTributeTotal(0);
+    setLifetimeSpentCoins(0);
+    setLoyaltyStreak(0);
+    setLastLoyaltyAt(null);
+    setUnlockedGalleryIds([]);
+    setPetScore(0);
+    setPetUnlockedAt(null);
+    setLastPetTaxAt(null);
+    setPetDebtContract(null);
+    setPetAffectionClaimDate(null);
+    setPetGalleryUnlockedIds([]);
+    setOwnedTitleIds(["leadership-0"]);
+    setEquippedTitleId("leadership-0");
+    setIsTitleManuallySelected(false);
+    setTasks(buildTasksFromRows([], 0, 0, null, null, null));
+    setPetTaskState(buildPetTasksFromRows([]));
+    setMechanics({
+      supportUnlocked: false,
+      sacrificeUnlockedCount: 0,
+      sacrificeTotal: sacrificeGalleryItems.length,
+      sacrificeComplete: false,
+      allGalleryComplete: false,
+    });
+    setJackpot(null);
+    setJackpotError("");
 
     setActivePanel("profile");
     setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
-  }, [setAvatarMistressReply]);
+    resetViewportScroll();
+  }, [resetViewportScroll, seedRichLocalTestData, setAvatarMistressReply]);
 
   const handleLogout = async () => {
     if (!isGuestMode) {
@@ -6416,6 +6525,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setIsTitleManuallySelected(false);
     setCrateInventory([]);
     setAvatarMistressReply("Back at the gate. The vault can wait.");
+    resetViewportScroll();
   };
 
   const handleTribute = async (amount: number) => {
@@ -7659,75 +7769,69 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
   };
 
-  const handlePetCaseOpen = async (caseItem: PetCaseItem) => {
+  const handleCaseOpen = async () => {
     if (blockIfTimedOut()) {
       return;
     }
 
-    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-case-opening");
+    const actionId = "case-opening";
+    const task = tasks.find((entry) => entry.id === "case-opening");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
 
-    if (!task || coolingDown) {
+    if (!task || coolingDown || !beginTaskAction(actionId)) {
       return;
     }
 
-    const now = new Date().toISOString();
-    const reward = caseItem.value > 0 ? getEventTaskReward(caseItem.value) : caseItem.value;
-    const nextCoins = Math.max(0, coinsRef.current + reward);
-    const nextPetScore = Math.min(1000, petScore + task.reward);
+    try {
+      const now = new Date().toISOString();
+      const reward = randomCaseOpeningReward();
+      const nextCoins = Math.max(0, coinsRef.current + reward);
 
-    if (!isGuestMode && authUserId) {
-      try {
-        await persistPetProfilePatch(
-          { coins: nextCoins, pet_score: nextPetScore },
-          "reward:pet-case-opening",
-        );
-      } catch (error) {
-        setAuthError(describeError(error));
-        return;
+      if (!isGuestMode && authUserId) {
+        try {
+          await persistProfileProgress({ coins: nextCoins, affection }, "reward:case-opening");
+        } catch (error) {
+          setAuthError(describeError(error));
+          return;
+        }
+
+        try {
+          await persistUserTask({
+            task_id: task.id,
+            completed_at: now,
+            claimed_at: now,
+            reward_coins: reward,
+            metadata: { reward },
+          });
+        } catch (error) {
+          console.error("Failed to persist case opening", error);
+          setAuthError(describeError(error));
+          return;
+        }
+      } else {
+        setCoins(nextCoins);
       }
 
-      try {
-        await persistPetTask(
-        {
-          task_id: task.id,
-          completed_at: now,
-          reward_score: task.reward,
-          status: "approved",
-          reviewed_at: now,
-          metadata: { reward, tier: caseItem.tier },
-        },
-        );
-      } catch (error) {
-        console.error("Failed to persist Pet case opening", error);
-        setAuthError(describeError(error));
-        return;
-      }
-    } else {
-      setCoins(nextCoins);
-      setPetScore(nextPetScore);
+      setTasks((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                caseReward: reward,
+                caseSpunAt: now,
+                completed: true,
+                claimed: true,
+                cooldownUntil: getPetTaskCooldownUntil(now),
+              }
+            : entry,
+        ),
+      );
+      setAvatarMistressReply(`Case result: ${reward > 0 ? "+" : ""}${reward} coins.`);
+    } finally {
+      finishTaskAction(actionId);
     }
-
-    setPetTaskStateOptimistic((current) =>
-      current.map((entry) =>
-        entry.id === task.id
-          ? {
-              ...entry,
-              caseReward: reward,
-              caseSpunAt: now,
-              completedAt: now,
-              cooldownUntil: getPetTaskCooldownUntil(now),
-              reviewedAt: now,
-              status: "approved",
-            }
-          : entry,
-      ),
-    );
-    setAvatarMistressReply(
-      `Case result: ${reward > 0 ? "+" : ""}${reward} coins. +${task.reward} Pet Score.`,
-    );
   };
 
   const handleCooldownAttempt = useCallback((message: string) => {
@@ -9014,17 +9118,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           usernameStyle={usernameStyle}
         />
 
-        {isPreviewMode && (
-          <section className="rounded-[1.5rem] border border-fuchsia-200/25 bg-[linear-gradient(135deg,rgba(217,70,239,0.16),rgba(236,72,153,0.1),rgba(0,0,0,0.55))] px-4 py-4 shadow-[0_0_34px_rgba(217,70,239,0.12)]">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-fuchsia-100">
-              Preview Mode
-            </p>
-            <p className="mt-2 text-sm leading-6 text-pink-50">
-              Read-only exploration is active. Sign in to unlock tasks, gallery progression,
-              coins, debt contracts, and leaderboards.
-            </p>
-          </section>
-        )}
+        {null}
 
         {isTimeoutActive && (
           <section
@@ -9171,9 +9265,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onCooldownAttempt={handleCooldownAttempt}
               onJackpotContribute={handleJackpotContribute}
               onLevelDrain={handleLevelDrain}
-              onHighLowPlay={handleHighLowPlay}
-              highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
-              highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
+              onCaseOpen={handleCaseOpen}
               onIrlTaskSpin={handleIrlTaskSpin}
               onMovementFail={handleVerticalMotionFail}
               onMovementFinishFakeHope={handleVerticalMotionFinishFakeHope}
@@ -9566,7 +9658,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onCooldownAttempt={handleCooldownAttempt}
               onFalseHopeKey={handlePetFalseHopeKey}
               onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
-              onOpenCase={(caseItem) => runPetAction("pet-case-opening", () => handlePetCaseOpen(caseItem))}
+              onHighLowPlay={handleHighLowPlay}
+              highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
+              highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onPetDailyClick={handlePetDailyClick}
               onDebtAutoPayChange={handleDebtAutoPayChange}
               onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}

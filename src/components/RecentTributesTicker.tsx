@@ -325,13 +325,42 @@ export function RecentTributesTicker({
           <div className="mt-3 flex max-w-full gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentCaseOpenings.map((opening) => (
               <article
-                className={`group relative flex w-[112px] shrink-0 flex-col gap-2 overflow-hidden rounded-2xl border p-2 transition-transform duration-200 hover:-translate-y-0.5 sm:w-[126px] ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`group relative h-[228px] w-[168px] shrink-0 [perspective:1000px] sm:w-[182px] ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
               >
-                <div className="pointer-events-none absolute inset-x-2 top-2 z-20 opacity-0 transition duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-                  <div className="rounded-2xl border border-white/10 bg-black/90 px-3 py-2 shadow-[0_0_24px_rgba(0,0,0,0.45)] backdrop-blur">
+                <div className="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] group-focus-visible:[transform:rotateY(180deg)]">
+                  <div className={`absolute inset-0 flex flex-col gap-2 overflow-hidden rounded-2xl border p-2 ${getRarityGlowClass(opening.itemRarity)} [backface-visibility:hidden]`}>
+                    <div className="flex h-[132px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
+                      {opening.itemImageUrl ? (
+                        // Static crate item images are local and can be rendered with a plain img for simplicity.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt={opening.itemName}
+                          className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] transition-transform duration-200 group-hover:scale-105"
+                          src={opening.itemImageUrl}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-3xl text-white/70">
+                          📦
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-[12px] font-black leading-tight text-white">
+                        {opening.itemName}
+                      </p>
+                      <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${getRarityLabelClass(opening.itemRarity)}`}>
+                        {opening.itemRarity}
+                      </p>
+                    </div>
+                    <p className="text-[10px] text-zinc-300">
+                      Hover for opener details
+                    </p>
+                  </div>
+
+                  <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden rounded-2xl border p-2 [transform:rotateY(180deg)] [backface-visibility:hidden]">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/35">
                         {opening.crateIconUrl ? (
@@ -355,33 +384,24 @@ export function RecentTributesTicker({
                         </p>
                       </div>
                     </div>
-                    <p className="mt-2 truncate text-[10px] font-black uppercase tracking-[0.16em] text-fuchsia-100/85">
-                      {getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex h-[78px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
-                  {opening.itemImageUrl ? (
-                    // Static crate item images are local and can be rendered with a plain img for simplicity.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      alt={opening.itemName}
-                      className="h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] transition-transform duration-200 group-hover:scale-105"
-                      src={opening.itemImageUrl}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-3xl text-white/70">
-                      📦
+
+                    <div className="mt-2 flex-1 rounded-xl border border-white/10 bg-black/25 p-2">
+                      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500">Opener</p>
+                      <div className="mt-1 min-w-0">
+                        <DisplayNameWithUsername
+                          displayName={opening.openerDisplayName}
+                          primaryClassName="text-[11px] font-black text-white whitespace-normal break-words leading-tight"
+                          primaryStyle={opening.openerUsernameStyle}
+                          secondaryClassName="text-[10px] font-semibold text-zinc-400 whitespace-normal break-words"
+                          username={opening.openerRawUsername}
+                        />
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[12px] font-black text-white">
-                    {opening.itemName}
-                  </p>
-                  <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${getRarityLabelClass(opening.itemRarity)}`}>
-                    {opening.itemRarity}
-                  </p>
+
+                    <div className="mt-2 text-[9px] text-center uppercase tracking-[0.18em] text-fuchsia-100/70">
+                      {formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"}
+                    </div>
+                  </div>
                 </div>
               </article>
             ))}

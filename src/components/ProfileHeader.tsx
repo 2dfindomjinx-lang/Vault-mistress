@@ -86,13 +86,21 @@ export function ProfileHeader({
   return (
     <header className="overflow-hidden rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(135deg,rgba(18,7,27,0.96),rgba(79,13,68,0.48),rgba(0,0,0,0.78))] shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <div className="relative overflow-hidden rounded-[1.5rem] p-[1.5px] sm:h-64 lg:h-72">
+        <div className="relative overflow-hidden rounded-[1.5rem] sm:h-64 lg:h-72">
           <div
             aria-hidden="true"
             className={`absolute inset-0 rounded-[1.5rem] ${avatarFrameClassName ?? "bg-white/10"}`}
-            style={avatarFrameStyle}
+            style={{
+              ...avatarFrameStyle,
+              inset: 0,
+              padding: "3px",
+              WebkitMask:
+                "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+              WebkitMaskComposite: "xor",
+              maskComposite: "exclude",
+            }}
           />
-          <div className="relative z-10 h-56 overflow-hidden rounded-[calc(1.5rem-1px)] border border-white/10 bg-black/35 sm:h-full">
+          <div className="absolute inset-[3px] z-10 overflow-hidden rounded-[calc(1.5rem-3px)] bg-black/35">
             <LayeredAvatar
               alt="Full-body Principessa avatar preview"
               className="absolute inset-0"

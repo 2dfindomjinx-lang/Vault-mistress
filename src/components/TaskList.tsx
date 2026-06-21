@@ -111,8 +111,6 @@ type TaskListProps = {
   mechanics: MechanicsState;
   tasks: TaskItem[];
   pendingTaskActionIds?: string[];
-  highLowAllowanceCap: number;
-  highLowProfitCap: number;
   isJackpotBusy?: boolean;
   jackpot: LoyaltyJackpotState | null;
   jackpotError?: string;
@@ -128,9 +126,9 @@ type TaskListProps = {
   userXpRequiredForNext: number | null;
   onBeg: () => void;
   onClaim: (taskId: string) => void;
+  onCaseOpen: () => void;
   onJackpotContribute: (amount: number) => void;
   onLevelDrain: () => void;
-  onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
   onFreeFridaySpinConsumed?: () => void;
   onNumberPick: (selectedNumber: number) => void;
@@ -156,8 +154,6 @@ type TaskListProps = {
 export function TaskList({
   coins,
   disabled = false,
-  highLowAllowanceCap,
-  highLowProfitCap,
   isJackpotBusy = false,
   jackpot,
   jackpotError = "",
@@ -169,9 +165,9 @@ export function TaskList({
   mechanics,
   onBeg,
   onClaim,
+  onCaseOpen,
   onJackpotContribute,
   onLevelDrain,
-  onHighLowPlay,
   onIrlTaskSpin,
   onFreeFridaySpinConsumed,
   onNumberPick,
@@ -213,13 +209,16 @@ export function TaskList({
   const [movementLocalActive, setMovementLocalActive] = useState(false);
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
+  const [caseOpenAnimationPhase, setCaseOpenAnimationPhase] = useState<"idle" | "spinning">("idle");
   const irlWheelTimerRef = useRef<number | null>(null);
+  const caseOpenTimerRef = useRef<number | null>(null);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
   );
   const monthlyResetRemaining = getNextGmt3MonthlyResetMs(now);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
+  const isCaseOpenPending = isTaskActionPending("case-opening");
   const handleCooldownAttempt = (message: string) => {
     emitSoundEvent("button_click");
     onCooldownAttempt?.(message);
@@ -234,6 +233,9 @@ export function TaskList({
       window.clearInterval(timer);
       if (irlWheelTimerRef.current) {
         window.clearTimeout(irlWheelTimerRef.current);
+      }
+      if (caseOpenTimerRef.current) {
+        window.clearTimeout(caseOpenTimerRef.current);
       }
     };
   }, []);
@@ -473,7 +475,7 @@ export function TaskList({
             ? "Almost"
           : task.kind === "movement" && task.movementState === "failed"
             ? "Failed"
-          : task.kind === "high-low"
+          : task.kind === "case-open"
             ? "Open"
           : task.claimed
             ? "Claimed"
@@ -638,11 +640,7 @@ export function TaskList({
           const cooldownRemaining = task.cooldownUntil
             ? new Date(task.cooldownUntil).getTime() - now
             : 0;
-          const nextBaseRevealRemaining = task.nextBaseRevealAt
-            ? new Date(task.nextBaseRevealAt).getTime() - now
-            : 0;
           const isCoolingDown = cooldownRemaining > 0;
-          const isWaitingForNextBase = nextBaseRevealRemaining > 0;
           const isClaimable =
             task.kind === "claim" &&
             task.completed &&
@@ -1007,202 +1005,67 @@ export function TaskList({
                 </div>
               )}
 
-              {task.kind === "high-low" && (
+              {task.kind === "case-open" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                  {(() => {
-                    const highLowBetAllowance =
-                      task.highLowBetAllowance ??
-                      Math.max(0, highLowAllowanceCap - Math.max(0, task.highLowDailyBetTotal ?? 0));
-                    const highLowStakeMax = Math.max(0, Math.min(coins, highLowBetAllowance));
-                    const highLowResetRemaining = task.highLowResetAt
-                      ? new Date(task.highLowResetAt).getTime() - now
-                      : 0;
-
-                    return (
-                      <>
-                  <p className="text-sm text-zinc-400">Current number</p>
-                  <p className="mt-1 text-4xl font-black text-white">
-                    {task.currentNumber}
+                  <p className="text-sm leading-6 text-zinc-400">
+                    Open a luxury case and let the vault roll a random coin reward.
                   </p>
-                  <p className="mt-2 text-xs text-zinc-500">
-                    Your base number is server-owned per user. Result rolls 1-25. Replay cooldown is 15s.
-                  </p>
-                  {isWaitingForNextBase && (
-                    <p className="mt-2 text-sm font-semibold text-pink-100">
-                      Next base number in {formatRemaining(nextBaseRevealRemaining)}
-                    </p>
-                  )}
-                  {task.resultOutcome && task.resultNumber ? (
-                    <div className="mt-4 rounded-2xl border border-pink-200/25 bg-[radial-gradient(circle_at_top,rgba(236,72,153,0.18),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.16)] animate-pulse">
-                      <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">
-                        Result Reveal
-                      </p>
-                      <div className="mt-3 grid grid-cols-2 gap-3">
-                        <ResultCell
-                          label="Base Number"
-                          value={task.resultBaseNumber ?? task.currentNumber ?? 0}
-                        />
-                        <ResultCell
-                          label="Result Number"
-                          value={task.resultNumber}
-                        />
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-3">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                            Outcome
-                          </p>
-                          <p
-                            className={`mt-1 text-xl font-black ${
-                              task.resultOutcome === "win"
-                                ? "text-emerald-200"
-                                : task.resultOutcome === "tie"
-                                  ? "text-yellow-100"
-                                  : "text-rose-200"
-                            }`}
-                          >
-                            {task.resultOutcome === "tie"
-                              ? "TIE"
-                              : task.resultOutcome.toUpperCase()}
-                          </p>
-                        </div>
-                        <p
-                          className={`text-lg font-black ${
-                            (task.resultCoinDelta ?? 0) > 0
-                              ? "text-emerald-200"
-                              : (task.resultCoinDelta ?? 0) < 0
-                                ? "text-rose-200"
-                                : "text-yellow-100"
-                          }`}
-                        >
-                          {task.resultOutcome === "tie"
-                            ? `Play fee -${Math.abs(task.resultCoinDelta ?? 0)} Principessa Coins`
-                            : `${(task.resultCoinDelta ?? 0) > 0 ? "+" : ""}${task.resultCoinDelta ?? 0} Principessa Coins`}
-                        </p>
-                      </div>
-                    </div>
-                  ) : task.lastResult && (
-                    <p className="mt-2 text-sm font-semibold text-pink-100">
-                      {task.lastResult}
-                    </p>
-                  )}
-                  <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        24h Net Profit
-                      </p>
-                      <p
-                        className={`mt-1 text-lg font-black ${
-                          (task.highLowDailyProfit ?? 0) > 0
-                            ? "text-emerald-200"
-                            : (task.highLowDailyProfit ?? 0) < 0
-                              ? "text-rose-200"
-                              : "text-pink-50"
-                        }`}
-                      >
-                        {(task.highLowDailyProfit ?? 0) > 0 ? "+" : ""}
-                        {task.highLowDailyProfit ?? 0}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Wins Today
-                      </p>
-                      <p className="mt-1 text-lg font-black text-pink-50">
-                        {task.highLowDailyWins ?? 0}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Bet Allowance
-                      </p>
-                      <p className="mt-1 text-lg font-black text-pink-50">
-                        {highLowBetAllowance.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                        Lock
-                      </p>
-                      <p
-                        className={`mt-1 text-lg font-black ${
-                          task.highLowDailyLocked ? "text-yellow-100" : "text-emerald-200"
-                        }`}
-                      >
-                        {task.highLowDailyLocked ? "Locked" : "Open"}
-                      </p>
-                    </div>
-                  </div>
-                  {task.highLowDailyLocked && (
-                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower 24-hour profit or bet allowance limit reached.
-                      {highLowResetRemaining > 0
-                        ? ` Available again in ${formatRemaining(highLowResetRemaining)}.`
-                        : " Available again after the current 24-hour window resets."}
-                    </p>
-                  )}
-                  {!task.highLowDailyLocked && (
-                    <p className="mt-3 text-xs font-semibold text-zinc-500">
-                      Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
-                    </p>
-                  )}
-                  {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
-                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                      Higher or Lower bet allowance is depleted.
-                    </p>
-                  )}
-                  <label className="mt-3 block">
-                    <span className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
-                      Stake
-                    </span>
-                    <input
-                      className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || isCoolingDown || task.highLowDailyLocked || highLowBetAllowance <= 0 || isTaskActionPending("high-low")}
-                      min={1}
-                      max={highLowStakeMax}
-                      onChange={(event) => setStake(Number(event.target.value))}
-                      type="number"
-                      value={stake}
-                    />
-                  </label>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    {(["higher", "lower"] as const).map((guess) => (
-                      <button
-                      aria-disabled={isCoolingDown || undefined}
-                      className={`rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
-                        isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                  <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
+                    <div
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-pink-200/15 to-transparent transition-transform duration-700 ${
+                        caseOpenAnimationPhase === "spinning"
+                          ? "translate-x-[260%]"
+                          : "-translate-x-full"
                       }`}
-                        disabled={
-                          disabled ||
-                          isTaskActionPending("high-low") ||
-                          task.highLowDailyLocked ||
-                          stake <= 0 ||
-                          stake > coins ||
-                          stake > highLowBetAllowance
-                        }
-                        key={guess}
-                        onClick={() => {
-                          emitSoundEvent("button_click");
-                          if (isCoolingDown) {
-                            onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
-                            return;
-                          }
-
-                          onHighLowPlay(guess, stake);
-                        }}
-                        type="button"
-                      >
-                        {isCoolingDown ? (
-                          <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
-                        ) : (
-                          guess
-                        )}
-                      </button>
-                    ))}
+                    />
+                    <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                      Last reward
+                    </p>
+                    <p
+                      className={`mt-1 text-2xl font-black text-pink-50 transition-all duration-700 ${
+                        caseOpenAnimationPhase === "spinning"
+                          ? "translate-x-3 opacity-65 blur-[0.4px]"
+                          : "translate-x-0 opacity-100"
+                      }`}
+                    >
+                      {typeof task.caseReward === "number"
+                        ? `${task.caseReward > 0 ? "+" : ""}${task.caseReward} Principessa Coins`
+                        : "Not opened yet"}
+                    </p>
                   </div>
-                      </>
-                    );
-                  })()}
+                  <button
+                    aria-disabled={isCoolingDown || undefined}
+                    className={`mt-3 w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                    }`}
+                    disabled={disabled || isCoolingDown || isClaimPending(task.id) || isCaseOpenPending}
+                    onClick={() => {
+                      if (isCoolingDown) {
+                        handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
+                        return;
+                      }
+
+                      setCaseOpenAnimationPhase("spinning");
+                      if (caseOpenTimerRef.current) {
+                        window.clearTimeout(caseOpenTimerRef.current);
+                      }
+                      caseOpenTimerRef.current = window.setTimeout(() => {
+                        setCaseOpenAnimationPhase("idle");
+                      }, 900);
+                      emitSoundEvent("button_click");
+                      onCaseOpen();
+                    }}
+                    type="button"
+                  >
+                    {isCoolingDown ? (
+                      <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
+                    ) : isCaseOpenPending ? (
+                      "Opening..."
+                    ) : (
+                      "Open Case"
+                    )}
+                  </button>
                 </div>
               )}
 
@@ -2060,15 +1923,6 @@ function formatJackpotRemaining(milliseconds: number) {
   }
 
   return `${minutes}m`;
-}
-
-function ResultCell({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-center">
-      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-4xl font-black text-white">{value}</p>
-    </div>
-  );
 }
 
 function WaitObedientlyPanel({

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
@@ -767,22 +767,75 @@ export function CratesPanel({
             const dropRates = getDropRates(crate.crate_type);
 
             return (
-              <div key={crate.crate_type} className="[perspective:1000px]">
-                <div
-                  className={`relative h-[260px] w-full overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] transition-transform duration-500 [transform-style:preserve-3d]`}
-                  style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', willChange: 'transform' }}
-                >
-                  {/* FRONT - normal crate card */}
-                  <div
-                    className="absolute inset-0 flex flex-col p-4 backface-hidden"
-                    style={{ backfaceVisibility: 'hidden', zIndex: isFlipped ? 0 : 2 }}
-                  >
+              <div key={crate.crate_type} className="w-full">
+                {isFlipped ? (
+                  <div className="relative flex h-[260px] w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFlippedCrate(null);
+                      }}
+                      className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
+                      title="Close"
+                    >
+                      x
+                    </button>
+
+                    <div className="text-center">
+                      <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
+                      <div className="mt-0.5 truncate text-sm font-semibold">{crate.name}</div>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-zinc-400">
+                        {crate.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex-1 overflow-y-auto pr-1 space-y-1 rounded bg-black/30 p-1 text-[11px]">
+                      {dropRates.length === 0 ? (
+                        <div className="py-4 text-center text-xs text-zinc-400">No rates available</div>
+                      ) : (
+                        dropRates.map((rate: any) => {
+                          const icon = rate.image_url ?? getCrateIconUrl(rate.item_id) ?? `/crate-items/${rate.item_id}.png`;
+                          return (
+                            <div
+                              key={rate.item_id}
+                              className={`flex items-center gap-2 rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
+                            >
+                              <img
+                                src={icon}
+                                alt={rate.name}
+                                className="h-7 w-7 shrink-0 rounded-md border border-white/15 bg-black/30 object-contain p-0.5"
+                                onError={(e) => {
+                                  const t = e.target as HTMLImageElement;
+                                  t.style.opacity = "0.2";
+                                }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-white/90">{rate.name}</p>
+                                <p className="truncate text-[9px] uppercase tracking-[0.18em] text-white/55">
+                                  {rate.rarity}
+                                </p>
+                              </div>
+                              <span className="ml-2 font-mono text-[10px] tabular-nums opacity-80">
+                                {rate.percentage.toFixed(2)}%
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="mt-2 text-center text-[9px] opacity-50">
+                      {dropRates.length} items • Scroll for all
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative flex h-[260px] w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setFlippedCrate(crate.crate_type);
                       }}
-                      className="absolute top-2 right-2 z-20 w-5 h-5 rounded-full bg-black/40 text-white/70 hover:text-white text-[11px] leading-none flex items-center justify-center border border-white/20"
+                      className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
                       title="View drop rates"
                     >
                       ?
@@ -791,7 +844,7 @@ export function CratesPanel({
                     <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
                       <div className="min-w-0 flex-1">
                         <p className="text-base font-black text-white">{crate.name}</p>
-                        <p className="mt-1 text-xs leading-5 text-zinc-400 line-clamp-4">{crate.description}</p>
+                        <p className="mt-1 line-clamp-4 text-xs leading-5 text-zinc-400">{crate.description}</p>
                       </div>
                       <div className="min-w-[92px] shrink-0 text-right">
                         <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
@@ -823,14 +876,11 @@ export function CratesPanel({
                       </div>
                     </div>
 
-                    {/* Principessa Case icon (or future crates).
-                        Path convention: /crate-icons/principessa-case.png (auto from crate_type)
-                        Drop your PNG in public/crate-icons/ — the file name will be crate_type with _ → - */}
-                    <div className="mt-1 flex justify-center">
+                    <div className="mt-3 flex justify-center">
                       <img
                         src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
                         alt={crate.name}
-                        className="h-16 w-16 object-contain rounded-2xl border border-white/15 bg-black/40 p-1 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
+                        className="h-20 w-20 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
                         onError={(e) => {
                           const t = e.target as HTMLImageElement;
                           t.style.opacity = "0.25";
@@ -838,19 +888,17 @@ export function CratesPanel({
                       />
                     </div>
 
-                    {/* Pity counters - only visible in shop grid. State update is delayed in parent until after reveal to prevent spoiling during reel spin. */}
                     {crate.crate_type === "principessa_case" && (
-                      <div className="mt-0.5 text-[9px] text-center text-amber-400/80 whitespace-nowrap">
+                      <div className="mt-1 text-center text-[9px] whitespace-nowrap text-amber-400/80">
                         Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/4
                       </div>
                     )}
                     {crate.crate_type === "blessing_case" && (
-                      <div className="mt-0.5 text-[9px] text-center text-violet-400/80 whitespace-nowrap">
+                      <div className="mt-1 text-center text-[9px] whitespace-nowrap text-violet-400/80">
                         Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
                       </div>
                     )}
 
-                    {/* Qty selector for multi open (up to 5) - per case */}
                     <div className="mt-2 flex justify-center gap-1 text-[10px]">
                       {[1,2,3,4,5].map(q => (
                         <button
@@ -873,50 +921,7 @@ export function CratesPanel({
                       {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
                     </button>
                   </div>
-
-                  {/* BACK - drop rates with internal scroll (area fixed) */}
-                  <div
-                    className="absolute inset-0 p-4 flex flex-col backface-hidden"
-                    style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', zIndex: isFlipped ? 2 : 0 }}
-                  >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCrate(null);
-                      }}
-                      className="absolute top-2 right-2 z-20 w-5 h-5 rounded-full bg-black/40 text-white/70 hover:text-white text-[11px] leading-none flex items-center justify-center border border-white/20"
-                      title="Close"
-                    >
-                      ✕
-                    </button>
-
-                    <div className="text-center">
-                      <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
-                      <div className="text-sm font-semibold mt-0.5 truncate">{crate.name}</div>
-                    </div>
-
-                    <div className="mt-2 flex-1 overflow-y-auto pr-1 text-[11px] space-y-1 bg-black/30 rounded p-1">
-                      {dropRates.length === 0 ? (
-                        <div className="text-center text-zinc-400 py-4 text-xs">No rates available</div>
-                      ) : (
-                        dropRates.map((rate: any) => (
-                          <div
-                            key={rate.item_id}
-                            className={`flex items-center justify-between rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
-                          >
-                            <span className="truncate font-medium text-white/90">{rate.name}</span>
-                            <span className="font-mono text-[10px] opacity-80 tabular-nums ml-2">
-                              {rate.percentage.toFixed(2)}%
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="text-[9px] text-center mt-1 opacity-50">
-                      {dropRates.length} items • Scroll for all
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}

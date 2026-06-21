@@ -2,10 +2,10 @@ import { requireAdminProfile } from "@/lib/admin-guard";
 import {
   getEventCategory,
   getEventTemplate,
-  getUtcDayBounds,
   resolveEventEffect,
   type EventEffect,
 } from "@/lib/events";
+import { DAY_MS } from "@/lib/time";
 
 type AdminEventBody = {
   action?: "activate" | "create" | "end";
@@ -186,7 +186,8 @@ export async function POST(request: Request) {
 
   if (body.action === "create") {
     const template = body.templateKey ? getEventTemplate(body.templateKey) : null;
-    const { end, start } = getUtcDayBounds();
+    const start = body.startsAt ? new Date(body.startsAt) : new Date();
+    const end = body.endsAt ? new Date(body.endsAt) : new Date(start.getTime() + DAY_MS);
     const name = body.name ?? template?.name;
     const description = body.description ?? template?.description;
     const effect = body.effect ?? template?.effect;
@@ -207,9 +208,9 @@ export async function POST(request: Request) {
         active: true,
         description,
         effect: resolvedEffect,
-        ends_at: body.endsAt ?? end.toISOString(),
+        ends_at: end.toISOString(),
         name,
-        starts_at: body.startsAt ?? start.toISOString(),
+        starts_at: start.toISOString(),
       })
       .select("id, name, description, starts_at, ends_at, active, effect")
       .single();

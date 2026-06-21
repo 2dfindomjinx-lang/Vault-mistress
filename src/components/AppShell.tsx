@@ -10,9 +10,11 @@ type AppShellProps = {
 
 export function AppShell({ activePage, children, items, onNavigate }: AppShellProps) {
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden">
-      <SidebarNav activePage={activePage} items={items} onSelect={onNavigate} />
-      <div className="flex w-full min-w-0 flex-col gap-5 px-4 pb-5 pt-[9.5rem] sm:px-6 sm:pt-[10rem] lg:ml-64 lg:w-[calc(100%-16rem)] lg:px-8 lg:pb-5 lg:pt-5">
+    <div className="relative min-h-screen w-full overflow-x-hidden lg:flex lg:items-start">
+      <div className="lg:sticky lg:top-0 lg:h-dvh lg:w-64 lg:shrink-0">
+        <SidebarNav activePage={activePage} items={items} onSelect={onNavigate} />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         {children}
       </div>
     </div>

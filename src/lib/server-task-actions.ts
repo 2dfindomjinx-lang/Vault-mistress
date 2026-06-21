@@ -2,21 +2,63 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 export { DAY_MS } from "@/lib/time";
 
-export const HIGH_LOW_BET_ALLOWANCE = 1000;
+export const HIGH_LOW_BET_ALLOWANCE = 2000;
 export const HIGH_LOW_PROFIT_LIMIT = 2500;
 export const HIGH_LOW_TIE_FEE_RATIO = 0.25;
 export const HIGH_LOW_REVEAL_DELAY_MS = 10 * 1000;
 export const HIGH_LOW_REPLAY_COOLDOWN_MS = 15 * 1000;
 export const HIGH_LOW_DISPLAY_NUMBER_MIN = 2;
-export const HIGH_LOW_DISPLAY_NUMBER_MAX = 24;
-const HIGH_LOW_DISPLAY_NUMBER_CENTER = 13;
+export const HIGH_LOW_DISPLAY_NUMBER_MAX = 19;
+const HIGH_LOW_RESULT_NUMBER_MIN = 1;
+const HIGH_LOW_RESULT_NUMBER_MAX = 25;
+const HIGH_LOW_DISPLAY_NUMBER_CENTER = 10.5;
+const HIGH_LOW_RESULT_NUMBER_CENTER = 13;
+const CASE_OPEN_REWARD_WEIGHTS = [
+  { value: 100, weight: 35 },
+  { value: 125, weight: 25 },
+  { value: 150, weight: 15 },
+  { value: 175, weight: 10 },
+  { value: 200, weight: 5 },
+  { value: 250, weight: 5 },
+  { value: 300, weight: 2 },
+  { value: 350, weight: 1 },
+  { value: 400, weight: 1 },
+  { value: 450, weight: 0.5 },
+  { value: 500, weight: 0.5 },
+];
+
+function pickWeightedNumber(entries: Array<{ value: number; weight: number }>) {
+  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const entry of entries) {
+    roll -= entry.weight;
+
+    if (roll <= 0) {
+      return entry.value;
+    }
+  }
+
+  return entries[entries.length - 1].value;
+}
 
 const HIGH_LOW_DISPLAY_WEIGHTS = Array.from(
   { length: HIGH_LOW_DISPLAY_NUMBER_MAX - HIGH_LOW_DISPLAY_NUMBER_MIN + 1 },
   (_, index) => {
     const value = HIGH_LOW_DISPLAY_NUMBER_MIN + index;
     const distance = Math.abs(value - HIGH_LOW_DISPLAY_NUMBER_CENTER);
-    const weight = Math.max(1, HIGH_LOW_DISPLAY_NUMBER_CENTER - distance + 1);
+    const weight = Math.max(1, 10 - distance);
+
+    return { value, weight };
+  },
+);
+
+const HIGH_LOW_RESULT_WEIGHTS = Array.from(
+  { length: HIGH_LOW_RESULT_NUMBER_MAX - HIGH_LOW_RESULT_NUMBER_MIN + 1 },
+  (_, index) => {
+    const value = HIGH_LOW_RESULT_NUMBER_MIN + index;
+    const distance = Math.abs(value - HIGH_LOW_RESULT_NUMBER_CENTER);
+    const weight = Math.max(1, 14 - distance);
 
     return { value, weight };
   },
@@ -76,22 +118,11 @@ export function getMetadataNumberArray(
 }
 
 export function randomHighLowNumber() {
-  return Math.floor(Math.random() * 25) + 1;
+  return pickWeightedNumber(HIGH_LOW_RESULT_WEIGHTS);
 }
 
 export function randomHighLowDisplayNumber() {
-  const totalWeight = HIGH_LOW_DISPLAY_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const entry of HIGH_LOW_DISPLAY_WEIGHTS) {
-    roll -= entry.weight;
-
-    if (roll <= 0) {
-      return entry.value;
-    }
-  }
-
-  return HIGH_LOW_DISPLAY_WEIGHTS[HIGH_LOW_DISPLAY_WEIGHTS.length - 1].value;
+  return pickWeightedNumber(HIGH_LOW_DISPLAY_WEIGHTS);
 }
 
 export function generateHighLowRoundNumbers() {
@@ -99,6 +130,10 @@ export function generateHighLowRoundNumbers() {
     currentNumber: randomHighLowDisplayNumber(),
     nextNumber: randomHighLowDisplayNumber(),
   };
+}
+
+export function randomCaseOpeningReward() {
+  return pickWeightedNumber(CASE_OPEN_REWARD_WEIGHTS);
 }
 
 export function getHighLowTieFee(stake: number) {

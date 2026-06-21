@@ -120,6 +120,37 @@ function formatRemaining(target: string, now: number) {
   return `${minutes}m`;
 }
 
+function getEventAdminStatus(event: RandomEvent, now: number) {
+  const startsAt = new Date(event.starts_at).getTime();
+  const endsAt = new Date(event.ends_at).getTime();
+
+  if (Number.isFinite(endsAt) && endsAt <= now) {
+    return {
+      label: "Expired",
+      tone: "border-zinc-200/15 bg-zinc-500/10 text-zinc-100",
+    } as const;
+  }
+
+  if (Number.isFinite(startsAt) && startsAt > now) {
+    return {
+      label: "Scheduled",
+      tone: "border-sky-200/15 bg-sky-500/10 text-sky-100",
+    } as const;
+  }
+
+  if (event.active) {
+    return {
+      label: "Active",
+      tone: "border-yellow-200/20 bg-yellow-400/10 text-yellow-50",
+    } as const;
+  }
+
+  return {
+    label: "Inactive",
+    tone: "border-white/10 bg-white/[0.04] text-zinc-200",
+  } as const;
+}
+
 export default function AdminPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -374,6 +405,66 @@ export default function AdminPage() {
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const renderEventCard = (event: AdminEvent) => {
+    const isExpired = new Date(event.ends_at).getTime() <= adminNow;
+    const eventStatus = getEventAdminStatus(event, adminNow);
+
+    return (
+      <article
+        className={`rounded-2xl border p-3 ${
+          event.active ? "border-yellow-200/30 bg-yellow-400/10" : "border-white/10 bg-black/35"
+        }`}
+        key={event.id}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-white">{event.name}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{event.description}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {new Date(event.starts_at).toLocaleString()} - {new Date(event.ends_at).toLocaleString()}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${eventStatus.tone}`}
+              >
+                {eventStatus.label}
+              </span>
+              <span className="text-xs font-bold text-yellow-100/80">
+                {event.effect.type} x{event.effect.multiplier}
+                {event.effect.speechAvatarId ? ` - ${event.effect.speechAvatarId}` : ""}
+              </span>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {isExpired ? (
+              <span className="rounded-2xl border border-zinc-200/15 bg-zinc-500/10 px-3 py-2 text-xs font-black uppercase text-zinc-100">
+                Ended
+              </span>
+            ) : !event.active ? (
+              <button
+                className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isBusy}
+                onClick={() => void handleEventAction("activate", event.id)}
+                type="button"
+              >
+                Activate
+              </button>
+            ) : (
+              <button
+                className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isBusy}
+                onClick={() => void handleEventAction("end", event.id)}
+                type="button"
+              >
+                End
+              </button>
+            )}
+          </div>
+        </div>
+      </article>
+    );
   };
 
   const handleEventAction = async (
@@ -1442,55 +1533,7 @@ export default function AdminPage() {
 
               <div className="mt-4 grid gap-3">
                 {events.length > 0 ? (
-                  events.map((event) => (
-                    <article
-                      className={`rounded-2xl border p-3 ${
-                        event.active
-                          ? "border-yellow-200/30 bg-yellow-400/10"
-                          : "border-white/10 bg-black/35"
-                      }`}
-                      key={event.id}
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-black text-white">{event.name}</p>
-                          <p className="mt-1 text-xs leading-5 text-zinc-400">
-                            {event.description}
-                          </p>
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {new Date(event.starts_at).toLocaleString()} -{" "}
-                            {new Date(event.ends_at).toLocaleString()}
-                          </p>
-                          <p className="mt-1 text-xs font-bold text-yellow-100/80">
-                            {event.effect.type} x{event.effect.multiplier}
-                            {event.effect.speechAvatarId ? ` - ${event.effect.speechAvatarId}` : ""}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 gap-2">
-                          {!event.active && (
-                            <button
-                              className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={isBusy}
-                              onClick={() => void handleEventAction("activate", event.id)}
-                              type="button"
-                            >
-                              Activate
-                            </button>
-                          )}
-                          {event.active && (
-                            <button
-                              className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={isBusy}
-                              onClick={() => void handleEventAction("end", event.id)}
-                              type="button"
-                            >
-                              End
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  ))
+                  events.map(renderEventCard)
                 ) : (
                   <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
                     No events yet.

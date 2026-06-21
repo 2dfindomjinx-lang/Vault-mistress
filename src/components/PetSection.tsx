@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import type { PetCaseItem, PetDebtContract, PetGalleryItem, PetTaskItem } from "@/lib/types";
+import type { PetDebtContract, PetGalleryItem, PetTaskItem } from "@/lib/types";
+import { emitSoundEvent } from "@/lib/sound";
 
 const PET_RANKS = [
   { min: 0, title: "Unclaimed Stray" },
@@ -54,6 +55,11 @@ const RIGHTS_TASK_WARNING =
 const RIGHTS_IMAGE_PATH_PREFIX = "/pet/rights/right";
 const DAILY_RIGHT_PRICES = [1500, 2500, 5000, 7500, 10000] as const;
 const RANDOM_WEBSITE_STATE_STORAGE_KEY = "vault:random-website-state";
+
+function CooldownButtonContent({ label }: { label: string }) {
+  return <span>{label}</span>;
+}
+
 const RANDOM_WEBSITE_LINK_POOL: string[] = [
 	"https://www.pornhub.com/view_video.php?viewkey=6a1f53942933a",
 	"https://www.pornhub.com/view_video.php?viewkey=69f8c6731ca52",
@@ -530,15 +536,6 @@ const PET_CASE_DISPLAY_POOL = [
   { value: 1000, tier: "gold", weight: 2 },
 ];
 
-const PET_CASE_DISPLAY_ITEMS = PET_CASE_DISPLAY_POOL.flatMap((item) =>
-  Array.from({ length: item.weight }, () => ({ value: item.value, tier: item.tier })),
-);
-
-function randomCaseDisplayItem() {
-  return PET_CASE_DISPLAY_ITEMS[Math.floor(Math.random() * PET_CASE_DISPLAY_ITEMS.length)];
-}
-
-const CASE_RESULT_INDEX = 20;
 const EVIL_DISTRACTION_TEXTS = [
   "Confirm Obedience",
   "Click to Prove Loyalty",
@@ -547,25 +544,6 @@ const EVIL_DISTRACTION_TEXTS = [
   "Claim Early",
   "Need Attention?",
 ];
-
-function getCaseTierClass(tier: string) {
-  switch (tier) {
-    case "black":
-      return "border-zinc-600/40 bg-black text-zinc-200 shadow-[0_0_14px_rgba(0,0,0,0.55)]";
-    case "ice":
-      return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
-    case "blue":
-      return "border-blue-300/35 bg-blue-500/15 text-blue-50";
-    case "pink":
-      return "border-pink-300/40 bg-pink-500/18 text-pink-50";
-    case "red":
-      return "border-red-300/40 bg-red-600/18 text-red-50";
-    case "gold":
-      return "border-yellow-200/60 bg-yellow-300/20 text-yellow-50 shadow-[0_0_20px_rgba(250,204,21,0.3)]";
-    default:
-      return "border-pink-200/20 bg-pink-500/10 text-pink-50";
-  }
-}
 
 function getPetTaskBadgeLabel(task: PetTaskItem, pending: boolean, approved: boolean, failed: boolean) {
   if (pending) {
@@ -585,8 +563,8 @@ function getPetTaskBadgeLabel(task: PetTaskItem, pending: boolean, approved: boo
       return "Repetition";
     case "perfect-writing":
       return "Precision";
-    case "case-open":
-      return "Case";
+    case "high-low":
+      return "High/Low";
     case "evil-wait":
       return "Stillness";
     case "false-hope":
@@ -617,13 +595,15 @@ export function PetSection({
   onUseRight,
   onFalseHopeKey,
   onFavorPick,
-  onOpenCase,
+  onHighLowPlay,
   onPetDailyClick,
   onPayWeeklyTax,
   onPetEvilWaitComplete,
   onPetEvilWaitFail,
   onPetEvilWaitStart,
   onPerfectWritingProgress,
+  highLowAllowanceCap,
+  highLowProfitCap,
   petGalleryUnlockedIds,
   pendingPetActionIds = [],
   ownerLikeness,
@@ -671,7 +651,7 @@ export function PetSection({
   onUseRight: () => void;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
-  onOpenCase: (caseItem: PetCaseItem) => void;
+  onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onPetDailyClick: () => void;
   onPayWeeklyTax: () => void;
   onPetEvilWaitComplete: () => void;
@@ -690,19 +670,12 @@ export function PetSection({
   dailyPurchaseCount: number;
   rightPurchaseDate: string | null;
   tasks: PetTaskItem[];
+  highLowAllowanceCap: number;
+  highLowProfitCap: number;
   weeklyTaxCost: number;
 }) {
   const [now, setNow] = useState(0);
-  const [caseRolling, setCaseRolling] = useState(false);
-  const [caseTrack, setCaseTrack] = useState<PetCaseItem[]>(() =>
-    Array.from({ length: 34 }, () => randomCaseDisplayItem()),
-  );
-  const [caseTransform, setCaseTransform] = useState("translateX(0px)");
-  const [caseResultVisible, setCaseResultVisible] = useState(false);
-  const caseViewportRef = useRef<HTMLDivElement | null>(null);
-  const caseResultRef = useRef<HTMLSpanElement | null>(null);
-  const caseOpeningRef = useRef(false);
-  const caseTimersRef = useRef<number[]>([]);
+  const [highLowStake, setHighLowStake] = useState(10);
   const debtSignTimerRef = useRef<number | null>(null);
   const favorRevealTimerRef = useRef<number | null>(null);
   const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
@@ -809,7 +782,6 @@ export function PetSection({
   }, [onFalseHopeKey]);
 
   useEffect(() => () => {
-    caseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     if (debtSignTimerRef.current !== null) {
       window.clearTimeout(debtSignTimerRef.current);
     }
@@ -1201,53 +1173,6 @@ export function PetSection({
     writeRandomWebsiteState(nextState);
   }
 
-  function handleCaseOpen() {
-    if (caseOpeningRef.current) {
-      return;
-    }
-
-    caseOpeningRef.current = true;
-    caseTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-    caseTimersRef.current = [];
-    const selectedCaseItem = randomCaseDisplayItem();
-    const nextTrack = [
-      ...Array.from({ length: CASE_RESULT_INDEX }, () => randomCaseDisplayItem()),
-      selectedCaseItem,
-      ...Array.from({ length: 10 }, () => randomCaseDisplayItem()),
-    ];
-
-    setCaseTrack(nextTrack);
-    setCaseResultVisible(false);
-    setCaseTransform("translateX(0px)");
-    const alignTimer = window.setTimeout(() => {
-      const viewport = caseViewportRef.current;
-      const result = caseResultRef.current;
-
-      if (viewport && result) {
-        const viewportBox = viewport.getBoundingClientRect();
-        const resultBox = result.getBoundingClientRect();
-        const offset =
-          viewportBox.left + viewportBox.width / 2 - (resultBox.left + resultBox.width / 2);
-        setCaseTransform(`translateX(${Math.floor(offset)}px)`);
-      }
-
-      setCaseRolling(true);
-    }, 50);
-    const resultTimer = window.setTimeout(() => {
-      try {
-        onOpenCase(selectedCaseItem);
-        setCaseResultVisible(true);
-        const hideTimer = window.setTimeout(() => setCaseResultVisible(false), 10000);
-        caseTimersRef.current.push(hideTimer);
-      } finally {
-        setCaseRolling(false);
-        caseOpeningRef.current = false;
-        caseTimersRef.current = caseTimersRef.current.filter((timer) => timer !== resultTimer);
-      }
-    }, 10000);
-    caseTimersRef.current.push(alignTimer, resultTimer);
-  }
-
   function handleFavorPick(index: number) {
     setFavorRevealing(true);
     onFavorPick(index);
@@ -1542,8 +1467,8 @@ export function PetSection({
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petTaskCoinReward} Coins`
-                      : task.kind === "case-open"
-                        ? `Completion reward: +${task.reward} Pet Score. Case reward only.`
+                      : task.kind === "high-low"
+                        ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
                       : `Completion reward: +${task.reward} Pet Score, +${
                           task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
                         } Coins`}
@@ -1645,55 +1570,140 @@ export function PetSection({
                     </div>
                   )}
 
-                  {task.kind === "case-open" && (
+                  {task.kind === "high-low" && (
                     <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/50 py-5" ref={caseViewportRef}>
-                        <div className="pointer-events-none absolute left-1/2 top-1 z-10 -translate-x-1/2 text-lg font-black text-yellow-200 drop-shadow-[0_0_10px_rgba(250,204,21,0.7)]">
-                          ↓
-                        </div>
-                        <div
-                          className="flex gap-2 px-3 will-change-transform"
-                          style={{
-                            transform: caseTransform,
-                            transition: caseRolling
-                              ? "transform 10000ms cubic-bezier(0.04, 0.82, 0.16, 1)"
-                              : "none",
-                          }}
-                        >
-                          {caseTrack.map((item, index) => (
-                            <span
-                              className={`min-w-20 rounded-xl border px-2 py-2 text-center text-xs font-black sm:min-w-24 sm:px-3 sm:text-sm ${getCaseTierClass(item.tier)}`}
-                              key={`${item.value}-${index}`}
-                              ref={index === CASE_RESULT_INDEX ? caseResultRef : undefined}
-                            >
-                              {item.value > 0 ? `+${item.value}` : item.value}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      {(typeof task.caseReward === "number" || caseResultVisible) && (
-                        <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100">
-                          Last case: {(task.caseReward ?? 0) > 0 ? "+" : ""}{task.caseReward ?? 0} Principessa Coins
-                        </p>
-                      )}
-                      <button
-                        aria-disabled={coolingDown || undefined}
-                        className={`mt-auto w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
-                          coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-                        }`}
-                        disabled={disabled || caseRolling || actionPending}
-                        onClick={() => {
-                          if (coolingDown) {
-                            handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
-                            return;
-                          }
+                      {(() => {
+                        const highLowBetAllowance =
+                          task.highLowBetAllowance ??
+                          Math.max(0, highLowAllowanceCap - Math.max(0, task.highLowDailyBetTotal ?? 0));
+                        const highLowStakeMax = Math.max(0, Math.min(coins, highLowBetAllowance));
+                        const highLowResetRemaining = task.highLowResetAt
+                          ? new Date(task.highLowResetAt).getTime() - now
+                          : 0;
 
-                          handleCaseOpen();
-                        }}
-                        type="button"
-                      >
-                        {caseRolling || actionPending ? "Opening..." : coolingDown ? "Cooldown" : "Open Case"}
-                      </button>
+                        return (
+                          <>
+                            <p className="text-sm text-zinc-400">Current number</p>
+                            <p className="mt-1 text-4xl font-black text-white">
+                              {task.currentNumber}
+                            </p>
+                            <p className="mt-2 text-xs text-zinc-500">
+                              Base rolls use 2-19. Result rolls use 1-25 with middle numbers weighted higher.
+                            </p>
+                            {task.highLowRoundAvailableAt && (
+                              <p className="mt-2 text-sm font-semibold text-pink-100">
+                                Next round in {formatRemaining(task.highLowRoundAvailableAt, now)}
+                              </p>
+                            )}
+                            <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">24h Net Profit</p>
+                                <p
+                                  className={`mt-1 text-lg font-black ${
+                                    (task.highLowDailyProfit ?? 0) > 0
+                                      ? "text-emerald-200"
+                                      : (task.highLowDailyProfit ?? 0) < 0
+                                        ? "text-rose-200"
+                                        : "text-pink-50"
+                                  }`}
+                                >
+                                  {(task.highLowDailyProfit ?? 0) > 0 ? "+" : ""}
+                                  {task.highLowDailyProfit ?? 0}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Wins Today</p>
+                                <p className="mt-1 text-lg font-black text-pink-50">
+                                  {task.highLowDailyWins ?? 0}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Bet Allowance</p>
+                                <p className="mt-1 text-lg font-black text-pink-50">
+                                  {highLowBetAllowance.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Lock</p>
+                                <p
+                                  className={`mt-1 text-lg font-black ${
+                                    task.highLowDailyLocked ? "text-yellow-100" : "text-emerald-200"
+                                  }`}
+                                >
+                                  {task.highLowDailyLocked ? "Locked" : "Open"}
+                                </p>
+                              </div>
+                            </div>
+                            {task.highLowDailyLocked && (
+                              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                                Higher or Lower 24-hour profit or bet allowance limit reached.
+                                {highLowResetRemaining > 0
+                                  ? ` Available again in ${formatRemaining(task.highLowResetAt ?? null, now)}.`
+                                  : " Available again after the current 24-hour window resets."}
+                              </p>
+                            )}
+                            {!task.highLowDailyLocked && (
+                              <p className="mt-3 text-xs font-semibold text-zinc-500">
+                                Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
+                              </p>
+                            )}
+                            {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
+                              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                                Higher or Lower bet allowance is depleted.
+                              </p>
+                            )}
+                            <label className="mt-3 block">
+                              <span className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+                                Stake
+                              </span>
+                              <input
+                                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
+                                disabled={disabled || coolingDown || task.highLowDailyLocked || highLowBetAllowance <= 0 || isPetActionPending("high-low")}
+                                min={1}
+                                max={highLowStakeMax}
+                                onChange={(event) => setHighLowStake(Number(event.target.value))}
+                                type="number"
+                                value={highLowStake}
+                              />
+                            </label>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              {(["higher", "lower"] as const).map((guess) => (
+                                <button
+                                  aria-disabled={coolingDown || undefined}
+                                  className={`rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
+                                    coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                                  }`}
+                                  disabled={
+                                    disabled ||
+                                    isPetActionPending("high-low") ||
+                                    task.highLowDailyLocked ||
+                                    highLowStake <= 0 ||
+                                    highLowStake > coins ||
+                                    highLowStake > highLowBetAllowance
+                                  }
+                                  key={guess}
+                                  onClick={() => {
+                                    if (coolingDown) {
+                                      handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                                      return;
+                                    }
+
+                                    emitSoundEvent("button_click");
+                                    onHighLowPlay(guess, highLowStake);
+                                  }}
+                                  type="button"
+                                >
+                                  {coolingDown ? (
+                                    <CooldownButtonContent label={`Available in ${formatRemaining(task.cooldownUntil ?? null, now)}`} />
+                                  ) : (
+                                    guess
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 

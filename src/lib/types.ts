@@ -15,18 +15,20 @@ export type GalleryItem = {
 
 export type TaskItem = {
   id:
-    | "daily-login"
-    | "streak-bonus-1"
-    | "streak-bonus-3"
-    | "streak-bonus-7"
-    | "streak-bonus-15"
-    | "streak-bonus-30"
-    | "typing-accuracy"
-    | "high-low"
-    | "number-pick"
-    | "wait-obediently"
-    | "timeout-risk"
-    | "irl-task-wheel"
+  | "daily-login"
+  | "streak-bonus-1"
+  | "streak-bonus-3"
+  | "streak-bonus-7"
+  | "streak-bonus-15"
+  | "streak-bonus-30"
+  | "typing-accuracy"
+  | "case-opening"
+  | "case-open"
+  | "high-low"
+  | "number-pick"
+  | "wait-obediently"
+  | "timeout-risk"
+  | "irl-task-wheel"
     | "affection"
     | "affection-80"
     | "vertical-motion";
@@ -37,6 +39,7 @@ export type TaskItem = {
   kind:
     | "claim"
     | "typing"
+    | "case-open"
     | "high-low"
     | "number-pick"
     | "wait-obediently"
@@ -47,6 +50,8 @@ export type TaskItem = {
   attemptsRemaining?: number;
   sentence?: string;
   currentNumber?: number;
+  caseReward?: number | null;
+  caseSpunAt?: string | null;
   highLowNextNumber?: number;
   highLowDailyDate?: string | null;
   highLowDailyBetTotal?: number;
@@ -117,6 +122,7 @@ export type PetTaskItem = {
     | "perfect-writing"
     | "weekly-tax"
     | "case-open"
+    | "high-low"
     | "evil-wait"
     | "false-hope"
     | "favor-roulette"
@@ -127,6 +133,16 @@ export type PetTaskItem = {
   completedAt?: string | null;
   caseReward?: number | null;
   caseSpunAt?: string | null;
+  currentNumber?: number;
+  highLowNextNumber?: number;
+  highLowDailyDate?: string | null;
+  highLowDailyBetTotal?: number;
+  highLowDailyLocked?: boolean;
+  highLowDailyProfit?: number;
+  highLowDailyWins?: number;
+  highLowBetAllowance?: number;
+  highLowResetAt?: string | null;
+  highLowRoundAvailableAt?: string | null;
   confessionCount?: number;
   deadlineAt?: string | null;
   falseHopeProgress?: number;

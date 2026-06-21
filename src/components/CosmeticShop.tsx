@@ -69,11 +69,17 @@ export function CosmeticShop({
           }`}
           key={item.id}
         >
-          {item.image && (
-            <div className="mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/35">
+          {item.image && item.type !== "profile-border" && (
+            <div
+              className={`mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-black/35 ${
+                item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
+              }`}
+            >
               <Image
                 alt={item.name}
-                className="h-11 w-11 object-contain"
+                className={`h-11 w-11 object-contain ${
+                  item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
+                }`}
                 height={44}
                 src={item.image}
                 width={44}
@@ -105,17 +111,6 @@ export function CosmeticShop({
               >
                 {equipped ? "Equipped" : eventAvailable ? "Event" : owned ? "Owned" : "Locked"}
               </span>
-              {item.type === "speech-avatar" && item.image && (
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[0_0_18px_rgba(0,0,0,0.25)]">
-                  <Image
-                    alt={item.name}
-                    className="h-7 w-7 object-contain"
-                    height={28}
-                    src={item.image}
-                    width={28}
-                  />
-                </div>
-              )}
             </div>
           </div>
           <div className="mt-4 flex items-center justify-between gap-3">
