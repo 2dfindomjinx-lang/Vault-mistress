@@ -1979,14 +1979,13 @@ export default function Home() {
     color: equippedUsernameColor?.color,
     textShadow: equippedUsernameGlow?.glow,
   };
-  const avatarFrameClassName =
+  const avatarFrameVariant =
     equippedProfileBorder?.id === "profile-border-rainbow-animated"
-      ? "profile-border-frame profile-border-frame--rainbow"
+      ? "rainbow"
       : equippedProfileBorder?.id === "profile-border-animated"
-        ? "profile-border-frame profile-border-frame--runner"
-        : equippedProfileBorder?.color
-          ? "profile-border-frame"
-          : "profile-border-frame";
+        ? "runner"
+        : null;
+  const avatarFrameClassName = "bg-white/10";
   const avatarFrameStyle = equippedProfileBorder?.color
     ? {
         backgroundColor: equippedProfileBorder.color,
@@ -9017,6 +9016,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           hasUncensoredAvatar={hasUncensoredAvatar}
           avatarFrameClassName={avatarFrameClassName}
           avatarFrameStyle={avatarFrameStyle}
+          avatarFrameVariant={avatarFrameVariant}
           spendBadge={spendBadge}
           pageLabel={activePageLabel}
           soundControls={soundControls}

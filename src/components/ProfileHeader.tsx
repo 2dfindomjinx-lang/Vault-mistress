@@ -1,12 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, type CSSProperties, type ReactNode } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { PageStatCard } from "@/components/PageStatCard";
 import type { SpendBadge } from "@/lib/cosmetics";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
+
+type AvatarFrameVariant = "runner" | "rainbow" | null;
+
+const PROFILE_BORDER_PATH =
+  "M 18 3 H 162 A 15 15 0 0 1 177 18 V 270 A 15 15 0 0 1 162 285 H 18 A 15 15 0 0 1 3 270 V 18 A 15 15 0 0 1 18 3 Z";
 
 type ProfileHeaderStat = {
   label: string;
@@ -28,6 +33,7 @@ type ProfileHeaderProps = {
   usernameStyle?: CSSProperties;
   avatarFrameClassName?: string;
   avatarFrameStyle?: CSSProperties;
+  avatarFrameVariant?: AvatarFrameVariant;
   spendBadge?: SpendBadge | null;
   actions?: ReactNode;
   // Display Name change right pencil mechanic in the top header box
@@ -55,6 +61,7 @@ export function ProfileHeader({
   usernameStyle,
   avatarFrameClassName,
   avatarFrameStyle,
+  avatarFrameVariant = null,
   spendBadge,
   displayName,
   hasDisplayNameChangeRight = false,
@@ -66,6 +73,8 @@ export function ProfileHeader({
   onCancelDisplayNameEdit,
   onDisplayNameEditInputChange,
 }: ProfileHeaderProps) {
+  const profileBorderIds = useId().replaceAll(":", "");
+
   useEffect(() => {
     if (!isEditingDisplayName || !onCancelDisplayNameEdit) {
       return;
@@ -102,6 +111,12 @@ export function ProfileHeader({
               maskComposite: "exclude",
             }}
           />
+          {avatarFrameVariant ? (
+            <ProfileBorderLightRunner
+              ids={profileBorderIds}
+              variant={avatarFrameVariant}
+            />
+          ) : null}
           <div className="absolute inset-[3px] z-10 overflow-hidden rounded-[calc(1.5rem-3px)] bg-black/35">
             <LayeredAvatar
               alt="Full-body Principessa avatar preview"
@@ -216,5 +231,124 @@ export function ProfileHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+type ProfileBorderLightRunnerProps = {
+  ids: string;
+  variant: Exclude<AvatarFrameVariant, null>;
+};
+
+function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProps) {
+  const isRainbow = variant === "rainbow";
+  const glowFilterId = `${ids}-profile-border-glow`;
+  const coreGradientId = `${ids}-profile-border-core`;
+  const auraGradientId = `${ids}-profile-border-aura`;
+  const pathId = `${ids}-profile-border-path`;
+  const duration = isRainbow ? "8.8s" : "7.2s";
+  const halfDuration = isRainbow ? "4.4s" : "3.6s";
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible"
+      viewBox="0 0 180 288"
+      preserveAspectRatio="none"
+    >
+      <defs>
+        <linearGradient id={coreGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+          {isRainbow ? (
+            <>
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="12%" stopColor="#f9a8d4" />
+              <stop offset="28%" stopColor="#a855f7" />
+              <stop offset="46%" stopColor="#22d3ee" />
+              <stop offset="64%" stopColor="#34d399" />
+              <stop offset="82%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#fb7185" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="18%" stopColor="#fdf2f8" />
+              <stop offset="42%" stopColor="#f9a8d4" />
+              <stop offset="70%" stopColor="#fb7185" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </>
+          )}
+        </linearGradient>
+        <linearGradient id={auraGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+          {isRainbow ? (
+            <>
+              <stop offset="0%" stopColor="#fb7185" stopOpacity="0.15" />
+              <stop offset="18%" stopColor="#f472b6" stopOpacity="0.55" />
+              <stop offset="36%" stopColor="#a855f7" stopOpacity="0.95" />
+              <stop offset="54%" stopColor="#22d3ee" stopOpacity="0.9" />
+              <stop offset="72%" stopColor="#34d399" stopOpacity="0.85" />
+              <stop offset="88%" stopColor="#f59e0b" stopOpacity="0.78" />
+              <stop offset="100%" stopColor="#fb7185" stopOpacity="0.22" />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
+              <stop offset="24%" stopColor="#f472b6" stopOpacity="0.42" />
+              <stop offset="58%" stopColor="#f9a8d4" stopOpacity="0.82" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.18" />
+            </>
+          )}
+        </linearGradient>
+        <filter
+          id={glowFilterId}
+          x="-70%"
+          y="-70%"
+          width="240%"
+          height="240%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur stdDeviation={isRainbow ? 2.15 : 1.5} result="blur" />
+          <feColorMatrix
+            in="blur"
+            result="colorBlur"
+            type="matrix"
+            values={
+              isRainbow
+                ? "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -6"
+                : "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 12 -4"
+            }
+          />
+        </filter>
+      </defs>
+
+      <path id={pathId} d={PROFILE_BORDER_PATH} fill="none" />
+
+      <g filter={`url(#${glowFilterId})`}>
+        <g opacity={0.96}>
+          <animateMotion dur={duration} repeatCount="indefinite" rotate="auto">
+            <mpath href={`#${pathId}`} />
+          </animateMotion>
+          <rect
+            x="-10.5"
+            y="-2.1"
+            width="21"
+            height="4.2"
+            rx="2.1"
+            fill={`url(#${coreGradientId})`}
+          />
+        </g>
+        <g opacity={0.78}>
+          <animateMotion dur={duration} begin={`-${halfDuration}`} repeatCount="indefinite" rotate="auto">
+            <mpath href={`#${pathId}`} />
+          </animateMotion>
+          <rect
+            x="-8.5"
+            y="-1.6"
+            width="17"
+            height="3.2"
+            rx="1.6"
+            fill={`url(#${auraGradientId})`}
+          />
+        </g>
+      </g>
+    </svg>
   );
 }
