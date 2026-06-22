@@ -250,6 +250,9 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
   const runnerOutlineStroke = isRainbow ? "rgba(0, 0, 0, 0.88)" : "rgba(7, 4, 12, 0.82)";
   const runnerOutlineWidth = 7.15;
   const runnerStrokeWidth = 4.25;
+  const baseBorderStroke = isRainbow ? "rgba(255, 255, 255, 0.08)" : `url(#${baseGradientId})`;
+  const runnerCoreStroke = isRainbow ? "transparent" : `url(#${coreGradientId})`;
+  const auraStrokeOpacity = isRainbow ? 0.18 : 0.72;
 
   return (
     <svg
@@ -323,7 +326,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         d={PROFILE_BORDER_PATH}
         fill="none"
         pathLength={1000}
-        stroke={`url(#${baseGradientId})`}
+        stroke={baseBorderStroke}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={0.95}
@@ -336,7 +339,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         stroke={`url(#${auraGradientId})`}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity={0.72}
+        strokeOpacity={auraStrokeOpacity}
         strokeWidth={9}
         filter="blur(1.6px)"
         strokeDasharray={`${dashLength} ${gapLength}`}
@@ -372,7 +375,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         d={PROFILE_BORDER_PATH}
         fill="none"
         pathLength={1000}
-        stroke={`url(#${coreGradientId})`}
+        stroke={runnerCoreStroke}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={1}
@@ -411,7 +414,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         d={PROFILE_BORDER_PATH}
         fill="none"
         pathLength={1000}
-        stroke={`url(#${coreGradientId})`}
+        stroke={runnerCoreStroke}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={1}

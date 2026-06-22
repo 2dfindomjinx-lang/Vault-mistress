@@ -2040,7 +2040,7 @@ export default function Home() {
   const avatarFrameClassName = equippedProfileBorder?.color
     ? "bg-white/10"
     : avatarFrameVariant === "rainbow"
-      ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(244,114,182,0.24),rgba(168,85,247,0.22),rgba(34,211,238,0.2),rgba(255,255,255,0.12))]"
+      ? "bg-[conic-gradient(from_180deg,rgba(244,114,182,0.26)_0deg,rgba(168,85,247,0.28)_60deg,rgba(34,211,238,0.28)_120deg,rgba(16,185,129,0.26)_180deg,rgba(245,158,11,0.26)_240deg,rgba(244,63,94,0.28)_300deg,rgba(244,114,182,0.26)_360deg)]"
       : avatarFrameVariant === "runner"
         ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.15),rgba(251,113,133,0.22),rgba(236,72,153,0.24),rgba(255,255,255,0.1))]"
         : "bg-white/10";
@@ -2077,7 +2077,7 @@ export default function Home() {
     [equippedSpeechAvatar?.id, setSpeechBubbleReply],
   );
   const loadGlobalPrincipessa = useCallback(async (announceLevelUp = false) => {
-    const response = await fetch("/api/global-principessa");
+    const response = await fetch("/api/global-principessa", { cache: "no-store" });
     const payload = (await response.json()) as {
       error?: string;
       latestLevelUp?: { id: string; new_global_level: number | null } | null;
@@ -5868,9 +5868,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // After drain we explicitly load global progress. Thanks to the updated
       // loadGlobalPrincipessa logic, this will also mark any current latest level_up
       // event as seen, reducing the chance of stale "level up" bubbles replaying.
-      void loadGlobalPrincipessa(false).catch((error) => {
-        console.error("Failed to refresh Global Principessa after Level Drain", error);
-      });
+      await loadGlobalPrincipessa(false);
     } catch (error) {
       console.error("Level Drain failed", error);
       emitSoundEvent("error");

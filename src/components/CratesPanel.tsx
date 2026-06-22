@@ -759,7 +759,7 @@ export function CratesPanel({
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
         <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid h-full content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -783,7 +783,7 @@ export function CratesPanel({
             return (
               <div key={crate.crate_type} className="w-full">
                 <div
-                  className="relative h-[280px] sm:h-[304px] w-full [perspective:1200px]"
+                  className="relative h-[340px] sm:h-[364px] w-full [perspective:1200px]"
                   onClick={() => {
                     if (!isFlipped) {
                       setFlippedCrate(crate.crate_type);
@@ -794,7 +794,7 @@ export function CratesPanel({
                     className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]"
                     style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
                   >
-                    <div className="absolute inset-0 overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden]">
+                    <div className="absolute inset-0 flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -840,44 +840,49 @@ export function CratesPanel({
                         </div>
                       </div>
 
-                      <div className="mt-4 flex justify-center">
-                        <img
-                          src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
-                          alt={crate.name}
-                          className="h-28 w-28 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-32 sm:w-32"
-                          onError={(e) => {
-                            const t = e.target as HTMLImageElement;
-                            t.style.opacity = "0.25";
-                          }}
-                        />
-                      </div>
+                      <div className="flex flex-1 flex-col justify-center py-3">
+                        <div className="flex justify-center">
+                          <img
+                            src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
+                            alt={crate.name}
+                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36"
+                            onError={(e) => {
+                              const t = e.target as HTMLImageElement;
+                              t.style.opacity = "0.25";
+                            }}
+                          />
+                        </div>
 
-                      <div className="mt-2 min-h-[18px] text-center text-[9px] whitespace-nowrap text-white/55">
-                        {crate.crate_type === "principessa_case" ? (
-                          <span className="text-amber-400/80">{protectionLabel}</span>
-                        ) : crate.crate_type === "blessing_case" ? (
-                          <span className="text-violet-400/80">{protectionLabel}</span>
-                        ) : (
-                          protectionLabel
-                        )}
-                      </div>
+                        <div className="mt-3 min-h-[18px] text-center text-[9px] whitespace-nowrap text-white/55">
+                          {crate.crate_type === "principessa_case" ? (
+                            <span className="text-amber-400/80">{protectionLabel}</span>
+                          ) : crate.crate_type === "blessing_case" ? (
+                            <span className="text-violet-400/80">{protectionLabel}</span>
+                          ) : (
+                            protectionLabel
+                          )}
+                        </div>
 
-                      <div className="mt-3 flex justify-center gap-1 text-[10px]">
-                        {[1,2,3,4,5].map(q => (
-                          <button
-                            key={q}
-                            onClick={(e) => { e.stopPropagation(); setOpenQuantityForCase(crate.crate_type, q); }}
-                            className={`px-1.5 py-0.5 rounded border border-white/20 ${currentQty === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
-                          >
-                            {q}
-                          </button>
-                        ))}
+                        <div className="mt-3 flex justify-center gap-1 text-[10px]">
+                          {[1, 2, 3, 4, 5].map((q) => (
+                            <button
+                              key={q}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenQuantityForCase(crate.crate_type, q);
+                              }}
+                              className={`rounded border border-white/20 px-1.5 py-0.5 ${currentQty === q ? "bg-fuchsia-500 text-white" : "bg-white/5 hover:bg-white/10"}`}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <button
                         onClick={() => openCrate(crate, currentQty)}
                         disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
-                        className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                        className="mt-auto w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                       >
                         {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
                       </button>

@@ -6426,13 +6426,6 @@ export const cosmeticItems: CosmeticItem[] = [
     image: "/icons/coin.png",
   },
   {
-    id: "profile-border-animated",
-    name: "Glow Animated Border",
-    description: "A glowing animated frame for your profile header avatar.",
-    type: "profile-border",
-    price: 10000,
-  },
-  {
     id: "profile-border-rainbow-animated",
     name: "Rainbow Animated Border",
     description: "A flashy rainbow frame that keeps moving around your avatar.",
