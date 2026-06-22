@@ -13,7 +13,7 @@ const HIGH_LOW_RESULT_NUMBER_MIN = 1;
 const HIGH_LOW_RESULT_NUMBER_MAX = 25;
 const HIGH_LOW_DISPLAY_NUMBER_CENTER = 10.5;
 const HIGH_LOW_RESULT_NUMBER_CENTER = 13;
-const CASE_OPEN_REWARD_WEIGHTS = [
+export const CASE_OPEN_REWARD_WEIGHTS = [
   { value: 100, weight: 35 },
   { value: 125, weight: 25 },
   { value: 150, weight: 15 },

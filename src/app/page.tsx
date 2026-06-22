@@ -375,6 +375,9 @@ const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SACRIFICE_UNLOCK_CHANCE = 0.35;
 const SUPPORT_COST = 2500;
 const TIMEOUT_RISK_CHANCE = 0.2;
+const JACKPOT_IDLE_REFRESH_MS = 5 * 60 * 1000;
+const JACKPOT_NEAR_END_REFRESH_MS = 60 * 1000;
+const JACKPOT_FINAL_REFRESH_MS = 15 * 1000;
 const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const OWNER_LIKENESS_PROTECTED_USERNAME = "vmprincipessa";
 const STREAK_BONUSES = [
@@ -384,6 +387,28 @@ const STREAK_BONUSES = [
   { id: "streak-bonus-15", milestone: 15, reward: 500, title: "15 day streak bonus" },
   { id: "streak-bonus-30", milestone: 30, reward: 1000, title: "30 day streak bonus" },
 ] as const;
+
+function getJackpotRefreshDelay(jackpot: LoyaltyJackpotState | null) {
+  if (!jackpot?.phaseEndsAt) {
+    return JACKPOT_IDLE_REFRESH_MS;
+  }
+
+  const msUntilPhaseEnds = new Date(jackpot.phaseEndsAt).getTime() - Date.now();
+
+  if (!Number.isFinite(msUntilPhaseEnds)) {
+    return JACKPOT_IDLE_REFRESH_MS;
+  }
+
+  if (msUntilPhaseEnds <= 5 * 60 * 1000) {
+    return JACKPOT_FINAL_REFRESH_MS;
+  }
+
+  if (msUntilPhaseEnds <= 30 * 60 * 1000) {
+    return JACKPOT_NEAR_END_REFRESH_MS;
+  }
+
+  return JACKPOT_IDLE_REFRESH_MS;
+}
 
 const petTasks: PetTaskItem[] = [
   {
@@ -3158,7 +3183,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     try {
-      const response = await fetch("/api/jackpot");
+      const response = await fetch("/api/jackpot", { cache: "no-store" });
       const payload = (await response.json()) as {
         jackpot?: LoyaltyJackpotState;
         error?: string;
@@ -3269,22 +3294,78 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isLoggedIn, loadRecentTributes]);
 
   useEffect(() => {
-    if (!isLoggedIn || isGuestMode || isPreviewMode) {
+    if (!isLoggedIn || isGuestMode || isPreviewMode || activePanel !== "tasks") {
       return;
     }
 
-    const initialTimer = window.setTimeout(() => {
-      void loadJackpot();
-    }, 0);
-    const timer = window.setInterval(() => {
-      void loadJackpot();
-    }, 120000);
+    let isDisposed = false;
+    let isRefreshing = false;
+    let timer: number | null = null;
+
+    const clearScheduledRefresh = () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    };
+
+    const scheduleNextRefresh = (delay = getJackpotRefreshDelay(jackpot)) => {
+      clearScheduledRefresh();
+
+      if (isDisposed) {
+        return;
+      }
+
+      timer = window.setTimeout(() => {
+        void refreshJackpot();
+      }, delay);
+    };
+
+    const refreshJackpot = async () => {
+      if (isDisposed || isRefreshing) {
+        return;
+      }
+
+      if (document.visibilityState === "hidden") {
+        scheduleNextRefresh();
+        return;
+      }
+
+      isRefreshing = true;
+
+      try {
+        await loadJackpot();
+      } finally {
+        isRefreshing = false;
+        scheduleNextRefresh();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      clearScheduledRefresh();
+      void refreshJackpot();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      clearScheduledRefresh();
+      void refreshJackpot();
+    };
+
+    scheduleNextRefresh(0);
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
+      isDisposed = true;
+      clearScheduledRefresh();
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isGuestMode, isLoggedIn, isPreviewMode, loadJackpot]);
+  }, [activePanel, isGuestMode, isLoggedIn, isPreviewMode, jackpot?.phase, jackpot?.phaseEndsAt, loadJackpot]);
 
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0 || isGuestMode) {
@@ -3709,9 +3790,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // Only change panel if explicitly calling setActivePanel via navigation.
     void loadLeadershipTop();
     void loadShameTop();
-    void loadJackpot();
   }, [
-    loadJackpot,
     loadLeadershipTop,
     loadShameTop,
     refreshDisplayName,
@@ -7811,7 +7890,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleCaseOpen = async () => {
     if (blockIfTimedOut()) {
-      return;
+      return null;
     }
 
     const actionId = "case-opening";
@@ -7821,7 +7900,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
 
     if (!task || coolingDown || !beginTaskAction(actionId)) {
-      return;
+      return null;
     }
 
     try {
@@ -7834,7 +7913,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           await persistProfileProgress({ coins: nextCoins, affection }, "reward:case-opening");
         } catch (error) {
           setAuthError(describeError(error));
-          return;
+          return null;
         }
 
         try {
@@ -7848,7 +7927,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         } catch (error) {
           console.error("Failed to persist case opening", error);
           setAuthError(describeError(error));
-          return;
+          return null;
         }
       } else {
         setCoins(nextCoins);
@@ -7869,6 +7948,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         ),
       );
       setAvatarMistressReply(`Case result: ${reward > 0 ? "+" : ""}${reward} coins.`);
+      return reward;
     } finally {
       finishTaskAction(actionId);
     }

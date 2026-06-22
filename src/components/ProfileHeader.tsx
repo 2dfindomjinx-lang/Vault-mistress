@@ -283,14 +283,14 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         <linearGradient id={coreGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
           {isRainbow ? (
             <>
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="12%" stopColor="#fb7185" />
-              <stop offset="28%" stopColor="#f472b6" />
-              <stop offset="44%" stopColor="#a855f7" />
-              <stop offset="60%" stopColor="#22d3ee" />
-              <stop offset="76%" stopColor="#34d399" />
-              <stop offset="92%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#ffffff" />
+              <stop offset="0%" stopColor="#fb7185" stopOpacity="0.48" />
+              <stop offset="12%" stopColor="#fb7185" stopOpacity="0.82" />
+              <stop offset="28%" stopColor="#f472b6" stopOpacity="0.88" />
+              <stop offset="44%" stopColor="#a855f7" stopOpacity="0.9" />
+              <stop offset="60%" stopColor="#22d3ee" stopOpacity="0.9" />
+              <stop offset="76%" stopColor="#34d399" stopOpacity="0.88" />
+              <stop offset="92%" stopColor="#f59e0b" stopOpacity="0.82" />
+              <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.48" />
             </>
           ) : (
             <>
