@@ -176,7 +176,13 @@ export async function POST(request: Request) {
     metadata: Record<string, unknown> | null;
   }
   let cooldownRow: CooldownTaskRow | null = null;
-  const isRewardReason = reason === "beg" || reason.includes("timeout-risk") || reason.includes("wait-obediently") || reason.startsWith("reward:task:") || reason === "streak_bonus";
+  const isRewardReason =
+    reason === "beg" ||
+    reason === "reward:case-opening" ||
+    reason.includes("timeout-risk") ||
+    reason.includes("wait-obediently") ||
+    reason.startsWith("reward:task:") ||
+    reason === "streak_bonus";
 
   if (isRewardReason) {
     let taskIdForRow = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
@@ -247,7 +253,12 @@ export async function POST(request: Request) {
     nextAffection = current.affection;
   } else if (isRewardReason) {
     // Reward mechanics: validate proposed delta against allow-list + enforce server DB cooldown/caps
-    let taskId = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
+    let taskId =
+      reason === "beg"
+        ? "beg"
+        : reason === "reward:case-opening"
+          ? "case-opening"
+          : reason.replace("task:", "").replace("reward:task:", "");
     if (reason === "streak_bonus") {
       taskId = stringFromMetadata(metadata, "taskId") ?? "";
     }
@@ -258,28 +269,32 @@ export async function POST(request: Request) {
       return jsonError("Reward delta not allowed for this action.", 422);
     }
 
-    if (!cooldownRow) {
+    if (taskId !== "case-opening" && !cooldownRow) {
       return jsonError("Task state missing for reward action.", 409);
     }
 
     // Enforce cooldown / daily caps from trusted task row (sanitized by generic tasks route)
-    const lastAction = getMetadataString(cooldownRow.metadata, "lastBegAt")
-      || getMetadataString(cooldownRow.metadata, "resetAt")
-      || getMetadataString(cooldownRow.metadata, "lastClaimAt")
-      || cooldownRow.claimed_at
-      || cooldownRow.completed_at;
+    const cooldownMetadata = cooldownRow?.metadata ?? null;
+    const lastAction =
+      taskId === "case-opening"
+        ? null
+        : getMetadataString(cooldownMetadata, "lastBegAt")
+          || getMetadataString(cooldownMetadata, "resetAt")
+          || getMetadataString(cooldownMetadata, "lastClaimAt")
+          || cooldownRow?.claimed_at
+          || cooldownRow?.completed_at;
 
     let cooldownMs = 60 * 1000; // beg default
     if (taskId === "timeout-risk" || taskId.includes("wait")) cooldownMs = 24 * 60 * 60 * 1000;
 
-    const activeCooldown = getCooldownUntil(lastAction, cooldownMs);
+    const activeCooldown = taskId === "case-opening" ? null : getCooldownUntil(lastAction, cooldownMs);
     if (activeCooldown && proposedDelta > 0) {
       return jsonError("Action is on cooldown or daily limit reached.", 422);
     }
 
     // Additional daily cap for timeout-risk safe rewards
     if (taskId === "timeout-risk") {
-      const safeWins = getMetadataNumber(cooldownRow.metadata, "safeWins", 0);
+      const safeWins = getMetadataNumber(cooldownMetadata, "safeWins", 0);
       if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
         return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
       }
