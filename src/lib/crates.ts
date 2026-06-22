@@ -167,7 +167,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "classic-anal-beads", weight: 700 },
 	  { item_id: "classic-thong", weight: 600 },
 	  { item_id: "pink-corset", weight: 500 },
-	  { item_id: "classic-bunnysuit", weight:400 },,
+	  { item_id: "classic-bunnysuit", weight: 400 },
 	  { item_id: "pink-maid-outfit", weight: 300 },
 	  { item_id: "pink-small-vibrator", weight: 200 },
 	  { item_id: "classic-dildo", weight: 100 },
