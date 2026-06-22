@@ -14,17 +14,22 @@ const HIGH_LOW_RESULT_NUMBER_MAX = 25;
 const HIGH_LOW_DISPLAY_NUMBER_CENTER = 10.5;
 const HIGH_LOW_RESULT_NUMBER_CENTER = 13;
 export const CASE_OPEN_REWARD_WEIGHTS = [
-  { value: 100, weight: 35 },
-  { value: 125, weight: 25 },
-  { value: 150, weight: 15 },
-  { value: 175, weight: 10 },
-  { value: 200, weight: 5 },
-  { value: 250, weight: 5 },
-  { value: 300, weight: 2 },
-  { value: 350, weight: 1 },
-  { value: 400, weight: 1 },
-  { value: 450, weight: 0.5 },
-  { value: 500, weight: 0.5 },
+  { value: 100, weight: 3500 },
+  { value: 125, weight: 2500 },
+  { value: 150, weight: 1500 },
+  { value: 175, weight: 1000 },
+  { value: 200, weight: 500 },
+  { value: 250, weight: 500 },
+  { value: 300, weight: 200 },
+  { value: 350, weight: 100 },
+  { value: 400, weight: 100 },
+  { value: 450, weight: 50 },
+  { value: 500, weight: 40 },
+  { value: 600, weight: 4 },
+  { value: 700, weight: 2 },
+  { value: 750, weight: 2 },
+  { value: 900, weight: 1 },
+  { value: 1000, weight: 1 },
 ];
 
 function pickWeightedNumber(entries: Array<{ value: number; weight: number }>) {

@@ -1075,10 +1075,10 @@ export function TaskList({
                     Open a luxury case and let the vault roll a random coin reward.
                   </p>
                   <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
-                    <div className="pointer-events-none absolute inset-y-3 left-1/2 z-10 w-[5.5rem] -translate-x-1/2 rounded-2xl border border-pink-200/20 bg-pink-300/6 shadow-[0_0_18px_rgba(244,114,182,0.12)]" />
+                    <div className="pointer-events-none absolute left-1/2 top-[3.3rem] z-10 h-[6.8rem] w-[4.25rem] -translate-x-1/2 rounded-2xl border border-pink-200/20 bg-pink-300/6 shadow-[0_0_18px_rgba(244,114,182,0.12)]" />
                     <div
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-pink-200/70 to-transparent"
+                      className="pointer-events-none absolute left-1/2 top-[3.3rem] z-10 h-[6.8rem] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-pink-200/70 to-transparent"
                     />
                     <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                       {caseOpenPhase === "rolling" ? "Rolling reward" : "Case contents"}
@@ -1091,7 +1091,7 @@ export function TaskList({
                           paddingRight: caseOpenTrackSidePadding,
                           transform: `translateX(${caseOpenOffset}px)`,
                           transition: caseOpenAnimating
-                            ? "transform 1.15s cubic-bezier(0.18,0.88,0.18,1)"
+                            ? "transform 5s cubic-bezier(0.12,0.78,0.12,1)"
                             : "none",
                         }}
                       >
@@ -1111,23 +1111,13 @@ export function TaskList({
                           ))}
                       </div>
                     </div>
-                    {(
-                      caseOpenPhase === "rolling"
-                        ? caseOpenResolvedReward
-                        : caseOpenResolvedReward ?? task.caseReward ?? null
-                    ) != null ? (
-                      <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
-                        Last reward: +
-                        {caseOpenPhase === "rolling"
-                          ? caseOpenResolvedReward
-                          : caseOpenResolvedReward ?? task.caseReward ?? 0}{" "}
-                        Principessa Coins
+                    {caseOpenPhase === "idle" && (caseOpenResolvedReward ?? task.caseReward ?? null) != null ? (
+                      <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
+                        Last reward: +{caseOpenResolvedReward ?? task.caseReward ?? 0} Principessa Coins
                       </p>
                     ) : (
-                      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
-                        {caseOpenPhase === "rolling"
-                          ? "Opening..."
-                          : "Preview of possible rewards"}
+                      <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
+                        {caseOpenPhase === "rolling" ? "Opening..." : "Preview of possible rewards"}
                       </p>
                     )}
                   </div>
@@ -1187,7 +1177,6 @@ export function TaskList({
                       }
 
                       const nextTape = buildCaseOpenTape(reward);
-                      setCaseOpenResolvedReward(reward);
                       setCaseOpenTape(nextTape);
                       setCaseOpenAnimating(false);
                       setCaseOpenOffset(0);
@@ -1201,11 +1190,12 @@ export function TaskList({
                       });
 
                       caseOpenTimerRef.current = window.setTimeout(() => {
+                        setCaseOpenResolvedReward(reward);
                         setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);
                         setCaseOpenPhase("idle");
                         caseOpenTimerRef.current = null;
-                      }, 1350);
+                      }, 5000);
                     }}
                     type="button"
                   >
