@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase/admin";
 import { requireAdminProfile } from "@/lib/admin-guard";
 
-const PET_TASK_COIN_REWARD = 500;
+const PET_TASK_COIN_REWARD = 250;
 
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase

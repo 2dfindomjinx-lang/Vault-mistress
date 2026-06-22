@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
+import { getDailyGmt3CooldownUntil, getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 export { DAY_MS } from "@/lib/time";
 
 export const HIGH_LOW_BET_ALLOWANCE = 2000;
@@ -89,6 +89,10 @@ export function getCooldownUntil(value: string | null | undefined, milliseconds:
   }
 
   return new Date(cooldownEndsAt).toISOString();
+}
+
+export function getDailyResetCooldownUntil(value: string | null | undefined) {
+  return getDailyGmt3CooldownUntil(value);
 }
 
 export function getDailyKey() {

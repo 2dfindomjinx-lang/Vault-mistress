@@ -36,6 +36,7 @@ type ProfileHeaderProps = {
   avatarFrameVariant?: AvatarFrameVariant;
   spendBadge?: SpendBadge | null;
   actions?: ReactNode;
+  progressStrip?: ReactNode;
   // Display Name change right pencil mechanic in the top header box
   hasDisplayNameChangeRight?: boolean;
   isEditingDisplayName?: boolean;
@@ -49,6 +50,7 @@ type ProfileHeaderProps = {
 
 export function ProfileHeader({
   actions,
+  progressStrip,
   avatarSrc,
   coins,
   currentTitle,
@@ -213,6 +215,7 @@ export function ProfileHeader({
             </div>
           </div>
 
+          {progressStrip ? <div>{progressStrip}</div> : null}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <PageStatCard
               hint="Current balance"

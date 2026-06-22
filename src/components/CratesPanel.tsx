@@ -77,6 +77,41 @@ type CratesPanelProps = {
   pending?: boolean;
 };
 
+function CrateResultIconFrame({ item }: { item: WonItem }) {
+  const imageUrl = getCrateItemImageUrl(item.item_id, item.image_url ?? null);
+
+  return (
+    <div className="relative mx-auto mt-4 h-28 w-28">
+      <div className={`absolute inset-0 rounded-[1.4rem] border-2 ${getRarityColor(item.rarity)} bg-black/65 shadow-[0_0_34px_rgba(244,114,182,0.2)]`} />
+      <div className="pointer-events-none absolute inset-0 animate-[spin_5s_linear_infinite]">
+        <span className="absolute left-1/2 top-1 h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.95)]" />
+        <span className="absolute bottom-1 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-pink-200 shadow-[0_0_16px_rgba(244,114,182,0.95)]" />
+      </div>
+      <div className="pointer-events-none absolute inset-[7px] animate-[spin_5s_linear_infinite_reverse]">
+        <span className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-white/90 shadow-[0_0_14px_rgba(255,255,255,0.85)]" />
+        <span className="absolute right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-fuchsia-200 shadow-[0_0_14px_rgba(244,114,182,0.85)]" />
+      </div>
+      <div className="absolute inset-[10px] overflow-hidden rounded-[1rem] border border-white/10 bg-black/60 p-3">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={item.name}
+            className="h-full w-full object-contain"
+            onError={(event) => {
+              const target = event.target as HTMLImageElement;
+              target.style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-4xl">
+            {item.rarity === "legendary" ? "👑" : "📦"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CratesPanel({
   coins,
   disabled = false,
@@ -1216,6 +1251,7 @@ export function CratesPanel({
               {/* Single result: prominent name/desc matching the full reel width (not the narrow 120px cards) */}
               {wonItems.length === 1 ? (
                 <div className="mx-auto mb-2 w-full max-w-[680px] text-center">
+                  <CrateResultIconFrame item={wonItems[0]} />
                   <div className={`inline-flex items-center gap-2 rounded-xl border px-4 py-1 ${getRarityColor(wonItems[0].rarity)} bg-opacity-30`}>
                     <span className="font-black text-base text-white">{wonItems[0].name}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-70">{wonItems[0].rarity}</span>

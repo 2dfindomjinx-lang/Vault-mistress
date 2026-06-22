@@ -23,8 +23,8 @@ type SidebarNavProps = {
 
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (
-    <aside className="z-40 w-full border-b border-white/10 bg-black/55 backdrop-blur-xl lg:h-full lg:border-b-0 lg:border-r">
-      <div className="flex h-full max-h-[100dvh] flex-col gap-5 p-4 sm:p-5">
+    <aside className="z-40 w-full border-b border-white/10 bg-black/55 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
+      <div className="flex h-full max-h-[100dvh] flex-col gap-5 p-4 sm:p-5 lg:max-h-screen">
         <div className="rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-4 shadow-[0_0_34px_rgba(236,72,153,0.12)]">
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
             Vault Mistress
@@ -34,7 +34,7 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
           </h1>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-2 overflow-y-auto rounded-[1.35rem] border border-white/10 bg-transparent p-0 shadow-none">
+        <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-[1.35rem] border border-white/10 bg-transparent p-0 shadow-none">
           {items.map((item) => {
             const isActive = activePage === item.key;
 

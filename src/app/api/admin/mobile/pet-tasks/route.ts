@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const PET_TASK_COIN_REWARD = 500;
+const PET_TASK_COIN_REWARD = 250;
 
 async function listPetTasks(supabase: SupabaseClient) {
   const { data, error } = await supabase

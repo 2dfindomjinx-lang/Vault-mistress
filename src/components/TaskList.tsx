@@ -172,11 +172,13 @@ type TaskListProps = {
   onCooldownAttempt?: (message: string) => void;
   onSacrifice: () => void;
   onSupport: () => void;
-  onTimeoutRisk: () => void;
+  onTimeoutRisk: (multiplier: number) => void;
+  onTimeoutRiskMultiplierChange: (direction: "up" | "down") => void;
   onTypingProgress: (value: string) => void;
   timeoutRiskChance: number;
   timeoutRiskEffectiveDays: number;
   timeoutRiskMaxDays: number;
+  timeoutRiskTimeoutHours: number;
   timeoutRiskReward: number;
   onWaitObedientlyComplete: () => void;
   onWaitObedientlyFail: () => void;
@@ -213,10 +215,12 @@ export function TaskList({
   onSacrifice,
   onSupport,
   onTimeoutRisk,
+  onTimeoutRiskMultiplierChange,
   onTypingProgress,
   timeoutRiskChance,
   timeoutRiskEffectiveDays,
   timeoutRiskMaxDays,
+  timeoutRiskTimeoutHours,
   timeoutRiskReward,
   userLevel,
   userLevelProgressPercent,
@@ -545,7 +549,9 @@ export function TaskList({
               : "Open"}
     </span>
   );
-  const visibleTasks = tasks.filter((task) => !isHiddenClaimedOneTimeTask(task));
+  const visibleTasks = tasks.filter(
+    (task) => !isHiddenClaimedOneTimeTask(task) && !task.id.startsWith("streak-bonus-"),
+  );
   const isFreeFridayEventActive = isFreeTaskFriday(now);
   const wheelSegments = getIrlTaskWheelSegments(isFreeFridayEventActive);
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
@@ -738,11 +744,39 @@ export function TaskList({
                       {renderStatus(task, false)}
                     </div>
                     <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
+                      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-100/70">
+                            Risk Multiplier
+                          </p>
+                          <p className="mt-1 text-sm font-black text-white">
+                            {task.timeoutRiskMultiplier ?? 1}x reward / timeout
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-black text-white transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={disabled || (task.timeoutRiskMultiplier ?? 1) <= 1}
+                            onClick={() => onTimeoutRiskMultiplierChange("down")}
+                            type="button"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-black text-white transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={disabled || (task.timeoutRiskMultiplier ?? 1) >= 3}
+                            onClick={() => onTimeoutRiskMultiplierChange("up")}
+                            type="button"
+                          >
+                            ↑
+                          </button>
+                        </div>
+                      </div>
                       <p className="text-sm leading-6 text-zinc-300">
                         Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
-                        to receive 12 hours timeout,{" "}
+                        to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout,{" "}
                         {Math.round((1 - timeoutRiskChance) * 100)}% chance to win{" "}
-                        {timeoutRiskReward} Principessa Coins.
+                        {timeoutRiskReward * (task.timeoutRiskMultiplier ?? 1)} Principessa Coins.
                       </p>
                       {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
                         <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
@@ -785,7 +819,7 @@ export function TaskList({
                             return;
                           }
 
-                          onTimeoutRisk();
+                          onTimeoutRisk(task.timeoutRiskMultiplier ?? 1);
                         }}
                         type="button"
                       >
@@ -1075,15 +1109,17 @@ export function TaskList({
                     Open a luxury case and let the vault roll a random coin reward.
                   </p>
                   <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
-                    <div className="pointer-events-none absolute left-1/2 top-[3.3rem] z-10 h-[6.8rem] w-[4.25rem] -translate-x-1/2 rounded-2xl border border-pink-200/20 bg-pink-300/6 shadow-[0_0_18px_rgba(244,114,182,0.12)]" />
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute left-1/2 top-[3.3rem] z-10 h-[6.8rem] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-pink-200/70 to-transparent"
-                    />
                     <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                       {caseOpenPhase === "rolling" ? "Rolling reward" : "Case contents"}
                     </p>
-                    <div className="mt-3 overflow-hidden">
+                    <div className="relative mt-3 overflow-hidden">
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex w-[4.25rem] -translate-x-1/2 items-center justify-center"
+                      >
+                        <div className="absolute h-16 w-full rounded-2xl border border-pink-200/20 bg-pink-300/6 shadow-[0_0_18px_rgba(244,114,182,0.12)]" />
+                        <div className="h-[4.75rem] w-px bg-gradient-to-b from-transparent via-pink-200/75 to-transparent" />
+                      </div>
                       <div
                         className="flex items-center gap-[10px]"
                         style={{
@@ -1104,9 +1140,14 @@ export function TaskList({
                             className="flex h-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(236,72,153,0.18),rgba(24,24,27,0.92))] px-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.32)]"
                             style={{ width: `${CASE_OPEN_REEL_ITEM_WIDTH}px` }}
                           >
-                            <span className="text-lg font-black text-pink-50">
-                              +{value}
-                            </span>
+                            <CoinAmount
+                              amount={value}
+                              className="justify-center gap-1.5 text-lg font-black text-pink-50"
+                              iconClassName="drop-shadow-[0_0_8px_rgba(255,215,115,0.35)]"
+                              iconSize={18}
+                              label=""
+                              prefix="+"
+                            />
                           </div>
                           ))}
                       </div>
@@ -1432,8 +1473,8 @@ export function TaskList({
                 <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
                   <p className="text-sm leading-6 text-zinc-300">
                     Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
-                    to receive 12 hours timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
-                    chance to win {timeoutRiskReward} Principessa Coins.
+                    to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
+                    chance to win {timeoutRiskReward * (task.timeoutRiskMultiplier ?? 1)} Principessa Coins.
                   </p>
                   {task.timeoutUntil && new Date(task.timeoutUntil).getTime() > now && (
                     <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
@@ -1475,7 +1516,7 @@ export function TaskList({
                         return;
                       }
 
-                      onTimeoutRisk();
+                      onTimeoutRisk(task.timeoutRiskMultiplier ?? 1);
                     }}
                     type="button"
                   >

@@ -111,6 +111,7 @@ export type TitleItem = {
 };
 
 export const DEFAULT_SPEECH_AVATAR_ID = "default-principessa";
+export const RANDOM_SPEECH_AVATAR_ID = "speech-avatar-random";
 
 export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
   [DEFAULT_SPEECH_AVATAR_ID]: {
@@ -6111,6 +6112,14 @@ export const cosmeticItems: CosmeticItem[] = [
     description: "The default speech bubble avatar.",
     type: "speech-avatar",
     price: 0,
+    image: "/character-icon.png",
+  },
+  {
+    id: RANDOM_SPEECH_AVATAR_ID,
+    name: "Random",
+    description: "Uses a random speech bubble persona each time.",
+    type: "speech-avatar",
+    price: 50000,
     image: "/character-icon.png",
   },
   {

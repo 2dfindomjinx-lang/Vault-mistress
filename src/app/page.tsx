@@ -43,6 +43,7 @@ import {
   getSpeechBubbleMessageForText,
   getSpeechBubbleMessagePool,
   getSpeechBubbleResponseMessage,
+  RANDOM_SPEECH_AVATAR_ID,
   getTitleItem,
   getSpendBadge,
   getUnlockedCrateTitleIds,
@@ -90,7 +91,12 @@ import {
 } from "@/lib/server-task-actions";
 import { getUserLevelProgress } from "@/lib/levels";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
-import { getGmt3DateKey, getGmt3DayIndex, getNextGmt3Reset } from "@/lib/time";
+import {
+  getDailyGmt3CooldownUntil,
+  getGmt3DateKey,
+  getGmt3DayIndex,
+  getNextGmt3Reset,
+} from "@/lib/time";
 import {
   emitSoundEvent,
   getSoundSettings,
@@ -332,6 +338,7 @@ const PET_WEEKLY_TAX_MIN_COST = 2500;
 const PET_WEEKLY_TAX_MAX_COST = 10000;
 const PET_TASK_REWARD = 10;
 const PET_TASK_COIN_REWARD = 200;
+const PET_REVIEW_TASK_COIN_REWARD = 250;
 const PET_WEEKLY_TAX_REWARD = 20;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
@@ -922,20 +929,8 @@ function createApiError(endpoint: string, response: Response, payload: { error?:
   return error;
 }
 
-function isWithinLast24Hours(value: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  return Date.now() - new Date(value).getTime() < 24 * 60 * 60 * 1000;
-}
-
 function getDailyCooldownUntil(value: string | null) {
-  if (!value || !isWithinLast24Hours(value)) {
-    return null;
-  }
-
-  return new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  return getDailyGmt3CooldownUntil(value);
 }
 
 function getCooldownUntil(value: string | null, milliseconds: number) {
@@ -953,7 +948,7 @@ function getCooldownUntil(value: string | null, milliseconds: number) {
 }
 
 function getPetTaskCooldownUntil(value: string | null) {
-  return getCooldownUntil(value, DAY_MS);
+  return getDailyCooldownUntil(value);
 }
 
 function getWaitTaskState(
@@ -1666,7 +1661,7 @@ function buildTasksFromRows(
 
     if (task.id === "vertical-motion") {
       const metadataDate = getTaskMetadataString(row?.metadata, "date");
-      const movementCooldownUntil = getCooldownUntil(row?.claimed_at ?? null, DAY_MS);
+      const movementCooldownUntil = getDailyCooldownUntil(row?.claimed_at ?? null);
       const metadataActive = !row?.claimed_at || Boolean(movementCooldownUntil);
       const rawState = metadataActive ? getTaskMetadataString(row?.metadata, "state") : null;
       const movementState: TaskItem["movementState"] =
@@ -1706,6 +1701,7 @@ function buildTasksFromRows(
         ? getTaskMetadataNumber(row?.metadata, "safeWins", 0)
         : 0;
       const dailyLimitReached = safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT;
+      const multiplier = Math.min(3, Math.max(1, getTaskMetadataNumber(row?.metadata, "multiplier", 1)));
 
       return {
         ...task,
@@ -1715,6 +1711,7 @@ function buildTasksFromRows(
         lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
         safeWinsToday: safeWins,
         timeoutUntil,
+        timeoutRiskMultiplier: multiplier,
       };
     }
 
@@ -1895,6 +1892,9 @@ export default function Home() {
   const [fullyHiddenBubbleMessageId, setFullyHiddenBubbleMessageId] = useState(0);
   const [unlockedGalleryIds, setUnlockedGalleryIds] = useState<string[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [typingPraiseVisible, setTypingPraiseVisible] = useState(false);
+  const [isLoyaltyClaimPending, setIsLoyaltyClaimPending] = useState(false);
+  const typingPraiseTimerRef = useRef<number | null>(null);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
@@ -1908,6 +1908,7 @@ export default function Home() {
   const [freeFridaySpinAvailable, setFreeFridaySpinAvailable] = useState(false);
   const [temporarySpeechAvatar, setTemporarySpeechAvatar] =
     useState<TemporarySpeechAvatarState | null>(null);
+  const [randomSpeechAvatarId, setRandomSpeechAvatarId] = useState<string>(DEFAULT_SPEECH_AVATAR_ID);
   const [dismissedSpeechAvatarEventId, setDismissedSpeechAvatarEventId] = useState<string | null>(
     null,
   );
@@ -2028,6 +2029,18 @@ export default function Home() {
       : null;
   const persistedSpeechAvatarId =
     equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID;
+  const randomSpeechAvatarCandidates = useMemo(
+    () =>
+      cosmeticItems
+        .filter(
+          (item) =>
+            item.type === "speech-avatar" &&
+            item.id !== RANDOM_SPEECH_AVATAR_ID &&
+            item.id !== DEFAULT_SPEECH_AVATAR_ID,
+        )
+        .map((item) => item.id),
+    [],
+  );
   const activeManualTemporarySpeechAvatar =
     speechAvatarEvent &&
     eventSpeechAvatarId &&
@@ -2042,8 +2055,15 @@ export default function Home() {
     dismissedSpeechAvatarEventId !== speechAvatarEvent.id
       ? eventSpeechAvatarId
       : null;
+  const equippedRandomSpeechAvatarId =
+    persistedSpeechAvatarId === RANDOM_SPEECH_AVATAR_ID
+      ? randomSpeechAvatarId || randomSpeechAvatarCandidates[0] || DEFAULT_SPEECH_AVATAR_ID
+      : null;
   const displayedSpeechAvatarId =
-    activeManualTemporarySpeechAvatar?.avatarId ?? autoEventSpeechAvatarId ?? persistedSpeechAvatarId;
+    activeManualTemporarySpeechAvatar?.avatarId ??
+    autoEventSpeechAvatarId ??
+    equippedRandomSpeechAvatarId ??
+    persistedSpeechAvatarId;
   const effectiveEquippedCosmeticIds = useMemo(
     () => ({
       ...equippedCosmeticIds,
@@ -2054,6 +2074,39 @@ export default function Home() {
   const equippedSpeechAvatar =
     getCosmeticItem(displayedSpeechAvatarId) ??
     getCosmeticItem(DEFAULT_SPEECH_AVATAR_ID);
+  const resolveSpeechAvatarIdForMessage = useCallback(() => {
+    if (activeManualTemporarySpeechAvatar?.avatarId) {
+      return activeManualTemporarySpeechAvatar.avatarId;
+    }
+
+    if (autoEventSpeechAvatarId) {
+      return autoEventSpeechAvatarId;
+    }
+
+    if (persistedSpeechAvatarId === RANDOM_SPEECH_AVATAR_ID) {
+      const nextAvatarId =
+        randomSpeechAvatarCandidates[Math.floor(Math.random() * randomSpeechAvatarCandidates.length)] ??
+        DEFAULT_SPEECH_AVATAR_ID;
+      setRandomSpeechAvatarId(nextAvatarId);
+      return nextAvatarId;
+    }
+
+    return persistedSpeechAvatarId;
+  }, [
+    activeManualTemporarySpeechAvatar?.avatarId,
+    autoEventSpeechAvatarId,
+    persistedSpeechAvatarId,
+    randomSpeechAvatarCandidates,
+  ]);
+  useEffect(() => {
+    if (
+      persistedSpeechAvatarId === RANDOM_SPEECH_AVATAR_ID &&
+      randomSpeechAvatarCandidates.length > 0 &&
+      !randomSpeechAvatarCandidates.includes(randomSpeechAvatarId)
+    ) {
+      setRandomSpeechAvatarId(randomSpeechAvatarCandidates[0]);
+    }
+  }, [persistedSpeechAvatarId, randomSpeechAvatarCandidates, randomSpeechAvatarId]);
   const equippedUsernameColor = getCosmeticItem(equippedCosmeticIds["username-color"] ?? "");
   const equippedUsernameGlow = getCosmeticItem(equippedCosmeticIds["username-glow"] ?? "");
   const equippedProfileBorder = getCosmeticItem(equippedCosmeticIds["profile-border"] ?? "");
@@ -2103,11 +2156,30 @@ export default function Home() {
   }, []);
   const setAvatarMistressReply = useCallback(
     (message: string) => {
-      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      const avatarId = resolveSpeechAvatarIdForMessage();
       setSpeechBubbleReply(getSpeechBubbleMessageForText(avatarId, message));
     },
-    [equippedSpeechAvatar?.id, setSpeechBubbleReply],
+    [resolveSpeechAvatarIdForMessage, setSpeechBubbleReply],
   );
+  const showTypingPraise = useCallback(() => {
+    if (typingPraiseTimerRef.current !== null) {
+      window.clearTimeout(typingPraiseTimerRef.current);
+    }
+
+    setTypingPraiseVisible(true);
+    typingPraiseTimerRef.current = window.setTimeout(() => {
+      setTypingPraiseVisible(false);
+      typingPraiseTimerRef.current = null;
+    }, 1600);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typingPraiseTimerRef.current !== null) {
+        window.clearTimeout(typingPraiseTimerRef.current);
+      }
+    };
+  }, []);
   const loadGlobalPrincipessa = useCallback(async (announceLevelUp = false) => {
     const response = await fetch("/api/global-principessa", { cache: "no-store" });
     const payload = (await response.json()) as {
@@ -2148,7 +2220,7 @@ export default function Home() {
     if (announceLevelUp && incomingLevelUpId && incomingLevelUpId !== latestGlobalLevelUpId) {
       setSpeechBubbleReply(
         getSpeechBubbleResponseMessage(
-          equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+          resolveSpeechAvatarIdForMessage(),
           "level_up",
           "I can feel my power growing.",
         ),
@@ -2258,6 +2330,67 @@ export default function Home() {
   const eventFavorCoinReward = getEventTaskReward(PET_FAVOR_ROULETTE_COIN_REWARD);
 const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const eventSafeReward = getEventTaskReward(SAFE_REWARD);
+  const claimableLoyaltyBonuses = tasks.filter(
+    (task) => task.id.startsWith("streak-bonus-") && task.completed && !task.claimed,
+  );
+  const todayKey = getGmt3DateKey();
+  const tasksCompletedToday = tasks.filter((task) => {
+    if (task.id.startsWith("streak-bonus-")) {
+      return false;
+    }
+
+    if (task.id === "case-opening") {
+      return task.caseSpunAt ? getGmt3DateKey(task.caseSpunAt) === todayKey : false;
+    }
+
+    if (task.id === "typing-accuracy" || task.id === "daily-login") {
+      return task.cooldownUntil ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey : false;
+    }
+
+    if (task.id === "timeout-risk") {
+      return (task.safeWinsToday ?? 0) > 0;
+    }
+
+    if (task.id === "irl-task-wheel") {
+      return Boolean(task.assignedIrlDueAt && getGmt3DateKey(task.assignedIrlDueAt) === todayKey);
+    }
+
+    return task.completed && Boolean(task.cooldownUntil || task.claimed);
+  });
+  const taskCoinsEarnedToday = tasksCompletedToday.reduce((sum, task) => {
+    if (task.id === "case-opening") {
+      return sum + Math.max(0, task.caseReward ?? 0);
+    }
+
+    if (task.id === "timeout-risk") {
+      return sum + (task.safeWinsToday ?? 0) * eventSafeReward * (task.timeoutRiskMultiplier ?? 1);
+    }
+
+    if (task.id === "irl-task-wheel") {
+      return sum;
+    }
+
+    return sum + Math.max(0, getEventTaskReward(task.reward));
+  }, 0);
+  const petTasksCompletedToday = petTaskState.filter((task) => {
+    const approvedAt = task.reviewedAt ?? task.completedAt;
+    return approvedAt ? getGmt3DateKey(approvedAt) === todayKey : false;
+  });
+  const petCoinsEarnedToday = petTasksCompletedToday.reduce((sum, task) => {
+    if (task.kind === "weekly-tax") {
+      return sum;
+    }
+    if (task.kind === "favor-roulette") {
+      return sum + eventFavorCoinReward;
+    }
+    if (task.kind === "review") {
+      return sum + PET_REVIEW_TASK_COIN_REWARD;
+    }
+    if (task.kind === "daily-click") {
+      return sum + Math.min(PET_DAILY_CLICK_MAX_COIN_REWARD, task.clickRequirement ?? 0);
+    }
+    return sum + eventPetTaskCoinReward;
+  }, 0);
   const getReadableSpeechAvatarName = useCallback((avatarId: string | null | undefined) => {
     if (!avatarId) {
       return "Unknown Avatar";
@@ -2799,7 +2932,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 
     const getRandomIdleLine = () => {
-      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      const avatarId = resolveSpeechAvatarIdForMessage();
       const idleLines = getSpeechBubbleMessagePool(avatarId, "idle");
       const petIdleLines = petEverUnlocked
         ? getSpeechBubbleMessagePool(avatarId, "petIdle")
@@ -4216,7 +4349,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const updateLoyaltyForProfile = useCallback(async (profile: Profile) => {
     const lastLoyaltyAt = profile.last_loyalty_at;
 
-    if (lastLoyaltyAt && isWithinLast24Hours(lastLoyaltyAt)) {
+    if (lastLoyaltyAt && getDailyCooldownUntil(lastLoyaltyAt)) {
       setLoyaltyStreak(profile.loyalty_streak ?? 0);
       setLastLoyaltyAt(lastLoyaltyAt);
       setTasks((current) =>
@@ -4748,15 +4881,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       throw readError;
     }
 
-    if (task.id === "daily-login" && isWithinLast24Hours(existingTask?.claimed_at ?? null)) {
+    if (task.id === "daily-login" && getDailyCooldownUntil(existingTask?.claimed_at ?? null)) {
       throw new Error("Daily task is still on cooldown.");
     }
 
     if (
       task.id === "typing-accuracy" &&
       (
-        isWithinLast24Hours(existingTask?.claimed_at ?? null) ||
-        isWithinLast24Hours(getTaskMetadataString(existingTask?.metadata, "failedAt"))
+        getDailyCooldownUntil(existingTask?.claimed_at ?? null) ||
+        getDailyCooldownUntil(getTaskMetadataString(existingTask?.metadata, "failedAt"))
       )
     ) {
       throw new Error("Task is still on cooldown.");
@@ -5220,6 +5353,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             : entry,
         ),
       );
+      showTypingPraise();
       setAvatarMistressReply("Perfect. Principessa appreciates precision.");
     }
   };
@@ -5739,12 +5873,28 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     finishTaskAction(actionId);
   };
 
-  const handleTimeoutRisk = async () => {
+  const handleTimeoutRiskMultiplierChange = useCallback((direction: "up" | "down") => {
+    setTasks((current) =>
+      current.map((entry) =>
+        entry.id === "timeout-risk"
+          ? {
+              ...entry,
+              timeoutRiskMultiplier: Math.min(
+                3,
+                Math.max(1, (entry.timeoutRiskMultiplier ?? 1) + (direction === "up" ? 1 : -1)),
+              ),
+            }
+          : entry,
+      ),
+    );
+  }, []);
+
+  const handleTimeoutRisk = async (multiplier: number) => {
     if (blockIfTimedOut()) {
       return;
     }
 
-    if (!authUserId) {
+    if (!authUserId || !Number.isInteger(multiplier) || multiplier < 1 || multiplier > 3) {
       return;
     }
 
@@ -5763,67 +5913,116 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const hitTimeout = Math.random() < TIMEOUT_RISK_CHANCE;
-
     try {
-      const { data: existingTask, error: readError } = isGuestMode
-        ? { data: null, error: null }
-        : await supabase
-            .from("user_tasks")
-            .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-            .eq("user_id", authUserId)
-            .eq("task_id", "timeout-risk")
-            .maybeSingle();
+      if (isGuestMode) {
+        const hitTimeout = Math.random() < TIMEOUT_RISK_CHANCE;
+        const activeTask = tasks.find((entry) => entry.id === "timeout-risk");
+        const currentSafeWins = activeTask?.safeWinsToday ?? 0;
+        const resetAt = getNextGmt3Reset().toISOString();
 
-      if (readError) {
-        console.error("Failed to read timeout-risk task", readError);
-        throw readError;
-      }
-
-      const resetAt = getTaskMetadataString(existingTask?.metadata, "resetAt");
-      const dailyWindowActive = Boolean(resetAt && new Date(resetAt).getTime() > Date.now());
-      const currentSafeWins = dailyWindowActive
-        ? getTaskMetadataNumber(existingTask?.metadata, "safeWins", 0)
-        : 0;
-
-      if (currentSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
-        setAvatarMistressReply("You already survived twice today. The risk table is closed.");
-        return;
-      }
-
-      if (hitTimeout) {
-        const baseMs = activeTimeoutUntil
-          ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
-          : nowMs;
-        const nextTimeoutUntil = new Date(baseMs + TIMEOUT_RISK_TIMEOUT_MS).toISOString();
-        const now = new Date().toISOString();
-
-        timeoutUntilRef.current = nextTimeoutUntil;
-        setTimeoutUntil(nextTimeoutUntil);
-        setCurrentTime(Date.now());
-        await persistTimeoutUntil(nextTimeoutUntil);
-        if (!isGuestMode) {
-          await persistUserTask({
-              task_id: "timeout-risk",
-              completed_at: now,
-              claimed_at: existingTask?.claimed_at ?? null,
-              reward_coins: 0,
-              metadata: {
-                ...(existingTask?.metadata ?? {}),
-                lastResult: "timeout",
-                resetAt: dailyWindowActive ? resetAt : new Date(Date.now() + DAY_MS).toISOString(),
-                safeWins: currentSafeWins,
-              },
-            });
+        if (currentSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
+          setAvatarMistressReply("You already survived twice today. The risk table is closed.");
+          return;
         }
 
+        if (hitTimeout) {
+          const timeoutMs = TIMEOUT_RISK_TIMEOUT_MS * multiplier;
+          const baseMs = activeTimeoutUntil
+            ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
+            : nowMs;
+          const nextTimeoutUntil = new Date(baseMs + timeoutMs).toISOString();
+          timeoutUntilRef.current = nextTimeoutUntil;
+          setTimeoutUntil(nextTimeoutUntil);
+          setCurrentTime(Date.now());
+          setTasks((current) =>
+            current.map((entry) =>
+              entry.id === "timeout-risk"
+                ? {
+                    ...entry,
+                    lastResult: `Timeout hit. +${timeoutMs / (60 * 60 * 1000)} hours added.`,
+                    safeWinsToday: currentSafeWins,
+                    timeoutRiskMultiplier: multiplier,
+                    timeoutUntil: nextTimeoutUntil,
+                  }
+                : entry.id === "irl-task-wheel"
+                  ? { ...entry, timeoutUntil: nextTimeoutUntil }
+                  : entry,
+            ),
+          );
+          setAvatarMistressReply(`Bad roll. ${timeoutMs / (60 * 60 * 1000)} hours of timeout have been added.`);
+          emitSoundEvent("task_fail");
+          return;
+        }
+
+        const nextSafeWins = currentSafeWins + 1;
+        const rewardCoins = eventSafeReward * multiplier;
+        setCoins((current) => current + rewardCoins);
+        coinsRef.current += rewardCoins;
         setTasks((current) =>
           current.map((entry) =>
             entry.id === "timeout-risk"
               ? {
                   ...entry,
-                  lastResult: "Timeout hit. +12 hours added.",
-                  safeWinsToday: currentSafeWins,
+                  claimed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+                  completed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+                  cooldownUntil: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT ? resetAt : entry.cooldownUntil,
+                  lastResult: `Safe wins today: ${nextSafeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
+                  safeWinsToday: nextSafeWins,
+                  timeoutRiskMultiplier: multiplier,
+                }
+              : entry,
+          ),
+        );
+        setAvatarMistressReply(`Safe roll. ${rewardCoins} coins added.`);
+        emitSoundEvent("task_completion");
+        return;
+      }
+
+      const response = await fetch("/api/user/task-actions/timeout-risk", {
+        body: JSON.stringify({ multiplier }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        hitTimeout?: boolean;
+        multiplier?: number;
+        profile?: Profile;
+        rewardCoins?: number;
+        task?: UserTaskRow;
+        timeoutUntil?: string;
+      } | null;
+
+      if (!response.ok || !payload?.profile || !payload.task) {
+        throw createApiError("/api/user/task-actions/timeout-risk", response, payload ?? {});
+      }
+
+      applyProfileStats(payload.profile);
+      const nextMultiplier = payload.multiplier ?? multiplier;
+      const nextTimeoutUntil = payload.timeoutUntil ?? payload.profile.timeout_until ?? null;
+      const safeWins = getTaskMetadataNumber(payload.task.metadata, "safeWins", 0);
+      const cooldownUntil = safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT
+        ? getTaskMetadataString(payload.task.metadata, "resetAt")
+        : null;
+
+      if (payload.hitTimeout) {
+        const baseMs = activeTimeoutUntil
+          ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
+          : nowMs;
+        timeoutUntilRef.current = nextTimeoutUntil;
+        setTimeoutUntil(nextTimeoutUntil);
+        setCurrentTime(Date.now());
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id === "timeout-risk"
+              ? {
+                  ...entry,
+                  claimed: false,
+                  completed: false,
+                  cooldownUntil: null,
+                  lastResult: getTaskMetadataString(payload.task?.metadata, "lastResult") ?? "Timeout hit.",
+                  safeWinsToday: safeWins,
+                  timeoutRiskMultiplier: nextMultiplier,
                   timeoutUntil: nextTimeoutUntil,
                 }
               : entry.id === "irl-task-wheel"
@@ -5831,32 +6030,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 : entry,
           ),
         );
-        setAvatarMistressReply("Bad roll. 12 hours of timeout have been added.");
+        setAvatarMistressReply(
+          getTaskMetadataString(payload.task.metadata, "lastResult") ?? "Bad roll. Timeout has been added.",
+        );
         emitSoundEvent("task_fail");
         return;
-      }
-
-      await persistProfileProgress(
-        { coins: coinsRef.current + eventSafeReward, affection },
-        "task:timeout-risk",
-      );
-      const nextSafeWins = currentSafeWins + 1;
-      const nextResetAt = dailyWindowActive
-        ? resetAt
-        : new Date(Date.now() + DAY_MS).toISOString();
-      if (!isGuestMode) {
-        await persistUserTask({
-            task_id: "timeout-risk",
-            completed_at: new Date().toISOString(),
-            claimed_at: existingTask?.claimed_at ?? null,
-            reward_coins: eventSafeReward,
-            metadata: {
-              ...(existingTask?.metadata ?? {}),
-              lastResult: "safe",
-              resetAt: nextResetAt,
-              safeWins: nextSafeWins,
-            },
-          });
       }
 
       setTasks((current) =>
@@ -5864,16 +6042,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           entry.id === "timeout-risk"
             ? {
                 ...entry,
-                claimed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
-                completed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
-                lastResult: `Safe wins today: ${nextSafeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
-                safeWinsToday: nextSafeWins,
-                cooldownUntil: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT ? nextResetAt : entry.cooldownUntil,
+                claimed: safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+                completed: safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
+                lastResult:
+                  getTaskMetadataString(payload.task?.metadata, "lastResult") ??
+                  `Safe wins today: ${safeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
+                safeWinsToday: safeWins,
+                cooldownUntil,
+                timeoutRiskMultiplier: nextMultiplier,
               }
             : entry,
         ),
       );
-      setAvatarMistressReply(`Safe roll. ${eventSafeReward} coins added.`);
+      setAvatarMistressReply(`Safe roll. ${payload.rewardCoins ?? eventSafeReward * nextMultiplier} coins added.`);
       emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
@@ -5931,7 +6112,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         lastAddingXpBubbleAtRef.current = now;
         setSpeechBubbleReply(
           getSpeechBubbleResponseMessage(
-            equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+            resolveSpeechAvatarIdForMessage(),
             "adding_xp",
             "Your sacrifice feeds my growth.",
           ),
@@ -5943,7 +6124,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         window.setTimeout(() => {
           setSpeechBubbleReply(
             getSpeechBubbleResponseMessage(
-              equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID,
+              resolveSpeechAvatarIdForMessage(),
               "level_up",
               "I can feel my power growing.",
             ),
@@ -7225,7 +7406,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   : entry.completed,
               cooldownUntil:
                 taskId === "daily-login" || taskId === "typing-accuracy"
-                  ? new Date(Date.now() + getEventCooldownMs(24 * 60 * 60 * 1000)).toISOString()
+                  ? getDailyCooldownUntil(new Date().toISOString())
                   : entry.cooldownUntil,
             }
           : entry,
@@ -7236,6 +7417,70 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       `Fine. ${rewardCoins} coins added. Spend them carefully.`,
     );
     finishTaskAction(actionId);
+  };
+
+  const handleClaimLoyaltyRewards = async () => {
+    if (blockIfTimedOut() || claimableLoyaltyBonuses.length === 0 || isLoyaltyClaimPending) {
+      return;
+    }
+
+    setIsLoyaltyClaimPending(true);
+
+    try {
+      if (isGuestMode) {
+        const totalReward = claimableLoyaltyBonuses.reduce(
+          (sum, bonus) => sum + getEventTaskReward(bonus.reward),
+          0,
+        );
+        setCoins((current) => current + totalReward);
+        coinsRef.current += totalReward;
+        setTasks((current) =>
+          current.map((entry) =>
+            entry.id.startsWith("streak-bonus-") && entry.completed && !entry.claimed
+              ? { ...entry, claimed: true }
+              : entry,
+          ),
+        );
+        setAvatarMistressReply(`Loyalty rewards claimed. +${totalReward} coins.`);
+        emitSoundEvent("task_completion");
+        return;
+      }
+
+      const response = await fetch("/api/user/loyalty-claim", {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        claimedBonuses?: Array<{ id: string; milestone: number; reward: number }>;
+        profile?: Profile;
+        totalReward?: number;
+      } | null;
+
+      if (!response.ok || !payload?.profile) {
+        throw createApiError("/api/user/loyalty-claim", response, payload ?? {});
+      }
+
+      applyProfileStats(payload.profile);
+      const claimedIds = new Set((payload.claimedBonuses ?? []).map((bonus) => bonus.id));
+      setTasks((current) =>
+        current.map((entry) =>
+          claimedIds.has(entry.id)
+            ? { ...entry, claimed: true }
+            : entry,
+        ),
+      );
+      setAvatarMistressReply(
+        `Loyalty rewards claimed. +${payload.totalReward ?? 0} coins.`,
+      );
+      emitSoundEvent("task_completion");
+    } catch (error) {
+      console.error("Failed to claim loyalty rewards", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("Loyalty claim failed. Try again.");
+      emitSoundEvent("error");
+    } finally {
+      setIsLoyaltyClaimPending(false);
+    }
   };
 
   const handlePetTaskComplete = async (taskId: string) => {
@@ -7456,7 +7701,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     if (options.cheated) {
-      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      const avatarId = resolveSpeechAvatarIdForMessage();
       setAvatarMistressReply(
         getSpeechBubbleResponseMessage(avatarId, "cheat", "Trying to cheat your confession? Pathetic."),
       );
@@ -7956,7 +8201,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleCooldownAttempt = useCallback((message: string) => {
-    const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+    const avatarId = resolveSpeechAvatarIdForMessage();
     setSpeechBubbleReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
   }, [equippedSpeechAvatar?.id, setSpeechBubbleReply]);
 
@@ -8021,7 +8266,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (result?.task) {
       applyVerticalMotionTaskRow(result.task);
       const state = getTaskMetadataString(result.task.metadata, "state");
-      const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+      const avatarId = resolveSpeechAvatarIdForMessage();
 
       if (state === "completed") {
         emitSoundEvent("task_completion");
@@ -9003,12 +9248,43 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     activePanel === "pet"
       ? [
           { label: "Pet Score", value: petScore.toLocaleString(), hint: "Pet progression" },
-          { label: "Likeness", value: `${ownerLikeness}/100`, hint: "Owner likeness" },
+          {
+            label: "Likeness",
+            value: (
+              <div className="flex items-center gap-2">
+                <span>{ownerLikeness}/100</span>
+                {ownerLikeness >= 100 ? (
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-pink-300/45 bg-pink-500/15 text-sm shadow-[0_0_18px_rgba(244,114,182,0.38)]">
+                    ❤
+                  </span>
+                ) : null}
+              </div>
+            ),
+            hint: "Owner likeness",
+          },
           { label: "Rights", value: storedRights.toLocaleString(), hint: "Stored rights" },
         ]
       : activePanel === "tasks"
         ? [
-            { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
+            {
+              label: "Loyalty",
+              value: (
+                <div className="flex flex-col items-start gap-2">
+                  <span>{loyaltyStreak} days</span>
+                  {claimableLoyaltyBonuses.length > 0 ? (
+                    <button
+                      className="rounded-full border border-pink-300/25 bg-pink-500/10 px-3 py-1 text-xs font-black text-pink-50 transition hover:border-pink-300/45 hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={isLoyaltyClaimPending}
+                      onClick={handleClaimLoyaltyRewards}
+                      type="button"
+                    >
+                      {isLoyaltyClaimPending ? "Claiming..." : "Claim Reward"}
+                    </button>
+                  ) : null}
+                </div>
+              ),
+              hint: "Current streak",
+            },
             { label: "User Level", value: userLevel.toLocaleString(), hint: "Independent level" },
             { label: "Principessa", value: `Level ${globalPrincipessa.level}`, hint: "Monthly level" },
           ]
@@ -9017,6 +9293,40 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
             { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
           ];
+  const headerProgressStrip =
+    activePanel === "tasks" ? (
+      <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100/75">
+          <span>Today&apos;s Task Progress</span>
+          <span>{tasksCompletedToday.length} done</span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/35">
+          <div
+            className="h-full rounded-full bg-[linear-gradient(90deg,#34d399,#f472b6)] transition-[width]"
+            style={{ width: `${Math.min(100, (tasksCompletedToday.length / 8) * 100)}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-emerald-50/80">
+          {tasksCompletedToday.length} tasks completed, +{taskCoinsEarnedToday.toLocaleString()} coins earned today.
+        </p>
+      </div>
+    ) : activePanel === "pet" ? (
+      <div className="rounded-2xl border border-red-300/15 bg-red-500/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.18em] text-red-100/75">
+          <span>Today&apos;s Pet Progress</span>
+          <span>{petTasksCompletedToday.length} done</span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/35">
+          <div
+            className="h-full rounded-full bg-[linear-gradient(90deg,#fb7185,#f59e0b)] transition-[width]"
+            style={{ width: `${Math.min(100, (petTasksCompletedToday.length / 8) * 100)}%` }}
+          />
+        </div>
+        <p className="mt-2 text-xs text-red-50/80">
+          {petTasksCompletedToday.length} pet tasks cleared, +{petCoinsEarnedToday.toLocaleString()} coins earned today.
+        </p>
+      </div>
+    ) : null;
   const displayNameEditValidation = validateDisplayName(displayNameEditInput, {
     allowExactPrincipessa: isAdminUser,
   });
@@ -9163,6 +9473,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           pageLabel={activePageLabel}
           soundControls={soundControls}
           stats={profileHeaderStats}
+          progressStrip={headerProgressStrip}
           username={username}
           usernameStyle={usernameStyle}
           hasDisplayNameChangeRight={hasDisplayNameChangeRight}
@@ -9419,10 +9730,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onSacrifice={handleSacrifice}
               onSupport={handleSupport}
               onTimeoutRisk={handleTimeoutRisk}
+              onTimeoutRiskMultiplierChange={handleTimeoutRiskMultiplierChange}
               onTypingProgress={handleTypingProgress}
               timeoutRiskChance={TIMEOUT_RISK_CHANCE}
               timeoutRiskEffectiveDays={timeoutRiskProjectedDays}
               timeoutRiskMaxDays={MAX_TIMEOUT_DAYS}
+              timeoutRiskTimeoutHours={TIMEOUT_RISK_TIMEOUT_MS / (60 * 60 * 1000)}
               timeoutRiskReward={eventSafeReward}
               userLevel={userLevel}
               userLevelProgressPercent={userLevelProgress.progressPercent}
@@ -9448,14 +9761,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onSellWonItems={handleSellWonCrateItems}
                 pityStats={pityStats}
                 onCrateOpen={() => {
-                  const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+                  const avatarId = resolveSpeechAvatarIdForMessage();
                   // Use direct set + explicit category so we hit the dedicated "crate_open" pool
                   // (instead of going through setAvatarMistressReply → getSpeechBubbleMessageForText → classify → general).
                   const msg = getSpeechBubbleResponseMessage(avatarId, "crate_open");
                   setSpeechBubbleReply(msg);
                 }}
                 onCrateResult={(item) => {
-                  const avatarId = equippedSpeechAvatar?.id ?? DEFAULT_SPEECH_AVATAR_ID;
+                  const avatarId = resolveSpeechAvatarIdForMessage();
                   const rarityKey = `crate_result_${item.rarity}` as const;
                   // Direct set ensures the specific crate_result_rarity category is used (random pick from its pool).
                   // Avoids re-classification that was forcing "general" for equipped speech avatars.
@@ -9781,6 +10094,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               favorCoinReward={eventFavorCoinReward}
               nextTaxDueAt={nextPetTaxDueAt}
               ownerLikeness={ownerLikeness}
+              petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
               petTaskCoinReward={eventPetTaskCoinReward}
               petDebtContract={petDebtContract}
               petGalleryUnlockedIds={petGalleryUnlockedIds}
@@ -9827,6 +10141,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         messageStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
         onBubbleFullyHidden={handleBubbleFullyHidden}
       />
+      {typingPraiseVisible && (
+        <div className="pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-4">
+          <div className="rounded-full border border-emerald-300/35 bg-emerald-500/15 px-5 py-2 text-sm font-black text-emerald-100 shadow-[0_0_26px_rgba(16,185,129,0.28)] backdrop-blur-sm">
+            Good Boy!
+          </div>
+        </div>
+      )}
 
       {/* Display Name change is now done via pencil in Profile tab using purchased rights */}
     </main>

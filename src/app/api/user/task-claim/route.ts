@@ -5,7 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { getGmt3DateKey } from "@/lib/time";
+import { getDailyGmt3CooldownUntil, getGmt3DateKey } from "@/lib/time";
 
 type Body = {
   taskId?: string;
@@ -37,14 +37,6 @@ const STREAK_BONUSES = [
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
-}
-
-function isWithinLast24Hours(value: string | null) {
-  if (!value) {
-    return false;
-  }
-
-  return Date.now() - new Date(value).getTime() < 24 * 60 * 60 * 1000;
 }
 
 function getTaskMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
@@ -102,7 +94,7 @@ async function getActiveTaskRewardMultiplier(
 
 function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTaskRow | null) {
   if (taskId === "daily-login") {
-    return isWithinLast24Hours(existingTask?.claimed_at ?? null)
+    return getDailyGmt3CooldownUntil(existingTask?.claimed_at ?? null)
       ? "Daily task is still on cooldown."
       : null;
   }
@@ -111,8 +103,8 @@ function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTa
     const failedAt = getTaskMetadataString(existingTask?.metadata, "failedAt");
 
     if (
-      isWithinLast24Hours(existingTask?.claimed_at ?? null) ||
-      isWithinLast24Hours(failedAt)
+      getDailyGmt3CooldownUntil(existingTask?.claimed_at ?? null) ||
+      getDailyGmt3CooldownUntil(failedAt)
     ) {
       return "Task is still on cooldown.";
     }

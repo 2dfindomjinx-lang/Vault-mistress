@@ -15,6 +15,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getCooldownUntil,
+  getDailyResetCooldownUntil,
   getMetadataNumber,
   getMetadataString,
 } from "@/lib/server-task-actions";
@@ -284,10 +285,16 @@ export async function POST(request: Request) {
           || cooldownRow?.claimed_at
           || cooldownRow?.completed_at;
 
-    let cooldownMs = 60 * 1000; // beg default
-    if (taskId === "timeout-risk" || taskId.includes("wait")) cooldownMs = 24 * 60 * 60 * 1000;
+    let activeCooldown: string | null = null;
 
-    const activeCooldown = taskId === "case-opening" ? null : getCooldownUntil(lastAction, cooldownMs);
+    if (taskId === "beg") {
+      activeCooldown = getCooldownUntil(lastAction, 60 * 1000);
+    } else if (taskId === "timeout-risk" || taskId === "wait-obediently" || taskId === "vertical-motion") {
+      activeCooldown = getDailyResetCooldownUntil(lastAction);
+    } else if (taskId !== "case-opening") {
+      activeCooldown = getDailyResetCooldownUntil(lastAction);
+    }
+
     if (activeCooldown && proposedDelta > 0) {
       return jsonError("Action is on cooldown or daily limit reached.", 422);
     }

@@ -26,3 +26,31 @@ export function getNextGmt3Reset(date: Date | number | string = new Date()) {
 export function getMsUntilNextGmt3Reset(date: Date | number | string = new Date()) {
   return Math.max(0, getNextGmt3Reset(date).getTime() - new Date(date).getTime());
 }
+
+export function isSameGmt3Day(
+  left: Date | number | string | null | undefined,
+  right: Date | number | string = new Date(),
+) {
+  if (!left) {
+    return false;
+  }
+
+  return getGmt3DateKey(left) === getGmt3DateKey(right);
+}
+
+export function getDailyGmt3CooldownUntil(
+  value: Date | number | string | null | undefined,
+  now: Date | number | string = new Date(),
+) {
+  if (!value || !isSameGmt3Day(value, now)) {
+    return null;
+  }
+
+  const nextReset = getNextGmt3Reset(value);
+
+  if (new Date(now).getTime() >= nextReset.getTime()) {
+    return null;
+  }
+
+  return nextReset.toISOString();
+}

@@ -53,6 +53,7 @@ export type TaskItem = {
   caseReward?: number | null;
   caseSpunAt?: string | null;
   safeWinsToday?: number;
+  timeoutRiskMultiplier?: number;
   highLowNextNumber?: number;
   highLowDailyDate?: string | null;
   highLowDailyBetTotal?: number;

@@ -610,6 +610,7 @@ export function PetSection({
   petScore,
   petDebtContract,
   petAffectionClaimed,
+  petReviewTaskCoinReward,
   petTaskCoinReward,
   storedRights,
   rightExpirations,
@@ -664,6 +665,7 @@ export function PetSection({
   petScore: number;
   petDebtContract: PetDebtContract | null;
   petAffectionClaimed: boolean;
+  petReviewTaskCoinReward: number;
   petTaskCoinReward: number;
   storedRights: number;
   rightExpirations: string[];
@@ -1413,7 +1415,7 @@ export function PetSection({
               </span>
             </div>
             <p className="mt-2 text-xs text-yellow-100/70">
-              Tax amount: {weeklyTaxCost} Principessa Coins. Pay within the daily window. Missing it may reduce affection.
+              Tax amount: {weeklyTaxCost} Principessa Coins. Rule: 10% of your coins with a minimum of 2,500 and a maximum of 10,000. If it stays unpaid for 7 days, affection definitely drops.
             </p>
             <button
               aria-disabled={weeklyTaxCoolingDown || undefined}
@@ -1454,7 +1456,9 @@ export function PetSection({
 
               return (
                 <article
-                  className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4"
+                  className={`flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4 ${
+                    task.kind === "high-low" ? "md:col-span-2" : ""
+                  }`}
                   key={task.id}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -1466,7 +1470,7 @@ export function PetSection({
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
-                      ? `Admin approve reward: +${task.reward} Pet Score, +${petTaskCoinReward} Coins`
+                      ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
                       : `Completion reward: +${task.reward} Pet Score, +${
@@ -1571,7 +1575,7 @@ export function PetSection({
                   )}
 
                   {task.kind === "high-low" && (
-                    <div className="mt-auto grid flex-1 gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+                    <div className="mt-auto grid flex-1 gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
                       {(() => {
                         const highLowBetAllowance =
                           task.highLowBetAllowance ??
