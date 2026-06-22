@@ -7911,7 +7911,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       if (!isGuestMode && authUserId) {
         try {
-          await persistProfileProgress({ coins: nextCoins, affection }, "reward:task:case-opening");
+          await persistProfileProgress({ coins: nextCoins, affection }, "reward:case-opening");
         } catch (error) {
           setAuthError(describeError(error));
           return null;
