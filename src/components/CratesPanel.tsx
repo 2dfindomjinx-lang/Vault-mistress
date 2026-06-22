@@ -773,6 +773,12 @@ export function CratesPanel({
             const isThisOpening = openingCrate === crate.crate_type;
             const isFlipped = flippedCrate === crate.crate_type;
             const dropRates = getDropRates(crate.crate_type);
+            const protectionLabel =
+              crate.crate_type === "principessa_case"
+                ? `Bad Luck Protection: ${pityStats.principessa_bad_luck ?? 0}/4`
+                : crate.crate_type === "blessing_case"
+                  ? `Legendary Pity: ${pityStats.blessing_legendary_pity ?? 0}/150`
+                  : "Protection: None";
 
             return (
               <div key={crate.crate_type} className="w-full">
@@ -796,14 +802,13 @@ export function CratesPanel({
                         }}
                         className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
                         title="View drop rates"
-                      >
-                        ?
-                      </button>
+                        >
+                          ?
+                        </button>
 
                       <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
                         <div className="min-w-0 flex-1">
                           <p className="text-base font-black text-white">{crate.name}</p>
-                          <p className="mt-1 line-clamp-4 text-xs leading-5 text-zinc-400">{crate.description}</p>
                         </div>
                         <div className="min-w-[92px] shrink-0 text-right">
                           <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
@@ -835,11 +840,11 @@ export function CratesPanel({
                         </div>
                       </div>
 
-                      <div className="mt-3 flex justify-center">
+                      <div className="mt-4 flex justify-center">
                         <img
                           src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
                           alt={crate.name}
-                          className="h-24 w-24 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
+                          className="h-28 w-28 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-32 sm:w-32"
                           onError={(e) => {
                             const t = e.target as HTMLImageElement;
                             t.style.opacity = "0.25";
@@ -847,18 +852,17 @@ export function CratesPanel({
                         />
                       </div>
 
-                      {crate.crate_type === "principessa_case" && (
-                        <div className="mt-1 text-center text-[9px] whitespace-nowrap text-amber-400/80">
-                          Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/4
-                        </div>
-                      )}
-                      {crate.crate_type === "blessing_case" && (
-                        <div className="mt-1 text-center text-[9px] whitespace-nowrap text-violet-400/80">
-                          Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
-                        </div>
-                      )}
+                      <div className="mt-2 min-h-[18px] text-center text-[9px] whitespace-nowrap text-white/55">
+                        {crate.crate_type === "principessa_case" ? (
+                          <span className="text-amber-400/80">{protectionLabel}</span>
+                        ) : crate.crate_type === "blessing_case" ? (
+                          <span className="text-violet-400/80">{protectionLabel}</span>
+                        ) : (
+                          protectionLabel
+                        )}
+                      </div>
 
-                      <div className="mt-2 flex justify-center gap-1 text-[10px]">
+                      <div className="mt-3 flex justify-center gap-1 text-[10px]">
                         {[1,2,3,4,5].map(q => (
                           <button
                             key={q}
@@ -870,12 +874,10 @@ export function CratesPanel({
                         ))}
                       </div>
 
-                      <div className="flex-1" />
-
                       <button
                         onClick={() => openCrate(crate, currentQty)}
                         disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
-                        className="mt-3 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                        className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                       >
                         {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
                       </button>

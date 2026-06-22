@@ -2668,26 +2668,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     };
 
-    const refreshActiveEvent = () => {
-      void loadActiveEvent();
-    };
-
-    refreshActiveEvent();
-    const interval = window.setInterval(refreshActiveEvent, 30000);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshActiveEvent();
-      }
-    };
-
-    window.addEventListener("focus", refreshActiveEvent);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void loadActiveEvent();
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshActiveEvent);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [getReadableSpeechAvatarName]);
 
@@ -3242,7 +3226,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }, 0);
     const timer = window.setInterval(() => {
       void loadPendingIrlReviewCount();
-    }, 30000);
+    }, 120000);
 
     return () => {
       window.clearInterval(timer);
