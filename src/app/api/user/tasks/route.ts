@@ -1,4 +1,4 @@
-import { getAllowedTaskRewards } from "@/lib/server-game-rules";
+import { getAllowedTaskRewards, getBaseTaskReward } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -138,6 +138,13 @@ export async function POST(request: Request) {
   // Validate reward_coins if provided (prevent arbitrary inflation via generic sync).
   // For REWARD_COOLDOWN tasks we still allow recording their state (completed_at, claimed_at for cooldowns, metadata),
   // but cap reward_coins to allowed values or 0.
+  const baseReward = getBaseTaskReward(taskId);
+  const isCaseOpeningTask = taskId === "case-opening";
+
+  if (!isCaseOpeningTask && typeof baseReward !== "number") {
+    return jsonError("Unsupported task reward.", 422);
+  }
+
   let effectiveRewardCoins = incomingReward;
   if (!isRewardAllowed(taskId, incomingReward)) {
     console.warn(`[user-tasks] client sent invalid reward_coins=${incomingReward} for ${taskId}; forcing 0`);
