@@ -875,7 +875,10 @@ export function CratesPanel({
                       </div>
 
                       <button
-                        onClick={() => openCrate(crate, currentQty)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void openCrate(crate, currentQty);
+                        }}
                         disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
                         className="mt-auto w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                       >
@@ -1212,14 +1215,28 @@ export function CratesPanel({
             <div className="mt-4">
               {/* Single result: prominent name/desc matching the full reel width (not the narrow 120px cards) */}
               {wonItems.length === 1 ? (
-                <div className="mx-auto w-full max-w-[680px] mb-2 text-center">
+                <div className="mx-auto mb-2 w-full max-w-[680px] text-center">
                   <div className={`inline-flex items-center gap-2 rounded-xl border px-4 py-1 ${getRarityColor(wonItems[0].rarity)} bg-opacity-30`}>
                     <span className="font-black text-base text-white">{wonItems[0].name}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-70">{wonItems[0].rarity}</span>
                   </div>
                   {wonItems[0].description && (
-                    <div className="mt-1 text-[11px] text-white/70 max-w-md mx-auto">{wonItems[0].description}</div>
+                    <div className="mx-auto mt-1 max-w-md text-[11px] text-white/70">{wonItems[0].description}</div>
                   )}
+                  {(() => {
+                    const totalWon = wonItems[0].sell_value;
+                    const netProfit = totalWon - lastOpenedBatchCost;
+                    const netColor = netProfit >= 0 ? "text-emerald-300" : "text-red-400";
+                    const netSign = netProfit >= 0 ? "+" : "";
+                    return (
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        <div className="text-sm font-bold text-emerald-300">+{totalWon} coins</div>
+                        <div className={`text-sm font-bold ${netColor}`}>
+                          (Net: {netSign}{netProfit})
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="text-center mb-1 flex items-center justify-center gap-2">

@@ -52,6 +52,7 @@ export type TaskItem = {
   currentNumber?: number;
   caseReward?: number | null;
   caseSpunAt?: string | null;
+  safeWinsToday?: number;
   highLowNextNumber?: number;
   highLowDailyDate?: string | null;
   highLowDailyBetTotal?: number;

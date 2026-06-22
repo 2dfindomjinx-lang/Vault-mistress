@@ -1715,6 +1715,7 @@ function buildTasksFromRows(
         completed: dailyLimitReached,
         cooldownUntil: dailyLimitReached && resetAt ? resetAt : null,
         lastResult: getTaskMetadataString(row?.metadata, "lastResult"),
+        safeWinsToday: safeWins,
         timeoutUntil,
       };
     }
@@ -5824,11 +5825,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               ? {
                   ...entry,
                   lastResult: "Timeout hit. +12 hours added.",
+                  safeWinsToday: currentSafeWins,
                   timeoutUntil: nextTimeoutUntil,
                 }
               : entry.id === "irl-task-wheel"
                 ? { ...entry, timeoutUntil: nextTimeoutUntil }
-              : entry,
+                : entry,
           ),
         );
         setAvatarMistressReply("Bad roll. 12 hours of timeout have been added.");
@@ -5867,6 +5869,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 claimed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
                 completed: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT,
                 lastResult: `Safe wins today: ${nextSafeWins}/${TIMEOUT_RISK_DAILY_SAFE_LIMIT}`,
+                safeWinsToday: nextSafeWins,
                 cooldownUntil: nextSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT ? nextResetAt : entry.cooldownUntil,
               }
             : entry,
@@ -5922,6 +5925,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setGlobalPrincipessa((current) => ({
         ...current,
         level: result.globalLevel ?? current.level,
+        updated_at: new Date().toISOString(),
         xp: result.globalXp ?? current.xp,
       }));
       const now = Date.now();
@@ -5952,10 +5956,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void resyncAuthenticatedProfile("Level Drain completed").catch((error) => {
         console.error("[profile-resync] failed after level drain", error);
       });
-      // After drain we explicitly load global progress. Thanks to the updated
-      // loadGlobalPrincipessa logic, this will also mark any current latest level_up
-      // event as seen, reducing the chance of stale "level up" bubbles replaying.
-      await loadGlobalPrincipessa(false);
+      // Keep the freshly drained global XP/level visible immediately on the client.
+      // Backend re-sync can arrive later through the normal poller without overwriting
+      // the optimistic UI with briefly stale read-model data.
     } catch (error) {
       console.error("Level Drain failed", error);
       emitSoundEvent("error");

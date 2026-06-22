@@ -1,4 +1,5 @@
 import { cosmeticItems, titleItems } from "@/lib/cosmetics";
+import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 
 export const profileSelect =
   "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, has_uncensored_avatar, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
@@ -33,6 +34,10 @@ export function roundRewardToNearestFive(value: number) {
 }
 
 export function getAllowedTaskRewards(taskId: string) {
+  if (taskId === "case-opening") {
+    return Array.from(new Set([0, ...CASE_OPEN_REWARD_WEIGHTS.map((entry) => entry.value)]));
+  }
+
   const baseReward = baseTaskRewards.get(taskId);
 
   if (typeof baseReward !== "number") {

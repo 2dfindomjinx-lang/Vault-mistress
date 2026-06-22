@@ -731,6 +731,9 @@ export function TaskList({
                         Partial remaining days count as full days. Maximum effective timeout is{" "}
                         {timeoutRiskMaxDays} day.
                       </p>
+                      <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
+                        Safe wins today: {task.safeWinsToday ?? 0}/{2}
+                      </p>
                       {task.lastResult && (
                         <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
                           {task.lastResult}
@@ -1096,7 +1099,7 @@ export function TaskList({
                     className={`mt-3 w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                     }`}
-                    disabled={disabled || isCoolingDown || isClaimPending(task.id) || isCaseOpenPending}
+                    disabled={disabled || isCoolingDown || isCaseOpenPending}
                     onClick={async () => {
                       if (isCoolingDown) {
                         handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
@@ -1378,6 +1381,9 @@ export function TaskList({
                   <p className="mt-3 text-xs leading-5 text-zinc-500">
                     Partial remaining days count as full days. Maximum effective timeout is{" "}
                     {timeoutRiskMaxDays} day.
+                  </p>
+                  <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
+                    Safe wins today: {task.safeWinsToday ?? 0}/{2}
                   </p>
                   {task.lastResult && (
                     <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">

@@ -42,6 +42,8 @@ const DANGEROUS_METADATA_KEYS = [
   "date",
 ];
 
+const TIMEOUT_RISK_RESET_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 type ExistingTaskRow = {
   claimed_at: string | null;
   completed_at: string | null;
@@ -83,6 +85,25 @@ function sanitizeMetadata(taskId: string, incomingMetadata: Record<string, unkno
   }
 
   return meta;
+}
+
+function resolveTimeoutRiskResetAt(currentMetadata: Record<string, unknown>, nextMetadata: Record<string, unknown>) {
+  const currentResetAt =
+    typeof currentMetadata.resetAt === "string" ? currentMetadata.resetAt : null;
+  const currentResetMs = currentResetAt ? new Date(currentResetAt).getTime() : 0;
+
+  if (currentResetAt && currentResetMs > Date.now()) {
+    return currentResetAt;
+  }
+
+  const incomingSafeWins =
+    typeof nextMetadata.safeWins === "number" ? nextMetadata.safeWins : Number(nextMetadata.safeWins ?? 0);
+
+  if (Number.isFinite(incomingSafeWins) && incomingSafeWins > 0) {
+    return new Date(Date.now() + TIMEOUT_RISK_RESET_WINDOW_MS).toISOString();
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -146,6 +167,15 @@ export async function POST(request: Request) {
           return next;
         })()
       : safeMetadata;
+
+  if (taskId === "timeout-risk") {
+    const resolvedResetAt = resolveTimeoutRiskResetAt(currentMetadata, mergedMetadata);
+    if (resolvedResetAt) {
+      mergedMetadata.resetAt = resolvedResetAt;
+    } else {
+      delete mergedMetadata.resetAt;
+    }
+  }
 
   const safeTask = {
     user_id: authData.user.id,

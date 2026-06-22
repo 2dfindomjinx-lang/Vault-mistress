@@ -263,7 +263,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
       preserveAspectRatio="none"
     >
       <defs>
-        <linearGradient id={baseGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+        <linearGradient id={baseGradientId} gradientUnits="userSpaceOnUse" x1="3" x2="177" y1="270" y2="18">
           {isRainbow ? (
             <>
               <stop offset="0%" stopColor="#2b173d" />
@@ -280,7 +280,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
             </>
           )}
         </linearGradient>
-        <linearGradient id={coreGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+        <linearGradient id={coreGradientId} gradientUnits="userSpaceOnUse" x1="3" x2="177" y1="270" y2="18">
           {isRainbow ? (
             <>
               <stop offset="0%" stopColor="#fb7185" stopOpacity="0.48" />
@@ -302,7 +302,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
             </>
           )}
         </linearGradient>
-        <linearGradient id={auraGradientId} x1="0%" x2="100%" y1="0%" y2="0%">
+        <linearGradient id={auraGradientId} gradientUnits="userSpaceOnUse" x1="3" x2="177" y1="270" y2="18">
           {isRainbow ? (
             <>
               <stop offset="0%" stopColor="#fb7185" />
