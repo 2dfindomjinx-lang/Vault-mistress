@@ -565,6 +565,14 @@ const startingTasks: TaskItem[] = [
     kind: "number-pick",
   },
   {
+    id: "case-opening",
+    title: "Case Opening",
+    reward: 0,
+    completed: false,
+    claimed: false,
+    kind: "case-open",
+  },
+  {
     id: "timeout-risk",
     title: "Risk My Freedom",
     reward: SAFE_REWARD,
