@@ -1563,9 +1563,7 @@ function buildTasksFromRows(
 ) {
   return startingTasks.map((task) => {
     const row =
-      task.id === "case-opening"
-        ? rows.find((entry) => entry.task_id === task.id || entry.task_id === "pet-case-opening")
-        : rows.find((entry) => entry.task_id === task.id);
+      rows.find((entry) => entry.task_id === task.id);
     const claimedForever = Boolean(row?.claimed_at);
     const failureCooldownUntil = getDailyCooldownUntil(
       getTaskMetadataString(row?.metadata, "failedAt"),
@@ -7897,7 +7895,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const actionId = "case-opening";
-    const task = tasks.find((entry) => entry.id === "case-opening") ?? startingTasks.find((entry) => entry.id === "case-opening");
+    const task = tasks.find((entry) => entry.id === "case-opening");
     const coolingDown =
       Boolean(task?.cooldownUntil) &&
       new Date(task?.cooldownUntil ?? "").getTime() > Date.now();

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
@@ -34,8 +34,9 @@ const CASE_OPEN_REEL_ITEM_WIDTH = 88;
 const CASE_OPEN_REEL_ITEM_GAP = 10;
 const CASE_OPEN_REEL_VISIBLE_COUNT = 5;
 const CASE_OPEN_REEL_LANDING_INDEX = 11;
+const CASE_OPEN_REEL_TAPE_LENGTH = 18;
 
-function pickWeightedCaseOpenReward() {
+function pickCaseOpenReward() {
   const totalWeight = CASE_OPEN_REWARD_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
   let roll = Math.random() * totalWeight;
 
@@ -49,18 +50,17 @@ function pickWeightedCaseOpenReward() {
   return CASE_OPEN_REWARD_WEIGHTS[CASE_OPEN_REWARD_WEIGHTS.length - 1]?.value ?? 100;
 }
 
-function buildCaseOpenSpinSequence(finalReward: number) {
-  const totalItems = 18;
-  const values = Array.from({ length: totalItems }, () => pickWeightedCaseOpenReward());
-  values[CASE_OPEN_REEL_LANDING_INDEX] = finalReward;
+function buildCaseOpenTape(finalReward: number) {
+  const tape = Array.from({ length: CASE_OPEN_REEL_TAPE_LENGTH }, () => pickCaseOpenReward());
+  tape[CASE_OPEN_REEL_LANDING_INDEX] = finalReward;
 
-  for (let index = CASE_OPEN_REEL_LANDING_INDEX - 2; index <= CASE_OPEN_REEL_LANDING_INDEX + 1; index += 1) {
-    if (index >= 0 && index < values.length && index !== CASE_OPEN_REEL_LANDING_INDEX) {
-      values[index] = pickWeightedCaseOpenReward();
+  for (let index = Math.max(0, CASE_OPEN_REEL_LANDING_INDEX - 2); index <= CASE_OPEN_REEL_LANDING_INDEX + 1; index += 1) {
+    if (index !== CASE_OPEN_REEL_LANDING_INDEX && index < tape.length) {
+      tape[index] = pickCaseOpenReward();
     }
   }
 
-  return values;
+  return tape;
 }
 
 function getNextGmt3MonthlyResetMs(now: number) {
@@ -242,10 +242,10 @@ export function TaskList({
   const [movementLocalActive, setMovementLocalActive] = useState(false);
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
-  const [caseOpenAnimationPhase, setCaseOpenAnimationPhase] = useState<"idle" | "spinning">("idle");
-  const [caseOpenSpinValues, setCaseOpenSpinValues] = useState<number[]>([]);
-  const [caseOpenSpinOffset, setCaseOpenSpinOffset] = useState(0);
-  const [caseOpenSpinAnimating, setCaseOpenSpinAnimating] = useState(false);
+  const [caseOpenPhase, setCaseOpenPhase] = useState<"idle" | "rolling">("idle");
+  const [caseOpenTape, setCaseOpenTape] = useState<number[]>([]);
+  const [caseOpenOffset, setCaseOpenOffset] = useState(0);
+  const [caseOpenAnimating, setCaseOpenAnimating] = useState(false);
   const irlWheelTimerRef = useRef<number | null>(null);
   const caseOpenTimerRef = useRef<number | null>(null);
   const isTaskActionPending = useCallback(
@@ -279,6 +279,14 @@ export function TaskList({
   const movementTask = tasks.find((task) => task.kind === "movement");
   const caseOpenSlotSize = CASE_OPEN_REEL_ITEM_WIDTH + CASE_OPEN_REEL_ITEM_GAP;
   const caseOpenTrackSidePadding = `calc(50% - ${CASE_OPEN_REEL_ITEM_WIDTH / 2}px)`;
+  const caseOpenPreviewValues = useMemo(
+    () => [
+      CASE_OPEN_REWARD_WEIGHTS[0]?.value ?? 100,
+      CASE_OPEN_REWARD_WEIGHTS[Math.floor(CASE_OPEN_REWARD_WEIGHTS.length / 2)]?.value ?? 250,
+      CASE_OPEN_REWARD_WEIGHTS[CASE_OPEN_REWARD_WEIGHTS.length - 1]?.value ?? 500,
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (movementTask?.movementState !== "fake_hope" || !movementTask.movementFailAt) {
@@ -1058,7 +1066,7 @@ export function TaskList({
                       className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-pink-200/70 to-transparent"
                     />
                     <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
-                      {caseOpenAnimationPhase === "spinning" ? "Rolling reward" : "Last reward"}
+                      {caseOpenPhase === "rolling" ? "Rolling reward" : "Case contents"}
                     </p>
                     <div className="mt-3 overflow-hidden">
                       <div
@@ -1066,18 +1074,18 @@ export function TaskList({
                         style={{
                           paddingLeft: caseOpenTrackSidePadding,
                           paddingRight: caseOpenTrackSidePadding,
-                          transform: `translateX(${caseOpenSpinOffset}px)`,
-                          transition: caseOpenSpinAnimating
+                          transform: `translateX(${caseOpenOffset}px)`,
+                          transition: caseOpenAnimating
                             ? "transform 1.15s cubic-bezier(0.18,0.88,0.18,1)"
                             : "none",
                         }}
                       >
-                        {(caseOpenAnimationPhase === "spinning"
-                          ? caseOpenSpinValues
-                          : Array.from({ length: CASE_OPEN_REEL_VISIBLE_COUNT }, () => task.caseReward ?? 0)
+                        {(caseOpenPhase === "rolling"
+                          ? caseOpenTape
+                          : caseOpenPreviewValues
                         ).map((value, index) => (
                           <div
-                            key={`${value}-${index}-${caseOpenAnimationPhase}`}
+                            key={`${value}-${index}-${caseOpenPhase}`}
                             className="flex h-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(236,72,153,0.18),rgba(24,24,27,0.92))] px-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.32)]"
                             style={{ width: `${CASE_OPEN_REEL_ITEM_WIDTH}px` }}
                           >
@@ -1089,9 +1097,9 @@ export function TaskList({
                       </div>
                     </div>
                     <p className="mt-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
-                      {typeof task.caseReward === "number"
-                        ? `${task.caseReward > 0 ? "+" : ""}${task.caseReward} Principessa Coins`
-                        : "Not opened yet"}
+                      {caseOpenPhase === "rolling"
+                        ? "Opening..."
+                        : "Preview of possible rewards"}
                     </p>
                   </div>
                   <button
@@ -1112,26 +1120,26 @@ export function TaskList({
                         return;
                       }
 
-                      const nextSpinValues = buildCaseOpenSpinSequence(reward);
-                      setCaseOpenSpinValues(nextSpinValues);
-                      setCaseOpenSpinAnimating(false);
-                      setCaseOpenSpinOffset(0);
-                      setCaseOpenAnimationPhase("spinning");
+                      const nextTape = buildCaseOpenTape(reward);
+                      setCaseOpenTape(nextTape);
+                      setCaseOpenAnimating(false);
+                      setCaseOpenOffset(0);
+                      setCaseOpenPhase("rolling");
                       if (caseOpenTimerRef.current) {
                         window.clearTimeout(caseOpenTimerRef.current);
                       }
 
                       window.requestAnimationFrame(() => {
                         window.requestAnimationFrame(() => {
-                          setCaseOpenSpinAnimating(true);
-                          setCaseOpenSpinOffset(-(CASE_OPEN_REEL_LANDING_INDEX * caseOpenSlotSize));
+                          setCaseOpenAnimating(true);
+                          setCaseOpenOffset(-(CASE_OPEN_REEL_LANDING_INDEX * caseOpenSlotSize));
                         });
                       });
 
                       caseOpenTimerRef.current = window.setTimeout(() => {
-                        setCaseOpenSpinAnimating(false);
-                        setCaseOpenSpinOffset(0);
-                        setCaseOpenAnimationPhase("idle");
+                        setCaseOpenAnimating(false);
+                        setCaseOpenOffset(0);
+                        setCaseOpenPhase("idle");
                       }, 1350);
                     }}
                     type="button"
