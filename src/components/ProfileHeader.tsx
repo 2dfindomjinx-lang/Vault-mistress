@@ -247,11 +247,12 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
   const duration = isRainbow ? "7.5s" : "6.2s";
   const dashLength = isRainbow ? 28 : 24;
   const gapLength = 972;
-  const runnerOutlineStroke = isRainbow ? "rgba(0, 0, 0, 0.88)" : "rgba(7, 4, 12, 0.82)";
+  const runnerOutlineStroke = isRainbow ? "rgba(0, 0, 0, 0.58)" : "rgba(7, 4, 12, 0.82)";
   const runnerOutlineWidth = 7.15;
   const runnerStrokeWidth = 4.25;
   const baseBorderStroke = isRainbow ? "rgba(255, 255, 255, 0.08)" : `url(#${baseGradientId})`;
-  const runnerCoreStroke = isRainbow ? "transparent" : `url(#${coreGradientId})`;
+  const runnerCoreStroke = `url(#${coreGradientId})`;
+  const runnerCoreOpacity = isRainbow ? 0.72 : 1;
   const auraStrokeOpacity = isRainbow ? 0.18 : 0.72;
 
   return (
@@ -378,7 +379,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         stroke={runnerCoreStroke}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity={1}
+        strokeOpacity={runnerCoreOpacity}
         strokeWidth={runnerStrokeWidth}
         strokeDasharray={`${dashLength} ${gapLength}`}
       >
@@ -417,7 +418,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         stroke={runnerCoreStroke}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity={1}
+        strokeOpacity={runnerCoreOpacity}
         strokeWidth={runnerStrokeWidth}
         strokeDasharray={`${dashLength} ${gapLength}`}
         strokeDashoffset="-500"

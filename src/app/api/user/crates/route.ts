@@ -191,7 +191,7 @@ async function openCrateBatch(
 
   for (let i = 0; i < quantity; i += 1) {
     const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
-    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 149;
+    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 249;
 
     let rolled = weightedRandom(possibleDrops);
     if (!rolled) {
@@ -562,7 +562,7 @@ export async function POST(request: Request) {
 
     let rolled;
     const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
-    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 149;
+    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 249;
 
     if (isPrincipessaPity) {
       // Bad luck protection: 

@@ -777,7 +777,7 @@ export function CratesPanel({
               crate.crate_type === "principessa_case"
                 ? `Bad Luck Protection: ${pityStats.principessa_bad_luck ?? 0}/4`
                 : crate.crate_type === "blessing_case"
-                  ? `Legendary Pity: ${pityStats.blessing_legendary_pity ?? 0}/150`
+                  ? `Legendary Pity: ${pityStats.blessing_legendary_pity ?? 0}/250`
                   : "Protection: None";
 
             return (
@@ -822,11 +822,6 @@ export function CratesPanel({
                           <div className="font-black text-pink-200">
                             {batchCost === 0 ? "FREE" : <CoinAmount amount={batchCost} iconSize={13} />}
                           </div>
-                          {currentQty > 1 && (
-                            <div className="mt-0.5 text-[10px] font-semibold text-pink-100/60">
-                              Each: {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={11} />}
-                            </div>
-                          )}
                           {freeOpenAvailable && (
                             <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
                               Free open today
@@ -943,9 +938,14 @@ export function CratesPanel({
                                     {rate.rarity}
                                   </p>
                                 </div>
-                                <span className="ml-2 font-mono text-[10px] tabular-nums opacity-80">
-                                  {rate.percentage.toFixed(2)}%
-                                </span>
+                                <div className="ml-2 shrink-0 text-right">
+                                  <div className="font-mono text-[10px] tabular-nums opacity-80">
+                                    {rate.percentage.toFixed(2)}%
+                                  </div>
+                                  <div className="mt-0.5 text-[9px] font-medium text-emerald-300/80">
+                                    {rate.sell_value ?? 0} coins
+                                  </div>
+                                </div>
                               </div>
                             );
                           })
