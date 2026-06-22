@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
-import { RARITY_COLORS, getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER, getCrateIconUrl } from "@/lib/crates";
+import {
+  RARITY_COLORS,
+  getRarityColor,
+  CRATE_TYPES,
+  SAMPLE_CRATE_ITEMS,
+  RARITY_ORDER,
+  getCrateIconUrl,
+  getCrateItemImageUrl,
+} from "@/lib/crates";
 import { getAdjustedCrateDrops, getCrateBatchCost, getCrateOpenCost, hasFreeCrateOpen } from "@/lib/crate-events";
 import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -768,160 +776,181 @@ export function CratesPanel({
 
             return (
               <div key={crate.crate_type} className="w-full">
-                {isFlipped ? (
-                  <div className="relative flex h-[260px] w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCrate(null);
-                      }}
-                      className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
-                      title="Close"
-                    >
-                      x
-                    </button>
+                <div
+                  className="relative h-[280px] sm:h-[304px] w-full [perspective:1200px]"
+                  onClick={() => {
+                    if (!isFlipped) {
+                      setFlippedCrate(crate.crate_type);
+                    }
+                  }}
+                >
+                  <div
+                    className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]"
+                    style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
+                  >
+                    <div className="absolute inset-0 overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFlippedCrate(crate.crate_type);
+                        }}
+                        className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
+                        title="View drop rates"
+                      >
+                        ?
+                      </button>
 
-                    <div className="text-center">
-                      <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
-                      <div className="mt-0.5 truncate text-sm font-semibold">{crate.name}</div>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-zinc-400">
-                        {crate.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-3 flex-1 overflow-y-auto pr-1 space-y-1 rounded bg-black/30 p-1 text-[11px]">
-                      {dropRates.length === 0 ? (
-                        <div className="py-4 text-center text-xs text-zinc-400">No rates available</div>
-                      ) : (
-                        dropRates.map((rate: any) => {
-                          const icon = rate.image_url ?? getCrateIconUrl(rate.item_id) ?? `/crate-items/${rate.item_id}.png`;
-                          return (
-                            <div
-                              key={rate.item_id}
-                              className={`flex items-center gap-2 rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
-                            >
-                              <img
-                                src={icon}
-                                alt={rate.name}
-                                className="h-7 w-7 shrink-0 rounded-md border border-white/15 bg-black/30 object-contain p-0.5"
-                                onError={(e) => {
-                                  const t = e.target as HTMLImageElement;
-                                  t.style.opacity = "0.2";
-                                }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-white/90">{rate.name}</p>
-                                <p className="truncate text-[9px] uppercase tracking-[0.18em] text-white/55">
-                                  {rate.rarity}
-                                </p>
-                              </div>
-                              <span className="ml-2 font-mono text-[10px] tabular-nums opacity-80">
-                                {rate.percentage.toFixed(2)}%
+                      <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-black text-white">{crate.name}</p>
+                          <p className="mt-1 line-clamp-4 text-xs leading-5 text-zinc-400">{crate.description}</p>
+                        </div>
+                        <div className="min-w-[92px] shrink-0 text-right">
+                          <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
+                            <span>{currentQty > 1 ? "Total cost" : "Cost"}</span>
+                            {currentQty > 1 && (
+                              <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-pink-100/80">
+                                x{currentQty}
                               </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    <div className="mt-2 text-center text-[9px] opacity-50">
-                      {dropRates.length} items • Scroll for all
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative flex h-[260px] w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFlippedCrate(crate.crate_type);
-                      }}
-                      className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
-                      title="View drop rates"
-                    >
-                      ?
-                    </button>
-
-                    <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-black text-white">{crate.name}</p>
-                        <p className="mt-1 line-clamp-4 text-xs leading-5 text-zinc-400">{crate.description}</p>
-                      </div>
-                      <div className="min-w-[92px] shrink-0 text-right">
-                        <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
-                          <span>{currentQty > 1 ? "Total cost" : "Cost"}</span>
+                            )}
+                          </div>
+                          <div className="font-black text-pink-200">
+                            {batchCost === 0 ? "FREE" : <CoinAmount amount={batchCost} iconSize={13} />}
+                          </div>
                           {currentQty > 1 && (
-                            <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-pink-100/80">
-                              x{currentQty}
-                            </span>
+                            <div className="mt-0.5 text-[10px] font-semibold text-pink-100/60">
+                              Each: {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={11} />}
+                            </div>
+                          )}
+                          {freeOpenAvailable && (
+                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                              Free open today
+                            </div>
+                          )}
+                          {!freeOpenAvailable && displayCost < crate.cost && (
+                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
+                              Lucky Key
+                            </div>
                           )}
                         </div>
-                        <div className="font-black text-pink-200">
-                          {batchCost === 0 ? "FREE" : <CoinAmount amount={batchCost} iconSize={13} />}
+                      </div>
+
+                      <div className="mt-3 flex justify-center">
+                        <img
+                          src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
+                          alt={crate.name}
+                          className="h-24 w-24 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
+                          onError={(e) => {
+                            const t = e.target as HTMLImageElement;
+                            t.style.opacity = "0.25";
+                          }}
+                        />
+                      </div>
+
+                      {crate.crate_type === "principessa_case" && (
+                        <div className="mt-1 text-center text-[9px] whitespace-nowrap text-amber-400/80">
+                          Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/4
                         </div>
-                        {currentQty > 1 && (
-                          <div className="mt-0.5 text-[10px] font-semibold text-pink-100/60">
-                            Each: {displayCost === 0 ? "FREE" : <CoinAmount amount={displayCost} iconSize={11} />}
-                          </div>
-                        )}
-                        {freeOpenAvailable && (
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                            Free open today
-                          </div>
-                        )}
-                        {!freeOpenAvailable && displayCost < crate.cost && (
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
-                            Lucky Key
-                          </div>
-                        )}
+                      )}
+                      {crate.crate_type === "blessing_case" && (
+                        <div className="mt-1 text-center text-[9px] whitespace-nowrap text-violet-400/80">
+                          Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
+                        </div>
+                      )}
+
+                      <div className="mt-2 flex justify-center gap-1 text-[10px]">
+                        {[1,2,3,4,5].map(q => (
+                          <button
+                            key={q}
+                            onClick={(e) => { e.stopPropagation(); setOpenQuantityForCase(crate.crate_type, q); }}
+                            className={`px-1.5 py-0.5 rounded border border-white/20 ${currentQty === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
+                          >
+                            {q}
+                          </button>
+                        ))}
                       </div>
+
+                      <div className="flex-1" />
+
+                      <button
+                        onClick={() => openCrate(crate, currentQty)}
+                        disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
+                        className="mt-3 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
+                      >
+                        {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
+                      </button>
                     </div>
 
-                    <div className="mt-3 flex justify-center">
-                      <img
-                        src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
-                        alt={crate.name}
-                        className="h-20 w-20 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)]"
-                        onError={(e) => {
-                          const t = e.target as HTMLImageElement;
-                          t.style.opacity = "0.25";
+                    <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFlippedCrate(null);
                         }}
-                      />
-                    </div>
+                        className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
+                        title="Close"
+                      >
+                        x
+                      </button>
 
-                    {crate.crate_type === "principessa_case" && (
-                      <div className="mt-1 text-center text-[9px] whitespace-nowrap text-amber-400/80">
-                        Bad Luck Protection: {pityStats.principessa_bad_luck ?? 0}/4
+                      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/45 shadow-[0_0_22px_rgba(255,255,255,0.06)]">
+                          <img
+                            alt={crate.name}
+                            className="h-full w-full object-contain p-2"
+                            src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
+                          <div className="mt-0.5 truncate text-sm font-semibold">{crate.name}</div>
+                          <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-zinc-400">
+                            {crate.description}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                    {crate.crate_type === "blessing_case" && (
-                      <div className="mt-1 text-center text-[9px] whitespace-nowrap text-violet-400/80">
-                        Legendary Pity: {pityStats.blessing_legendary_pity ?? 0}/150
+
+                      <div className="mt-3 flex-1 overflow-y-auto pr-1 space-y-1 rounded bg-black/30 p-1 text-[11px]">
+                        {dropRates.length === 0 ? (
+                          <div className="py-4 text-center text-xs text-zinc-400">No rates available</div>
+                        ) : (
+                          dropRates.map((rate: any) => {
+                            const icon = getCrateItemImageUrl(rate.item_id, rate.image_url ?? null) ?? undefined;
+                            return (
+                              <div
+                                key={rate.item_id}
+                                className={`flex items-center gap-2 rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
+                              >
+                                <img
+                                  src={icon}
+                                  alt={rate.name}
+                                  className="h-7 w-7 shrink-0 rounded-md border border-white/15 bg-black/30 object-contain p-0.5"
+                                  onError={(e) => {
+                                    const t = e.target as HTMLImageElement;
+                                    t.style.opacity = "0.2";
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-white/90">{rate.name}</p>
+                                  <p className="truncate text-[9px] uppercase tracking-[0.18em] text-white/55">
+                                    {rate.rarity}
+                                  </p>
+                                </div>
+                                <span className="ml-2 font-mono text-[10px] tabular-nums opacity-80">
+                                  {rate.percentage.toFixed(2)}%
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
                       </div>
-                    )}
 
-                    <div className="mt-2 flex justify-center gap-1 text-[10px]">
-                      {[1,2,3,4,5].map(q => (
-                        <button
-                          key={q}
-                          onClick={(e) => { e.stopPropagation(); setOpenQuantityForCase(crate.crate_type, q); }}
-                          className={`px-1.5 py-0.5 rounded border border-white/20 ${currentQty === q ? 'bg-fuchsia-500 text-white' : 'bg-white/5 hover:bg-white/10'}`}
-                        >
-                          {q}
-                        </button>
-                      ))}
+                      <div className="mt-2 text-center text-[9px] opacity-50">
+                        {dropRates.length} items • Scroll for all
+                      </div>
                     </div>
-
-                    <div className="flex-1" />
-
-                    <button
-                      onClick={() => openCrate(crate, currentQty)}
-                      disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
-                      className="mt-4 w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
-                    >
-                      {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
-                    </button>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

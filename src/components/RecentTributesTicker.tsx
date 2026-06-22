@@ -361,21 +361,21 @@ export function RecentTributesTicker({
                   </div>
 
                   <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden rounded-2xl border p-2 [transform:rotateY(180deg)] [backface-visibility:hidden]">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/35">
+                    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/25 p-2">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/35 sm:h-16 sm:w-16">
                         {opening.crateIconUrl ? (
                           // Static crate item images are local and can be rendered with a plain img for simplicity.
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             alt={opening.crateName}
-                            className="h-full w-full object-contain p-1"
+                            className="h-full w-full object-contain p-2"
                             src={opening.crateIconUrl}
                           />
                         ) : (
-                          <div className="text-sm text-white/70">📦</div>
+                          <div className="text-lg text-white/70">📦</div>
                         )}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-[11px] font-black text-white">
                           {opening.crateName}
                         </p>

@@ -917,7 +917,7 @@ export function PetSection({
 
       const armedAt = Date.now() + 300;
       const fail = () => {
-        if (evilWaitFinishedRef.current || Date.now() < armedAt) {
+        if (evilWaitFinishedRef.current || Date.now() < armedAt || Date.now() >= waitEndsAt) {
           return;
         }
 

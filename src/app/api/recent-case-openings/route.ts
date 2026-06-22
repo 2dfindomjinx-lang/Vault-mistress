@@ -1,4 +1,11 @@
-import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemDropChancePercent, getCrateItemSellValue } from "@/lib/crates";
+import {
+  CRATE_TYPES,
+  SAMPLE_CRATE_ITEMS,
+  getCrateIconUrl,
+  getCrateItemDropChancePercent,
+  getCrateItemImageUrl,
+  getCrateItemSellValue,
+} from "@/lib/crates";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
 import {
   createSupabaseAdminClient,
@@ -129,7 +136,7 @@ export async function GET() {
           itemRarity: itemDef?.rarity ?? "unknown",
           itemChancePercent: row.item_id ? getCrateItemDropChancePercent(row.crate_type, row.item_id) : null,
           itemSellValue: row.item_id ? getCrateItemSellValue(row.item_id) : null,
-          itemImageUrl: itemDef?.image_url ?? (row.item_id ? `/crate-items/${row.item_id}.png` : null),
+          itemImageUrl: row.item_id ? getCrateItemImageUrl(row.item_id, itemDef?.image_url ?? null) : null,
           openedAt: row.opened_at,
         };
       });

@@ -8224,6 +8224,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    const waitEndsAt = task.waitEndsAt ? new Date(task.waitEndsAt).getTime() : 0;
+    if (waitEndsAt > 0 && Date.now() >= waitEndsAt) {
+      return;
+    }
+
     const now = new Date().toISOString();
 
     if (!isGuestMode && authUserId) {

@@ -244,10 +244,12 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
   const baseGradientId = `${ids}-profile-border-base`;
   const coreGradientId = `${ids}-profile-border-core`;
   const auraGradientId = `${ids}-profile-border-aura`;
-  const pathId = `${ids}-profile-border-path`;
   const duration = isRainbow ? "7.5s" : "6.2s";
-  const dashLength = isRainbow ? 64 : 72;
-  const gapLength = 360;
+  const dashLength = isRainbow ? 28 : 24;
+  const gapLength = 972;
+  const runnerOutlineStroke = isRainbow ? "rgba(0, 0, 0, 0.88)" : "rgba(7, 4, 12, 0.82)";
+  const runnerOutlineWidth = 7.15;
+  const runnerStrokeWidth = 4.25;
 
   return (
     <svg
@@ -325,7 +327,7 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={0.95}
-        strokeWidth={6}
+        strokeWidth={6.5}
       />
       <path
         d={PROFILE_BORDER_PATH}
@@ -334,9 +336,28 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         stroke={`url(#${auraGradientId})`}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity={0.55}
-        strokeWidth={11}
-        filter="blur(2px)"
+        strokeOpacity={0.72}
+        strokeWidth={9}
+        filter="blur(1.6px)"
+        strokeDasharray={`${dashLength} ${gapLength}`}
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          dur={duration}
+          repeatCount="indefinite"
+          from="0"
+          to="-1000"
+        />
+      </path>
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
+        stroke={runnerOutlineStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={1}
+        strokeWidth={runnerOutlineWidth}
         strokeDasharray={`${dashLength} ${gapLength}`}
       >
         <animate
@@ -355,8 +376,8 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={1}
-        strokeWidth={4.2}
-        strokeDasharray={`${dashLength * 0.75} ${gapLength}`}
+        strokeWidth={runnerStrokeWidth}
+        strokeDasharray={`${dashLength} ${gapLength}`}
       >
         <animate
           attributeName="stroke-dashoffset"
@@ -370,12 +391,32 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
         d={PROFILE_BORDER_PATH}
         fill="none"
         pathLength={1000}
+        stroke={runnerOutlineStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={1}
+        strokeWidth={runnerOutlineWidth}
+        strokeDasharray={`${dashLength} ${gapLength}`}
+        strokeDashoffset="-500"
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          dur={duration}
+          repeatCount="indefinite"
+          from="-500"
+          to="-1500"
+        />
+      </path>
+      <path
+        d={PROFILE_BORDER_PATH}
+        fill="none"
+        pathLength={1000}
         stroke={`url(#${coreGradientId})`}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={1}
-        strokeWidth={4.2}
-        strokeDasharray={`${dashLength * 0.75} ${gapLength}`}
+        strokeWidth={runnerStrokeWidth}
+        strokeDasharray={`${dashLength} ${gapLength}`}
         strokeDashoffset="-500"
       >
         <animate
