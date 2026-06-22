@@ -33,8 +33,8 @@ const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
 const CASE_OPEN_REEL_ITEM_WIDTH = 88;
 const CASE_OPEN_REEL_ITEM_GAP = 10;
 const CASE_OPEN_REEL_VISIBLE_COUNT = 5;
-const CASE_OPEN_REEL_LANDING_INDEX = 11;
-const CASE_OPEN_REEL_TAPE_LENGTH = 18;
+const CASE_OPEN_REEL_LANDING_INDEX = 24;
+const CASE_OPEN_REEL_TAPE_LENGTH = 32;
 
 function pickCaseOpenReward() {
   const totalWeight = CASE_OPEN_REWARD_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
@@ -252,7 +252,6 @@ export function TaskList({
   const [caseOpenAnimating, setCaseOpenAnimating] = useState(false);
   const [caseOpenResolvedReward, setCaseOpenResolvedReward] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
-  const caseOpenSpinTimerRef = useRef<number | null>(null);
   const caseOpenTimerRef = useRef<number | null>(null);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
@@ -275,9 +274,6 @@ export function TaskList({
       window.clearInterval(timer);
       if (irlWheelTimerRef.current) {
         window.clearTimeout(irlWheelTimerRef.current);
-      }
-      if (caseOpenSpinTimerRef.current) {
-        window.clearInterval(caseOpenSpinTimerRef.current);
       }
       if (caseOpenTimerRef.current) {
         window.clearTimeout(caseOpenTimerRef.current);
@@ -1176,45 +1172,22 @@ export function TaskList({
 
                       emitSoundEvent("button_click");
                       setCaseOpenResolvedReward(null);
-                      if (caseOpenSpinTimerRef.current) {
-                        window.clearInterval(caseOpenSpinTimerRef.current);
-                        caseOpenSpinTimerRef.current = null;
-                      }
                       if (caseOpenTimerRef.current) {
                         window.clearTimeout(caseOpenTimerRef.current);
                         caseOpenTimerRef.current = null;
                       }
 
                       setCaseOpenPhase("rolling");
-                      setCaseOpenTape(buildCaseOpenTape(pickCaseOpenReward()));
-                      setCaseOpenAnimating(true);
+                      setCaseOpenAnimating(false);
                       setCaseOpenOffset(0);
-
-                      caseOpenSpinTimerRef.current = window.setInterval(() => {
-                        setCaseOpenOffset((current) => {
-                          const step = Math.max(8, Math.round(caseOpenSlotSize * 0.35));
-                          const loopSpan = caseOpenSlotSize * (CASE_OPEN_REEL_TAPE_LENGTH - CASE_OPEN_REEL_VISIBLE_COUNT);
-                          const next = current - step;
-                          return next < -loopSpan ? next + loopSpan : next;
-                        });
-                      }, 40);
 
                       const reward = await onCaseOpen();
                       if (typeof reward !== "number") {
-                        if (caseOpenSpinTimerRef.current) {
-                          window.clearInterval(caseOpenSpinTimerRef.current);
-                          caseOpenSpinTimerRef.current = null;
-                        }
                         setCaseOpenResolvedReward(null);
                         setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);
                         setCaseOpenPhase("idle");
                         return;
-                      }
-
-                      if (caseOpenSpinTimerRef.current) {
-                        window.clearInterval(caseOpenSpinTimerRef.current);
-                        caseOpenSpinTimerRef.current = null;
                       }
 
                       const nextTape = buildCaseOpenTape(reward);

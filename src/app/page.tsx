@@ -990,9 +990,8 @@ function buildHighLowPetTask(task: PetTaskItem, highLowRow: UserTaskRow | null) 
     getTaskMetadataString(highLowRow?.metadata, "higherLowerWindowStartedAt") ??
     highLowRow?.claimed_at ??
     null;
-  const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
-  const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
-  const highLowResetAt = windowActive ? new Date(windowStartedMs + DAY_MS).toISOString() : null;
+  const windowActive = Boolean(getDailyGmt3CooldownUntil(windowStartedAt));
+  const highLowResetAt = windowActive ? getDailyGmt3CooldownUntil(windowStartedAt) : null;
   const dailyProfit = windowActive
     ? getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyProfit", 0)
     : 0;
@@ -1018,7 +1017,7 @@ function buildHighLowPetTask(task: PetTaskItem, highLowRow: UserTaskRow | null) 
       getTaskMetadataNumber(highLowRow?.metadata, "highLowNextNumber", Number.NaN) ??
       getTaskMetadataNumber(highLowRow?.metadata, "nextNumber", Number.NaN) ??
       undefined,
-    highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
+    highLowDailyDate: windowActive ? getDailyKey() : null,
     highLowDailyBetTotal: dailyBetTotal,
     highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
     highLowDailyProfit: dailyProfit,
@@ -1107,9 +1106,8 @@ function buildPetTasksFromRows(
         getTaskMetadataString(highLowTaskRow?.metadata, "higherLowerWindowStartedAt") ??
         highLowTaskRow?.claimed_at ??
         null;
-      const windowStartedMs = windowStartedAt ? new Date(windowStartedAt).getTime() : 0;
-      const windowActive = Number.isFinite(windowStartedMs) && Date.now() - windowStartedMs < DAY_MS;
-      const highLowResetAt = windowActive ? new Date(windowStartedMs + DAY_MS).toISOString() : null;
+      const windowActive = Boolean(getDailyGmt3CooldownUntil(windowStartedAt));
+      const highLowResetAt = windowActive ? getDailyGmt3CooldownUntil(windowStartedAt) : null;
       const dailyProfit = windowActive
         ? getTaskMetadataNumber(highLowTaskRow?.metadata, "higherLowerDailyProfit", 0)
         : 0;
@@ -1135,7 +1133,7 @@ function buildPetTasksFromRows(
           getTaskMetadataNumber(highLowTaskRow?.metadata, "highLowNextNumber", Number.NaN) ??
           getTaskMetadataNumber(highLowTaskRow?.metadata, "nextNumber", Number.NaN) ??
           undefined,
-        highLowDailyDate: windowActive ? getDailyKey(windowStartedMs) : null,
+        highLowDailyDate: windowActive ? getDailyKey() : null,
         highLowDailyBetTotal: dailyBetTotal,
         highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
         highLowDailyProfit: dailyProfit,
@@ -5438,16 +5436,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               : -getHighLowTieFee(stake);
         const nextCoins = currentCoins + coinDelta;
         const nowDate = new Date();
-        const nowMs = nowDate.getTime();
         const now = nowDate.toISOString();
-        const existingResetMs = task.highLowResetAt ? new Date(task.highLowResetAt).getTime() : 0;
-        const windowActive = Number.isFinite(existingResetMs) && existingResetMs > nowMs;
-        const windowStartedAt = windowActive
-          ? new Date(existingResetMs - DAY_MS).toISOString()
-          : now;
-        const highLowResetAt = windowActive
-          ? task.highLowResetAt
-          : new Date(nowMs + DAY_MS).toISOString();
+        const windowActive = Boolean(task.highLowResetAt && new Date(task.highLowResetAt).getTime() > nowDate.getTime());
+        const highLowResetAt = windowActive ? task.highLowResetAt : getNextGmt3Reset(nowDate).toISOString();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
         const allowanceCost = stake;
         const nextDailyBetTotal = Math.min(
@@ -5468,7 +5459,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   claimed: false,
                   cooldownUntil: getCooldownUntil(now, highLowCooldownMs),
                   currentNumber,
-                  highLowDailyDate: getDailyKey(windowStartedAt),
+                  highLowDailyDate: getDailyKey(nowDate),
                   highLowDailyBetTotal: nextDailyBetTotal,
                   highLowDailyLocked: isHighLowLocked(nextDailyBetTotal, nextDailyProfit),
                   highLowDailyProfit: nextDailyProfit,
@@ -5604,7 +5595,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const wrongSelections = isCorrect
           ? previousWrongSelections
           : Array.from(new Set([...previousWrongSelections, selectedNumber]));
-        const cooldownUntil = new Date(new Date().getTime() + DAY_MS).toISOString();
+        const cooldownUntil = getDailyGmt3CooldownUntil(new Date());
 
         if (reward > 0) {
           const nextCoins = coinsRef.current + reward;

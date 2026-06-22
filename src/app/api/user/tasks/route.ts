@@ -1,4 +1,5 @@
 import { getAllowedTaskRewards, getBaseTaskReward } from "@/lib/server-game-rules";
+import { getNextGmt3Reset } from "@/lib/time";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -41,8 +42,6 @@ const DANGEROUS_METADATA_KEYS = [
   "lastUsedAt",
   "date",
 ];
-
-const TIMEOUT_RISK_RESET_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 type ExistingTaskRow = {
   claimed_at: string | null;
@@ -100,7 +99,7 @@ function resolveTimeoutRiskResetAt(currentMetadata: Record<string, unknown>, nex
     typeof nextMetadata.safeWins === "number" ? nextMetadata.safeWins : Number(nextMetadata.safeWins ?? 0);
 
   if (Number.isFinite(incomingSafeWins) && incomingSafeWins > 0) {
-    return new Date(Date.now() + TIMEOUT_RISK_RESET_WINDOW_MS).toISOString();
+    return getNextGmt3Reset().toISOString();
   }
 
   return null;

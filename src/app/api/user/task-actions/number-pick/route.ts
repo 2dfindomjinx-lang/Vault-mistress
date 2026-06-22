@@ -1,9 +1,8 @@
 import { profileSelect } from "@/lib/server-game-rules";
 import {
-  DAY_MS,
   generateNumberPickOptions,
   getActiveEventMultipliers,
-  getCooldownUntil,
+  getDailyResetCooldownUntil,
   getMetadataNumber,
   getMetadataNumberArray,
   randomFrom,
@@ -89,8 +88,7 @@ export async function POST(request: Request) {
 
   const profile = profileResult.data as ProfileRow;
   const existingTask = (taskResult.data as UserTaskActionRow | null) ?? null;
-  const cooldownMs = DAY_MS;
-  const cooldownUntil = getCooldownUntil(existingTask?.claimed_at, cooldownMs);
+  const cooldownUntil = getDailyResetCooldownUntil(existingTask?.claimed_at);
   const metadata =
     existingTask?.claimed_at && !cooldownUntil
       ? {}
@@ -341,7 +339,7 @@ export async function POST(request: Request) {
     taskState: {
       claimed: finalAttempt,
       completed: result === "win",
-      cooldownUntil: finalAttempt ? getCooldownUntil(now, cooldownMs) : null,
+      cooldownUntil: finalAttempt ? getDailyResetCooldownUntil(now) : null,
       numberPickAttemptsRemaining: nextAttemptsRemaining,
       numberPickCorrect: correctNumber,
       numberPickOptions: options,

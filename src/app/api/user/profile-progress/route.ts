@@ -19,6 +19,7 @@ import {
   getMetadataNumber,
   getMetadataString,
 } from "@/lib/server-task-actions";
+import { getNextGmt3Reset } from "@/lib/time";
 
 type ProfilePatchBody = {
   metadata?: Record<string, unknown>;
@@ -418,7 +419,7 @@ export async function POST(request: Request) {
         const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
         metaUpdate.safeWins = currentSafe + 1;
         if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {
-          metaUpdate.resetAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          metaUpdate.resetAt = getNextGmt3Reset().toISOString();
         }
         metaUpdate.lastResult = "safe";
       }

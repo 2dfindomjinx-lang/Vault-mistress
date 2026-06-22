@@ -1557,7 +1557,7 @@ export function PetSection({
                       </p>
                       <p className="text-sm" aria-label="attempts remaining">
                         {Array.from({ length: Math.max(0, task.attemptsRemaining ?? 1) })
-                          .map(() => "❤️")
+                          .map(() => "\u2764\uFE0F")
                           .join("") || "No hearts"}
                       </p>
                       <input
@@ -1575,7 +1575,7 @@ export function PetSection({
                   )}
 
                   {task.kind === "high-low" && (
-                    <div className="mt-auto grid flex-1 gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+                    <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-4">
                       {(() => {
                         const highLowBetAllowance =
                           task.highLowBetAllowance ??
@@ -1597,139 +1597,18 @@ export function PetSection({
                                 : "Waiting";
 
                         return (
-                          <>
-                            <div className="rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                              <p className="text-sm text-zinc-400">Current number</p>
-                              <p className="mt-1 text-5xl font-black text-white">
-                                {task.currentNumber ?? "?"}
-                              </p>
-                              <p className="mt-2 text-xs text-zinc-500">
-                                Base rolls use 2-19. Result rolls use 1-25 with middle numbers weighted higher.
-                              </p>
-                              {task.highLowRoundAvailableAt && (
-                                <p className="mt-2 text-sm font-semibold text-pink-100">
-                                  Next round in {formatRemaining(task.highLowRoundAvailableAt, now)}
+                          <div className="flex h-full flex-col">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm text-zinc-400">Current number</p>
+                                <p className="mt-1 text-5xl font-black text-white">
+                                  {task.currentNumber ?? "?"}
                                 </p>
-                              )}
-
-                              <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">24h Net Profit</p>
-                                  <p
-                                    className={`mt-1 text-lg font-black ${
-                                      (task.highLowDailyProfit ?? 0) > 0
-                                        ? "text-emerald-200"
-                                        : (task.highLowDailyProfit ?? 0) < 0
-                                          ? "text-rose-200"
-                                          : "text-pink-50"
-                                    }`}
-                                  >
-                                    {(task.highLowDailyProfit ?? 0) > 0 ? "+" : ""}
-                                    {task.highLowDailyProfit ?? 0}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Wins Today</p>
-                                  <p className="mt-1 text-lg font-black text-pink-50">
-                                    {task.highLowDailyWins ?? 0}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Bet Allowance</p>
-                                  <p className="mt-1 text-lg font-black text-pink-50">
-                                    {highLowBetAllowance.toLocaleString()}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Lock</p>
-                                  <p
-                                    className={`mt-1 text-lg font-black ${
-                                      task.highLowDailyLocked ? "text-yellow-100" : "text-emerald-200"
-                                    }`}
-                                  >
-                                    {task.highLowDailyLocked ? "Locked" : "Open"}
-                                  </p>
-                                </div>
                               </div>
-
-                              {task.highLowDailyLocked && (
-                                <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                                  Higher or Lower 24-hour profit or bet allowance limit reached.
-                                  {highLowResetRemaining > 0
-                                    ? ` Available again in ${formatRemaining(task.highLowResetAt ?? null, now)}.`
-                                    : " Available again after the current 24-hour window resets."}
-                                </p>
-                              )}
-                              {!task.highLowDailyLocked && (
-                                <p className="mt-3 text-xs font-semibold text-zinc-500">
-                                  Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the 24-hour allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
-                                </p>
-                              )}
-                              {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
-                                <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                                  Higher or Lower bet allowance is depleted.
-                                </p>
-                              )}
-
-                              <label className="mt-3 block">
-                                <span className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
-                                  Stake
-                                </span>
-                                <input
-                                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
-                                  disabled={disabled || coolingDown || task.highLowDailyLocked || highLowBetAllowance <= 0 || isPetActionPending("high-low")}
-                                  min={1}
-                                  max={highLowStakeMax}
-                                  onChange={(event) => setHighLowStake(Number(event.target.value))}
-                                  type="number"
-                                  value={highLowStake}
-                                />
-                              </label>
-
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-                                {(["higher", "lower"] as const).map((guess) => (
-                                  <button
-                                    aria-disabled={coolingDown || undefined}
-                                    className={`rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
-                                      coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-                                    }`}
-                                    disabled={
-                                      disabled ||
-                                      isPetActionPending("high-low") ||
-                                      task.highLowDailyLocked ||
-                                      highLowStake <= 0 ||
-                                      highLowStake > coins ||
-                                      highLowStake > highLowBetAllowance
-                                    }
-                                    key={guess}
-                                    onClick={() => {
-                                      if (coolingDown) {
-                                        handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
-                                        return;
-                                      }
-
-                                      emitSoundEvent("button_click");
-                                      onHighLowPlay(guess, highLowStake);
-                                    }}
-                                    type="button"
-                                  >
-                                    {coolingDown ? (
-                                      <CooldownButtonContent label={`Available in ${formatRemaining(task.cooldownUntil ?? null, now)}`} />
-                                    ) : (
-                                      guess
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div className="rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                              <p className="text-xs uppercase tracking-[0.2em] text-pink-200/70">
-                                Result
-                              </p>
-                              <div className="mt-2 rounded-2xl border border-white/10 bg-black/25 p-3">
+                              <div className="min-w-[16rem] rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                                <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">Last result</p>
                                 <p
-                                  className={`text-2xl font-black ${
+                                  className={`mt-2 text-2xl font-black ${
                                     resultLabel === "Win"
                                       ? "text-emerald-200"
                                       : resultLabel === "Loss"
@@ -1743,42 +1622,130 @@ export function PetSection({
                                 </p>
                                 <p className="mt-2 text-sm text-zinc-400">
                                   {task.resultOutcome
-                                    ? `${resultLabel} · ${resultBaseNumber} → ${resultNumber} · ${resultCoinDelta > 0 ? "+" : ""}${resultCoinDelta} coins`
+                                    ? `${resultLabel} · ${resultBaseNumber} -> ${resultNumber} · ${resultCoinDelta > 0 ? "+" : ""}${resultCoinDelta} coins`
                                     : "Play once to reveal the next result here."}
                                 </p>
                               </div>
+                            </div>
+                            <p className="mt-2 text-xs text-zinc-500">
+                              Base rolls use 2-19. Result rolls use 1-25 with middle numbers weighted higher.
+                            </p>
+                            {task.highLowRoundAvailableAt && (
+                              <p className="mt-2 text-sm font-semibold text-pink-100">
+                                Next round in {formatRemaining(task.highLowRoundAvailableAt, now)}
+                              </p>
+                            )}
 
-                              <div className="mt-3 grid gap-2">
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Last Base</p>
-                                  <p className="mt-1 text-lg font-black text-white">
-                                    {resultBaseNumber}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Next Number</p>
-                                  <p className="mt-1 text-lg font-black text-white">
-                                    {resultNumber === "?" ? task.highLowNextNumber ?? "?" : resultNumber}
-                                  </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-                                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Delta</p>
-                                  <p
-                                    className={`mt-1 text-lg font-black ${
-                                      resultCoinDelta > 0
-                                        ? "text-emerald-200"
-                                        : resultCoinDelta < 0
-                                          ? "text-rose-200"
-                                          : "text-yellow-100"
-                                    }`}
-                                  >
-                                    {resultCoinDelta > 0 ? "+" : ""}
-                                    {resultCoinDelta}
-                                  </p>
-                                </div>
+                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">24h Net Profit</p>
+                                <p
+                                  className={`mt-1 text-lg font-black ${
+                                    (task.highLowDailyProfit ?? 0) > 0
+                                      ? "text-emerald-200"
+                                      : (task.highLowDailyProfit ?? 0) < 0
+                                        ? "text-rose-200"
+                                        : "text-pink-50"
+                                  }`}
+                                >
+                                  {(task.highLowDailyProfit ?? 0) > 0 ? "+" : ""}
+                                  {task.highLowDailyProfit ?? 0}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Wins Today</p>
+                                <p className="mt-1 text-lg font-black text-pink-50">
+                                  {task.highLowDailyWins ?? 0}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Bet Allowance</p>
+                                <p className="mt-1 text-lg font-black text-pink-50">
+                                  {highLowBetAllowance.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Lock</p>
+                                <p
+                                  className={`mt-1 text-lg font-black ${
+                                    task.highLowDailyLocked ? "text-yellow-100" : "text-emerald-200"
+                                  }`}
+                                >
+                                  {task.highLowDailyLocked ? "Locked" : "Open"}
+                                </p>
                               </div>
                             </div>
-                          </>
+
+                            {task.highLowDailyLocked && (
+                              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                                Higher or Lower 24-hour profit or bet allowance limit reached.
+                                {highLowResetRemaining > 0
+                                  ? ` Available again in ${formatRemaining(task.highLowResetAt ?? null, now)}.`
+                                  : " Available again after the current daily reset."}
+                              </p>
+                            )}
+                            {!task.highLowDailyLocked && (
+                              <p className="mt-3 text-xs font-semibold text-zinc-500">
+                                Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the daily allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
+                              </p>
+                            )}
+                            {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
+                              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+                                Higher or Lower bet allowance is depleted.
+                              </p>
+                            )}
+
+                            <label className="mt-4 block">
+                              <span className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
+                                Stake
+                              </span>
+                              <input
+                                className="mt-2 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
+                                disabled={disabled || coolingDown || task.highLowDailyLocked || highLowBetAllowance <= 0 || isPetActionPending("high-low")}
+                                min={1}
+                                max={highLowStakeMax}
+                                onChange={(event) => setHighLowStake(Number(event.target.value))}
+                                type="number"
+                                value={highLowStake}
+                              />
+                            </label>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              {(["higher", "lower"] as const).map((guess) => (
+                                <button
+                                  aria-disabled={coolingDown || undefined}
+                                  className={`rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold capitalize text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
+                                    coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                                  }`}
+                                  disabled={
+                                    disabled ||
+                                    isPetActionPending("high-low") ||
+                                    task.highLowDailyLocked ||
+                                    highLowStake <= 0 ||
+                                    highLowStake > coins ||
+                                    highLowStake > highLowBetAllowance
+                                  }
+                                  key={guess}
+                                  onClick={() => {
+                                    if (coolingDown) {
+                                      handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                                      return;
+                                    }
+
+                                    emitSoundEvent("button_click");
+                                    onHighLowPlay(guess, highLowStake);
+                                  }}
+                                  type="button"
+                                >
+                                  {coolingDown ? (
+                                    <CooldownButtonContent label={`Available in ${formatRemaining(task.cooldownUntil ?? null, now)}`} />
+                                  ) : (
+                                    guess
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         );
                       })()}
                     </div>
@@ -2194,7 +2161,7 @@ export function PetSection({
                   </span>
                 </div>
                 <p className="mt-3 text-xs font-bold text-red-100">
-                  Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 250 Coins.
+                  Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.
                 </p>
                 <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">

@@ -1,6 +1,5 @@
 import { profileSelect } from "@/lib/server-game-rules";
 import {
-  DAY_MS,
   generateHighLowRoundNumbers,
   getActiveEventMultipliers,
   getCooldownUntil,
@@ -18,6 +17,7 @@ import {
   randomHighLowNumber,
   type UserTaskActionRow,
 } from "@/lib/server-task-actions";
+import { getDailyGmt3CooldownUntil, getNextGmt3Reset } from "@/lib/time";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -114,16 +114,16 @@ export async function POST(request: Request) {
   }
 
   const nowMs = Date.now();
+  const nextDailyResetAt = getNextGmt3Reset(nowMs).toISOString();
   const legacyDailyDate = getMetadataString(metadata, "higherLowerDailyDate");
   const legacyWindowStartedAt = legacyDailyDate ? existingTask?.claimed_at : null;
   const storedWindowStartedAt =
     getMetadataString(metadata, "higherLowerWindowStartedAt") ?? legacyWindowStartedAt;
-  const storedWindowStartedMs = storedWindowStartedAt ? new Date(storedWindowStartedAt).getTime() : 0;
-  const windowActive =
-    Number.isFinite(storedWindowStartedMs) && nowMs - storedWindowStartedMs < DAY_MS;
-  const windowStartedAt =
-    windowActive && storedWindowStartedAt ? storedWindowStartedAt : new Date(nowMs).toISOString();
-  const windowResetAt = new Date(new Date(windowStartedAt).getTime() + DAY_MS).toISOString();
+  const windowActive = Boolean(getDailyGmt3CooldownUntil(storedWindowStartedAt, nowMs));
+  const windowStartedAt = windowActive && storedWindowStartedAt ? storedWindowStartedAt : new Date(nowMs).toISOString();
+  const windowResetAt = windowActive
+    ? getDailyGmt3CooldownUntil(windowStartedAt, nowMs) ?? nextDailyResetAt
+    : nextDailyResetAt;
   const today = getDailyKey();
   const currentDailyProfit = windowActive ? getMetadataNumber(metadata, "higherLowerDailyProfit", 0) : 0;
   const currentDailyWins = windowActive ? getMetadataNumber(metadata, "higherLowerDailyWins", 0) : 0;
