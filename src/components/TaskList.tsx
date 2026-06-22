@@ -246,7 +246,9 @@ export function TaskList({
   const [caseOpenTape, setCaseOpenTape] = useState<number[]>([]);
   const [caseOpenOffset, setCaseOpenOffset] = useState(0);
   const [caseOpenAnimating, setCaseOpenAnimating] = useState(false);
+  const [caseOpenResolvedReward, setCaseOpenResolvedReward] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
+  const caseOpenSpinTimerRef = useRef<number | null>(null);
   const caseOpenTimerRef = useRef<number | null>(null);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
@@ -270,6 +272,9 @@ export function TaskList({
       if (irlWheelTimerRef.current) {
         window.clearTimeout(irlWheelTimerRef.current);
       }
+      if (caseOpenSpinTimerRef.current) {
+        window.clearInterval(caseOpenSpinTimerRef.current);
+      }
       if (caseOpenTimerRef.current) {
         window.clearTimeout(caseOpenTimerRef.current);
       }
@@ -280,11 +285,21 @@ export function TaskList({
   const caseOpenSlotSize = CASE_OPEN_REEL_ITEM_WIDTH + CASE_OPEN_REEL_ITEM_GAP;
   const caseOpenTrackSidePadding = `calc(50% - ${CASE_OPEN_REEL_ITEM_WIDTH / 2}px)`;
   const caseOpenPreviewValues = useMemo(
-    () => [
-      CASE_OPEN_REWARD_WEIGHTS[0]?.value ?? 100,
-      CASE_OPEN_REWARD_WEIGHTS[Math.floor(CASE_OPEN_REWARD_WEIGHTS.length / 2)]?.value ?? 250,
-      CASE_OPEN_REWARD_WEIGHTS[CASE_OPEN_REWARD_WEIGHTS.length - 1]?.value ?? 500,
-    ],
+    () => {
+      const weightCount = CASE_OPEN_REWARD_WEIGHTS.length;
+      if (weightCount === 0) {
+        return [100, 250, 250, 500, 500];
+      }
+
+      const visibleCount = Math.max(1, CASE_OPEN_REEL_VISIBLE_COUNT);
+      return Array.from({ length: visibleCount }, (_, index) => {
+        const normalizedIndex =
+          visibleCount === 1
+            ? 0
+            : Math.round((index / (visibleCount - 1)) * (weightCount - 1));
+        return CASE_OPEN_REWARD_WEIGHTS[normalizedIndex]?.value ?? 100;
+      });
+    },
     [],
   );
 
@@ -1093,21 +1108,35 @@ export function TaskList({
                               +{value}
                             </span>
                           </div>
-                        ))}
+                          ))}
                       </div>
                     </div>
-                    <p className="mt-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
-                      {caseOpenPhase === "rolling"
-                        ? "Opening..."
-                        : "Preview of possible rewards"}
-                    </p>
+                    {(
+                      caseOpenPhase === "rolling"
+                        ? caseOpenResolvedReward
+                        : caseOpenResolvedReward ?? task.caseReward ?? null
+                    ) != null ? (
+                      <p className="mt-3 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
+                        Last reward: +
+                        {caseOpenPhase === "rolling"
+                          ? caseOpenResolvedReward
+                          : caseOpenResolvedReward ?? task.caseReward ?? 0}{" "}
+                        Principessa Coins
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
+                        {caseOpenPhase === "rolling"
+                          ? "Opening..."
+                          : "Preview of possible rewards"}
+                      </p>
+                    )}
                   </div>
                   <button
                     aria-disabled={isCoolingDown || undefined}
                     className={`mt-3 w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                     }`}
-                    disabled={disabled || isCoolingDown || isCaseOpenPending}
+                    disabled={disabled || isCoolingDown || isCaseOpenPending || caseOpenPhase === "rolling"}
                     onClick={async () => {
                       if (isCoolingDown) {
                         handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
@@ -1115,19 +1144,54 @@ export function TaskList({
                       }
 
                       emitSoundEvent("button_click");
+                      setCaseOpenResolvedReward(null);
+                      if (caseOpenSpinTimerRef.current) {
+                        window.clearInterval(caseOpenSpinTimerRef.current);
+                        caseOpenSpinTimerRef.current = null;
+                      }
+                      if (caseOpenTimerRef.current) {
+                        window.clearTimeout(caseOpenTimerRef.current);
+                        caseOpenTimerRef.current = null;
+                      }
+
+                      setCaseOpenPhase("rolling");
+                      setCaseOpenTape(buildCaseOpenTape(pickCaseOpenReward()));
+                      setCaseOpenAnimating(true);
+                      setCaseOpenOffset(0);
+
+                      caseOpenSpinTimerRef.current = window.setInterval(() => {
+                        setCaseOpenOffset((current) => {
+                          const step = Math.max(8, Math.round(caseOpenSlotSize * 0.35));
+                          const loopSpan = caseOpenSlotSize * (CASE_OPEN_REEL_TAPE_LENGTH - CASE_OPEN_REEL_VISIBLE_COUNT);
+                          const next = current - step;
+                          return next < -loopSpan ? next + loopSpan : next;
+                        });
+                      }, 40);
+
                       const reward = await onCaseOpen();
                       if (typeof reward !== "number") {
+                        if (caseOpenSpinTimerRef.current) {
+                          window.clearInterval(caseOpenSpinTimerRef.current);
+                          caseOpenSpinTimerRef.current = null;
+                        }
+                        setCaseOpenResolvedReward(null);
+                        setCaseOpenAnimating(false);
+                        setCaseOpenOffset(0);
+                        setCaseOpenPhase("idle");
                         return;
                       }
 
+                      if (caseOpenSpinTimerRef.current) {
+                        window.clearInterval(caseOpenSpinTimerRef.current);
+                        caseOpenSpinTimerRef.current = null;
+                      }
+
                       const nextTape = buildCaseOpenTape(reward);
+                      setCaseOpenResolvedReward(reward);
                       setCaseOpenTape(nextTape);
                       setCaseOpenAnimating(false);
                       setCaseOpenOffset(0);
                       setCaseOpenPhase("rolling");
-                      if (caseOpenTimerRef.current) {
-                        window.clearTimeout(caseOpenTimerRef.current);
-                      }
 
                       window.requestAnimationFrame(() => {
                         window.requestAnimationFrame(() => {
@@ -1140,13 +1204,14 @@ export function TaskList({
                         setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);
                         setCaseOpenPhase("idle");
+                        caseOpenTimerRef.current = null;
                       }, 1350);
                     }}
                     type="button"
                   >
                     {isCoolingDown ? (
                       <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
-                    ) : isCaseOpenPending ? (
+                    ) : isCaseOpenPending || caseOpenPhase === "rolling" ? (
                       "Opening..."
                     ) : (
                       "Open Case"

@@ -68,8 +68,6 @@ export async function GET() {
   const { data: openingRows, error: openingError } = await supabase
     .from("crate_opens")
     .select("id, user_id, crate_type, item_id, opened_at")
-    .neq("crate_type", "sell")
-    .neq("crate_type", "sell_all")
     .gte("opened_at", since)
     .order("opened_at", { ascending: false })
     .limit(500);
@@ -79,7 +77,9 @@ export async function GET() {
     return Response.json({ error: openingError.message }, { status: 500 });
   }
 
-  const rows = (openingRows ?? []) as CaseOpeningRow[];
+  const rows = ((openingRows ?? []) as CaseOpeningRow[]).filter((row) => {
+    return Object.prototype.hasOwnProperty.call(CRATE_TYPES, row.crate_type) && Boolean(row.item_id);
+  });
   const groupedRows = new Map<string, CaseOpeningRow[]>();
   for (const row of rows) {
     const current = groupedRows.get(row.user_id) ?? [];
@@ -126,6 +126,7 @@ export async function GET() {
       const recentOpenings = userRows.slice(0, 5).map((row) => {
         const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
         const crateDef = CRATE_TYPES[row.crate_type];
+        const itemImageUrl = row.item_id ? getCrateItemImageUrl(row.item_id, itemDef?.image_url ?? null) : null;
 
         return {
           id: row.id,
@@ -136,7 +137,7 @@ export async function GET() {
           itemRarity: itemDef?.rarity ?? "unknown",
           itemChancePercent: row.item_id ? getCrateItemDropChancePercent(row.crate_type, row.item_id) : null,
           itemSellValue: row.item_id ? getCrateItemSellValue(row.item_id) : null,
-          itemImageUrl: row.item_id ? getCrateItemImageUrl(row.item_id, itemDef?.image_url ?? null) : null,
+          itemImageUrl,
           openedAt: row.opened_at,
         };
       });
