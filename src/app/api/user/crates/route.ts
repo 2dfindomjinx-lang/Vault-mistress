@@ -25,7 +25,7 @@ import type { EventEffect } from "@/lib/events";
 const MAX_CRATE_BATCH_OPEN = 5;
 
 type CrateActionBody = {
-  action?: "open" | "sell" | "sell_all" | "sell_many";
+  action?: "open" | "sell" | "sell_all" | "sell_many" | "sell_duplicates";
   crateType?: string;
   itemId?: string;
   variant?: string;
@@ -1265,6 +1265,196 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       sold_many: true,
+      total_value: totalSellValue,
+      item_count: details.length,
+      newCoins: nextCoins,
+    });
+  }
+
+  if (action === "sell_duplicates") {
+    const { data: invRows, error: invErr } = await supabase
+      .from("user_crate_inventory")
+      .select("item_id, variant, quantity")
+      .eq("user_id", userId);
+
+    if (invErr) {
+      console.error("[crates] sell_duplicates inventory read failed", invErr);
+      return jsonError("Failed to read inventory.", 500);
+    }
+
+    const inventoryRows = (invRows ?? []).map((row) => ({
+      item_id: row.item_id,
+      variant: row.variant ?? "normal",
+      quantity: Number(row.quantity ?? 0),
+    }));
+
+    const details: Array<{
+      item_id: string;
+      variant: string;
+      quantity: number;
+      value: number;
+    }> = [];
+
+    const inventoryMap = new Map(
+      inventoryRows.map((row) => [buildInventoryKey(row.item_id, row.variant), row.quantity]),
+    );
+
+    for (const row of inventoryRows) {
+      if (row.item_id === "classic" || row.quantity <= 1) {
+        continue;
+      }
+
+      const itemDef = await getItemDefinition(supabase, row.item_id);
+      if (!itemDef || itemDef.sell_value <= 0 || itemDef.rarity === "legendary") {
+        continue;
+      }
+
+      const duplicateQuantity = row.quantity - 1;
+      if (duplicateQuantity <= 0) {
+        continue;
+      }
+
+      details.push({
+        item_id: row.item_id,
+        variant: row.variant,
+        quantity: duplicateQuantity,
+        value: itemDef.sell_value * duplicateQuantity,
+      });
+    }
+
+    if (details.length === 0) {
+      return jsonError("You do not have any sellable duplicates.", 422);
+    }
+
+    const totalSellValue = details.reduce((sum, detail) => sum + detail.value, 0);
+
+    if (totalSellValue <= 0) {
+      return jsonError("Nothing of value to sell.", 422);
+    }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("coins")
+      .eq("id", userId)
+      .single();
+
+    if (profileErr || !profile) {
+      console.error("[crates] sell_duplicates profile read failed", profileErr);
+      return jsonError("Profile not found.", 500);
+    }
+
+    const nextCoins = profile.coins + totalSellValue;
+    const nowIso = new Date().toISOString();
+    const appliedDetails: Array<{
+      item_id: string;
+      variant: string;
+      quantity: number;
+      value: number;
+    }> = [];
+
+    const { error: coinErr } = await supabase
+      .from("profiles")
+      .update({ coins: nextCoins, updated_at: nowIso })
+      .eq("id", userId)
+      .eq("coins", profile.coins);
+
+    if (coinErr) {
+      console.error("[crates] sell_duplicates coin update failed", coinErr);
+      return jsonError("Sale failed (balance changed).", 409);
+    }
+
+    for (const detail of details) {
+      const currentQty = inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0;
+      const nextQty = Math.max(1, currentQty - detail.quantity);
+
+      const { error: invUpdateErr } = await supabase
+        .from("user_crate_inventory")
+        .update({ quantity: nextQty })
+        .eq("user_id", userId)
+        .eq("item_id", detail.item_id)
+        .eq("variant", detail.variant);
+
+      if (invUpdateErr) {
+        console.error("[crates] sell_duplicates inventory mutation failed", invUpdateErr);
+        await supabase
+          .from("profiles")
+          .update({ coins: profile.coins, updated_at: nowIso })
+          .eq("id", userId)
+          .eq("coins", nextCoins);
+        await Promise.all(
+          appliedDetails.map((restored) =>
+            supabase
+              .from("user_crate_inventory")
+              .upsert(
+                {
+                  user_id: userId,
+                  item_id: restored.item_id,
+                  variant: restored.variant,
+                  quantity: inventoryMap.get(buildInventoryKey(restored.item_id, restored.variant)) ?? 0,
+                },
+                { onConflict: "user_id,item_id,variant" },
+              ),
+          ),
+        );
+        return jsonError("Failed to clear duplicates after sale. Coins refunded.", 500);
+      }
+
+      appliedDetails.push(detail);
+    }
+
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
+      user_id: userId,
+      amount: totalSellValue,
+      balance_before: profile.coins,
+      balance_after: nextCoins,
+      reason: "crate:sell_duplicates",
+      metadata: {
+        item_count: details.length,
+        items: details,
+      },
+    });
+
+    if (txErr) {
+      console.error("[crates] sell_duplicates transaction logging failed", txErr);
+      await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, updated_at: nowIso })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+      await Promise.all(
+        details.map((detail) =>
+          supabase
+            .from("user_crate_inventory")
+            .upsert(
+              {
+                user_id: userId,
+                item_id: detail.item_id,
+                variant: detail.variant,
+                quantity: inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0,
+              },
+              { onConflict: "user_id,item_id,variant" },
+            ),
+        ),
+      );
+      return jsonError("Sale logging failed.", 500);
+    }
+
+    await Promise.all(
+      details.map((detail) =>
+        supabase.from("crate_opens").insert({
+          user_id: userId,
+          crate_type: "sell_duplicates",
+          item_id: detail.item_id,
+          variant: detail.variant,
+          cost: 0,
+          received_sell_value: detail.value,
+        }),
+      ),
+    );
+
+    return Response.json({
+      success: true,
+      sold_duplicates: true,
       total_value: totalSellValue,
       item_count: details.length,
       newCoins: nextCoins,

@@ -3218,6 +3218,53 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const handleSellDuplicateCrateItems = async () => {
+    if (cratePending) return { success: false };
+
+    setCratePending(true);
+
+    try {
+      const response = await fetch("/api/user/crates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sell_duplicates" }),
+      });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+        newCoins?: number;
+        total_value?: number;
+        item_count?: number;
+      };
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? "Sell duplicates failed.");
+      }
+
+      if (typeof payload.newCoins === "number") {
+        setCoins(payload.newCoins);
+        coinsRef.current = payload.newCoins;
+      }
+
+      await loadCratesData();
+      void loadLeadershipTop();
+
+      return {
+        success: true,
+        newCoins: payload.newCoins,
+        totalValue: payload.total_value,
+        itemCount: payload.item_count,
+      };
+    } catch (error) {
+      console.error("Sell duplicate crate items failed", error);
+      const errMsg = error instanceof Error ? error.message : "Sell duplicates failed.";
+      setAuthError(errMsg);
+      return { success: false, error: errMsg };
+    } finally {
+      setCratePending(false);
+    }
+  };
+
   const handleSellWonCrateItems = async (
     items: Array<{ itemId: string; variant: string; quantity: number }>,
   ) => {
@@ -9749,6 +9796,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onOpenCrate={handleOpenCrate}
                 onSellItem={handleSellCrateItem}
                 onSellAll={handleSellAllCrateItems}
+                onSellDuplicates={handleSellDuplicateCrateItems}
                 onSellWonItems={handleSellWonCrateItems}
                 pityStats={pityStats}
                 onCrateOpen={() => {

@@ -62,6 +62,7 @@ type CratesPanelProps = {
   }>;
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
+  onSellDuplicates?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   onSellWonItems?: (items: Array<{ itemId: string; variant: string; quantity: number }>) => Promise<{
     success: boolean;
     newCoins?: number;
@@ -120,6 +121,7 @@ export function CratesPanel({
   onOpenCrate,
   onSellItem,
   onSellAll,
+  onSellDuplicates,
   onSellWonItems,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
   activeEvents = [],
@@ -220,6 +222,25 @@ export function CratesPanel({
   // Total number of items (sum of quantities) to display next to value
   const totalItemCount = useMemo(() => {
     return inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }, [inventory]);
+
+  const duplicateInventoryValue = useMemo(() => {
+    return inventory.reduce((sum, item) => {
+      const duplicateCount = Math.max(0, (item.quantity || 0) - 1);
+      const isProtected = item.item_id === "classic" || item.rarity === "legendary";
+      if (isProtected || item.sell_value <= 0) {
+        return sum;
+      }
+
+      return sum + duplicateCount * (item.sell_value || 0);
+    }, 0);
+  }, [inventory]);
+
+  const duplicateStackCount = useMemo(() => {
+    return inventory.reduce((sum, item) => {
+      const isProtected = item.item_id === "classic" || item.rarity === "legendary";
+      return sum + (!isProtected && (item.quantity || 0) > 1 && item.sell_value > 0 ? 1 : 0);
+    }, 0);
   }, [inventory]);
 
   // Build a long ordered "tape" of items for the classic sliding reel.
@@ -730,6 +751,31 @@ export function CratesPanel({
     }
   };
 
+  const sellDuplicates = async () => {
+    if (disabled || sellPending || duplicateStackCount === 0 || duplicateInventoryValue <= 0) return;
+
+    const confirmSell = window.confirm(
+      `Sell duplicate copies only for ${duplicateInventoryValue} coins?\n\nOne copy of each sellable item will remain in your inventory. Legendary items and Classic stay untouched.`
+    );
+    if (!confirmSell) return;
+
+    setSellPending("duplicates");
+
+    try {
+      const res = await (onSellDuplicates ? onSellDuplicates() : Promise.resolve({ success: false } as any));
+      if (res.success) {
+        emitSoundEvent("cosmetic_purchased");
+      } else {
+        alert(res?.error || "Duplicate sale failed.");
+      }
+    } catch (e) {
+      console.error("Sell duplicates error", e);
+      alert("Failed to sell duplicate items.");
+    } finally {
+      setSellPending(null);
+    }
+  };
+
   const closeReveal = () => {
     setWonItems([]);
     setReelItems([]);
@@ -793,8 +839,8 @@ export function CratesPanel({
 
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto">
-          <div className="grid h-full content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
+          <div className="grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -1015,15 +1061,26 @@ export function CratesPanel({
               </span>
               <span className="ml-1 text-xs text-zinc-500">({totalItemCount} item{totalItemCount === 1 ? '' : 's'})</span>
             </div>
-            {inventory.length > 0 && (
-              <button
-                onClick={sellAll}
-                disabled={disabled || !!sellPending}
-                className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold hover:bg-white/10 disabled:opacity-50 transition"
-              >
-                Sell All
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {duplicateStackCount > 0 && (
+                <button
+                  onClick={sellDuplicates}
+                  disabled={disabled || !!sellPending}
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold hover:bg-white/10 disabled:opacity-50 transition"
+                >
+                  Sell Duplicates
+                </button>
+              )}
+              {inventory.length > 0 && (
+                <button
+                  onClick={sellAll}
+                  disabled={disabled || !!sellPending}
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold hover:bg-white/10 disabled:opacity-50 transition"
+                >
+                  Sell All
+                </button>
+              )}
+            </div>
           </div>
 
           {inventory.length === 0 ? (
@@ -1130,7 +1187,7 @@ export function CratesPanel({
       {(isOpening || wonItems.length > 0) && (
         <div
           ref={reelPanelRef}
-          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 h-[440px] overflow-auto md:order-none"
+          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px] md:order-none"
         >
           {wonItems.length > 0 && (
             <button
