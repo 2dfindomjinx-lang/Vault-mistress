@@ -1193,7 +1193,7 @@ export function CratesPanel({
       {(isOpening || wonItems.length > 0) && (
         <div
           ref={reelPanelRef}
-          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[760px] md:order-none"
+          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[640px] md:order-none"
         >
           {wonItems.length > 0 && (
             <button
@@ -1217,7 +1217,7 @@ export function CratesPanel({
               Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
               Shown both during spin and in result for single open (so result screen matches reel width). */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
-            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 220 }}>
+            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 200 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
