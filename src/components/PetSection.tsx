@@ -1257,7 +1257,10 @@ export function PetSection({
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+          <div
+            className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4"
+            data-allow-image-download
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
@@ -1353,7 +1356,10 @@ export function PetSection({
       </div>
 
       <div className="mt-4 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
-        <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 p-4">
+        <div
+          className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 p-4"
+          data-allow-image-download
+        >
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
               Pet Gallery

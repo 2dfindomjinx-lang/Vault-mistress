@@ -54,7 +54,10 @@ export function GalleryGrid({
     filter === "All" ? items : items.filter((item) => item.rarity === filter);
 
   return (
-    <section className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5">
+    <section
+      className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5"
+      data-allow-image-download
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">

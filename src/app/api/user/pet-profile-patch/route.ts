@@ -373,10 +373,20 @@ export async function POST(request: Request) {
     const isAffectionClaim = reason === "reward:pet-affection-claim";
     const isCase = reason === "reward:pet-case-opening";
     const rewardScore = isAffectionClaim ? 10 : 10; // most are 10; tax separate but not via reward:pet- coin path
-    const meta: Record<string, unknown> = { ...( (body?.metadata as Record<string, unknown>) ?? {}) };
+    const meta: Record<string, unknown> = { ...((body?.metadata as Record<string, unknown>) ?? {}) };
     if (isAffectionClaim || isCase) {
       meta.date = new Date().toISOString().slice(0, 10);
     }
+    const { data: existingPetTask } = await supabase
+      .from("user_pet_tasks")
+      .select("metadata")
+      .eq("user_id", authData.user.id)
+      .eq("task_id", taskId)
+      .maybeSingle();
+    const mergedMeta = {
+      ...((existingPetTask?.metadata as Record<string, unknown> | null) ?? {}),
+      ...meta,
+    };
     const { error: sidePetErr } = await supabase
       .from("user_pet_tasks")
       .upsert(
@@ -387,7 +397,7 @@ export async function POST(request: Request) {
           reviewed_at: now,
           reward_score: rewardScore,
           status: "approved",
-          metadata: meta,
+          metadata: mergedMeta,
         },
         { onConflict: "user_id,task_id" },
       );

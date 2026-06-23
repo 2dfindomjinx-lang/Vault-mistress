@@ -346,6 +346,7 @@ const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
+const IMAGE_DOWNLOAD_ALLOW_SELECTOR = "[data-allow-image-download]";
 const LOCAL_GUEST_USER_ID = "local-guest-user";
 const DEFAULT_SITE_ANNOUNCEMENT: Pick<SiteAnnouncement, "title" | "body"> = {
   title: "Announcement",
@@ -2581,6 +2582,40 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   useEffect(() => {
     coinsRef.current = coins;
   }, [coins]);
+
+  useEffect(() => {
+    const shouldBlockImageInteraction = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (target.closest(IMAGE_DOWNLOAD_ALLOW_SELECTOR)) {
+        return false;
+      }
+
+      return Boolean(target.closest("img"));
+    };
+
+    const handleContextMenu = (event: MouseEvent) => {
+      if (shouldBlockImageInteraction(event.target)) {
+        event.preventDefault();
+      }
+    };
+
+    const handleDragStart = (event: DragEvent) => {
+      if (shouldBlockImageInteraction(event.target)) {
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("dragstart", handleDragStart);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("dragstart", handleDragStart);
+    };
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {

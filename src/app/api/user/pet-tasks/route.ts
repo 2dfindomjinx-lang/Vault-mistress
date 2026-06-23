@@ -115,7 +115,13 @@ export async function POST(request: Request) {
     return jsonError(existingTaskError.message, 500);
   }
 
+  const mergedMetadata = {
+    ...((existingTask?.metadata as Record<string, unknown> | null) ?? {}),
+    ...(payload.metadata ?? {}),
+  };
+
   if (
+    status === "pending" &&
     existingTask?.reviewed_at &&
     isDuplicateReviewedTask(taskId, existingTask.completed_at, existingTask.metadata as Record<string, unknown> | null)
   ) {
@@ -127,7 +133,7 @@ export async function POST(request: Request) {
     .upsert(
       {
         completed_at: payload.completed_at ?? null,
-        metadata: payload.metadata ?? {},
+        metadata: mergedMetadata,
         reviewed_at: payload.reviewed_at ?? null,
         reward_score: rewardScore,
         status,
