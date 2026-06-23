@@ -839,8 +839,8 @@ export function CratesPanel({
 
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[640px]">
-          <div className="grid min-h-[600px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
+          <div className="grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -1193,7 +1193,7 @@ export function CratesPanel({
       {(isOpening || wonItems.length > 0) && (
         <div
           ref={reelPanelRef}
-          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[640px] md:order-none"
+          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px] md:order-none"
         >
           {wonItems.length > 0 && (
             <button
@@ -1217,7 +1217,7 @@ export function CratesPanel({
               Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
               Shown both during spin and in result for single open (so result screen matches reel width). */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
-            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 200 }}>
+            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 180 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
@@ -1313,22 +1313,20 @@ export function CratesPanel({
             <div className="mt-4">
               {/* Single result: prominent name/desc matching the full reel width (not the narrow 120px cards) */}
               {wonItems.length === 1 ? (
-                <div className="mx-auto mb-2 w-full max-w-[680px] text-center">
+                <div className="mx-auto mb-1 w-full max-w-[680px] text-center">
                   <CrateResultIconFrame item={wonItems[0]} />
                   <div className={`inline-flex items-center gap-2 rounded-xl border px-4 py-1 ${getRarityColor(wonItems[0].rarity)} bg-opacity-30`}>
                     <span className="font-black text-base text-white">{wonItems[0].name}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-70">{wonItems[0].rarity}</span>
                   </div>
-                  {wonItems[0].description && (
-                    <div className="mx-auto mt-1 max-w-md text-[11px] text-white/70">{wonItems[0].description}</div>
-                  )}
+                  {wonItems[0].description && <div className="mx-auto mt-1 max-w-md text-[11px] text-white/70">{wonItems[0].description}</div>}
                   {(() => {
                     const totalWon = wonItems[0].sell_value;
                     const netProfit = totalWon - lastOpenedBatchCost;
                     const netColor = netProfit >= 0 ? "text-emerald-300" : "text-red-400";
                     const netSign = netProfit >= 0 ? "+" : "";
                     return (
-                      <div className="mt-3 flex items-center justify-center gap-2">
+                      <div className="mt-2 flex items-center justify-center gap-2">
                         <div className="text-sm font-bold text-emerald-300">+{totalWon} coins</div>
                         <div className={`text-sm font-bold ${netColor}`}>
                           (Net: {netSign}{netProfit})
@@ -1412,7 +1410,7 @@ export function CratesPanel({
 
               {/* Re-select quantity for next open from result screen - per last case.
                   Positioned between the sonuç ekranı (name label or Results+cards) and the action buttons (incl. Open Again). */}
-              <div className="mt-3 mb-2 flex justify-center gap-1 text-[10px]">
+              <div className="mt-2 mb-1 flex justify-center gap-1 text-[10px]">
                 <span className="self-center mr-1 text-zinc-400">Next open:</span>
                 {[1,2,3,4,5].map(q => {
                   const caseType = lastOpenedCrateType || '';
@@ -1429,7 +1427,7 @@ export function CratesPanel({
                 })}
               </div>
 
-              <div className="mt-4 flex justify-center gap-3">
+              <div className="mt-3 flex justify-center gap-3">
               {wonItems.length === 1 && wonItems[0] && (
                 <button
                   onClick={async () => {
