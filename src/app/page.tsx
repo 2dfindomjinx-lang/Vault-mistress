@@ -9493,6 +9493,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         items={dashboardNavItems}
         onNavigate={(page) => {
           emitSoundEvent("button_click");
+          resetViewportScroll();
           setActivePanel(page);
         }}
       >

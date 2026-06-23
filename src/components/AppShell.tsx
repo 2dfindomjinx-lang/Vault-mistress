@@ -10,7 +10,7 @@ type AppShellProps = {
 
 export function AppShell({ activePage, children, items, onNavigate }: AppShellProps) {
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden lg:flex lg:items-stretch">
+    <div className="relative min-h-screen w-full overflow-x-hidden lg:flex lg:items-start">
       <div className="lg:w-64 lg:shrink-0 lg:self-start">
         <SidebarNav activePage={activePage} items={items} onSelect={onNavigate} />
       </div>

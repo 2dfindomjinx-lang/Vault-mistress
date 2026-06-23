@@ -839,8 +839,8 @@ export function CratesPanel({
 
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
-          <div className="grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[640px]">
+          <div className="grid min-h-[600px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -1062,15 +1062,21 @@ export function CratesPanel({
               <span className="ml-1 text-xs text-zinc-500">({totalItemCount} item{totalItemCount === 1 ? '' : 's'})</span>
             </div>
             <div className="flex items-center gap-2">
-              {duplicateStackCount > 0 && (
-                <button
-                  onClick={sellDuplicates}
-                  disabled={disabled || !!sellPending}
-                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold hover:bg-white/10 disabled:opacity-50 transition"
-                >
-                  Sell Duplicates
-                </button>
-              )}
+              <button
+                onClick={sellDuplicates}
+                disabled={disabled || !!sellPending || duplicateStackCount === 0}
+                className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold transition hover:bg-white/10 disabled:opacity-50"
+                title={
+                  duplicateStackCount > 0
+                    ? `${duplicateStackCount} duplicate stack${duplicateStackCount === 1 ? "" : "s"} ready`
+                    : "No sellable duplicates yet"
+                }
+              >
+                Sell Duplicates
+                <span className="ml-1 rounded-full border border-white/15 bg-black/25 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-pink-100/80">
+                  {duplicateStackCount}
+                </span>
+              </button>
               {inventory.length > 0 && (
                 <button
                   onClick={sellAll}
@@ -1187,7 +1193,7 @@ export function CratesPanel({
       {(isOpening || wonItems.length > 0) && (
         <div
           ref={reelPanelRef}
-          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px] md:order-none"
+          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[760px] md:order-none"
         >
           {wonItems.length > 0 && (
             <button
@@ -1211,11 +1217,11 @@ export function CratesPanel({
               Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
               Shown both during spin and in result for single open (so result screen matches reel width). */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
-            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 160 }}>
+            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 220 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
-                className="absolute top-6 flex h-[112px] gap-2 items-center will-change-transform"
+                className="absolute top-8 flex h-[112px] gap-2 items-center will-change-transform"
                 style={
                   isOpening 
                     ? { transform: `translateX(${CENTER_COMPENSATION}px)` } 
@@ -1246,7 +1252,7 @@ export function CratesPanel({
               </div>
 
               {/* Fixed center selector / pointer (frames the middle square) */}
-              <div className="pointer-events-none absolute left-1/2 top-6 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
+              <div className="pointer-events-none absolute left-1/2 top-8 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
             </div>
           )}
 
