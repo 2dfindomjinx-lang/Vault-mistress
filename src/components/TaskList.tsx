@@ -553,7 +553,7 @@ export function TaskList({
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
 
   return (
-    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="min-w-0 rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div>
         <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
           Tasks & Games
@@ -725,10 +725,10 @@ export function TaskList({
 
             return (
               <div
-                className="grid gap-3 md:col-span-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch"
+                className="min-w-0 grid gap-3 md:col-span-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch"
                 key="risk-wheel-layout"
               >
-                <div className="flex min-h-full flex-col gap-3">
+                <div className="flex min-h-full min-w-0 flex-col gap-3">
                   <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>

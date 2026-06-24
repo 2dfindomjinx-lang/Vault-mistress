@@ -23,9 +23,9 @@ type SidebarNavProps = {
 
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (
-    <aside className="z-40 w-full border-b border-white/10 bg-black/55 backdrop-blur-xl lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r">
-      <div className="flex h-full max-h-[100dvh] flex-col gap-5 p-4 sm:p-5 lg:max-h-screen">
-        <div className="rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-4 shadow-[0_0_34px_rgba(236,72,153,0.12)]">
+    <aside className="sticky top-0 z-40 w-full border-b border-white/10 bg-black/55 backdrop-blur-xl lg:static lg:h-full lg:border-b-0 lg:border-r">
+      <div className="flex h-full max-h-[100dvh] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:max-h-full lg:gap-5 lg:p-5">
+        <div className="hidden rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-4 shadow-[0_0_34px_rgba(236,72,153,0.12)] lg:block">
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
             Vault Mistress
           </p>
@@ -34,13 +34,13 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
           </h1>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-[1.35rem] border border-white/10 bg-transparent p-0 shadow-none">
+        <nav className="flex min-h-0 flex-1 gap-2 overflow-x-auto overflow-y-hidden rounded-[1.35rem] border border-white/10 bg-transparent p-0 shadow-none lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto">
           {items.map((item) => {
             const isActive = activePage === item.key;
 
             return (
               <button
-                className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-black transition ${
+                className={`group flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-black transition lg:w-full ${
                   isActive
                     ? "border-pink-200/45 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_22px_rgba(236,72,153,0.32)]"
                     : item.disabled

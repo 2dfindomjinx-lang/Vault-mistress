@@ -52,7 +52,7 @@ export function StatsPanel({
   ];
 
   return (
-    <section className="grid grid-cols-2 gap-3">
+    <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
       {statCards.map(([label, value, hint, coinAmount]) => (
         <div
           className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]"
@@ -84,7 +84,7 @@ export function StatsPanel({
         </div>
       ))}
 
-      <div className="col-span-2 rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)]">
+      <div className="rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)] sm:col-span-2">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Leadership</p>
@@ -112,7 +112,7 @@ export function StatsPanel({
         </p>
       </div>
 
-      <div className="col-span-2 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-stretch gap-3 sm:col-span-2 sm:grid-cols-2">
         <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase leading-tight tracking-[0.22em] text-fuchsia-200/70">
@@ -201,7 +201,7 @@ export function StatsPanel({
         </div>
       </div>
 
-      <div className="col-span-2 rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)]">
+      <div className="rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)] sm:col-span-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">Public Fail Board</p>
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>

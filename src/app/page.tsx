@@ -9710,10 +9710,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
-        <section className="pb-10">
+        <section className="min-w-0 pb-10">
           {activePanel === "home" && (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-              <div className="flex flex-col gap-6">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <div className="flex min-w-0 flex-col gap-6">
                 <CharacterCard
                   dailyMessage={dailyMessage}
                   evolutionStage={characterEvolutionStage}
@@ -9735,7 +9735,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 />
               </div>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex min-w-0 flex-col gap-6">
                 <StatsPanel
                   equippedTitleName={equippedTitle?.name}
                   leadershipTop={leadershipTop}
@@ -9874,7 +9874,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               />
           )}
           {activePanel === "profile" && (
-            <div className="flex flex-col gap-6">
+            <div className="flex min-w-0 flex-col gap-6">
               <TitleCollection
                 disabled={isTimeoutActive || isPreviewRestricted}
                 equippedTitleId={equippedTitleId}
@@ -9892,8 +9892,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
                   Items grouped by category (hands &amp; mouth added). Click items to equip or unequip. Avatar preview updates live.
                 </p>
-                <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] items-start">
-                  <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-3 flex flex-col">
+                <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                  <div className="flex min-w-0 flex-col rounded-[1.5rem] border border-white/10 bg-black/35 p-3">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
                       Avatar Preview
                     </p>
