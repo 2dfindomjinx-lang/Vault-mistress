@@ -8965,7 +8965,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             return;
         }
 
-        const nextPetScore = petScore + 10;
+        const nextPetScore = Math.min(1000, petScore + 10);
 
         if (!isGuestMode && authUserId) {
             try {

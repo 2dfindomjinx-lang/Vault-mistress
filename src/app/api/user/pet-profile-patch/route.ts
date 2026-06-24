@@ -1,4 +1,4 @@
-import { getAllowedTaskRewards, profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -8,6 +8,8 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { getGmt3DateKey } from "@/lib/time";
 
 const PET_WEEKLY_TAX_REWARD = 20;
+const PET_TASK_COIN_REWARD = 200;
+const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 
 type Body = {
   metadata?: Record<string, unknown>;
@@ -56,6 +58,22 @@ function numberFromMetadata(metadata: Record<string, unknown>, key: string) {
 function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === "string" ? value : null;
+}
+
+function getAllowedPetCoinRewards(reason: string) {
+  const baseReward =
+    reason === "reward:pet-favor-roulette"
+      ? PET_FAVOR_ROULETTE_COIN_REWARD
+      : PET_TASK_COIN_REWARD;
+
+  return Array.from(
+    new Set([
+      0,
+      baseReward,
+      Math.round((baseReward * 1.5) / 5) * 5,
+      baseReward * 2,
+    ]),
+  );
 }
 
 function isPetTaskApprovedToday(row: {
@@ -179,9 +197,7 @@ function validatePatch(
   }
 
   if (reason.startsWith("reward:pet-")) {
-    // Use server-game-rules allowed list (includes event multipliers: 0, base, 1.5x, 2x) instead of limited hardcoded set.
-    // This prevents over-restriction after hardening while still validating against known possible deltas for pet coin rewards (mostly base-50 evented).
-    const petCoinAllowed = getAllowedTaskRewards("beg"); // beg uses base 50 like most pet task coin rewards
+    const petCoinAllowed = getAllowedPetCoinRewards(reason);
 
     if (
       reason === "reward:pet-case-opening" &&
