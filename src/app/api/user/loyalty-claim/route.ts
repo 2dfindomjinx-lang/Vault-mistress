@@ -1,4 +1,5 @@
 import { profileSelect } from "@/lib/server-game-rules";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -172,6 +173,24 @@ export async function POST() {
       .eq("id", authData.user.id)
       .eq("coins", nextCoins);
     return jsonError("Loyalty reward state failed to save.", 500);
+  }
+
+  try {
+    await awardDevotion(supabase, {
+      amount: claimable.length * DEVOTION_REWARD_BASIC_TASK,
+      metadata: {
+        cycleKey,
+        taskIds: claimable.map((bonus) => bonus.id),
+      },
+      source: "loyalty_claim",
+      sourceKey: `loyalty-claim:${cycleKey ?? now}:${claimable.map((bonus) => bonus.id).join(",")}`,
+      userId: authData.user.id,
+    });
+  } catch (devotionError) {
+    console.error("[loyalty-claim] devotion award failed", {
+      devotionError,
+      userId: authData.user.id,
+    });
   }
 
   return Response.json({

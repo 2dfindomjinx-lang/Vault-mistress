@@ -15,6 +15,7 @@ export type Profile = {
   coins: number;
   affection: number;
   tribute_total: number;
+  total_devotion?: number;
   lifetime_spent_coins?: number;
   shame_count: number;
   is_admin: boolean;

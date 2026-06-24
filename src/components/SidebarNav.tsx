@@ -1,6 +1,7 @@
 export type DashboardPage =
   | "home"
   | "tasks"
+  | "devotion"
   | "pet"
   | "crates"
   | "shop"

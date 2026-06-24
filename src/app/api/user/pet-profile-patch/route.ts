@@ -5,6 +5,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
 import { getGmt3DateKey } from "@/lib/time";
 
 const PET_WEEKLY_TAX_REWARD = 20;
@@ -426,6 +427,25 @@ export async function POST(request: Request) {
         userId: authData.user.id,
         reason,
         taskId,
+      });
+    }
+
+    try {
+      await awardDevotion(supabase, {
+        amount: DEVOTION_REWARD_PET_TASK,
+        metadata: {
+          reason,
+          taskId,
+        },
+        source: "pet_reward",
+        sourceKey: `pet-profile-patch:${taskId}:${now}`,
+        userId: authData.user.id,
+      });
+    } catch (devotionError) {
+      console.error("[pet-profile-patch] devotion award failed", {
+        devotionError,
+        reason,
+        userId: authData.user.id,
       });
     }
   }

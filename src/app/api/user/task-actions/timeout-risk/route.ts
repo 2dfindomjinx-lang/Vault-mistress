@@ -1,4 +1,5 @@
 import { roundRewardToNearestFive, profileSelect, TIMEOUT_RISK_DAILY_SAFE_LIMIT } from "@/lib/server-game-rules";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -264,6 +265,26 @@ export async function POST(request: Request) {
       .eq("id", authData.user.id)
       .eq("coins", nextCoins);
     return jsonError(taskWrite.error?.message ?? "Timeout-risk state save failed.", 500);
+  }
+
+  try {
+    await awardDevotion(supabase, {
+      amount: DEVOTION_REWARD_BASIC_TASK,
+      metadata: {
+        multiplier,
+        rewardCoins,
+        safeWins: nextSafeWins,
+        taskId: "timeout-risk",
+      },
+      source: "task_action",
+      sourceKey: `timeout-risk:${finalResetAt}:${nextSafeWins}`,
+      userId: authData.user.id,
+    });
+  } catch (devotionError) {
+    console.error("[timeout-risk] devotion award failed", {
+      devotionError,
+      userId: authData.user.id,
+    });
   }
 
   return Response.json({

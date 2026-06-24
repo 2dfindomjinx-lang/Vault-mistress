@@ -7,6 +7,7 @@ import {
   TIMEOUT_RISK_DAILY_SAFE_LIMIT,
 } from "@/lib/server-game-rules";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -451,6 +452,37 @@ export async function POST(request: Request) {
           taskId: taskIdForSide,
         });
       }
+    }
+  }
+
+  if (isRewardReason && actualCoinDelta > 0) {
+    const taskSourceId =
+      reason === "beg"
+        ? "beg"
+        : reason === "reward:case-opening"
+          ? "case-opening"
+          : reason === "streak_bonus"
+            ? stringFromMetadata(metadata, "taskId") ?? "streak-bonus"
+            : reason.replace("task:", "").replace("reward:task:", "");
+
+    try {
+      await awardDevotion(supabase, {
+        amount: DEVOTION_REWARD_BASIC_TASK,
+        metadata: {
+          coinDelta: actualCoinDelta,
+          reason,
+          taskId: taskSourceId,
+        },
+        source: "profile_progress_reward",
+        sourceKey: `profile-progress:${taskSourceId}:${now}`,
+        userId: authData.user.id,
+      });
+    } catch (devotionError) {
+      console.error("[profile-progress] devotion award failed", {
+        devotionError,
+        reason,
+        userId: authData.user.id,
+      });
     }
   }
 

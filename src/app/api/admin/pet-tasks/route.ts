@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { awardDevotion, DEVOTION_REWARD_REVIEW_TASK } from "@/lib/devotion";
 
 const PET_TASK_COIN_REWARD = 250;
 
@@ -254,6 +255,21 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ error: "Pet task is no longer pending review." }, { status: 409 });
+  }
+
+  try {
+    await awardDevotion(supabase, {
+      amount: DEVOTION_REWARD_REVIEW_TASK,
+      metadata: {
+        reviewTaskId: task.id,
+        taskId: task.task_id,
+      },
+      source: "pet_review_approval",
+      sourceKey: `pet-review:${task.id}`,
+      userId: profile.id,
+    });
+  } catch (devotionError) {
+    console.error("Admin pet task devotion award failed", devotionError);
   }
 
   return Response.json({

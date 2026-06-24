@@ -1,4 +1,5 @@
 import { profileSelect } from "@/lib/server-game-rules";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   generateNumberPickOptions,
   getActiveEventMultipliers,
@@ -331,6 +332,28 @@ export async function POST(request: Request) {
     }
 
     return jsonError("Number Pick could not be saved. Please try again.", 500);
+  }
+
+  if (reward > 0 && result === "win") {
+    try {
+      await awardDevotion(supabase, {
+        amount: DEVOTION_REWARD_BASIC_TASK,
+        metadata: {
+          options,
+          reward,
+          selectedNumber,
+          taskId: "number-pick",
+        },
+        source: "task_action",
+        sourceKey: `number-pick:${updatedTask.claimed_at ?? now}`,
+        userId: authData.user.id,
+      });
+    } catch (devotionError) {
+      console.error("[number-pick] devotion award failed", {
+        devotionError,
+        userId: authData.user.id,
+      });
+    }
   }
 
   return Response.json({

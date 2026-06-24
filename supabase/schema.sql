@@ -50,6 +50,7 @@ alter table public.profiles
   add column if not exists last_login_at timestamp with time zone,
   add column if not exists timeout_until timestamp with time zone,
   add column if not exists timeout_reason text,
+  add column if not exists total_devotion integer not null default 0,
   add column if not exists updated_at timestamp with time zone not null default now();
 
 create table if not exists public.x_rebrand_tokens (
@@ -299,6 +300,23 @@ create table if not exists public.coin_transactions (
   created_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.devotion_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount integer not null,
+  source text not null,
+  source_key text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamp with time zone not null default now(),
+  unique(user_id, source_key)
+);
+
+create index if not exists devotion_events_user_created_at_idx
+  on public.devotion_events(user_id, created_at desc);
+
+create index if not exists devotion_events_created_at_idx
+  on public.devotion_events(created_at desc);
+
 create table if not exists public.pending_admin_actions (
   id uuid primary key default gen_random_uuid(),
   action_type text not null,
@@ -322,6 +340,9 @@ alter table public.coin_transactions
   add column if not exists balance_after integer,
   add column if not exists metadata jsonb not null default '{}'::jsonb;
 
+alter table public.devotion_events
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
 alter table public.profiles enable row level security;
 alter table public.x_rebrand_tokens enable row level security;
 alter table public.unlocked_gallery_items enable row level security;
@@ -337,6 +358,7 @@ alter table public.random_events enable row level security;
 alter table public.loyalty_jackpots enable row level security;
 alter table public.loyalty_jackpot_contributions enable row level security;
 alter table public.coin_transactions enable row level security;
+alter table public.devotion_events enable row level security;
 alter table public.user_irl_tasks enable row level security;
 alter table public.irl_task_fail_events enable row level security;
 alter table public.pending_admin_actions enable row level security;
@@ -468,6 +490,70 @@ create trigger block_client_coin_transactions_mutations_trigger
   before insert or update or delete on public.coin_transactions
   for each row
   execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_devotion_events_mutations_trigger on public.devotion_events;
+create trigger block_client_devotion_events_mutations_trigger
+  before insert or update or delete on public.devotion_events
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+create or replace function public.apply_devotion_event_to_profile_total()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    update public.profiles
+    set
+      total_devotion = least(
+        2147483647,
+        greatest(-2147483648, coalesce(total_devotion, 0) + coalesce(new.amount, 0))
+      ),
+      updated_at = now()
+    where id = new.user_id;
+
+    return new;
+  end if;
+
+  if tg_op = 'DELETE' then
+    update public.profiles
+    set
+      total_devotion = least(
+        2147483647,
+        greatest(-2147483648, coalesce(total_devotion, 0) - coalesce(old.amount, 0))
+      ),
+      updated_at = now()
+    where id = old.user_id;
+
+    return old;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists apply_devotion_event_to_profile_total_trigger on public.devotion_events;
+create trigger apply_devotion_event_to_profile_total_trigger
+  after insert or delete on public.devotion_events
+  for each row
+  execute function public.apply_devotion_event_to_profile_total();
+
+update public.profiles profile
+set
+  total_devotion = least(
+    2147483647,
+    greatest(
+      -2147483648,
+      coalesce((
+        select sum(event.amount)::bigint
+        from public.devotion_events event
+        where event.user_id = profile.id
+      ), 0)
+    )
+  ),
+  updated_at = now();
 
 create or replace function public.apply_lifetime_spent_coins_from_transaction()
 returns trigger
@@ -615,6 +701,12 @@ create policy "Users can update own gallery unlocks"
 drop policy if exists "Users can read own coin transactions" on public.coin_transactions;
 create policy "Users can read own coin transactions"
   on public.coin_transactions for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own devotion events" on public.devotion_events;
+create policy "Users can read own devotion events"
+  on public.devotion_events for select
   to authenticated
   using (auth.uid() = user_id);
 
@@ -1471,6 +1563,91 @@ create policy "Users can read own cosmetics"
 
 drop policy if exists "Users can insert own cosmetics" on public.user_cosmetics;
 drop policy if exists "Users can update own cosmetics" on public.user_cosmetics;
+
+create or replace function public.get_devotion_leaderboard(
+  p_period text default 'monthly',
+  p_limit integer default 20,
+  p_viewer_id uuid default null
+)
+returns table (
+  row_type text,
+  rank bigint,
+  user_id uuid,
+  devotion bigint
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with normalized as (
+    select
+      case
+        when lower(coalesce(p_period, 'monthly')) = 'weekly' then 'weekly'
+        when lower(coalesce(p_period, 'monthly')) = 'all_time' then 'all_time'
+        else 'monthly'
+      end as period_key,
+      greatest(1, coalesce(p_limit, 20)) as limit_count
+  ),
+  period_bounds as (
+    select
+      period_key,
+      limit_count,
+      case
+        when period_key = 'weekly' then (date_trunc('week', timezone('Europe/Istanbul', now())) at time zone 'Europe/Istanbul')
+        when period_key = 'monthly' then (date_trunc('month', timezone('Europe/Istanbul', now())) at time zone 'Europe/Istanbul')
+        else null::timestamp with time zone
+      end as starts_at
+    from normalized
+  ),
+  aggregated as (
+    select
+      profile.id as user_id,
+      coalesce(sum(event.amount), 0)::bigint as devotion,
+      profile.updated_at
+    from public.profiles profile
+    cross join period_bounds bounds
+    left join public.devotion_events event
+      on event.user_id = profile.id
+      and (
+        bounds.period_key = 'all_time'
+        or event.created_at >= bounds.starts_at
+      )
+    where coalesce(profile.hide_from_leaderboard, false) = false
+    group by profile.id, profile.updated_at
+  ),
+  ranked as (
+    select
+      row_number() over (
+        order by devotion desc, updated_at asc nulls last, user_id asc
+      ) as rank,
+      user_id,
+      devotion
+    from aggregated
+  )
+  select
+    'top'::text as row_type,
+    ranked.rank,
+    ranked.user_id,
+    ranked.devotion
+  from ranked
+  cross join period_bounds bounds
+  where ranked.rank <= bounds.limit_count
+
+  union all
+
+  select
+    'viewer'::text as row_type,
+    ranked.rank,
+    ranked.user_id,
+    ranked.devotion
+  from ranked
+  cross join period_bounds bounds
+  where p_viewer_id is not null
+    and ranked.user_id = p_viewer_id
+    and ranked.rank > bounds.limit_count
+
+  order by rank asc;
+$$;
 
 drop policy if exists "Users can read own titles" on public.user_titles;
 create policy "Users can read own titles"

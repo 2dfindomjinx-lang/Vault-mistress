@@ -1,4 +1,5 @@
 import { getBaseTaskReward, profileSelect, roundRewardToNearestFive } from "@/lib/server-game-rules";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -368,6 +369,25 @@ export async function POST(request: Request) {
 
     // tx log remains as audit of attempted (reverted) grant
     return jsonError("Task state record failed after reward; reverted to keep completion atomic.", 500);
+  }
+
+  try {
+    await awardDevotion(supabase, {
+      amount: DEVOTION_REWARD_BASIC_TASK,
+      metadata: {
+        rewardCoins,
+        taskId,
+      },
+      source: "task_claim",
+      sourceKey: `task-claim:${taskId}:${updatedTask.claimed_at ?? now}`,
+      userId: authData.user.id,
+    });
+  } catch (devotionError) {
+    console.error("[task-claim] devotion award failed", {
+      devotionError,
+      taskId,
+      userId: authData.user.id,
+    });
   }
 
   return Response.json({

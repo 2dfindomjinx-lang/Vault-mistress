@@ -8,6 +8,7 @@ import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CosmeticShop } from "@/components/CosmeticShop";
 import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
+import { DevotionLeaderboard } from "@/components/DevotionLeaderboard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
@@ -55,6 +56,12 @@ import {
   type TitleItem,
 } from "@/lib/cosmetics";
 import type { RandomEvent } from "@/lib/events";
+import {
+  normalizeDevotionPeriod,
+  type DevotionLeaderboardEntry,
+  type DevotionLeaderboardResponse,
+  type DevotionPeriod,
+} from "@/lib/devotion";
 import {
   getGlobalPrincipessaProgressPercent,
   getGlobalPrincipessaXpRequirement,
@@ -1847,6 +1854,7 @@ export default function Home() {
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [totalDevotion, setTotalDevotion] = useState(0);
   const [lifetimeSpentCoins, setLifetimeSpentCoins] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
   const [userXp, setUserXp] = useState(0);
@@ -1896,6 +1904,11 @@ export default function Home() {
   const typingPraiseTimerRef = useRef<number | null>(null);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
+  const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("monthly");
+  const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
+  const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
+  const [devotionLoading, setDevotionLoading] = useState(false);
+  const [devotionError, setDevotionError] = useState("");
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
   const [topValuableInventories, setTopValuableInventories] = useState<TopInventory[]>([]);
@@ -3387,6 +3400,42 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, []);
 
+  const loadDevotionLeaderboard = useCallback(async (requestedPeriod?: DevotionPeriod) => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setDevotionLeaders([]);
+      setDevotionCurrentUserEntry(null);
+      setDevotionError("");
+      setDevotionLoading(false);
+      return;
+    }
+
+    const period = normalizeDevotionPeriod(requestedPeriod ?? devotionPeriod);
+    setDevotionLoading(true);
+    setDevotionError("");
+
+    try {
+      const response = await fetch(`/api/devotion/leaderboard?period=${period}`, { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as DevotionLeaderboardResponse & {
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Devotion leaderboard could not be loaded.");
+      }
+
+      setDevotionLeaders(payload.leaders ?? []);
+      setDevotionCurrentUserEntry(payload.currentUserEntry ?? null);
+      setDevotionError("");
+    } catch (error) {
+      console.error("Failed to load devotion leaderboard", error);
+      setDevotionLeaders([]);
+      setDevotionCurrentUserEntry(null);
+      setDevotionError(describeError(error));
+    } finally {
+      setDevotionLoading(false);
+    }
+  }, [describeError, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode]);
+
   const loadJackpot = useCallback(async () => {
     if (isGuestMode || isPreviewMode) {
       setJackpot(null);
@@ -3438,6 +3487,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     lastPlayedJackpotWinnerSoundKeyRef.current = revealKey;
     emitSoundEvent("jackpot_win");
   }, [jackpot]);
+
+  useEffect(() => {
+    if (activePanel !== "devotion") {
+      return;
+    }
+
+    void loadDevotionLeaderboard(devotionPeriod);
+  }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
 
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
@@ -3653,6 +3710,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
     setUserLevel(profile.user_level ?? getUserLevelProgress(profile.user_xp ?? 0).level);
     setUserXp(profile.user_xp ?? 0);
@@ -4022,6 +4080,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
     setPetScore(profile.pet_score ?? 0);
     setOwnerLikeness(profile.owner_likeness ?? 100);
@@ -4494,6 +4553,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coins: nextProfile.coins,
         affection: nextProfile.affection,
         tribute_total: nextTributeTotal,
+        total_devotion: totalDevotion,
         shame_count: 0,
         is_admin: false,
         loyalty_streak: loyaltyStreak,
@@ -4553,6 +4613,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     petScore,
     petUnlockedAt,
     timeoutUntil,
+    totalDevotion,
     tributeTotal,
     unlockProgressionTitles,
     username,
@@ -4594,6 +4655,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coins: nextCoins,
         affection: nextAffection,
         tribute_total: nextTributeTotal,
+        total_devotion: totalDevotion,
         shame_count: 0,
         is_admin: false,
         loyalty_streak: loyaltyStreak,
@@ -4652,6 +4714,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     petScore,
     petUnlockedAt,
     timeoutUntil,
+    totalDevotion,
     tributeTotal,
     unlockProgressionTitles,
     username,
@@ -4737,6 +4800,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coins,
         affection,
         tribute_total: tributeTotal,
+        total_devotion: totalDevotion,
         shame_count: 0,
         is_admin: false,
         loyalty_streak: loyaltyStreak,
@@ -4763,7 +4827,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     applyProfileStats(result.profile);
     return result.profile;
-  }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, tributeTotal, username]);
+  }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, totalDevotion, tributeTotal, username]);
 
   const handleTimeoutClear = useCallback(async () => {
     if (isPreviewRestricted) {
@@ -6818,6 +6882,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(0);
     setAffection(0);
     setTributeTotal(0);
+    setTotalDevotion(0);
     setLifetimeSpentCoins(0);
     setLoyaltyStreak(0);
     setLastLoyaltyAt(null);
@@ -6880,6 +6945,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAffection(0);
     setLastLoyaltyAt(null);
     setTributeTotal(0);
+    setTotalDevotion(0);
     setLifetimeSpentCoins(0);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -9152,6 +9218,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "tribute" as const, label: "Tribute" },
     { key: "collection" as const, label: "Gallery" },
     { key: "tasks" as const, label: "Tasks" },
+    { key: "devotion" as const, label: "Devotion" },
     {
       key: "pet" as const,
       label: "Pet",
@@ -9164,6 +9231,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   ];
   const activePageLabel =
     dashboardNavItems.find((item) => item.key === activePanel)?.label ?? "Home";
+  const selectedDevotionRank =
+    devotionLeaders.find((entry) => entry.userId === authUserId)?.rank ??
+    devotionCurrentUserEntry?.rank ??
+    null;
+  const devotionLeaderboardData: DevotionLeaderboardResponse = {
+    currentUserEntry: devotionCurrentUserEntry,
+    leaders: devotionLeaders,
+    period: devotionPeriod,
+  };
   const soundControls = (
     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">
       <button
@@ -9337,6 +9413,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           },
           { label: "Rights", value: storedRights.toLocaleString(), hint: "Stored rights" },
         ]
+      : activePanel === "devotion"
+        ? [
+            {
+              label: "Rank",
+              value: selectedDevotionRank ? `#${selectedDevotionRank}` : "Unranked",
+              hint: "Current ladder",
+            },
+            { label: "Devotion", value: totalDevotion.toLocaleString(), hint: "All time prestige" },
+            { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
+          ]
       : activePanel === "tasks"
         ? [
             {
@@ -9363,7 +9449,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ]
         : [
             { label: "Affection", value: `${affection}/100`, hint: "Current mood" },
-            { label: "Loyalty", value: `${loyaltyStreak} days`, hint: "Current streak" },
+            { label: "Devotion", value: totalDevotion.toLocaleString(), hint: "All time prestige" },
             { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
           ];
   const headerProgressStrip =
@@ -9870,8 +9956,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 shopItems={cosmeticItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
-                onPurchaseTitle={handlePurchaseTitle}
-              />
+              onPurchaseTitle={handlePurchaseTitle}
+            />
+          )}
+          {activePanel === "devotion" && (
+            <DevotionLeaderboard
+              data={devotionLeaderboardData}
+              error={devotionError}
+              isLoading={devotionLoading}
+              onPeriodChange={(period) => {
+                setDevotionPeriod(period);
+              }}
+            />
           )}
           {activePanel === "profile" && (
             <div className="flex min-w-0 flex-col gap-6">

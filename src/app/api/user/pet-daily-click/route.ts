@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
 
 const TASK_ID = "pet-daily-click";
@@ -328,6 +329,26 @@ export async function POST(request: Request) {
       });
     }
     return jsonError(taskUpdateError?.message ?? "Pet click progress update failed.", 500);
+  }
+
+  if (completed) {
+    try {
+      await awardDevotion(supabase, {
+        amount: DEVOTION_REWARD_PET_TASK,
+        metadata: {
+          date: today,
+          taskId: TASK_ID,
+        },
+        source: "pet_reward",
+        sourceKey: `${TASK_ID}:${today}`,
+        userId: authData.user.id,
+      });
+    } catch (devotionError) {
+      console.error("[pet-daily-click] devotion award failed", {
+        devotionError,
+        userId: authData.user.id,
+      });
+    }
   }
 
   return Response.json({ profile: updatedProfile, task });

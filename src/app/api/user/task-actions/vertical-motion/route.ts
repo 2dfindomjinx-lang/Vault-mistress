@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import { DAY_MS, getGmt3DateKey } from "@/lib/time";
 
 const TASK_ID = "vertical-motion";
@@ -329,6 +330,26 @@ export async function POST(request: Request) {
       }
     }
     return jsonError(taskUpdateError?.message ?? "Movement task update failed.", 500);
+  }
+
+  if (shouldReward) {
+    try {
+      await awardDevotion(supabase, {
+        amount: DEVOTION_REWARD_BASIC_TASK,
+        metadata: {
+          outcome,
+          taskId: TASK_ID,
+        },
+        source: "task_action",
+        sourceKey: `${TASK_ID}:${today}`,
+        userId: authData.user.id,
+      });
+    } catch (devotionError) {
+      console.error("[vertical-motion] devotion award failed", {
+        devotionError,
+        userId: authData.user.id,
+      });
+    }
   }
 
   return Response.json({

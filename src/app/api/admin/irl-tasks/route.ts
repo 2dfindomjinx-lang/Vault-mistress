@@ -1,5 +1,10 @@
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import {
+  awardDevotion,
+  DEVOTION_PENALTY_IRL_FAIL,
+  DEVOTION_REWARD_IRL_SUCCESS,
+} from "@/lib/devotion";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
 
@@ -164,6 +169,20 @@ export async function POST(request: Request) {
         );
       }
 
+      try {
+        await awardDevotion(supabase, {
+          amount: DEVOTION_REWARD_IRL_SUCCESS,
+          metadata: {
+            taskId: task.id,
+          },
+          source: "irl_task_approval",
+          sourceKey: `irl-success:${task.id}`,
+          userId: profile.id,
+        });
+      } catch (devotionError) {
+        console.error("Admin IRL devotion success award failed", devotionError);
+      }
+
       return Response.json({
         message: `Approved ${profile.username}. +${IRL_TASK_APPROVAL_AFFECTION_GAIN} affection.`,
       });
@@ -273,6 +292,20 @@ export async function POST(request: Request) {
         failedTaskLabel: taskDetails.task_label,
         userId: taskDetails.user_id,
       });
+
+      try {
+        await awardDevotion(supabase, {
+          amount: DEVOTION_PENALTY_IRL_FAIL,
+          metadata: {
+            taskId: taskDetails.id,
+          },
+          source: "irl_task_fail",
+          sourceKey: `irl-fail:${taskDetails.id}`,
+          userId: taskDetails.user_id,
+        });
+      } catch (devotionError) {
+        console.error("Admin IRL devotion fail penalty failed", devotionError);
+      }
 
       return Response.json({
         message: intentionalFailResult.autoApproved
