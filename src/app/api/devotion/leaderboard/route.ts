@@ -66,7 +66,9 @@ export async function GET(request: Request) {
   const [profileResult, cosmeticResult, titleResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins")
+      .select(
+        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion",
+      )
       .in("id", userIds),
     supabase
       .from("user_cosmetics")
@@ -130,6 +132,7 @@ export async function GET(request: Request) {
         displayName: profile.display_name ?? null,
         equippedAvatarSlots: (profile.equipped_avatar_slots as Record<string, string> | null) ?? null,
         hasUncensoredAvatar: Boolean(profile.has_uncensored_avatar),
+        totalDevotion: Number(profile.total_devotion ?? 0),
         username: profile.username.startsWith("@") ? profile.username : `@${profile.username}`,
       },
     ]),
@@ -147,7 +150,7 @@ export async function GET(request: Request) {
 
     return {
       badgeImagePath: profile.badgeImagePath,
-      devotion: Number(row.devotion ?? 0),
+      devotion: period === "all_time" ? profile.totalDevotion : Number(row.devotion ?? 0),
       displayName: profile.displayName,
       equippedAvatarSlots: profile.equippedAvatarSlots,
       frameColor: border?.color ?? null,

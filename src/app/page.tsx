@@ -1904,7 +1904,7 @@ export default function Home() {
   const typingPraiseTimerRef = useRef<number | null>(null);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
-  const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("monthly");
+  const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("all_time");
   const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
   const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
   const [devotionLoading, setDevotionLoading] = useState(false);
@@ -9215,10 +9215,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const dashboardNavItems = [
     { key: "home" as const, label: "Home" },
+    { key: "devotion" as const, label: "Devotion" },
     { key: "tribute" as const, label: "Tribute" },
     { key: "collection" as const, label: "Gallery" },
     { key: "tasks" as const, label: "Tasks" },
-    { key: "devotion" as const, label: "Devotion" },
     {
       key: "pet" as const,
       label: "Pet",

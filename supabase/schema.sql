@@ -1602,18 +1602,19 @@ as $$
   aggregated as (
     select
       profile.id as user_id,
-      coalesce(sum(event.amount), 0)::bigint as devotion,
+      case
+        when bounds.period_key = 'all_time' then coalesce(profile.total_devotion, 0)::bigint
+        else coalesce(sum(event.amount), 0)::bigint
+      end as devotion,
       profile.updated_at
     from public.profiles profile
     cross join period_bounds bounds
     left join public.devotion_events event
-      on event.user_id = profile.id
-      and (
-        bounds.period_key = 'all_time'
-        or event.created_at >= bounds.starts_at
-      )
+      on bounds.period_key <> 'all_time'
+      and event.user_id = profile.id
+      and event.created_at >= bounds.starts_at
     where coalesce(profile.hide_from_leaderboard, false) = false
-    group by profile.id, profile.updated_at
+    group by profile.id, profile.updated_at, profile.total_devotion, bounds.period_key, bounds.starts_at
   ),
   ranked as (
     select

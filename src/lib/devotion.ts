@@ -39,7 +39,7 @@ export function normalizeDevotionPeriod(period: string | null | undefined): Devo
     return period;
   }
 
-  return "monthly";
+  return "all_time";
 }
 
 export function getDevotionFrameVariant(itemId: string | null | undefined): DevotionFrameVariant {

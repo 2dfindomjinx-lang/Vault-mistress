@@ -127,7 +127,7 @@ export function DevotionLeaderboard({
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.32em] text-amber-200/70">Devotion</p>
-          <h2 className="mt-2 text-2xl font-black text-white">👑 Mistress&apos; Favourite Pets</h2>
+          <h2 className="mt-2 text-2xl font-black text-white">👑 Principessa&apos;s Favourite Pets</h2>
         </div>
         <div className="flex flex-wrap gap-2">
           {periodOptions.map((option) => {
