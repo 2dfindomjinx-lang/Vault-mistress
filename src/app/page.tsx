@@ -8095,8 +8095,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const cleanAmount = Math.floor(debtAmount);
     const cleanDuration = Math.floor(durationPeriods);
     const cleanPetName = petName.trim();
-    const baseMinimum = periodType === "weekly" ? 10000 : 50000;
-    const minimum = contractType === "evil" ? (periodType === "weekly" ? 50000 : 200000) : baseMinimum;
+    const baseMinimum = periodType === "weekly" ? 20000 : 100000;
+    const minimum = contractType === "evil" ? (periodType === "weekly" ? 40000 : 80000) : baseMinimum;
     const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
     const baseDurationLimit =
       periodType === "weekly"
@@ -8110,6 +8110,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const cleanAge = Math.floor(Number(age));
 
     if (petDebtContract && ["active", "pending"].includes(petDebtContract.status)) {
+      setAvatarMistressReply(
+        petDebtContract.contract_type === "evil"
+          ? contractType === "evil"
+            ? "Evil Debt Contract is already active or pending."
+            : "Normal Debt Contract cannot be signed while Evil Debt Contract is active or pending."
+          : contractType === "evil"
+            ? "Evil Debt Contract cannot be signed while Normal Debt Contract is active or pending."
+            : "Debt Contract is already active or pending.",
+      );
       return false;
     }
 
@@ -9276,7 +9285,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     },
     {
       key: "debt" as const,
-      label: "Debt",
+      label: "Debt Contract",
     },
     { key: "collection" as const, label: "Gallery" },
     { key: "profile" as const, label: "Profile" },

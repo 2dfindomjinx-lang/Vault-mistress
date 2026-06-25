@@ -151,8 +151,8 @@ export async function POST(request: Request) {
     const cleanAmount = Math.floor(Number(body.debtAmount));
     const cleanDuration = Math.floor(Number(body.durationPeriods));
     const cleanPetName = String(body.petName ?? "").trim();
-    const baseMinimum = periodType === "weekly" ? 10000 : 50000;
-    const minimum = contractType === "evil" ? (periodType === "weekly" ? 50000 : 200000) : baseMinimum;
+    const baseMinimum = periodType === "weekly" ? 20000 : 100000;
+    const minimum = contractType === "evil" ? (periodType === "weekly" ? 40000 : 80000) : baseMinimum;
     const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
     const baseDurationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };
     const durationLimit = {
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
 
     const { data: existingContract, error: existingError } = await supabase
       .from("pet_debt_contracts")
-      .select("id")
+      .select("id, contract_type, status")
       .eq("user_id", userId)
       .in("status", ["active", "pending"])
       .limit(1)
@@ -267,7 +267,16 @@ export async function POST(request: Request) {
     }
 
     if (existingContract) {
-      return jsonError("An active debt contract already exists.", 409);
+      const existingType = existingContract.contract_type === "evil" ? "evil" : "normal";
+      const message =
+        existingType === "evil"
+          ? contractType === "evil"
+            ? "An Evil Debt Contract is already active or pending."
+            : "Normal Debt Contract cannot be created while an Evil Debt Contract is active or pending."
+          : contractType === "evil"
+            ? "Evil Debt Contract cannot be created while a Normal Debt Contract is active or pending."
+            : "A Normal Debt Contract is already active or pending.";
+      return jsonError(message, 409);
     }
 
     const nowMs = Date.now();

@@ -200,6 +200,11 @@ export function DebtSection({
     petDebtContract && ["active", "pending"].includes(petDebtContract.status),
   );
   const activeContract = petDebtContract;
+  const blockingContractMessage = hasOpenDebtContract
+    ? activeDebtContractType === "evil"
+      ? "Evil Debt Contract is active or pending. Normal Debt Contract cannot be signed until it ends."
+      : "Normal Debt Contract is active or pending. Evil Debt Contract cannot be signed until it ends."
+    : null;
   const debtPaymentDue = activeContract
     ? activeContract.paid_periods === 0 || new Date(activeContract.next_due_at ?? "").getTime() <= now
     : false;
@@ -335,6 +340,7 @@ export function DebtSection({
         debtPaymentDue={debtPaymentDue}
         debtTask={debtTask}
         disabled={disabled}
+        blockingContractMessage={blockingContractMessage}
         hasOpenDebtContract={hasOpenDebtContract}
         isDebtAutoPayEnabled={isDebtAutoPayEnabled}
         isPetActionPending={isPetActionPending}
@@ -363,6 +369,7 @@ export function DebtSection({
         debtInstallmentNumber={debtInstallmentNumber}
         debtPaymentDue={debtPaymentDue}
         disabled={disabled}
+        blockingContractMessage={blockingContractMessage}
         evilAge={evilAge}
         evilConsentPrimary={evilConsentPrimary}
         evilConsentSecondary={evilConsentSecondary}
@@ -407,6 +414,7 @@ function DebtCard(props: {
   debtPaymentDue: boolean;
   debtTask: PetTaskItem;
   disabled: boolean;
+  blockingContractMessage: string | null;
   hasOpenDebtContract: boolean;
   isDebtAutoPayEnabled: boolean;
   isPetActionPending: (actionId: string) => boolean;
@@ -436,6 +444,7 @@ function DebtCard(props: {
     debtPaymentDue,
     debtTask,
     disabled,
+    blockingContractMessage,
     hasOpenDebtContract,
     isDebtAutoPayEnabled,
     isPetActionPending,
@@ -522,7 +531,7 @@ function DebtCard(props: {
         <div className="mt-4 grid gap-3">
           {hasOpenDebtContract && (
             <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-              A debt contract is already active or pending. Only one debt mode can stay open at a time.
+              {blockingContractMessage ?? "A debt contract is already active or pending. Only one debt mode can stay open at a time."}
             </p>
           )}
           <select
@@ -614,6 +623,7 @@ function EvilDebtCard(props: {
   debtInstallmentNumber: number;
   debtPaymentDue: boolean;
   disabled: boolean;
+  blockingContractMessage: string | null;
   evilAge: string;
   evilConsentPrimary: string;
   evilConsentSecondary: string;
@@ -653,6 +663,7 @@ function EvilDebtCard(props: {
     debtInstallmentNumber,
     debtPaymentDue,
     disabled,
+    blockingContractMessage,
     evilAge,
     evilConsentPrimary,
     evilConsentSecondary,
@@ -760,7 +771,7 @@ function EvilDebtCard(props: {
         <div className="mt-4 grid gap-3">
           {hasOpenDebtContract && (
             <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-              A debt contract is already active or pending. Only one debt mode can stay open at a time.
+              {blockingContractMessage ?? "A debt contract is already active or pending. Only one debt mode can stay open at a time."}
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
