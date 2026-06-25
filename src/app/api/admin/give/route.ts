@@ -2,6 +2,7 @@ import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/s
 import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { awardDevotion } from "@/lib/devotion";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
 function getGiveBonusPercent(giveAmount: number) {
@@ -22,6 +23,10 @@ function getGiveBonusPercent(giveAmount: number) {
   }
 
   return 0;
+}
+
+function getGiveDevotionAmount(baseAmount: number) {
+  return Math.floor(baseAmount * 0.01);
 }
 
 export async function POST(request: Request) {
@@ -250,6 +255,7 @@ export async function POST(request: Request) {
     created_at: string;
   } | null = null;
   let finalCoins = nextCoins;
+  const giveDevotionAmount = giveMatch ? getGiveDevotionAmount(amount) : 0;
 
   if (giveMatch && giveBonusAmount > 0) {
     const bonusBalanceBefore = nextCoins;
@@ -350,6 +356,24 @@ export async function POST(request: Request) {
   }
 
   if (giveMatch) {
+    if (transaction?.id && giveDevotionAmount > 0) {
+      try {
+        await awardDevotion(supabase, {
+          amount: giveDevotionAmount,
+          metadata: {
+            baseAmount: amount,
+            command: "give",
+            transactionId: transaction.id,
+          },
+          source: "admin_give",
+          sourceKey: `admin-give:${transaction.id}`,
+          userId: profile.id,
+        });
+      } catch (devotionError) {
+        console.error("Admin give devotion award failed", devotionError);
+      }
+    }
+
     const { data: giftRows, error: giftTotalError } = await supabase
       .from("coin_transactions")
       .select("amount")

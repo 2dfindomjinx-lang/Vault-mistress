@@ -1,4 +1,5 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
+import { awardDevotion } from "@/lib/devotion";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
@@ -30,6 +31,10 @@ function getGiveBonusPercent(giveAmount: number) {
   if (giveAmount >= 20000) return 0.15;
   if (giveAmount >= 10000) return 0.1;
   return 0;
+}
+
+function getGiveDevotionAmount(baseAmount: number) {
+  return Math.floor(baseAmount * 0.01);
 }
 
 export async function GET(request: Request) {
@@ -213,6 +218,7 @@ export async function POST(request: Request) {
 
     let finalCoins = nextCoins;
     let bonusTransaction: any = null;
+    const giveDevotionAmount = isGive ? getGiveDevotionAmount(amount) : 0;
 
     if (isGive && giveBonusAmount > 0) {
       const bonusAfter = nextCoins + giveBonusAmount;
@@ -249,6 +255,25 @@ export async function POST(request: Request) {
         .select("id")
         .single();
       bonusTransaction = bTx;
+    }
+
+    if (isGive && transaction?.id && giveDevotionAmount > 0) {
+      try {
+        await awardDevotion(supabase, {
+          amount: giveDevotionAmount,
+          metadata: {
+            baseAmount: amount,
+            command: "give",
+            pendingActionId: claimed.id,
+            transactionId: transaction.id,
+          },
+          source: "admin_give",
+          sourceKey: `admin-give:${transaction.id}`,
+          userId: targetId,
+        });
+      } catch (devotionError) {
+        console.error("Approved admin give devotion award failed", devotionError);
+      }
     }
 
     // Throne milestones for give (same as direct path)

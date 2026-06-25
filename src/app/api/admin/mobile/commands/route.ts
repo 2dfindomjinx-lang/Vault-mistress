@@ -1,5 +1,6 @@
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
+import { awardDevotion } from "@/lib/devotion";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
@@ -24,6 +25,10 @@ function getGiveBonusPercent(giveAmount: number) {
   }
 
   return 0;
+}
+
+function getGiveDevotionAmount(baseAmount: number) {
+  return Math.floor(baseAmount * 0.01);
 }
 
 export async function POST(request: Request) {
@@ -163,6 +168,7 @@ export async function POST(request: Request) {
   }
 
   let finalCoins = nextCoins;
+  const giveDevotionAmount = giveMatch ? getGiveDevotionAmount(amount) : 0;
 
   if (giveMatch && giveBonusAmount > 0) {
     const bonusBalanceAfter = nextCoins + giveBonusAmount;
@@ -209,6 +215,24 @@ export async function POST(request: Request) {
     }
 
     finalCoins = bonusBalanceAfter;
+  }
+
+  if (giveMatch && transaction?.id && giveDevotionAmount > 0) {
+    try {
+      await awardDevotion(admin.supabase, {
+        amount: giveDevotionAmount,
+        metadata: {
+          baseAmount: amount,
+          command: "give",
+          transactionId: transaction.id,
+        },
+        source: "admin_give",
+        sourceKey: `admin-give:${transaction.id}`,
+        userId: profile.id,
+      });
+    } catch (devotionError) {
+      console.error("Mobile admin give devotion award failed", devotionError);
+    }
   }
 
   if (giveMatch || addMatch) {
