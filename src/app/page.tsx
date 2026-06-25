@@ -102,6 +102,8 @@ import {
   getDailyGmt3CooldownUntil,
   getGmt3DateKey,
   getGmt3DayIndex,
+  getMsUntilNextGmt3HalfDayReset,
+  getNextGmt3HalfDayReset,
   getNextGmt3Reset,
 } from "@/lib/time";
 import {
@@ -959,6 +961,19 @@ function getPetTaskCooldownUntil(value: string | null) {
   return getDailyCooldownUntil(value);
 }
 
+function getPetTaskCooldownAnchor(
+  status: string | null,
+  completedAt: string | null,
+  reviewedAt: string | null,
+  fallbackValue?: string | null,
+) {
+  if (status === "approved" || status === "failed" || status === "rejected") {
+    return reviewedAt ?? completedAt ?? fallbackValue ?? null;
+  }
+
+  return completedAt ?? fallbackValue ?? null;
+}
+
 function getWaitTaskState(
   status: string | null,
   countdownEndsAt: string | null,
@@ -1051,10 +1066,13 @@ function buildPetTasksFromRows(
       task.id === "high-low" ? "available" : ((petRow?.status as PetTaskItem["status"]) ?? "available");
     const completedAt = row?.completed_at ?? null;
     const reviewedAt = task.id === "high-low" ? null : petRow?.reviewed_at ?? null;
+    const cooldownAnchor = getPetTaskCooldownAnchor(baseStatus, completedAt, reviewedAt);
 
     if (task.kind === "perfect-writing") {
       const failedAt = getTaskMetadataString(row?.metadata, "failedAt");
-      const cooldownUntil = getPetTaskCooldownUntil(completedAt ?? failedAt);
+      const cooldownUntil = getPetTaskCooldownUntil(
+        getPetTaskCooldownAnchor(baseStatus, completedAt, reviewedAt, failedAt),
+      );
 
       return {
         ...task,
@@ -1068,7 +1086,7 @@ function buildPetTasksFromRows(
     }
 
     if (task.kind === "confession-writing") {
-      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
       const confessionCount =
         completedAt && !cooldownUntil ? 0 : getTaskMetadataNumber(row?.metadata, "count", 0);
 
@@ -1157,7 +1175,7 @@ function buildPetTasksFromRows(
 
     if (task.kind === "evil-wait") {
       const status = getTaskMetadataString(row?.metadata, "status");
-      const cooldownUntil = getPetTaskCooldownUntil(row?.completed_at ?? null);
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
       const waitCountdownEndsAt = getTaskMetadataString(row?.metadata, "countdownEndsAt");
       const waitEndsAt = getTaskMetadataString(row?.metadata, "waitEndsAt");
       const waitState = getWaitTaskState(status, waitCountdownEndsAt, waitEndsAt, cooldownUntil);
@@ -1175,7 +1193,7 @@ function buildPetTasksFromRows(
     }
 
     if (task.kind === "false-hope") {
-      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
       const isCoolingDown = Boolean(cooldownUntil);
       const hasActiveProgress = !completedAt;
       const progress = getTaskMetadataNumber(row?.metadata, "progress", 0);
@@ -1201,7 +1219,7 @@ function buildPetTasksFromRows(
       const result = getTaskMetadataString(row?.metadata, "result");
       const typedResult: PetTaskItem["favorResult"] =
         result === "win" || result === "loss" || result === "empty-day" ? result : null;
-      const cooldownUntil = getPetTaskCooldownUntil(completedAt);
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
       const isCoolingDown = Boolean(cooldownUntil);
 
       return {
@@ -1242,7 +1260,7 @@ function buildPetTasksFromRows(
         status: baseStatus,
         completedAt,
         reviewedAt,
-        cooldownUntil: getPetTaskCooldownUntil(completedAt),
+        cooldownUntil: getPetTaskCooldownUntil(cooldownAnchor),
         voiceSentence: getDailyPetVoiceSentence(),
       };
     }
@@ -1252,7 +1270,7 @@ function buildPetTasksFromRows(
       status: baseStatus,
       completedAt,
         reviewedAt,
-      cooldownUntil: getPetTaskCooldownUntil(completedAt),
+      cooldownUntil: getPetTaskCooldownUntil(cooldownAnchor),
     };
   });
 }
@@ -1909,6 +1927,7 @@ export default function Home() {
   const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
   const [devotionLoading, setDevotionLoading] = useState(false);
   const [devotionError, setDevotionError] = useState("");
+  const devotionRefreshBoundaryRef = useRef<string | null>(null);
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
   const [topValuableInventories, setTopValuableInventories] = useState<TopInventory[]>([]);
@@ -3496,6 +3515,25 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
 
+  useEffect(() => {
+    if (activePanel !== "devotion" || isGuestMode || isPreviewMode || !isLoggedIn) {
+      devotionRefreshBoundaryRef.current = null;
+      return;
+    }
+
+    const nextBoundaryIso = getNextGmt3HalfDayReset(currentTime).toISOString();
+
+    if (!devotionRefreshBoundaryRef.current) {
+      devotionRefreshBoundaryRef.current = nextBoundaryIso;
+      return;
+    }
+
+    if (devotionRefreshBoundaryRef.current !== nextBoundaryIso) {
+      devotionRefreshBoundaryRef.current = nextBoundaryIso;
+      void loadDevotionLeaderboard(devotionPeriod);
+    }
+  }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
+
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/notifications", {
@@ -3795,6 +3833,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const autoTitleIds = Array.from(
       new Set([
         ...getUnlockedProgressionTitleIds(profile.tribute_total ?? 0),
+        ...getUnlockedPetTitleIds(profile.pet_score ?? 0),
         ...getUnlockedThroneTitleIds(throneCoinTotal),
         ...getUnlockedCrateTitleIds(hasLegendary),
         ...getUnlockedInventoryTitleIds(invValue, hasAllLegendaries),
@@ -7647,10 +7686,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
+    let savedTask: UserPetTaskRow | null = null;
 
     if (!isGuestMode && authUserId) {
       try {
-        await persistPetTask(
+        savedTask = await persistPetTask(
         {
           task_id: task.id,
           completed_at: now,
@@ -7671,9 +7711,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         entry.id === task.id
           ? {
               ...entry,
-              completedAt: now,
-              cooldownUntil: getPetTaskCooldownUntil(now),
-              status: "pending",
+              completedAt: savedTask?.completed_at ?? now,
+              cooldownUntil: getPetTaskCooldownUntil(
+                getPetTaskCooldownAnchor(
+                  savedTask?.status ?? "pending",
+                  savedTask?.completed_at ?? now,
+                  savedTask?.reviewed_at ?? null,
+                ),
+              ),
+              reviewedAt: savedTask?.reviewed_at ?? null,
+              status: (savedTask?.status as PetTaskItem["status"] | undefined) ?? "pending",
             }
           : entry,
       ),
@@ -9240,6 +9287,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     leaders: devotionLeaders,
     period: devotionPeriod,
   };
+  const devotionRefreshCountdownMs = getMsUntilNextGmt3HalfDayReset(currentTime);
   const soundControls = (
     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">
       <button
@@ -9964,6 +10012,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               data={devotionLeaderboardData}
               error={devotionError}
               isLoading={devotionLoading}
+              refreshCountdownMs={devotionRefreshCountdownMs}
               onPeriodChange={(period) => {
                 setDevotionPeriod(period);
               }}

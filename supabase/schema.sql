@@ -1593,8 +1593,8 @@ as $$
       period_key,
       limit_count,
       case
-        when period_key = 'weekly' then (date_trunc('week', timezone('Europe/Istanbul', now())) at time zone 'Europe/Istanbul')
-        when period_key = 'monthly' then (date_trunc('month', timezone('Europe/Istanbul', now())) at time zone 'Europe/Istanbul')
+        when period_key = 'weekly' then now() - interval '7 days'
+        when period_key = 'monthly' then now() - interval '30 days'
         else null::timestamp with time zone
       end as starts_at
     from normalized

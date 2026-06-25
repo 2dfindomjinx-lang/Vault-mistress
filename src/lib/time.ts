@@ -1,4 +1,5 @@
 export const DAY_MS = 24 * 60 * 60 * 1000;
+export const HALF_DAY_MS = 12 * 60 * 60 * 1000;
 export const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 export function getGmt3DateKey(date: Date | number | string = new Date()) {
@@ -25,6 +26,18 @@ export function getNextGmt3Reset(date: Date | number | string = new Date()) {
 
 export function getMsUntilNextGmt3Reset(date: Date | number | string = new Date()) {
   return Math.max(0, getNextGmt3Reset(date).getTime() - new Date(date).getTime());
+}
+
+export function getNextGmt3HalfDayReset(date: Date | number | string = new Date()) {
+  const nowMs = new Date(date).getTime();
+  const gmt3Ms = nowMs + GMT3_OFFSET_MS;
+  const nextBoundaryGmt3Ms = (Math.floor(gmt3Ms / HALF_DAY_MS) + 1) * HALF_DAY_MS;
+
+  return new Date(nextBoundaryGmt3Ms - GMT3_OFFSET_MS);
+}
+
+export function getMsUntilNextGmt3HalfDayReset(date: Date | number | string = new Date()) {
+  return Math.max(0, getNextGmt3HalfDayReset(date).getTime() - new Date(date).getTime());
 }
 
 export function isSameGmt3Day(

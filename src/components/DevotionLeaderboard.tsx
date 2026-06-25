@@ -11,6 +11,7 @@ type DevotionLeaderboardProps = {
   data: DevotionLeaderboardResponse;
   error?: string;
   isLoading?: boolean;
+  refreshCountdownMs: number;
   onPeriodChange: (period: DevotionPeriod) => void;
 };
 
@@ -45,6 +46,18 @@ function getAvatarFrameClasses(entry: DevotionLeaderboardEntry) {
         : undefined;
 
   return { frameClassName, frameStyle };
+}
+
+function formatCountdown(ms: number) {
+  const safeMs = Math.max(0, ms);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
+    .toString()
+    .padStart(2, "0")}`;
 }
 
 function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboardEntry; highlight?: boolean }) {
@@ -120,6 +133,7 @@ export function DevotionLeaderboard({
   data,
   error,
   isLoading = false,
+  refreshCountdownMs,
   onPeriodChange,
 }: DevotionLeaderboardProps) {
   return (
@@ -149,6 +163,21 @@ export function DevotionLeaderboard({
             );
           })}
         </div>
+      </div>
+
+      <div className="mt-4 rounded-[1.4rem] border border-white/10 bg-black/25 px-4 py-3 text-xs text-pink-100/72">
+        <p className="font-black uppercase tracking-[0.2em] text-amber-100/70">Refresh schedule</p>
+        <p className="mt-1">
+          Updates at <span className="font-black text-white">00:00</span> and{" "}
+          <span className="font-black text-white">12:00</span> GMT+3.
+        </p>
+        <p className="mt-1">
+          Next refresh in{" "}
+          <span className="font-black text-amber-200">{formatCountdown(refreshCountdownMs)}</span>.
+        </p>
+        <p className="mt-1 text-[11px] text-pink-100/55">
+          Weekly uses the last 7 days, monthly uses the last 30 days.
+        </p>
       </div>
 
       <div className="mt-5 space-y-3">

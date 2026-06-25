@@ -4,6 +4,7 @@ import {
   type DevotionLeaderboardEntry,
 } from "@/lib/devotion";
 import { getCosmeticItem, getTitleItem, getSpendBadge } from "@/lib/cosmetics";
+import { getLeadershipRank } from "@/lib/leadership";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 import {
   createSupabaseAdminClient,
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion",
+        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total",
       )
       .in("id", userIds),
     supabase
@@ -133,6 +134,7 @@ export async function GET(request: Request) {
         equippedAvatarSlots: (profile.equipped_avatar_slots as Record<string, string> | null) ?? null,
         hasUncensoredAvatar: Boolean(profile.has_uncensored_avatar),
         totalDevotion: Number(profile.total_devotion ?? 0),
+        tributeTotal: Number(profile.tribute_total ?? 0),
         username: profile.username.startsWith("@") ? profile.username : `@${profile.username}`,
       },
     ]),
@@ -147,6 +149,7 @@ export async function GET(request: Request) {
 
     const border = profileBorderByUserId.get(String(row.user_id));
     const borderItemId = border?.itemId ?? null;
+    const fallbackTitleName = getLeadershipRank(profile.tributeTotal).currentRank.title;
 
     return {
       badgeImagePath: profile.badgeImagePath,
@@ -157,7 +160,7 @@ export async function GET(request: Request) {
       frameVariant: getDevotionFrameVariant(borderItemId),
       hasUncensoredAvatar: profile.hasUncensoredAvatar,
       rank: Number(row.rank ?? 0),
-      titleName: titleByUserId.get(String(row.user_id)) ?? null,
+      titleName: titleByUserId.get(String(row.user_id)) ?? fallbackTitleName,
       userId: String(row.user_id),
       username: profile.username,
       usernameStyle: usernameStyles.get(String(row.user_id)),

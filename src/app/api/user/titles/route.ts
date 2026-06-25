@@ -57,16 +57,6 @@ async function equipTitle(
     return "Title is not owned.";
   }
 
-  const { error: clearError } = await supabase
-    .from("user_titles")
-    .update({ equipped: false })
-    .eq("user_id", userId);
-
-  if (clearError) {
-    console.error("[titles] clear equipped failed", clearError);
-    return "Title equip failed.";
-  }
-
   const { error: equipError } = await supabase.from("user_titles").upsert(
     {
       user_id: userId,
@@ -80,6 +70,16 @@ async function equipTitle(
   if (equipError) {
     console.error("[titles] equip upsert failed", equipError);
     return "Title equip failed.";
+  }
+
+  const { error: clearError } = await supabase
+    .from("user_titles")
+    .update({ equipped: false })
+    .eq("user_id", userId)
+    .neq("title_id", title.id);
+
+  if (clearError) {
+    console.error("[titles] clear other equipped titles failed", clearError);
   }
 
   return null;

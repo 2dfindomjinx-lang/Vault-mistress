@@ -722,6 +722,10 @@ export function TaskList({
               : 0;
             const isIrlCoolingDown = irlCooldownRemaining > 0;
             const irlWheelNeedsCoins = !isFreeFriday && coins < IRL_TASK_WHEEL_COST;
+            const timeoutRiskLastResult =
+              task.lastResult && !task.lastResult.startsWith("Safe wins today:")
+                ? task.lastResult
+                : null;
 
             return (
               <div
@@ -787,9 +791,9 @@ export function TaskList({
                       <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
                         Safe wins today: {task.safeWinsToday ?? 0}/{2}
                       </p>
-                      {task.lastResult && (
+                      {timeoutRiskLastResult && (
                         <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
-                          {task.lastResult}
+                          {timeoutRiskLastResult}
                         </p>
                       )}
                       {task.completed && (

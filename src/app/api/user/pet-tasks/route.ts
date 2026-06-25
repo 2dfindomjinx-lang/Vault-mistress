@@ -47,21 +47,45 @@ function getTaskCooldownMs(taskId: string) {
   return DAY_MS;
 }
 
-function isDuplicateReviewedTask(taskId: string, completedAt: string | null, metadata: Record<string, unknown> | null) {
+function getGmt3DateKey(value?: string | null) {
+  const base = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(base.getTime())) {
+    return null;
+  }
+
+  return new Date(base.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function isDuplicateReviewedTask(
+  taskId: string,
+  completedAt: string | null,
+  reviewedAt: string | null,
+  metadata: Record<string, unknown> | null,
+) {
   if (taskId === "pet-affection-claim") {
     const date = typeof metadata?.date === "string" ? metadata.date : null;
-    const today = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = getGmt3DateKey();
 
     return date === today;
   }
 
-  if (!completedAt) {
+  const cooldownAnchor = reviewedAt ?? completedAt;
+
+  if (!cooldownAnchor) {
     return false;
   }
 
-  const completedMs = new Date(completedAt).getTime();
+  if (taskId === "pet-weekly-throne-tax") {
+    const completedMs = new Date(cooldownAnchor).getTime();
 
-  return Number.isFinite(completedMs) && Date.now() - completedMs < getTaskCooldownMs(taskId);
+    return Number.isFinite(completedMs) && Date.now() - completedMs < getTaskCooldownMs(taskId);
+  }
+
+  const today = getGmt3DateKey();
+  const cooldownDate = getGmt3DateKey(cooldownAnchor);
+
+  return Boolean(today && cooldownDate && today === cooldownDate);
 }
 
 export async function POST(request: Request) {
@@ -123,7 +147,12 @@ export async function POST(request: Request) {
   if (
     status === "pending" &&
     existingTask?.reviewed_at &&
-    isDuplicateReviewedTask(taskId, existingTask.completed_at, existingTask.metadata as Record<string, unknown> | null)
+    isDuplicateReviewedTask(
+      taskId,
+      existingTask.completed_at,
+      existingTask.reviewed_at,
+      existingTask.metadata as Record<string, unknown> | null,
+    )
   ) {
     return Response.json({ task: existingTask });
   }

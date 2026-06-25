@@ -24,8 +24,22 @@ type SidebarNavProps = {
 
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (
-    <aside className="sticky top-0 z-40 w-full border-b border-white/10 bg-black/55 backdrop-blur-xl lg:static lg:h-full lg:border-b-0 lg:border-r">
-      <div className="flex h-full max-h-[100dvh] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:max-h-full lg:gap-5 lg:p-5">
+    <aside className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[rgba(6,3,10,0.88)] backdrop-blur-xl lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:w-[280px] lg:border-b-0 lg:border-r">
+      <div className="flex h-full max-h-[100dvh] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:max-h-none lg:gap-5 lg:p-5">
+        <div className="flex items-center justify-between gap-3 rounded-[1.2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-3 shadow-[0_0_34px_rgba(236,72,153,0.12)] lg:hidden">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
+              Vault Mistress
+            </p>
+            <h1 className="mt-1 text-sm font-black leading-tight text-white">
+              Principessa&apos;s Vault
+            </h1>
+          </div>
+          <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-pink-100">
+            {items.find((item) => item.key === activePage)?.label ?? "Home"}
+          </div>
+        </div>
+
         <div className="hidden rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-4 shadow-[0_0_34px_rgba(236,72,153,0.12)] lg:block">
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
             Vault Mistress
@@ -41,7 +55,7 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
 
             return (
               <button
-                className={`group flex min-h-12 shrink-0 items-center justify-between gap-3 rounded-2xl border px-3 py-2 text-left text-sm font-black transition lg:w-full ${
+                className={`group flex min-h-11 shrink-0 items-center justify-between gap-3 rounded-full border px-4 py-2 text-left text-sm font-black transition lg:w-full lg:rounded-2xl lg:px-3 lg:py-2 ${
                   isActive
                     ? "border-pink-200/45 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_22px_rgba(236,72,153,0.32)]"
                     : item.disabled
@@ -53,7 +67,7 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
                 onClick={() => onSelect(item.key)}
                 type="button"
               >
-                <span>{item.label}</span>
+                <span className="whitespace-nowrap">{item.label}</span>
                 {item.badge && (
                   <span className="rounded-full border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-pink-50">
                     {item.badge}
