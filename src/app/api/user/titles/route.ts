@@ -109,19 +109,34 @@ export async function POST(request: Request) {
       return Response.json({ titleIds: [] });
     }
 
-    const { error } = await supabase.from("user_titles").upsert(
-      titleIds.map((titleId) => ({
-        user_id: userId,
-        title_id: titleId,
-        source: getTitleItem(titleId)?.source ?? body?.source ?? "progression",
-        equipped: false,
-      })),
-      { onConflict: "user_id,title_id" },
-    );
+    const { data: existingRows, error: existingError } = await supabase
+      .from("user_titles")
+      .select("title_id")
+      .eq("user_id", userId)
+      .in("title_id", titleIds);
 
-    if (error) {
-      console.error("[titles] unlock upsert failed", error);
-      return jsonError("Title unlock failed.", 500);
+    if (existingError) {
+      console.error("[titles] unlock existing lookup failed", existingError);
+      return jsonError("Title unlock lookup failed.", 500);
+    }
+
+    const existingTitleIds = new Set((existingRows ?? []).map((row) => row.title_id));
+    const missingTitleIds = titleIds.filter((titleId) => !existingTitleIds.has(titleId));
+
+    if (missingTitleIds.length > 0) {
+      const { error } = await supabase.from("user_titles").insert(
+        missingTitleIds.map((titleId) => ({
+          user_id: userId,
+          title_id: titleId,
+          source: getTitleItem(titleId)?.source ?? body?.source ?? "progression",
+          equipped: false,
+        })),
+      );
+
+      if (error) {
+        console.error("[titles] unlock insert failed", error);
+        return jsonError("Title unlock failed.", 500);
+      }
     }
 
     if (body?.equipTitleId) {
