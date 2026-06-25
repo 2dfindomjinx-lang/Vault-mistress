@@ -582,16 +582,16 @@ export function PetSection({
   favorCoinReward,
   galleryItems,
   isGuest,
-  isDebtAutoPayEnabled,
+  isDebtAutoPayEnabled = false,
   nextTaxDueAt,
   onClaimAffection,
   onConfessionSubmit,
   onCompleteTask,
   onCooldownAttempt,
-  onDebtAutoPayChange,
-  onPayDebtPeriod,
+  onDebtAutoPayChange = () => {},
+  onPayDebtPeriod = () => {},
   onBuyRight,
-  onSignDebtContract,
+  onSignDebtContract = async () => false,
   onUseRight,
   onFalseHopeKey,
   onFavorPick,
@@ -608,7 +608,7 @@ export function PetSection({
   pendingPetActionIds = [],
   ownerLikeness,
   petScore,
-  petDebtContract,
+  petDebtContract = null,
   petAffectionClaimed,
   petReviewTaskCoinReward,
   petTaskCoinReward,
@@ -624,16 +624,16 @@ export function PetSection({
   favorCoinReward: number;
   galleryItems: PetGalleryItem[];
   isGuest?: boolean;
-  isDebtAutoPayEnabled: boolean;
+  isDebtAutoPayEnabled?: boolean;
   nextTaxDueAt: string | null;
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onCompleteTask: (taskId: string) => void;
   onCooldownAttempt?: (message: string) => void;
-  onDebtAutoPayChange: (enabled: boolean) => void;
-  onPayDebtPeriod: () => void;
+  onDebtAutoPayChange?: (enabled: boolean) => void;
+  onPayDebtPeriod?: () => void;
   onBuyRight: () => void;
-  onSignDebtContract: (form: {
+  onSignDebtContract?: (form: {
     age?: number | string;
     consentPrimary?: boolean;
     consentPrimaryText?: string;
@@ -663,7 +663,7 @@ export function PetSection({
   pendingPetActionIds?: string[];
   ownerLikeness: number;
   petScore: number;
-  petDebtContract: PetDebtContract | null;
+  petDebtContract?: PetDebtContract | null;
   petAffectionClaimed: boolean;
   petReviewTaskCoinReward: number;
   petTaskCoinReward: number;
@@ -735,7 +735,16 @@ export function PetSection({
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
     new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
-  const debtTask = tasks.find((task) => task.kind === "debt-contract");
+  const debtTask =
+    tasks.find((task) => task.kind === "debt-contract") ??
+    ({
+      id: "pet-debt-contract",
+      title: "Debt Contract",
+      description: "Sign a recurring debt contract and pay the selected amount each period.",
+      reward: 0,
+      kind: "debt-contract",
+      status: "available",
+    } as PetTaskItem);
   const baseDebtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
   const debtDurationLimit = {
     ...baseDebtDurationLimit,
@@ -2276,360 +2285,6 @@ export function PetSection({
               </div>
             </article>
           </div>
-
-          {debtTask && (
-            <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-lg font-black text-white">
-                  {hasOpenDebtContract
-                    ? activeDebtContractType === "evil"
-                      ? "Evil Debt Contract"
-                      : debtTask.title
-                    : debtMode === "evil"
-                      ? "Evil Debt Contract"
-                      : debtTask.title}
-                </h3>
-                <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  {hasOpenDebtContract && activeDebtContractType === "evil" ? "Evil" : "Contract"}
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
-              <div className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-2">
-                <button
-                  aria-pressed={debtMode === "evil"}
-                  className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={hasOpenDebtContract}
-                  onClick={() => setDebtMode((mode) => (mode === "normal" ? "evil" : "normal"))}
-                  type="button"
-                >
-                  <span className="min-w-0 flex-1 text-xs font-black uppercase tracking-[0.18em] text-red-50">
-                    {debtMode === "evil" ? "Evil Debt Contract" : "Normal Debt Contract"}
-                  </span>
-                  <span
-                    className={`relative h-7 w-16 rounded-full border transition ${
-                      debtMode === "evil"
-                        ? "border-red-200/50 bg-red-500/35"
-                        : "border-pink-200/25 bg-black/55"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 h-5 w-5 rounded-full transition ${
-                        debtMode === "evil"
-                          ? "left-9 bg-red-100 shadow-[0_0_14px_rgba(248,113,113,0.55)]"
-                          : "left-1 bg-pink-100/80"
-                      }`}
-                    />
-                  </span>
-                </button>
-                {hasOpenDebtContract && (
-                  <p className="mt-2 text-xs font-semibold text-zinc-500">
-                    Debt Contract modes are mutually exclusive while a contract is active or pending approval.
-                  </p>
-                )}
-              </div>
-              {showDebtSigningImage && (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-red-200/25 bg-black/45 shadow-[0_0_28px_rgba(248,113,113,0.18)]">
-                  <div
-                    className="flex min-h-28 items-center justify-center bg-cover bg-center px-4 py-8 text-center"
-                    style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.82), rgba(127,29,29,0.28)), url(${DEBT_SIGNING_IMAGE_PATH})` }}
-                  >
-                    <p className="text-sm font-black uppercase tracking-[0.24em] text-red-50">
-                      Contract signed
-                    </p>
-                  </div>
-                </div>
-              )}
-              {hasOpenDebtContract && petDebtContract ? (
-                <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                  <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
-                    <span>
-                      {activeDebtContractType === "evil" ? "Contract" : "Pet"}: {petDebtContract.pet_name}
-                    </span>
-                    <span>{petDebtContract.period_type} debt</span>
-                    {activeDebtContractType === "evil" && (
-                      <>
-                        <span>Full name: {petDebtContract.full_name ?? "Stored"}</span>
-                        <span>Timezone: {petDebtContract.timezone ?? "Stored"}</span>
-                      </>
-                    )}
-                    <span>
-                      Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
-                    </span>
-                    <span>
-                      Current payment: {petDebtContract.debt_amount.toLocaleString()} Coins
-                    </span>
-                    <span>
-                      Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
-                    </span>
-                    <span>
-                      Remaining balance: {remainingDebtBalance.toLocaleString()} Coins
-                    </span>
-                    <span>Paid periods: {petDebtContract.paid_periods}</span>
-                    <span>Missed: {petDebtContract.missed_periods}</span>
-                    {petDebtContract.status === "pending" && (
-                      <span className="sm:col-span-2">Status: Pending admin approval</span>
-                    )}
-                  </div>
-                  {petDebtContract.status === "active" ? (
-                    <>
-                      <p className="mt-3 rounded-2xl border border-red-200/10 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
-                        Future installments are locked. Only the current{" "}
-                        {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
-                      </p>
-                      <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-                    <AutoPaymentSwitch
-                      disabled={disabled}
-                      enabled={isDebtAutoPayEnabled}
-                      onChange={onDebtAutoPayChange}
-                    />
-                        <p className="mt-2 text-yellow-50/75">
-                          When enabled, each installment is paid automatically as soon as it becomes
-                          available.
-                        </p>
-                        <p className="mt-2 text-yellow-50/75">
-                          If auto payment is off and an installment is missed, missed debt is still
-                          collected from coin balance and can push balance below zero.
-                        </p>
-                        <p className="mt-2 text-yellow-50/75">
-                          Debt contracts cannot be removed here. Only admin can delete or cancel debt
-                          records.
-                        </p>
-                      </div>
-                      <button
-                        className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
-                        onClick={onPayDebtPeriod}
-                        type="button"
-                      >
-                        {isPetActionPending("pet-debt-contract")
-                          ? "Saving..."
-                          : !debtPaymentDue
-                          ? "Next installment locked"
-                          : `Pay installment ${debtInstallmentNumber}`}
-                      </button>
-                    </>
-                  ) : (
-                    <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-                      Evil Debt Contract was submitted and is waiting for admin approval.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-3">
-                  {debtMode === "normal" ? (
-                    <>
-                  <select
-                    className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
-                    onChange={(event) => setDebtPetName(event.target.value)}
-                    value={debtPetName}
-                  >
-                    {DEBT_PET_NAMES.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
-                    Minimum Payment: {debtMinimumPayment.toLocaleString()} Coins per{" "}
-                    {debtPeriodType === "weekly" ? "Week" : "Month"}
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <select
-                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                      onChange={(event) => setDebtPeriodType(event.target.value as "weekly" | "monthly")}
-                      value={debtPeriodType}
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                    </select>
-                    <input
-                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                      inputMode="numeric"
-                      min={debtMinimumPayment}
-                      onChange={(event) => setDebtAmount(event.target.value)}
-                      placeholder={`Min ${debtMinimumPayment.toLocaleString()}`}
-                      value={debtAmount}
-                    />
-                    <input
-                      className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                      inputMode="numeric"
-                      max={debtDurationLimit.max}
-                      min={debtDurationLimit.min}
-                      onChange={(event) => setDebtDuration(event.target.value)}
-                      placeholder={`${debtDurationLimit.label} ${debtDurationLimit.min}-${debtDurationLimit.max}`}
-                      value={debtDuration}
-                    />
-                  </div>
-                  <p className="text-xs text-zinc-500">
-                    Duration must be {debtDurationLimit.min}-{debtDurationLimit.max}{" "}
-                    {debtDurationLimit.label.toLowerCase()} for {debtPeriodType} contracts.
-                  </p>
-                  <button
-                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition enabled:hover:border-red-200/50 enabled:hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={isPetActionPending("pet-debt-contract")}
-                    onClick={handleRandomDebtSign}
-                    type="button"
-                  >
-                    {isPetActionPending("pet-debt-contract") ? "Signing..." : "Sign Random Debt"}
-                  </button>
-                  <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-xs font-bold text-red-50/75">
-                    Warning: Sign Random Debt immediately creates a debt contract with a random
-                    Pet name, weekly/monthly type, amount, and duration.
-                  </p>
-                  <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-                    Auto payment is off by default. Missed debt is still collected automatically
-                    after the payment window is missed, and coin balance may go below zero. Debt
-                    contracts can only be removed by admin.
-                  </p>
-                  <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-                    <AutoPaymentSwitch
-                      disabled={disabled}
-                      enabled={isDebtAutoPayEnabled}
-                      onChange={onDebtAutoPayChange}
-                    />
-                  </div>
-                  <button
-                    className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25"
-                    disabled={disabled}
-                    onClick={handleDebtSign}
-                    type="button"
-                  >
-                    Sign Debt Contract
-                  </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <input
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          onChange={(event) => setEvilFullName(event.target.value)}
-                          placeholder="Full name"
-                          value={evilFullName}
-                        />
-                        <input
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          inputMode="numeric"
-                          onChange={(event) => setEvilAge(event.target.value)}
-                          placeholder="Age"
-                          type="number"
-                          value={evilAge}
-                        />
-                        <select
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          onChange={(event) => setEvilTimezone(event.target.value)}
-                          value={evilTimezone}
-                        >
-                          {EVIL_DEBT_TIMEZONE_OPTIONS.map((timezone) => (
-                            <option key={timezone} value={timezone}>
-                              {timezone}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <textarea
-                        className="min-h-24 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                        maxLength={240}
-                        onChange={(event) => setEvilCustomNote(event.target.value)}
-                        placeholder="Optional note"
-                        value={evilCustomNote}
-                      />
-                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-                        Optional note, max 240 characters.
-                      </p>
-                      <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
-                        Evil minimum: {debtMinimumPayment.toLocaleString()} Coins per{" "}
-                        {debtPeriodType === "weekly" ? "Week" : "Month"}
-                      </p>
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <select
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          onChange={(event) => setDebtPeriodType(event.target.value as "weekly" | "monthly")}
-                          value={debtPeriodType}
-                        >
-                          <option value="weekly">Weekly</option>
-                          <option value="monthly">Monthly</option>
-                        </select>
-                        <input
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          inputMode="numeric"
-                          min={debtMinimumPayment}
-                          onChange={(event) => setDebtAmount(event.target.value)}
-                          placeholder={`Min ${debtMinimumPayment.toLocaleString()}`}
-                          step={debtAmountStep}
-                          value={debtAmount}
-                        />
-                        <input
-                          className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                          inputMode="numeric"
-                          max={debtDurationLimit.max}
-                          min={debtDurationLimit.min}
-                          onChange={(event) => setDebtDuration(event.target.value)}
-                          placeholder={`${debtDurationLimit.label} ${debtDurationLimit.min}-${debtDurationLimit.max}`}
-                          value={debtDuration}
-                        />
-                      </div>
-                      <label className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-                        Upload 1-8 BM images
-                        <input
-                          accept="image/*"
-                          className="mt-2 block w-full text-xs text-zinc-300 file:mr-3 file:rounded-full file:border-0 file:bg-red-500/20 file:px-3 file:py-2 file:text-xs file:font-bold file:text-red-50"
-                          multiple
-                          onChange={(event) => void handleEvilDebtImages(event.target.files)}
-                          type="file"
-                        />
-                      </label>
-                      {evilImageError && (
-                        <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-100">
-                          {evilImageError}
-                        </p>
-                      )}
-                      {evilImageUrls.length > 0 && (
-                        <div className="grid grid-cols-4 gap-2">
-                          {evilImageUrls.map((imageUrl, index) => (
-                            <img
-                              alt={`Evil Debt upload ${index + 1}`}
-                              className="aspect-square rounded-xl border border-red-200/15 object-cover"
-                              key={`${imageUrl.slice(0, 32)}-${index}`}
-                              src={imageUrl}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <textarea
-                        className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                        onChange={(event) => setEvilConsentPrimary(event.target.value)}
-                        placeholder={EVIL_CONSENT_PRIMARY_TEXT}
-                        value={evilConsentPrimary}
-                      />
-                      <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
-                        Consent 1 must be typed exactly: {EVIL_CONSENT_PRIMARY_TEXT}
-                      </p>
-                      <textarea
-                        className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                        onChange={(event) => setEvilConsentSecondary(event.target.value)}
-                        placeholder={EVIL_CONSENT_SECONDARY_TEXT}
-                        value={evilConsentSecondary}
-                      />
-                      <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
-                        Consent 2 must be typed exactly: {EVIL_CONSENT_SECONDARY_TEXT}
-                      </p>
-                      <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-                        Evil Debt Contract is mutually exclusive with normal Debt Contract. Final
-                        signing asks one last confirmation.
-                      </p>
-                      <button
-                        className="rounded-2xl border border-red-200/25 bg-red-700/25 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-700/35"
-                        onClick={handleEvilDebtSign}
-                        type="button"
-                      >
-                        Sign Evil Debt Contract
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </article>
-          )}
 
           <div className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">

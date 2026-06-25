@@ -8,6 +8,7 @@ import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CosmeticShop } from "@/components/CosmeticShop";
 import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
+import { DebtSection } from "@/components/DebtSection";
 import { DevotionLeaderboard } from "@/components/DevotionLeaderboard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
@@ -9264,16 +9265,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "home" as const, label: "Home" },
     { key: "devotion" as const, label: "Devotion" },
     { key: "tribute" as const, label: "Tribute" },
-    { key: "collection" as const, label: "Gallery" },
+    { key: "shop" as const, label: "Shop" },
     { key: "tasks" as const, label: "Tasks" },
+    { key: "crates" as const, label: "Cases" },
     {
       key: "pet" as const,
       label: "Pet",
       disabled: !isPetUnlocked,
       badge: isPetUnlocked ? undefined : "Locked",
     },
-    { key: "crates" as const, label: "Cases" },
-    { key: "shop" as const, label: "Shop" },
+    {
+      key: "debt" as const,
+      label: "Debt",
+    },
+    { key: "collection" as const, label: "Gallery" },
     { key: "profile" as const, label: "Profile" },
   ];
   const activePageLabel =
@@ -9442,7 +9447,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const profileHeaderStats =
-    activePanel === "pet"
+    (activePanel === "pet" || activePanel === "debt")
       ? [
           { label: "Pet Score", value: petScore.toLocaleString(), hint: "Pet progression" },
           {
@@ -9531,6 +9536,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         </div>
         <p className="mt-2 text-xs text-red-50/80">
           {petTasksCompletedToday.length} pet tasks cleared, +{petCoinsEarnedToday.toLocaleString()} coins earned today.
+        </p>
+      </div>
+    ) : activePanel === "debt" ? (
+      <div className="rounded-2xl border border-red-300/15 bg-red-500/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.18em] text-red-100/75">
+          <span>Debt Status</span>
+          <span>{petDebtContract ? petDebtContract.status : "No contract"}</span>
+        </div>
+        <p className="mt-2 text-xs text-red-50/80">
+          {petDebtContract
+            ? `${petDebtContract.contract_type === "evil" ? "Evil" : "Normal"} debt contract is open.`
+            : "No active or pending debt contract."}
         </p>
       </div>
     ) : null;
@@ -10310,13 +10327,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               galleryItems={petGalleryItems}
               isGuest={isGuestMode}
-              isDebtAutoPayEnabled={isDebtAutoPayEnabled}
               favorCoinReward={eventFavorCoinReward}
               nextTaxDueAt={nextPetTaxDueAt}
               ownerLikeness={ownerLikeness}
               petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
               petTaskCoinReward={eventPetTaskCoinReward}
-              petDebtContract={petDebtContract}
               petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
@@ -10340,15 +10355,24 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
               highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
               onPetDailyClick={handlePetDailyClick}
-              onDebtAutoPayChange={handleDebtAutoPayChange}
-              onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
               onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}
               onPetEvilWaitComplete={() => runPetAction("pet-evil-wait", handlePetEvilWaitComplete)}
               onPetEvilWaitFail={() => runPetAction("pet-evil-wait", handlePetEvilWaitFail)}
               onPetEvilWaitStart={() => runPetAction("pet-evil-wait", handlePetEvilWaitStart)}
               onPerfectWritingProgress={handlePetPerfectWritingProgress}
-              onSignDebtContract={handleDebtContractSign}
               onUseRight={() => handleRightsAction("use")}
+            />
+          )}
+          {activePanel === "debt" && (
+            <DebtSection
+              disabled={isTimeoutActive || isPreviewRestricted}
+              isDebtAutoPayEnabled={isDebtAutoPayEnabled}
+              pendingPetActionIds={pendingPetActionIds}
+              petDebtContract={petDebtContract}
+              tasks={petTaskState}
+              onDebtAutoPayChange={handleDebtAutoPayChange}
+              onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
+              onSignDebtContract={handleDebtContractSign}
             />
           )}
         </section>
