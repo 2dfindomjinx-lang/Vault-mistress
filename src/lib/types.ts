@@ -120,6 +120,7 @@ export type PetTaskItem = {
   actionUrl?: string;
   kind:
     | "review"
+    | "throne-tribute"
     | "confession-writing"
     | "perfect-writing"
     | "weekly-tax"
@@ -163,6 +164,9 @@ export type PetTaskItem = {
   sentence?: string;
   attemptsRemaining?: number;
   reviewedAt?: string | null;
+  throneAmount?: number | null;
+  throneProofImage?: string | null;
+  throneReceiveAmount?: number | null;
   voiceSentence?: string;
   waitCountdownEndsAt?: string | null;
   waitEndsAt?: string | null;

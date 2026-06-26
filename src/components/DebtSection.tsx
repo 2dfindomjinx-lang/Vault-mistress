@@ -467,6 +467,8 @@ function DebtCard(props: {
     remainingDebtBalance,
   } = props;
 
+  const showLockedState = hasOpenDebtContract && !active && petDebtContract;
+
   return (
     <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
       <div className="flex items-start justify-between gap-3">
@@ -527,6 +529,12 @@ function DebtCard(props: {
                 : `Pay installment ${debtInstallmentNumber}`}
           </button>
         </div>
+      ) : showLockedState ? (
+        <LockedDebtState
+          accent="normal"
+          blockingContractMessage={blockingContractMessage}
+          petDebtContract={petDebtContract}
+        />
       ) : (
         <div className="mt-4 grid gap-3">
           {hasOpenDebtContract && (
@@ -698,6 +706,8 @@ function EvilDebtCard(props: {
     remainingDebtBalance,
   } = props;
 
+  const showLockedState = hasOpenDebtContract && !active && petDebtContract;
+
   return (
     <article className="rounded-[1.5rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(69,10,10,0.5),rgba(0,0,0,0.8))] p-4 shadow-[0_0_28px_rgba(127,29,29,0.2)]">
       <div className="flex items-start justify-between gap-3">
@@ -767,6 +777,12 @@ function EvilDebtCard(props: {
             </p>
           )}
         </div>
+      ) : showLockedState ? (
+        <LockedDebtState
+          accent="evil"
+          blockingContractMessage={blockingContractMessage}
+          petDebtContract={petDebtContract}
+        />
       ) : (
         <div className="mt-4 grid gap-3">
           {hasOpenDebtContract && (
@@ -918,6 +934,46 @@ function EvilDebtCard(props: {
         </div>
       )}
     </article>
+  );
+}
+
+function LockedDebtState({
+  accent,
+  blockingContractMessage,
+  petDebtContract,
+}: {
+  accent: "normal" | "evil";
+  blockingContractMessage: string | null;
+  petDebtContract: PetDebtContract;
+}) {
+  const pillClass =
+    accent === "evil"
+      ? "border-red-300/25 bg-red-700/25 text-red-50"
+      : "border-yellow-200/20 bg-yellow-500/10 text-yellow-50";
+
+  return (
+    <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-white">New Contract Locked</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            {blockingContractMessage ?? "Another debt contract is already active or pending."}
+          </p>
+        </div>
+        <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${pillClass}`}>
+          Locked
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 text-sm text-red-50 sm:grid-cols-2">
+        <span>Active mode: {petDebtContract.contract_type === "evil" ? "Evil Debt Contract" : "Normal Debt Contract"}</span>
+        <span>Status: {petDebtContract.status}</span>
+        <span>{petDebtContract.period_type === "weekly" ? "Weekly" : "Monthly"} schedule</span>
+        <span>Payment: {petDebtContract.debt_amount.toLocaleString()} Coins</span>
+      </div>
+      <p className="mt-3 rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
+        You cannot create a new debt contract until the current one is completed, removed, or resolved by admin.
+      </p>
+    </div>
   );
 }
 

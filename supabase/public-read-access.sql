@@ -179,6 +179,7 @@ as $$
   select count(*)::integer
   from public.profiles p
   where p.loyalty_streak >= 3
+    and p.last_loyalty_at >= (now() - interval '48 hours')
     and not (p.id = any(coalesce(p_excluded_user_ids, array[]::uuid[])));
 $$;
 

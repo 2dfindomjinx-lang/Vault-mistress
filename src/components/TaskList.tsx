@@ -253,6 +253,7 @@ export function TaskList({
   const [caseOpenResolvedReward, setCaseOpenResolvedReward] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
   const caseOpenTimerRef = useRef<number | null>(null);
+  const caseOpenSoundTimerRefs = useRef<number[]>([]);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
@@ -260,6 +261,37 @@ export function TaskList({
   const monthlyResetRemaining = getNextGmt3MonthlyResetMs(now);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
   const isCaseOpenPending = isTaskActionPending("case-opening");
+  const clearCaseOpenSoundTimers = useCallback(() => {
+    caseOpenSoundTimerRefs.current.forEach((timer) => window.clearTimeout(timer));
+    caseOpenSoundTimerRefs.current = [];
+  }, []);
+  const startCaseOpenSoundTicks = useCallback(() => {
+    clearCaseOpenSoundTimers();
+
+    let soundTick = 0;
+    const maxSoundTicks = 42;
+
+    const scheduleSoundTick = (delay: number) => {
+      const timer = window.setTimeout(() => {
+        if (soundTick >= maxSoundTicks) {
+          return;
+        }
+
+        emitSoundEvent("crate_reel_tick");
+        soundTick += 1;
+
+        if (soundTick < maxSoundTicks) {
+          const progress = soundTick / maxSoundTicks;
+          const nextDelay = Math.floor(38 + (240 - 38) * Math.pow(progress, 1.7));
+          scheduleSoundTick(nextDelay);
+        }
+      }, delay);
+
+      caseOpenSoundTimerRefs.current.push(timer);
+    };
+
+    scheduleSoundTick(38);
+  }, [clearCaseOpenSoundTimers]);
   const handleCooldownAttempt = (message: string) => {
     emitSoundEvent("button_click");
     onCooldownAttempt?.(message);
@@ -278,8 +310,9 @@ export function TaskList({
       if (caseOpenTimerRef.current) {
         window.clearTimeout(caseOpenTimerRef.current);
       }
+      clearCaseOpenSoundTimers();
     };
-  }, []);
+  }, [clearCaseOpenSoundTimers]);
 
   const movementTask = tasks.find((task) => task.kind === "movement");
   const caseOpenSlotSize = CASE_OPEN_REEL_ITEM_WIDTH + CASE_OPEN_REEL_ITEM_GAP;
@@ -631,7 +664,7 @@ export function TaskList({
             </p>
             <h3 className="mt-1 text-xl font-black text-white">Strengthen Principessa</h3>
             <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Sacrifice exactly 1 user level. A quarter of that level value becomes Principessa XP.
+              Sacrifice all current user XP at once. A quarter of the drained amount becomes Principessa XP.
             </p>
             <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
               Monthly reset in {formatRemaining(monthlyResetRemaining)}
@@ -678,7 +711,7 @@ export function TaskList({
                   ? "Draining..."
                   : userLevel < 2
                     ? "Requires L2"
-                    : "Drain Your XP"}
+                    : "Drain All Your XP"}
               </button>
             </div>
           </div>
@@ -1180,6 +1213,7 @@ export function TaskList({
                         window.clearTimeout(caseOpenTimerRef.current);
                         caseOpenTimerRef.current = null;
                       }
+                      clearCaseOpenSoundTimers();
 
                       setCaseOpenPhase("rolling");
                       setCaseOpenAnimating(false);
@@ -1187,6 +1221,7 @@ export function TaskList({
 
                       const reward = await onCaseOpen();
                       if (typeof reward !== "number") {
+                        clearCaseOpenSoundTimers();
                         setCaseOpenResolvedReward(null);
                         setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);
@@ -1199,6 +1234,7 @@ export function TaskList({
                       setCaseOpenAnimating(false);
                       setCaseOpenOffset(0);
                       setCaseOpenPhase("rolling");
+                      startCaseOpenSoundTicks();
 
                       window.requestAnimationFrame(() => {
                         window.requestAnimationFrame(() => {
@@ -1208,6 +1244,8 @@ export function TaskList({
                       });
 
                       caseOpenTimerRef.current = window.setTimeout(() => {
+                        clearCaseOpenSoundTimers();
+                        emitSoundEvent("crate_reel_tick");
                         setCaseOpenResolvedReward(reward);
                         setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);

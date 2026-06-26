@@ -2,6 +2,12 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import {
+  formatPetThroneAmount,
+  getPetThroneReceiveAmount,
+  PET_THRONE_AMOUNTS,
+  PET_THRONE_TASK_ID,
+} from "@/lib/pet-throne";
 import type { PetDebtContract, PetGalleryItem, PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
 
@@ -571,6 +577,8 @@ function getPetTaskBadgeLabel(task: PetTaskItem, pending: boolean, approved: boo
       return "Sequence";
     case "favor-roulette":
       return "Roulette";
+    case "throne-tribute":
+      return "Throne";
     default:
       return "Task";
   }
@@ -584,6 +592,7 @@ export function PetSection({
   isGuest,
   isDebtAutoPayEnabled = false,
   nextTaxDueAt,
+  onCancelThroneTribute,
   onClaimAffection,
   onConfessionSubmit,
   onCompleteTask,
@@ -602,6 +611,7 @@ export function PetSection({
   onPetEvilWaitFail,
   onPetEvilWaitStart,
   onPerfectWritingProgress,
+  onSubmitThroneTribute,
   highLowAllowanceCap,
   highLowProfitCap,
   petGalleryUnlockedIds,
@@ -626,6 +636,7 @@ export function PetSection({
   isGuest?: boolean;
   isDebtAutoPayEnabled?: boolean;
   nextTaxDueAt: string | null;
+  onCancelThroneTribute: () => void;
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onCompleteTask: (taskId: string) => void;
@@ -659,6 +670,7 @@ export function PetSection({
   onPetEvilWaitFail: () => void;
   onPetEvilWaitStart: () => void;
   onPerfectWritingProgress: (value: string) => void;
+  onSubmitThroneTribute: (submission: { amount: number; proofImage: string }) => void;
   petGalleryUnlockedIds: string[];
   pendingPetActionIds?: string[];
   ownerLikeness: number;
@@ -692,6 +704,9 @@ export function PetSection({
   const [evilTeaseIndex, setEvilTeaseIndex] = useState(0);
   const [confessionInput, setConfessionInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
+  const [selectedThroneAmount, setSelectedThroneAmount] = useState<number>(PET_THRONE_AMOUNTS[0]);
+  const [throneProofError, setThroneProofError] = useState("");
+  const [throneProofImage, setThroneProofImage] = useState("");
   const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
   const [debtAmount, setDebtAmount] = useState("");
   const [debtDuration, setDebtDuration] = useState("");
@@ -731,6 +746,16 @@ export function PetSection({
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => isPetTaskApprovedToday(task, now)).length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
+  const throneTask =
+    tasks.find((task) => task.id === PET_THRONE_TASK_ID) ??
+    ({
+      id: PET_THRONE_TASK_ID,
+      title: "Throne Bonus",
+      description: "Pick a Throne tribute amount, upload the gift screen, and submit it for review.",
+      reward: 0,
+      kind: "throne-tribute",
+      status: "available",
+    } as PetTaskItem);
   const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
@@ -1052,6 +1077,15 @@ export function PetSection({
     };
   }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitEndsAt, evilWaitTask?.waitState]);
 
+  useEffect(() => {
+    if (throneTask.throneAmount && throneTask.throneAmount > 0) {
+      setSelectedThroneAmount(throneTask.throneAmount);
+    }
+
+    setThroneProofImage(throneTask.throneProofImage ?? "");
+    setThroneProofError("");
+  }, [throneTask.throneAmount, throneTask.throneProofImage]);
+
   function handlePerfectInput(value: string, sentence: string) {
     if (!writingPreviewStartsWith(sentence, value)) {
       setPerfectInput("");
@@ -1061,6 +1095,32 @@ export function PetSection({
 
     setPerfectInput(value);
     onPerfectWritingProgress(value);
+  }
+
+  async function handleThroneProofChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0] ?? null;
+    event.target.value = "";
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!selectedFile.type.startsWith("image/")) {
+      setThroneProofError("Please upload an image file.");
+      return;
+    }
+
+    if (selectedFile.size > 4 * 1024 * 1024) {
+      setThroneProofError("Image must stay under 4 MB.");
+      return;
+    }
+
+    try {
+      setThroneProofImage(await fileToDataUrl(selectedFile));
+      setThroneProofError("");
+    } catch {
+      setThroneProofError("Image upload failed.");
+    }
   }
 
   function showDebtSignedImage() {
@@ -1464,7 +1524,8 @@ export function PetSection({
                 Boolean(task.cooldownUntil) &&
                 new Date(task.cooldownUntil ?? "").getTime() > now;
               const pending = task.status === "pending";
-              const approved = task.kind === "review" && task.status === "approved";
+              const approved =
+                (task.kind === "review" || task.kind === "throne-tribute") && task.status === "approved";
               const failed = task.status === "failed";
               const sentence = task.sentence ?? "";
               const actionPending = isPetActionPending(task.id);
@@ -1484,7 +1545,7 @@ export function PetSection({
                   </div>
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
                   <p className="mt-3 text-xs font-bold text-red-100">
-                    {task.kind === "review"
+                    {task.kind === "review" || task.kind === "throne-tribute"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
@@ -1643,7 +1704,7 @@ export function PetSection({
                               </div>
                             </div>
                             <p className="mt-2 text-xs text-zinc-500">
-                              Base rolls use 2-19. Result rolls use 1-25 with middle numbers weighted higher.
+                              Base rolls use 2-19. Result rolls use 1-25 and are weighted around the current number.
                             </p>
                             {task.highLowRoundAvailableAt && (
                               <p className="mt-2 text-sm font-semibold text-pink-100">
@@ -2052,6 +2113,109 @@ export function PetSection({
                             ? "Completed Today"
                             : "Click"}
                       </button>
+                    </div>
+                  )}
+
+                  {task.kind === "throne-tribute" && (
+                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        {PET_THRONE_AMOUNTS.map((amount) => {
+                          const active = selectedThroneAmount === amount;
+
+                          return (
+                            <button
+                              className={`rounded-2xl border px-3 py-2 text-sm font-black transition ${
+                                active
+                                  ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
+                                  : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
+                              }`}
+                              disabled={disabled || pending || actionPending}
+                              key={amount}
+                              onClick={() => setSelectedThroneAmount(amount)}
+                              type="button"
+                            >
+                              {formatPetThroneAmount(amount)}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
+                          Principessa receives
+                        </p>
+                        <p className="mt-2 text-2xl font-black text-pink-50">
+                          {formatPetThroneAmount(getPetThroneReceiveAmount(selectedThroneAmount))}
+                        </p>
+                        <p className="mt-2 text-xs text-zinc-400">
+                          Pick the gift amount, open the Throne page, then upload the gift screen screenshot.
+                        </p>
+                      </div>
+
+                      <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
+                        <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
+                          Throne screenshot
+                        </span>
+                        <input
+                          accept="image/*"
+                          className="mt-3 block w-full cursor-pointer text-sm text-zinc-200 file:mr-3 file:rounded-xl file:border-0 file:bg-pink-500/20 file:px-3 file:py-2 file:font-black file:text-pink-50"
+                          disabled={disabled || actionPending}
+                          onChange={handleThroneProofChange}
+                          type="file"
+                        />
+                      </label>
+
+                      {throneProofError && (
+                        <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-100">
+                          {throneProofError}
+                        </p>
+                      )}
+
+                      {throneProofImage && (
+                        <div className="overflow-hidden rounded-2xl border border-pink-200/15 bg-black/40">
+                          {/* Keep the screenshot visible so users can verify what will be submitted. */}
+                          <img
+                            alt="Selected Throne proof"
+                            className="max-h-56 w-full object-contain"
+                            src={throneProofImage}
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                            coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                          }`}
+                          disabled={disabled || pending || actionPending || !throneProofImage}
+                          onClick={() => {
+                            if (coolingDown) {
+                              handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
+                              return;
+                            }
+
+                            onSubmitThroneTribute({
+                              amount: selectedThroneAmount,
+                              proofImage: throneProofImage,
+                            });
+                          }}
+                          type="button"
+                        >
+                          {actionPending
+                            ? "Saving..."
+                            : pending
+                              ? "Pending Review"
+                              : "Submit for Review"}
+                        </button>
+                        <button
+                          className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={disabled || actionPending || !pending}
+                          onClick={onCancelThroneTribute}
+                          type="button"
+                        >
+                          {actionPending ? "Saving..." : "Cancel Submission"}
+                        </button>
+                      </div>
                     </div>
                   )}
 

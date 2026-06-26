@@ -1156,7 +1156,7 @@ immutable
 as $$
   select case
     when coalesce(current_level, 1) >= 100 then null
-    else 10000 + (greatest(1, coalesce(current_level, 1)) - 1) * 2000
+    else 8000 + (greatest(1, coalesce(current_level, 1)) - 1) * 1500
   end;
 $$;
 
@@ -1237,6 +1237,10 @@ declare
   current_month integer;
   current_year integer;
   row_data public.global_principessa_progress%rowtype;
+  recalculated_level integer := 1;
+  recalculated_xp integer := 0;
+  requirement integer;
+  total_transferred_xp integer := 0;
 begin
   select month, year into current_month, current_year from public.current_gmt3_month();
 
@@ -1268,6 +1272,33 @@ begin
     returning * into row_data;
   end if;
 
+  select coalesce(sum(xp_amount), 0)
+  into total_transferred_xp
+  from public.global_principessa_xp_events
+  where event_type = 'level_drain'
+    and extract(month from (created_at at time zone 'Europe/Istanbul'))::integer = row_data.month
+    and extract(year from (created_at at time zone 'Europe/Istanbul'))::integer = row_data.year;
+
+  recalculated_level := 1;
+  recalculated_xp := total_transferred_xp;
+
+  while recalculated_level < 100 loop
+    requirement := public.global_principessa_requirement(recalculated_level);
+    exit when requirement is null or recalculated_xp < requirement;
+    recalculated_xp := recalculated_xp - requirement;
+    recalculated_level := recalculated_level + 1;
+  end loop;
+
+  if row_data.level <> recalculated_level or row_data.xp <> recalculated_xp then
+    update public.global_principessa_progress
+    set
+      level = recalculated_level,
+      xp = recalculated_xp,
+      updated_at = now()
+    where id = 1
+    returning * into row_data;
+  end if;
+
   return jsonb_build_object(
     'month', row_data.month,
     'year', row_data.year,
@@ -1289,7 +1320,8 @@ declare
   progress_row public.global_principessa_progress%rowtype;
   previous_user_level integer;
   new_user_level integer;
-  level_value integer;
+  drained_user_xp integer;
+  drained_levels integer;
   transfer_xp integer;
   previous_global_level integer;
   previous_global_xp integer;
@@ -1313,10 +1345,10 @@ begin
     raise exception 'Level Drain requires user level 2 or higher.';
   end if;
 
-  new_user_level := previous_user_level - 1;
-  -- Use the exact XP required for this level, not the coarse tier bucket.
-  level_value := public.user_level_floor_xp(previous_user_level + 1) - public.user_level_floor_xp(previous_user_level);
-  transfer_xp := greatest(1, floor(level_value * 0.25));
+  new_user_level := 1;
+  drained_levels := previous_user_level - new_user_level;
+  drained_user_xp := greatest(0, coalesce(profile_row.user_xp, 0) - public.user_level_floor_xp(new_user_level));
+  transfer_xp := greatest(1, floor(drained_user_xp * 0.25));
 
   select * into progress_row
   from public.global_principessa_progress
@@ -1336,7 +1368,7 @@ begin
 
   update public.profiles
   set
-    user_xp = public.user_level_floor_xp(new_user_level),
+    user_xp = 0,
     user_level = new_user_level,
     updated_at = now()
   where id = p_user_id;
@@ -1396,9 +1428,11 @@ begin
   return jsonb_build_object(
     'eventId', event_id,
     'transferredXp', transfer_xp,
+    'drainedLevels', drained_levels,
+    'drainedUserXp', drained_user_xp,
     'previousUserLevel', previous_user_level,
     'newUserLevel', new_user_level,
-    'userXp', public.user_level_floor_xp(new_user_level),
+    'userXp', 0,
     'previousGlobalLevel', previous_global_level,
     'globalLevel', progress_row.level,
     'globalXp', progress_row.xp,

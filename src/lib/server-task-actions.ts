@@ -12,7 +12,7 @@ export const HIGH_LOW_DISPLAY_NUMBER_MAX = 19;
 const HIGH_LOW_RESULT_NUMBER_MIN = 1;
 const HIGH_LOW_RESULT_NUMBER_MAX = 25;
 const HIGH_LOW_DISPLAY_NUMBER_CENTER = 10.5;
-const HIGH_LOW_RESULT_NUMBER_CENTER = 13;
+const HIGH_LOW_RESULT_WEIGHT_RADIUS = 14;
 export const CASE_OPEN_REWARD_WEIGHTS = [
   { value: 100, weight: 3500 },
   { value: 125, weight: 2500 },
@@ -53,17 +53,6 @@ const HIGH_LOW_DISPLAY_WEIGHTS = Array.from(
     const value = HIGH_LOW_DISPLAY_NUMBER_MIN + index;
     const distance = Math.abs(value - HIGH_LOW_DISPLAY_NUMBER_CENTER);
     const weight = Math.max(1, 10 - distance);
-
-    return { value, weight };
-  },
-);
-
-const HIGH_LOW_RESULT_WEIGHTS = Array.from(
-  { length: HIGH_LOW_RESULT_NUMBER_MAX - HIGH_LOW_RESULT_NUMBER_MIN + 1 },
-  (_, index) => {
-    const value = HIGH_LOW_RESULT_NUMBER_MIN + index;
-    const distance = Math.abs(value - HIGH_LOW_RESULT_NUMBER_CENTER);
-    const weight = Math.max(1, 14 - distance);
 
     return { value, weight };
   },
@@ -126,8 +115,19 @@ export function getMetadataNumberArray(
     : null;
 }
 
-export function randomHighLowNumber() {
-  return pickWeightedNumber(HIGH_LOW_RESULT_WEIGHTS);
+export function randomHighLowNumber(baseNumber: number) {
+  const resultWeights = Array.from(
+    { length: HIGH_LOW_RESULT_NUMBER_MAX - HIGH_LOW_RESULT_NUMBER_MIN + 1 },
+    (_, index) => {
+      const value = HIGH_LOW_RESULT_NUMBER_MIN + index;
+      const distance = Math.abs(value - baseNumber);
+      const weight = Math.max(1, HIGH_LOW_RESULT_WEIGHT_RADIUS - distance);
+
+      return { value, weight };
+    },
+  );
+
+  return pickWeightedNumber(resultWeights);
 }
 
 export function randomHighLowDisplayNumber() {

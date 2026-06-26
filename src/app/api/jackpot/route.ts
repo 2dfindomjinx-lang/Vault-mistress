@@ -36,6 +36,7 @@ type ProfileRow = {
   username: string;
   coins: number;
   loyalty_streak: number | null;
+  last_loyalty_at?: string | null;
 };
 
 type ContributionRow = {
@@ -59,6 +60,7 @@ const jackpotSelect =
   "id, cycle_key, starts_at, contribution_ends_at, ends_at, base_pool, winner_user_id, winner_username, winner_amount, winner_selected_at, skipped_at";
 
 const VAULT_CHECK_TIMEOUT_MS = 25000; // 25s to prevent stuck "checking vault" on slow/failed DB ops
+const STREAK_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
 async function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -78,6 +80,22 @@ function jsonError(message: string, status = 500) {
 
 function normalizeUsernameLookup(value: string | null | undefined) {
   return (value ?? "").trim().replace(/^@+/, "").toLowerCase();
+}
+
+function hasActiveLoyaltyStreak(
+  loyaltyStreak: number | null | undefined,
+  lastLoyaltyAt: string | null | undefined,
+) {
+  if ((loyaltyStreak ?? 0) < 3 || !lastLoyaltyAt) {
+    return false;
+  }
+
+  const lastLoyaltyMs = new Date(lastLoyaltyAt).getTime();
+  if (!Number.isFinite(lastLoyaltyMs)) {
+    return false;
+  }
+
+  return Date.now() - lastLoyaltyMs <= STREAK_EXPIRY_MS;
 }
 
 async function getAuthedUserId() {
@@ -208,10 +226,12 @@ async function getEligibleCount(
   supabase: SupabaseAdminClient,
   excludedWinnerIds: string[],
 ) {
+  const activeSince = new Date(Date.now() - STREAK_EXPIRY_MS).toISOString();
   let query = supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .gte("loyalty_streak", 3);
+    .gte("loyalty_streak", 3)
+    .gte("last_loyalty_at", activeSince);
 
   query = withWinnerExclusion(query, excludedWinnerIds);
   const queryPromise = query;
@@ -242,10 +262,12 @@ async function getRandomEligibleProfile(
   }
 
   const index = Math.floor(Math.random() * eligibleCount);
+  const activeSince = new Date(Date.now() - STREAK_EXPIRY_MS).toISOString();
   let query = supabase
     .from("profiles")
-    .select("id, username, coins, loyalty_streak")
+    .select("id, username, coins, loyalty_streak, last_loyalty_at")
     .gte("loyalty_streak", 3)
+    .gte("last_loyalty_at", activeSince)
     .order("id", { ascending: true })
     .range(index, index);
 
@@ -705,7 +727,7 @@ export async function buildJackpotState(
   if (userId) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("loyalty_streak")
+      .select("loyalty_streak, last_loyalty_at")
       .eq("id", userId)
       .maybeSingle();
 
@@ -714,7 +736,8 @@ export async function buildJackpotState(
     }
 
     userEligible =
-      Number(profile?.loyalty_streak ?? 0) >= 3 && !previousWinnerIds.includes(userId);
+      hasActiveLoyaltyStreak(profile?.loyalty_streak ?? 0, profile?.last_loyalty_at ?? null) &&
+      !previousWinnerIds.includes(userId);
   }
 
   const currentWinners = await getJackpotWinnersFromTransactions(supabase, jackpot.id);

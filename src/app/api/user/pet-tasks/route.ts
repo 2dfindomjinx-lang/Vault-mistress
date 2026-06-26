@@ -15,6 +15,7 @@ const allowedTaskIds = new Set([
   "pet-daily-report",
   "pet-twitter-post",
   "pet-weekly-throne-tax",
+  "pet-throne-tribute",
   "pet-voice-proof",
   "pet-perfect-writing",
   "pet-case-opening",

@@ -29,7 +29,7 @@ export function getGlobalPrincipessaXpRequirement(level: number) {
     return null;
   }
 
-  return 10000 + (Math.floor(level) - 1) * 2000;
+  return 8000 + (Math.floor(level) - 1) * 1500;
 }
 
 export function calculateGlobalPrincipessaLevel(level: number, xp: number) {

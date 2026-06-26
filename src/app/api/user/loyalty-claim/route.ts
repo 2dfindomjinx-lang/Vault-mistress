@@ -15,6 +15,7 @@ const STREAK_BONUSES = [
   { id: "streak-bonus-15", milestone: 15, reward: 500 },
   { id: "streak-bonus-30", milestone: 30, reward: 1000 },
 ] as const;
+const STREAK_EXPIRY_MS = 48 * 60 * 60 * 1000;
 
 type ProfileRow = {
   coins: number;
@@ -43,6 +44,19 @@ function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
   const cycleStart = new Date(lastLoyaltyAt);
   cycleStart.setUTCDate(cycleStart.getUTCDate() - (streak - 1));
   return getGmt3DateKey(cycleStart);
+}
+
+function getEffectiveLoyaltyStreak(streak: number | null | undefined, lastLoyaltyAt: string | null) {
+  if (!lastLoyaltyAt) {
+    return 0;
+  }
+
+  const lastLoyaltyMs = new Date(lastLoyaltyAt).getTime();
+  if (!Number.isFinite(lastLoyaltyMs)) {
+    return 0;
+  }
+
+  return Date.now() - lastLoyaltyMs > STREAK_EXPIRY_MS ? 0 : Math.max(0, streak ?? 0);
 }
 
 export async function POST() {
@@ -87,7 +101,7 @@ export async function POST() {
 
   const profile = profileResult.data as ProfileRow;
   const existingTasks = (taskResult.data as UserTaskRow[] | null) ?? [];
-  const loyaltyStreak = profile.loyalty_streak ?? 0;
+  const loyaltyStreak = getEffectiveLoyaltyStreak(profile.loyalty_streak ?? 0, profile.last_loyalty_at);
   const cycleKey = getStreakCycleKey(loyaltyStreak, profile.last_loyalty_at);
   const claimable = STREAK_BONUSES.filter((bonus) => {
     if (loyaltyStreak < bonus.milestone) {

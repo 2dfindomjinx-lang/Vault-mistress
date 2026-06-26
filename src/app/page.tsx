@@ -98,6 +98,12 @@ import {
   randomCaseOpeningReward,
 } from "@/lib/server-task-actions";
 import { getUserLevelProgress } from "@/lib/levels";
+import {
+  formatPetThroneAmount,
+  getPetThroneReceiveAmount,
+  PET_THRONE_TASK_ID,
+  PET_THRONE_URL,
+} from "@/lib/pet-throne";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
@@ -458,6 +464,15 @@ const petTasks: PetTaskItem[] = [
     description: "Send weekly Throne tax proof by DM.",
     reward: PET_WEEKLY_TAX_REWARD,
     kind: "weekly-tax",
+  },
+    {
+      id: PET_THRONE_TASK_ID,
+      title: "Throne Bonus",
+      description: "Pick a Throne tribute amount, open the gift page, then upload the gift screen screenshot for approval.",
+      reward: PET_TASK_REWARD,
+      actionLabel: "Open Throne",
+    actionUrl: PET_THRONE_URL,
+    kind: "throne-tribute",
   },
   {
     id: "pet-voice-proof",
@@ -1114,6 +1129,31 @@ function buildPetTasksFromRows(
         cooldownUntil,
         reviewedAt,
         status,
+      };
+    }
+
+    if (task.kind === "throne-tribute") {
+      const throneAmount = getTaskMetadataNumber(row?.metadata, "throneAmount", 0);
+      const throneReceiveAmount = getTaskMetadataNumber(
+        row?.metadata,
+        "throneReceiveAmount",
+        throneAmount > 0 ? getPetThroneReceiveAmount(throneAmount) : 0,
+      );
+      const throneProofImage = getTaskMetadataString(row?.metadata, "proofImage");
+      const cooldownUntil =
+        baseStatus === "pending" || baseStatus === "available"
+          ? null
+          : getPetTaskCooldownUntil(cooldownAnchor);
+
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil,
+        reviewedAt,
+        status: cooldownUntil ? baseStatus : baseStatus === "pending" ? "pending" : "available",
+        throneAmount: throneAmount > 0 ? throneAmount : null,
+        throneProofImage,
+        throneReceiveAmount: throneReceiveAmount > 0 ? throneReceiveAmount : null,
       };
     }
 
@@ -2416,6 +2456,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return sum + eventFavorCoinReward;
     }
     if (task.kind === "review") {
+      return sum + PET_REVIEW_TASK_COIN_REWARD;
+    }
+    if (task.kind === "throne-tribute") {
       return sum + PET_REVIEW_TASK_COIN_REWARD;
     }
     if (task.kind === "daily-click") {
@@ -5606,7 +5649,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     try {
         if (isGuestMode) {
-        const resultNumber = randomHighLowNumber();
+        const resultNumber = randomHighLowNumber(currentNumber);
         const outcome =
           resultNumber === currentNumber
             ? "tie"
@@ -6262,6 +6305,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const payload = (await response.json()) as {
         error?: string;
         result?: {
+          drainedLevels?: number;
+          drainedUserXp?: number;
           globalLevel?: number;
           globalLevelUp?: boolean;
           globalXp?: number;
@@ -6296,6 +6341,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         );
       }
       emitSoundEvent("task_completion");
+      setAvatarMistressReply(
+        result.drainedLevels && result.drainedLevels > 1
+          ? `All ${result.drainedLevels} levels were drained in one offering.`
+          : "Your level was drained in one offering.",
+      );
 
       if (result.globalLevelUp) {
         window.setTimeout(() => {
@@ -7731,6 +7781,139 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         ? "Guest Pet task submitted for review. Pet Score waits for approval."
         : "Pet task submitted for admin review.",
     );
+  };
+
+  const handlePetThroneTributeSubmit = async ({
+    amount,
+    proofImage,
+  }: {
+    amount: number;
+    proofImage: string;
+  }) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (!isPetUnlocked) {
+      setAvatarMistressReply("Principessa's Pet is locked.");
+      return;
+    }
+
+    const task = petTaskStateRef.current.find((entry) => entry.id === PET_THRONE_TASK_ID);
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
+
+    if (!task || coolingDown || task.status === "pending") {
+      return;
+    }
+
+    const normalizedAmount = Math.max(0, Number(amount));
+    const receiveAmount = getPetThroneReceiveAmount(normalizedAmount);
+
+    if (!normalizedAmount || !proofImage) {
+      setAvatarMistressReply("Choose a Throne amount and upload the gift screen first.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const metadata = {
+      proofImage,
+      throneAmount: normalizedAmount,
+      throneReceiveAmount: receiveAmount,
+    };
+
+    let savedTask: UserPetTaskRow | null = null;
+
+    if (!isGuestMode && authUserId) {
+      try {
+        savedTask = await persistPetTask({
+          task_id: task.id,
+          completed_at: now,
+          reward_score: task.reward,
+          status: "pending",
+          metadata,
+        });
+      } catch (error) {
+        console.error("Failed to persist pet throne tribute", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    }
+
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: savedTask?.completed_at ?? now,
+              cooldownUntil: null,
+              reviewedAt: savedTask?.reviewed_at ?? null,
+              status: (savedTask?.status as PetTaskItem["status"] | undefined) ?? "pending",
+              throneAmount: normalizedAmount,
+              throneProofImage: proofImage,
+              throneReceiveAmount: receiveAmount,
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply(
+      isGuestMode
+        ? `Guest Throne proof queued. ${formatPetThroneAmount(normalizedAmount)} selected.`
+        : `Throne proof submitted. ${formatPetThroneAmount(normalizedAmount)} selected for review.`,
+    );
+  };
+
+  const handlePetThroneTributeCancel = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskStateRef.current.find((entry) => entry.id === PET_THRONE_TASK_ID);
+
+    if (!task || task.status !== "pending") {
+      return;
+    }
+
+    const metadata = {
+      proofImage: task.throneProofImage ?? "",
+      throneAmount: task.throneAmount ?? 0,
+      throneReceiveAmount:
+        task.throneReceiveAmount ??
+        getPetThroneReceiveAmount(Math.max(0, Number(task.throneAmount ?? 0))),
+    };
+
+    if (!isGuestMode && authUserId) {
+      try {
+        await persistPetTask({
+          task_id: task.id,
+          completed_at: null,
+          reward_score: task.reward,
+          reviewed_at: null,
+          status: "available",
+          metadata,
+        });
+      } catch (error) {
+        console.error("Failed to cancel pet throne tribute submission", error);
+        setAuthError(describeError(error));
+        return;
+      }
+    }
+
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: null,
+              cooldownUntil: null,
+              reviewedAt: null,
+              status: "available",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply("Throne tribute submission cancelled. You can change it and submit again.");
   };
 
   const handlePetPerfectWritingProgress = async (value: string) => {
@@ -10356,6 +10539,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onConfessionSubmit={(value, options) =>
                 runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
               }
+              onCancelThroneTribute={() =>
+                runPetAction(PET_THRONE_TASK_ID, handlePetThroneTributeCancel)
+              }
               onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
               onCooldownAttempt={handleCooldownAttempt}
               onFalseHopeKey={handlePetFalseHopeKey}
@@ -10369,6 +10555,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onPetEvilWaitFail={() => runPetAction("pet-evil-wait", handlePetEvilWaitFail)}
               onPetEvilWaitStart={() => runPetAction("pet-evil-wait", handlePetEvilWaitStart)}
               onPerfectWritingProgress={handlePetPerfectWritingProgress}
+              onSubmitThroneTribute={(submission) =>
+                runPetAction(PET_THRONE_TASK_ID, () => handlePetThroneTributeSubmit(submission))
+              }
               onUseRight={() => handleRightsAction("use")}
             />
           )}

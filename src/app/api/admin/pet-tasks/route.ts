@@ -11,7 +11,7 @@ const PET_TASK_COIN_REWARD = 250;
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
     .from("user_pet_tasks")
-    .select("id, user_id, task_id, completed_at, reward_score, status, reviewed_at, created_at")
+    .select("id, user_id, task_id, completed_at, reward_score, status, reviewed_at, created_at, metadata")
     .neq("task_id", "pet-affection-claim")
     .eq("status", "pending")
     .order("created_at", { ascending: false })

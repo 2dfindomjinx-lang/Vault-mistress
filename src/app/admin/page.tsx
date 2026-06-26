@@ -49,6 +49,7 @@ type AdminPetTask = {
   completed_at: string | null;
   reviewed_at: string | null;
   created_at: string;
+  metadata: Record<string, unknown> | null;
   pet_score: number;
 };
 
@@ -1767,57 +1768,92 @@ export default function AdminPage() {
               <div className="mt-4 max-h-[34rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
                 <div className="grid gap-3">
                   {petTasks.length > 0 ? (
-                    petTasks.map((task) => (
-                      <article
-                        className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
-                        key={task.id}
-                      >
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-sm font-black text-white">{task.username}</p>
-                            <p className="mt-1 text-sm leading-6 text-red-50">
-                              {task.task_id}
-                            </p>
-                            <p className="mt-1 text-xs text-zinc-500">
-                              Submitted {new Date(task.created_at).toLocaleString()} - current pet score {task.pet_score}
-                            </p>
-                            {task.reviewed_at && (
-                              <p className="mt-1 text-xs text-zinc-500">
-                                Reviewed {new Date(task.reviewed_at).toLocaleString()}
+                    petTasks.map((task) => {
+                      const metadata = (task.metadata ?? {}) as Record<string, unknown>;
+                      const throneAmount =
+                        typeof metadata.throneAmount === "number" ? metadata.throneAmount : null;
+                      const throneReceiveAmount =
+                        typeof metadata.throneReceiveAmount === "number" ? metadata.throneReceiveAmount : null;
+                      const proofImage =
+                        typeof metadata.proofImage === "string" ? metadata.proofImage : null;
+
+                      return (
+                        <article
+                          className="rounded-2xl border border-red-200/15 bg-red-950/15 p-3"
+                          key={task.id}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-sm font-black text-white">{task.username}</p>
+                              <p className="mt-1 text-sm leading-6 text-red-50">
+                                {task.task_id}
                               </p>
-                            )}
+                              <p className="mt-1 text-xs text-zinc-500">
+                                Submitted {new Date(task.created_at).toLocaleString()} - current pet score {task.pet_score}
+                              </p>
+                              {task.reviewed_at && (
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  Reviewed {new Date(task.reviewed_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                                {task.status}
+                              </span>
+                              <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-black text-pink-50">
+                                +{task.reward_score} score
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
-                              {task.status}
-                            </span>
-                            <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-black text-pink-50">
-                              +{task.reward_score} score
-                            </span>
-                          </div>
-                        </div>
-                        {task.status === "pending" && (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            <button
-                              className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={isBusy}
-                              onClick={() => void handlePetTaskReview(task.id, "approve")}
-                              type="button"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={isBusy}
-                              onClick={() => void handlePetTaskReview(task.id, "reject")}
-                              type="button"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </article>
-                    ))
+                          {task.task_id === "pet-throne-tribute" && (
+                            <div className="mt-3 space-y-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+                              <div className="flex flex-wrap gap-2 text-xs font-semibold text-zinc-300">
+                                <span className="rounded-full border border-pink-200/15 bg-pink-500/10 px-3 py-1">
+                                  Selected: {throneAmount ?? "-"}
+                                </span>
+                                <span className="rounded-full border border-sky-200/15 bg-sky-500/10 px-3 py-1">
+                                  Receives: {throneReceiveAmount ?? "-"}
+                                </span>
+                              </div>
+                              {proofImage && (
+                                <button
+                                  className="overflow-hidden rounded-2xl border border-red-200/15 bg-black"
+                                  onClick={() => setPreviewDebtImage(proofImage)}
+                                  type="button"
+                                >
+                                  <img
+                                    alt="Pet Throne proof"
+                                    className="max-h-64 w-full object-contain"
+                                    src={proofImage}
+                                  />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {task.status === "pending" && (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              <button
+                                className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={isBusy}
+                                onClick={() => void handlePetTaskReview(task.id, "approve")}
+                                type="button"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={isBusy}
+                                onClick={() => void handlePetTaskReview(task.id, "reject")}
+                                type="button"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })
                   ) : (
                     <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
                       No Pet tasks submitted yet.
@@ -1900,7 +1936,7 @@ export default function AdminPage() {
           type="button"
         >
           <img
-            alt="Expanded Evil Debt Contract upload"
+            alt="Expanded admin proof upload"
             className="max-h-[90vh] max-w-[90vw] rounded-2xl border border-red-200/25 object-contain shadow-[0_0_40px_rgba(248,113,113,0.28)]"
             src={previewDebtImage}
           />

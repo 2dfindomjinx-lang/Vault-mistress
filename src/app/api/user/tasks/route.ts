@@ -43,6 +43,8 @@ const DANGEROUS_METADATA_KEYS = [
   "date",
 ];
 
+const SUPPORT_COST = 2500;
+
 type ExistingTaskRow = {
   claimed_at: string | null;
   completed_at: string | null;
@@ -61,7 +63,7 @@ function isRewardAllowed(taskId: string, reward: number) {
   }
 
   if (taskId === "support") {
-    return reward === -1000;
+    return reward === -SUPPORT_COST;
   }
 
   if (taskId === "irl-task-wheel") {

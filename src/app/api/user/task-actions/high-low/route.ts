@@ -238,7 +238,7 @@ export async function POST(request: Request) {
   }
 
   const activeCurrentNumber = currentNumber as number;
-  const resultNumber = randomHighLowNumber();
+  const resultNumber = randomHighLowNumber(activeCurrentNumber);
   const outcome =
     resultNumber === activeCurrentNumber
       ? "tie"
