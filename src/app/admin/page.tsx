@@ -670,6 +670,7 @@ export default function AdminPage() {
       const result = (await response.json()) as {
         contracts?: AdminDebtContract[];
         error?: string;
+        refundedInstallmentAmount?: number;
       };
 
       if (!response.ok) {
@@ -677,8 +678,16 @@ export default function AdminPage() {
       }
 
       setDebtContracts(result.contracts ?? []);
-      setStatus("Debt contract removed.");
-      setDefneMessage("Debt removed. The ledger has been corrected.");
+      setStatus(
+        result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
+          ? `Debt contract removed. Refunded last installment: ${result.refundedInstallmentAmount.toLocaleString()} coins.`
+          : "Debt contract removed.",
+      );
+      setDefneMessage(
+        result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
+          ? "Debt removed. The last installment was refunded and the ledger was corrected."
+          : "Debt removed. The ledger has been corrected.",
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Debt removal failed.");
     } finally {
