@@ -53,6 +53,28 @@ type AdminPetTask = {
   pet_score: number;
 };
 
+type AdminPetTaskLog = {
+  id: string;
+  task_row_id: string | null;
+  user_id: string;
+  username_snapshot: string | null;
+  task_id: string;
+  status: "queued" | "executed" | "reverted" | "cleared";
+  reward_score_delta: number;
+  coin_total_delta: number;
+  throne_base_coin_amount: number;
+  throne_give_bonus_amount: number;
+  throne_task_bonus_amount: number;
+  devotion_delta: number;
+  pending_action_id: string | null;
+  transaction_ids: string[] | null;
+  metadata: Record<string, unknown> | null;
+  reviewed_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
 type AdminDebtContract = {
   id: string;
   user_id: string;
@@ -173,6 +195,7 @@ export default function AdminPage() {
   const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil">("normal");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
+  const [petTaskLogs, setPetTaskLogs] = useState<AdminPetTaskLog[]>([]);
   const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
   const [expandedEvilDebtId, setExpandedEvilDebtId] = useState<string | null>(null);
   const [previewDebtImage, setPreviewDebtImage] = useState<string | null>(null);
@@ -359,6 +382,35 @@ export default function AdminPage() {
       setPetTasks(result.tasks ?? []);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Pet task list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const loadPetTaskLogs = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/pet-task-logs", { cache: "no-store" });
+      const result = (await response.json()) as {
+        error?: string;
+        logs?: AdminPetTaskLog[];
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Pet task log list failed.");
+      }
+
+      setPetTaskLogs(result.logs ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Pet task log list failed.");
     } finally {
       setIsBusy(false);
     }
@@ -715,6 +767,7 @@ export default function AdminPage() {
     const timer = window.setTimeout(() => {
       void loadIrlTasks({ keepStatus: true });
       void loadPetTasks({ keepStatus: true });
+      void loadPetTaskLogs({ keepStatus: true });
       void loadTimeouts({ keepStatus: true });
       void loadMaxAffectionUsers({ keepStatus: true });
       void loadCaseOpeners({ keepStatus: true });
@@ -867,13 +920,54 @@ export default function AdminPage() {
 
       setPetTasks(result.tasks ?? []);
       setStatus(result.message ?? "Pet task reviewed.");
+      await loadPetTaskLogs({ keepStatus: true });
       setDefneMessage(
         action === "approve"
-          ? "Pet task approved. Progress has been granted."
+          ? (result.message ?? "Pet task approved. Progress has been granted.")
           : "Pet task rejected. Standards matter.",
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Pet task review failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handlePetTaskLogAction = async (logId: string, action: "clear" | "revert") => {
+    if (!isAdmin) {
+      setStatus("Admin access required.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/pet-task-logs", {
+        body: JSON.stringify({ action, logId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        error?: string;
+        logs?: AdminPetTaskLog[];
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Pet task log action failed.");
+      }
+
+      setPetTaskLogs(result.logs ?? []);
+      setStatus(result.message ?? "Pet task log updated.");
+      setDefneMessage(
+        action === "revert"
+          ? "Approval reverted. The ledger has been corrected."
+          : "Log marked correct. The ledger can breathe again.",
+      );
+      await loadPetTasks({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Pet task log action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -1772,8 +1866,18 @@ export default function AdminPage() {
                       const metadata = (task.metadata ?? {}) as Record<string, unknown>;
                       const throneAmount =
                         typeof metadata.throneAmount === "number" ? metadata.throneAmount : null;
+                      const throneBaseCoinAmount =
+                        typeof metadata.throneBaseCoinAmount === "number" ? metadata.throneBaseCoinAmount : null;
+                      const throneGiveBonusAmount =
+                        typeof metadata.throneGiveBonusAmount === "number" ? metadata.throneGiveBonusAmount : null;
+                      const throneTaskBonusAmount =
+                        typeof metadata.throneTaskBonusAmount === "number" ? metadata.throneTaskBonusAmount : null;
                       const throneReceiveAmount =
-                        typeof metadata.throneReceiveAmount === "number" ? metadata.throneReceiveAmount : null;
+                        typeof metadata.throneTotalCoinAmount === "number"
+                          ? metadata.throneTotalCoinAmount
+                          : typeof metadata.throneReceiveAmount === "number"
+                            ? metadata.throneReceiveAmount
+                            : null;
                       const proofImage =
                         typeof metadata.proofImage === "string" ? metadata.proofImage : null;
 
@@ -1812,8 +1916,17 @@ export default function AdminPage() {
                                 <span className="rounded-full border border-pink-200/15 bg-pink-500/10 px-3 py-1">
                                   Selected: {throneAmount ?? "-"}
                                 </span>
+                                <span className="rounded-full border border-zinc-200/15 bg-zinc-500/10 px-3 py-1">
+                                  Base: {typeof throneBaseCoinAmount === "number" ? throneBaseCoinAmount.toLocaleString() : "-"}
+                                </span>
+                                <span className="rounded-full border border-amber-200/15 bg-amber-500/10 px-3 py-1">
+                                  Give bonus: {typeof throneGiveBonusAmount === "number" ? throneGiveBonusAmount.toLocaleString() : "-"}
+                                </span>
+                                <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1">
+                                  Task bonus: {typeof throneTaskBonusAmount === "number" ? throneTaskBonusAmount.toLocaleString() : "-"}
+                                </span>
                                 <span className="rounded-full border border-sky-200/15 bg-sky-500/10 px-3 py-1">
-                                  Receives: {throneReceiveAmount ?? "-"}
+                                  Total: {typeof throneReceiveAmount === "number" ? throneReceiveAmount.toLocaleString() : "-"}
                                 </span>
                               </div>
                               {proofImage && (
@@ -1857,6 +1970,111 @@ export default function AdminPage() {
                   ) : (
                     <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
                       No Pet tasks submitted yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+                      Recent Throne Approval Logs
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      These logs disappear after 24 hours unless you mark them correct earlier.
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                    disabled={isBusy}
+                    onClick={() => void loadPetTaskLogs()}
+                    type="button"
+                  >
+                    Refresh Logs
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {petTaskLogs.length > 0 ? (
+                    petTaskLogs.map((log) => {
+                      const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+                      const logStatusTone =
+                        log.status === "executed"
+                          ? "border-emerald-200/20 bg-emerald-400/10 text-emerald-50"
+                          : log.status === "queued"
+                            ? "border-yellow-200/20 bg-yellow-400/10 text-yellow-50"
+                            : log.status === "reverted"
+                              ? "border-rose-200/20 bg-rose-500/10 text-rose-100"
+                              : "border-sky-200/20 bg-sky-500/10 text-sky-100";
+
+                      return (
+                        <article className="rounded-2xl border border-white/10 bg-black/35 p-3" key={log.id}>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-sm font-black text-white">{log.username_snapshot ?? "@unknown"}</p>
+                              <p className="mt-1 text-xs text-zinc-500">
+                                Created {new Date(log.created_at).toLocaleString()}
+                                {log.resolved_at ? ` - resolved ${new Date(log.resolved_at).toLocaleString()}` : ""}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-zinc-300">
+                                <span className="rounded-full border border-zinc-200/15 bg-zinc-500/10 px-3 py-1">
+                                  Base: {Number(log.throne_base_coin_amount ?? 0).toLocaleString()}
+                                </span>
+                                <span className="rounded-full border border-amber-200/15 bg-amber-500/10 px-3 py-1">
+                                  Give bonus: {Number(log.throne_give_bonus_amount ?? 0).toLocaleString()}
+                                </span>
+                                <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1">
+                                  Task bonus: {Number(log.throne_task_bonus_amount ?? 0).toLocaleString()}
+                                </span>
+                                <span className="rounded-full border border-sky-200/15 bg-sky-500/10 px-3 py-1">
+                                  Total: {Number(log.coin_total_delta ?? 0).toLocaleString()}
+                                </span>
+                                <span className="rounded-full border border-pink-200/15 bg-pink-500/10 px-3 py-1">
+                                  Pet score: +{Number(log.reward_score_delta ?? 0)}
+                                </span>
+                              </div>
+                              {log.pending_action_id && (
+                                <p className="mt-2 text-xs text-yellow-100/80">
+                                  Waiting on Companion App execution.
+                                </p>
+                              )}
+                              {metadata.proofImagePresent === true && (
+                                <p className="mt-1 text-xs text-zinc-500">Proof image was attached.</p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 flex-wrap items-center gap-2">
+                              <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${logStatusTone}`}>
+                                {log.status}
+                              </span>
+                              {(log.status === "queued" || log.status === "executed") && (
+                                <>
+                                  <button
+                                    className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-3 py-2 text-xs font-black text-sky-100 transition hover:border-sky-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handlePetTaskLogAction(log.id, "clear")}
+                                    type="button"
+                                  >
+                                    Mark Correct
+                                  </button>
+                                  <button
+                                    className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handlePetTaskLogAction(log.id, "revert")}
+                                    type="button"
+                                  >
+                                    Revert
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                      No active Throne approval logs.
                     </p>
                   )}
                 </div>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import {
   formatPetThroneAmount,
-  getPetThroneReceiveAmount,
+  getPetThroneRewardBreakdown,
   PET_THRONE_AMOUNTS,
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
@@ -804,7 +804,8 @@ export function PetSection({
   const throneApproved = throneTask.status === "approved";
   const throneFailed = throneTask.status === "failed";
   const throneActionPending = isPetActionPending(throneTask.id);
-  const throneCoinEquivalent = Math.round(getPetThroneReceiveAmount(selectedThroneAmount) * 1000);
+  const throneRewardBreakdown = getPetThroneRewardBreakdown(selectedThroneAmount);
+  const throneCoinEquivalent = throneRewardBreakdown.totalCoinAmount;
   const regularTasks = tasks.filter(
     (task) =>
       task.kind !== "debt-contract" &&
@@ -1133,6 +1134,16 @@ export function PetSection({
     } catch {
       setThroneProofError("Image upload failed.");
     }
+  }
+
+  function handleClearThroneProof() {
+    if (thronePending) {
+      onCancelThroneTribute();
+      return;
+    }
+
+    setThroneProofImage("");
+    setThroneProofError("");
   }
 
   function showDebtSignedImage() {
@@ -2154,10 +2165,10 @@ export function PetSection({
 
                       <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
                         <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
-                          Principessa receives
+                          You Receive
                         </p>
                         <p className="mt-2 text-2xl font-black text-pink-50">
-                          {formatPetThroneAmount(getPetThroneReceiveAmount(selectedThroneAmount))}
+                          {formatPetThroneAmount(throneCoinEquivalent)}
                         </p>
                         <p className="mt-2 text-xs text-zinc-400">
                           Pick the gift amount, open the Throne page, then upload the gift screen screenshot.
@@ -2438,7 +2449,7 @@ export function PetSection({
                   </span>
                 </div>
                 <p className="mt-3 text-xs font-bold text-red-100">
-                  Admin approve reward: +{throneTask.reward} Pet Score, +{petReviewTaskCoinReward} Coins
+                  Admin approve reward: +{throneTask.reward} Pet Score and the selected Throne payout with both bonuses
                 </p>
                 <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -2472,6 +2483,9 @@ export function PetSection({
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
                       Coin equivalent
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Base {throneRewardBreakdown.baseCoinAmount.toLocaleString()} + give bonus {throneRewardBreakdown.giveBonusAmount.toLocaleString()} + task bonus {throneRewardBreakdown.taskBonusAmount.toLocaleString()}
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
                       Pick the Throne amount, open the Throne page, then upload the gift screen screenshot.
@@ -2547,7 +2561,7 @@ export function PetSection({
                     <button
                       className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-black text-zinc-200 transition enabled:hover:border-white/20 enabled:hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-40"
                       disabled={disabled || throneActionPending || !throneProofImage}
-                      onClick={onCancelThroneTribute}
+                      onClick={handleClearThroneProof}
                       type="button"
                     >
                       Clear Screenshot

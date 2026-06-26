@@ -1,4 +1,5 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
+import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
 import { awardDevotion } from "@/lib/devotion";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
@@ -151,6 +152,10 @@ export async function POST(request: Request) {
   const cmd = (claimed.command || "").toLowerCase();
   const amount = Number(claimed.amount);
   const targetId = claimed.target_user_id;
+  const extraAddAmount = Math.max(
+    0,
+    Number((claimed.metadata as Record<string, unknown> | null)?.extraAddAmount ?? 0),
+  );
   const targetSnap = claimed.target_username_snapshot || "unknown";
 
   if (!["add", "give"].includes(cmd) || !amount || amount <= 0) {
@@ -257,6 +262,55 @@ export async function POST(request: Request) {
       bonusTransaction = bTx;
     }
 
+    let extraAddTransaction: { id?: string | null } | null = null;
+
+    if (extraAddAmount > 0) {
+      const addBefore = finalCoins;
+      const addAfter = finalCoins + extraAddAmount;
+      const { error: addUpdateError } = await supabase
+        .from("profiles")
+        .update({ coins: addAfter, updated_at: nowIso })
+        .eq("id", targetId);
+
+      if (addUpdateError) {
+        throw new Error("task bonus update failed");
+      }
+
+      const { data: addTx, error: addTransactionError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          user_id: targetId,
+          admin_user_id: approverId,
+          amount: extraAddAmount,
+          reason: "admin_add",
+          balance_before: addBefore,
+          balance_after: addAfter,
+          metadata: {
+            command: "add",
+            kind: "pet_throne_task_bonus",
+            source: "approved_admin_action",
+            pendingActionId: claimed.id,
+            petTaskId: (claimed.metadata as Record<string, unknown> | null)?.petTaskId ?? null,
+            target_username_snapshot: profile.username,
+            verifiedAdminUserId: approverId,
+          },
+        })
+        .select("id")
+        .single();
+
+      if (addTransactionError) {
+        await supabase
+          .from("profiles")
+          .update({ coins: addBefore, updated_at: nowIso })
+          .eq("id", targetId)
+          .eq("coins", addAfter);
+        throw new Error("task bonus logging failed");
+      }
+
+      extraAddTransaction = addTx;
+      finalCoins = addAfter;
+    }
+
     if (isGive && transaction?.id && giveDevotionAmount > 0) {
       try {
         await awardDevotion(supabase, {
@@ -284,22 +338,7 @@ export async function POST(request: Request) {
         .eq("user_id", targetId)
         .in("reason", ["throne_tribute", "live_gift"]);
       const giftTotal = (giftRows ?? []).reduce((s, r) => s + Math.max(0, Number(r.amount ?? 0)), 0);
-      const milestones = [
-        { min: 10000, titleId: "throne-10000" },
-        { min: 25000, titleId: "throne-25000" },
-        { min: 100000, titleId: "throne-100000" },
-      ].filter((m) => giftTotal >= m.min);
-      if (milestones.length) {
-        await supabase.from("user_titles").upsert(
-          milestones.map((m) => ({
-            user_id: targetId,
-            title_id: m.titleId,
-            source: "throne",
-            equipped: false,
-          })),
-          { onConflict: "user_id,title_id" }
-        );
-      }
+      await syncThroneMilestoneTitles(supabase, targetId, giftTotal);
     }
 
     // Log execution in the pending row metadata
@@ -310,10 +349,47 @@ export async function POST(request: Request) {
           ...(claimed.metadata || {}),
           executedAt: nowIso,
           finalCoins,
+          bonusTransactionId: bonusTransaction?.id ?? null,
+          extraAddAmount,
+          extraAddTransactionId: extraAddTransaction?.id ?? null,
           transactionId: transaction?.id || null,
         },
       })
       .eq("id", actionId);
+
+    const adminPetTaskLogId = String(
+      ((claimed.metadata as Record<string, unknown> | null)?.adminPetTaskLogId ?? ""),
+    ).trim();
+
+    if (adminPetTaskLogId) {
+      const { data: currentLog } = await supabase
+        .from("admin_pet_task_logs")
+        .select("devotion_delta, metadata")
+        .eq("id", adminPetTaskLogId)
+        .maybeSingle();
+
+      await supabase
+        .from("admin_pet_task_logs")
+        .update({
+          coin_total_delta: amount + giveBonusAmount + extraAddAmount,
+          devotion_delta: 5 + giveDevotionAmount,
+          metadata: {
+            ...((currentLog?.metadata as Record<string, unknown> | null) ?? {}),
+            executedByAdminUserId: approverId,
+            executedFromPendingActionId: claimed.id,
+          },
+          reviewed_at: nowIso,
+          reviewed_by_user_id: approverId,
+          status: "executed",
+          transaction_ids: [
+            transaction?.id ?? null,
+            bonusTransaction?.id ?? null,
+            extraAddTransaction?.id ?? null,
+          ].filter(Boolean),
+          updated_at: nowIso,
+        })
+        .eq("id", adminPetTaskLogId);
+    }
 
     return Response.json({
       ok: true,
@@ -321,7 +397,7 @@ export async function POST(request: Request) {
       id: actionId,
       executed: true,
       message: isGive
-        ? `Approved: granted ${amount}${giveBonusAmount ? ` + ${giveBonusAmount} bonus` : ""} to ${profile.username}`
+        ? `Approved: granted ${amount}${giveBonusAmount ? ` + ${giveBonusAmount} give bonus` : ""}${extraAddAmount ? ` + ${extraAddAmount} task bonus` : ""} to ${profile.username}`
         : `Approved: added ${amount} to ${profile.username}`,
       coins: finalCoins,
     });

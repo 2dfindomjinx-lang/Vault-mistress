@@ -37,6 +37,7 @@ type ContractRow = {
 
 type ProfileRow = {
   coins: number;
+  debt_tribute_pending: number;
   id: string;
   tribute_total: number;
 };
@@ -371,7 +372,7 @@ export async function POST(request: Request) {
 
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("id, coins, tribute_total")
+      .select("id, coins, tribute_total, debt_tribute_pending")
       .eq("id", userId)
       .single();
 
@@ -393,17 +394,22 @@ export async function POST(request: Request) {
     }
 
     const nextCoins = profile.coins - plan.amount;
-    const nextTributeTotal = (profile.tribute_total ?? 0) + plan.amount;
+    const immediateTribute = Math.min(plan.amount, Math.max(0, profile.coins));
+    const deferredTribute = Math.max(0, plan.amount - immediateTribute);
+    const nextTributeTotal = (profile.tribute_total ?? 0) + immediateTribute;
+    const nextDebtTributePending = (profile.debt_tribute_pending ?? 0) + deferredTribute;
 
     const { data: updatedProfile, error: updateProfileError } = await supabase
       .from("profiles")
       .update({
         coins: nextCoins,
+        debt_tribute_pending: nextDebtTributePending,
         tribute_total: nextTributeTotal,
         updated_at: collectedAt,
       })
       .eq("id", userId)
       .eq("coins", profile.coins)
+      .eq("debt_tribute_pending", profile.debt_tribute_pending ?? 0)
       .eq("tribute_total", profile.tribute_total)
       .select(profileSelect)
       .maybeSingle();
@@ -439,10 +445,12 @@ export async function POST(request: Request) {
       metadata: {
         autoCollected: body.action === "autoCollect",
         contractId: contract.id,
+        debtTributeDeferredAmount: deferredTribute,
+        debtTributeImmediateAmount: immediateTribute,
         duePeriods: plan.duePeriods,
         missedPeriods: plan.missedPeriods,
         spendAmount: plan.amount,
-        tributeTotalChanged: true,
+        tributeTotalChanged: immediateTribute > 0,
       },
       reason: body.action === "autoCollect" && plan.missedPeriods > 0
         ? "tribute:debt-contract:missed"
@@ -458,11 +466,13 @@ export async function POST(request: Request) {
         .from("profiles")
         .update({
           coins: profile.coins,
+          debt_tribute_pending: profile.debt_tribute_pending ?? 0,
           tribute_total: profile.tribute_total,
           updated_at: collectedAt,
         })
         .eq("id", userId)
         .eq("coins", nextCoins)
+        .eq("debt_tribute_pending", nextDebtTributePending)
         .eq("tribute_total", nextTributeTotal);
 
       if (rollbackProfileError) {
@@ -536,11 +546,13 @@ export async function POST(request: Request) {
             .from("profiles")
             .update({
               coins: profile.coins,
+              debt_tribute_pending: profile.debt_tribute_pending ?? 0,
               tribute_total: profile.tribute_total,
               updated_at: collectedAt,
             })
             .eq("id", userId)
             .eq("coins", nextCoins)
+            .eq("debt_tribute_pending", nextDebtTributePending)
             .eq("tribute_total", nextTributeTotal);
 
           if (rollbackProfileError) {

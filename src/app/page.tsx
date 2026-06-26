@@ -101,6 +101,7 @@ import { getUserLevelProgress } from "@/lib/levels";
 import {
   formatPetThroneAmount,
   getPetThroneReceiveAmount,
+  getPetThroneRewardBreakdown,
   PET_THRONE_TASK_ID,
   PET_THRONE_URL,
 } from "@/lib/pet-throne";
@@ -1134,10 +1135,16 @@ function buildPetTasksFromRows(
 
     if (task.kind === "throne-tribute") {
       const throneAmount = getTaskMetadataNumber(row?.metadata, "throneAmount", 0);
+      const legacyThroneReceiveAmount = getTaskMetadataNumber(row?.metadata, "throneReceiveAmount", 0);
+      const throneBreakdown = getPetThroneRewardBreakdown(throneAmount);
       const throneReceiveAmount = getTaskMetadataNumber(
         row?.metadata,
-        "throneReceiveAmount",
-        throneAmount > 0 ? getPetThroneReceiveAmount(throneAmount) : 0,
+        "throneTotalCoinAmount",
+        legacyThroneReceiveAmount > 0
+          ? (legacyThroneReceiveAmount >= 1000
+            ? legacyThroneReceiveAmount
+            : Math.round(legacyThroneReceiveAmount * 1000))
+          : throneBreakdown.totalCoinAmount,
       );
       const throneProofImage = getTaskMetadataString(row?.metadata, "proofImage");
       const cooldownUntil =
@@ -7809,7 +7816,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const normalizedAmount = Math.max(0, Number(amount));
-    const receiveAmount = getPetThroneReceiveAmount(normalizedAmount);
+    const rewardBreakdown = getPetThroneRewardBreakdown(normalizedAmount);
+    const receiveAmount = rewardBreakdown.totalCoinAmount;
 
     if (!normalizedAmount || !proofImage) {
       setAvatarMistressReply("Choose a Throne amount and upload the gift screen first.");
@@ -7820,6 +7828,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const metadata = {
       proofImage,
       throneAmount: normalizedAmount,
+      throneBaseCoinAmount: rewardBreakdown.baseCoinAmount,
+      throneGiveBonusAmount: rewardBreakdown.giveBonusAmount,
+      throneTaskBonusAmount: rewardBreakdown.taskBonusAmount,
+      throneTotalCoinAmount: rewardBreakdown.totalCoinAmount,
       throneReceiveAmount: receiveAmount,
     };
 
@@ -7876,11 +7888,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const metadata = {
-      proofImage: task.throneProofImage ?? "",
+      proofImage: "",
       throneAmount: task.throneAmount ?? 0,
+      throneBaseCoinAmount: 0,
+      throneGiveBonusAmount: 0,
+      throneTaskBonusAmount: 0,
+      throneTotalCoinAmount: 0,
       throneReceiveAmount:
-        task.throneReceiveAmount ??
-        getPetThroneReceiveAmount(Math.max(0, Number(task.throneAmount ?? 0))),
+        0,
     };
 
     if (!isGuestMode && authUserId) {
@@ -7909,6 +7924,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               cooldownUntil: null,
               reviewedAt: null,
               status: "available",
+              throneProofImage: null,
             }
           : entry,
       ),

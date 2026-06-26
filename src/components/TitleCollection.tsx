@@ -20,6 +20,10 @@ function formatCoins(value: number) {
   return value.toLocaleString();
 }
 
+function formatTitleSourceLabel(source: TitleItem["source"]) {
+  return source === "crate" ? "case" : source;
+}
+
 function describeTitleUnlock(title: TitleItem) {
   if (title.source === "progression" && typeof title.minTribute === "number") {
     return `Reach ${formatCoins(title.minTribute)} Tribute Total.`;
@@ -38,14 +42,14 @@ function describeTitleUnlock(title: TitleItem) {
   }
 
   if (title.source === "crate" && typeof title.minCrateLegendaries === "number") {
-    return `Pull ${title.minCrateLegendaries} Legendary item${title.minCrateLegendaries === 1 ? "" : "s"} from a crate.`;
+    return `Pull ${title.minCrateLegendaries} Legendary item${title.minCrateLegendaries === 1 ? "" : "s"} from a case.`;
   }
 
   if (title.source === "inventory" && typeof title.minInventoryValue === "number") {
-    return `Reach ${formatCoins(title.minInventoryValue)} in total crate inventory value.`;
+    return `Reach ${formatCoins(title.minInventoryValue)} in total case inventory value.`;
   }
 
-  return "Unlock through progression, shop purchases, Throne tribute, crates, inventory milestones, or admin rewards.";
+  return "Unlock through progression, shop purchases, Throne tribute, cases, inventory milestones, or admin rewards.";
 }
 
 export function TitleCollection({
@@ -98,7 +102,7 @@ export function TitleCollection({
 
       <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">
         {equippedTitle?.description ??
-          "Unlock titles through progression, shop purchases, Throne tribute, crates, inventory value milestones, and admin rewards."}
+          "Unlock titles through progression, shop purchases, Throne tribute, cases, inventory value milestones, and admin rewards."}
       </p>
 
       <div
@@ -143,7 +147,7 @@ export function TitleCollection({
                       : "border-white/10 text-zinc-600"
                   }`}
                 >
-                  {isOwned ? (isEquipped ? "equipped" : title.source) : "locked"}
+                  {isOwned ? (isEquipped ? "equipped" : formatTitleSourceLabel(title.source)) : "locked"}
                 </span>
               </div>
               <p

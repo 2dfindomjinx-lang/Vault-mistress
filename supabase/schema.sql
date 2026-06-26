@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   coins integer not null default 100,
   affection integer not null default 0,
   tribute_total integer not null default 0,
+  debt_tribute_pending integer not null default 0,
   lifetime_spent_coins integer not null default 0,
   shame_count integer not null default 0,
   is_admin boolean not null default false,
@@ -35,6 +36,7 @@ alter table public.profiles
   add column if not exists avatar_url text,
   add column if not exists email text,
   add column if not exists tribute_total integer not null default 0,
+  add column if not exists debt_tribute_pending integer not null default 0,
   add column if not exists lifetime_spent_coins integer not null default 0,
   add column if not exists shame_count integer not null default 0,
   add column if not exists is_admin boolean not null default false,
@@ -334,6 +336,35 @@ create table if not exists public.pending_admin_actions (
   approved_at timestamp with time zone
 );
 
+create table if not exists public.admin_pet_task_logs (
+  id uuid primary key default gen_random_uuid(),
+  task_row_id uuid references public.user_pet_tasks(id) on delete set null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  username_snapshot text,
+  task_id text not null,
+  status text not null default 'executed' check (status in ('queued', 'executed', 'reverted', 'cleared')),
+  reward_score_delta integer not null default 0,
+  coin_total_delta integer not null default 0,
+  throne_base_coin_amount integer not null default 0,
+  throne_give_bonus_amount integer not null default 0,
+  throne_task_bonus_amount integer not null default 0,
+  devotion_delta integer not null default 0,
+  pending_action_id uuid references public.pending_admin_actions(id) on delete set null,
+  transaction_ids jsonb not null default '[]'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  reviewed_by_user_id uuid references auth.users(id) on delete set null,
+  reviewed_at timestamp with time zone,
+  resolved_at timestamp with time zone,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create index if not exists admin_pet_task_logs_user_id_idx
+  on public.admin_pet_task_logs(user_id, created_at desc);
+
+create index if not exists admin_pet_task_logs_pending_action_id_idx
+  on public.admin_pet_task_logs(pending_action_id);
+
 alter table public.coin_transactions
   add column if not exists admin_user_id uuid references auth.users(id) on delete set null,
   add column if not exists balance_before integer,
@@ -342,6 +373,27 @@ alter table public.coin_transactions
 
 alter table public.devotion_events
   add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+alter table public.admin_pet_task_logs
+  add column if not exists task_row_id uuid references public.user_pet_tasks(id) on delete set null,
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists username_snapshot text,
+  add column if not exists task_id text,
+  add column if not exists status text not null default 'executed',
+  add column if not exists reward_score_delta integer not null default 0,
+  add column if not exists coin_total_delta integer not null default 0,
+  add column if not exists throne_base_coin_amount integer not null default 0,
+  add column if not exists throne_give_bonus_amount integer not null default 0,
+  add column if not exists throne_task_bonus_amount integer not null default 0,
+  add column if not exists devotion_delta integer not null default 0,
+  add column if not exists pending_action_id uuid references public.pending_admin_actions(id) on delete set null,
+  add column if not exists transaction_ids jsonb not null default '[]'::jsonb,
+  add column if not exists metadata jsonb not null default '{}'::jsonb,
+  add column if not exists reviewed_by_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists reviewed_at timestamp with time zone,
+  add column if not exists resolved_at timestamp with time zone,
+  add column if not exists created_at timestamp with time zone not null default now(),
+  add column if not exists updated_at timestamp with time zone not null default now();
 
 alter table public.profiles enable row level security;
 alter table public.x_rebrand_tokens enable row level security;
@@ -362,6 +414,7 @@ alter table public.devotion_events enable row level security;
 alter table public.user_irl_tasks enable row level security;
 alter table public.irl_task_fail_events enable row level security;
 alter table public.pending_admin_actions enable row level security;
+alter table public.admin_pet_task_logs enable row level security;
 
 create or replace function public.is_privileged_db_context()
 returns boolean
@@ -387,6 +440,7 @@ begin
     new.coins := 100;
     new.affection := 0;
     new.tribute_total := 0;
+    new.debt_tribute_pending := 0;
     new.lifetime_spent_coins := 0;
     new.shame_count := 0;
     new.is_admin := false;
@@ -604,6 +658,52 @@ create trigger apply_lifetime_spent_coins_from_transaction_trigger
   after insert on public.coin_transactions
   for each row
   execute function public.apply_lifetime_spent_coins_from_transaction();
+
+create or replace function public.apply_pending_debt_tribute_from_transaction()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  pending_amount integer := 0;
+  released_amount integer := 0;
+begin
+  if new.amount <= 0 then
+    return new;
+  end if;
+
+  select coalesce(profile.debt_tribute_pending, 0)
+  into pending_amount
+  from public.profiles profile
+  where profile.id = new.user_id
+  for update;
+
+  if pending_amount <= 0 then
+    return new;
+  end if;
+
+  released_amount := least(new.amount, pending_amount);
+
+  update public.profiles
+  set
+    tribute_total = least(
+      2147483647,
+      greatest(0, coalesce(tribute_total, 0) + released_amount)
+    ),
+    debt_tribute_pending = greatest(0, pending_amount - released_amount),
+    updated_at = now()
+  where id = new.user_id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists apply_pending_debt_tribute_from_transaction_trigger on public.coin_transactions;
+create trigger apply_pending_debt_tribute_from_transaction_trigger
+  after insert on public.coin_transactions
+  for each row
+  execute function public.apply_pending_debt_tribute_from_transaction();
 
 -- One-time backfill for existing profiles so badges reflect historical spending.
 update public.profiles profile

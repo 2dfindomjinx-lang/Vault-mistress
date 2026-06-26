@@ -1,4 +1,10 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
+import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
+import { awardDevotion, DEVOTION_REWARD_REVIEW_TASK } from "@/lib/devotion";
+import {
+  getPetThroneRewardBreakdown,
+  PET_THRONE_TASK_ID,
+} from "@/lib/pet-throne";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +48,7 @@ export async function POST(request: Request) {
 
   const { data: task, error: taskError } = await admin.supabase
     .from("user_pet_tasks")
-    .select("id, user_id, task_id, reward_score, status")
+    .select("id, user_id, task_id, reward_score, status, metadata")
     .eq("id", body.taskId)
     .maybeSingle();
 
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
-    .select("id, coins, pet_score")
+    .select("id, username, coins, pet_score")
     .eq("id", task.user_id)
     .maybeSingle();
   if (profileError || !profile) {
@@ -70,7 +76,29 @@ export async function POST(request: Request) {
   }
 
   const previousCoins = Number(profile.coins ?? 0);
-  const nextCoins = previousCoins + PET_TASK_COIN_REWARD;
+  const taskMetadata = (task.metadata ?? {}) as Record<string, unknown>;
+  const isThroneTask = task.task_id === PET_THRONE_TASK_ID;
+  const throneAmount = typeof taskMetadata.throneAmount === "number" ? taskMetadata.throneAmount : 0;
+  const throneBreakdown = getPetThroneRewardBreakdown(throneAmount);
+  const throneBaseCoinAmount =
+    typeof taskMetadata.throneBaseCoinAmount === "number"
+      ? Math.max(0, Math.floor(taskMetadata.throneBaseCoinAmount))
+      : throneBreakdown.baseCoinAmount;
+  const throneGiveBonusAmount =
+    typeof taskMetadata.throneGiveBonusAmount === "number"
+      ? Math.max(0, Math.floor(taskMetadata.throneGiveBonusAmount))
+      : throneBreakdown.giveBonusAmount;
+  const throneTaskBonusAmount =
+    typeof taskMetadata.throneTaskBonusAmount === "number"
+      ? Math.max(0, Math.floor(taskMetadata.throneTaskBonusAmount))
+      : throneBreakdown.taskBonusAmount;
+  const throneTotalCoinAmount =
+    typeof taskMetadata.throneTotalCoinAmount === "number"
+      ? Math.max(0, Math.floor(taskMetadata.throneTotalCoinAmount))
+      : throneBaseCoinAmount + throneGiveBonusAmount + throneTaskBonusAmount;
+  const coinRewardAmount = isThroneTask ? 0 : PET_TASK_COIN_REWARD;
+  const nextCoins = previousCoins + coinRewardAmount;
+  const directThronePayoutCoins = previousCoins + throneTotalCoinAmount;
   const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + Number(task.reward_score ?? 0));
   const profilePatch: {
     coins: number;
@@ -83,30 +111,167 @@ export async function POST(request: Request) {
     profilePatch.last_pet_tax_at = now;
   }
 
+  if (isThroneTask && throneBaseCoinAmount <= 0) {
+    return Response.json({ error: "Invalid Throne reward payload." }, { status: 422 });
+  }
+
   const { error: profileUpdateError } = await admin.supabase
     .from("profiles")
     .update(profilePatch)
     .eq("id", profile.id);
   if (profileUpdateError) return Response.json({ error: profileUpdateError.message }, { status: 500 });
 
-  const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
-    user_id: profile.id,
-    amount: PET_TASK_COIN_REWARD,
-    reason: "pet_task_admin_approval",
-    balance_before: previousCoins,
-    balance_after: nextCoins,
-    metadata: { taskId: task.task_id },
-  }).select("id").single();
+  let transactionIds: string[] = [];
+  let approvalMessage = "Pet task approved.";
 
-  if (transactionError) {
-    console.error("Mobile admin pet task transaction insert failed", transactionError);
-    await admin.supabase
+  if (isThroneTask) {
+    const finalCoins = previousCoins + throneTotalCoinAmount;
+    const { error: throneProfileUpdateError } = await admin.supabase
       .from("profiles")
-      .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+      .update({ coins: finalCoins, updated_at: now })
       .eq("id", profile.id)
-      .eq("coins", nextCoins)
-      .eq("pet_score", nextPetScore);
-    return Response.json({ error: "Pet task approval logging failed." }, { status: 500 });
+      .eq("coins", previousCoins);
+
+    if (throneProfileUpdateError) {
+      await admin.supabase
+        .from("profiles")
+        .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+        .eq("id", profile.id)
+        .eq("coins", nextCoins)
+        .eq("pet_score", nextPetScore);
+      return Response.json({ error: "Throne payout profile update failed." }, { status: 500 });
+    }
+
+    const txRows = [
+      {
+        user_id: profile.id,
+        admin_user_id: admin.adminUser.id,
+        amount: throneBaseCoinAmount,
+        reason: "throne_tribute",
+        balance_before: previousCoins,
+        balance_after: previousCoins + throneBaseCoinAmount,
+        metadata: {
+          command: "give",
+          kind: "manual_coin_purchase",
+          petTaskId: task.id,
+          requestedAmount: throneBaseCoinAmount,
+          source: "mobile_pet_task_admin_approval",
+          target_username_snapshot: profile.username,
+          tributeTotalChanged: false,
+          verifiedAdminUserId: admin.adminUser.id,
+        },
+      },
+      ...(throneGiveBonusAmount > 0
+        ? [{
+            user_id: profile.id,
+            admin_user_id: admin.adminUser.id,
+            amount: throneGiveBonusAmount,
+            reason: "give_bonus",
+            balance_before: previousCoins + throneBaseCoinAmount,
+            balance_after: previousCoins + throneBaseCoinAmount + throneGiveBonusAmount,
+            metadata: {
+              baseAmount: throneBaseCoinAmount,
+              bonusPercent: throneBaseCoinAmount > 0 ? throneGiveBonusAmount / throneBaseCoinAmount : 0,
+              command: "give",
+              kind: "admin_give_bonus",
+              petTaskId: task.id,
+              source: "mobile_pet_task_admin_approval",
+              verifiedAdminUserId: admin.adminUser.id,
+            },
+          }]
+        : []),
+      ...(throneTaskBonusAmount > 0
+        ? [{
+            user_id: profile.id,
+            admin_user_id: admin.adminUser.id,
+            amount: throneTaskBonusAmount,
+            reason: "admin_add",
+            balance_before: previousCoins + throneBaseCoinAmount + throneGiveBonusAmount,
+            balance_after: finalCoins,
+            metadata: {
+              baseAmount: throneBaseCoinAmount,
+              command: "add",
+              kind: "pet_throne_task_bonus",
+              petTaskId: task.id,
+              source: "mobile_pet_task_admin_approval",
+              target_username_snapshot: profile.username,
+              verifiedAdminUserId: admin.adminUser.id,
+            },
+          }]
+        : []),
+    ];
+
+    const { data: insertedTransactions, error: throneTransactionError } = await admin.supabase
+      .from("coin_transactions")
+      .insert(txRows)
+      .select("id");
+
+    if (throneTransactionError) {
+      console.error("Mobile admin throne pet task transaction insert failed", throneTransactionError);
+      await admin.supabase
+        .from("profiles")
+        .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+        .eq("id", profile.id)
+        .eq("coins", directThronePayoutCoins)
+        .eq("pet_score", nextPetScore);
+      return Response.json({ error: "Throne payout logging failed." }, { status: 500 });
+    }
+
+    transactionIds = (insertedTransactions ?? []).map((entry) => String(entry.id));
+
+    try {
+      if (transactionIds[0]) {
+        await awardDevotion(admin.supabase, {
+          amount: Math.floor(throneBaseCoinAmount * 0.01),
+          metadata: {
+            baseAmount: throneBaseCoinAmount,
+            command: "give",
+            petTaskId: task.id,
+            transactionId: transactionIds[0],
+          },
+          source: "admin_give",
+          sourceKey: `admin-give:${transactionIds[0]}`,
+          userId: profile.id,
+        });
+      }
+    } catch (devotionError) {
+      console.error("Mobile admin pet throne devotion award failed", devotionError);
+    }
+
+    const { data: giftRows } = await admin.supabase
+      .from("coin_transactions")
+      .select("amount")
+      .eq("user_id", profile.id)
+      .in("reason", ["throne_tribute", "live_gift"]);
+    const giftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
+    await syncThroneMilestoneTitles(admin.supabase, profile.id, giftTotal);
+
+    approvalMessage = `Pet task approved. +${task.reward_score ?? 0} Pet Score. Added ${throneBaseCoinAmount.toLocaleString()} base + ${throneGiveBonusAmount.toLocaleString()} give bonus + ${throneTaskBonusAmount.toLocaleString()} task bonus = ${throneTotalCoinAmount.toLocaleString()} coins.`;
+  } else {
+    const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
+      user_id: profile.id,
+      amount: PET_TASK_COIN_REWARD,
+      reason: "pet_task_admin_approval",
+      balance_before: previousCoins,
+      balance_after: nextCoins,
+      metadata: { taskId: task.task_id },
+    }).select("id").single();
+
+    if (transactionError) {
+      console.error("Mobile admin pet task transaction insert failed", transactionError);
+      await admin.supabase
+        .from("profiles")
+        .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
+        .eq("id", profile.id)
+        .eq("coins", nextCoins)
+        .eq("pet_score", nextPetScore);
+      return Response.json({ error: "Pet task approval logging failed." }, { status: 500 });
+    }
+
+    if (transaction?.id) {
+      transactionIds = [transaction.id];
+    }
+    approvalMessage = `Pet task approved. +${task.reward_score ?? 0} Pet Score, +${PET_TASK_COIN_REWARD} coins.`;
   }
 
   const { data: approvedTask, error: taskUpdateError } = await admin.supabase
@@ -117,14 +282,14 @@ export async function POST(request: Request) {
     .select("id")
     .maybeSingle();
   if (taskUpdateError || !approvedTask) {
-    if (transaction?.id) {
-      await admin.supabase.from("coin_transactions").delete().eq("id", transaction.id);
+    if (transactionIds.length > 0) {
+      await admin.supabase.from("coin_transactions").delete().in("id", transactionIds);
     }
     await admin.supabase
       .from("profiles")
       .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
       .eq("id", profile.id)
-      .eq("coins", nextCoins)
+      .eq("coins", isThroneTask && transactionIds.length > 0 ? directThronePayoutCoins : nextCoins)
       .eq("pet_score", nextPetScore);
     return Response.json(
       { error: taskUpdateError?.message ?? "Pet task is no longer pending review." },
@@ -132,5 +297,49 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json({ message: "Pet task approved.", tasks: await listPetTasks(admin.supabase) });
+  try {
+    await awardDevotion(admin.supabase, {
+      amount: DEVOTION_REWARD_REVIEW_TASK,
+      metadata: {
+        reviewTaskId: task.id,
+        taskId: task.task_id,
+      },
+      source: "pet_review_approval",
+      sourceKey: `pet-review:${task.id}`,
+      userId: profile.id,
+    });
+  } catch (devotionError) {
+    console.error("Mobile admin pet task devotion award failed", devotionError);
+  }
+
+  if (isThroneTask) {
+    const { error: logError } = await admin.supabase
+      .from("admin_pet_task_logs")
+      .insert({
+        coin_total_delta: throneTotalCoinAmount,
+        devotion_delta: DEVOTION_REWARD_REVIEW_TASK + Math.floor(throneBaseCoinAmount * 0.01),
+        metadata: {
+          proofImagePresent: Boolean(taskMetadata.proofImage),
+        },
+        reviewed_at: now,
+        reviewed_by_user_id: admin.adminUser.id,
+        reward_score_delta: Number(task.reward_score ?? 0),
+        status: "executed",
+        task_id: task.task_id,
+        task_row_id: task.id,
+        throne_base_coin_amount: throneBaseCoinAmount,
+        throne_give_bonus_amount: throneGiveBonusAmount,
+        throne_task_bonus_amount: throneTaskBonusAmount,
+        transaction_ids: transactionIds,
+        updated_at: now,
+        user_id: profile.id,
+        username_snapshot: profile.username,
+      });
+
+    if (logError) {
+      console.error("Mobile admin pet throne log insert failed", logError);
+    }
+  }
+
+  return Response.json({ message: approvalMessage, tasks: await listPetTasks(admin.supabase) });
 }

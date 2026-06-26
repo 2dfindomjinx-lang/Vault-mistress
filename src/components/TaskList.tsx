@@ -35,6 +35,7 @@ const CASE_OPEN_REEL_ITEM_GAP = 10;
 const CASE_OPEN_REEL_VISIBLE_COUNT = 5;
 const CASE_OPEN_REEL_LANDING_INDEX = 24;
 const CASE_OPEN_REEL_TAPE_LENGTH = 32;
+const CASE_OPEN_ANIMATION_MS = 5000;
 
 function pickCaseOpenReward() {
   const totalWeight = CASE_OPEN_REWARD_WEIGHTS.reduce((sum, entry) => sum + entry.weight, 0);
@@ -251,9 +252,11 @@ export function TaskList({
   const [caseOpenOffset, setCaseOpenOffset] = useState(0);
   const [caseOpenAnimating, setCaseOpenAnimating] = useState(false);
   const [caseOpenResolvedReward, setCaseOpenResolvedReward] = useState<number | null>(null);
+  const [caseOpenActiveIndex, setCaseOpenActiveIndex] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
-  const caseOpenTimerRef = useRef<number | null>(null);
-  const caseOpenSoundTimerRefs = useRef<number[]>([]);
+  const caseOpenAnimationFrameRef = useRef<number | null>(null);
+  const caseOpenAnimationRunRef = useRef(0);
+  const caseOpenLastTickIndexRef = useRef(0);
   const isTaskActionPending = useCallback(
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
@@ -261,60 +264,6 @@ export function TaskList({
   const monthlyResetRemaining = getNextGmt3MonthlyResetMs(now);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
   const isCaseOpenPending = isTaskActionPending("case-opening");
-  const clearCaseOpenSoundTimers = useCallback(() => {
-    caseOpenSoundTimerRefs.current.forEach((timer) => window.clearTimeout(timer));
-    caseOpenSoundTimerRefs.current = [];
-  }, []);
-  const startCaseOpenSoundTicks = useCallback(() => {
-    clearCaseOpenSoundTimers();
-
-    let soundTick = 0;
-    const maxSoundTicks = 42;
-
-    const scheduleSoundTick = (delay: number) => {
-      const timer = window.setTimeout(() => {
-        if (soundTick >= maxSoundTicks) {
-          return;
-        }
-
-        emitSoundEvent("crate_reel_tick");
-        soundTick += 1;
-
-        if (soundTick < maxSoundTicks) {
-          const progress = soundTick / maxSoundTicks;
-          const nextDelay = Math.floor(38 + (240 - 38) * Math.pow(progress, 1.7));
-          scheduleSoundTick(nextDelay);
-        }
-      }, delay);
-
-      caseOpenSoundTimerRefs.current.push(timer);
-    };
-
-    scheduleSoundTick(38);
-  }, [clearCaseOpenSoundTimers]);
-  const handleCooldownAttempt = (message: string) => {
-    emitSoundEvent("button_click");
-    onCooldownAttempt?.(message);
-  };
-
-  useEffect(() => {
-    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
-      if (irlWheelTimerRef.current) {
-        window.clearTimeout(irlWheelTimerRef.current);
-      }
-      if (caseOpenTimerRef.current) {
-        window.clearTimeout(caseOpenTimerRef.current);
-      }
-      clearCaseOpenSoundTimers();
-    };
-  }, [clearCaseOpenSoundTimers]);
-
-  const movementTask = tasks.find((task) => task.kind === "movement");
   const caseOpenSlotSize = CASE_OPEN_REEL_ITEM_WIDTH + CASE_OPEN_REEL_ITEM_GAP;
   const caseOpenTrackSidePadding = `calc(50% - ${CASE_OPEN_REEL_ITEM_WIDTH / 2}px)`;
   const caseOpenPreviewValues = useMemo(
@@ -335,6 +284,119 @@ export function TaskList({
     },
     [],
   );
+  const stopCaseOpenAnimation = useCallback(() => {
+    caseOpenAnimationRunRef.current += 1;
+    if (caseOpenAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(caseOpenAnimationFrameRef.current);
+      caseOpenAnimationFrameRef.current = null;
+    }
+    setCaseOpenAnimating(false);
+  }, []);
+  const resetCaseOpenDisplay = useCallback(() => {
+    stopCaseOpenAnimation();
+    setCaseOpenPhase("idle");
+    setCaseOpenTape([]);
+    setCaseOpenOffset(0);
+    setCaseOpenResolvedReward(null);
+    setCaseOpenActiveIndex(null);
+  }, [stopCaseOpenAnimation]);
+  const runCaseOpenAnimation = useCallback((reward: number) => {
+    stopCaseOpenAnimation();
+    const runId = caseOpenAnimationRunRef.current;
+    const slotSize = caseOpenSlotSize;
+    const totalDistance = CASE_OPEN_REEL_LANDING_INDEX * slotSize;
+    let startTime: number | null = null;
+
+    caseOpenLastTickIndexRef.current = 0;
+    setCaseOpenAnimating(true);
+    setCaseOpenPhase("rolling");
+    setCaseOpenResolvedReward(null);
+    setCaseOpenActiveIndex(0);
+    setCaseOpenOffset(0);
+
+    const easeOutQuart = (progress: number) => 1 - Math.pow(1 - progress, 4);
+
+    const step = (timestamp: number) => {
+      if (caseOpenAnimationRunRef.current !== runId) {
+        return;
+      }
+
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(1, elapsed / CASE_OPEN_ANIMATION_MS);
+      const easedProgress = easeOutQuart(progress);
+      const travelled = totalDistance * easedProgress;
+      const activeIndex = Math.max(
+        0,
+        Math.min(CASE_OPEN_REEL_LANDING_INDEX, Math.round(travelled / slotSize)),
+      );
+
+      setCaseOpenOffset(-travelled);
+      setCaseOpenActiveIndex(activeIndex);
+
+      while (caseOpenLastTickIndexRef.current < activeIndex) {
+        caseOpenLastTickIndexRef.current += 1;
+        emitSoundEvent("crate_reel_tick");
+      }
+
+      if (progress < 1) {
+        caseOpenAnimationFrameRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      caseOpenAnimationFrameRef.current = null;
+      setCaseOpenAnimating(false);
+      setCaseOpenOffset(0);
+      setCaseOpenActiveIndex(CASE_OPEN_REEL_LANDING_INDEX);
+      setCaseOpenResolvedReward(reward);
+      setCaseOpenPhase("idle");
+    };
+
+    caseOpenAnimationFrameRef.current = window.requestAnimationFrame(step);
+  }, [caseOpenSlotSize, stopCaseOpenAnimation]);
+  const handleCooldownAttempt = (message: string) => {
+    emitSoundEvent("button_click");
+    onCooldownAttempt?.(message);
+  };
+
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+      if (irlWheelTimerRef.current) {
+        window.clearTimeout(irlWheelTimerRef.current);
+      }
+      stopCaseOpenAnimation();
+    };
+  }, [stopCaseOpenAnimation]);
+
+  const movementTask = tasks.find((task) => task.kind === "movement");
+
+  useEffect(() => {
+    const handleVisibilityReset = () => {
+      if (document.visibilityState === "hidden") {
+        resetCaseOpenDisplay();
+      }
+    };
+
+    const handlePageHide = () => {
+      resetCaseOpenDisplay();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityReset);
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityReset);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [resetCaseOpenDisplay]);
 
   useEffect(() => {
     if (movementTask?.movementState !== "fake_hope" || !movementTask.movementFailAt) {
@@ -1159,9 +1221,7 @@ export function TaskList({
                           paddingLeft: caseOpenTrackSidePadding,
                           paddingRight: caseOpenTrackSidePadding,
                           transform: `translateX(${caseOpenOffset}px)`,
-                          transition: caseOpenAnimating
-                            ? "transform 5s cubic-bezier(0.12,0.78,0.12,1)"
-                            : "none",
+                          transition: "none",
                         }}
                       >
                         {(caseOpenPhase === "rolling"
@@ -1170,7 +1230,11 @@ export function TaskList({
                         ).map((value, index) => (
                           <div
                             key={`${value}-${index}-${caseOpenPhase}`}
-                            className="flex h-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(236,72,153,0.18),rgba(24,24,27,0.92))] px-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.32)]"
+                            className={`flex h-16 shrink-0 items-center justify-center rounded-2xl border px-3 text-center shadow-[0_10px_30px_rgba(0,0,0,0.32)] transition ${
+                              caseOpenPhase === "rolling" && index === caseOpenActiveIndex
+                                ? "border-pink-100/60 bg-[linear-gradient(160deg,rgba(251,113,133,0.34),rgba(24,24,27,0.94))] shadow-[0_0_28px_rgba(244,114,182,0.22)]"
+                                : "border-white/10 bg-[linear-gradient(160deg,rgba(236,72,153,0.18),rgba(24,24,27,0.92))]"
+                            }`}
                             style={{ width: `${CASE_OPEN_REEL_ITEM_WIDTH}px` }}
                           >
                             <CoinAmount
@@ -1185,9 +1249,9 @@ export function TaskList({
                           ))}
                       </div>
                     </div>
-                    {caseOpenPhase === "idle" && (caseOpenResolvedReward ?? task.caseReward ?? null) != null ? (
+                    {caseOpenPhase === "idle" && caseOpenResolvedReward != null ? (
                       <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
-                        Last reward: +{caseOpenResolvedReward ?? task.caseReward ?? 0} Principessa Coins
+                        Last reward: +{caseOpenResolvedReward} Principessa Coins
                       </p>
                     ) : (
                       <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
@@ -1209,49 +1273,26 @@ export function TaskList({
 
                       emitSoundEvent("button_click");
                       setCaseOpenResolvedReward(null);
-                      if (caseOpenTimerRef.current) {
-                        window.clearTimeout(caseOpenTimerRef.current);
-                        caseOpenTimerRef.current = null;
-                      }
-                      clearCaseOpenSoundTimers();
-
-                      setCaseOpenPhase("rolling");
-                      setCaseOpenAnimating(false);
+                      stopCaseOpenAnimation();
+                      setCaseOpenTape([]);
                       setCaseOpenOffset(0);
+                      setCaseOpenActiveIndex(null);
+                      setCaseOpenPhase("idle");
 
                       const reward = await onCaseOpen();
                       if (typeof reward !== "number") {
-                        clearCaseOpenSoundTimers();
                         setCaseOpenResolvedReward(null);
-                        setCaseOpenAnimating(false);
                         setCaseOpenOffset(0);
+                        setCaseOpenActiveIndex(null);
                         setCaseOpenPhase("idle");
                         return;
                       }
 
                       const nextTape = buildCaseOpenTape(reward);
                       setCaseOpenTape(nextTape);
-                      setCaseOpenAnimating(false);
-                      setCaseOpenOffset(0);
-                      setCaseOpenPhase("rolling");
-                      startCaseOpenSoundTicks();
-
                       window.requestAnimationFrame(() => {
-                        window.requestAnimationFrame(() => {
-                          setCaseOpenAnimating(true);
-                          setCaseOpenOffset(-(CASE_OPEN_REEL_LANDING_INDEX * caseOpenSlotSize));
-                        });
+                        runCaseOpenAnimation(reward);
                       });
-
-                      caseOpenTimerRef.current = window.setTimeout(() => {
-                        clearCaseOpenSoundTimers();
-                        emitSoundEvent("crate_reel_tick");
-                        setCaseOpenResolvedReward(reward);
-                        setCaseOpenAnimating(false);
-                        setCaseOpenOffset(0);
-                        setCaseOpenPhase("idle");
-                        caseOpenTimerRef.current = null;
-                      }, 5000);
                     }}
                     type="button"
                   >

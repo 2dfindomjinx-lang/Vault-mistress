@@ -9,7 +9,9 @@ export async function createPendingCoinAction(params: {
   targetUserId: string;
   targetUsername: string;
   amount: number;
+  metadata?: Record<string, unknown>;
   originalCommand?: string;
+  reason?: string;
 }) {
   const supabase = createSupabaseAdminClient();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
@@ -24,10 +26,11 @@ export async function createPendingCoinAction(params: {
       target_user_id: params.targetUserId,
       target_username_snapshot: params.targetUsername,
       amount: params.amount,
-      reason: params.command === "give" ? "throne_tribute" : "admin_add",
+      reason: params.reason ?? (params.command === "give" ? "throne_tribute" : "admin_add"),
       metadata: {
         originalCommand: params.originalCommand ?? `/${params.command} ${params.amount} @${params.targetUsername}`,
         requestedAt: nowIso,
+        ...(params.metadata ?? {}),
       },
       status: "pending",
       expires_at: expiresAt,
