@@ -2424,200 +2424,200 @@ export function PetSection({
               </article>
             )}
 
-            <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
-                    Mystery Link
-                  </p>
-                  <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+            <div className="grid min-w-0 gap-3">
+              <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-black text-white">{throneTask.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-zinc-300">{throneTask.description}</p>
+                  </div>
+                  <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                    {getPetTaskBadgeLabel(throneTask, thronePending, throneApproved, throneFailed)}
+                  </span>
                 </div>
-                <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
-                  Mystery
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-zinc-300">
-                Opens an unknown external destination. Each click prepares a different hidden link
-                until the whole pool has been used.
-              </p>
-              <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
-                The destination may contain adult-oriented content. Be mindful of your surroundings
-                before opening it.
-              </div>
-              <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
-                {randomWebsiteLink
-                  ? "A mystery destination is ready."
-                  : "No destination configured."}
-              </div>
-              <div className="mt-auto pt-4">
-                <button
-                  className="w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={!randomWebsiteLink}
-                  onClick={handleRandomWebsiteOpen}
-                  type="button"
-                >
-                  {randomWebsiteLink ? "Click" : "No destination configured"}
-                </button>
-              </div>
-            </article>
+                <p className="mt-3 text-xs font-bold text-red-100">
+                  Admin approve reward: +{throneTask.reward} Pet Score, +{petReviewTaskCoinReward} Coins
+                </p>
+                <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {PET_THRONE_AMOUNTS.map((amount) => {
+                      const active = selectedThroneAmount === amount;
+
+                      return (
+                        <button
+                          className={`rounded-2xl border px-3 py-2 text-sm font-black transition ${
+                            active
+                              ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
+                              : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
+                          }`}
+                          disabled={disabled || thronePending || throneActionPending}
+                          key={amount}
+                          onClick={() => setSelectedThroneAmount(amount)}
+                          type="button"
+                        >
+                          {formatPetThroneAmount(amount)}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
+                      You Receive
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-pink-50">
+                      {formatPetThroneAmount(throneCoinEquivalent)}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
+                      Coin equivalent
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Pick the Throne amount, open the Throne page, then upload the gift screen screenshot.
+                    </p>
+                  </div>
+
+                  <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
+                    <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      Throne screenshot
+                    </span>
+                    <input
+                      accept="image/*"
+                      className="mt-3 block w-full cursor-pointer text-sm text-zinc-200 file:mr-3 file:rounded-xl file:border-0 file:bg-pink-500/20 file:px-3 file:py-2 file:font-black file:text-pink-50"
+                      disabled={disabled || throneActionPending}
+                      onChange={handleThroneProofChange}
+                      type="file"
+                    />
+                    {throneProofError ? (
+                      <span className="mt-2 block text-xs text-red-300">{throneProofError}</span>
+                    ) : (
+                      <span className="mt-2 block text-xs text-zinc-500">
+                        Upload the Throne checkout or gift confirmation screen.
+                      </span>
+                    )}
+                  </label>
+
+                  {throneProofImage && (
+                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                      <Image
+                        alt="Throne proof preview"
+                        className="h-auto w-full"
+                        height={960}
+                        src={throneProofImage}
+                        unoptimized
+                        width={720}
+                      />
+                    </div>
+                  )}
+
+                  {throneCoolingDown && (
+                    <p className="text-xs text-yellow-100">
+                      Available in {formatRemaining(throneTask.cooldownUntil ?? null, now)}
+                    </p>
+                  )}
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
+                        throneCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
+                      }`}
+                      disabled={disabled || thronePending || throneActionPending || !throneProofImage}
+                      onClick={() => {
+                        if (throneCoolingDown) {
+                          handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(throneTask.cooldownUntil ?? null, now)}.`);
+                          return;
+                        }
+
+                        onSubmitThroneTribute({
+                          amount: selectedThroneAmount,
+                          proofImage: throneProofImage,
+                        });
+                      }}
+                      type="button"
+                    >
+                      {throneActionPending
+                        ? "Submitting..."
+                        : thronePending
+                          ? "Pending Review"
+                          : throneApproved
+                            ? "Approved"
+                            : "Submit Throne Bonus"}
+                    </button>
+                    <button
+                      className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-black text-zinc-200 transition enabled:hover:border-white/20 enabled:hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={disabled || throneActionPending || !throneProofImage}
+                      onClick={onCancelThroneTribute}
+                      type="button"
+                    >
+                      Clear Screenshot
+                    </button>
+                  </div>
+                </div>
+              </article>
+
+              <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+                      Mystery Link
+                    </p>
+                    <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+                  </div>
+                  <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
+                    Mystery
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  Opens an unknown external destination. Each click prepares a different hidden link
+                  until the whole pool has been used.
+                </p>
+                <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
+                  The destination may contain adult-oriented content. Be mindful of your surroundings
+                  before opening it.
+                </div>
+                <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
+                  {randomWebsiteLink
+                    ? "A mystery destination is ready."
+                    : "No destination configured."}
+                </div>
+                <div className="mt-auto pt-4">
+                  <button
+                    className="w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={!randomWebsiteLink}
+                    onClick={handleRandomWebsiteOpen}
+                    type="button"
+                  >
+                    {randomWebsiteLink ? "Click" : "No destination configured"}
+                  </button>
+                </div>
+              </article>
+            </div>
           </div>
 
-          <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-            <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-black text-white">{throneTask.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{throneTask.description}</p>
-                </div>
-                <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  {getPetTaskBadgeLabel(throneTask, thronePending, throneApproved, throneFailed)}
-                </span>
-              </div>
-              <p className="mt-3 text-xs font-bold text-red-100">
-                Admin approve reward: +{throneTask.reward} Pet Score, +{petReviewTaskCoinReward} Coins
-              </p>
-              <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {PET_THRONE_AMOUNTS.map((amount) => {
-                    const active = selectedThroneAmount === amount;
-
-                    return (
-                      <button
-                        className={`rounded-2xl border px-3 py-2 text-sm font-black transition ${
-                          active
-                            ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
-                            : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
-                        }`}
-                        disabled={disabled || thronePending || throneActionPending}
-                        key={amount}
-                        onClick={() => setSelectedThroneAmount(amount)}
-                        type="button"
-                      >
-                        {formatPetThroneAmount(amount)}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
-                    You Receive
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-pink-50">
-                    {formatPetThroneAmount(throneCoinEquivalent)}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
-                    Coin equivalent
-                  </p>
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Pick the Throne amount, open the Throne page, then upload the gift screen screenshot.
-                  </p>
-                </div>
-
-                <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
-                  <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
-                    Throne screenshot
-                  </span>
-                  <input
-                    accept="image/*"
-                    className="mt-3 block w-full cursor-pointer text-sm text-zinc-200 file:mr-3 file:rounded-xl file:border-0 file:bg-pink-500/20 file:px-3 file:py-2 file:font-black file:text-pink-50"
-                    disabled={disabled || throneActionPending}
-                    onChange={handleThroneProofChange}
-                    type="file"
-                  />
-                  {throneProofError ? (
-                    <span className="mt-2 block text-xs text-red-300">{throneProofError}</span>
-                  ) : (
-                    <span className="mt-2 block text-xs text-zinc-500">
-                      Upload the Throne checkout or gift confirmation screen.
-                    </span>
-                  )}
-                </label>
-
-                {throneProofImage && (
-                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
-                    <Image
-                      alt="Throne proof preview"
-                      className="h-auto w-full"
-                      height={960}
-                      src={throneProofImage}
-                      unoptimized
-                      width={720}
-                    />
-                  </div>
-                )}
-
-                {throneCoolingDown && (
-                  <p className="text-xs text-yellow-100">
-                    Available in {formatRemaining(throneTask.cooldownUntil ?? null, now)}
-                  </p>
-                )}
-
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
-                      throneCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-                    }`}
-                    disabled={disabled || thronePending || throneActionPending || !throneProofImage}
-                    onClick={() => {
-                      if (throneCoolingDown) {
-                        handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(throneTask.cooldownUntil ?? null, now)}.`);
-                        return;
-                      }
-
-                      onSubmitThroneTribute({
-                        amount: selectedThroneAmount,
-                        proofImage: throneProofImage,
-                      });
-                    }}
-                    type="button"
-                  >
-                    {throneActionPending
-                      ? "Submitting..."
-                      : thronePending
-                        ? "Pending Review"
-                        : throneApproved
-                          ? "Approved"
-                          : "Submit Throne Bonus"}
-                  </button>
-                  <button
-                    className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-black text-zinc-200 transition enabled:hover:border-white/20 enabled:hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={disabled || throneActionPending || !throneProofImage}
-                    onClick={onCancelThroneTribute}
-                    type="button"
-                  >
-                    Clear Screenshot
-                  </button>
-                </div>
-              </div>
-            </article>
-
-            <div className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
-                Pet Milestone
-              </p>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">
-                If at least 5 Pet tasks are approved,
-                claim +10 Pet Score.
-              </p>
-              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-                Daily reset in {formatRemaining(nextDailyResetAt, now)}
-              </p>
-              <button
-                className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={disabled || !canClaimAffection || isPetActionPending("pet-affection-claim")}
-                onClick={onClaimAffection}
-                type="button"
-              >
-                {isPetActionPending("pet-affection-claim")
-                  ? "Saving..."
-                  : petAffectionClaimed
-                    ? "Already Claimed"
-                    : canClaimAffection
-                      ? "Claim +10 Pet Score"
-                      : `${approvedCount}/5 approved`}
-              </button>
-            </div>
+          <div className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
+              Pet Milestone
+            </p>
+            <p className="mt-2 text-sm leading-6 text-zinc-300">
+              If at least 5 Pet tasks are approved,
+              claim +10 Pet Score.
+            </p>
+            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
+              Daily reset in {formatRemaining(nextDailyResetAt, now)}
+            </p>
+            <button
+              className="mt-4 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={disabled || !canClaimAffection || isPetActionPending("pet-affection-claim")}
+              onClick={onClaimAffection}
+              type="button"
+            >
+              {isPetActionPending("pet-affection-claim")
+                ? "Saving..."
+                : petAffectionClaimed
+                  ? "Already Claimed"
+                  : canClaimAffection
+                    ? "Claim +10 Pet Score"
+                    : `${approvedCount}/5 approved`}
+            </button>
           </div>
         </div>
       </div>
