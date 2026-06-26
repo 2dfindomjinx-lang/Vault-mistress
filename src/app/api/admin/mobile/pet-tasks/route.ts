@@ -78,6 +78,7 @@ export async function POST(request: Request) {
   const previousCoins = Number(profile.coins ?? 0);
   const taskMetadata = (task.metadata ?? {}) as Record<string, unknown>;
   const isThroneTask = task.task_id === PET_THRONE_TASK_ID;
+  const petScoreDelta = isThroneTask ? 0 : Number(task.reward_score ?? 0);
   const throneAmount = typeof taskMetadata.throneAmount === "number" ? taskMetadata.throneAmount : 0;
   const throneBreakdown = getPetThroneRewardBreakdown(throneAmount);
   const throneBaseCoinAmount =
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   const coinRewardAmount = isThroneTask ? 0 : PET_TASK_COIN_REWARD;
   const nextCoins = previousCoins + coinRewardAmount;
   const directThronePayoutCoins = previousCoins + throneTotalCoinAmount;
-  const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + Number(task.reward_score ?? 0));
+  const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + petScoreDelta);
   const profilePatch: {
     coins: number;
     pet_score: number;
@@ -246,7 +247,7 @@ export async function POST(request: Request) {
     const giftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
     await syncThroneMilestoneTitles(admin.supabase, profile.id, giftTotal);
 
-    approvalMessage = `Pet task approved. +${task.reward_score ?? 0} Pet Score. Added ${throneBaseCoinAmount.toLocaleString()} base + ${throneGiveBonusAmount.toLocaleString()} give bonus + ${throneTaskBonusAmount.toLocaleString()} task bonus = ${throneTotalCoinAmount.toLocaleString()} coins.`;
+    approvalMessage = `Throne payout added: ${throneBaseCoinAmount.toLocaleString()} base + ${throneGiveBonusAmount.toLocaleString()} give bonus + ${throneTaskBonusAmount.toLocaleString()} task bonus = ${throneTotalCoinAmount.toLocaleString()} coins.`;
   } else {
     const { data: transaction, error: transactionError } = await admin.supabase.from("coin_transactions").insert({
       user_id: profile.id,
@@ -271,7 +272,7 @@ export async function POST(request: Request) {
     if (transaction?.id) {
       transactionIds = [transaction.id];
     }
-    approvalMessage = `Pet task approved. +${task.reward_score ?? 0} Pet Score, +${PET_TASK_COIN_REWARD} coins.`;
+    approvalMessage = `Pet task approved. +${petScoreDelta} Pet Score, +${PET_TASK_COIN_REWARD} coins.`;
   }
 
   const { data: approvedTask, error: taskUpdateError } = await admin.supabase
@@ -298,16 +299,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    await awardDevotion(admin.supabase, {
-      amount: DEVOTION_REWARD_REVIEW_TASK,
-      metadata: {
-        reviewTaskId: task.id,
-        taskId: task.task_id,
-      },
-      source: "pet_review_approval",
-      sourceKey: `pet-review:${task.id}`,
-      userId: profile.id,
-    });
+    if (!isThroneTask) {
+      await awardDevotion(admin.supabase, {
+        amount: DEVOTION_REWARD_REVIEW_TASK,
+        metadata: {
+          reviewTaskId: task.id,
+          taskId: task.task_id,
+        },
+        source: "pet_review_approval",
+        sourceKey: `pet-review:${task.id}`,
+        userId: profile.id,
+      });
+    }
   } catch (devotionError) {
     console.error("Mobile admin pet task devotion award failed", devotionError);
   }
@@ -317,13 +320,13 @@ export async function POST(request: Request) {
       .from("admin_pet_task_logs")
       .insert({
         coin_total_delta: throneTotalCoinAmount,
-        devotion_delta: DEVOTION_REWARD_REVIEW_TASK + Math.floor(throneBaseCoinAmount * 0.01),
+        devotion_delta: Math.floor(throneBaseCoinAmount * 0.01),
         metadata: {
           proofImagePresent: Boolean(taskMetadata.proofImage),
         },
         reviewed_at: now,
         reviewed_by_user_id: admin.adminUser.id,
-        reward_score_delta: Number(task.reward_score ?? 0),
+        reward_score_delta: 0,
         status: "executed",
         task_id: task.task_id,
         task_row_id: task.id,

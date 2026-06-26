@@ -1568,8 +1568,10 @@ export function PetSection({
                   </div>
                   <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
                   <p className="mt-3 text-xs font-bold text-red-100">
-                    {task.kind === "review" || task.kind === "throne-tribute"
+                    {task.kind === "review"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
+                      : task.kind === "throne-tribute"
+                        ? "Admin approval only adds the selected Throne payout with both bonuses."
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
                       : `Completion reward: +${task.reward} Pet Score, +${
@@ -2449,7 +2451,7 @@ export function PetSection({
                   </span>
                 </div>
                 <p className="mt-3 text-xs font-bold text-red-100">
-                  Admin approve reward: +{throneTask.reward} Pet Score and the selected Throne payout with both bonuses
+                  Admin approval adds the selected Throne payout with both bonuses only.
                 </p>
                 <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -2554,9 +2556,7 @@ export function PetSection({
                         ? "Submitting..."
                         : thronePending
                           ? "Pending Review"
-                          : throneApproved
-                            ? "Approved"
-                            : "Submit Throne Bonus"}
+                          : "Submit Throne Bonus"}
                     </button>
                     <button
                       className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-black text-zinc-200 transition enabled:hover:border-white/20 enabled:hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-40"

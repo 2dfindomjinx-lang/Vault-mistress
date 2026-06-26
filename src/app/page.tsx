@@ -1147,17 +1147,14 @@ function buildPetTasksFromRows(
           : throneBreakdown.totalCoinAmount,
       );
       const throneProofImage = getTaskMetadataString(row?.metadata, "proofImage");
-      const cooldownUntil =
-        baseStatus === "pending" || baseStatus === "available"
-          ? null
-          : getPetTaskCooldownUntil(cooldownAnchor);
+      const status: PetTaskItem["status"] = baseStatus === "pending" ? "pending" : "available";
 
       return {
         ...task,
         completedAt,
-        cooldownUntil,
+        cooldownUntil: null,
         reviewedAt,
-        status: cooldownUntil ? baseStatus : baseStatus === "pending" ? "pending" : "available",
+        status,
         throneAmount: throneAmount > 0 ? throneAmount : null,
         throneProofImage,
         throneReceiveAmount: throneReceiveAmount > 0 ? throneReceiveAmount : null,

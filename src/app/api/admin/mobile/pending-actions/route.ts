@@ -372,7 +372,7 @@ export async function POST(request: Request) {
         .from("admin_pet_task_logs")
         .update({
           coin_total_delta: amount + giveBonusAmount + extraAddAmount,
-          devotion_delta: 5 + giveDevotionAmount,
+          devotion_delta: giveDevotionAmount,
           metadata: {
             ...((currentLog?.metadata as Record<string, unknown> | null) ?? {}),
             executedByAdminUserId: approverId,
