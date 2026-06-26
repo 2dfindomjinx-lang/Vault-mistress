@@ -7832,6 +7832,23 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       throneReceiveAmount: receiveAmount,
     };
 
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: now,
+              cooldownUntil: null,
+              reviewedAt: null,
+              status: "pending",
+              throneAmount: normalizedAmount,
+              throneProofImage: proofImage,
+              throneReceiveAmount: receiveAmount,
+            }
+          : entry,
+      ),
+    );
+
     let savedTask: UserPetTaskRow | null = null;
 
     if (!isGuestMode && authUserId) {
@@ -7845,6 +7862,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         });
       } catch (error) {
         console.error("Failed to persist pet throne tribute", error);
+        setPetTaskStateOptimistic((current) =>
+          current.map((entry) =>
+            entry.id === task.id
+              ? {
+                  ...entry,
+                  completedAt: task.completedAt ?? null,
+                  cooldownUntil: task.cooldownUntil ?? null,
+                  reviewedAt: task.reviewedAt ?? null,
+                  status: task.status ?? "available",
+                  throneAmount: task.throneAmount ?? null,
+                  throneProofImage: task.throneProofImage ?? null,
+                  throneReceiveAmount: task.throneReceiveAmount ?? null,
+                }
+              : entry,
+          ),
+        );
         setAuthError(describeError(error));
         return;
       }
@@ -7880,7 +7913,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const task = petTaskStateRef.current.find((entry) => entry.id === PET_THRONE_TASK_ID);
 
-    if (!task || task.status !== "pending") {
+    if (!task) {
       return;
     }
 

@@ -1137,13 +1137,7 @@ export function PetSection({
   }
 
   function handleClearThroneProof() {
-    if (thronePending) {
-      onCancelThroneTribute();
-      return;
-    }
-
-    setThroneProofImage("");
-    setThroneProofError("");
+    onCancelThroneTribute();
   }
 
   function showDebtSignedImage() {
@@ -2149,7 +2143,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`rounded-2xl border px-3 py-2 text-sm font-black transition ${
+                              className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-center text-sm font-black leading-none transition ${
                                 active
                                   ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
                                   : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
@@ -2460,7 +2454,7 @@ export function PetSection({
 
                       return (
                         <button
-                          className={`rounded-2xl border px-3 py-2 text-sm font-black transition ${
+                          className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-center text-sm font-black leading-none transition ${
                             active
                               ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
                               : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"

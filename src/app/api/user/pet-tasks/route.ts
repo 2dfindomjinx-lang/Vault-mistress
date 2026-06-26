@@ -64,6 +64,10 @@ function isDuplicateReviewedTask(
   reviewedAt: string | null,
   metadata: Record<string, unknown> | null,
 ) {
+  if (taskId === "pet-throne-tribute") {
+    return false;
+  }
+
   if (taskId === "pet-affection-claim") {
     const date = typeof metadata?.date === "string" ? metadata.date : null;
     const today = getGmt3DateKey();
