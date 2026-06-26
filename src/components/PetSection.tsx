@@ -2254,175 +2254,177 @@ export function PetSection({
                 </article>
               );
             })}
-            <article className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
-                    Rights
-                  </p>
-                  <h3 className="text-base font-black text-white sm:text-lg">{RIGHTS_TASK_TITLE}</h3>
-                </div>
-                <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                  Task
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{RIGHTS_TASK_DESCRIPTION}</p>
-              <div
-                className="mt-3 min-h-28 rounded-2xl border border-red-200/15 bg-black/35 bg-contain bg-center bg-no-repeat"
-                style={{
-                  backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.png")`,
-                }}
-              />
-              <div className="mt-3 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
-                <div className="flex items-center justify-between gap-3">
-                  <span>Stored rights</span>
-                  <span>{displayedStoredRights.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-zinc-300">
-                  <span>Daily purchases</span>
-                  <span>{Math.min(5, effectiveDailyPurchaseCount)}/5</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-zinc-300">
-                  <span>Next price today</span>
-                  <span>
-                    {nextRightPrice === null
-                      ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
-                      : `${nextRightPrice.toLocaleString()} Coins`}
-                  </span>
-                </div>
-                <div className="grid gap-1 border-t border-red-200/10 pt-2 text-xs text-zinc-300">
-                  {activeRightExpirations.length > 0 ? (
-                    activeRightExpirations.map((expiresAt, index) => (
-                      <div className="flex items-center justify-between gap-3" key={`${expiresAt}-${index}`}>
-                        <span>Right {index + 1}</span>
-                        <span>{formatRemaining(expiresAt, now)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-between gap-3">
-                      <span>No stored rights</span>
-                      <span>--</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold leading-5 text-yellow-50/85">
-                {RIGHTS_TASK_WARNING}
-              </p>
-              <div className="mt-auto grid gap-2 pt-4">
-                  <button
-                    className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={
-                      disabled ||
-                      isPetActionPending("rights:buy") ||
-                      nextRightPrice === null ||
-                      coins < (nextRightPrice ?? Number.POSITIVE_INFINITY)
-                    }
-                    onClick={onBuyRight}
-                    type="button"
-                  >
-                  {isPetActionPending("rights:buy")
-                    ? "Buying..."
-                  : nextRightPrice === null
-                    ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
-                      : "Buy Right"}
-                  </button>
-                <button
-                  className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={disabled || isPetActionPending("rights:use") || displayedStoredRights <= 0}
-                  onClick={onUseRight}
-                  type="button"
-                >
-                  {isPetActionPending("rights:use") ? "Using..." : "I Used My Right"}
-                </button>
-              </div>
-            </article>
           </div>
-
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(18rem,0.95fr)_minmax(14rem,0.7fr)]">
-            {dailyClickTask && (
-              <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+            <div className="grid min-w-0 gap-3">
+              <article className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-black text-white">{dailyClickTask.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{dailyClickTask.description}</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
+                      Rights
+                    </p>
+                    <h3 className="text-base font-black text-white sm:text-lg">{RIGHTS_TASK_TITLE}</h3>
                   </div>
                   <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
                     Task
                   </span>
                 </div>
-                <p className="mt-3 text-xs font-bold text-red-100">
-                  Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.
+                <p className="mt-2 text-sm leading-6 text-zinc-300">{RIGHTS_TASK_DESCRIPTION}</p>
+                <div
+                  className="mt-3 min-h-28 rounded-2xl border border-red-200/15 bg-black/35 bg-contain bg-center bg-no-repeat"
+                  style={{
+                    backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.png")`,
+                  }}
+                />
+                <div className="mt-3 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Stored rights</span>
+                    <span>{displayedStoredRights.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-zinc-300">
+                    <span>Daily purchases</span>
+                    <span>{Math.min(5, effectiveDailyPurchaseCount)}/5</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-zinc-300">
+                    <span>Next price today</span>
+                    <span>
+                      {nextRightPrice === null
+                        ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
+                        : `${nextRightPrice.toLocaleString()} Coins`}
+                    </span>
+                  </div>
+                  <div className="grid gap-1 border-t border-red-200/10 pt-2 text-xs text-zinc-300">
+                    {activeRightExpirations.length > 0 ? (
+                      activeRightExpirations.map((expiresAt, index) => (
+                        <div className="flex items-center justify-between gap-3" key={`${expiresAt}-${index}`}>
+                          <span>Right {index + 1}</span>
+                          <span>{formatRemaining(expiresAt, now)}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <span>No stored rights</span>
+                        <span>--</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold leading-5 text-yellow-50/85">
+                  {RIGHTS_TASK_WARNING}
                 </p>
-                <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                  <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
-                    {(() => {
-                      const clickRequirement = dailyClickTask.clickRequirement ?? 0;
-                      const clickProgress = dailyClickTask.clickProgress ?? 0;
-                      const revealProgress =
-                        clickRequirement > 0
-                          ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
-                          : 0;
-                      const censorOpacity = Math.max(0, 1 - revealProgress);
-                      const censorBlur = Math.round(18 * censorOpacity);
-
-                      return (
-                        <>
-                          {dailyClickTask.clickImage ? (
-                            <Image
-                              alt="Daily pet click"
-                              className="object-cover"
-                              fill
-                              sizes="360px"
-                              src={dailyClickTask.clickImage}
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
-                              Image unlocks on first click
-                            </div>
-                          )}
-                          {censorOpacity > 0 && (
-                            <div
-                              className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
-                              style={{
-                                backdropFilter: `blur(${censorBlur}px)`,
-                                opacity: censorOpacity,
-                              }}
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
-                    <div
-                      className="h-full rounded-full bg-pink-400 transition-all"
-                      style={{
-                        width:
-                          dailyClickTask.clickRequirement && dailyClickTask.clickRequirement > 0
-                            ? `${Math.min(100, ((dailyClickTask.clickProgress ?? 0) / dailyClickTask.clickRequirement) * 100)}%`
-                            : "0%",
-                      }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs font-bold text-pink-100/75">
-                    {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
-                    {dailyClickTask.status === "approved" && (dailyClickTask.clickRequirement ?? 0) > 0
-                      ? dailyClickTask.clickRequirement?.toLocaleString()
-                      : "???"} clicks
-                  </p>
+                <div className="mt-auto grid gap-2 pt-4">
+                    <button
+                      className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={
+                        disabled ||
+                        isPetActionPending("rights:buy") ||
+                        nextRightPrice === null ||
+                        coins < (nextRightPrice ?? Number.POSITIVE_INFINITY)
+                      }
+                      onClick={onBuyRight}
+                      type="button"
+                    >
+                    {isPetActionPending("rights:buy")
+                      ? "Buying..."
+                    : nextRightPrice === null
+                      ? `Resets in ${formatRemaining(nextDailyResetAt, now)}`
+                        : "Buy Right"}
+                    </button>
                   <button
-                    className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={disabled || dailyClickTask.status === "approved"}
-                    onClick={onPetDailyClick}
+                    className="w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={disabled || isPetActionPending("rights:use") || displayedStoredRights <= 0}
+                    onClick={onUseRight}
                     type="button"
                   >
-                    {dailyClickTask.status === "approved" ? "Completed Today" : "Click"}
+                    {isPetActionPending("rights:use") ? "Using..." : "I Used My Right"}
                   </button>
                 </div>
               </article>
-            )}
+
+              {dailyClickTask && (
+                <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-black text-white">{dailyClickTask.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">{dailyClickTask.description}</p>
+                    </div>
+                    <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
+                      Task
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs font-bold text-red-100">
+                    Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.
+                  </p>
+                  <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+                    <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                      {(() => {
+                        const clickRequirement = dailyClickTask.clickRequirement ?? 0;
+                        const clickProgress = dailyClickTask.clickProgress ?? 0;
+                        const revealProgress =
+                          clickRequirement > 0
+                            ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
+                            : 0;
+                        const censorOpacity = Math.max(0, 1 - revealProgress);
+                        const censorBlur = Math.round(18 * censorOpacity);
+
+                        return (
+                          <>
+                            {dailyClickTask.clickImage ? (
+                              <Image
+                                alt="Daily pet click"
+                                className="object-cover"
+                                fill
+                                sizes="360px"
+                                src={dailyClickTask.clickImage}
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
+                                Image unlocks on first click
+                              </div>
+                            )}
+                            {censorOpacity > 0 && (
+                              <div
+                                className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
+                                style={{
+                                  backdropFilter: `blur(${censorBlur}px)`,
+                                  opacity: censorOpacity,
+                                }}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
+                      <div
+                        className="h-full rounded-full bg-pink-400 transition-all"
+                        style={{
+                          width:
+                            dailyClickTask.clickRequirement && dailyClickTask.clickRequirement > 0
+                              ? `${Math.min(100, ((dailyClickTask.clickProgress ?? 0) / dailyClickTask.clickRequirement) * 100)}%`
+                              : "0%",
+                        }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-pink-100/75">
+                      {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
+                      {dailyClickTask.status === "approved" && (dailyClickTask.clickRequirement ?? 0) > 0
+                        ? dailyClickTask.clickRequirement?.toLocaleString()
+                        : "???"} clicks
+                    </p>
+                    <button
+                      className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={disabled || dailyClickTask.status === "approved"}
+                      onClick={onPetDailyClick}
+                      type="button"
+                    >
+                      {dailyClickTask.status === "approved" ? "Completed Today" : "Click"}
+                    </button>
+                  </div>
+                </article>
+              )}
+            </div>
 
             <div className="grid min-w-0 gap-3">
               <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
