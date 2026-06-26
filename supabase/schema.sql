@@ -1156,7 +1156,7 @@ immutable
 as $$
   select case
     when coalesce(current_level, 1) >= 100 then null
-    else 8000 + (greatest(1, coalesce(current_level, 1)) - 1) * 1500
+    else 7500 + (greatest(1, coalesce(current_level, 1)) - 1) * 500
   end;
 $$;
 

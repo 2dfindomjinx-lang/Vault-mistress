@@ -141,8 +141,9 @@ export async function POST(request: Request) {
   // but cap reward_coins to allowed values or 0.
   const baseReward = getBaseTaskReward(taskId);
   const isCaseOpeningTask = taskId === "case-opening";
+  const isSupportTask = taskId === "support";
 
-  if (!isCaseOpeningTask && typeof baseReward !== "number") {
+  if (!isCaseOpeningTask && !isSupportTask && typeof baseReward !== "number") {
     return jsonError("Unsupported task reward.", 422);
   }
 
