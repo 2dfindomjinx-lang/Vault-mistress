@@ -14,6 +14,7 @@ import {
 } from "@/lib/pet-throne";
 
 const PET_TASK_COIN_REWARD = 250;
+const LARGE_THRONE_PENDING_AMOUNT = Number(process.env.ADMIN_SECURITY_LARGE_COIN_AMOUNT ?? 50000);
 
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
@@ -161,6 +162,12 @@ export async function POST(request: Request) {
   const nextCoins = previousCoins + coinRewardAmount;
   const directThronePayoutCoins = previousCoins + throneTotalCoinAmount;
   const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + petScoreDelta);
+  const requiresThronePendingApproval =
+    isThroneTask &&
+    (
+      !isDirectCoinAdminUserId(admin.adminUser.id) ||
+      throneBaseCoinAmount >= LARGE_THRONE_PENDING_AMOUNT
+    );
   const profilePatch: {
     coins: number;
     pet_score: number;
@@ -194,7 +201,7 @@ export async function POST(request: Request) {
   let pendingActionId: string | null = null;
   let approvalMessage = `Pet task approved. +${petScoreDelta} Pet Score, +${PET_TASK_COIN_REWARD} coins.`;
 
-  if (isThroneTask && !isDirectCoinAdminUserId(admin.adminUser.id)) {
+  if (requiresThronePendingApproval) {
     try {
       const pendingAction = await createPendingCoinAction({
         requestedByUserId: admin.adminUser.id,

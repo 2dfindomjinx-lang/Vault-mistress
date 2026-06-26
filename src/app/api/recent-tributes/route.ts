@@ -3,6 +3,7 @@ import {
   getSupabasePublicConfigErrors,
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
@@ -38,10 +39,17 @@ export async function GET() {
   }
 
   const supabase = createPublicSupabaseClient();
-  const [{ data: transactions, error: transactionError }, { data: topRowsData, error: topRowsError }] =
+  const adminSupabase = isSupabaseAdminConfigured ? createSupabaseAdminClient() : null;
+  const [{ data: transactions, error: transactionError }, { data: topRowsData, error: topRowsError }, revertedLogsResult] =
     await Promise.all([
-      supabase.rpc("get_public_recent_tribute_transactions", { p_limit: 5 }),
+      supabase.rpc("get_public_recent_tribute_transactions", { p_limit: 20 }),
       supabase.rpc("get_public_top_tributors", { p_limit: 3 }),
+      adminSupabase
+        ? adminSupabase
+            .from("admin_pet_task_logs")
+            .select("transaction_ids")
+            .eq("status", "reverted")
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
   if (transactionError) {
@@ -54,7 +62,19 @@ export async function GET() {
     return Response.json({ error: topRowsError.message }, { status: 500 });
   }
 
-  const rows = (transactions ?? []) as CoinTransactionRow[];
+  if (revertedLogsResult?.error) {
+    console.error("Recent tribute reverted log lookup failed", revertedLogsResult.error);
+  }
+
+  const revertedTransactionIds = new Set(
+    ((revertedLogsResult?.data ?? []) as Array<{ transaction_ids?: string[] | null }>)
+      .flatMap((row) => (Array.isArray(row.transaction_ids) ? row.transaction_ids : []))
+      .filter(Boolean),
+  );
+
+  const rows = ((transactions ?? []) as CoinTransactionRow[])
+    .filter((row) => !revertedTransactionIds.has(row.id))
+    .slice(0, 5);
   const topRows: TopTributorRow[] = ((topRowsData ?? []) as Array<{
     user_id: string;
     amount: number | string;
