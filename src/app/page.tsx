@@ -6,21 +6,26 @@ import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
+import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CosmeticShop } from "@/components/CosmeticShop";
 import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
 import { DebtSection } from "@/components/DebtSection";
 import { DevotionLeaderboard } from "@/components/DevotionLeaderboard";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GalleryGrid } from "@/components/GalleryGrid";
+import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { PetSection } from "@/components/PetSection";
+import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
+import { PublicProfileModal } from "@/components/PublicProfileModal";
 import {
   RecentTributesTicker,
   type RecentTribute,
   type TopInventory,
 } from "@/components/RecentTributesTicker";
+import { RotatingShop } from "@/components/RotatingShop";
 import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
@@ -51,6 +56,8 @@ import {
   getUnlockedCrateTitleIds,
   getUnlockedInventoryTitleIds,
   getUnlockedPetTitleIds,
+  permanentCosmeticItems,
+  rotatingCosmeticItems,
   titleItems,
   type CosmeticItem,
   type CosmeticType,
@@ -63,6 +70,12 @@ import {
   type DevotionLeaderboardResponse,
   type DevotionPeriod,
 } from "@/lib/devotion";
+import {
+  getCurrentRotatingShopItems,
+  getNextRotatingShopRefresh,
+  type CommunityStatusResponse,
+  type PublicCommunityProfile,
+} from "@/lib/prestige";
 import {
   getGlobalPrincipessaProgressPercent,
   getGlobalPrincipessaXpRequirement,
@@ -593,7 +606,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login Reward",
-    reward: 200,
+    reward: 150,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -1479,6 +1492,11 @@ function getDebtPeriodMs(periodType: PetDebtContract["period_type"]) {
   return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
 }
 
+function getDebtCurrentInstallmentRemaining(contract: Pick<PetDebtContract, "current_installment_remaining" | "debt_amount">) {
+  const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
+  return currentInstallmentRemaining > 0 ? currentInstallmentRemaining : Math.max(0, contract.debt_amount);
+}
+
 function getDueDebtPaymentPlan(
   contract: PetDebtContract,
   options: { autoPayEnabled: boolean; nowMs?: number },
@@ -1494,37 +1512,17 @@ function getDueDebtPaymentPlan(
     return null;
   }
 
-  const remainingPeriods = Math.max(0, contract.duration_periods - contract.paid_periods);
+  const currentInstallmentRemaining = getDebtCurrentInstallmentRemaining(contract);
 
-  if (remainingPeriods === 0) {
+  if (currentInstallmentRemaining <= 0) {
     return null;
   }
-
-  const periodMs = getDebtPeriodMs(contract.period_type);
-  const activeDuePeriods = Math.floor((nowMs - dueMs) / periodMs) + 1;
-  const missedDuePeriods = Math.floor((nowMs - dueMs) / periodMs);
-  const duePeriods = Math.min(
-    remainingPeriods,
-    options.autoPayEnabled ? activeDuePeriods : missedDuePeriods,
-  );
-
-  if (duePeriods <= 0) {
-    return null;
-  }
-
-  const nextPaidPeriods = contract.paid_periods + duePeriods;
-  const completed = nextPaidPeriods >= contract.duration_periods;
-  const nextDueAt = completed
-    ? contract.next_due_at
-    : new Date(dueMs + duePeriods * periodMs).toISOString();
 
   return {
-    amount: contract.debt_amount * duePeriods,
-    completed,
-    duePeriods,
-    missedPeriods: options.autoPayEnabled ? 0 : duePeriods,
-    nextDueAt,
-    nextPaidPeriods,
+    amount: currentInstallmentRemaining,
+    autoPayEnabled: options.autoPayEnabled,
+    duePeriods: 1,
+    missedPeriods: options.autoPayEnabled ? 0 : 1,
   };
 }
 
@@ -1691,7 +1689,7 @@ function buildTasksFromRows(
 		getTaskMetadataNumberArray(metadata, "options") ?? generateNumberPickOptions();
 	  const selected = getTaskMetadataNumber(metadata, "selected", Number.NaN);
 	  const correct = getTaskMetadataNumber(metadata, "correct", Number.NaN);
-	  const attemptsRemaining = getTaskMetadataNumber(metadata, "attemptsRemaining", 2);
+	  const attemptsRemaining = getTaskMetadataNumber(metadata, "attemptsRemaining", 1);
 	  const wrongSelections = getTaskMetadataNumberArray(metadata, "wrongSelections") ?? [];
 	  const rawResult = getTaskMetadataString(metadata, "result");
 	  const result: "win" | "loss" | null =
@@ -1770,7 +1768,7 @@ function buildTasksFromRows(
         ? getTaskMetadataNumber(row?.metadata, "safeWins", 0)
         : 0;
       const dailyLimitReached = safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT;
-      const multiplier = Math.min(3, Math.max(1, getTaskMetadataNumber(row?.metadata, "multiplier", 1)));
+      const multiplier = Math.min(2, Math.max(1, getTaskMetadataNumber(row?.metadata, "multiplier", 1)));
 
       return {
         ...task,
@@ -1973,6 +1971,13 @@ export default function Home() {
   const [devotionLoading, setDevotionLoading] = useState(false);
   const [devotionError, setDevotionError] = useState("");
   const devotionRefreshBoundaryRef = useRef<string | null>(null);
+  const [communityStatus, setCommunityStatus] = useState<CommunityStatusResponse | null>(null);
+  const [communityStatusLoading, setCommunityStatusLoading] = useState(false);
+  const [communityStatusError, setCommunityStatusError] = useState("");
+  const [selectedCommunityProfileId, setSelectedCommunityProfileId] = useState<string | null>(null);
+  const [selectedCommunityProfile, setSelectedCommunityProfile] = useState<PublicCommunityProfile | null>(null);
+  const [selectedCommunityProfileLoading, setSelectedCommunityProfileLoading] = useState(false);
+  const [selectedCommunityProfileError, setSelectedCommunityProfileError] = useState("");
   const [recentTributes, setRecentTributes] = useState<RecentTribute[]>([]);
   const [topTributes, setTopTributes] = useState<RecentTribute[]>([]);
   const [topValuableInventories, setTopValuableInventories] = useState<TopInventory[]>([]);
@@ -2431,7 +2436,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return Boolean(task.assignedIrlDueAt && getGmt3DateKey(task.assignedIrlDueAt) === todayKey);
     }
 
-    return task.completed && Boolean(task.cooldownUntil || task.claimed);
+    const cooldownToday = task.cooldownUntil
+      ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey
+      : false;
+
+    return cooldownToday || (task.completed && !task.claimed);
   });
   const taskCoinsEarnedToday = tasksCompletedToday.reduce((sum, task) => {
     if (task.id === "case-opening") {
@@ -2604,11 +2613,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const timeoutRemaining = timeoutUntil ? new Date(timeoutUntil).getTime() - currentTime : 0;
   const isTimeoutActive = timeoutRemaining > 0;
+  const isDebtOverdueTimeoutActive =
+    isTimeoutActive && timeoutReason === "debt_contract_overdue";
   const isUnderageTimeoutActive =
     isTimeoutActive &&
     (timeoutReason === "evil_debt_underage" || timeoutRemaining >= 9 * 365 * DAY_MS);
   const timeoutClearFee = getTimeoutClearFee(timeoutUntil, timeoutReason, currentTime);
-  const canSelfClearTimeout = isTimeoutActive && !isUnderageTimeoutActive;
+  const canSelfClearTimeout =
+    isTimeoutActive && !isUnderageTimeoutActive && !isDebtOverdueTimeoutActive;
   const accountAnnouncement = siteAnnouncement ?? (siteAnnouncementLoadFailed ? DEFAULT_SITE_ANNOUNCEMENT : null);
   const showAccountAnnouncement = Boolean(accountAnnouncement?.body.trim());
   const isFreeFridayActive = isFreeTaskFriday(currentTime);
@@ -2620,16 +2632,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     ? (Math.max(0, timeoutRemaining) + TIMEOUT_RISK_TIMEOUT_MS) / DAY_MS
     : TIMEOUT_RISK_TIMEOUT_MS / DAY_MS;
   const timeoutMessage =
-    isUnderageTimeoutActive
-      ? "This account is under a special Evil Debt Contract safety timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof."
-      : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
+      isUnderageTimeoutActive
+        ? "This account is under a special Evil Debt Contract safety timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof."
+        : isDebtOverdueTimeoutActive
+          ? "An overdue debt installment is locking the account. This timeout stays active until the installment is fully paid or an admin removes it."
+        : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
   const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
   const isPetUnlocked = affection >= 100 || (petEverUnlocked && affection >= 85);
   const nextPetTaxDueAt = petUnlockedAt
     ? new Date(new Date(lastPetTaxAt ?? petUnlockedAt).getTime() + WEEK_MS).toISOString()
     : null;
 
-  const blockIfTimedOut = () => {
+  const blockIfTimedOut = (options?: { allowWhileTimedOut?: boolean }) => {
     if (isPreviewRestricted) {
       setAvatarMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
       return true;
@@ -2652,6 +2666,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const active = Boolean(activeTimeout && new Date(activeTimeout).getTime() > Date.now());
 
     if (!active) {
+      return false;
+    }
+
+    if (options?.allowWhileTimedOut) {
       return false;
     }
 
@@ -3231,6 +3249,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       // Refresh full data in background
       void loadCratesData();
+      void loadCommunityStatus();
       void loadLeadershipTop();
 
       return { success: true, result: { items: wonItems, newCoins: payload.result.newCoins } };
@@ -3467,6 +3486,65 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, []);
 
+  const loadCommunityStatus = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setCommunityStatus(null);
+      setCommunityStatusError("");
+      setCommunityStatusLoading(false);
+      return;
+    }
+
+    setCommunityStatusLoading(true);
+    setCommunityStatusError("");
+
+    try {
+      const response = await fetch("/api/community/status", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as (CommunityStatusResponse & {
+        error?: string;
+      }) | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Community prestige could not be loaded.");
+      }
+
+      setCommunityStatus(payload);
+      setCommunityStatusError("");
+    } catch (error) {
+      console.error("Failed to load community prestige status", error);
+      setCommunityStatus(null);
+      setCommunityStatusError(describeError(error));
+    } finally {
+      setCommunityStatusLoading(false);
+    }
+  }, [describeError, isGuestMode, isLoggedIn, isPreviewMode]);
+
+  const loadSelectedCommunityProfile = useCallback(async (userId: string) => {
+    setSelectedCommunityProfileLoading(true);
+    setSelectedCommunityProfileError("");
+
+    try {
+      const response = await fetch(`/api/community/profile?userId=${encodeURIComponent(userId)}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as (PublicCommunityProfile & {
+        error?: string;
+      }) | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Community profile could not be loaded.");
+      }
+
+      setSelectedCommunityProfile(payload);
+      setSelectedCommunityProfileError("");
+    } catch (error) {
+      console.error("Failed to load community profile", error);
+      setSelectedCommunityProfile(null);
+      setSelectedCommunityProfileError(describeError(error));
+    } finally {
+      setSelectedCommunityProfileLoading(false);
+    }
+  }, [describeError]);
+
   const loadDevotionLeaderboard = useCallback(async (requestedPeriod?: DevotionPeriod) => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
       setDevotionLeaders([]);
@@ -3581,6 +3659,33 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void loadDevotionLeaderboard(devotionPeriod);
     }
   }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
+
+  useEffect(() => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setCommunityStatus(null);
+      return;
+    }
+
+    void loadCommunityStatus();
+    const timer = window.setInterval(() => {
+      void loadCommunityStatus();
+    }, 60000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [isGuestMode, isLoggedIn, isPreviewMode, loadCommunityStatus]);
+
+  useEffect(() => {
+    if (!selectedCommunityProfileId) {
+      setSelectedCommunityProfile(null);
+      setSelectedCommunityProfileError("");
+      setSelectedCommunityProfileLoading(false);
+      return;
+    }
+
+    void loadSelectedCommunityProfile(selectedCommunityProfileId);
+  }, [loadSelectedCommunityProfile, selectedCommunityProfileId]);
 
   const loadPendingIrlReviewCount = useCallback(async () => {
     try {
@@ -4012,7 +4117,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             autoPaySkipped?: boolean;
             contract?: PetDebtContract | null;
             error?: string;
-            plan?: { amount: number; missedPeriods: number };
+            paidAmount?: number;
+            plan?: { amount: number; currentInstallmentRemaining?: number; installmentCompleted?: boolean; missedPeriods: number };
             profile?: Profile;
             reason?: string;
           };
@@ -4027,6 +4133,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             coinsRef.current = updatedProfile.coins;
             setAffection(updatedProfile.affection);
             setTributeTotal(updatedProfile.tribute_total ?? profile.tribute_total ?? 0);
+            timeoutUntilRef.current = updatedProfile.timeout_until ?? null;
+            timeoutReasonRef.current = updatedProfile.timeout_reason ?? null;
+            setTimeoutUntil(updatedProfile.timeout_until ?? null);
+            setTimeoutReason(updatedProfile.timeout_reason ?? null);
             setPetScore(updatedProfile.pet_score ?? 0);
             setOwnerLikeness(updatedProfile.owner_likeness ?? 100);
             setPetUnlockedAt(updatedProfile.pet_unlocked_at ?? null);
@@ -4037,7 +4147,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
           setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
           if (result.autoPaySkipped) {
-            setAvatarMistressReply("Debt Contract auto-payment skipped. Not enough coins for the current installment.");
+            setAvatarMistressReply("Debt Contract is overdue. No coins were available, so timeout stays active until the installment is paid.");
+          } else if ((result.paidAmount ?? 0) > 0 && !result.plan?.installmentCompleted) {
+            setAvatarMistressReply(
+              `Partial debt payment applied. ${Number(result.paidAmount ?? 0).toLocaleString()} coins paid, ${Number(result.plan?.currentInstallmentRemaining ?? 0).toLocaleString()} coins still due.`,
+            );
           } else {
             setAvatarMistressReply(
               (result.plan?.missedPeriods ?? 0) > 0
@@ -4687,6 +4801,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       unlockProgressionTitles(nextProfile.tribute_total);
       void loadLeadershipTop();
     }
+    if (reason.startsWith("spend:") || reason.startsWith("tribute:")) {
+      void loadCommunityStatus();
+    }
     return data;
   }, [
     applyProfileStats,
@@ -4694,6 +4811,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     isGuestMode,
     lastLoyaltyAt,
     lastPetTaxAt,
+    loadCommunityStatus,
     loadLeadershipTop,
     loyaltyStreak,
     ownerLikeness,
@@ -4856,11 +4974,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       plan?: {
         amount: number;
         completed: boolean;
+        currentInstallmentRemaining?: number;
         duePeriods: number;
+        installmentCompleted?: boolean;
         missedPeriods: number;
-        nextDueAt: string;
-        nextPaidPeriods: number;
+        nextPaidPeriods?: number;
       };
+      paidAmount?: number;
       profile?: Profile;
     };
 
@@ -5673,7 +5793,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const windowActive = Boolean(task.highLowResetAt && new Date(task.highLowResetAt).getTime() > nowDate.getTime());
         const highLowResetAt = windowActive ? task.highLowResetAt : getNextGmt3Reset(nowDate).toISOString();
         const nextBaseRevealAt = new Date(new Date().getTime() + getEventCooldownMs(10 * 1000)).toISOString();
-        const allowanceCost = stake;
+        const allowanceCost = outcome === "tie" ? getHighLowTieFee(stake) : stake;
         const nextDailyBetTotal = Math.min(
           HIGH_LOW_BET_ALLOWANCE,
           (task.highLowDailyBetTotal ?? 0) + allowanceCost,
@@ -5818,9 +5938,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const existingCorrect = task.numberPickCorrect;
         const correctNumber = typeof existingCorrect === "number" ? existingCorrect : randomFrom(options);
         const previousWrongSelections = task.numberPickWrongSelections ?? [];
-        const attemptsRemaining = task.numberPickAttemptsRemaining ?? 2;
+        const attemptsRemaining = task.numberPickAttemptsRemaining ?? 1;
         const isCorrect = selectedNumber === correctNumber;
-        const baseReward = isCorrect ? (attemptsRemaining >= 2 ? 100 : 50) : 0;
+        const baseReward = isCorrect ? 100 : 0;
         const reward = baseReward > 0 ? getEventTaskReward(baseReward) : 0;
         const nextAttemptsRemaining = isCorrect ? 0 : Math.max(0, attemptsRemaining - 1);
         const finalAttempt = isCorrect || nextAttemptsRemaining === 0;
@@ -5859,7 +5979,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             ? `Lucky pick. The vault grants you ${reward} coins.`
             : result === "loss"
               ? "Wrong again. The vault gives you nothing today."
-              : "Wrong number. One chance remains.",
+              : "Wrong number. Better luck tomorrow.",
         );
         if (finalAttempt) {
           emitSoundEvent(result === "loss" ? "task_fail" : "task_completion");
@@ -5903,7 +6023,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             ? `Lucky pick. The vault grants you ${Math.max(0, rewardDelta)} coins.`
             : result === "loss"
               ? "Wrong again. The vault gives you nothing today."
-              : "Wrong number. One chance remains.",
+              : "Wrong number. Better luck tomorrow.",
         );
         if (result === "win" || result === "loss") {
           emitSoundEvent(result === "loss" ? "task_fail" : "task_completion");
@@ -6104,7 +6224,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? {
               ...entry,
               timeoutRiskMultiplier: Math.min(
-                3,
+                2,
                 Math.max(1, (entry.timeoutRiskMultiplier ?? 1) + (direction === "up" ? 1 : -1)),
               ),
             }
@@ -6118,7 +6238,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (!authUserId || !Number.isInteger(multiplier) || multiplier < 1 || multiplier > 3) {
+    if (!authUserId || !Number.isInteger(multiplier) || multiplier < 1 || multiplier > 2) {
       return;
     }
 
@@ -7343,6 +7463,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setOwnedCosmeticIds((current) =>
         current.includes(item.id) ? current : [...current, item.id],
       );
+      void loadCommunityStatus();
       emitSoundEvent("cosmetic_purchased");
       setAvatarMistressReply(`${item.name} purchased. Cosmetic spend counts toward all time coin spendings, not tribute total.`);
       finishTaskAction(actionId);
@@ -7486,6 +7607,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setOwnedTitleIds((current) =>
         current.includes(title.id) ? current : [...current, title.id],
       );
+      void loadCommunityStatus();
       setAvatarMistressReply(`${title.name} title purchased.`);
       finishTaskAction(actionId);
     } catch (error) {
@@ -8476,9 +8598,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleDebtContractPayment = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
+      if (blockIfTimedOut({ allowWhileTimedOut: true })) {
+        return;
+      }
 
     if (!petDebtContract || petDebtContract.status !== "active") {
       return;
@@ -8497,67 +8619,84 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const now = new Date().toISOString();
-    const nextCoins = coinsRef.current - petDebtContract.debt_amount;
-    const nextPaidPeriods = petDebtContract.paid_periods + 1;
-    const completed = nextPaidPeriods >= petDebtContract.duration_periods;
-    const periodMs = petDebtContract.period_type === "weekly" ? WEEK_MS : 30 * DAY_MS;
-    const overduePeriods = Math.max(
-      0,
-      Math.floor((Date.now() - new Date(petDebtContract.next_due_at).getTime()) / periodMs),
-    );
-    const nextMissedPeriods = Math.min(
-      petDebtContract.duration_periods,
-      petDebtContract.missed_periods + overduePeriods,
-    );
-    const nextDueAt = new Date(Date.now() + periodMs).toISOString();
+      const now = new Date().toISOString();
+      const currentInstallmentRemaining = getDebtCurrentInstallmentRemaining(petDebtContract);
+      const paidAmount = Math.min(coinsRef.current, currentInstallmentRemaining);
+      const remainingInstallment = Math.max(0, currentInstallmentRemaining - paidAmount);
+      const installmentCompleted = remainingInstallment === 0;
+      const nextPaidPeriods = installmentCompleted ? petDebtContract.paid_periods + 1 : petDebtContract.paid_periods;
+      const completed = installmentCompleted && nextPaidPeriods >= petDebtContract.duration_periods;
+      const periodMs = petDebtContract.period_type === "weekly" ? WEEK_MS : 30 * DAY_MS;
+      const overdue = new Date(petDebtContract.next_due_at).getTime() <= Date.now();
+      const nextMissedPeriods = petDebtContract.missed_periods + (installmentCompleted && overdue ? 1 : 0);
+      const nextDueAt = installmentCompleted
+        ? new Date(new Date(petDebtContract.next_due_at).getTime() + periodMs).toISOString()
+        : petDebtContract.next_due_at;
 
-    if (!isGuestMode && authUserId) {
-      try {
-        const result = await persistDebtContractAction({
-          action: "pay",
-          contractId: petDebtContract.id,
-        });
+      if (!isGuestMode && authUserId) {
+        try {
+          const result = await persistDebtContractAction({
+            action: "pay",
+            contractId: petDebtContract.id,
+          });
 
-        setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
-      } catch (error) {
-        console.error("Failed to persist debt contract payment", error);
-        setAuthError(describeError(error));
-        return;
-      }
-    } else {
-      setCoins(nextCoins);
-      if (completed) {
-        setPetDebtContract(null);
+          setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
+          setAvatarMistressReply(
+            (result.paidAmount ?? 0) <= 0
+              ? "No coins were available for this overdue installment. Timeout stays active until the debt is paid."
+              : !result.plan?.installmentCompleted
+                ? `Partial debt payment accepted. ${Number(result.paidAmount ?? 0).toLocaleString()} coins paid, ${Number(result.plan?.currentInstallmentRemaining ?? 0).toLocaleString()} coins still due.`
+                : result.plan?.completed
+                  ? "Debt Contract completed. You may sign another."
+                  : `Debt payment accepted. ${Number(result.plan?.nextPaidPeriods ?? 0)}/${petDebtContract.duration_periods} periods paid.`,
+          );
+        } catch (error) {
+          console.error("Failed to persist debt contract payment", error);
+          setAuthError(describeError(error));
+          return;
+        }
       } else {
-        setPetDebtContract({
-          ...petDebtContract,
-          paid_periods: nextPaidPeriods,
-          missed_periods: nextMissedPeriods,
-          next_due_at: nextDueAt,
-          updated_at: now,
-        });
+        const guestNextCoins = coinsRef.current - paidAmount;
+        setCoins(guestNextCoins);
+        coinsRef.current = guestNextCoins;
+        if (completed) {
+          setPetDebtContract(null);
+        } else {
+          setPetDebtContract({
+            ...petDebtContract,
+            current_installment_remaining: installmentCompleted ? petDebtContract.debt_amount : remainingInstallment,
+            paid_periods: nextPaidPeriods,
+            missed_periods: nextMissedPeriods,
+            next_due_at: nextDueAt,
+            updated_at: now,
+          });
+        }
+        setAvatarMistressReply(
+          paidAmount <= 0
+            ? "No coins were available for this overdue installment. Timeout stays active until the debt is paid."
+            : !installmentCompleted
+              ? `Partial debt payment accepted. ${paidAmount.toLocaleString()} coins paid, ${remainingInstallment.toLocaleString()} coins still due.`
+              : completed
+                ? "Debt Contract completed. You may sign another."
+                : `Debt payment accepted. ${nextPaidPeriods}/${petDebtContract.duration_periods} periods paid.`,
+        );
       }
-    }
 
-    setPetTaskStateOptimistic((current) =>
-      current.map((entry) =>
-        entry.id === "pet-debt-contract"
-          ? {
-              ...entry,
-              completedAt: now,
-              reviewedAt: now,
-              status: "approved",
-            }
-          : entry,
-      ),
-    );
-    setAvatarMistressReply(
-      completed
-        ? "Debt Contract completed. You may sign another."
-        : `Debt payment accepted. ${nextPaidPeriods}/${petDebtContract.duration_periods} periods paid.`,
-    );
-  };
+      if (installmentCompleted && paidAmount > 0) {
+        setPetTaskStateOptimistic((current) =>
+          current.map((entry) =>
+            entry.id === "pet-debt-contract"
+              ? {
+                  ...entry,
+                  completedAt: now,
+                  reviewedAt: now,
+                  status: "approved",
+                }
+              : entry,
+          ),
+        );
+      }
+    };
 
   const handleCaseOpen = async () => {
     if (blockIfTimedOut()) {
@@ -9531,6 +9670,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     period: devotionPeriod,
   };
   const devotionRefreshCountdownMs = getMsUntilNextGmt3HalfDayReset(currentTime);
+  const currentUserPrestigeBadges = communityStatus?.currentUserBadges ?? [];
+  const hallOfFameCards = communityStatus?.hallOfFame ?? [];
+  const communityGoal = communityStatus?.communityGoal ?? null;
+  const rotatingShopItems = getCurrentRotatingShopItems(currentTime);
+  const ownedRotatingArchiveItems = rotatingCosmeticItems.filter(
+    (item) => ownedCosmeticIds.includes(item.id) && !rotatingShopItems.some((rotatingItem) => rotatingItem.id === item.id),
+  );
+  const visibleRotatingShopItems = [...rotatingShopItems, ...ownedRotatingArchiveItems];
+  const nextRotatingShopRefresh = getNextRotatingShopRefresh(currentTime).toISOString();
   const soundControls = (
     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">
       <button
@@ -9789,6 +9937,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         </p>
       </div>
     ) : null;
+  const profileBadgeStrip =
+    currentUserPrestigeBadges.length > 0 ? <PrestigeBadgeList badges={currentUserPrestigeBadges} /> : null;
   const displayNameEditValidation = validateDisplayName(displayNameEditInput, {
     allowExactPrincipessa: isAdminUser,
   });
@@ -9924,6 +10074,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         <ProfileHeader
           actions={headerActions}
           avatarSrc={characterEvolutionStage.image}
+          badgeStrip={profileBadgeStrip}
           coins={coins}
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
@@ -10101,40 +10252,53 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         <section className="min-w-0 pb-10">
           {activePanel === "home" && (
-            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-              <div className="flex min-w-0 flex-col gap-6">
-                <CharacterCard
-                  dailyMessage={dailyMessage}
-                  evolutionStage={characterEvolutionStage}
-                  stageRevealToken={affectionStageRevealToken}
-                />
-                <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
-                  <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
-                    Affection Read
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
-                  <p className="mt-4 text-sm leading-6 text-pink-50">
-                    {scriptedMessage}
-                  </p>
-                </section>
-                <ProfileTaskCard
-                  disabled={isTimeoutActive || isPreviewRestricted}
-                  isPending={pendingTaskActionIds.includes("rebrand-profile")}
-                  onRebrandProfile={handleRebrandProfile}
-                />
-              </div>
+            <div className="flex min-w-0 flex-col gap-6">
+              <HallOfFameSection
+                cards={hallOfFameCards}
+                isLoading={communityStatusLoading}
+                onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
+              />
+              {communityStatusError ? (
+                <div className="rounded-[1.5rem] border border-red-300/18 bg-red-500/10 px-4 py-4 text-sm text-red-50/90">
+                  {communityStatusError}
+                </div>
+              ) : null}
+              <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                <div className="flex min-w-0 flex-col gap-6">
+                  <CharacterCard
+                    dailyMessage={dailyMessage}
+                    evolutionStage={characterEvolutionStage}
+                    stageRevealToken={affectionStageRevealToken}
+                  />
+                  <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
+                    <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
+                      Affection Read
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
+                    <p className="mt-4 text-sm leading-6 text-pink-50">
+                      {scriptedMessage}
+                    </p>
+                  </section>
+                  <ProfileTaskCard
+                    disabled={isTimeoutActive || isPreviewRestricted}
+                    isPending={pendingTaskActionIds.includes("rebrand-profile")}
+                    onRebrandProfile={handleRebrandProfile}
+                  />
+                </div>
 
-              <div className="flex min-w-0 flex-col gap-6">
-                <StatsPanel
-                  equippedTitleName={equippedTitle?.name}
-                  leadershipTop={leadershipTop}
-                  shameTop={shameTop}
-                  statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
-                  stats={stats}
-                  topValuableInventories={topValuableInventories}
-                  username={effectiveDisplayName ?? username}
-                  usernameStyle={usernameStyle}
-                />
+                <div className="flex min-w-0 flex-col gap-6">
+                  {communityGoal ? <CommunityGoalWidget goal={communityGoal} /> : null}
+                  <StatsPanel
+                    equippedTitleName={equippedTitle?.name}
+                    leadershipTop={leadershipTop}
+                    shameTop={shameTop}
+                    statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
+                    stats={stats}
+                    topValuableInventories={topValuableInventories}
+                    username={effectiveDisplayName ?? username}
+                    usernameStyle={usernameStyle}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -10242,6 +10406,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               />
           )}
           {activePanel === "shop" && (
+            <div className="flex flex-col gap-6">
+              <RotatingShop
+                coins={coins}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                endsAt={nextRotatingShopRefresh}
+                equippedCosmeticIds={effectiveEquippedCosmeticIds}
+                items={visibleRotatingShopItems}
+                ownedCosmeticIds={ownedCosmeticIds}
+                pendingCosmeticIds={pendingTaskActionIds
+                  .filter((id) => id.startsWith("cosmetic:"))
+                  .map((id) => id.slice("cosmetic:".length))}
+                onEquipCosmetic={handleEquipCosmetic}
+                onPurchaseCosmetic={handlePurchaseCosmetic}
+              />
               <CosmeticShop
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
@@ -10256,11 +10434,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   .filter((id) => id.startsWith("title:"))
                   .map((id) => id.slice("title:".length))}
                 premiumTitle={getPremiumShopTitle()}
-                shopItems={cosmeticItems}
+                shopItems={permanentCosmeticItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
-              onPurchaseTitle={handlePurchaseTitle}
-            />
+                onPurchaseTitle={handlePurchaseTitle}
+              />
+            </div>
           )}
           {activePanel === "devotion" && (
             <DevotionLeaderboard
@@ -10621,6 +10800,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
         </section>
       </AppShell>
+      <PublicProfileModal
+        data={selectedCommunityProfile}
+        error={selectedCommunityProfileError}
+        isLoading={selectedCommunityProfileLoading}
+        isOpen={Boolean(selectedCommunityProfileId)}
+        onClose={() => {
+          setSelectedCommunityProfileId(null);
+          setSelectedCommunityProfile(null);
+        }}
+      />
       <FloatingDefneBubble
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
         globalPrincipessaLevel={globalPrincipessa.level}

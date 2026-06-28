@@ -64,6 +64,16 @@ type DebtSectionProps = {
   tasks: PetTaskItem[];
 };
 
+function getCurrentInstallmentRemaining(contract: PetDebtContract) {
+  const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
+  return currentInstallmentRemaining > 0 ? currentInstallmentRemaining : Math.max(0, contract.debt_amount);
+}
+
+function getRemainingDebtBalance(contract: PetDebtContract) {
+  return getCurrentInstallmentRemaining(contract)
+    + Math.max(0, contract.duration_periods - contract.paid_periods - 1) * contract.debt_amount;
+}
+
 function formatRemaining(target: string | null, now: number) {
   if (!target || now <= 0) {
     return "Not scheduled";
@@ -212,7 +222,7 @@ export function DebtSection({
     ? Math.min(activeContract.paid_periods + 1, activeContract.duration_periods)
     : 0;
   const remainingDebtBalance = activeContract
-    ? Math.max(0, (activeContract.duration_periods - activeContract.paid_periods) * activeContract.debt_amount)
+    ? getRemainingDebtBalance(activeContract)
     : 0;
   const normalDebtDurationLimit = DEBT_DURATION_LIMITS[normalDebtPeriodType];
   const normalDebtMinimumPayment = DEBT_MINIMUM_PAYMENTS[normalDebtPeriodType];
@@ -492,7 +502,7 @@ function DebtCard(props: {
             <span>
               Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
             </span>
-            <span>Current payment: {petDebtContract.debt_amount.toLocaleString()} Coins</span>
+            <span>Current payment: {getCurrentInstallmentRemaining(petDebtContract).toLocaleString()} Coins</span>
             <span>
               Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
             </span>
@@ -513,7 +523,7 @@ function DebtCard(props: {
               When enabled, each installment is paid automatically as soon as it becomes available.
             </p>
             <p className="mt-2 text-yellow-50/75">
-              If auto payment is off and an installment is missed, missed debt is still collected from coin balance and can push balance below zero.
+              If the account cannot cover the full installment, it now pays only the available coins and keeps the remaining debt due.
             </p>
           </div>
           <button
@@ -602,7 +612,7 @@ function DebtCard(props: {
             Warning: Sign Random Debt immediately creates a debt contract with a random Pet name, weekly/monthly type, amount, and duration.
           </p>
           <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-            Auto payment is off by default. Missed debt is still collected automatically after the payment window is missed, and coin balance may go below zero.
+            Auto payment is off by default. Overdue debt can no longer push balance below zero; it only takes what is available and leaves the rest due.
           </p>
           <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
             <AutoPaymentSwitch
@@ -735,7 +745,7 @@ function EvilDebtCard(props: {
             <span>
               Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
             </span>
-            <span>Current payment: {petDebtContract.debt_amount.toLocaleString()} Coins</span>
+            <span>Current payment: {getCurrentInstallmentRemaining(petDebtContract).toLocaleString()} Coins</span>
             <span>
               Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
             </span>

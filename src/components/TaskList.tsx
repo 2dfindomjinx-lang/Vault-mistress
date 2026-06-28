@@ -859,7 +859,7 @@ export function TaskList({
                           </button>
                           <button
                             className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-sm font-black text-white transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                            disabled={disabled || (task.timeoutRiskMultiplier ?? 1) >= 3}
+                            disabled={disabled || (task.timeoutRiskMultiplier ?? 1) >= 2}
                             onClick={() => onTimeoutRiskMultiplierChange("up")}
                             type="button"
                           >
@@ -1119,7 +1119,7 @@ export function TaskList({
                   {task.reward > 0 && (
                     <p className="mt-1 text-sm text-zinc-400">
                       {task.kind === "number-pick"
-                        ? "Reward: 100 / 50 Principessa Coins"
+                        ? "Reward: 100 Principessa Coins"
                         : `Reward: ${task.reward} Principessa Coins`}
                     </p>
                   )}
@@ -1310,8 +1310,7 @@ export function TaskList({
               {task.kind === "number-pick" && (
                 <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
                   <p className="text-sm leading-6 text-zinc-400">
-                    First correct pick pays 100 Principessa Coins. If you miss, the wrong number
-                    locks red and one final pick can still pay 50.
+                    Pick the correct number in one try to win 100 Principessa Coins.
                   </p>
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {(task.numberPickOptions ?? []).map((option) => {
@@ -1358,10 +1357,10 @@ export function TaskList({
                     </p>
                   )}
                   {!task.numberPickResult &&
-                    (task.numberPickAttemptsRemaining ?? 2) < 2 &&
+                    (task.numberPickAttemptsRemaining ?? 1) < 1 &&
                     (task.numberPickWrongSelections ?? []).length > 0 && (
                       <p className="mt-3 rounded-2xl border border-rose-200/20 bg-rose-400/10 px-3 py-2 text-sm font-semibold text-rose-100">
-                        Wrong. One chance remains. Pick between the remaining numbers.
+                        Wrong. Better luck tomorrow.
                       </p>
                     )}
                 </div>

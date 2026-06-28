@@ -21,12 +21,14 @@ type ProfileHeaderStat = {
 
 type ProfileHeaderProps = {
   avatarSrc: string;
+  badgeStrip?: ReactNode;
   coins: number;
   currentTitle?: string;
   displayName?: string | null;
   equippedAvatarSlots?: EquippedAvatarSlots;
   hasUncensoredAvatar?: boolean;
   pageLabel: string;
+  showCoinStat?: boolean;
   soundControls?: ReactNode;
   stats: ProfileHeaderStat[];
   username: string;
@@ -52,11 +54,13 @@ export function ProfileHeader({
   actions,
   progressStrip,
   avatarSrc,
+  badgeStrip,
   coins,
   currentTitle,
   equippedAvatarSlots = {},
   hasUncensoredAvatar = false,
   pageLabel,
+  showCoinStat = true,
   soundControls,
   stats,
   username,
@@ -208,6 +212,7 @@ export function ProfileHeader({
               <p className="mt-2 text-sm font-black uppercase tracking-[0.18em] text-pink-100/80">
                 {currentTitle ?? "No title equipped"}
               </p>
+              {badgeStrip ? <div className="mt-3">{badgeStrip}</div> : null}
             </div>
             <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
               {soundControls && <div className="flex flex-wrap items-center gap-2">{soundControls}</div>}
@@ -217,11 +222,13 @@ export function ProfileHeader({
 
           {progressStrip ? <div>{progressStrip}</div> : null}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <PageStatCard
-              hint="Current balance"
-              label="Coins"
-              value={<CoinAmount amount={coins} iconSize={22} label="" />}
-            />
+            {showCoinStat ? (
+              <PageStatCard
+                hint="Current balance"
+                label="Coins"
+                value={<CoinAmount amount={coins} iconSize={22} label="" />}
+              />
+            ) : null}
             {stats.map((stat) => (
               <PageStatCard
                 hint={stat.hint}

@@ -794,7 +794,11 @@ export function PetSection({
     ? Math.min(petDebtContract.paid_periods + 1, petDebtContract.duration_periods)
     : 0;
   const remainingDebtBalance = petDebtContract
-    ? Math.max(0, (petDebtContract.duration_periods - petDebtContract.paid_periods) * petDebtContract.debt_amount)
+    ? Math.max(
+        0,
+        (Math.max(1, petDebtContract.current_installment_remaining || petDebtContract.debt_amount))
+          + Math.max(0, petDebtContract.duration_periods - petDebtContract.paid_periods - 1) * petDebtContract.debt_amount,
+      )
     : 0;
   const dailyClickTask = tasks.find((task) => task.kind === "daily-click");
   const throneCoolingDown =

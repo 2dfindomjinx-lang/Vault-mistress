@@ -250,6 +250,7 @@ export async function POST(request: Request) {
   const tieFee = getHighLowTieFee(stake);
   const coinDelta = outcome === "win" ? Math.floor(stake * (winMultiplier - 1)) : outcome === "loss" ? -stake : -tieFee;
   const actualCoinDelta = coinDelta;
+  const allowanceCost = outcome === "tie" ? tieFee : stake;
   const nextCoins = profile.coins + coinDelta;
   const now = new Date().toISOString();
   const nextDailyProfit = currentDailyProfit + actualCoinDelta;
@@ -264,7 +265,6 @@ export async function POST(request: Request) {
   }
 
   const nextDailyWins = currentDailyWins + (outcome === "win" ? 1 : 0);
-  const allowanceCost = stake;
   const nextDailyBetTotal = Math.min(HIGH_LOW_BET_ALLOWANCE, currentDailyBetTotal + allowanceCost);
   const nextBetAllowance = getHighLowBetAllowance(nextDailyBetTotal);
   const nextDailyLocked = nextBetAllowance <= 0 || nextDailyProfit >= HIGH_LOW_PROFIT_LIMIT;

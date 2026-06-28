@@ -64,6 +64,10 @@ export async function POST(request: Request) {
       return jsonError("Age verification timeouts require admin review.", 403);
     }
 
+    if (currentProfile.timeout_reason === "debt_contract_overdue") {
+      return jsonError("Overdue debt contract timeouts can only be removed by paying the debt or by admin.", 403);
+    }
+
     const clearFee = getTimeoutClearFee(currentProfile.timeout_until, currentProfile.timeout_reason);
 
     if (currentProfile.coins < clearFee) {

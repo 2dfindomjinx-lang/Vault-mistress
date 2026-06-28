@@ -1,4 +1,5 @@
 import { userDebtContractSelect } from "@/lib/debt-contract-select";
+import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -10,6 +11,8 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const EVIL_DEBT_UNDERAGE_TIMEOUT_MS = 3650 * DAY_MS;
+const DEBT_OVERDUE_TIMEOUT_MS = 10 * 365 * DAY_MS;
+const DEBT_OVERDUE_TIMEOUT_REASON = "debt_contract_overdue";
 const EVIL_DEBT_UNDERAGE_MESSAGE =
   "This Evil Debt Contract submission triggered a special timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof.";
 const EVIL_CONSENT_PRIMARY_TEXT =
@@ -24,6 +27,7 @@ const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
 );
 
 type ContractRow = {
+  current_installment_remaining: number;
   debt_amount: number;
   duration_periods: number;
   id: string;
@@ -39,6 +43,8 @@ type ProfileRow = {
   coins: number;
   debt_tribute_pending: number;
   id: string;
+  timeout_reason: string | null;
+  timeout_until: string | null;
   tribute_total: number;
 };
 
@@ -75,6 +81,16 @@ function getDebtPeriodMs(periodType: "weekly" | "monthly") {
   return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
 }
 
+function getCurrentInstallmentRemaining(contract: Pick<ContractRow, "current_installment_remaining" | "debt_amount">) {
+  const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
+
+  if (Number.isInteger(currentInstallmentRemaining) && currentInstallmentRemaining > 0) {
+    return currentInstallmentRemaining;
+  }
+
+  return Math.max(0, Math.floor(Number(contract.debt_amount ?? 0)));
+}
+
 function isValidEvilDebtImage(value: unknown) {
   return (
     typeof value === "string" &&
@@ -95,29 +111,19 @@ function getDueDebtPaymentPlan(contract: ContractRow, autoPayEnabled: boolean) {
     return null;
   }
 
-  const periodMs = getDebtPeriodMs(contract.period_type);
-  const duePeriods = Math.max(1, Math.floor((now - nextDueMs) / periodMs) + 1);
-  const remainingPeriods = Math.max(0, contract.duration_periods - contract.paid_periods);
-  const periodsToCollect = Math.min(duePeriods, remainingPeriods);
+  const currentInstallmentRemaining = getCurrentInstallmentRemaining(contract);
 
-  if (periodsToCollect <= 0) {
+  if (currentInstallmentRemaining <= 0) {
     return null;
   }
 
-  const missedPeriods = autoPayEnabled ? 0 : periodsToCollect;
-  const nextPaidPeriods = Math.min(contract.duration_periods, contract.paid_periods + periodsToCollect);
-  const completed = nextPaidPeriods >= contract.duration_periods;
-  const nextDueAt = completed
-    ? contract.next_due_at
-    : new Date(nextDueMs + periodMs * periodsToCollect).toISOString();
+  const overdue = nextDueMs <= now;
 
   return {
-    amount: contract.debt_amount * periodsToCollect,
-    completed,
-    duePeriods: periodsToCollect,
-    missedPeriods,
-    nextDueAt,
-    nextPaidPeriods,
+    amount: currentInstallmentRemaining,
+    autoPayEnabled,
+    duePeriods: 1,
+    missedPeriods: overdue && !autoPayEnabled ? 1 : 0,
   };
 }
 
@@ -289,6 +295,7 @@ export async function POST(request: Request) {
         contract_type: contractType,
         consent_primary: contractType === "evil" ? true : false,
         consent_secondary: contractType === "evil" ? true : false,
+        current_installment_remaining: cleanAmount,
         declared_age: contractType === "evil" ? cleanAge : null,
         duration_periods: cleanDuration,
         ends_at: new Date(nowMs + periodMs * cleanDuration).toISOString(),
@@ -349,21 +356,13 @@ export async function POST(request: Request) {
     }
 
     const contract = contractData as ContractRow;
+    const nowMs = Date.now();
+    const dueAtMs = new Date(contract.next_due_at).getTime();
     const manualPaymentDue =
       contract.paid_periods === 0 ||
-      new Date(contract.next_due_at).getTime() <= Date.now();
+      dueAtMs <= nowMs;
     const plan = body.action === "pay"
-      ? {
-          amount: contract.debt_amount,
-          completed: contract.paid_periods + 1 >= contract.duration_periods,
-          duePeriods: 1,
-          missedPeriods: Math.max(
-            0,
-            Math.floor((Date.now() - new Date(contract.next_due_at).getTime()) / getDebtPeriodMs(contract.period_type)),
-          ),
-          nextDueAt: new Date(Date.now() + getDebtPeriodMs(contract.period_type)).toISOString(),
-          nextPaidPeriods: contract.paid_periods + 1,
-        }
+      ? getDueDebtPaymentPlan(contract, false)
       : getDueDebtPaymentPlan(contract, Boolean(body.autoPayEnabled));
 
     if (!plan || (body.action === "pay" && !manualPaymentDue)) {
@@ -372,7 +371,7 @@ export async function POST(request: Request) {
 
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("id, coins, tribute_total, debt_tribute_pending")
+      .select("id, coins, tribute_total, debt_tribute_pending, timeout_until, timeout_reason")
       .eq("id", userId)
       .single();
 
@@ -382,28 +381,54 @@ export async function POST(request: Request) {
 
     const profile = profileData as ProfileRow;
     const collectedAt = new Date().toISOString();
-
-    if (body.action === "autoCollect" && Boolean(body.autoPayEnabled) && profile.coins < plan.amount) {
-      return Response.json({
-        autoPaySkipped: true,
-        contract,
-        plan,
-        profile,
-        reason: "insufficient_coins",
-      });
-    }
-
-    const nextCoins = profile.coins - plan.amount;
-    const immediateTribute = Math.min(plan.amount, Math.max(0, profile.coins));
-    const deferredTribute = Math.max(0, plan.amount - immediateTribute);
+    const currentInstallmentRemaining = getCurrentInstallmentRemaining(contract);
+    const paidAmount = Math.min(Math.max(0, profile.coins), currentInstallmentRemaining);
+    const remainingInstallment = Math.max(0, currentInstallmentRemaining - paidAmount);
+    const installmentCompleted = remainingInstallment === 0;
+    const overdue = Number.isFinite(dueAtMs) && dueAtMs <= nowMs;
+    const nextPaidPeriods = installmentCompleted ? contract.paid_periods + 1 : contract.paid_periods;
+    const contractCompleted = installmentCompleted && nextPaidPeriods >= contract.duration_periods;
+    const periodMs = getDebtPeriodMs(contract.period_type);
+    const nextDueAt = contractCompleted
+      ? contract.next_due_at
+      : installmentCompleted
+        ? new Date(dueAtMs + periodMs).toISOString()
+        : contract.next_due_at;
+    const nextInstallmentRemaining = contractCompleted
+      ? 0
+      : installmentCompleted
+        ? contract.debt_amount
+        : remainingInstallment;
+    const nextMissedPeriods = contract.missed_periods + (installmentCompleted && overdue ? 1 : 0);
+    const nextCoins = profile.coins - paidAmount;
+    const immediateTribute = paidAmount;
+    const deferredTribute = 0;
     const nextTributeTotal = (profile.tribute_total ?? 0) + immediateTribute;
-    const nextDebtTributePending = (profile.debt_tribute_pending ?? 0) + deferredTribute;
+    const nextDebtTributePending = profile.debt_tribute_pending ?? 0;
+    const shouldKeepDebtTimeout = overdue && !contractCompleted && nextInstallmentRemaining > 0;
+    const nextTimeoutUntil = shouldKeepDebtTimeout
+      ? new Date(
+          Math.max(
+            nowMs + DEBT_OVERDUE_TIMEOUT_MS,
+            new Date(profile.timeout_until ?? 0).getTime(),
+          ),
+        ).toISOString()
+      : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+        ? null
+        : profile.timeout_until;
+    const nextTimeoutReason = shouldKeepDebtTimeout
+      ? DEBT_OVERDUE_TIMEOUT_REASON
+      : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+        ? null
+        : profile.timeout_reason;
 
     const { data: updatedProfile, error: updateProfileError } = await supabase
       .from("profiles")
       .update({
         coins: nextCoins,
         debt_tribute_pending: nextDebtTributePending,
+        timeout_reason: nextTimeoutReason,
+        timeout_until: nextTimeoutUntil,
         tribute_total: nextTributeTotal,
         updated_at: collectedAt,
       })
@@ -421,13 +446,16 @@ export async function POST(request: Request) {
     const { data: updatedContract, error: updateContractError } = await supabase
       .from("pet_debt_contracts")
       .update({
-        missed_periods: contract.missed_periods + plan.missedPeriods,
-        next_due_at: plan.completed ? contract.next_due_at : plan.nextDueAt,
-        paid_periods: plan.nextPaidPeriods,
-        status: plan.completed ? "completed" : "active",
+        current_installment_remaining: nextInstallmentRemaining,
+        missed_periods: nextMissedPeriods,
+        next_due_at: nextDueAt,
+        paid_periods: nextPaidPeriods,
+        status: contractCompleted ? "completed" : "active",
         updated_at: collectedAt,
       })
       .eq("id", contract.id)
+      .eq("current_installment_remaining", contract.current_installment_remaining)
+      .eq("missed_periods", contract.missed_periods)
       .eq("paid_periods", contract.paid_periods)
       .eq("next_due_at", contract.next_due_at)
       .eq("status", contract.status)
@@ -438,69 +466,83 @@ export async function POST(request: Request) {
       return jsonError(updateContractError?.message ?? "Debt contract update was stale or duplicated.", updateContractError ? 500 : 409);
     }
 
-    const { data: transaction, error: transactionError } = await supabase.from("coin_transactions").insert({
-      amount: nextCoins - profile.coins,
-      balance_after: nextCoins,
-      balance_before: profile.coins,
-      metadata: {
-        autoCollected: body.action === "autoCollect",
-        contractId: contract.id,
-        debtTributeDeferredAmount: deferredTribute,
-        debtTributeImmediateAmount: immediateTribute,
-        duePeriods: plan.duePeriods,
-        missedPeriods: plan.missedPeriods,
-        spendAmount: plan.amount,
-        tributeTotalChanged: immediateTribute > 0,
-      },
-      reason: body.action === "autoCollect" && plan.missedPeriods > 0
-        ? "tribute:debt-contract:missed"
-        : body.action === "autoCollect"
-          ? "tribute:debt-contract:auto"
-          : "tribute:debt-contract",
-      user_id: userId,
-    }).select("id").single();
+    let transaction: { id: string } | null = null;
 
-    if (transactionError) {
-      console.error("Debt contract transaction insert failed", transactionError);
-      const { error: rollbackProfileError } = await supabase
-        .from("profiles")
-        .update({
-          coins: profile.coins,
-          debt_tribute_pending: profile.debt_tribute_pending ?? 0,
-          tribute_total: profile.tribute_total,
-          updated_at: collectedAt,
-        })
-        .eq("id", userId)
-        .eq("coins", nextCoins)
-        .eq("debt_tribute_pending", nextDebtTributePending)
-        .eq("tribute_total", nextTributeTotal);
+    if (paidAmount > 0) {
+      const { data: insertedTransaction, error: transactionError } = await supabase.from("coin_transactions").insert({
+        amount: nextCoins - profile.coins,
+        balance_after: nextCoins,
+        balance_before: profile.coins,
+        metadata: {
+          autoCollected: body.action === "autoCollect",
+          contractId: contract.id,
+          currentInstallmentRemaining: nextInstallmentRemaining,
+          debtTributeDeferredAmount: deferredTribute,
+          debtTributeImmediateAmount: immediateTribute,
+          duePeriods: plan.duePeriods,
+          installmentCompleted,
+          missedPeriods: installmentCompleted && overdue ? 1 : 0,
+          paidAmount,
+          partialPayment: !installmentCompleted,
+          spendAmount: paidAmount,
+          tributeTotalChanged: immediateTribute > 0,
+        },
+        reason: body.action === "autoCollect" && overdue
+          ? "tribute:debt-contract:missed"
+          : body.action === "autoCollect"
+            ? "tribute:debt-contract:auto"
+            : "tribute:debt-contract",
+        user_id: userId,
+      }).select("id").single();
 
-      if (rollbackProfileError) {
-        console.error("Debt contract profile rollback failed", rollbackProfileError);
+      if (transactionError) {
+        console.error("Debt contract transaction insert failed", transactionError);
+        const { error: rollbackProfileError } = await supabase
+          .from("profiles")
+          .update({
+            coins: profile.coins,
+            debt_tribute_pending: profile.debt_tribute_pending ?? 0,
+            timeout_reason: profile.timeout_reason,
+            timeout_until: profile.timeout_until,
+            tribute_total: profile.tribute_total,
+            updated_at: collectedAt,
+          })
+          .eq("id", userId)
+          .eq("coins", nextCoins)
+          .eq("debt_tribute_pending", nextDebtTributePending)
+          .eq("tribute_total", nextTributeTotal);
+
+        if (rollbackProfileError) {
+          console.error("Debt contract profile rollback failed", rollbackProfileError);
+        }
+
+        const { error: rollbackContractError } = await supabase
+          .from("pet_debt_contracts")
+          .update({
+            current_installment_remaining: contract.current_installment_remaining,
+            missed_periods: contract.missed_periods,
+            next_due_at: contract.next_due_at,
+            paid_periods: contract.paid_periods,
+            status: contract.status,
+            updated_at: collectedAt,
+          })
+          .eq("id", contract.id)
+          .eq("current_installment_remaining", nextInstallmentRemaining)
+          .eq("missed_periods", nextMissedPeriods)
+          .eq("paid_periods", nextPaidPeriods)
+          .eq("next_due_at", nextDueAt)
+          .eq("status", contractCompleted ? "completed" : "active");
+
+        if (rollbackContractError) {
+          console.error("Debt contract contract rollback failed", rollbackContractError);
+        }
+
+        return jsonError("Debt payment coin logging failed.", 500);
       }
 
-      const { error: rollbackContractError } = await supabase
-        .from("pet_debt_contracts")
-        .update({
-          missed_periods: contract.missed_periods,
-          next_due_at: contract.next_due_at,
-          paid_periods: contract.paid_periods,
-          status: contract.status,
-          updated_at: collectedAt,
-        })
-        .eq("id", contract.id)
-        .eq("paid_periods", plan.nextPaidPeriods)
-        .eq("next_due_at", plan.completed ? contract.next_due_at : plan.nextDueAt)
-        .eq("status", plan.completed ? "completed" : "active");
-
-      if (rollbackContractError) {
-        console.error("Debt contract contract rollback failed", rollbackContractError);
-      }
-
-      return jsonError("Debt payment coin logging failed.", 500);
+      transaction = insertedTransaction;
     }
-
-    if (body.action === "pay") {
+    if (body.action === "pay" && installmentCompleted && paidAmount > 0) {
       const { data: existingTask, error: existingTaskError } = await supabase
         .from("user_pet_tasks")
         .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
@@ -518,7 +560,7 @@ export async function POST(request: Request) {
             completed_at: collectedAt,
             metadata: {
               contractId: contract.id,
-              paidPeriods: plan.nextPaidPeriods,
+              paidPeriods: nextPaidPeriods,
             },
             reviewed_at: collectedAt,
             reward_score: 10,
@@ -547,6 +589,8 @@ export async function POST(request: Request) {
             .update({
               coins: profile.coins,
               debt_tribute_pending: profile.debt_tribute_pending ?? 0,
+              timeout_reason: profile.timeout_reason,
+              timeout_until: profile.timeout_until,
               tribute_total: profile.tribute_total,
               updated_at: collectedAt,
             })
@@ -562,6 +606,7 @@ export async function POST(request: Request) {
           const { error: rollbackContractError } = await supabase
             .from("pet_debt_contracts")
             .update({
+              current_installment_remaining: contract.current_installment_remaining,
               missed_periods: contract.missed_periods,
               next_due_at: contract.next_due_at,
               paid_periods: contract.paid_periods,
@@ -569,9 +614,11 @@ export async function POST(request: Request) {
               updated_at: collectedAt,
             })
             .eq("id", contract.id)
-            .eq("paid_periods", plan.nextPaidPeriods)
-            .eq("next_due_at", plan.completed ? contract.next_due_at : plan.nextDueAt)
-            .eq("status", plan.completed ? "completed" : "active");
+            .eq("current_installment_remaining", nextInstallmentRemaining)
+            .eq("missed_periods", nextMissedPeriods)
+            .eq("paid_periods", nextPaidPeriods)
+            .eq("next_due_at", nextDueAt)
+            .eq("status", contractCompleted ? "completed" : "active");
 
           if (rollbackContractError) {
             console.error("Debt contract contract rollback after task failure failed", rollbackContractError);
@@ -582,10 +629,45 @@ export async function POST(request: Request) {
       }
     }
 
+    if (paidAmount > 0) {
+      try {
+        await awardDevotion(supabase, {
+          amount: Math.floor(paidAmount / 100),
+          metadata: {
+            contractId: contract.id,
+            installmentCompleted,
+            paidAmount,
+            remainingInstallment: nextInstallmentRemaining,
+          },
+          source: "debt_contract_payment",
+          sourceKey: [
+            contract.id,
+            contract.paid_periods,
+            currentInstallmentRemaining,
+            paidAmount,
+            installmentCompleted ? "full" : "partial",
+          ].join(":"),
+          userId,
+        });
+      } catch (devotionError) {
+        console.error("Debt contract devotion award failed", devotionError);
+      }
+    }
+
     return Response.json({
-      contract: plan.completed ? null : updatedContract,
-      plan,
+      autoPaySkipped: paidAmount === 0,
+      contract: contractCompleted ? null : updatedContract,
+      paidAmount,
+      plan: {
+        ...plan,
+        amount: currentInstallmentRemaining,
+        completed: contractCompleted,
+        currentInstallmentRemaining: nextInstallmentRemaining,
+        installmentCompleted,
+        nextPaidPeriods,
+      },
       profile: updatedProfile,
+      reason: paidAmount === 0 ? "insufficient_coins" : undefined,
     });
   }
 

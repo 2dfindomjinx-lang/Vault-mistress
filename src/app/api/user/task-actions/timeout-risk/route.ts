@@ -72,8 +72,8 @@ export async function POST(request: Request) {
   const multiplier =
     typeof rawMultiplier === "number" && Number.isInteger(rawMultiplier) ? rawMultiplier : NaN;
 
-  if (!Number.isInteger(multiplier) || multiplier < 1 || multiplier > 3) {
-    return jsonError("Timeout risk multiplier must be an integer between 1 and 3.", 422);
+  if (!Number.isInteger(multiplier) || multiplier < 1 || multiplier > 2) {
+    return jsonError("Timeout risk multiplier must be an integer between 1 and 2.", 422);
   }
 
   const supabase = createSupabaseAdminClient();

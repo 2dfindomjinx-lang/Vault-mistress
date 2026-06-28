@@ -186,6 +186,17 @@ create table if not exists public.user_titles (
   unique(user_id, title_id)
 );
 
+create table if not exists public.user_prestige_badges (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  badge_id text not null,
+  source text not null default 'seasonal_support',
+  metadata jsonb not null default '{}'::jsonb,
+  earned_at timestamp with time zone not null default now(),
+  created_at timestamp with time zone not null default now(),
+  unique(user_id, badge_id)
+);
+
 create table if not exists public.pet_debt_contracts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -193,6 +204,7 @@ create table if not exists public.pet_debt_contracts (
   contract_type text not null default 'normal' check (contract_type in ('normal', 'evil')),
   period_type text not null check (period_type in ('weekly', 'monthly')),
   debt_amount integer not null,
+  current_installment_remaining integer not null default 0,
   duration_periods integer not null,
   paid_periods integer not null default 0,
   missed_periods integer not null default 0,
@@ -374,6 +386,9 @@ alter table public.coin_transactions
 alter table public.devotion_events
   add column if not exists metadata jsonb not null default '{}'::jsonb;
 
+alter table public.pet_debt_contracts
+  add column if not exists current_installment_remaining integer not null default 0;
+
 alter table public.admin_pet_task_logs
   add column if not exists task_row_id uuid references public.user_pet_tasks(id) on delete set null,
   add column if not exists user_id uuid references auth.users(id) on delete cascade,
@@ -404,6 +419,7 @@ alter table public.user_pet_tasks enable row level security;
 alter table public.user_pet_gallery enable row level security;
 alter table public.user_cosmetics enable row level security;
 alter table public.user_titles enable row level security;
+alter table public.user_prestige_badges enable row level security;
 alter table public.pet_debt_contracts enable row level security;
 alter table public.evil_debt_contract_images enable row level security;
 alter table public.random_events enable row level security;
@@ -1792,6 +1808,15 @@ create policy "Users can read own titles"
 
 drop policy if exists "Users can insert own titles" on public.user_titles;
 drop policy if exists "Users can update own titles" on public.user_titles;
+
+drop policy if exists "Users can read own prestige badges" on public.user_prestige_badges;
+create policy "Users can read own prestige badges"
+  on public.user_prestige_badges for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own prestige badges" on public.user_prestige_badges;
+drop policy if exists "Users can update own prestige badges" on public.user_prestige_badges;
 
 drop policy if exists "Users can read own debt contracts" on public.pet_debt_contracts;
 create policy "Users can read own debt contracts"

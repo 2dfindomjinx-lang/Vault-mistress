@@ -14,7 +14,7 @@ export const visibleGalleryCosts = new Map<string, number>([
 export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 
 const baseTaskRewards = new Map<string, number>([
-  ["daily-login", 200],
+  ["daily-login", 150],
   ["streak-bonus-1", 50],
   ["streak-bonus-3", 125],
   ["streak-bonus-7", 250],

@@ -184,6 +184,7 @@ export type PetDebtContract = {
   contract_type?: "normal" | "evil";
   period_type: "weekly" | "monthly";
   debt_amount: number;
+  current_installment_remaining: number;
   duration_periods: number;
   paid_periods: number;
   missed_periods: number;

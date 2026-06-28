@@ -6105,7 +6105,7 @@ export function getSpeechBubbleMessageForText(
   return getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
 }
 
-export const cosmeticItems: CosmeticItem[] = [
+export const permanentCosmeticItems: CosmeticItem[] = [
   {
     id: DEFAULT_SPEECH_AVATAR_ID,
     name: "Principessa Classic",
@@ -6482,6 +6482,99 @@ export const cosmeticItems: CosmeticItem[] = [
     color: "#38bdf8",
   },
 ];
+
+export const rotatingCosmeticItems: CosmeticItem[] = [
+  {
+    id: "profile-border-rotating-vaultfire",
+    name: "Vaultfire Border",
+    description: "A molten gold frame that feels pulled from the community vault.",
+    type: "profile-border",
+    price: 18000,
+    color: "#f59e0b",
+  },
+  {
+    id: "profile-border-rotating-solar-flare",
+    name: "Solar Flare Border",
+    description: "A radiant event frame with a bright late-summer glow.",
+    type: "profile-border",
+    price: 22000,
+    color: "#fb7185",
+  },
+  {
+    id: "profile-border-rotating-gilded-noir",
+    name: "Gilded Noir Border",
+    description: "Dark lacquer with a gold rim for colder prestige.",
+    type: "profile-border",
+    price: 24000,
+    color: "#facc15",
+  },
+  {
+    id: "profile-border-rotating-afterglow",
+    name: "Afterglow Border",
+    description: "A soft neon frame that lingers like expensive attention.",
+    type: "profile-border",
+    price: 20000,
+    color: "#a855f7",
+  },
+  {
+    id: "username-color-rotating-sunset",
+    name: "Sunset Name",
+    description: "A warm coral-gold username reserved for the rotating vault.",
+    type: "username-color",
+    price: 9000,
+    color: "#fb7185",
+  },
+  {
+    id: "username-color-rotating-lagoon",
+    name: "Lagoon Name",
+    description: "A cool tropical teal username color from the rotating vault.",
+    type: "username-color",
+    price: 9000,
+    color: "#2dd4bf",
+  },
+  {
+    id: "username-glow-rotating-embers",
+    name: "Ember Glow",
+    description: "A hot orange halo for public recognition.",
+    type: "username-glow",
+    price: 6000,
+    glow: "0 0 22px rgba(251,146,60,0.95)",
+  },
+  {
+    id: "username-glow-rotating-aurora",
+    name: "Aurora Glow",
+    description: "A shifting mint-cyan glow that reads instantly on public cards.",
+    type: "username-glow",
+    price: 6500,
+    glow: "0 0 22px rgba(45,212,191,0.95)",
+  },
+  {
+    id: "username-glow-rotating-frostline",
+    name: "Frostline Glow",
+    description: "A cold silver-blue highlight for polished prestige.",
+    type: "username-glow",
+    price: 6000,
+    glow: "0 0 22px rgba(186,230,253,0.95)",
+  },
+  {
+    id: "username-color-event-summer-2026",
+    name: "Summer Support Name",
+    description: "A summer-limited coral shimmer available only during the seasonal rotation.",
+    type: "username-color",
+    price: 12000,
+    color: "#f97316",
+  },
+  {
+    id: "username-glow-event-summer-2026",
+    name: "Summer Heat Glow",
+    description: "A seasonal rotating glow with bright amber heat.",
+    type: "username-glow",
+    price: 8000,
+    glow: "0 0 24px rgba(251,191,36,0.95)",
+  },
+];
+
+export const cosmeticItems: CosmeticItem[] = [...permanentCosmeticItems, ...rotatingCosmeticItems];
 
 ensureSpeechBubbleResponsePlaceholders();
 
