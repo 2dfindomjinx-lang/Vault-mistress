@@ -57,7 +57,6 @@ import {
   getUnlockedInventoryTitleIds,
   getUnlockedPetTitleIds,
   permanentCosmeticItems,
-  rotatingCosmeticItems,
   titleItems,
   type CosmeticItem,
   type CosmeticType,
@@ -71,7 +70,6 @@ import {
   type DevotionPeriod,
 } from "@/lib/devotion";
 import {
-  getCurrentRotatingShopItems,
   getNextRotatingShopRefresh,
   type CommunityStatusResponse,
   type PublicCommunityProfile,
@@ -9673,11 +9671,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const currentUserPrestigeBadges = communityStatus?.currentUserBadges ?? [];
   const hallOfFameCards = communityStatus?.hallOfFame ?? [];
   const communityGoal = communityStatus?.communityGoal ?? null;
-  const rotatingShopItems = getCurrentRotatingShopItems(currentTime);
-  const ownedRotatingArchiveItems = rotatingCosmeticItems.filter(
-    (item) => ownedCosmeticIds.includes(item.id) && !rotatingShopItems.some((rotatingItem) => rotatingItem.id === item.id),
-  );
-  const visibleRotatingShopItems = [...rotatingShopItems, ...ownedRotatingArchiveItems];
+  const visibleRotatingShopItems: CosmeticItem[] = [];
   const nextRotatingShopRefresh = getNextRotatingShopRefresh(currentTime).toISOString();
   const soundControls = (
     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">

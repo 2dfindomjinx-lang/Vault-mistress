@@ -8,8 +8,6 @@ import {
 } from "@/lib/leadership";
 import type { CSSProperties } from "react";
 
-const THRONE_URL = "https://throne.com/principessa2dfd";
-
 type StatsPanelProps = {
   stats: {
     coins: number;
@@ -44,46 +42,9 @@ export function StatsPanel({
   usernameStyle,
 }: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
-  const statCards: Array<[string, string, string, number | null]> = [
-    ["Coins", stats.coins.toLocaleString(), "Principessa Coin balance", stats.coins],
-    ["Affection", `${stats.affection}/100`, "Principessa's current approval", null],
-    ["Loyalty Streak", `${stats.loyaltyStreak} days`, "Prototype daily streak", null],
-    ["Tribute Total", stats.tributeTotal.toLocaleString(), "Coins offered so far", stats.tributeTotal],
-  ];
 
   return (
     <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-      {statCards.map(([label, value, hint, coinAmount]) => (
-        <div
-          className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]"
-          key={label}
-        >
-          <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">{label}</p>
-          <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
-            {coinAmount === null ? (
-              value
-            ) : (
-              <CoinAmount amount={coinAmount} className="gap-2" iconSize={28} label="" />
-            )}
-          </p>
-          <p className="mt-1 text-xs text-zinc-400">{hint}</p>
-          {label === "Coins" && (
-            <p className="mt-3 text-xs leading-5 text-pink-100">
-              Need more Principessa Coins? Tribute through{" "}
-              <a
-                className="font-black uppercase tracking-[0.14em] text-pink-200 underline decoration-pink-300/50 underline-offset-4 transition hover:text-white"
-                href={THRONE_URL}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                Throne
-              </a>
-              .
-            </p>
-          )}
-        </div>
-      ))}
-
       <div className="rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)] sm:col-span-2">
         <div className="flex items-start justify-between gap-4">
           <div>

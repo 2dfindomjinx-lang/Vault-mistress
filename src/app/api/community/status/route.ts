@@ -175,13 +175,6 @@ export async function GET() {
   const supporterMonth = sumAmountsByUser(supportRows, monthStartMs, nowMs + 1);
   const devotionToday = sumSimpleMetricByUser(devotionRows, dayStartMs, nowMs + 1, (row) => Number(row.amount ?? 0));
   const devotionMonth = sumSimpleMetricByUser(devotionRows, monthStartMs, nowMs + 1, (row) => Number(row.amount ?? 0));
-  const casesMonth = sumSimpleMetricByUser(
-    caseRows.map((row) => ({ created_at: row.opened_at, user_id: row.user_id })),
-    monthStartMs,
-    nowMs + 1,
-    () => 1,
-  );
-
   const longestStreakUserId = streakRows
     .sort((first, second) => Number(second.loyalty_streak ?? 0) - Number(first.loyalty_streak ?? 0))[0]?.id ?? null;
   const allWinnerIds = [
@@ -191,7 +184,6 @@ export async function GET() {
     getTopUserId(devotionToday),
     getTopUserId(devotionMonth),
     longestStreakUserId,
-    getTopUserId(casesMonth),
   ].filter((id): id is string => Boolean(id));
 
   const profiles = await loadCommunityProfiles(supabase, allWinnerIds);
@@ -243,14 +235,6 @@ export async function GET() {
       metricValue: profiles.get(longestStreakUserId ?? "")?.loyaltyStreak ?? 0,
       valueDisplay: `${(profiles.get(longestStreakUserId ?? "")?.loyaltyStreak ?? 0).toLocaleString()} days`,
       winner: profiles.get(longestStreakUserId ?? "") ?? null,
-    },
-    {
-      id: "cases-month",
-      title: "Most Cases Opened This Month",
-      metricLabel: "Cases this month",
-      metricValue: getTopValue(casesMonth, getTopUserId(casesMonth)),
-      valueDisplay: getTopValue(casesMonth, getTopUserId(casesMonth)).toLocaleString(),
-      winner: profiles.get(getTopUserId(casesMonth) ?? "") ?? null,
     },
   ];
   const communityGoal = buildCommunityGoalStatus(currentGoal, goalRows, authData.user.id);

@@ -59,8 +59,15 @@ export function RotatingShop({
         can appear here without removing any of the core permanent cosmetics.
       </p>
 
-      <div className="mt-5 grid gap-3 xl:grid-cols-2">
-        {items.map((item) => {
+      {items.length === 0 ? (
+        <div className="mt-5 rounded-[1.55rem] border border-white/10 bg-black/28 p-5 text-sm leading-6 text-amber-50/78">
+          Rotating shop is temporarily empty. Placeholder items are hidden for now so nobody wastes coins.
+        </div>
+      ) : null}
+
+      {items.length > 0 ? (
+        <div className="mt-5 grid gap-3 xl:grid-cols-2">
+          {items.map((item) => {
           const owned = ownedCosmeticIds.includes(item.id);
           const equipped = equippedCosmeticIds[item.type] === item.id;
           const pending = pendingCosmeticIds.includes(item.id);
@@ -117,7 +124,8 @@ export function RotatingShop({
             </article>
           );
         })}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }
