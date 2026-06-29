@@ -14,7 +14,6 @@ type LicenseRow = {
   bound_at: string | null;
   last_validated_at: string | null;
   reset_count: number;
-  max_resets: number;
   created_at: string;
 };
 
@@ -35,7 +34,6 @@ export default function AppLicensesPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [status, setStatus] = useState("");
   const [notes, setNotes] = useState("");
-  const [maxResets, setMaxResets] = useState("2");
   const [isBusy, setIsBusy] = useState(false);
 
   const loadLicenses = async () => {
@@ -159,7 +157,7 @@ export default function AppLicensesPage() {
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
-          <div className="grid gap-3 md:grid-cols-[1fr_140px_auto] md:items-end">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
             <label className="grid gap-2 text-sm text-zinc-300">
               Notes
               <input
@@ -169,19 +167,10 @@ export default function AppLicensesPage() {
                 value={notes}
               />
             </label>
-            <label className="grid gap-2 text-sm text-zinc-300">
-              Max resets
-              <input
-                className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none"
-                inputMode="numeric"
-                onChange={(event) => setMaxResets(event.target.value)}
-                value={maxResets}
-              />
-            </label>
             <button
               className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={isBusy}
-              onClick={() => void runAction({ action: "generate", notes, maxResets: Number(maxResets || 2) }, "New activation code generated.")}
+              onClick={() => void runAction({ action: "generate", notes }, "New activation code generated.")}
               type="button"
             >
               Generate an Activation Code
@@ -214,7 +203,7 @@ export default function AppLicensesPage() {
                             {license.status}
                           </span>
                           <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
-                            resets {license.reset_count}/{license.max_resets}
+                            resets {license.reset_count}
                           </span>
                           <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1">
                             created {new Date(license.created_at).toLocaleString()}
@@ -236,7 +225,7 @@ export default function AppLicensesPage() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-3 py-2 text-xs font-black text-sky-100 transition hover:border-sky-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={isBusy || license.reset_count >= license.max_resets}
+                          disabled={isBusy}
                           onClick={() => void runAction({ action: "reset", licenseId: license.id }, "License reset. The next user can activate it.")}
                           type="button"
                         >

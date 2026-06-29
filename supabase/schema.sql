@@ -2167,3 +2167,68 @@ alter table public.app_activation_events
 
 alter table public.app_activation_codes enable row level security;
 alter table public.app_activation_events enable row level security;
+
+
+-- ============================================================
+-- PRINCIPESSA'S DISCIPLINE ACTIVATION CODES
+-- Independent mobile license system managed from the Vault admin panel.
+-- ============================================================
+
+create table if not exists public.app_activation_codes (
+  id uuid primary key default gen_random_uuid(),
+  app_key text not null,
+  activation_code text not null unique,
+  status text not null default 'active' check (status in ('active', 'revoked')),
+  owner_name text unique,
+  notes text,
+  bound_installation_id text,
+  bound_device_label text,
+  bound_android_id text,
+  bound_at timestamp with time zone,
+  last_validated_at timestamp with time zone,
+  reset_count integer not null default 0,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
+create index if not exists app_activation_codes_app_key_created_idx
+  on public.app_activation_codes(app_key, created_at desc);
+
+create unique index if not exists app_activation_codes_app_key_code_idx
+  on public.app_activation_codes(app_key, activation_code);
+
+create table if not exists public.app_activation_events (
+  id uuid primary key default gen_random_uuid(),
+  activation_id uuid references public.app_activation_codes(id) on delete set null,
+  app_key text not null,
+  activation_code_snapshot text,
+  owner_name_snapshot text,
+  event_type text not null check (event_type in ('generated', 'activated', 'validated', 'reinstalled', 'rejected', 'reset', 'revoked')),
+  installation_id text,
+  device_label text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists app_activation_events_activation_id_idx
+  on public.app_activation_events(activation_id, created_at desc);
+
+create index if not exists app_activation_events_app_key_idx
+  on public.app_activation_events(app_key, created_at desc);
+
+alter table public.app_activation_codes
+  add column if not exists owner_name text unique,
+  add column if not exists notes text,
+  add column if not exists bound_installation_id text,
+  add column if not exists bound_device_label text,
+  add column if not exists bound_android_id text,
+  add column if not exists bound_at timestamp with time zone,
+  add column if not exists last_validated_at timestamp with time zone,
+  add column if not exists reset_count integer not null default 0,
+  add column if not exists updated_at timestamp with time zone not null default now();
+
+alter table public.app_activation_events
+  add column if not exists owner_name_snapshot text;
+
+alter table public.app_activation_codes enable row level security;
+alter table public.app_activation_events enable row level security;

@@ -45,7 +45,6 @@ export type AppLicenseRow = {
   bound_at: string | null;
   last_validated_at: string | null;
   reset_count: number;
-  max_resets: number;
   created_at: string;
   updated_at: string | null;
 };
@@ -86,7 +85,7 @@ export async function listAppLicenses(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, max_resets, created_at, updated_at")
+    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -118,7 +117,7 @@ export async function findAppLicense(appKey: string, activationCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, max_resets, created_at, updated_at")
+    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
     .eq("app_key", appKey)
     .eq("activation_code", normalizeLicenseCode(activationCode))
     .maybeSingle();
@@ -130,9 +129,8 @@ export async function findAppLicense(appKey: string, activationCode: string) {
   return (data ?? null) as AppLicenseRow | null;
 }
 
-export async function insertAppLicense(input: { appKey: string; notes?: string | null; maxResets?: number }) {
+export async function insertAppLicense(input: { appKey: string; notes?: string | null }) {
   const supabase = createSupabaseAdminClient();
-  const safeMaxResets = Math.max(0, Math.min(10, Math.round(input.maxResets ?? 2)));
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const activationCode = generateActivationCode();
@@ -142,10 +140,9 @@ export async function insertAppLicense(input: { appKey: string; notes?: string |
         app_key: input.appKey,
         activation_code: activationCode,
         notes: input.notes?.trim() || null,
-        max_resets: safeMaxResets,
         status: "active",
       })
-      .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, max_resets, created_at, updated_at")
+      .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
       .single();
 
     if (!error && data) {
@@ -154,7 +151,7 @@ export async function insertAppLicense(input: { appKey: string; notes?: string |
         activationCodeSnapshot: data.activation_code,
         appKey: data.app_key,
         eventType: "generated",
-        metadata: { notes: data.notes, maxResets: data.max_resets },
+        metadata: { notes: data.notes },
       });
       return data as AppLicenseRow;
     }
@@ -278,7 +275,7 @@ export async function revokeAppLicense(licenseId: string) {
     .from("app_activation_codes")
     .update({ status: "revoked", updated_at: now })
     .eq("id", licenseId)
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, max_resets, created_at, updated_at")
+    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
     .single();
 
   if (error) {
@@ -300,16 +297,12 @@ export async function resetAppLicense(licenseId: string) {
   const supabase = createSupabaseAdminClient();
   const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, owner_name, reset_count, max_resets")
+    .select("id, app_key, activation_code, owner_name, reset_count")
     .eq("id", licenseId)
     .single();
 
   if (fetchError) {
     throw fetchError;
-  }
-
-  if ((existing.reset_count ?? 0) >= (existing.max_resets ?? 0)) {
-    throw new Error("Reset limit reached for this code.");
   }
 
   const now = new Date().toISOString();
@@ -327,7 +320,7 @@ export async function resetAppLicense(licenseId: string) {
       updated_at: now,
     })
     .eq("id", licenseId)
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, max_resets, created_at, updated_at")
+    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
     .single();
 
   if (error) {
@@ -340,7 +333,7 @@ export async function resetAppLicense(licenseId: string) {
     ownerNameSnapshot: existing.owner_name,
     appKey: data.app_key,
     eventType: "reset",
-    metadata: { resetCount: data.reset_count, maxResets: data.max_resets },
+    metadata: { resetCount: data.reset_count },
   });
 
   return data as AppLicenseRow;

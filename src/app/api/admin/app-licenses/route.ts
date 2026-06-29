@@ -42,7 +42,6 @@ export async function POST(request: Request) {
     action?: "generate" | "revoke" | "reset" | "list";
     licenseId?: string;
     notes?: string;
-    maxResets?: number;
   };
 
   try {
@@ -57,7 +56,6 @@ export async function POST(request: Request) {
       await insertAppLicense({
         appKey: PRINCIPESSA_DISCIPLINE_APP_KEY,
         notes: body.notes,
-        maxResets: body.maxResets,
       });
       return Response.json({
         licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
