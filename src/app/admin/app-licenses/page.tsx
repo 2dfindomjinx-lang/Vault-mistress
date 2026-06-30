@@ -35,6 +35,7 @@ export default function AppLicensesPage() {
   const [status, setStatus] = useState("");
   const [notes, setNotes] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [resetTarget, setResetTarget] = useState<LicenseRow | null>(null);
 
   const loadLicenses = async () => {
     setIsBusy(true);
@@ -226,15 +227,15 @@ export default function AppLicensesPage() {
                         <button
                           className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-3 py-2 text-xs font-black text-sky-100 transition hover:border-sky-200/50 disabled:cursor-not-allowed disabled:opacity-50"
                           disabled={isBusy}
-                          onClick={() => void runAction({ action: "reset", licenseId: license.id }, "License reset. The next user can activate it.")}
+                          onClick={() => setResetTarget(license)}
                           type="button"
                         >
                           Reset
                         </button>
                         <button
                           className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={isBusy || license.status === "revoked"}
-                          onClick={() => void runAction({ action: "revoke", licenseId: license.id }, "License revoked.")}
+                          disabled={isBusy || license.status === "revoked" || Boolean(license.owner_name || license.bound_installation_id || license.bound_at || license.last_validated_at || license.reset_count > 0)}
+                          onClick={() => void runAction({ action: "revoke", licenseId: license.id }, "Unused activation code deleted.")}
                           type="button"
                         >
                           Revoke
@@ -253,6 +254,7 @@ export default function AppLicensesPage() {
 
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">Recent activation log</p>
+            <p className="mt-2 text-xs text-zinc-500">Showing the latest 50 entries.</p>
             <div className="mt-4 grid gap-3">
               {events.length > 0 ? (
                 events.map((event) => (
@@ -287,6 +289,42 @@ export default function AppLicensesPage() {
           </p>
         )}
       </section>
+
+      {resetTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-4">
+          <div className="w-full max-w-md rounded-[2rem] border border-pink-200/20 bg-[#09040d] p-5 shadow-[0_0_44px_rgba(217,70,239,0.14)]">
+            <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Confirm reset</p>
+            <h2 className="mt-2 font-mono text-lg font-black tracking-[0.14em] text-pink-50">
+              {resetTarget.activation_code}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              This will clear the current binding and let the code be activated again.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-200"
+                disabled={isBusy}
+                onClick={() => setResetTarget(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-4 py-2 text-sm font-black text-sky-100 transition hover:border-sky-200/50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isBusy}
+                onClick={() => {
+                  const licenseId = resetTarget.id;
+                  setResetTarget(null);
+                  void runAction({ action: "reset", licenseId }, "License reset. The next user can activate it.");
+                }}
+                type="button"
+              >
+                Confirm reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -119,6 +119,7 @@ import {
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
+  getGmt3DayBounds,
   getGmt3DateKey,
   getGmt3DayIndex,
   getMsUntilNextGmt3HalfDayReset,
@@ -4489,13 +4490,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         patch.last_owner_likeness_at = nowIso;
       }
     } else if (nextPetUnlockedAt) {
-      const likenessBase = new Date(nextLastOwnerLikenessAt ?? nextPetUnlockedAt).getTime();
-      const elapsedLikenessDays = Math.floor((now - likenessBase) / DAY_MS);
+      const todayKey = getGmt3DateKey(nowIso);
+      const lastLikenessKey = getGmt3DateKey(nextLastOwnerLikenessAt ?? nextPetUnlockedAt);
 
-      if (elapsedLikenessDays > 0) {
-        const dayStart = new Date(now - DAY_MS);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayStart.getTime() + DAY_MS);
+      if (lastLikenessKey !== todayKey) {
+        const { start: dayStart, end: dayEnd } = getGmt3DayBounds(nowIso);
         const { count, error: countError } = await supabase
           .from("user_pet_tasks")
           .select("id", { count: "exact", head: true })

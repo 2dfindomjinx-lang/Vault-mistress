@@ -104,7 +104,7 @@ export async function listAppLicenseEvents(appKey = PRINCIPESSA_DISCIPLINE_APP_K
     .select("id, activation_id, activation_code_snapshot, owner_name_snapshot, event_type, installation_id, device_label, metadata, created_at")
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(50);
 
   if (error) {
     throw error;
@@ -270,27 +270,46 @@ export async function touchAppLicenseValidation(input: {
 
 export async function revokeAppLicense(licenseId: string) {
   const supabase = createSupabaseAdminClient();
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
+  const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
-    .update({ status: "revoked", updated_at: now })
-    .eq("id", licenseId)
     .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+    .eq("id", licenseId)
     .single();
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  const hasBeenUsed =
+    Boolean(existing.owner_name) ||
+    Boolean(existing.bound_installation_id) ||
+    Boolean(existing.bound_android_id) ||
+    Boolean(existing.bound_at) ||
+    Boolean(existing.last_validated_at) ||
+    (existing.reset_count ?? 0) > 0;
+
+  if (hasBeenUsed) {
+    throw new Error("Used activation codes can no longer be revoked.");
+  }
+
+  const { error } = await supabase
+    .from("app_activation_codes")
+    .delete()
+    .eq("id", licenseId);
 
   if (error) {
     throw error;
   }
 
   await logAppLicenseEvent({
-    activationId: data.id,
-    activationCodeSnapshot: data.activation_code,
-    ownerNameSnapshot: data.owner_name,
-    appKey: data.app_key,
-    eventType: "revoked",
+    activationId: existing.id,
+    activationCodeSnapshot: existing.activation_code,
+    ownerNameSnapshot: existing.owner_name,
+    appKey: existing.app_key,
+    eventType: "deleted_unused",
   });
 
-  return data as AppLicenseRow;
+  return existing as AppLicenseRow;
 }
 
 export async function resetAppLicense(licenseId: string) {
