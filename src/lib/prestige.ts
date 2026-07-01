@@ -4,7 +4,7 @@ import {
   type CosmeticItem,
 } from "@/lib/cosmetics";
 import { rotatingProfileFrameCosmeticItems } from "@/lib/profile-frame-cosmetics";
-import { DAY_MS, GMT3_OFFSET_MS } from "@/lib/time";
+import { DAY_MS, GMT3_OFFSET_MS, HALF_DAY_MS } from "@/lib/time";
 
 export type PrestigeBadgeTone = "gold" | "rose" | "cyan" | "emerald";
 
@@ -100,13 +100,11 @@ type CommunityGoalDefinition = {
 };
 
 type RotatingShopDefinition = {
-  buckets: Array<{
-    itemIds: string[];
-    picks: number;
-  }>;
   itemIds: string[];
   picks: number;
-  rotationDays: number;
+  refreshPairs: number[][];
+  rotationIntervalMs: number;
+  slotItemPools: string[][];
 };
 
 export type CoinTransactionLite = {
@@ -228,17 +226,22 @@ const rotatingShowpieceIds = [
 ];
 const rotatingAccentIds = [...rotatingCornerIds, ...rotatingTopIds];
 const rotatingWildIds = rotatingProfileFrameCosmeticItems.map((item) => item.id);
+const ROTATING_SHOP_START_MS = new Date("2026-06-01T00:00:00+03:00").getTime();
 
 const rotatingShopDefinition: RotatingShopDefinition = {
-  buckets: [
-    { itemIds: rotatingShowpieceIds, picks: 1 },
-    { itemIds: rotatingAccentIds, picks: 1 },
-    { itemIds: rotatingParticleIds, picks: 1 },
-    { itemIds: rotatingWildIds, picks: 1 },
-  ],
   itemIds: [...rotatingBorderIds, ...rotatingWildIds],
   picks: 4,
-  rotationDays: 2,
+  refreshPairs: [
+    [0, 2],
+    [1, 3],
+  ],
+  rotationIntervalMs: HALF_DAY_MS,
+  slotItemPools: [
+    rotatingShowpieceIds,
+    rotatingAccentIds,
+    rotatingParticleIds,
+    [...rotatingBorderIds, ...rotatingWildIds],
+  ],
 };
 
 export const SUPPORT_REASON_SET = new Set([
@@ -296,17 +299,16 @@ export function getGmt3WeekStart(date: Date | number | string = new Date()) {
 }
 
 function getRotationStartMs(date: Date | number | string = new Date()) {
-  const summerStartMs = new Date("2026-06-01T00:00:00+03:00").getTime();
   const currentMs = new Date(date).getTime();
-  const rotationWindowMs = rotatingShopDefinition.rotationDays * DAY_MS;
-  const elapsed = Math.max(0, currentMs - summerStartMs);
+  const rotationWindowMs = rotatingShopDefinition.rotationIntervalMs;
+  const elapsed = Math.max(0, currentMs - ROTATING_SHOP_START_MS);
   const rotationIndex = Math.floor(elapsed / rotationWindowMs);
 
-  return summerStartMs + rotationIndex * rotationWindowMs;
+  return ROTATING_SHOP_START_MS + rotationIndex * rotationWindowMs;
 }
 
 export function getNextRotatingShopRefresh(date: Date | number | string = new Date()) {
-  const rotationWindowMs = rotatingShopDefinition.rotationDays * DAY_MS;
+  const rotationWindowMs = rotatingShopDefinition.rotationIntervalMs;
   return new Date(getRotationStartMs(date) + rotationWindowMs);
 }
 
@@ -330,83 +332,84 @@ function pickStableItemIds(itemIds: string[], picks: number, seed: number) {
     .filter((itemId): itemId is string => Boolean(itemId));
 }
 
-function pickRotationItemIdsForIndex(
-  rotationIndex: number,
-  pooledItemIds: string[],
-  previousRotationIds: string[],
-) {
-  const pooledSet = new Set(pooledItemIds);
-  const previouslyShown = new Set(previousRotationIds);
-  const used = new Set<string>();
-  const selected: string[] = [];
-
-  rotatingShopDefinition.buckets.forEach((bucket, bucketIndex) => {
-    const availableInBucket = bucket.itemIds.filter(
-      (itemId) => pooledSet.has(itemId) && !used.has(itemId),
-    );
-    const preferred = availableInBucket.filter(
-      (itemId) => !previouslyShown.has(itemId),
-    );
-    const source =
-      preferred.length >= bucket.picks ? preferred : availableInBucket;
-    const pickedIds = pickStableItemIds(
-      source,
-      bucket.picks,
-      (rotationIndex + 1) * 131 + (bucketIndex + 1) * 977,
-    );
-
-    pickedIds.forEach((itemId) => {
-      if (!used.has(itemId)) {
-        used.add(itemId);
-        selected.push(itemId);
-      }
-    });
-  });
-
-  if (selected.length < rotatingShopDefinition.picks) {
-    const remainingPool = pooledItemIds.filter((itemId) => !used.has(itemId));
-    const preferredRemaining = remainingPool.filter(
-      (itemId) => !previouslyShown.has(itemId),
-    );
-    const source =
-      preferredRemaining.length >=
-      rotatingShopDefinition.picks - selected.length
-        ? preferredRemaining
-        : remainingPool;
-    const fillerIds = pickStableItemIds(
-      source,
-      rotatingShopDefinition.picks - selected.length,
-      (rotationIndex + 1) * 7919,
-    );
-
-    fillerIds.forEach((itemId) => {
-      if (!used.has(itemId)) {
-        used.add(itemId);
-        selected.push(itemId);
-      }
-    });
+function getRefreshSlotIndices(rotationIndex: number) {
+  if (rotationIndex <= 0) {
+    return Array.from({ length: rotatingShopDefinition.picks }, (_, index) => index);
   }
 
-  return selected.slice(0, rotatingShopDefinition.picks);
+  return (
+    rotatingShopDefinition.refreshPairs[(rotationIndex - 1) % rotatingShopDefinition.refreshPairs.length] ??
+    rotatingShopDefinition.refreshPairs[0] ??
+    []
+  ).filter((slotIndex) => slotIndex < rotatingShopDefinition.picks);
+}
+
+function pickNextSlotItemId(
+  itemIds: string[],
+  excludedIds: Set<string>,
+  previousItemId: string | null,
+  previousRotationIds: string[],
+  seed: number,
+) {
+  const available = itemIds.filter(
+    (itemId) => !excludedIds.has(itemId) && itemId !== previousItemId,
+  );
+  const preferred = available.filter((itemId) => !previousRotationIds.includes(itemId));
+  const source = preferred.length > 0 ? preferred : available;
+
+  if (source.length > 0) {
+    return pickStableItemIds(source, 1, seed)[0] ?? null;
+  }
+
+  const fallback = itemIds.filter((itemId) => !excludedIds.has(itemId));
+
+  if (fallback.length > 0) {
+    return pickStableItemIds(fallback, 1, seed)[0] ?? null;
+  }
+
+  return previousItemId;
+}
+
+function pickRotationItemIdsForIndex(rotationIndex: number, previousRotationIds: string[]) {
+  const nextSelection =
+    rotationIndex === 0
+      ? Array.from({ length: rotatingShopDefinition.picks }, () => "")
+      : [...previousRotationIds];
+  const refreshIndices = getRefreshSlotIndices(rotationIndex);
+
+  refreshIndices.forEach((slotIndex, sequenceIndex) => {
+    const pool = rotatingShopDefinition.slotItemPools[slotIndex] ?? rotatingShopDefinition.itemIds;
+    const excludedIds = new Set(
+      nextSelection
+        .filter((itemId, index) => index !== slotIndex && Boolean(itemId))
+        .map((itemId) => itemId),
+    );
+    const previousItemId = previousRotationIds[slotIndex] ?? null;
+    const nextItemId = pickNextSlotItemId(
+      pool,
+      excludedIds,
+      previousItemId,
+      previousRotationIds,
+      (rotationIndex + 1) * 131 + (slotIndex + 1) * 977 + (sequenceIndex + 1) * 97,
+    );
+
+    if (nextItemId) {
+      nextSelection[slotIndex] = nextItemId;
+    }
+  });
+
+  return nextSelection.slice(0, rotatingShopDefinition.picks);
 }
 
 export function getCurrentRotatingShopItems(date: Date | number | string = new Date()) {
   const rotationStartMs = getRotationStartMs(date);
   const rotationIndex = Math.floor(
-    (rotationStartMs - new Date("2026-06-01T00:00:00+03:00").getTime()) /
-      (rotatingShopDefinition.rotationDays * DAY_MS),
+    (rotationStartMs - ROTATING_SHOP_START_MS) / rotatingShopDefinition.rotationIntervalMs,
   );
-  const pooledItems = rotatingShopDefinition.itemIds;
-  let previousRotationIds: string[] = [];
   let currentRotationIds: string[] = [];
 
   for (let index = 0; index <= rotationIndex; index += 1) {
-    currentRotationIds = pickRotationItemIdsForIndex(
-      index,
-      pooledItems,
-      previousRotationIds,
-    );
-    previousRotationIds = currentRotationIds;
+    currentRotationIds = pickRotationItemIdsForIndex(index, currentRotationIds);
   }
 
   return currentRotationIds

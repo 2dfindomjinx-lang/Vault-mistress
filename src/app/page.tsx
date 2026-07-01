@@ -81,6 +81,11 @@ import {
   type PublicCommunityProfile,
 } from "@/lib/prestige";
 import {
+  buildShrineStatus,
+  SHRINE_DEVOTION_REWARD,
+  type ShrineStatus,
+} from "@/lib/shrine";
+import {
   getGlobalPrincipessaProgressPercent,
   getGlobalPrincipessaXpRequirement,
   type GlobalPrincipessaProgress,
@@ -1921,6 +1926,7 @@ export default function Home() {
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [totalDevotion, setTotalDevotion] = useState(0);
+  const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
   const [lifetimeSpentCoins, setLifetimeSpentCoins] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
   const [userXp, setUserXp] = useState(0);
@@ -3502,6 +3508,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [describeError, isGuestMode, isLoggedIn, isPreviewMode]);
 
+  const loadShrineStatus = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setShrineStatus(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/shrine", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        shrine?: ShrineStatus;
+      } | null;
+
+      if (!response.ok || !payload?.shrine) {
+        throw new Error(payload?.error ?? "Shrine status could not be loaded.");
+      }
+
+      setShrineStatus(payload.shrine);
+    } catch (error) {
+      console.error("Failed to load shrine status", error);
+      setShrineStatus(null);
+    }
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
+
   const loadSelectedCommunityProfile = useCallback(async (userId: string) => {
     setSelectedCommunityProfileLoading(true);
     setSelectedCommunityProfileError("");
@@ -3659,6 +3689,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.clearInterval(timer);
     };
   }, [isGuestMode, isLoggedIn, isPreviewMode, loadCommunityStatus]);
+
+  useEffect(() => {
+    if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
+      setShrineStatus(null);
+      return;
+    }
+
+    void loadShrineStatus();
+  }, [affection, isGuestMode, isLoggedIn, isPreviewMode, loadShrineStatus]);
 
   useEffect(() => {
     if (!selectedCommunityProfileId) {
@@ -7081,6 +7120,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAffection(0);
     setTributeTotal(0);
     setTotalDevotion(0);
+    setShrineStatus(null);
     setLifetimeSpentCoins(0);
     setLoyaltyStreak(0);
     setLastLoyaltyAt(null);
@@ -7144,6 +7184,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastLoyaltyAt(null);
     setTributeTotal(0);
     setTotalDevotion(0);
+    setShrineStatus(null);
     setLifetimeSpentCoins(0);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -7266,6 +7307,91 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           : "That tiny amount? You’re not even a real paypig, just a joke.",
     );
     finishTaskAction(actionId);
+  };
+
+  const handleShrinePurchase = async (amount: number) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const actionId = `shrine:${amount}`;
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    if (affection < 100) {
+      setAvatarMistressReply("The Shrine stays sealed until my affection reaches 100.");
+      finishTaskAction(actionId);
+      return;
+    }
+
+    const currentCoins = coinsRef.current;
+
+    if (currentCoins < amount) {
+      setAvatarMistressReply("Not enough coins. Even the Shrine rejects empty pockets.");
+      finishTaskAction(actionId);
+      return;
+    }
+
+    try {
+      if (isGuestMode) {
+        const nextCoins = currentCoins - amount;
+        const nextTributeTotal = getNextTributeTotal(amount);
+        const previousStatus = shrineStatus ?? buildShrineStatus(0, []);
+        const nextShrineStatus = buildShrineStatus(previousStatus.totalSpent + amount, previousStatus.imagePaths);
+        const unlockedNewImage = nextShrineStatus.unlockedImageCount > previousStatus.unlockedImageCount;
+
+        setCoins(nextCoins);
+        coinsRef.current = nextCoins;
+        setTributeTotal(nextTributeTotal);
+        setTotalDevotion((current) => current + SHRINE_DEVOTION_REWARD);
+        setShrineStatus(nextShrineStatus);
+        unlockProgressionTitles(nextTributeTotal);
+        emitSoundEvent("tribute_sent");
+        setAvatarMistressReply(
+          unlockedNewImage
+            ? "The Shrine accepted your coins. A new image tier stirred awake."
+            : "The Shrine swallowed your coins and your devotion ticked higher.",
+        );
+        finishTaskAction(actionId);
+        return;
+      }
+
+      const response = await fetch("/api/user/shrine", {
+        body: JSON.stringify({ amount }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        profile?: Profile;
+        shrine?: ShrineStatus;
+      } | null;
+
+      if (!response.ok || !payload?.profile || !payload?.shrine) {
+        throw createApiError("/api/user/shrine", response, payload ?? {});
+      }
+
+      const previousUnlockedCount = shrineStatus?.unlockedImageCount ?? 0;
+      applyProfileStats(payload.profile);
+      setShrineStatus(payload.shrine);
+      unlockProgressionTitles(payload.profile.tribute_total ?? tributeTotal + amount);
+      void loadLeadershipTop();
+      void loadCommunityStatus();
+      emitSoundEvent("tribute_sent");
+      setAvatarMistressReply(
+        payload.shrine.unlockedImageCount > previousUnlockedCount
+          ? "The Shrine devoured your offering. A fresh image unlock now belongs to you."
+          : "The Shrine accepted the offering. Tribute rose, devotion deepened.",
+      );
+    } catch (error) {
+      console.error("Failed to complete shrine purchase", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The Shrine ledger refused that offering. Try again.");
+    } finally {
+      finishTaskAction(actionId);
+    }
   };
 
   const handleJackpotContribute = async (amount: number) => {
@@ -8591,7 +8717,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const paymentDue =
-      petDebtContract.paid_periods === 0 ||
       new Date(petDebtContract.next_due_at).getTime() <= Date.now();
 
     if (!paymentDue) {
@@ -10291,6 +10416,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               disabled={isTimeoutActive || isPreviewRestricted}
               hideAffectionOffer={affection >= 100}
               pending={pendingTaskActionIds.some((id) => id.startsWith("tribute:"))}
+              shrine={shrineStatus}
+              shrinePending={pendingTaskActionIds.some((id) => id.startsWith("shrine:"))}
+              onShrinePurchase={handleShrinePurchase}
               onTribute={handleTribute}
             />
           )}
@@ -10776,6 +10904,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "debt" && (
             <DebtSection
+              canManageActiveDebtWhileTimedOut={isDebtOverdueTimeoutActive}
               disabled={isPreviewRestricted}
               isTimeoutActive={isTimeoutActive}
               isDebtAutoPayEnabled={isDebtAutoPayEnabled}

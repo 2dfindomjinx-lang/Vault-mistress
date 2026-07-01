@@ -1,4 +1,10 @@
 import Image from "next/image";
+import {
+  SHRINE_DEVOTION_REWARD,
+  SHRINE_IMAGE_UNLOCK_COST,
+  SHRINE_PURCHASE_OPTIONS,
+  type ShrineStatus,
+} from "@/lib/shrine";
 
 type TributePanelProps = {
   affection: number;
@@ -6,6 +12,9 @@ type TributePanelProps = {
   disabled?: boolean;
   hideAffectionOffer?: boolean;
   pending?: boolean;
+  shrine?: ShrineStatus | null;
+  shrinePending?: boolean;
+  onShrinePurchase?: (amount: number) => void;
   onTribute: (amount: number) => void;
 };
 
@@ -21,6 +30,9 @@ export function TributePanel({
   disabled = false,
   hideAffectionOffer = false,
   pending = false,
+  shrine = null,
+  shrinePending = false,
+  onShrinePurchase,
   onTribute,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
@@ -32,9 +44,7 @@ export function TributePanel({
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
             Tribute System
           </p>
-          <h2 className="text-3xl font-black">
-            {hideAffectionOffer ? "Tribute Hub" : "Offer Principessa Coins"}
-          </h2>
+          <h2 className="text-3xl font-black">{hideAffectionOffer ? "Shrine of Principessa" : "Offer Principessa Coins"}</h2>
         </div>
         <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-50">
           Balance: {coins.toLocaleString()} coins
@@ -68,12 +78,125 @@ export function TributePanel({
 
           <p className="mt-5 text-sm leading-6 text-zinc-400">
             {isMaxAffection
-              ? "Principessa's mood is already at its peak. Tribute is locked until a future prestige system exists."
+              ? "Principessa's mood is already at its peak. Standard tribute is sealed, but the Shrine can still consume coins."
               : disabled
                 ? "Timeout is active. Tribute actions are locked until the timer ends."
               : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
           </p>
         </>
+      )}
+
+      {hideAffectionOffer && (
+        <div className="mt-5 rounded-[1.6rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.28),rgba(88,28,135,0.16),rgba(0,0,0,0.5))] p-5 shadow-[0_0_34px_rgba(251,191,36,0.12)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-xs font-black uppercase tracking-[0.26em] text-amber-100/70">
+                Post-100 Coin Sink
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Keep paying at the shrine.
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-amber-50/80">
+                Every shrine purchase spends coins, adds to tribute total, and grants +0.1% devotion.
+                Every {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} shrine coins spent unlocks the next shrine image.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-amber-200/15 bg-black/30 px-4 py-3 text-sm text-amber-50/85">
+              <p className="font-semibold">Shrine spent: {shrine?.totalSpent.toLocaleString() ?? "0"} coins</p>
+              <p className="mt-1">
+                Images unlocked: {shrine?.unlockedImageCount ?? 0}/{shrine?.availableImageCount ?? 0}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)]">
+            <div className="grid gap-4 md:grid-cols-3">
+              {SHRINE_PURCHASE_OPTIONS.map((option) => (
+                <button
+                  className="group rounded-[1.5rem] border border-amber-200/15 bg-[linear-gradient(160deg,rgba(251,191,36,0.12),rgba(236,72,153,0.1),rgba(0,0,0,0.45))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_30px_rgba(251,191,36,0.18)] disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={disabled || shrinePending || coins < option.amount}
+                  key={option.amount}
+                  onClick={() => onShrinePurchase?.(option.amount)}
+                  type="button"
+                >
+                  <p className="text-sm font-semibold text-amber-50">{option.label}</p>
+                  <p className="mt-4 text-4xl font-black text-white">{option.amount}</p>
+                  <p className="mt-1 text-sm text-zinc-400">coins</p>
+                  <p className="mt-4 text-sm leading-6 text-zinc-300">{option.description}</p>
+                  <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-amber-50/85">
+                    <span className="rounded-full border border-amber-200/20 bg-black/25 px-3 py-2">
+                      +{SHRINE_DEVOTION_REWARD / 10}% devotion
+                    </span>
+                    <span className="rounded-full border border-pink-200/20 bg-black/25 px-3 py-2">
+                      Tribute +{option.amount.toLocaleString()}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
+                  Shrine Gallery
+                </p>
+                {shrine?.coinsUntilNextUnlock !== null ? (
+                  <span className="rounded-full border border-amber-200/15 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-50">
+                    {shrine?.coinsUntilNextUnlock?.toLocaleString() ?? "0"} to next unlock
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-50">
+                    All current images unlocked
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.18),rgba(0,0,0,0.62))]">
+                {shrine?.currentImagePath ? (
+                  <Image
+                    alt="Current shrine unlock"
+                    className="h-auto w-full object-cover"
+                    height={900}
+                    src={shrine.currentImagePath}
+                    width={700}
+                  />
+                ) : (
+                  <div className="flex min-h-[17rem] flex-col items-center justify-center px-6 py-10 text-center">
+                    <p className="text-sm font-black uppercase tracking-[0.24em] text-amber-50/70">
+                      Awaiting Shrine Images
+                    </p>
+                    <p className="mt-3 max-w-xs text-sm leading-6 text-zinc-300">
+                      The unlock system is live already. Drop future shrine images into `public/shrine`
+                      and every new file automatically adds another {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} coin cycle.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/35">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b,#ec4899,#fde68a)] transition-[width]"
+                  style={{
+                    width: `${Math.max(
+                      6,
+                      Math.min(
+                        100,
+                        shrine?.coinsUntilNextUnlock === null
+                          ? 100
+                          : (((shrine?.totalSpent ?? 0) % SHRINE_IMAGE_UNLOCK_COST) / SHRINE_IMAGE_UNLOCK_COST) * 100,
+                      ),
+                    )}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                {shrine?.availableImageCount
+                  ? `Unlocked ${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} current shrine images.`
+                  : "No shrine images are installed yet, but progress is already accumulating in the background."}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.34))] p-4 shadow-[0_0_28px_rgba(236,72,153,0.12)]">

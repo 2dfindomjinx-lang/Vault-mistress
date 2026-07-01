@@ -788,8 +788,7 @@ export function PetSection({
   );
   const debtPaymentDue =
     Boolean(petDebtContract) &&
-    (petDebtContract?.paid_periods === 0 ||
-      new Date(petDebtContract?.next_due_at ?? "").getTime() <= now);
+    new Date(petDebtContract?.next_due_at ?? "").getTime() <= now;
   const debtInstallmentNumber = petDebtContract
     ? Math.min(petDebtContract.paid_periods + 1, petDebtContract.duration_periods)
     : 0;

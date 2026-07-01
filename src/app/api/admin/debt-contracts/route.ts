@@ -13,6 +13,10 @@ function getDebtPeriodMs(periodType: "weekly" | "monthly") {
   return periodType === "weekly" ? 7 * DAY_MS : 30 * DAY_MS;
 }
 
+function getFirstDebtDueAtIso(periodType: "weekly" | "monthly", start: Date) {
+  return new Date(start.getTime() + getDebtPeriodMs(periodType)).toISOString();
+}
+
 async function listDebtContracts(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
     .from("pet_debt_contracts")
@@ -312,7 +316,7 @@ export async function POST(request: Request) {
       .from("pet_debt_contracts")
       .update({
         ends_at: new Date(now.getTime() + periodMs * Number(contract.duration_periods ?? 0)).toISOString(),
-        next_due_at: now.toISOString(),
+        next_due_at: getFirstDebtDueAtIso(contract.period_type as "weekly" | "monthly", now),
         started_at: now.toISOString(),
         status: "active",
         updated_at: now.toISOString(),

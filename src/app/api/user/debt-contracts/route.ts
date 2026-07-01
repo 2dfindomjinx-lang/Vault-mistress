@@ -81,6 +81,13 @@ function getDebtPeriodMs(periodType: "weekly" | "monthly") {
   return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
 }
 
+function getFirstDebtDueAtIso(
+  periodType: "weekly" | "monthly",
+  startMs: number,
+) {
+  return new Date(startMs + getDebtPeriodMs(periodType)).toISOString();
+}
+
 function getCurrentInstallmentRemaining(contract: Pick<ContractRow, "current_installment_remaining" | "debt_amount">) {
   const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
 
@@ -288,6 +295,8 @@ export async function POST(request: Request) {
 
     const nowMs = Date.now();
     const periodMs = getDebtPeriodMs(periodType);
+    const startedAt = contractType === "evil" ? null : new Date(nowMs).toISOString();
+    const firstDueAt = getFirstDebtDueAtIso(periodType, nowMs);
     const { data, error } = await supabase
       .from("pet_debt_contracts")
       .insert({
@@ -302,10 +311,11 @@ export async function POST(request: Request) {
         full_name: contractType === "evil" ? cleanFullName : null,
         custom_note: contractType === "evil" ? cleanCustomNote : null,
         image_urls: [],
-        next_due_at: new Date(nowMs).toISOString(),
+        next_due_at: firstDueAt,
         period_type: periodType,
         pet_name: cleanPetName,
         random_generated: Boolean(body.randomGenerated),
+        started_at: startedAt,
         status: contractType === "evil" ? "pending" : "active",
         timezone: contractType === "evil" ? cleanTimezone : null,
         user_id: userId,
@@ -358,9 +368,7 @@ export async function POST(request: Request) {
     const contract = contractData as ContractRow;
     const nowMs = Date.now();
     const dueAtMs = new Date(contract.next_due_at).getTime();
-    const manualPaymentDue =
-      contract.paid_periods === 0 ||
-      dueAtMs <= nowMs;
+    const manualPaymentDue = Number.isFinite(dueAtMs) && dueAtMs <= nowMs;
     const plan = body.action === "pay"
       ? getDueDebtPaymentPlan(contract, false)
       : getDueDebtPaymentPlan(contract, Boolean(body.autoPayEnabled));

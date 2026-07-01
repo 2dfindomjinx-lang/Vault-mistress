@@ -54,6 +54,7 @@ type DebtContractForm = {
 };
 
 type DebtSectionProps = {
+  canManageActiveDebtWhileTimedOut?: boolean;
   disabled?: boolean;
   isTimeoutActive?: boolean;
   isDebtAutoPayEnabled: boolean;
@@ -176,6 +177,7 @@ function getRandomDebtDraft(): {
 }
 
 export function DebtSection({
+  canManageActiveDebtWhileTimedOut = false,
   disabled = false,
   isTimeoutActive = false,
   isDebtAutoPayEnabled,
@@ -220,7 +222,7 @@ export function DebtSection({
     : null;
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
   const debtPaymentDue = activeContract
-    ? activeContract.paid_periods === 0 || new Date(activeContract.next_due_at ?? "").getTime() <= now
+    ? new Date(activeContract.next_due_at ?? "").getTime() <= now
     : false;
   const debtInstallmentNumber = activeContract
     ? Math.min(activeContract.paid_periods + 1, activeContract.duration_periods)
@@ -353,6 +355,7 @@ export function DebtSection({
         debtInstallmentNumber={debtInstallmentNumber}
         debtPaymentDue={debtPaymentDue}
         debtTask={debtTask}
+        canManageActiveDebtWhileTimedOut={canManageActiveDebtWhileTimedOut}
         disabled={disabled}
         blockingContractMessage={blockingContractMessage}
         hasOpenDebtContract={hasOpenDebtContract}
@@ -380,6 +383,7 @@ export function DebtSection({
       />
       <EvilDebtCard
         active={activeDebtContractType === "evil"}
+        canManageActiveDebtWhileTimedOut={canManageActiveDebtWhileTimedOut}
         currentKind={showDebtSigningImage}
         debtInstallmentNumber={debtInstallmentNumber}
         debtPaymentDue={debtPaymentDue}
@@ -425,6 +429,7 @@ export function DebtSection({
 
 function DebtCard(props: {
   active: boolean;
+  canManageActiveDebtWhileTimedOut: boolean;
   currentKind: "normal" | "evil" | null;
   debtInstallmentNumber: number;
   debtPaymentDue: boolean;
@@ -456,6 +461,7 @@ function DebtCard(props: {
 }) {
   const {
     active,
+    canManageActiveDebtWhileTimedOut,
     currentKind,
     debtInstallmentNumber,
     debtPaymentDue,
@@ -487,6 +493,8 @@ function DebtCard(props: {
 
   const showLockedState = hasOpenDebtContract && !active && petDebtContract;
   const contractControlsDisabled = disabled || isTimeoutActive;
+  const activeDebtControlsDisabled =
+    disabled || (isTimeoutActive && !canManageActiveDebtWhileTimedOut);
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
@@ -525,7 +533,7 @@ function DebtCard(props: {
           </p>
           <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
             <AutoPaymentSwitch
-              disabled={contractControlsDisabled}
+              disabled={activeDebtControlsDisabled}
               enabled={isDebtAutoPayEnabled}
               onChange={onDebtAutoPayChange}
             />
@@ -538,7 +546,7 @@ function DebtCard(props: {
           </div>
           <button
             className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={disabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
+            disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
             onClick={onPayDebtPeriod}
             type="button"
           >
@@ -647,6 +655,7 @@ function DebtCard(props: {
 
 function EvilDebtCard(props: {
   active: boolean;
+  canManageActiveDebtWhileTimedOut: boolean;
   currentKind: "normal" | "evil" | null;
   debtInstallmentNumber: number;
   debtPaymentDue: boolean;
@@ -688,6 +697,7 @@ function EvilDebtCard(props: {
 }) {
   const {
     active,
+    canManageActiveDebtWhileTimedOut,
     currentKind,
     debtInstallmentNumber,
     debtPaymentDue,
@@ -730,6 +740,8 @@ function EvilDebtCard(props: {
 
   const showLockedState = hasOpenDebtContract && !active && petDebtContract;
   const contractControlsDisabled = disabled || isTimeoutActive;
+  const activeDebtControlsDisabled =
+    disabled || (isTimeoutActive && !canManageActiveDebtWhileTimedOut);
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
@@ -774,7 +786,7 @@ function EvilDebtCard(props: {
             <>
               <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
                 <AutoPaymentSwitch
-                  disabled={contractControlsDisabled}
+                  disabled={activeDebtControlsDisabled}
                   enabled={isDebtAutoPayEnabled}
                   onChange={onDebtAutoPayChange}
                 />
@@ -784,7 +796,7 @@ function EvilDebtCard(props: {
               </div>
               <button
                 className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={disabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
+                disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
                 onClick={onPayDebtPeriod}
                 type="button"
               >

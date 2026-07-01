@@ -12,6 +12,68 @@ type Body = {
   // username is no longer accepted for generation; server derives unique site username from X metadata on first creation
 };
 
+const DEBT_OVERDUE_TIMEOUT_REASON = "debt_contract_overdue";
+
+async function clearInvalidDebtOverdueTimeoutIfNeeded(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  profile: Record<string, any>,
+  nowIso: string,
+) {
+  if (
+    profile.timeout_reason !== DEBT_OVERDUE_TIMEOUT_REASON ||
+    !profile.timeout_until ||
+    new Date(profile.timeout_until).getTime() <= Date.now()
+  ) {
+    return profile;
+  }
+
+  const { data: contract, error: contractError } = await supabase
+    .from("pet_debt_contracts")
+    .select("id, status, next_due_at")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (contractError) {
+    console.error("Debt timeout self-heal contract lookup failed", contractError);
+    return profile;
+  }
+
+  const nextDueMs = contract?.next_due_at ? new Date(contract.next_due_at).getTime() : NaN;
+  const shouldClearTimeout =
+    !contract ||
+    contract.status !== "active" ||
+    !Number.isFinite(nextDueMs) ||
+    nextDueMs > Date.now();
+
+  if (!shouldClearTimeout) {
+    return profile;
+  }
+
+  const { data: healedProfile, error: healError } = await supabase
+    .from("profiles")
+    .update({
+      timeout_reason: null,
+      timeout_until: null,
+      updated_at: nowIso,
+    })
+    .eq("id", userId)
+    .eq("timeout_reason", DEBT_OVERDUE_TIMEOUT_REASON)
+    .eq("timeout_until", profile.timeout_until)
+    .select(profileSelect)
+    .maybeSingle();
+
+  if (healError) {
+    console.error("Debt timeout self-heal update failed", healError);
+    return profile;
+  }
+
+  return healedProfile ?? profile;
+}
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -80,7 +142,13 @@ export async function POST(request: Request) {
       .select(profileSelect)
       .eq("id", authData.user.id)
       .single();
-    return Response.json({ profile: refreshed ?? existing });
+    const normalizedProfile = await clearInvalidDebtOverdueTimeoutIfNeeded(
+      supabase,
+      authData.user.id,
+      (refreshed ?? existing) as Record<string, any>,
+      now,
+    );
+    return Response.json({ profile: normalizedProfile });
   }
 
   // First time creation: derive unique site username from Twitter/X handle base
