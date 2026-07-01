@@ -21,6 +21,7 @@ type EquippedCosmeticIds = Partial<Record<CosmeticType, string>>;
 type ProfileFrameOrnamentsProps = {
   equippedCosmeticIds?: EquippedCosmeticIds;
   previewItem?: CosmeticItem | null;
+  previewMode?: "default" | "shop";
 };
 
 type PrincipessaShowcasePreviewProps = {
@@ -29,6 +30,7 @@ type PrincipessaShowcasePreviewProps = {
   equippedCosmeticIds?: EquippedCosmeticIds;
   hasUncensoredAvatar?: boolean;
   previewItem?: CosmeticItem | null;
+  previewMode?: "default" | "shop";
 };
 
 function withAlpha(color: string, alpha: string) {
@@ -161,15 +163,23 @@ function HangingHeartLock({ definition }: { definition: ProfileFrameDecorationDe
         fill={palette.secondary}
       />
       <ellipse cx="90" cy="235" fill={palette.metal} rx="7" ry="5.5" />
-      <path d="M90 241 L90 260" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
+      <path d="M90 241 L90 258" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
       <path
-        d="M82 265 C82 259.5 86 256 90 256 C94 256 98 259.5 98 265 V274 H82 Z"
+        d="M84 261 C84 256.2 86.8 252.8 90 252.8 C93.2 252.8 96 256.2 96 261 V264"
+        fill="none"
+        stroke={palette.metal}
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M90 279 C82.4 272.6 77.8 268.2 77.8 263 C77.8 258.9 81 256 84.9 256 C87.1 256 88.9 257 90 258.6 C91.1 257 92.9 256 95.1 256 C99 256 102.2 258.9 102.2 263 C102.2 268.2 97.6 272.6 90 279 Z"
         fill={palette.primary}
         stroke={palette.metal}
+        strokeLinejoin="round"
         strokeWidth="1.5"
       />
       <path
-        d="M86 267 C86 264.6 87.8 263.2 90 263.2 C92.2 263.2 94 264.6 94 267 C94 269.2 92.1 270.8 90 272.5 C87.9 270.8 86 269.2 86 267 Z"
+        d="M90 273.2 C85.8 269.6 83.3 267.1 83.3 264 C83.3 261.5 85.2 259.9 87.4 259.9 C88.7 259.9 89.5 260.5 90 261.3 C90.5 260.5 91.3 259.9 92.6 259.9 C94.8 259.9 96.7 261.5 96.7 264 C96.7 267.1 94.2 269.6 90 273.2 Z"
         fill={palette.accent}
       />
     </g>
@@ -301,7 +311,7 @@ function CornerBows({ definition }: { definition: ProfileFrameDecorationDefiniti
   const palette = getPalette(definition);
 
   const renderBow = (translateX: number) => (
-    <g transform={`translate(${translateX} 240)`}>
+    <g transform={`translate(${translateX} 249) scale(0.92)`}>
       <path d="M0 7 C-8 0 -15 0 -20 6 C-14 12 -8 13 -2 10 Z" fill={palette.primary} />
       <path d="M0 7 C8 0 15 0 20 6 C14 12 8 13 2 10 Z" fill={palette.secondary} />
       <ellipse cx="0" cy="7" fill={palette.metal} rx="4.5" ry="3.8" />
@@ -312,17 +322,25 @@ function CornerBows({ definition }: { definition: ProfileFrameDecorationDefiniti
 
   return (
     <g>
-      {renderBow(34)}
-      {renderBow(146)}
+      {renderBow(20)}
+      {renderBow(160)}
     </g>
   );
 }
 
-function TopCrown({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+function TopCrown({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
   const palette = getPalette(definition);
+  const transform =
+    previewMode === "shop" ? "translate(90 6) scale(0.9)" : "translate(90 9)";
 
   return (
-    <g transform="translate(90 22)">
+    <g transform={transform}>
       <path
         d="M-19 9 L-12 -2 L-4 7 L0 -6 L4 7 L12 -2 L19 9 V16 H-19 Z"
         fill={palette.primary}
@@ -337,11 +355,19 @@ function TopCrown({ definition }: { definition: ProfileFrameDecorationDefinition
   );
 }
 
-function TopCrest({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+function TopCrest({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
   const palette = getPalette(definition);
+  const transform =
+    previewMode === "shop" ? "translate(90 7) scale(0.9)" : "translate(90 10)";
 
   return (
-    <g transform="translate(90 24)">
+    <g transform={transform}>
       <path
         d="M0 -6 L10 -1 V9 C10 16 4.5 20 0 22 C-4.5 20 -10 16 -10 9 V-1 Z"
         fill={palette.primary}
@@ -501,8 +527,43 @@ function OverlayLace({ definition }: { definition: ProfileFrameDecorationDefinit
   );
 }
 
-function OverlayDrape({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+function OverlayDrape({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
   const palette = getPalette(definition);
+
+  if (previewMode === "shop") {
+    return (
+      <g opacity="0.8">
+        <path
+          d="M14 30 C14 70 20 116 34 149 C41 165 51 175 66 183 C53 155 47 118 44 50 Z"
+          fill={withAlpha(palette.primary, "c8")}
+        />
+        <path
+          d="M166 30 C166 70 160 116 146 149 C139 165 129 175 114 183 C127 155 133 118 136 50 Z"
+          fill={withAlpha(palette.secondary, "c8")}
+        />
+        <path
+          d="M43 50 C49 46 55 45 62 47"
+          fill="none"
+          stroke={withAlpha(palette.accent, "c2")}
+          strokeWidth="1.6"
+        />
+        <path
+          d="M137 50 C131 46 125 45 118 47"
+          fill="none"
+          stroke={withAlpha(palette.accent, "c2")}
+          strokeWidth="1.6"
+        />
+        <circle cx="44" cy="49.5" fill={palette.metal} r="3.8" />
+        <circle cx="136" cy="49.5" fill={palette.metal} r="3.8" />
+      </g>
+    );
+  }
 
   return (
     <g opacity="0.88">
@@ -534,14 +595,48 @@ function OverlayDrape({ definition }: { definition: ProfileFrameDecorationDefini
 
 function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefinition }) {
   const palette = getPalette(definition);
-  const specs = [
-    { delay: "0s", left: 18, size: 8, top: 30 },
-    { delay: "-0.8s", left: 78, size: 6, top: 54 },
-    { delay: "-1.4s", left: 130, size: 10, top: 92 },
-    { delay: "-2.1s", left: 40, size: 7, top: 138 },
-    { delay: "-0.4s", left: 142, size: 7, top: 176 },
-    { delay: "-1.8s", left: 86, size: 9, top: 212 },
-  ];
+  const specs = (() => {
+    switch (definition.motif) {
+      case "particles-hearts":
+        return [
+          { delay: "0s", left: 18, size: 8, top: 34 },
+          { delay: "-0.8s", left: 76, size: 7, top: 58 },
+          { delay: "-1.3s", left: 132, size: 10, top: 90 },
+          { delay: "-2.1s", left: 38, size: 6, top: 146 },
+          { delay: "-0.5s", left: 143, size: 7, top: 184 },
+          { delay: "-1.7s", left: 90, size: 9, top: 218 },
+        ];
+      case "particles-petals":
+        return [
+          { delay: "0s", left: 26, size: 10, top: 26 },
+          { delay: "-1.1s", left: 116, size: 8, top: 46 },
+          { delay: "-1.9s", left: 54, size: 12, top: 104 },
+          { delay: "-0.6s", left: 144, size: 9, top: 132 },
+          { delay: "-2.4s", left: 30, size: 11, top: 198 },
+          { delay: "-1.4s", left: 104, size: 8, top: 230 },
+        ];
+      case "particles-dust":
+        return [
+          { delay: "0s", left: 24, size: 8, top: 24 },
+          { delay: "-0.9s", left: 90, size: 6, top: 44 },
+          { delay: "-1.6s", left: 146, size: 9, top: 78 },
+          { delay: "-2.2s", left: 42, size: 7, top: 152 },
+          { delay: "-0.7s", left: 128, size: 6, top: 186 },
+          { delay: "-1.8s", left: 82, size: 8, top: 226 },
+        ];
+      case "particles-embers":
+        return [
+          { delay: "0s", left: 22, size: 11, top: 40 },
+          { delay: "-0.7s", left: 126, size: 9, top: 62 },
+          { delay: "-1.5s", left: 58, size: 12, top: 116 },
+          { delay: "-2.4s", left: 148, size: 8, top: 154 },
+          { delay: "-1.1s", left: 28, size: 10, top: 204 },
+          { delay: "-1.9s", left: 96, size: 9, top: 236 },
+        ];
+      default:
+        return [];
+    }
+  })();
 
   const renderShape = (size: number, key: string) => {
     switch (definition.motif) {
@@ -554,22 +649,57 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
         );
       case "particles-petals":
         return (
-          <ellipse
-            cx={size * 0.6}
-            cy={size * 0.45}
-            fill={key}
-            rx={size * 0.55}
-            ry={size * 0.32}
-            transform={`rotate(-28 ${size * 0.6} ${size * 0.45})`}
-          />
+          <>
+            <ellipse
+              cx={size * 0.54}
+              cy={size * 0.34}
+              fill={withAlpha(key, "dd")}
+              rx={size * 0.54}
+              ry={size * 0.22}
+              transform={`rotate(-34 ${size * 0.54} ${size * 0.34})`}
+            />
+            <path
+              d={`M${size * 0.08} ${size * 0.68} C${size * 0.32} ${size * 0.38} ${size * 0.66} ${size * 0.34} ${size * 1.02} ${size * 0.72} C${size * 0.72} ${size * 0.98} ${size * 0.36} ${size * 0.98} ${size * 0.08} ${size * 0.68} Z`}
+              fill={key}
+            />
+          </>
         );
       case "particles-dust":
         return (
           <>
-            <circle cx={size * 0.45} cy={size * 0.45} fill={key} r={size * 0.28} />
+            <circle cx={size * 0.45} cy={size * 0.45} fill={key} r={size * 0.18} />
             <path
-              d={`M${size * 0.45} 0 L${size * 0.55} ${size * 0.3} L${size * 0.9} ${size * 0.45} L${size * 0.55} ${size * 0.6} L${size * 0.45} ${size * 0.9} L${size * 0.3} ${size * 0.6} L0 ${size * 0.45} L${size * 0.3} ${size * 0.3} Z`}
-              fill={withAlpha(palette.accent, "aa")}
+              d={`M${size * 0.45} 0 L${size * 0.58} ${size * 0.3} L${size * 0.9} ${size * 0.45} L${size * 0.58} ${size * 0.6} L${size * 0.45} ${size * 0.92} L${size * 0.32} ${size * 0.6} L0 ${size * 0.45} L${size * 0.32} ${size * 0.3} Z`}
+              fill={withAlpha(palette.accent, "c8")}
+            />
+            <path
+              d={`M${size * 0.45} ${size * 0.14} V${size * 0.76} M${size * 0.14} ${size * 0.45} H${size * 0.76}`}
+              stroke={withAlpha(key, "aa")}
+              strokeLinecap="round"
+              strokeWidth={Math.max(1, size * 0.08)}
+            />
+          </>
+        );
+      case "particles-embers":
+        return (
+          <>
+            <ellipse
+              cx={size * 0.46}
+              cy={size * 0.58}
+              fill={key}
+              rx={size * 0.36}
+              ry={size * 0.28}
+            />
+            <ellipse
+              cx={size * 0.54}
+              cy={size * 0.36}
+              fill={withAlpha(palette.accent, "d4")}
+              rx={size * 0.22}
+              ry={size * 0.18}
+            />
+            <path
+              d={`M${size * 0.46} ${size * 0.16} C${size * 0.62} ${size * 0.02} ${size * 0.76} ${size * 0.16} ${size * 0.74} ${size * 0.34} C${size * 0.7} ${size * 0.5} ${size * 0.56} ${size * 0.58} ${size * 0.46} ${size * 0.5} C${size * 0.34} ${size * 0.4} ${size * 0.34} ${size * 0.24} ${size * 0.46} ${size * 0.16} Z`}
+              fill={withAlpha(palette.secondary, "dc")}
             />
           </>
         );
@@ -605,22 +735,30 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
   );
 }
 
-function BottomDecoration({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+function BottomDecoration({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const translateY = previewMode === "shop" ? 14 : 12;
+
   switch (definition.motif) {
     case "ribbon-bow":
-      return <RibbonBow definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><RibbonBow definition={definition} /></g>;
     case "hanging-heart-lock":
-      return <HangingHeartLock definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><HangingHeartLock definition={definition} /></g>;
     case "hanging-moon-bell":
-      return <HangingMoonBell definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><HangingMoonBell definition={definition} /></g>;
     case "wax-seal":
-      return <WaxSeal definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><WaxSeal definition={definition} /></g>;
     case "wax-crest":
-      return <WaxSeal crest definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><WaxSeal crest definition={definition} /></g>;
     case "gem-clasp":
-      return <GemClasp definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><GemClasp definition={definition} /></g>;
     case "rose-cluster":
-      return <RoseCluster definition={definition} />;
+      return <g transform={`translate(0 ${translateY})`}><RoseCluster definition={definition} /></g>;
     default:
       return null;
   }
@@ -629,6 +767,7 @@ function BottomDecoration({ definition }: { definition: ProfileFrameDecorationDe
 export function ProfileFrameOrnaments({
   equippedCosmeticIds = {},
   previewItem = null,
+  previewMode = "default",
 }: ProfileFrameOrnamentsProps) {
   const items = getDecorationItems(equippedCosmeticIds, previewItem);
 
@@ -639,7 +778,7 @@ export function ProfileFrameOrnaments({
           {items.overlay.motif === "overlay-lace" ? (
             <OverlayLace definition={items.overlay} />
           ) : (
-            <OverlayDrape definition={items.overlay} />
+            <OverlayDrape definition={items.overlay} previewMode={previewMode} />
           )}
         </DecorationSvg>
       ) : null}
@@ -661,15 +800,15 @@ export function ProfileFrameOrnaments({
       {items.top ? (
         <DecorationSvg className="z-[20]">
           {items.top.motif === "top-crown" ? (
-            <TopCrown definition={items.top} />
+            <TopCrown definition={items.top} previewMode={previewMode} />
           ) : (
-            <TopCrest definition={items.top} />
+            <TopCrest definition={items.top} previewMode={previewMode} />
           )}
         </DecorationSvg>
       ) : null}
       {items.bottom ? (
         <DecorationSvg className="z-[21]">
-          <BottomDecoration definition={items.bottom} />
+          <BottomDecoration definition={items.bottom} previewMode={previewMode} />
         </DecorationSvg>
       ) : null}
     </>
@@ -682,6 +821,7 @@ export function PrincipessaShowcasePreview({
   equippedCosmeticIds = {},
   hasUncensoredAvatar = false,
   previewItem = null,
+  previewMode = "shop",
 }: PrincipessaShowcasePreviewProps) {
   const previewCosmeticIds = getPreviewCosmeticIds(
     equippedCosmeticIds,
@@ -695,7 +835,7 @@ export function PrincipessaShowcasePreview({
 
   return (
     <div
-      className={`relative aspect-[180/285] overflow-hidden rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(12,5,18,0.95),rgba(42,11,48,0.74),rgba(5,2,7,0.96))] shadow-[0_0_28px_rgba(217,70,239,0.14)] ${className ?? ""}`}
+      className={`relative aspect-[180/285] rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(12,5,18,0.95),rgba(42,11,48,0.74),rgba(5,2,7,0.96))] shadow-[0_0_28px_rgba(217,70,239,0.14)] ${className ?? ""}`}
     >
       <div aria-hidden="true" className={border.className} style={border.style} />
       <div className="absolute inset-[3px] overflow-hidden rounded-[calc(1.45rem-3px)] bg-black/42">
@@ -711,7 +851,10 @@ export function PrincipessaShowcasePreview({
         />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
       </div>
-      <ProfileFrameOrnaments equippedCosmeticIds={previewCosmeticIds} />
+      <ProfileFrameOrnaments
+        equippedCosmeticIds={previewCosmeticIds}
+        previewMode={previewMode}
+      />
     </div>
   );
 }

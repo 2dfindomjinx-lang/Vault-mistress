@@ -6507,7 +6507,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Vaultfire Border",
     description: "A molten gold frame that feels pulled from the community vault.",
     type: "profile-border",
-    price: 18000,
+    price: 7000,
     color: "#f59e0b",
   },
   {
@@ -6515,7 +6515,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Solar Flare Border",
     description: "A radiant event frame with a bright late-summer glow.",
     type: "profile-border",
-    price: 22000,
+    price: 7000,
     color: "#fb7185",
   },
   {
@@ -6523,7 +6523,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Gilded Noir Border",
     description: "Dark lacquer with a gold rim for colder prestige.",
     type: "profile-border",
-    price: 24000,
+    price: 7000,
     color: "#facc15",
   },
   {
@@ -6531,7 +6531,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Afterglow Border",
     description: "A soft neon frame that lingers like expensive attention.",
     type: "profile-border",
-    price: 20000,
+    price: 7000,
     color: "#a855f7",
   },
   ...footballInspiredRotatingBorders,
@@ -6540,7 +6540,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Sunset Name",
     description: "A warm coral-gold username reserved for the rotating vault.",
     type: "username-color",
-    price: 9000,
+    price: 5000,
     color: "#fb7185",
   },
   {
@@ -6548,7 +6548,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Lagoon Name",
     description: "A cool tropical teal username color from the rotating vault.",
     type: "username-color",
-    price: 9000,
+    price: 5000,
     color: "#2dd4bf",
   },
   {
@@ -6556,7 +6556,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Ember Glow",
     description: "A hot orange halo for public recognition.",
     type: "username-glow",
-    price: 6000,
+    price: 5000,
     glow: "0 0 22px rgba(251,146,60,0.95)",
   },
   {
@@ -6564,7 +6564,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Aurora Glow",
     description: "A shifting mint-cyan glow that reads instantly on public cards.",
     type: "username-glow",
-    price: 6500,
+    price: 3000,
     glow: "0 0 22px rgba(45,212,191,0.95)",
   },
   {
@@ -6572,7 +6572,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Frostline Glow",
     description: "A cold silver-blue highlight for polished prestige.",
     type: "username-glow",
-    price: 6000,
+    price: 3000,
     glow: "0 0 22px rgba(186,230,253,0.95)",
   },
   {
@@ -6580,7 +6580,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Summer Support Name",
     description: "A summer-limited coral shimmer available only during the seasonal rotation.",
     type: "username-color",
-    price: 12000,
+    price: 7000,
     color: "#f97316",
   },
   {
@@ -6588,7 +6588,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     name: "Summer Heat Glow",
     description: "A seasonal rotating glow with bright amber heat.",
     type: "username-glow",
-    price: 8000,
+    price: 3000,
     glow: "0 0 24px rgba(251,191,36,0.95)",
   },
   ...rotatingProfileFrameCosmeticItems,

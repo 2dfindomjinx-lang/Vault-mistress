@@ -121,6 +121,18 @@ export function RotatingShop({
       return left.name.localeCompare(right.name);
     });
   }, [possibleItems]);
+  const groupedPossibleItems = useMemo(() => {
+    const groups = new Map<string, CosmeticItem[]>();
+
+    sortedPossibleItems.forEach((item) => {
+      const label = getSlotLabel(item);
+      const current = groups.get(label) ?? [];
+      current.push(item);
+      groups.set(label, current);
+    });
+
+    return Array.from(groups.entries());
+  }, [sortedPossibleItems]);
 
   const renderItemCard = (item: CosmeticItem, mode: "active" | "catalog") => {
     const owned = ownedCosmeticIds.includes(item.id);
@@ -230,6 +242,77 @@ export function RotatingShop({
     );
   };
 
+  const renderCatalogRow = (item: CosmeticItem) => {
+    const owned = ownedCosmeticIds.includes(item.id);
+    const equipped = equippedCosmeticIds[item.type] === item.id;
+    const pending = pendingCosmeticIds.includes(item.id);
+    const canAfford = coins >= item.price;
+    const isCurrentlyOffered = activeItemIdSet.has(item.id);
+    const canInteract = owned || isCurrentlyOffered;
+    const buttonDisabled =
+      disabled ||
+      pending ||
+      equipped ||
+      (!owned && (!canInteract || !canAfford));
+
+    let buttonLabel = "Later";
+
+    if (pending) {
+      buttonLabel = "...";
+    } else if (equipped) {
+      buttonLabel = "On";
+    } else if (owned) {
+      buttonLabel = "Equip";
+    } else if (canInteract && canAfford) {
+      buttonLabel = "Buy";
+    } else if (canInteract) {
+      buttonLabel = "Need";
+    }
+
+    return (
+      <div
+        className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+          equipped
+            ? "border-amber-200/35 bg-amber-400/10"
+            : owned
+              ? "border-emerald-200/20 bg-emerald-400/5"
+              : isCurrentlyOffered
+                ? "border-fuchsia-200/20 bg-fuchsia-400/5"
+                : "border-white/8 bg-black/18"
+        }`}
+        key={item.id}
+      >
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-black text-white">{item.name}</p>
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                equipped
+                  ? "bg-amber-300"
+                  : owned
+                    ? "bg-emerald-300"
+                    : isCurrentlyOffered
+                      ? "bg-fuchsia-300"
+                      : "bg-zinc-500"
+              }`}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-amber-50/60">
+            {item.price.toLocaleString()} coins
+          </p>
+        </div>
+        <button
+          className="shrink-0 rounded-xl border border-amber-200/22 bg-black/25 px-3 py-1.5 text-xs font-black text-amber-50 transition enabled:hover:border-amber-200/45 enabled:hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-35"
+          disabled={buttonDisabled}
+          onClick={() => (owned ? onEquipCosmetic(item) : onPurchaseCosmetic(item))}
+          type="button"
+        >
+          {buttonLabel}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <section className="rounded-[2rem] border border-amber-200/18 bg-[linear-gradient(145deg,rgba(22,10,2,0.92),rgba(120,53,15,0.52),rgba(0,0,0,0.68))] p-5 shadow-[0_0_46px_rgba(251,191,36,0.12)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -279,14 +362,28 @@ export function RotatingShop({
                 Candidate Library
               </p>
               <p className="mt-1 text-sm leading-6 text-amber-50/72">
-                Use this panel to review the whole rotation pool quickly. Only live items can be
-                purchased, but owned items stay equippable here even when they are not active.
+                A compact view of the whole pool. Live items stay buyable, and owned items stay
+                equippable without loading another long card list.
               </p>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-2">
-            {sortedPossibleItems.map((item) => renderItemCard(item, "catalog"))}
+          <div className="mt-4 space-y-4">
+            {groupedPossibleItems.map(([label, groupedItems]) => (
+              <div key={label}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-100/68">
+                    {label}
+                  </p>
+                  <p className="text-[11px] text-amber-50/45">
+                    {groupedItems.length} items
+                  </p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                  {groupedItems.map((item) => renderCatalogRow(item))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : null}
