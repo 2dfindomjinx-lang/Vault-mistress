@@ -71,7 +71,7 @@ export type ProfileFrameCatalogItem = Pick<
 >;
 
 const FRAME_ANCHOR_POSITIONS: Record<FrameAttachmentAnchor, { x: number; y: number }> = {
-  "top-center": { x: 90, y: 6 },
+  "top-center": { x: 90, y: 2 },
   "bottom-center": { x: 90, y: 268 },
   "left-center": { x: 22, y: 142 },
   "right-center": { x: 158, y: 142 },
@@ -101,7 +101,7 @@ export function resolveFrameAttachment(def: ProfileFrameDecorationDefinition) {
   return {
     x: basePos.x + (att.offsetX ?? 0),
     y: basePos.y + (att.offsetY ?? 0),
-    scale: att.scale ?? (def.type.includes("-top") ? 0.92 : 1),
+    scale: att.scale ?? 1,
     rotation: att.rotation ?? 0,
     zIndex: att.zIndex ?? getDefaultZIndex(def.type),
   };
@@ -254,7 +254,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#d97706", "#facc15", "#fef3c7"],
     metal: "#fde68a",
     shadow: "#b45309",
-    attachment: { anchor: "top-center", offsetY: -4, scale: 0.92 },
+    attachment: { anchor: "top-center", offsetY: 0, scale: 1 },
   }),
   definition({
     id: "frame-top-roseglass-crown",
@@ -398,7 +398,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#7c3aed", "#312e81", "#fbcfe8"],
     metal: "#facc15",
     shadow: "#4c1d95",
-    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.85 },
+    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.6 },
   }),
   definition({
     id: "frame-overlay-candy-drape",
@@ -410,6 +410,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#fb7185", "#f472b6", "#fff1f2"],
     metal: "#fde68a",
     shadow: "#e11d48",
+    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.6 },
   }),
   definition({
     id: "frame-particles-soft-hearts",
@@ -740,6 +741,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#2563eb", "#1d4ed8", "#dbeafe"],
     metal: "#e0f2fe",
     shadow: "#1e3a8a",
+    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.6 },
   }),
   definition({
     id: "frame-overlay-aurora-drape",
@@ -751,6 +753,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#2dd4bf", "#a78bfa", "#f8fafc"],
     metal: "#f8fafc",
     shadow: "#7c3aed",
+    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.6 },
   }),
   definition({
     id: "frame-particles-candy-hearts",

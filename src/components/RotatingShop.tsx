@@ -323,9 +323,11 @@ export function RotatingShop({
       nameStyle.textShadow = item.glow.replace(/0 0 22px/g, "0 0 6px");
     }
 
+    const previewCosmeticIds = getCatalogPreviewIds(equippedCosmeticIds, item);
+
     return (
       <div
-        className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+        className={`flex flex-col gap-2 rounded-2xl border px-3 py-2 ${
           equipped
             ? "border-amber-200/35 bg-amber-400/10"
             : owned
@@ -336,8 +338,21 @@ export function RotatingShop({
         }`}
         key={item.id}
       >
-        <div className="flex min-w-0 items-center gap-2">
-          {renderMinimalPreview(item)}
+        {hasRenderableProfileFramePreview(item) ? (
+          <PrincipessaShowcasePreview
+            className="mx-auto w-20"
+            equippedAvatarSlots={equippedAvatarSlots}
+            equippedCosmeticIds={previewCosmeticIds}
+            hasUncensoredAvatar={hasUncensoredAvatar}
+            previewItem={item}
+          />
+        ) : (
+          renderMinimalPreview(item) && (
+            <div className="flex justify-center">{renderMinimalPreview(item)}</div>
+          )
+        )}
+
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <p
@@ -358,19 +373,19 @@ export function RotatingShop({
                 }`}
               />
             </div>
-            <p className="mt-1 text-[11px] text-amber-50/60">
+            <p className="mt-0.5 text-[11px] text-amber-50/60">
               {item.price.toLocaleString()} coins
             </p>
           </div>
+          <button
+            className="shrink-0 rounded-xl border border-amber-200/22 bg-black/25 px-3 py-1 text-[10px] font-black text-amber-50 transition enabled:hover:border-amber-200/45 enabled:hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-35"
+            disabled={buttonDisabled}
+            onClick={() => (owned ? onEquipCosmetic(item) : onPurchaseCosmetic(item))}
+            type="button"
+          >
+            {buttonLabel}
+          </button>
         </div>
-        <button
-          className="shrink-0 rounded-xl border border-amber-200/22 bg-black/25 px-3 py-1.5 text-xs font-black text-amber-50 transition enabled:hover:border-amber-200/45 enabled:hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-35"
-          disabled={buttonDisabled}
-          onClick={() => (owned ? onEquipCosmetic(item) : onPurchaseCosmetic(item))}
-          type="button"
-        >
-          {buttonLabel}
-        </button>
       </div>
     );
   };
@@ -390,9 +405,8 @@ export function RotatingShop({
 
       <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <p className="max-w-3xl text-sm leading-6 text-amber-50/72">
-          Limited frame cosmetics rotate here every cycle. The active offer stays clean with four
-          items, but you can open the full candidate list below to review what should stay, change,
-          or disappear next.
+          Limited cosmetics rotate here every cycle. The active 4 are live now. Open the candidate
+          list below to see full visual previews of everything else that can appear.
         </p>
         <button
           className="rounded-2xl border border-amber-200/28 bg-black/25 px-4 py-2 text-sm font-black text-amber-50 transition hover:border-amber-200/55 hover:bg-amber-400/14"
@@ -424,8 +438,8 @@ export function RotatingShop({
                 Candidate Library
               </p>
               <p className="mt-1 text-sm leading-6 text-amber-50/72">
-                A compact view of the whole pool. Live items stay buyable, and owned items stay
-                equippable without loading another long card list.
+                Full visual previews of the candidate pool. See exactly how each limited item will
+                look when it rotates in. Live items stay buyable.
               </p>
             </div>
           </div>
@@ -441,7 +455,7 @@ export function RotatingShop({
                     {groupedItems.length} items
                   </p>
                 </div>
-                <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                   {groupedItems.map((item) => renderCatalogRow(item))}
                 </div>
               </div>

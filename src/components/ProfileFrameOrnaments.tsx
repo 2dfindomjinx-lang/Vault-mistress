@@ -339,22 +339,22 @@ function TopCrown({
   previewMode?: "default" | "shop";
 }) {
   const palette = getPalette(definition);
-  // Drawing is now relative to (0,0) = attachment point at top-center of frame.
-  // The spike extends upward (negative y) so half is outside when placed at frame top.
+  // Drawing relative to (0,0) = attachment point. Base of pin (bottom) at y~0 so it touches the top edge of border when anchor placed at rim.
+  // Spikes extend upward (negative y).
   const s = previewMode === "shop" ? 0.9 : 1;
 
   return (
     <g transform={`scale(${s})`}>
       <path
-        d="M-19 9 L-12 -2 L-4 7 L0 -6 L4 7 L12 -2 L19 9 V16 H-19 Z"
+        d="M-19 -7 L-12 -18 L-4 -9 L0 -22 L4 -9 L12 -18 L19 -7 V0 H-19 Z"
         fill={palette.primary}
         stroke={palette.metal}
         strokeLinejoin="round"
         strokeWidth="1.6"
       />
-      <circle cx="-12" cy="-2" fill={palette.accent} r="2.2" />
-      <circle cx="0" cy="-6" fill={palette.accent} r="2.6" />
-      <circle cx="12" cy="-2" fill={palette.accent} r="2.2" />
+      <circle cx="-12" cy="-18" fill={palette.accent} r="2.2" />
+      <circle cx="0" cy="-22" fill={palette.accent} r="2.6" />
+      <circle cx="12" cy="-18" fill={palette.accent} r="2.2" />
     </g>
   );
 }
@@ -367,19 +367,19 @@ function TopCrest({
   previewMode?: "default" | "shop";
 }) {
   const palette = getPalette(definition);
-  // Relative to attach point (0,0) at top center. Tip goes negative.
+  // Relative to (0,0) attach at top center. Base (bottom) at y~0 to touch border top edge. Tip/spike upward negative.
   const s = previewMode === "shop" ? 0.9 : 1;
 
   return (
     <g transform={`scale(${s})`}>
       <path
-        d="M0 -6 L10 -1 V9 C10 16 4.5 20 0 22 C-4.5 20 -10 16 -10 9 V-1 Z"
+        d="M0 -28 L10 -23 V-13 C10 -6 4.5 -2 0 0 C-4.5 -2 -10 -6 -10 -13 V-23 Z"
         fill={palette.primary}
         stroke={palette.metal}
         strokeWidth="1.6"
       />
-      <path d="M-5 6 H5" stroke={palette.accent} strokeWidth="1.8" />
-      <circle cx="0" cy="1" fill={palette.metal} r="2.6" />
+      <path d="M-5 -16 H5" stroke={palette.accent} strokeWidth="1.8" />
+      <circle cx="0" cy="-21" fill={palette.metal} r="2.6" />
     </g>
   );
 }
