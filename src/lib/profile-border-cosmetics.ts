@@ -285,15 +285,6 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
     borderPalette: ["#B71C1C", "#FFC107"],
     borderStyle: "split-vertical",
   }),
-  footballBorder({
-    id: "profile-border-rotating-denizlispor",
-    name: "Denizlispor Border",
-    description: "Green and white. Roosters of the Aegean.",
-    price: 10000,
-    color: "#228B22",
-    borderPalette: ["#228B22", "#FFFFFF"],
-    borderStyle: "split-diagonal",
-  }),
 
   // === NATIONAL TEAMS ===
   footballBorder({

@@ -376,6 +376,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#f8fafc", "#fde2e8", "#fff1f2"],
     metal: "#e2e8f0",
     shadow: "#fbcfe8",
+    attachment: { anchor: "bottom-center", offsetY: -8, scale: 1 },
   }),
   definition({
     id: "frame-overlay-noir-lace",
@@ -387,6 +388,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#111827", "#374151", "#f9a8d4"],
     metal: "#cbd5e1",
     shadow: "#111827",
+    attachment: { anchor: "bottom-center", offsetY: -8, scale: 1 },
   }),
   definition({
     id: "frame-overlay-royal-drape",
@@ -719,6 +721,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#e2e8f0", "#bae6fd", "#ffffff"],
     metal: "#f8fafc",
     shadow: "#94a3b8",
+    attachment: { anchor: "bottom-center", offsetY: -8, scale: 1 },
   }),
   definition({
     id: "frame-overlay-rose-noir-lace",
@@ -730,6 +733,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#111827", "#f472b6", "#fff1f2"],
     metal: "#f9a8d4",
     shadow: "#be185d",
+    attachment: { anchor: "bottom-center", offsetY: -8, scale: 1 },
   }),
   definition({
     id: "frame-overlay-sapphire-drape",

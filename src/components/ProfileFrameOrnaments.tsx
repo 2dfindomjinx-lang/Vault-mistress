@@ -504,17 +504,20 @@ function OverlayLace({ definition }: { definition: ProfileFrameDecorationDefinit
   const palette = getPalette(definition);
   const scallops = Array.from({ length: 8 }, (_, index) => 20 + index * 20);
 
+  // Drawn relative to (0,0) = bottom-center attachment point.
+  // Lace hem/frill positioned higher inside the lower frame (pulled up from bottom edge).
+  // Avoids excessive downward sagging. Main line ~y=-25.
   return (
     <g opacity="0.9">
       <path
-        d="M18 238 H162"
+        d="M18 -25 H162"
         stroke={withAlpha(palette.primary, "bb")}
         strokeLinecap="round"
         strokeWidth="2"
       />
       {scallops.map((cx) => (
         <path
-          d={`M${cx - 10} 238 C${cx - 7} 249 ${cx + 7} 249 ${cx + 10} 238`}
+          d={`M${cx - 10} -25 C${cx - 7} -12 ${cx + 7} -12 ${cx + 10} -25`}
           fill="none"
           key={cx}
           stroke={palette.secondary}
@@ -522,7 +525,7 @@ function OverlayLace({ definition }: { definition: ProfileFrameDecorationDefinit
         />
       ))}
       <path
-        d="M26 238 V255 M154 238 V255"
+        d="M26 -25 V-8 M154 -25 V-8"
         stroke={withAlpha(palette.accent, "cc")}
         strokeLinecap="round"
         strokeWidth="1.5"
@@ -607,39 +610,47 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
     switch (definition.motif) {
       case "particles-hearts":
         return [
-          { delay: "0s", left: 18, size: 8, top: 34 },
-          { delay: "-0.8s", left: 76, size: 7, top: 58 },
-          { delay: "-1.3s", left: 132, size: 10, top: 90 },
-          { delay: "-2.1s", left: 38, size: 6, top: 146 },
-          { delay: "-0.5s", left: 143, size: 7, top: 184 },
-          { delay: "-1.7s", left: 90, size: 9, top: 218 },
+          { delay: "0s", left: 22, size: 9, top: 38 },
+          { delay: "-0.9s", left: 148, size: 7, top: 52 },
+          { delay: "-1.6s", left: 42, size: 8, top: 105 },
+          { delay: "-2.3s", left: 115, size: 10, top: 85 },
+          { delay: "-0.5s", left: 28, size: 6, top: 175 },
+          { delay: "-1.2s", left: 138, size: 9, top: 195 },
+          { delay: "-2.8s", left: 78, size: 5, top: 140 },
+          { delay: "-0.3s", left: 160, size: 8, top: 230 },
         ];
       case "particles-petals":
         return [
-          { delay: "0s", left: 26, size: 10, top: 26 },
-          { delay: "-1.1s", left: 116, size: 8, top: 46 },
-          { delay: "-1.9s", left: 54, size: 12, top: 104 },
-          { delay: "-0.6s", left: 144, size: 9, top: 132 },
-          { delay: "-2.4s", left: 30, size: 11, top: 198 },
-          { delay: "-1.4s", left: 104, size: 8, top: 230 },
+          { delay: "0s", left: 32, size: 11, top: 28 },
+          { delay: "-1.0s", left: 132, size: 8, top: 42 },
+          { delay: "-1.7s", left: 68, size: 7, top: 98 },
+          { delay: "-0.4s", left: 95, size: 12, top: 120 },
+          { delay: "-2.1s", left: 25, size: 9, top: 165 },
+          { delay: "-1.5s", left: 155, size: 10, top: 188 },
+          { delay: "-2.6s", left: 82, size: 6, top: 135 },
+          { delay: "-0.2s", left: 48, size: 9, top: 215 },
         ];
       case "particles-dust":
         return [
-          { delay: "0s", left: 24, size: 8, top: 24 },
-          { delay: "-0.9s", left: 90, size: 6, top: 44 },
-          { delay: "-1.6s", left: 146, size: 9, top: 78 },
-          { delay: "-2.2s", left: 42, size: 7, top: 152 },
-          { delay: "-0.7s", left: 128, size: 6, top: 186 },
-          { delay: "-1.8s", left: 82, size: 8, top: 226 },
+          { delay: "0s", left: 18, size: 7, top: 55 },
+          { delay: "-0.8s", left: 155, size: 9, top: 30 },
+          { delay: "-1.5s", left: 55, size: 6, top: 92 },
+          { delay: "-2.0s", left: 105, size: 8, top: 145 },
+          { delay: "-0.6s", left: 38, size: 10, top: 210 },
+          { delay: "-1.9s", left: 130, size: 7, top: 225 },
+          { delay: "-2.5s", left: 85, size: 5, top: 115 },
+          { delay: "-0.4s", left: 62, size: 8, top: 178 },
         ];
       case "particles-embers":
         return [
-          { delay: "0s", left: 22, size: 11, top: 40 },
-          { delay: "-0.7s", left: 126, size: 9, top: 62 },
-          { delay: "-1.5s", left: 58, size: 12, top: 116 },
-          { delay: "-2.4s", left: 148, size: 8, top: 154 },
-          { delay: "-1.1s", left: 28, size: 10, top: 204 },
-          { delay: "-1.9s", left: 96, size: 9, top: 236 },
+          { delay: "0s", left: 28, size: 10, top: 45 },
+          { delay: "-0.6s", left: 140, size: 12, top: 65 },
+          { delay: "-1.3s", left: 75, size: 8, top: 110 },
+          { delay: "-2.2s", left: 35, size: 9, top: 155 },
+          { delay: "-1.0s", left: 125, size: 11, top: 178 },
+          { delay: "-1.8s", left: 85, size: 7, top: 240 },
+          { delay: "-2.7s", left: 95, size: 6, top: 95 },
+          { delay: "-0.5s", left: 52, size: 9, top: 200 },
         ];
       default:
         return [];
@@ -722,7 +733,7 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
   };
 
   return (
-    <div className="absolute inset-0 z-[17] overflow-hidden pointer-events-none">
+    <div className="absolute inset-0 z-[17] overflow-visible pointer-events-none">
       <svg className="h-full w-full" viewBox="0 0 180 285">
         {specs.map((spec, index) => (
           <g
