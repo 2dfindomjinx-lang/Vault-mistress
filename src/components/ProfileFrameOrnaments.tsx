@@ -13,6 +13,8 @@ import { getProfileBorderFramePresentation } from "@/lib/profile-border-presenta
 import {
   getProfileFrameDecorationDefinition,
   isProfileFrameCosmeticType,
+  resolveFrameAttachment,
+  type FrameAttachmentAnchor,
   type ProfileFrameDecorationDefinition,
 } from "@/lib/profile-frame-cosmetics";
 
@@ -100,7 +102,8 @@ function DecorationSvg({ children, className = "z-[18]" }: { children: ReactNode
   return (
     <svg
       aria-hidden="true"
-      className={`absolute inset-0 h-full w-full pointer-events-none ${className}`}
+      className={`absolute inset-0 h-full w-full pointer-events-none overflow-visible ${className}`}
+      style={{ overflow: "visible" }}
       viewBox="0 0 180 285"
     >
       {children}
@@ -110,37 +113,37 @@ function DecorationSvg({ children, className = "z-[18]" }: { children: ReactNode
 
 function RibbonBow({ definition }: { definition: ProfileFrameDecorationDefinition }) {
   const palette = getPalette(definition);
-
+  // Relative to bottom-center attach (0,0). Shifted x-90, y-240 so base ~0, body +y downward.
   return (
     <g>
       <path
-        d="M90 236 C72 222 56 220 44 233 C57 247 71 249 85 241 L90 247 Z"
+        d="M0 -4 C-18 -18 -34 -20 -46 -7 C-33 7 -19 9 -5 1 L0 7 Z"
         fill={palette.primary}
         stroke={palette.accent}
         strokeWidth="1.6"
       />
       <path
-        d="M90 236 C108 222 124 220 136 233 C123 247 109 249 95 241 L90 247 Z"
+        d="M0 -4 C18 -18 34 -20 46 -7 C33 7 19 9 5 1 L0 7 Z"
         fill={palette.secondary}
         stroke={palette.accent}
         strokeWidth="1.6"
       />
       <path
-        d="M75 240 L63 270 L81 260 L86 281 L90 251 Z"
+        d="M-15 0 L-27 30 L-9 20 L-4 41 L0 11 Z"
         fill={palette.primary}
         stroke={palette.accent}
         strokeWidth="1.4"
       />
       <path
-        d="M105 240 L117 270 L99 260 L94 281 L90 251 Z"
+        d="M15 0 L27 30 L9 20 L4 41 L0 11 Z"
         fill={palette.secondary}
         stroke={palette.accent}
         strokeWidth="1.4"
       />
-      <ellipse cx="90" cy="238" fill={palette.metal} rx="11" ry="8.2" />
+      <ellipse cx="0" cy="-2" fill={palette.metal} rx="11" ry="8.2" />
       <ellipse
-        cx="90"
-        cy="238"
+        cx="0"
+        cy="-2"
         fill={withAlpha(palette.accent, "aa")}
         rx="4.4"
         ry="4.4"
@@ -151,35 +154,35 @@ function RibbonBow({ definition }: { definition: ProfileFrameDecorationDefinitio
 
 function HangingHeartLock({ definition }: { definition: ProfileFrameDecorationDefinition }) {
   const palette = getPalette(definition);
-
+  // Relative: x-90, y-240 so attach ~0 , extends +y
   return (
     <g>
       <path
-        d="M90 233 C78 224 67 223 59 232 C68 240 76 242 87 237 Z"
+        d="M0 -7 C-12 -16 -23 -17 -31 -8 C-22 0 -14 2 -3 -3 Z"
         fill={palette.primary}
       />
       <path
-        d="M90 233 C102 224 113 223 121 232 C112 240 104 242 93 237 Z"
+        d="M0 -7 C12 -16 23 -17 31 -8 C22 0 14 2 3 -3 Z"
         fill={palette.secondary}
       />
-      <ellipse cx="90" cy="235" fill={palette.metal} rx="7" ry="5.5" />
-      <path d="M90 241 L90 258" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
+      <ellipse cx="0" cy="-5" fill={palette.metal} rx="7" ry="5.5" />
+      <path d="M0 1 L0 18" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
       <path
-        d="M84 261 C84 256.2 86.8 252.8 90 252.8 C93.2 252.8 96 256.2 96 261 V264"
+        d="M-6 21 C-6 16.2 -3.2 12.8 0 12.8 C3.2 12.8 6 16.2 6 21 V24"
         fill="none"
         stroke={palette.metal}
         strokeLinecap="round"
         strokeWidth="1.8"
       />
       <path
-        d="M90 279 C82.4 272.6 77.8 268.2 77.8 263 C77.8 258.9 81 256 84.9 256 C87.1 256 88.9 257 90 258.6 C91.1 257 92.9 256 95.1 256 C99 256 102.2 258.9 102.2 263 C102.2 268.2 97.6 272.6 90 279 Z"
+        d="M0 39 C-7.6 32.6 -12.2 28.2 -12.2 23 C-12.2 18.9 -9 16 -5.1 16 C-2.9 16 -1.1 17 0 18.6 C1.1 17 2.9 16 5.1 16 C9 16 12.2 18.9 12.2 23 C12.2 28.2 7.6 32.6 0 39 Z"
         fill={palette.primary}
         stroke={palette.metal}
         strokeLinejoin="round"
         strokeWidth="1.5"
       />
       <path
-        d="M90 273.2 C85.8 269.6 83.3 267.1 83.3 264 C83.3 261.5 85.2 259.9 87.4 259.9 C88.7 259.9 89.5 260.5 90 261.3 C90.5 260.5 91.3 259.9 92.6 259.9 C94.8 259.9 96.7 261.5 96.7 264 C96.7 267.1 94.2 269.6 90 273.2 Z"
+        d="M0 33.2 C-4.2 29.6 -6.7 27.1 -6.7 24 C-6.7 21.5 -4.8 19.9 -2.6 19.9 C-1.3 19.9 -0.5 20.5 0 21.3 C0.5 20.5 1.3 19.9 2.6 19.9 C4.8 19.9 6.7 21.5 6.7 24 C6.7 27.1 4.2 29.6 0 33.2 Z"
         fill={palette.accent}
       />
     </g>
@@ -336,11 +339,12 @@ function TopCrown({
   previewMode?: "default" | "shop";
 }) {
   const palette = getPalette(definition);
-  const transform =
-    previewMode === "shop" ? "translate(90 6) scale(0.9)" : "translate(90 9)";
+  // Drawing is now relative to (0,0) = attachment point at top-center of frame.
+  // The spike extends upward (negative y) so half is outside when placed at frame top.
+  const s = previewMode === "shop" ? 0.9 : 1;
 
   return (
-    <g transform={transform}>
+    <g transform={`scale(${s})`}>
       <path
         d="M-19 9 L-12 -2 L-4 7 L0 -6 L4 7 L12 -2 L19 9 V16 H-19 Z"
         fill={palette.primary}
@@ -363,11 +367,11 @@ function TopCrest({
   previewMode?: "default" | "shop";
 }) {
   const palette = getPalette(definition);
-  const transform =
-    previewMode === "shop" ? "translate(90 7) scale(0.9)" : "translate(90 10)";
+  // Relative to attach point (0,0) at top center. Tip goes negative.
+  const s = previewMode === "shop" ? 0.9 : 1;
 
   return (
-    <g transform={transform}>
+    <g transform={`scale(${s})`}>
       <path
         d="M0 -6 L10 -1 V9 C10 16 4.5 20 0 22 C-4.5 20 -10 16 -10 9 V-1 Z"
         fill={palette.primary}
@@ -536,31 +540,35 @@ function OverlayDrape({
 }) {
   const palette = getPalette(definition);
 
+  // Now drawn relative to (0,0) = attachment point (bottom-center for drapes).
+  // Clasp at ~ y=0 , body extends +y downward outside frame.
+  // Shifted from original global coords (x-90, y-51) for relative drawing.
+
   if (previewMode === "shop") {
     return (
       <g opacity="0.8">
         <path
-          d="M14 30 C14 70 20 116 34 149 C41 165 51 175 66 183 C53 155 47 118 44 50 Z"
+          d="M-76 -21 C-76 19 -70 65 -56 98 C-49 114 -39 124 -24 132 C-37 104 -43 67 -46 -1 Z"
           fill={withAlpha(palette.primary, "c8")}
         />
         <path
-          d="M166 30 C166 70 160 116 146 149 C139 165 129 175 114 183 C127 155 133 118 136 50 Z"
+          d="M76 -21 C76 19 70 65 56 98 C49 114 39 124 24 132 C37 104 43 67 46 -1 Z"
           fill={withAlpha(palette.secondary, "c8")}
         />
         <path
-          d="M43 50 C49 46 55 45 62 47"
+          d="M-47 -1 C-41 -5 -35 -6 -28 -4"
           fill="none"
           stroke={withAlpha(palette.accent, "c2")}
           strokeWidth="1.6"
         />
         <path
-          d="M137 50 C131 46 125 45 118 47"
+          d="M47 -1 C41 -5 35 -6 28 -4"
           fill="none"
           stroke={withAlpha(palette.accent, "c2")}
           strokeWidth="1.6"
         />
-        <circle cx="44" cy="49.5" fill={palette.metal} r="3.8" />
-        <circle cx="136" cy="49.5" fill={palette.metal} r="3.8" />
+        <circle cx="-46" cy="-1.5" fill={palette.metal} r="3.8" />
+        <circle cx="46" cy="-1.5" fill={palette.metal} r="3.8" />
       </g>
     );
   }
@@ -568,27 +576,27 @@ function OverlayDrape({
   return (
     <g opacity="0.88">
       <path
-        d="M18 32 C18 76 30 129 52 166 C60 179 71 186 84 190 C64 164 53 121 47 52 Z"
+        d="M-72 -19 C-72 25 -60 78 -38 115 C-30 128 -19 135 -6 139 C-26 113 -37 70 -43 1 Z"
         fill={withAlpha(palette.primary, "d2")}
       />
       <path
-        d="M162 32 C162 76 150 129 128 166 C120 179 109 186 96 190 C116 164 127 121 133 52 Z"
+        d="M72 -19 C72 25 60 78 38 115 C30 128 19 135 6 139 C26 113 37 70 43 1 Z"
         fill={withAlpha(palette.secondary, "d2")}
       />
       <path
-        d="M46 52 C54 48 61 47 70 49"
+        d="M-44 1 C-36 -3 -29 -4 -20 -2"
         fill="none"
         stroke={withAlpha(palette.accent, "cc")}
         strokeWidth="1.8"
       />
       <path
-        d="M134 52 C126 48 119 47 110 49"
+        d="M44 1 C36 -3 29 -4 20 -2"
         fill="none"
         stroke={withAlpha(palette.accent, "cc")}
         strokeWidth="1.8"
       />
-      <circle cx="47" cy="51" fill={palette.metal} r="4.2" />
-      <circle cx="133" cy="51" fill={palette.metal} r="4.2" />
+      <circle cx="-43" cy="0" fill={palette.metal} r="4.2" />
+      <circle cx="43" cy="0" fill={palette.metal} r="4.2" />
     </g>
   );
 }
@@ -742,26 +750,31 @@ function BottomDecoration({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const translateY = previewMode === "shop" ? 14 : 12;
+  // For backward compatibility with remaining global paths, compensate x-90 and y shift.
+  // (Some bottom motifs updated to relative; this keeps others working until full refactor.)
+  const extraY = previewMode === "shop" ? 2 : 0;
+  const content = (() => {
+    switch (definition.motif) {
+      case "ribbon-bow":
+        return <g transform={`translate(0 ${extraY})`}><RibbonBow definition={definition} /></g>;
+      case "hanging-heart-lock":
+        return <g transform={`translate(0 ${extraY})`}><HangingHeartLock definition={definition} /></g>;
+      case "hanging-moon-bell":
+        return <g transform={`translate(0 ${extraY})`}><HangingMoonBell definition={definition} /></g>;
+      case "wax-seal":
+        return <g transform={`translate(0 ${extraY})`}><WaxSeal definition={definition} /></g>;
+      case "wax-crest":
+        return <g transform={`translate(0 ${extraY})`}><WaxSeal crest definition={definition} /></g>;
+      case "gem-clasp":
+        return <g transform={`translate(0 ${extraY})`}><GemClasp definition={definition} /></g>;
+      case "rose-cluster":
+        return <g transform={`translate(0 ${extraY})`}><RoseCluster definition={definition} /></g>;
+      default:
+        return null;
+    }
+  })();
 
-  switch (definition.motif) {
-    case "ribbon-bow":
-      return <g transform={`translate(0 ${translateY})`}><RibbonBow definition={definition} /></g>;
-    case "hanging-heart-lock":
-      return <g transform={`translate(0 ${translateY})`}><HangingHeartLock definition={definition} /></g>;
-    case "hanging-moon-bell":
-      return <g transform={`translate(0 ${translateY})`}><HangingMoonBell definition={definition} /></g>;
-    case "wax-seal":
-      return <g transform={`translate(0 ${translateY})`}><WaxSeal definition={definition} /></g>;
-    case "wax-crest":
-      return <g transform={`translate(0 ${translateY})`}><WaxSeal crest definition={definition} /></g>;
-    case "gem-clasp":
-      return <g transform={`translate(0 ${translateY})`}><GemClasp definition={definition} /></g>;
-    case "rose-cluster":
-      return <g transform={`translate(0 ${translateY})`}><RoseCluster definition={definition} /></g>;
-    default:
-      return null;
-  }
+  return <g transform="translate(-90 -240)">{content}</g>;
 }
 
 export function ProfileFrameOrnaments({
@@ -771,16 +784,34 @@ export function ProfileFrameOrnaments({
 }: ProfileFrameOrnamentsProps) {
   const items = getDecorationItems(equippedCosmeticIds, previewItem);
 
+  const renderAttached = (
+    def: ProfileFrameDecorationDefinition | null,
+    children: ReactNode,
+    defaultAnchor: FrameAttachmentAnchor = "bottom-center",
+  ) => {
+    if (!def) return null;
+    const att = resolveFrameAttachment(def);
+    const tx = att.x;
+    const ty = att.y;
+    let transform = `translate(${tx} ${ty})`;
+    if (att.scale !== 1) transform += ` scale(${att.scale})`;
+    if (att.rotation) transform += ` rotate(${att.rotation})`;
+
+    return (
+      <DecorationSvg className={`z-[${att.zIndex}]`}>
+        <g transform={transform}>{children}</g>
+      </DecorationSvg>
+    );
+  };
+
   return (
     <>
       {items.overlay ? (
-        <DecorationSvg className="z-[16]">
-          {items.overlay.motif === "overlay-lace" ? (
-            <OverlayLace definition={items.overlay} />
-          ) : (
-            <OverlayDrape definition={items.overlay} previewMode={previewMode} />
-          )}
-        </DecorationSvg>
+        renderAttached(items.overlay, items.overlay.motif === "overlay-lace" ? (
+          <OverlayLace definition={items.overlay} />
+        ) : (
+          <OverlayDrape definition={items.overlay} previewMode={previewMode} />
+        ), "bottom-center")
       ) : null}
       {items.particles ? <ParticleLayer definition={items.particles} /> : null}
       {items.side ? (
@@ -798,18 +829,14 @@ export function ProfileFrameOrnaments({
         </DecorationSvg>
       ) : null}
       {items.top ? (
-        <DecorationSvg className="z-[20]">
-          {items.top.motif === "top-crown" ? (
-            <TopCrown definition={items.top} previewMode={previewMode} />
-          ) : (
-            <TopCrest definition={items.top} previewMode={previewMode} />
-          )}
-        </DecorationSvg>
+        renderAttached(items.top, items.top.motif === "top-crown" ? (
+          <TopCrown definition={items.top} previewMode={previewMode} />
+        ) : (
+          <TopCrest definition={items.top} previewMode={previewMode} />
+        ), "top-center")
       ) : null}
       {items.bottom ? (
-        <DecorationSvg className="z-[21]">
-          <BottomDecoration definition={items.bottom} previewMode={previewMode} />
-        </DecorationSvg>
+        renderAttached(items.bottom, <BottomDecoration definition={items.bottom} previewMode={previewMode} />, "bottom-center")
       ) : null}
     </>
   );
@@ -835,7 +862,7 @@ export function PrincipessaShowcasePreview({
 
   return (
     <div
-      className={`relative aspect-[180/285] rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(12,5,18,0.95),rgba(42,11,48,0.74),rgba(5,2,7,0.96))] shadow-[0_0_28px_rgba(217,70,239,0.14)] ${className ?? ""}`}
+      className={`relative aspect-[180/285] overflow-visible rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(12,5,18,0.95),rgba(42,11,48,0.74),rgba(5,2,7,0.96))] shadow-[0_0_28px_rgba(217,70,239,0.14)] ${className ?? ""}`}
     >
       <div aria-hidden="true" className={border.className} style={border.style} />
       <div className="absolute inset-[3px] overflow-hidden rounded-[calc(1.45rem-3px)] bg-black/42">

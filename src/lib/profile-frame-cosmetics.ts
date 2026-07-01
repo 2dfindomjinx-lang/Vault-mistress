@@ -33,6 +33,25 @@ export type ProfileFrameDecorationMotif =
   | "particles-dust"
   | "particles-embers";
 
+export type FrameAttachmentAnchor =
+  | "top-center"
+  | "bottom-center"
+  | "left-center"
+  | "right-center"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+export type ProfileFrameAttachment = {
+  anchor: FrameAttachmentAnchor;
+  offsetX?: number;
+  offsetY?: number;
+  scale?: number;
+  rotation?: number;
+  zIndex?: number;
+};
+
 export type ProfileFrameDecorationDefinition = {
   id: string;
   name: string;
@@ -43,12 +62,50 @@ export type ProfileFrameDecorationDefinition = {
   palette: [string, string, string?];
   metal?: string;
   shadow?: string;
+  attachment?: ProfileFrameAttachment;
 };
 
 export type ProfileFrameCatalogItem = Pick<
   ProfileFrameDecorationDefinition,
   "description" | "id" | "name" | "price" | "type"
 >;
+
+const FRAME_ANCHOR_POSITIONS: Record<FrameAttachmentAnchor, { x: number; y: number }> = {
+  "top-center": { x: 90, y: 6 },
+  "bottom-center": { x: 90, y: 268 },
+  "left-center": { x: 22, y: 142 },
+  "right-center": { x: 158, y: 142 },
+  "top-left": { x: 22, y: 6 },
+  "top-right": { x: 158, y: 6 },
+  "bottom-left": { x: 22, y: 268 },
+  "bottom-right": { x: 158, y: 268 },
+};
+
+function getDefaultZIndex(type: ProfileFrameCosmeticType): number {
+  switch (type) {
+    case "profile-frame-particles": return 17;
+    case "profile-frame-overlay": return 16;
+    case "profile-frame-side": return 19;
+    case "profile-frame-corner": return 20;
+    case "profile-frame-top": return 20;
+    case "profile-frame-bottom": return 21;
+    default: return 18;
+  }
+}
+
+export function resolveFrameAttachment(def: ProfileFrameDecorationDefinition) {
+  const att = def.attachment || ({} as Partial<ProfileFrameAttachment>);
+  const anchorKey = att.anchor || (def.type.includes("-top") ? "top-center" : def.type.includes("-bottom") ? "bottom-center" : "bottom-center");
+  const basePos = FRAME_ANCHOR_POSITIONS[anchorKey as FrameAttachmentAnchor] || { x: 90, y: 140 };
+
+  return {
+    x: basePos.x + (att.offsetX ?? 0),
+    y: basePos.y + (att.offsetY ?? 0),
+    scale: att.scale ?? (def.type.includes("-top") ? 0.92 : 1),
+    rotation: att.rotation ?? 0,
+    zIndex: att.zIndex ?? getDefaultZIndex(def.type),
+  };
+}
 
 const definition = (
   item: ProfileFrameDecorationDefinition,
@@ -197,6 +254,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#d97706", "#facc15", "#fef3c7"],
     metal: "#fde68a",
     shadow: "#b45309",
+    attachment: { anchor: "top-center", offsetY: -4, scale: 0.92 },
   }),
   definition({
     id: "frame-top-roseglass-crown",
@@ -340,6 +398,7 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
     palette: ["#7c3aed", "#312e81", "#fbcfe8"],
     metal: "#facc15",
     shadow: "#4c1d95",
+    attachment: { anchor: "bottom-center", offsetY: 0, scale: 0.85 },
   }),
   definition({
     id: "frame-overlay-candy-drape",

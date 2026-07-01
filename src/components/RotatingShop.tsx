@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { PrincipessaShowcasePreview, hasRenderableProfileFramePreview } from "@/components/ProfileFrameOrnaments";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
@@ -242,6 +243,51 @@ export function RotatingShop({
     );
   };
 
+  const renderMinimalPreview = (item: CosmeticItem) => {
+    if (item.type === "profile-border" && item.color) {
+      return (
+        <div
+          className="h-4 w-6 shrink-0 rounded border border-white/40"
+          style={{ backgroundColor: item.color }}
+          aria-hidden
+          title="Border color preview"
+        />
+      );
+    }
+    if (item.type === "username-color" && item.color) {
+      return (
+        <div
+          className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/30"
+          style={{ backgroundColor: item.color }}
+          aria-hidden
+          title="Color preview"
+        />
+      );
+    }
+    if (item.type === "username-glow" && item.glow) {
+      return (
+        <div
+          className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/30 bg-white"
+          style={{ boxShadow: item.glow.replace(/0 0 \d+px/g, "0 0 5px") }}
+          aria-hidden
+          title="Glow preview"
+        />
+      );
+    }
+    if (isProfileFrameCosmeticType(item.type)) {
+      return (
+        <div
+          className="flex h-4 w-5 shrink-0 items-center justify-center rounded border border-white/30 bg-white/10 text-[8px] font-black text-amber-200/80"
+          aria-hidden
+          title="Frame preview"
+        >
+          F
+        </div>
+      );
+    }
+    return null;
+  };
+
   const renderCatalogRow = (item: CosmeticItem) => {
     const owned = ownedCosmeticIds.includes(item.id);
     const equipped = equippedCosmeticIds[item.type] === item.id;
@@ -269,6 +315,14 @@ export function RotatingShop({
       buttonLabel = "Need";
     }
 
+    const nameStyle: CSSProperties = {};
+    if (item.type === "username-color" && item.color) {
+      nameStyle.color = item.color;
+    }
+    if (item.type === "username-glow" && item.glow) {
+      nameStyle.textShadow = item.glow.replace(/0 0 22px/g, "0 0 6px");
+    }
+
     return (
       <div
         className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
@@ -282,24 +336,32 @@ export function RotatingShop({
         }`}
         key={item.id}
       >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-black text-white">{item.name}</p>
-            <span
-              className={`h-2 w-2 shrink-0 rounded-full ${
-                equipped
-                  ? "bg-amber-300"
-                  : owned
-                    ? "bg-emerald-300"
-                    : isCurrentlyOffered
-                      ? "bg-fuchsia-300"
-                      : "bg-zinc-500"
-              }`}
-            />
+        <div className="flex min-w-0 items-center gap-2">
+          {renderMinimalPreview(item)}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <p
+                className="truncate text-sm font-black text-white"
+                style={nameStyle}
+              >
+                {item.name}
+              </p>
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  equipped
+                    ? "bg-amber-300"
+                    : owned
+                      ? "bg-emerald-300"
+                      : isCurrentlyOffered
+                        ? "bg-fuchsia-300"
+                        : "bg-zinc-500"
+                }`}
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-amber-50/60">
+              {item.price.toLocaleString()} coins
+            </p>
           </div>
-          <p className="mt-1 text-[11px] text-amber-50/60">
-            {item.price.toLocaleString()} coins
-          </p>
         </div>
         <button
           className="shrink-0 rounded-xl border border-amber-200/22 bg-black/25 px-3 py-1.5 text-xs font-black text-amber-50 transition enabled:hover:border-amber-200/45 enabled:hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-35"

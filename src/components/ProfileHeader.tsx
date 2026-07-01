@@ -148,7 +148,7 @@ export function ProfileHeader({
             />
           </div>
           {equippedCosmeticIds ? (
-            <div className="absolute inset-[3px] z-20 pointer-events-none rounded-[calc(1.5rem-3px)]">
+            <div className="absolute inset-0 z-20 pointer-events-none">
               <ProfileFrameOrnaments equippedCosmeticIds={equippedCosmeticIds} />
             </div>
           ) : null}
