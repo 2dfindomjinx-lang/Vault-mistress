@@ -1,12 +1,42 @@
 import type { CSSProperties } from "react";
 import type { CosmeticItem } from "@/lib/cosmetics";
+import {
+  layeredBorderConfigById,
+  type LayeredBorderAnimation,
+  type LayeredBorderConfig,
+  type LayeredBorderMotif,
+  type LayeredBorderPattern,
+} from "@/lib/profile-border-layered-config";
+
+export type ProfileBorderLayerPresentation = {
+  animation?: LayeredBorderAnimation;
+  backgroundImage?: string;
+  backgroundPosition?: string;
+  backgroundRepeat?: string;
+  backgroundSize?: string;
+  filter?: string;
+  mixBlendMode?: CSSProperties["mixBlendMode"];
+  opacity?: number;
+};
 
 export type ProfileBorderFramePresentation = {
-  backgroundClassName: string;
-  backgroundStyle?: CSSProperties;
-  ringClassName: string;
-  ringStyle?: CSSProperties;
+  contentInset: number;
+  contentShadow?: string;
+  glowStyle?: CSSProperties;
+  layered: boolean;
+  layers: ProfileBorderLayerPresentation[];
+  legacyBackgroundClassName?: string;
+  legacyBackgroundStyle?: CSSProperties;
+  legacyRingClassName?: string;
+  legacyRingStyle?: CSSProperties;
   variant: "rainbow" | "runner" | null;
+};
+
+type BorderVars = CSSProperties & {
+  "--pb-accent": string;
+  "--pb-primary": string;
+  "--pb-secondary": string;
+  "--pb-soft-light": string;
 };
 
 function withAlpha(color: string, alpha: string) {
@@ -17,7 +47,312 @@ function withAlpha(color: string, alpha: string) {
   return color;
 }
 
-function resolveBackground(item: CosmeticItem, palette: [string, string, string?]) {
+function varsFromPalette(palette: [string, string, string?] | undefined) {
+  const primary = palette?.[0] ?? "#ec4899";
+  const secondary = palette?.[1] ?? "#111111";
+  const accent = palette?.[2] ?? secondary;
+
+  return {
+    "--pb-accent": accent,
+    "--pb-primary": primary,
+    "--pb-secondary": secondary,
+    "--pb-soft-light": "rgba(255,255,255,0.88)",
+  } satisfies BorderVars;
+}
+
+function applyVars(template: string | undefined, vars: BorderVars) {
+  if (!template) {
+    return undefined;
+  }
+
+  return template
+    .replaceAll("var(--pb-primary)", String(vars["--pb-primary"]))
+    .replaceAll("var(--pb-secondary)", String(vars["--pb-secondary"]))
+    .replaceAll("var(--pb-accent)", String(vars["--pb-accent"]))
+    .replaceAll("var(--pb-soft-light)", String(vars["--pb-soft-light"]));
+}
+
+function svgDataUri(svg: string) {
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function resolvePattern(pattern: LayeredBorderPattern | undefined, vars: BorderVars) {
+  const primary = String(vars["--pb-primary"]);
+  const secondary = String(vars["--pb-secondary"]);
+  const accent = String(vars["--pb-accent"]);
+
+  switch (pattern) {
+    case "bavarian-diamonds":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(135deg, rgba(255,255,255,0.82) 0 18px, rgba(185,217,255,0.88) 18px 36px)",
+          "repeating-linear-gradient(45deg, transparent 0 18px, rgba(255,255,255,0.24) 18px 36px)",
+        ].join(", "),
+      };
+    case "city-rings":
+      return {
+        backgroundImage: [
+          "radial-gradient(circle at 50% 18%, rgba(255,255,255,0.16) 0 16%, transparent 17%)",
+          "radial-gradient(circle at 50% 82%, rgba(255,255,255,0.1) 0 14%, transparent 15%)",
+          "repeating-linear-gradient(90deg, transparent 0 18px, rgba(255,255,255,0.06) 18px 19px, transparent 19px 38px)",
+        ].join(", "),
+      };
+    case "feather-slash":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(155deg, rgba(255,255,255,0.18) 0 10px, transparent 10px 24px)",
+          "repeating-linear-gradient(25deg, rgba(0,0,0,0.08) 0 12px, transparent 12px 28px)",
+        ].join(", "),
+      };
+    case "flame-flickers":
+      return {
+        backgroundImage: [
+          "radial-gradient(circle at 14% 82%, rgba(255,122,69,0.34) 0 11%, transparent 12%)",
+          "radial-gradient(circle at 82% 18%, rgba(255,184,92,0.26) 0 9%, transparent 10%)",
+          "repeating-linear-gradient(118deg, transparent 0 14px, rgba(255,122,69,0.12) 14px 18px, transparent 18px 32px)",
+        ].join(", "),
+      };
+    case "flag-ribbon":
+      return {
+        backgroundImage:
+          "linear-gradient(135deg, transparent 0 34%, rgba(255,255,255,0.68) 34% 42%, rgba(0,92,169,0.22) 42% 52%, transparent 52% 100%)",
+      };
+    case "honeycomb-dots":
+      return {
+        backgroundImage: [
+          "radial-gradient(circle at 25% 30%, rgba(17,17,17,0.22) 0 12%, transparent 13%)",
+          "radial-gradient(circle at 75% 30%, rgba(17,17,17,0.22) 0 12%, transparent 13%)",
+          "radial-gradient(circle at 25% 72%, rgba(17,17,17,0.22) 0 12%, transparent 13%)",
+          "radial-gradient(circle at 75% 72%, rgba(17,17,17,0.22) 0 12%, transparent 13%)",
+        ].join(", "),
+      };
+    case "industrial-brush":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0 16px, rgba(0,0,0,0.16) 16px 32px)",
+          "repeating-linear-gradient(90deg, transparent 0 20px, rgba(158,155,151,0.12) 20px 22px, transparent 22px 40px)",
+        ].join(", "),
+      };
+    case "laurel-columns":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(180deg, rgba(242,213,116,0.16) 0 16px, transparent 16px 32px)",
+          "linear-gradient(90deg, rgba(242,213,116,0.18) 0 7%, transparent 7% 93%, rgba(242,213,116,0.18) 93% 100%)",
+        ].join(", "),
+      };
+    case "maple-fragments":
+      return {
+        backgroundImage: [
+          "linear-gradient(135deg, rgba(213,43,30,0.9) 0 8%, transparent 8% 100%)",
+          "linear-gradient(225deg, rgba(213,43,30,0.9) 0 8%, transparent 8% 100%)",
+        ].join(", "),
+      };
+    case "neon-double-lines":
+      return {
+        backgroundImage:
+          "linear-gradient(90deg, transparent 0 24%, rgba(63,214,255,0.8) 24% 26%, transparent 26% 74%, rgba(63,214,255,0.8) 74% 76%, transparent 76% 100%)",
+      };
+    case "nordic-cross":
+      return {
+        backgroundImage:
+          "linear-gradient(90deg, transparent 0 31%, rgba(255,255,255,0.18) 31% 46%, transparent 46% 100%), linear-gradient(180deg, transparent 0 43%, rgba(255,255,255,0.18) 43% 58%, transparent 58% 100%)",
+      };
+    case "racing-diagonals":
+      return {
+        backgroundImage:
+          "repeating-linear-gradient(123deg, transparent 0 13px, rgba(255,255,255,0.16) 13px 16px, rgba(0,0,0,0.08) 16px 24px, transparent 24px 36px)",
+        backgroundSize: "160% 160%",
+      };
+    case "sea-foam":
+      return {
+        backgroundImage: [
+          "repeating-radial-gradient(circle at 50% 118%, rgba(255,255,255,0.24) 0 14px, transparent 14px 30px)",
+          "radial-gradient(circle at 50% 12%, rgba(255,255,255,0.18) 0 10%, transparent 11%)",
+        ].join(", "),
+        backgroundSize: "160% 160%",
+      };
+    case "soft-stars":
+      return {
+        backgroundImage: [
+          "radial-gradient(circle at 18% 24%, rgba(255,255,255,0.34) 0 1.6%, transparent 1.8%)",
+          "radial-gradient(circle at 78% 20%, rgba(255,255,255,0.28) 0 1.4%, transparent 1.6%)",
+          "radial-gradient(circle at 26% 74%, rgba(255,255,255,0.22) 0 1.3%, transparent 1.5%)",
+          "radial-gradient(circle at 82% 78%, rgba(255,255,255,0.22) 0 1.4%, transparent 1.6%)",
+        ].join(", "),
+      };
+    case "sunburst-rays":
+      return {
+        backgroundImage:
+          "conic-gradient(from 180deg at 50% 50%, rgba(241,200,76,0.34) 0deg 16deg, transparent 16deg 32deg, rgba(241,200,76,0.16) 32deg 48deg, transparent 48deg 360deg)",
+      };
+    case "vertical-pinstripes":
+      return {
+        backgroundImage:
+          "repeating-linear-gradient(90deg, rgba(255,255,255,0.08) 0 2px, transparent 2px 14px)",
+      };
+    case "wave-ribbon":
+      return {
+        backgroundImage:
+          "repeating-radial-gradient(circle at 50% 124%, rgba(168,211,255,0.16) 0 18px, transparent 18px 40px)",
+        backgroundSize: "180% 180%",
+      };
+    default:
+      return null;
+  }
+}
+
+function resolveMotif(motif: LayeredBorderMotif | undefined, vars: BorderVars) {
+  const accent = String(vars["--pb-accent"]);
+  const secondary = String(vars["--pb-secondary"]);
+
+  switch (motif) {
+    case "crescent-star":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <circle cx="92" cy="86" r="34" fill="rgba(255,255,255,0.94)"/>
+            <circle cx="105" cy="86" r="28" fill="${secondary}"/>
+            <polygon points="137,72 142,84 155,84 144,92 148,105 137,97 126,105 130,92 119,84 132,84" fill="rgba(255,255,255,0.94)"/>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "18% 18%",
+        backgroundSize: "32% 32%",
+      };
+    case "rising-sun":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <circle cx="120" cy="84" r="36" fill="rgba(188,0,45,0.92)"/>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center 18%",
+        backgroundSize: "28% 28%",
+      };
+    case "sun-core":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <circle cx="120" cy="84" r="20" fill="rgba(241,200,76,0.95)"/>
+            <g stroke="rgba(241,200,76,0.65)" stroke-width="4" stroke-linecap="round">
+              <path d="M120 48v18"/><path d="M120 102v18"/><path d="M84 84h18"/><path d="M138 84h18"/>
+              <path d="M95 59l12 12"/><path d="M145 59l-12 12"/><path d="M95 109l12-12"/><path d="M145 109l-12-12"/>
+            </g>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center 18%",
+        backgroundSize: "30% 30%",
+      };
+    case "swiss-cross":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <rect x="102" y="52" width="36" height="68" rx="4" fill="rgba(255,255,255,0.94)"/>
+            <rect x="86" y="68" width="68" height="36" rx="4" fill="rgba(255,255,255,0.94)"/>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center 18%",
+        backgroundSize: "28% 28%",
+      };
+    case "tiny-stars":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <g fill="rgba(255,255,255,0.9)">
+              <circle cx="46" cy="48" r="3"/><circle cx="68" cy="64" r="3"/><circle cx="90" cy="44" r="3"/>
+              <circle cx="112" cy="60" r="3"/><circle cx="46" cy="82" r="3"/><circle cx="68" cy="98" r="3"/>
+              <circle cx="90" cy="78" r="3"/><circle cx="112" cy="94" r="3"/>
+            </g>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "12% 12%",
+        backgroundSize: "38% 38%",
+      };
+    default:
+      return null;
+  }
+}
+
+function resolveAnimationStyle(animation: LayeredBorderAnimation | undefined): CSSProperties | undefined {
+  switch (animation) {
+    case "ember-flicker":
+      return { animation: "profileBorderEmber 4.8s ease-in-out infinite" };
+    case "flag-sheen":
+      return { animation: "profileBorderSheen 7.4s linear infinite", backgroundSize: "180% 180%" };
+    case "neon-pulse":
+      return { animation: "profileBorderNeon 4.2s ease-in-out infinite" };
+    case "royal-shimmer":
+      return { animation: "profileBorderShimmer 6.8s ease-in-out infinite", backgroundSize: "180% 180%" };
+    case "subtle-glow":
+      return { animation: "profileBorderPulse 6.4s ease-in-out infinite" };
+    case "wave-drift":
+      return { animation: "profileBorderDrift 8.2s ease-in-out infinite", backgroundSize: "190% 190%" };
+    default:
+      return undefined;
+  }
+}
+
+function getLayeredPresentation(item: CosmeticItem, palette: [string, string, string?], config: LayeredBorderConfig) {
+  const vars = varsFromPalette(palette);
+  const layers: ProfileBorderLayerPresentation[] = [
+    {
+      backgroundImage: applyVars(config.baseGradient, vars),
+      opacity: 1,
+    },
+  ];
+
+  const patternLayer = resolvePattern(config.pattern, vars);
+  if (patternLayer) {
+    layers.push({
+      ...patternLayer,
+      animation: config.animation,
+      mixBlendMode: "screen",
+      opacity: 0.84,
+    });
+  }
+
+  if (config.innerStripe) {
+    layers.push({
+      backgroundImage: applyVars(config.innerStripe, vars),
+      animation: config.animation,
+      mixBlendMode: "screen",
+      opacity: 0.9,
+    });
+  }
+
+  if (config.cornerAccents) {
+    layers.push({
+      backgroundImage: applyVars(config.cornerAccents, vars),
+      opacity: 0.96,
+    });
+  }
+
+  const motifLayer = resolveMotif(config.motif, vars);
+  if (motifLayer) {
+    layers.push({
+      ...motifLayer,
+      animation: config.animation,
+      opacity: 0.95,
+    });
+  }
+
+  return {
+    contentInset: 3,
+    contentShadow: `inset 0 0 20px ${withAlpha(palette[0], "18")}, inset 0 0 36px ${withAlpha(palette[2] ?? palette[1], "16")}`,
+    glowStyle: {
+      boxShadow: config.outerGlow ?? `0 0 18px ${withAlpha(palette[0], "55")}, 0 0 30px ${withAlpha(palette[2] ?? palette[1], "28")}`,
+    },
+    layered: true,
+    layers,
+    variant: null,
+  } satisfies ProfileBorderFramePresentation;
+}
+
+function resolveLegacyBackground(item: CosmeticItem, palette: [string, string, string?]) {
   const [primary, secondary, accent = secondary] = palette;
 
   switch (item.borderStyle) {
@@ -37,221 +372,6 @@ function resolveBackground(item: CosmeticItem, palette: [string, string, string?
       return `linear-gradient(145deg, ${primary} 0%, ${secondary} 54%, ${accent} 100%)`;
     case "conic-slice":
       return `conic-gradient(from 180deg, ${primary} 0deg 120deg, ${secondary} 120deg 240deg, ${accent} 240deg 360deg)`;
-    case "city-grid":
-      return [
-        `linear-gradient(135deg, ${primary} 0%, ${secondary} 58%, ${primary} 100%)`,
-        `repeating-linear-gradient(90deg, transparent 0 18px, ${withAlpha(accent, "4A")} 18px 20px, transparent 20px 38px)`,
-        `repeating-linear-gradient(0deg, transparent 0 18px, ${withAlpha("#ffffff", "24")} 18px 19px, transparent 19px 36px)`,
-      ].join(", ");
-    case "cannon-corners":
-      return [
-        `radial-gradient(circle at 6% 12%, ${withAlpha(accent, "BB")} 0 10%, transparent 11%)`,
-        `radial-gradient(circle at 94% 12%, ${withAlpha(accent, "BB")} 0 10%, transparent 11%)`,
-        `linear-gradient(160deg, ${primary} 0%, ${secondary} 70%)`,
-      ].join(", ");
-    case "flame-lights":
-      return [
-        `radial-gradient(circle at 15% 100%, ${withAlpha(accent, "AA")} 0 10%, transparent 28%)`,
-        `radial-gradient(circle at 85% 0%, ${withAlpha("#FFD8A8", "66")} 0 7%, transparent 22%)`,
-        `repeating-linear-gradient(125deg, transparent 0 16px, ${withAlpha(accent, "2C")} 16px 20px, transparent 20px 34px)`,
-        `linear-gradient(160deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "royal-ring":
-      return [
-        `radial-gradient(circle at center, transparent 0 42%, ${withAlpha(accent, "70")} 43% 49%, transparent 50%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "energy-rush":
-      return [
-        `repeating-linear-gradient(120deg, transparent 0 14px, ${withAlpha(accent, "66")} 14px 18px, transparent 18px 34px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "navy-minimal":
-      return [
-        `linear-gradient(90deg, ${withAlpha(secondary, "D0")} 0 6%, transparent 6% 94%, ${withAlpha(secondary, "D0")} 94% 100%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "D8")} 65%, ${secondary} 100%)`,
-      ].join(", ");
-    case "honeycomb":
-      return [
-        `radial-gradient(circle at 25% 30%, ${withAlpha(secondary, "55")} 0 13%, transparent 14%)`,
-        `radial-gradient(circle at 75% 70%, ${withAlpha(secondary, "55")} 0 13%, transparent 14%)`,
-        `radial-gradient(circle at 75% 30%, ${withAlpha(secondary, "55")} 0 13%, transparent 14%)`,
-        `radial-gradient(circle at 25% 70%, ${withAlpha(secondary, "55")} 0 13%, transparent 14%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${accent} 100%)`,
-      ].join(", ");
-    case "bavarian-diamond":
-      return [
-        `repeating-linear-gradient(135deg, ${withAlpha("#FFFFFF", "88")} 0 18px, ${withAlpha(accent, "B8")} 18px 36px)`,
-        `repeating-linear-gradient(45deg, transparent 0 18px, ${withAlpha("#FFFFFF", "48")} 18px 36px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "flag-sash":
-      return [
-        `linear-gradient(135deg, transparent 0 32%, ${withAlpha(secondary, "EE")} 32% 44%, transparent 44% 100%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "CC")} 100%)`,
-      ].join(", ");
-    case "speed-lines":
-      return [
-        `repeating-linear-gradient(118deg, transparent 0 14px, ${withAlpha(accent, "50")} 14px 18px, ${withAlpha(primary, "90")} 18px 26px, transparent 26px 38px)`,
-        `linear-gradient(145deg, ${secondary} 0%, ${primary} 100%)`,
-      ].join(", ");
-    case "industrial-steel":
-      return [
-        `repeating-linear-gradient(135deg, ${withAlpha("#FFFFFF", "10")} 0 18px, ${withAlpha("#000000", "20")} 18px 36px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 68%, ${accent} 100%)`,
-      ].join(", ");
-    case "neon-stripes":
-      return [
-        `repeating-linear-gradient(90deg, ${secondary} 0 12px, ${primary} 12px 24px, ${withAlpha(accent, "80")} 24px 27px, ${secondary} 27px 36px)`,
-        `linear-gradient(145deg, ${secondary} 0%, ${primary} 100%)`,
-      ].join(", ");
-    case "wave-glow":
-      return [
-        `radial-gradient(circle at 50% 15%, ${withAlpha("#FFFFFF", "66")} 0 8%, transparent 20%)`,
-        `repeating-radial-gradient(circle at 50% 120%, ${withAlpha(accent, "50")} 0 14px, transparent 14px 32px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 55%, ${accent} 100%)`,
-      ].join(", ");
-    case "marble-noir":
-      return [
-        `repeating-linear-gradient(155deg, ${withAlpha("#FFFFFF", "0E")} 0 18px, ${withAlpha(accent, "22")} 18px 26px, transparent 26px 42px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 52%, ${primary} 100%)`,
-      ].join(", ");
-    case "laurel-luxe":
-      return [
-        `radial-gradient(circle at 14% 50%, ${withAlpha(accent, "66")} 0 5%, transparent 6%)`,
-        `radial-gradient(circle at 86% 50%, ${withAlpha(accent, "66")} 0 5%, transparent 6%)`,
-        `repeating-radial-gradient(circle at 50% 50%, transparent 0 26px, ${withAlpha(accent, "24")} 26px 30px, transparent 30px 44px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "windflow":
-      return [
-        `repeating-radial-gradient(circle at -10% 50%, ${withAlpha(accent, "44")} 0 18px, transparent 18px 42px)`,
-        `linear-gradient(135deg, ${secondary} 0%, ${primary} 48%, ${secondary} 100%)`,
-      ].join(", ");
-    case "eagle-feathers":
-      return [
-        `repeating-linear-gradient(155deg, ${withAlpha(accent, "36")} 0 14px, transparent 14px 32px)`,
-        `repeating-linear-gradient(25deg, ${withAlpha("#FFFFFF", "18")} 0 12px, transparent 12px 28px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "paris-lights":
-      return [
-        `radial-gradient(circle at 20% 20%, ${withAlpha(accent, "66")} 0 3%, transparent 4%)`,
-        `radial-gradient(circle at 80% 28%, ${withAlpha(accent, "52")} 0 3%, transparent 4%)`,
-        `radial-gradient(circle at 72% 74%, ${withAlpha("#FFFFFF", "3C")} 0 4%, transparent 5%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 68%, ${primary} 100%)`,
-      ].join(", ");
-    case "royal-chrome":
-      return [
-        `linear-gradient(115deg, ${withAlpha("#FFFFFF", "00")} 0 24%, ${withAlpha("#FFFFFF", "8A")} 24% 36%, ${withAlpha("#FFFFFF", "00")} 36% 100%)`,
-        `linear-gradient(145deg, ${secondary} 0%, ${primary} 56%, ${accent} 100%)`,
-      ].join(", ");
-    case "split-metal":
-      return [
-        `linear-gradient(90deg, ${primary} 0 49%, ${withAlpha(accent, "C0")} 49% 51%, ${secondary} 51% 100%)`,
-        `linear-gradient(145deg, ${withAlpha("#FFFFFF", "10")} 0%, ${withAlpha("#000000", "18")} 100%)`,
-      ].join(", ");
-    case "firestorm":
-      return [
-        `radial-gradient(circle at 50% 110%, ${withAlpha(accent, "A0")} 0 18%, transparent 36%)`,
-        `repeating-linear-gradient(125deg, transparent 0 18px, ${withAlpha(accent, "36")} 18px 24px, transparent 24px 40px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 72%)`,
-      ].join(", ");
-    case "starburst":
-      return [
-        `radial-gradient(circle at 18% 24%, ${withAlpha(accent, "90")} 0 2.5%, transparent 3%)`,
-        `radial-gradient(circle at 78% 18%, ${withAlpha(accent, "70")} 0 2.5%, transparent 3%)`,
-        `radial-gradient(circle at 82% 78%, ${withAlpha(accent, "70")} 0 2.5%, transparent 3%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "saint-cross":
-      return [
-        `linear-gradient(90deg, transparent 0 41%, ${secondary} 41% 59%, transparent 59% 100%)`,
-        `linear-gradient(0deg, transparent 0 41%, ${secondary} 41% 59%, transparent 59% 100%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "F0")} 100%)`,
-      ].join(", ");
-    case "tricolor-feathers":
-      return [
-        `repeating-linear-gradient(155deg, ${withAlpha(accent, "26")} 0 12px, transparent 12px 26px)`,
-        `linear-gradient(90deg, ${primary} 0 34%, ${secondary} 34% 67%, ${accent} 67% 100%)`,
-      ].join(", ");
-    case "fleur-royale":
-      return [
-        `radial-gradient(circle at 20% 24%, ${withAlpha("#FFFFFF", "34")} 0 4%, transparent 5%)`,
-        `radial-gradient(circle at 80% 24%, ${withAlpha("#FFFFFF", "34")} 0 4%, transparent 5%)`,
-        `radial-gradient(circle at 50% 72%, ${withAlpha("#FFFFFF", "28")} 0 5%, transparent 6%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "sun-ember":
-      return [
-        `radial-gradient(circle at 50% 50%, ${withAlpha(secondary, "66")} 0 12%, transparent 40%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${accent} 100%)`,
-      ].join(", ");
-    case "crescent-trail":
-      return [
-        `radial-gradient(circle at 34% 38%, ${withAlpha("#FFFFFF", "E2")} 0 9%, transparent 9.5%)`,
-        `radial-gradient(circle at 39% 38%, ${withAlpha(primary, "FF")} 0 8%, transparent 8.5%)`,
-        `radial-gradient(circle at 56% 38%, ${withAlpha("#FFFFFF", "E2")} 0 2.5%, transparent 3%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "nordic-cross":
-      return [
-        `linear-gradient(90deg, transparent 0 34%, ${secondary} 34% 46%, ${accent} 46% 54%, ${secondary} 54% 66%, transparent 66% 100%)`,
-        `linear-gradient(0deg, transparent 0 42%, ${secondary} 42% 54%, ${accent} 54% 62%, ${secondary} 62% 74%, transparent 74% 100%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "EE")} 100%)`,
-      ].join(", ");
-    case "scandi-geo":
-      return [
-        `repeating-linear-gradient(135deg, ${withAlpha(accent, "22")} 0 20px, transparent 20px 42px)`,
-        `linear-gradient(90deg, transparent 0 38%, ${secondary} 38% 48%, transparent 48% 100%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "E8")} 100%)`,
-      ].join(", ");
-    case "crystal-glass":
-      return [
-        `linear-gradient(125deg, ${withAlpha("#FFFFFF", "00")} 0 20%, ${withAlpha("#FFFFFF", "80")} 20% 30%, ${withAlpha("#FFFFFF", "00")} 30% 100%)`,
-        `repeating-linear-gradient(45deg, ${withAlpha(accent, "22")} 0 18px, transparent 18px 36px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "ice-crystal":
-      return [
-        `repeating-linear-gradient(135deg, ${withAlpha(accent, "30")} 0 18px, transparent 18px 40px)`,
-        `repeating-linear-gradient(45deg, ${withAlpha("#FFFFFF", "46")} 0 14px, transparent 14px 34px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 72%, ${accent} 100%)`,
-      ].join(", ");
-    case "starfield":
-      return [
-        `radial-gradient(circle at 18% 24%, ${withAlpha("#FFFFFF", "AA")} 0 1.8%, transparent 2.2%)`,
-        `radial-gradient(circle at 72% 18%, ${withAlpha("#FFFFFF", "88")} 0 1.5%, transparent 2%)`,
-        `radial-gradient(circle at 82% 78%, ${withAlpha("#FFFFFF", "88")} 0 1.6%, transparent 2.1%)`,
-        `radial-gradient(circle at 34% 72%, ${withAlpha("#FFFFFF", "70")} 0 1.4%, transparent 2%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 65%, ${accent} 100%)`,
-      ].join(", ");
-    case "maple-corners":
-      return [
-        `radial-gradient(circle at 8% 8%, ${withAlpha(primary, "AA")} 0 8%, transparent 9%)`,
-        `radial-gradient(circle at 92% 8%, ${withAlpha(primary, "AA")} 0 8%, transparent 9%)`,
-        `linear-gradient(145deg, ${secondary} 0%, ${accent} 45%, ${secondary} 100%)`,
-      ].join(", ");
-    case "sun-rays":
-      return [
-        `conic-gradient(from 180deg at 50% 50%, ${withAlpha(accent, "66")} 0deg 20deg, transparent 20deg 40deg, ${withAlpha(accent, "44")} 40deg 60deg, transparent 60deg 80deg, ${withAlpha(accent, "44")} 80deg 100deg, transparent 100deg 120deg, ${withAlpha(accent, "44")} 120deg 140deg, transparent 140deg 160deg, ${withAlpha(accent, "44")} 160deg 180deg, transparent 180deg 360deg)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 100%)`,
-      ].join(", ");
-    case "tropical-leaves":
-      return [
-        `radial-gradient(ellipse at 20% 75%, ${withAlpha(accent, "34")} 0 14%, transparent 15%)`,
-        `radial-gradient(ellipse at 78% 25%, ${withAlpha(secondary, "42")} 0 16%, transparent 17%)`,
-        `repeating-linear-gradient(135deg, ${withAlpha("#FFFFFF", "10")} 0 18px, transparent 18px 38px)`,
-        `linear-gradient(145deg, ${primary} 0%, ${secondary} 85%)`,
-      ].join(", ");
-    case "sakura-sun":
-      return [
-        `radial-gradient(circle at 50% 38%, ${withAlpha(secondary, "C0")} 0 10%, transparent 11%)`,
-        `radial-gradient(circle at 24% 26%, ${withAlpha(accent, "72")} 0 4%, transparent 5%)`,
-        `radial-gradient(circle at 76% 72%, ${withAlpha(accent, "72")} 0 4%, transparent 5%)`,
-        `linear-gradient(145deg, ${primary} 0%, ${withAlpha(primary, "F2")} 100%)`,
-      ].join(", ");
-    case "solid":
     default:
       return primary;
   }
@@ -265,47 +385,59 @@ export function getProfileBorderFramePresentation(
 
   if (isRainbow) {
     return {
-      backgroundClassName:
+      contentInset: 3,
+      layered: false,
+      layers: [],
+      legacyBackgroundClassName:
         "bg-[conic-gradient(from_180deg,rgba(244,114,182,0.26)_0deg,rgba(168,85,247,0.28)_60deg,rgba(34,211,238,0.28)_120deg,rgba(16,185,129,0.26)_180deg,rgba(245,158,11,0.26)_240deg,rgba(244,63,94,0.28)_300deg,rgba(244,114,182,0.26)_360deg)]",
-      backgroundStyle: {
+      legacyBackgroundStyle: {
         boxShadow:
           "0 0 16px rgba(168, 85, 247, 0.18), 0 0 28px rgba(34, 211, 238, 0.12)",
       },
-      ringClassName: "profile-border-frame profile-border-frame--rainbow",
-      ringStyle: undefined,
+      legacyRingClassName: "profile-border-frame profile-border-frame--rainbow",
       variant: "rainbow",
     };
   }
 
   if (isRunner) {
     return {
-      backgroundClassName:
+      contentInset: 3,
+      layered: false,
+      layers: [],
+      legacyBackgroundClassName:
         "bg-[linear-gradient(135deg,rgba(255,255,255,0.15),rgba(251,113,133,0.22),rgba(236,72,153,0.24),rgba(255,255,255,0.1))]",
-      backgroundStyle: {
+      legacyBackgroundStyle: {
         boxShadow:
           "0 0 16px rgba(236, 72, 153, 0.18), 0 0 24px rgba(251, 113, 133, 0.12)",
       },
-      ringClassName: "profile-border-frame profile-border-frame--runner",
-      ringStyle: undefined,
+      legacyRingClassName: "profile-border-frame profile-border-frame--runner",
       variant: "runner",
     };
   }
 
   if (item?.type === "profile-border" && item.borderPalette?.length) {
-    const palette = item.borderPalette;
-    const primary = palette[0];
-    const accent = palette[2] ?? palette[1];
-    const background = resolveBackground(item, palette);
+    const layeredConfig = layeredBorderConfigById[item.id];
+
+    if (layeredConfig) {
+      return getLayeredPresentation(item, item.borderPalette, layeredConfig);
+    }
+
+    const background = resolveLegacyBackground(item, item.borderPalette);
+    const primary = item.borderPalette[0];
+    const accent = item.borderPalette[2] ?? item.borderPalette[1];
     const sharedStyle = {
       background,
       boxShadow: `0 0 18px ${withAlpha(primary, "55")}, 0 0 30px ${withAlpha(accent, "28")}`,
     } satisfies CSSProperties;
 
     return {
-      backgroundClassName: "bg-white/10",
-      backgroundStyle: sharedStyle,
-      ringClassName: "profile-border-frame",
-      ringStyle: sharedStyle,
+      contentInset: 3,
+      layered: false,
+      layers: [],
+      legacyBackgroundClassName: "bg-white/10",
+      legacyBackgroundStyle: sharedStyle,
+      legacyRingClassName: "profile-border-frame",
+      legacyRingStyle: sharedStyle,
       variant: null,
     };
   }
@@ -317,19 +449,22 @@ export function getProfileBorderFramePresentation(
     } satisfies CSSProperties;
 
     return {
-      backgroundClassName: "bg-white/10",
-      backgroundStyle: solidStyle,
-      ringClassName: "profile-border-frame",
-      ringStyle: solidStyle,
+      contentInset: 3,
+      layered: false,
+      layers: [],
+      legacyBackgroundClassName: "bg-white/10",
+      legacyBackgroundStyle: solidStyle,
+      legacyRingClassName: "profile-border-frame",
+      legacyRingStyle: solidStyle,
       variant: null,
     };
   }
 
   return {
-    backgroundClassName: "bg-white/10",
-    backgroundStyle: undefined,
-    ringClassName: "profile-border-frame",
-    ringStyle: undefined,
+    contentInset: 3,
+    layered: false,
+    layers: [],
+    legacyBackgroundClassName: "bg-white/10",
     variant: null,
   };
 }

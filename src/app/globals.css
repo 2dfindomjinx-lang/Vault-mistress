@@ -257,6 +257,102 @@ button:disabled {
   }
 }
 
+@keyframes profileBorderPulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    filter: saturate(0.96) brightness(0.98);
+  }
+
+  50% {
+    opacity: 1;
+    filter: saturate(1.08) brightness(1.06);
+  }
+}
+
+@keyframes profileBorderNeon {
+  0%,
+  100% {
+    opacity: 0.86;
+    filter: brightness(0.96) saturate(0.98);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.16) saturate(1.18);
+  }
+}
+
+@keyframes profileBorderSheen {
+  0% {
+    background-position: 0% 0%;
+    opacity: 0.9;
+  }
+
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+
+  100% {
+    background-position: 0% 100%;
+    opacity: 0.92;
+  }
+}
+
+@keyframes profileBorderShimmer {
+  0% {
+    background-position: 0% 50%;
+    filter: saturate(0.98);
+  }
+
+  50% {
+    background-position: 100% 50%;
+    filter: saturate(1.12);
+  }
+
+  100% {
+    background-position: 0% 50%;
+    filter: saturate(1);
+  }
+}
+
+@keyframes profileBorderDrift {
+  0%,
+  100% {
+    background-position: 50% 0%;
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    background-position: 50% 100%;
+    transform: translate3d(0, -1px, 0);
+  }
+}
+
+@keyframes profileBorderEmber {
+  0%,
+  100% {
+    opacity: 0.9;
+    filter: brightness(0.98) saturate(0.96);
+  }
+
+  25% {
+    opacity: 1;
+    filter: brightness(1.08) saturate(1.08);
+  }
+
+  55% {
+    opacity: 0.94;
+    filter: brightness(1.14) saturate(1.18);
+  }
+
+  80% {
+    opacity: 0.98;
+    filter: brightness(1.02) saturate(1.04);
+  }
+}
+
 @keyframes profileFrameParticleFloat {
   0% {
     opacity: 0.35;

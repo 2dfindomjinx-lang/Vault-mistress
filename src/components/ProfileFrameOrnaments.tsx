@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import {
@@ -64,15 +65,6 @@ function getPreviewCosmeticIds(
   return {
     ...equippedCosmeticIds,
     [previewItem.type]: previewItem.id,
-  };
-}
-
-function getBorderPresentation(item: CosmeticItem | null) {
-  const presentation = getProfileBorderFramePresentation(item);
-
-  return {
-    className: presentation.ringClassName,
-    style: presentation.ringStyle,
   };
 }
 
@@ -898,31 +890,32 @@ export function PrincipessaShowcasePreview({
   const background = getAvatarBackgroundPresentation(
     getCosmeticItem(previewCosmeticIds["avatar-background"] ?? ""),
   );
-  const border = getBorderPresentation(borderItem);
+  const borderPresentation = getProfileBorderFramePresentation(borderItem);
 
   return (
-    <div
+    <ProfileBorderFrame
       className={`relative aspect-[180/285] overflow-visible rounded-[1.45rem] bg-[linear-gradient(180deg,rgba(12,5,18,0.95),rgba(42,11,48,0.74),rgba(5,2,7,0.96))] shadow-[0_0_28px_rgba(217,70,239,0.14)] ${className ?? ""}`}
-    >
-      <div aria-hidden="true" className={border.className} style={border.style} />
-      <div className="absolute inset-[3px] overflow-hidden rounded-[calc(1.45rem-3px)] bg-black/42">
-        <LayeredAvatar
-          alt="Principessa showcase preview"
-          backgroundOverlayPath={background.backgroundOverlayPath}
-          backgroundPath={background.backgroundPath}
-          backgroundStyle={background.backgroundStyle}
-          className="absolute inset-0"
-          equipped={equippedAvatarSlots}
-          hasUncensored={hasUncensoredAvatar}
-          imageClassName="object-contain object-bottom"
+      contentClassName="overflow-hidden rounded-[calc(1.45rem-3px)] bg-black/42"
+      overlay={
+        <ProfileFrameOrnaments
+          equippedCosmeticIds={previewCosmeticIds}
+          previewMode={previewMode}
         />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-      </div>
-      <ProfileFrameOrnaments
-        equippedCosmeticIds={previewCosmeticIds}
-        previewMode={previewMode}
+      }
+      presentation={borderPresentation}
+    >
+      <LayeredAvatar
+        alt="Principessa showcase preview"
+        backgroundOverlayPath={background.backgroundOverlayPath}
+        backgroundPath={background.backgroundPath}
+        backgroundStyle={background.backgroundStyle}
+        className="absolute inset-0"
+        equipped={equippedAvatarSlots}
+        hasUncensored={hasUncensoredAvatar}
+        imageClassName="object-contain object-bottom"
       />
-    </div>
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+    </ProfileBorderFrame>
   );
 }
 

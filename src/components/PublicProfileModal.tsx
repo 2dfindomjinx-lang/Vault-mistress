@@ -77,10 +77,8 @@ export function PublicProfileModal({
         ) : profile ? (
           <div className="space-y-5">
             <ProfileHeader
-              avatarFrameClassName={profileBorderPresentation.backgroundClassName}
               avatarBackgroundItemId={profile.backgroundItemId}
-              avatarFrameStyle={profileBorderPresentation.backgroundStyle}
-              avatarFrameVariant={profileBorderPresentation.variant}
+              avatarBorderPresentation={profileBorderPresentation}
               avatarSrc=""
               coins={0}
               currentTitle={profile.titleName ?? undefined}

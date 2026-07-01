@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem } from "@/lib/cosmetics";
@@ -17,19 +18,11 @@ function getFramePresentation(card: HallOfFameCardData) {
   const winner = card.winner;
 
   if (!winner) {
-    return {
-      frameClassName: "bg-white/10",
-      frameStyle: undefined,
-    };
+    return getProfileBorderFramePresentation(null);
   }
-  const presentation = getProfileBorderFramePresentation(
+  return getProfileBorderFramePresentation(
     getCosmeticItem(winner.frameItemId ?? ""),
   );
-
-  return {
-    frameClassName: presentation.backgroundClassName,
-    frameStyle: presentation.backgroundStyle,
-  };
 }
 
 export function HallOfFameSection({
@@ -95,25 +88,24 @@ export function HallOfFameSection({
                 </div>
 
                 <div className="mt-4 flex items-center gap-4">
-                  <div
-                    className={`relative h-20 w-20 shrink-0 rounded-[1.45rem] p-[3px] ${frame.frameClassName}`}
-                    style={frame.frameStyle}
+                  <ProfileBorderFrame
+                    className="h-20 w-20 shrink-0 rounded-[1.45rem]"
+                    contentClassName="overflow-hidden rounded-[1.25rem] border border-white/12 bg-black/45"
+                    presentation={frame}
                   >
-                    <div className="relative h-full w-full overflow-hidden rounded-[1.25rem] border border-white/12 bg-black/45">
-                      {winner ? (
-                        <LayeredAvatar
-                          alt={`${displayName} avatar`}
-                          backgroundOverlayPath={background.backgroundOverlayPath}
-                          backgroundPath={background.backgroundPath}
-                          backgroundStyle={background.backgroundStyle}
-                          className="absolute inset-0"
-                          equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})}
-                          hasUncensored={winner.hasUncensoredAvatar}
-                          imageClassName="object-contain object-center"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
+                    {winner ? (
+                      <LayeredAvatar
+                        alt={`${displayName} avatar`}
+                        backgroundOverlayPath={background.backgroundOverlayPath}
+                        backgroundPath={background.backgroundPath}
+                        backgroundStyle={background.backgroundStyle}
+                        className="absolute inset-0"
+                        equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})}
+                        hasUncensored={winner.hasUncensoredAvatar}
+                        imageClassName="object-contain object-center"
+                      />
+                    ) : null}
+                  </ProfileBorderFrame>
 
                   <div className="min-w-0">
                     <p

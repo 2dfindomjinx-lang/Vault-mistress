@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem } from "@/lib/cosmetics";
 import {
@@ -24,15 +25,10 @@ const periodOptions: Array<{ id: DevotionPeriod; label: string }> = [
   { id: "all_time", label: "All Time" },
 ];
 
-function getAvatarFrameClasses(entry: DevotionLeaderboardEntry) {
-  const presentation = getProfileBorderFramePresentation(
+function getAvatarFramePresentation(entry: DevotionLeaderboardEntry) {
+  return getProfileBorderFramePresentation(
     getCosmeticItem(entry.frameItemId ?? ""),
   );
-
-  return {
-    frameClassName: presentation.backgroundClassName,
-    frameStyle: presentation.backgroundStyle,
-  };
 }
 
 function formatCountdown(ms: number) {
@@ -48,7 +44,7 @@ function formatCountdown(ms: number) {
 }
 
 function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboardEntry; highlight?: boolean }) {
-  const { frameClassName, frameStyle } = getAvatarFrameClasses(entry);
+  const framePresentation = getAvatarFramePresentation(entry);
   const background = getAvatarBackgroundPresentation(
     getCosmeticItem(entry.backgroundItemId ?? ""),
   );
@@ -66,20 +62,22 @@ function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboa
         <div className="w-10 text-center text-sm font-black text-pink-100 sm:w-12 sm:text-base">
           #{entry.rank}
         </div>
-        <div className={`relative h-14 w-14 shrink-0 rounded-[1.15rem] p-[2px] ${frameClassName}`} style={frameStyle}>
-          <div className="relative h-full w-full overflow-hidden rounded-[1rem] border border-white/12 bg-black/45">
-            <LayeredAvatar
-              alt={`${mainName} avatar`}
-              backgroundOverlayPath={background.backgroundOverlayPath}
-              backgroundPath={background.backgroundPath}
-              backgroundStyle={background.backgroundStyle}
-              className="absolute inset-0"
-              equipped={normalizeEquipment(entry.equippedAvatarSlots ?? {})}
-              hasUncensored={entry.hasUncensoredAvatar}
-              imageClassName="object-contain object-center"
-            />
-          </div>
-        </div>
+        <ProfileBorderFrame
+          className="h-14 w-14 shrink-0 rounded-[1.15rem]"
+          contentClassName="overflow-hidden rounded-[1rem] border border-white/12 bg-black/45"
+          presentation={framePresentation}
+        >
+          <LayeredAvatar
+            alt={`${mainName} avatar`}
+            backgroundOverlayPath={background.backgroundOverlayPath}
+            backgroundPath={background.backgroundPath}
+            backgroundStyle={background.backgroundStyle}
+            className="absolute inset-0"
+            equipped={normalizeEquipment(entry.equippedAvatarSlots ?? {})}
+            hasUncensored={entry.hasUncensoredAvatar}
+            imageClassName="object-contain object-center"
+          />
+        </ProfileBorderFrame>
       </div>
 
       <div className="min-w-0">

@@ -2213,9 +2213,6 @@ export default function Home() {
     equippedAvatarBackground,
   );
   const profileBorderPresentation = getProfileBorderFramePresentation(equippedProfileBorder);
-  const avatarFrameVariant = profileBorderPresentation.variant;
-  const avatarFrameClassName = profileBorderPresentation.backgroundClassName;
-  const avatarFrameStyle = profileBorderPresentation.backgroundStyle;
   const userLevelProgress = getUserLevelProgress(userXp);
   const globalPrincipessaRequirement = getGlobalPrincipessaXpRequirement(globalPrincipessa.level);
   const globalPrincipessaProgressPercent = getGlobalPrincipessaProgressPercent(
@@ -10180,6 +10177,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       >
         <ProfileHeader
           actions={headerActions}
+          avatarBorderPresentation={profileBorderPresentation}
           avatarSrc={characterEvolutionStage.image}
           badgeStrip={profileBadgeStrip}
           coins={coins}
@@ -10188,9 +10186,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           equippedAvatarSlots={equippedAvatarSlots}
           equippedCosmeticIds={effectiveEquippedCosmeticIds}
           hasUncensoredAvatar={hasUncensoredAvatar}
-          avatarFrameClassName={avatarFrameClassName}
-          avatarFrameStyle={avatarFrameStyle}
-          avatarFrameVariant={avatarFrameVariant}
           spendBadge={spendBadge}
           pageLabel={activePageLabel}
           soundControls={soundControls}

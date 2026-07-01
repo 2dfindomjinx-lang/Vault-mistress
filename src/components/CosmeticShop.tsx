@@ -1,6 +1,8 @@
 import Image from "next/image";
-import type { CosmeticItem, TitleItem } from "@/lib/cosmetics";
 import { CoinAmount } from "@/components/CoinAmount";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
+import type { CosmeticItem, TitleItem } from "@/lib/cosmetics";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type CosmeticShopProps = {
   coins: number;
@@ -58,6 +60,27 @@ export function CosmeticShop({
   const premiumOwned = ownedTitleIds.includes(premiumTitle.id);
 
   const renderPreview = (item: CosmeticItem) => {
+    if (item.type === "profile-border") {
+      const presentation = getProfileBorderFramePresentation(item);
+
+      return (
+        <div className="mb-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+          <div className="mx-auto w-[6.4rem]">
+            <ProfileBorderFrame
+              className="aspect-[180/288] rounded-[1.35rem]"
+              contentClassName="overflow-hidden rounded-[calc(1.35rem-3px)] bg-[linear-gradient(180deg,rgba(20,8,28,0.96),rgba(9,4,16,0.98))]"
+              presentation={presentation}
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_18%,rgba(255,255,255,0.05)_78%,rgba(0,0,0,0.2)_100%)]" />
+              <div className="absolute inset-x-[22%] top-[14%] h-[18%] rounded-full bg-[radial-gradient(circle,rgba(255,214,230,0.9),rgba(255,152,194,0.42)_58%,transparent_72%)] blur-[2px]" />
+              <div className="absolute inset-x-[28%] top-[30%] h-[42%] rounded-[999px] bg-[linear-gradient(180deg,rgba(255,182,212,0.24),rgba(255,255,255,0.05),rgba(244,114,182,0.18))]" />
+              <div className="absolute inset-x-[30%] bottom-[12%] h-[14%] rounded-[999px] bg-[linear-gradient(180deg,rgba(244,114,182,0.22),rgba(255,255,255,0.05))]" />
+            </ProfileBorderFrame>
+          </div>
+        </div>
+      );
+    }
+
     if (item.type === "avatar-background") {
       const isDefaultBackground = item.id === "avatar-background-none";
 
@@ -106,7 +129,7 @@ export function CosmeticShop({
       );
     }
 
-    if (item.image && item.type !== "profile-border") {
+    if (item.image) {
       return (
         <div
           className={`mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-black/35 ${
