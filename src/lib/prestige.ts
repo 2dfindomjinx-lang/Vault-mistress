@@ -171,10 +171,10 @@ export const SEASONAL_BADGES: SeasonalBadgeDefinition[] = [
 export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
   {
     id: "summer-community-goal-2026",
-    title: "Spend 5,000,000 Coins",
+    title: "Spend 3,000,000 Coins",
     startsAt: "2026-06-01T00:00:00+03:00",
     endsAt: "2026-09-01T00:00:00+03:00",
-    targetCoins: 5_000_000,
+    targetCoins: 3_000_000,
     rewardBadgeId: "community-goal-summer-2026",
     rewardTitle: "Vault Patron 2026 Badge",
     rewardDescription: "Every participant receives a permanent prestige badge when the community finishes the objective.",

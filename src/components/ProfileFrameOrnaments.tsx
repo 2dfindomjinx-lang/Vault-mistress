@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
@@ -596,87 +596,73 @@ function OverlayDrape({
   );
 }
 
-function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
-  const specs = (() => {
+type ParticleSpec = {
+  delay: string;
+  duration: number;
+  leftPercent: number;
+  opacity: number;
+  scale: number;
+  size: number;
+  topPercent: number;
+  translateX: number;
+  translateY: number;
+};
+
+function hashString(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function createSeededRandom(seed: number) {
+  let state = seed >>> 0;
+
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildParticleSpecs(definition: ProfileFrameDecorationDefinition): ParticleSpec[] {
+  const seededRandom = createSeededRandom(hashString(definition.id));
+  const totalParticles = (() => {
     switch (definition.motif) {
-      case "particles-hearts":
-        return [
-          { delay: "0s", left: 18, size: 8, top: 26 },
-          { delay: "-0.6s", left: 52, size: 7, top: 50 },
-          { delay: "-1.2s", left: 92, size: 6, top: 40 },
-          { delay: "-1.8s", left: 138, size: 8, top: 52 },
-          { delay: "-2.4s", left: 156, size: 7, top: 28 },
-          { delay: "-0.9s", left: 34, size: 8, top: 104 },
-          { delay: "-1.5s", left: 76, size: 6, top: 130 },
-          { delay: "-2.1s", left: 122, size: 9, top: 110 },
-          { delay: "-2.7s", left: 148, size: 7, top: 146 },
-          { delay: "-0.4s", left: 24, size: 7, top: 182 },
-          { delay: "-1.0s", left: 60, size: 8, top: 204 },
-          { delay: "-1.6s", left: 100, size: 6, top: 186 },
-          { delay: "-2.2s", left: 138, size: 8, top: 208 },
-          { delay: "-2.8s", left: 154, size: 7, top: 232 },
-        ];
-      case "particles-petals":
-        return [
-          { delay: "0s", left: 20, size: 10, top: 24 },
-          { delay: "-0.7s", left: 64, size: 8, top: 46 },
-          { delay: "-1.4s", left: 116, size: 9, top: 42 },
-          { delay: "-2.1s", left: 154, size: 8, top: 34 },
-          { delay: "-0.5s", left: 34, size: 9, top: 90 },
-          { delay: "-1.2s", left: 90, size: 11, top: 78 },
-          { delay: "-1.9s", left: 146, size: 8, top: 102 },
-          { delay: "-2.6s", left: 48, size: 7, top: 146 },
-          { delay: "-0.9s", left: 126, size: 10, top: 138 },
-          { delay: "-1.6s", left: 28, size: 9, top: 198 },
-          { delay: "-2.3s", left: 82, size: 8, top: 186 },
-          { delay: "-0.3s", left: 144, size: 10, top: 196 },
-          { delay: "-1.0s", left: 62, size: 9, top: 236 },
-          { delay: "-1.8s", left: 118, size: 8, top: 232 },
-        ];
       case "particles-dust":
-        return [
-          { delay: "0s", left: 18, size: 6, top: 26 },
-          { delay: "-0.4s", left: 40, size: 7, top: 48 },
-          { delay: "-0.8s", left: 70, size: 5, top: 32 },
-          { delay: "-1.2s", left: 102, size: 6, top: 44 },
-          { delay: "-1.6s", left: 136, size: 7, top: 38 },
-          { delay: "-2.0s", left: 156, size: 8, top: 26 },
-          { delay: "-0.6s", left: 28, size: 6, top: 92 },
-          { delay: "-1.0s", left: 58, size: 7, top: 114 },
-          { delay: "-1.4s", left: 92, size: 5, top: 96 },
-          { delay: "-1.8s", left: 126, size: 7, top: 118 },
-          { delay: "-2.2s", left: 148, size: 6, top: 94 },
-          { delay: "-0.9s", left: 24, size: 7, top: 168 },
-          { delay: "-1.3s", left: 52, size: 8, top: 192 },
-          { delay: "-1.7s", left: 88, size: 5, top: 176 },
-          { delay: "-2.1s", left: 122, size: 7, top: 194 },
-          { delay: "-2.5s", left: 150, size: 6, top: 172 },
-          { delay: "-0.7s", left: 36, size: 7, top: 234 },
-          { delay: "-1.5s", left: 94, size: 6, top: 228 },
-          { delay: "-2.3s", left: 140, size: 7, top: 236 },
-        ];
+        return 24;
+      case "particles-hearts":
+      case "particles-petals":
+        return 18;
       case "particles-embers":
-        return [
-          { delay: "0s", left: 22, size: 9, top: 30 },
-          { delay: "-0.5s", left: 62, size: 10, top: 50 },
-          { delay: "-1.0s", left: 110, size: 8, top: 42 },
-          { delay: "-1.5s", left: 148, size: 11, top: 34 },
-          { delay: "-2.0s", left: 36, size: 8, top: 92 },
-          { delay: "-2.5s", left: 84, size: 7, top: 118 },
-          { delay: "-0.8s", left: 138, size: 10, top: 100 },
-          { delay: "-1.3s", left: 28, size: 9, top: 156 },
-          { delay: "-1.8s", left: 70, size: 8, top: 176 },
-          { delay: "-2.3s", left: 118, size: 10, top: 162 },
-          { delay: "-0.6s", left: 152, size: 9, top: 196 },
-          { delay: "-1.1s", left: 44, size: 8, top: 214 },
-          { delay: "-1.6s", left: 94, size: 7, top: 232 },
-          { delay: "-2.1s", left: 136, size: 9, top: 238 },
-        ];
+        return 20;
       default:
-        return [];
+        return 16;
     }
   })();
+
+  return Array.from({ length: totalParticles }, () => ({
+    delay: `${(seededRandom() * -4.5).toFixed(2)}s`,
+    duration: 4.8 + seededRandom() * 3.8,
+    leftPercent: 6 + seededRandom() * 88,
+    opacity: 0.38 + seededRandom() * 0.54,
+    scale: 0.72 + seededRandom() * 0.7,
+    size: 6 + Math.round(seededRandom() * 6),
+    topPercent: 6 + seededRandom() * 88,
+    translateX: -10 + seededRandom() * 20,
+    translateY: -16 + seededRandom() * 18,
+  }));
+}
+
+function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+  const specs = useMemo(() => buildParticleSpecs(definition), [definition]);
 
   const renderShape = (size: number, key: string) => {
     switch (definition.motif) {
@@ -754,23 +740,34 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
   };
 
   return (
-    <div className="absolute inset-0 z-[17] overflow-visible pointer-events-none">
-      <svg className="h-full w-full" viewBox="0 0 180 285">
-        {specs.map((spec, index) => (
-          <g
+    <div className="pointer-events-none absolute inset-0 z-[17] overflow-hidden rounded-[inherit]">
+      {specs.map((spec, index) => {
+        const particleStyle = {
+          animation: `profileFrameParticleFloat ${spec.duration.toFixed(2)}s ease-in-out infinite`,
+          animationDelay: spec.delay,
+          left: `${spec.leftPercent}%`,
+          opacity: spec.opacity,
+          top: `${spec.topPercent}%`,
+          transform: `translate(-50%, -50%) translate3d(${spec.translateX}px, ${spec.translateY}px, 0) scale(${spec.scale})`,
+        } satisfies CSSProperties;
+
+        return (
+          <div
+            aria-hidden="true"
+            className="absolute will-change-transform"
             key={`${definition.id}-${index}`}
-            style={{
-              animation: `profileFrameParticleFloat ${4.8 + index * 0.35}s ease-in-out infinite`,
-              animationDelay: spec.delay,
-              transformBox: "fill-box",
-              transformOrigin: "center",
-            }}
-            transform={`translate(${spec.left} ${spec.top})`}
+            style={particleStyle}
           >
-            {renderShape(spec.size, index % 2 === 0 ? palette.primary : palette.secondary)}
-          </g>
-        ))}
-      </svg>
+            <svg
+              height={Math.round(spec.size * 1.8)}
+              viewBox={`0 0 ${Math.round(spec.size * 1.7)} ${Math.round(spec.size * 1.7)}`}
+              width={Math.round(spec.size * 1.8)}
+            >
+              {renderShape(spec.size, index % 2 === 0 ? palette.primary : palette.secondary)}
+            </svg>
+          </div>
+        );
+      })}
     </div>
   );
 }

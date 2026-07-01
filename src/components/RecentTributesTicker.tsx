@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
+import { DEFAULT_TRIBUTE_AVATAR_SRC } from "@/lib/avatar-fallbacks";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
 import type { CrateRarity } from "@/lib/crates";
 
@@ -144,6 +145,37 @@ function formatChancePercent(value: number | null) {
   }
 
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
+}
+
+function TributeAvatar({
+  alt,
+  className,
+  src,
+}: {
+  alt: string;
+  className?: string;
+  src?: string | null;
+}) {
+  const normalizedSrc = src?.trim() ? src.trim() : DEFAULT_TRIBUTE_AVATAR_SRC;
+  const [resolvedSrc, setResolvedSrc] = useState(normalizedSrc);
+
+  useEffect(() => {
+    setResolvedSrc(normalizedSrc);
+  }, [normalizedSrc]);
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (resolvedSrc !== DEFAULT_TRIBUTE_AVATAR_SRC) {
+          setResolvedSrc(DEFAULT_TRIBUTE_AVATAR_SRC);
+        }
+      }}
+      src={resolvedSrc}
+    />
+  );
 }
 
 export function RecentTributesTicker({
@@ -440,23 +472,11 @@ function TributeCard({
         isNewest ? "animate-tribute-slide-in" : ""
       }`}
     >
-      {tribute.avatarUrl ? (
-        // External OAuth avatars are not known at build time, so a plain
-        // image keeps the ticker compatible without remote image config.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          alt=""
-          className="h-10 w-10 rounded-full border border-pink-200/25 object-cover"
-          src={tribute.avatarUrl}
-        />
-      ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-pink-200/25 bg-gradient-to-br from-fuchsia-500/35 to-pink-500/20 text-sm font-black text-pink-50">
-          {getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username)
-            .replace("@", "")
-            .slice(0, 1)
-            .toUpperCase() || "P"}
-        </div>
-      )}
+      <TributeAvatar
+        alt={`${displayUsername} avatar`}
+        className="h-10 w-10 rounded-full border border-pink-200/25 object-cover"
+        src={tribute.avatarUrl}
+      />
       <div className="min-w-0">
         <DisplayNameWithUsername
           displayName={tribute.displayName}

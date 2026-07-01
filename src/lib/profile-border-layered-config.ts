@@ -57,43 +57,43 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-arsenal": {
     animation: "royal-shimmer",
-    baseGradient: "linear-gradient(145deg, #7d0016 0%, #c8102e 46%, #630010 100%)",
+    baseGradient: "linear-gradient(160deg, #5f0010 0%, #8a0018 24%, #c8102e 62%, #670011 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(212,175,55,0.9) 0 16%, transparent 16% 84%, rgba(212,175,55,0.9) 84% 100%), linear-gradient(180deg, rgba(212,175,55,0.55) 0 10%, transparent 10% 90%, rgba(212,175,55,0.55) 90% 100%)",
+      "linear-gradient(90deg, rgba(212,175,55,0.94) 0 14%, transparent 14% 86%, rgba(212,175,55,0.94) 86% 100%), linear-gradient(180deg, rgba(212,175,55,0.42) 0 9%, transparent 9% 91%, rgba(212,175,55,0.42) 91% 100%)",
     innerStripe:
-      "linear-gradient(180deg, transparent 0 14%, rgba(212,175,55,0.2) 14% 18%, transparent 18% 82%, rgba(212,175,55,0.2) 82% 86%, transparent 86% 100%)",
-    outerGlow: "0 0 18px rgba(212,175,55,0.28), 0 0 34px rgba(200,16,46,0.24)",
-    pattern: "city-rings",
+      "linear-gradient(90deg, transparent 0 12%, rgba(212,175,55,0.95) 12% 15%, transparent 15% 85%, rgba(212,175,55,0.95) 85% 88%, transparent 88% 100%)",
+    outerGlow: "0 0 18px rgba(212,175,55,0.3), 0 0 34px rgba(200,16,46,0.2)",
+    pattern: "vertical-pinstripes",
   },
   "profile-border-rotating-atalanta": {
-    animation: "flag-sheen",
-    baseGradient: "linear-gradient(135deg, #05070c 0%, #0f1728 36%, #1856a6 68%, #040608 100%)",
+    animation: "wave-drift",
+    baseGradient: "linear-gradient(140deg, #020408 0%, #07101d 34%, #11305f 62%, #020408 100%)",
     cornerAccents:
-      "linear-gradient(135deg, rgba(88,192,255,0.85) 0 12%, transparent 12% 88%, rgba(88,192,255,0.7) 88% 100%)",
+      "linear-gradient(135deg, rgba(74,181,255,0.9) 0 10%, transparent 10% 90%, rgba(74,181,255,0.78) 90% 100%)",
     innerStripe:
-      "repeating-linear-gradient(122deg, transparent 0 12px, rgba(88,192,255,0.36) 12px 16px, rgba(24,86,166,0.75) 16px 26px, transparent 26px 38px)",
-    outerGlow: "0 0 18px rgba(24,86,166,0.34), 0 0 28px rgba(88,192,255,0.18)",
+      "repeating-linear-gradient(124deg, transparent 0 10px, rgba(81,190,255,0.92) 10px 14px, rgba(16,78,164,0.7) 14px 24px, transparent 24px 36px)",
+    outerGlow: "0 0 18px rgba(54,153,255,0.28), 0 0 30px rgba(81,190,255,0.22)",
     pattern: "racing-diagonals",
   },
   "profile-border-rotating-bayern-munich": {
-    animation: "royal-shimmer",
-    baseGradient: "linear-gradient(180deg, #b90029 0%, #dc052d 58%, #8f001e 100%)",
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #99001f 0%, #dc052d 56%, #890019 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(255,255,255,0.18) 0 8%, transparent 8% 92%, rgba(255,255,255,0.18) 92% 100%)",
+      "linear-gradient(90deg, rgba(255,255,255,0.3) 0 8%, transparent 8% 92%, rgba(255,255,255,0.3) 92% 100%)",
     innerStripe:
-      "linear-gradient(0deg, rgba(255,255,255,0.1) 0 8%, transparent 8% 92%, rgba(255,255,255,0.1) 92% 100%)",
-    outerGlow: "0 0 18px rgba(220,5,45,0.34), 0 0 30px rgba(185,217,255,0.16)",
+      "linear-gradient(90deg, transparent 0 13%, rgba(255,255,255,0.94) 13% 16%, transparent 16% 84%, rgba(255,255,255,0.94) 84% 87%, transparent 87% 100%)",
+    outerGlow: "0 0 18px rgba(220,5,45,0.3), 0 0 28px rgba(255,255,255,0.14)",
     pattern: "bavarian-diamonds",
   },
   "profile-border-rotating-besiktas": {
     animation: "subtle-glow",
-    baseGradient: "linear-gradient(180deg, #060606 0%, #161616 35%, #f2f2f2 36%, #ededed 60%, #090909 100%)",
+    baseGradient: "linear-gradient(90deg, #0a0a0a 0 43%, #f2f2f2 43% 57%, #101010 57% 100%)",
     cornerAccents:
-      "linear-gradient(135deg, rgba(255,255,255,0.88) 0 8%, transparent 8% 92%, rgba(212,24,40,0.85) 92% 100%), linear-gradient(225deg, rgba(255,255,255,0.88) 0 8%, transparent 8% 92%, rgba(212,24,40,0.85) 92% 100%)",
+      "linear-gradient(135deg, rgba(255,255,255,0.92) 0 8%, transparent 8% 92%, rgba(30,30,30,0.92) 92% 100%), linear-gradient(225deg, rgba(255,255,255,0.92) 0 8%, transparent 8% 92%, rgba(30,30,30,0.92) 92% 100%)",
     innerStripe:
-      "linear-gradient(90deg, rgba(0,0,0,0.92) 0 28%, rgba(255,255,255,0.98) 28% 72%, rgba(0,0,0,0.92) 72% 100%)",
-    outerGlow: "0 0 18px rgba(255,255,255,0.14), 0 0 26px rgba(212,24,40,0.14)",
-    pattern: "feather-slash",
+      "linear-gradient(90deg, transparent 0 48%, rgba(212,24,40,0.94) 48% 50%, transparent 50% 100%)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.18), 0 0 28px rgba(15,15,15,0.16)",
+    pattern: "industrial-brush",
   },
   "profile-border-rotating-canada-nt": {
     animation: "flag-sheen",
@@ -109,10 +109,10 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     animation: "royal-shimmer",
     baseGradient: "linear-gradient(180deg, #032b6b 0%, #034694 56%, #08142c 100%)",
     cornerAccents:
-      "radial-gradient(circle at 12% 14%, rgba(212,175,55,0.92) 0 4%, transparent 5%), radial-gradient(circle at 88% 14%, rgba(212,175,55,0.92) 0 4%, transparent 5%), radial-gradient(circle at 12% 86%, rgba(212,175,55,0.92) 0 4%, transparent 5%), radial-gradient(circle at 88% 86%, rgba(212,175,55,0.92) 0 4%, transparent 5%)",
+      "radial-gradient(circle at 12% 14%, rgba(212,175,55,0.96) 0 4%, transparent 5%), radial-gradient(circle at 88% 14%, rgba(212,175,55,0.96) 0 4%, transparent 5%), radial-gradient(circle at 12% 86%, rgba(212,175,55,0.96) 0 4%, transparent 5%), radial-gradient(circle at 88% 86%, rgba(212,175,55,0.96) 0 4%, transparent 5%)",
     innerStripe:
-      "radial-gradient(circle at center, transparent 0 52%, rgba(212,175,55,0.38) 52% 58%, transparent 58% 100%)",
-    outerGlow: "0 0 18px rgba(3,70,148,0.34), 0 0 28px rgba(212,175,55,0.18)",
+      "linear-gradient(90deg, transparent 0 14%, rgba(212,175,55,0.9) 14% 17%, transparent 17% 83%, rgba(212,175,55,0.9) 83% 86%, transparent 86% 100%), radial-gradient(circle at center, transparent 0 52%, rgba(212,175,55,0.3) 52% 58%, transparent 58% 100%)",
+    outerGlow: "0 0 18px rgba(3,70,148,0.36), 0 0 28px rgba(212,175,55,0.14)",
     pattern: "city-rings",
   },
   "profile-border-rotating-manchester-united": {
@@ -126,23 +126,23 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     pattern: "racing-diagonals",
   },
   "profile-border-rotating-dortmund": {
-    animation: "subtle-glow",
+    animation: "ember-flicker",
     baseGradient: "linear-gradient(180deg, #fde100 0%, #f7c600 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(17,17,17,0.12) 0 16%, transparent 16% 84%, rgba(17,17,17,0.16) 84% 100%)",
+      "linear-gradient(180deg, rgba(17,17,17,0.18) 0 16%, transparent 16% 84%, rgba(17,17,17,0.22) 84% 100%)",
     innerStripe:
-      "linear-gradient(180deg, rgba(17,17,17,0.35) 0 10%, transparent 10% 90%, rgba(17,17,17,0.35) 90% 100%)",
-    outerGlow: "0 0 18px rgba(253,225,0,0.3), 0 0 26px rgba(17,17,17,0.2)",
+      "linear-gradient(90deg, transparent 0 12%, rgba(17,17,17,0.88) 12% 16%, transparent 16% 84%, rgba(17,17,17,0.88) 84% 88%, transparent 88% 100%)",
+    outerGlow: "0 0 18px rgba(253,225,0,0.34), 0 0 26px rgba(17,17,17,0.12)",
     pattern: "honeycomb-dots",
   },
   "profile-border-rotating-finland-nt": {
     animation: "subtle-glow",
-    baseGradient: "linear-gradient(180deg, #fbfdff 0%, #eef7ff 100%)",
+    baseGradient: "linear-gradient(180deg, #fbfdff 0%, #eef7ff 56%, #d8efff 100%)",
     cornerAccents:
-      "linear-gradient(135deg, rgba(191,231,255,0.5) 0 12%, transparent 12% 88%, rgba(0,53,128,0.15) 88% 100%)",
+      "linear-gradient(135deg, rgba(191,231,255,0.75) 0 12%, transparent 12% 88%, rgba(89,186,255,0.22) 88% 100%)",
     innerStripe:
       "linear-gradient(90deg, transparent 0 31%, #003580 31% 45%, transparent 45% 100%), linear-gradient(180deg, transparent 0 43%, #003580 43% 57%, transparent 57% 100%)",
-    outerGlow: "0 0 18px rgba(0,53,128,0.24), 0 0 30px rgba(191,231,255,0.2)",
+    outerGlow: "0 0 18px rgba(157,225,255,0.2), 0 0 30px rgba(0,53,128,0.18)",
     pattern: "nordic-cross",
   },
   "profile-border-rotating-france-nt": {
@@ -166,12 +166,12 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-hertha-berlin": {
     animation: "flag-sheen",
-    baseGradient: "linear-gradient(180deg, #f7fbff 0%, #d7ecff 100%)",
+    baseGradient: "linear-gradient(180deg, #ffffff 0%, #d7ecff 52%, #005ca9 100%)",
     cornerAccents:
-      "linear-gradient(135deg, transparent 0 22%, rgba(0,92,169,0.9) 22% 42%, rgba(255,255,255,0.95) 42% 54%, rgba(0,92,169,0.75) 54% 68%, transparent 68% 100%)",
+      "linear-gradient(135deg, transparent 0 20%, rgba(255,255,255,0.96) 20% 34%, rgba(0,92,169,0.96) 34% 52%, rgba(255,255,255,0.92) 52% 64%, rgba(0,92,169,0.82) 64% 76%, transparent 76% 100%)",
     innerStripe:
-      "linear-gradient(180deg, rgba(0,92,169,0.08) 0 16%, transparent 16% 84%, rgba(0,92,169,0.08) 84% 100%)",
-    outerGlow: "0 0 18px rgba(0,92,169,0.22), 0 0 26px rgba(119,183,229,0.18)",
+      "linear-gradient(135deg, transparent 0 24%, rgba(0,92,169,0.92) 24% 39%, rgba(255,255,255,0.96) 39% 50%, rgba(0,92,169,0.8) 50% 64%, transparent 64% 100%)",
+    outerGlow: "0 0 18px rgba(0,92,169,0.28), 0 0 28px rgba(255,255,255,0.1)",
     pattern: "flag-ribbon",
   },
   "profile-border-rotating-inter-milan": {
@@ -195,22 +195,24 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-japan-nt": {
     animation: "royal-shimmer",
-    baseGradient: "linear-gradient(180deg, #ffffff 0%, #f8f8f8 100%)",
+    baseGradient: "linear-gradient(180deg, #fffefc 0%, #f7f3ee 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(188,0,45,0.06) 0 8%, transparent 8% 92%, rgba(188,0,45,0.06) 92% 100%)",
+      "linear-gradient(180deg, rgba(188,0,45,0.12) 0 8%, transparent 8% 92%, rgba(188,0,45,0.12) 92% 100%)",
     innerStripe:
-      "linear-gradient(90deg, rgba(255,255,255,0.85) 0 6%, transparent 6% 94%, rgba(255,255,255,0.85) 94% 100%)",
+      "radial-gradient(circle at 50% 50%, rgba(188,0,45,0.16) 0 18%, transparent 19%), linear-gradient(90deg, rgba(255,255,255,0.9) 0 6%, transparent 6% 94%, rgba(255,255,255,0.9) 94% 100%)",
     motif: "rising-sun",
-    outerGlow: "0 0 16px rgba(255,255,255,0.22), 0 0 22px rgba(188,0,45,0.12)",
+    outerGlow: "0 0 16px rgba(255,248,236,0.26), 0 0 22px rgba(188,0,45,0.12)",
+    pattern: "sunburst-rays",
   },
   "profile-border-rotating-juventus": {
     animation: "royal-shimmer",
     baseGradient: "linear-gradient(90deg, #0f0f0f 0 48%, #f5f5f5 48% 52%, #111111 52% 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(212,175,55,0.78) 0 6%, transparent 6% 94%, rgba(212,175,55,0.78) 94% 100%)",
+      "linear-gradient(180deg, rgba(255,255,255,0.88) 0 6%, transparent 6% 94%, rgba(255,255,255,0.88) 94% 100%)",
     innerStripe:
-      "linear-gradient(90deg, transparent 0 20%, rgba(255,255,255,0.14) 20% 22%, transparent 22% 78%, rgba(255,255,255,0.14) 78% 80%, transparent 80% 100%)",
-    outerGlow: "0 0 18px rgba(212,175,55,0.16), 0 0 24px rgba(255,255,255,0.1)",
+      "linear-gradient(90deg, transparent 0 14%, rgba(212,175,55,0.88) 14% 16%, transparent 16% 84%, rgba(212,175,55,0.88) 84% 86%, transparent 86% 100%)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.18), 0 0 24px rgba(212,175,55,0.08)",
+    pattern: "vertical-pinstripes",
   },
   "profile-border-rotating-lazio": {
     animation: "wave-drift",
@@ -224,12 +226,12 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-liverpool": {
     animation: "ember-flicker",
-    baseGradient: "linear-gradient(180deg, #6f0020 0%, #a50034 55%, #4d0015 100%)",
+    baseGradient: "linear-gradient(180deg, #5b0018 0%, #880027 42%, #a50034 70%, #4a0013 100%)",
     cornerAccents:
-      "radial-gradient(circle at 12% 18%, rgba(255,122,69,0.85) 0 6%, transparent 7%), radial-gradient(circle at 88% 18%, rgba(255,184,92,0.75) 0 5%, transparent 6%), radial-gradient(circle at 18% 86%, rgba(255,122,69,0.68) 0 5%, transparent 6%), radial-gradient(circle at 82% 84%, rgba(255,184,92,0.52) 0 5%, transparent 6%)",
+      "radial-gradient(circle at 12% 18%, rgba(255,196,110,0.78) 0 5%, transparent 6%), radial-gradient(circle at 88% 18%, rgba(255,196,110,0.82) 0 5%, transparent 6%), radial-gradient(circle at 18% 86%, rgba(255,184,92,0.52) 0 4%, transparent 5%), radial-gradient(circle at 82% 84%, rgba(255,184,92,0.52) 0 4%, transparent 5%)",
     innerStripe:
-      "linear-gradient(180deg, transparent 0 16%, rgba(255,255,255,0.08) 16% 20%, transparent 20% 80%, rgba(255,255,255,0.08) 80% 84%, transparent 84% 100%)",
-    outerGlow: "0 0 18px rgba(255,122,69,0.26), 0 0 30px rgba(165,0,52,0.22)",
+      "linear-gradient(90deg, transparent 0 14%, rgba(95,0,28,0.9) 14% 18%, transparent 18% 82%, rgba(95,0,28,0.9) 82% 86%, transparent 86% 100%)",
+    outerGlow: "0 0 18px rgba(255,166,84,0.24), 0 0 30px rgba(165,0,52,0.22)",
     pattern: "flame-flickers",
   },
   "profile-border-rotating-manchester-city": {
@@ -244,12 +246,12 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-napoli": {
     animation: "wave-drift",
-    baseGradient: "linear-gradient(180deg, #66d3ff 0%, #12a0d7 56%, #0b5fff 100%)",
+    baseGradient: "linear-gradient(180deg, #8ae2ff 0%, #12a0d7 54%, #0b74ff 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(255,255,255,0.18) 0 9%, transparent 9% 91%, rgba(255,255,255,0.18) 91% 100%)",
+      "linear-gradient(180deg, rgba(112,226,255,0.4) 0 9%, transparent 9% 91%, rgba(112,226,255,0.4) 91% 100%)",
     innerStripe:
-      "linear-gradient(90deg, rgba(255,255,255,0.14) 0 10%, transparent 10% 90%, rgba(255,255,255,0.14) 90% 100%)",
-    outerGlow: "0 0 18px rgba(18,160,215,0.3), 0 0 30px rgba(255,255,255,0.12)",
+      "linear-gradient(90deg, transparent 0 13%, rgba(255,255,255,0.94) 13% 16%, transparent 16% 84%, rgba(255,255,255,0.94) 84% 87%, transparent 87% 100%)",
+    outerGlow: "0 0 18px rgba(114,207,255,0.28), 0 0 30px rgba(18,160,215,0.2)",
     pattern: "sea-foam",
   },
   "profile-border-rotating-poland-nt": {
@@ -274,42 +276,43 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-rb-leipzig": {
     animation: "flag-sheen",
-    baseGradient: "linear-gradient(180deg, #ffffff 0%, #f7f8fb 100%)",
+    baseGradient: "linear-gradient(180deg, #ffffff 0%, #f8f8fb 58%, #ffdfe5 100%)",
     cornerAccents:
-      "linear-gradient(90deg, transparent 0 14%, rgba(11,44,98,0.18) 14% 16%, transparent 16% 84%, rgba(11,44,98,0.18) 84% 86%, transparent 86% 100%)",
+      "linear-gradient(90deg, rgba(214,15,46,0.88) 0 8%, transparent 8% 92%, rgba(214,15,46,0.88) 92% 100%)",
     innerStripe:
-      "repeating-linear-gradient(122deg, transparent 0 12px, rgba(214,15,46,0.88) 12px 18px, transparent 18px 34px)",
-    outerGlow: "0 0 18px rgba(214,15,46,0.2), 0 0 24px rgba(11,44,98,0.12)",
+      "repeating-linear-gradient(122deg, transparent 0 10px, rgba(214,15,46,0.94) 10px 16px, rgba(255,255,255,0.14) 16px 22px, transparent 22px 34px)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.18), 0 0 24px rgba(214,15,46,0.16)",
     pattern: "racing-diagonals",
   },
   "profile-border-rotating-real-madrid": {
     animation: "royal-shimmer",
-    baseGradient: "linear-gradient(180deg, #fffdf8 0%, #f7f7f7 56%, #efe8d4 100%)",
+    baseGradient: "linear-gradient(180deg, #fffef9 0%, #faf8f2 48%, #efe7d7 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(213,177,90,0.8) 0 8%, transparent 8% 92%, rgba(182,146,255,0.34) 92% 100%)",
+      "radial-gradient(circle at 50% 18%, rgba(213,177,90,0.24) 0 12%, transparent 13%), radial-gradient(circle at 50% 82%, rgba(213,177,90,0.18) 0 11%, transparent 12%), linear-gradient(180deg, rgba(213,177,90,0.86) 0 8%, transparent 8% 92%, rgba(213,177,90,0.86) 92% 100%)",
     innerStripe:
-      "linear-gradient(90deg, transparent 0 13%, rgba(213,177,90,0.24) 13% 15%, transparent 15% 85%, rgba(213,177,90,0.24) 85% 87%, transparent 87% 100%)",
-    outerGlow: "0 0 18px rgba(213,177,90,0.26), 0 0 28px rgba(182,146,255,0.12)",
+      "linear-gradient(90deg, transparent 0 13%, rgba(213,177,90,0.94) 13% 16%, transparent 16% 84%, rgba(213,177,90,0.94) 84% 87%, transparent 87% 100%)",
+    outerGlow: "0 0 18px rgba(213,177,90,0.3), 0 0 28px rgba(255,255,255,0.12)",
+    pattern: "city-rings",
   },
   "profile-border-rotating-barcelona": {
     animation: "royal-shimmer",
-    baseGradient: "linear-gradient(90deg, #a50044 0 42%, #004d98 42% 100%)",
+    baseGradient: "linear-gradient(90deg, #6d1238 0%, #a50044 36%, #1b2b78 64%, #004d98 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(255,195,0,0.14) 0 8%, transparent 8% 92%, rgba(255,195,0,0.14) 92% 100%)",
+      "linear-gradient(135deg, rgba(122,18,58,0.88) 0 10%, transparent 10% 90%, rgba(0,77,152,0.88) 90% 100%)",
     innerStripe:
-      "repeating-linear-gradient(90deg, rgba(165,0,68,0.88) 0 18px, rgba(0,77,152,0.94) 18px 36px, rgba(255,195,0,0.14) 36px 40px)",
-    outerGlow: "0 0 18px rgba(165,0,68,0.26), 0 0 30px rgba(0,77,152,0.2)",
+      "linear-gradient(90deg, transparent 0 47%, rgba(255,195,0,0.88) 47% 53%, transparent 53% 100%)",
+    outerGlow: "0 0 18px rgba(122,18,58,0.24), 0 0 30px rgba(0,77,152,0.18)",
     pattern: "vertical-pinstripes",
   },
   "profile-border-rotating-atletico-madrid": {
     animation: "flag-sheen",
-    baseGradient: "linear-gradient(135deg, #c9342f 0 26%, #ffffff 26% 42%, #c9342f 42% 58%, #ffffff 58% 74%, #0b2c62 74% 100%)",
+    baseGradient: "linear-gradient(180deg, #0b2c62 0%, #173a74 42%, #7c1118 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(11,44,98,0.85) 0 8%, transparent 8% 92%, rgba(11,44,98,0.85) 92% 100%)",
+      "linear-gradient(90deg, rgba(255,255,255,0.92) 0 8%, transparent 8% 92%, rgba(255,255,255,0.92) 92% 100%)",
     innerStripe:
-      "repeating-linear-gradient(124deg, transparent 0 14px, rgba(201,52,47,0.24) 14px 18px, rgba(255,255,255,0.16) 18px 26px, transparent 26px 40px)",
-    outerGlow: "0 0 18px rgba(201,52,47,0.24), 0 0 28px rgba(11,44,98,0.16)",
-    pattern: "racing-diagonals",
+      "repeating-linear-gradient(90deg, rgba(201,52,47,0.94) 0 14px, rgba(255,255,255,0.96) 14px 24px, rgba(201,52,47,0.94) 24px 38px, transparent 38px 42px)",
+    outerGlow: "0 0 18px rgba(201,52,47,0.24), 0 0 28px rgba(255,255,255,0.12)",
+    pattern: "vertical-pinstripes",
   },
   "profile-border-rotating-roma": {
     animation: "royal-shimmer",
@@ -332,24 +335,24 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     pattern: "laurel-columns",
   },
   "profile-border-rotating-switzerland-nt": {
-    animation: "subtle-glow",
+    animation: "royal-shimmer",
     baseGradient: "linear-gradient(180deg, #d52b1e 0%, #bf2013 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(255,255,255,0.12) 0 12%, transparent 12% 88%, rgba(255,255,255,0.12) 88% 100%)",
+      "linear-gradient(90deg, rgba(255,255,255,0.92) 0 10%, transparent 10% 90%, rgba(255,255,255,0.92) 90% 100%)",
     innerStripe:
-      "linear-gradient(180deg, rgba(255,255,255,0.08) 0 10%, transparent 10% 90%, rgba(255,255,255,0.08) 90% 100%)",
+      "linear-gradient(90deg, transparent 0 40%, rgba(255,255,255,0.9) 40% 60%, transparent 60% 100%), linear-gradient(180deg, transparent 0 40%, rgba(255,255,255,0.9) 40% 60%, transparent 60% 100%)",
     motif: "swiss-cross",
-    outerGlow: "0 0 18px rgba(213,43,30,0.28), 0 0 24px rgba(255,255,255,0.12)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.16), 0 0 24px rgba(213,43,30,0.24)",
   },
   "profile-border-rotating-tottenham": {
-    animation: "royal-shimmer",
-    baseGradient: "linear-gradient(180deg, #ffffff 0%, #eef3fb 62%, #d8e0ef 100%)",
+    animation: "subtle-glow",
+    baseGradient: "linear-gradient(180deg, #ffffff 0%, #eef3fb 56%, #0e1b4d 100%)",
     cornerAccents:
       "linear-gradient(90deg, rgba(14,27,77,0.9) 0 7%, transparent 7% 93%, rgba(14,27,77,0.9) 93% 100%)",
     innerStripe:
-      "linear-gradient(180deg, rgba(144,164,195,0.65) 0 7%, transparent 7% 93%, rgba(144,164,195,0.65) 93% 100%)",
-    outerGlow: "0 0 18px rgba(144,164,195,0.24), 0 0 28px rgba(14,27,77,0.16)",
-    pattern: "city-rings",
+      "linear-gradient(90deg, transparent 0 13%, rgba(226,232,240,0.9) 13% 16%, transparent 16% 84%, rgba(226,232,240,0.9) 84% 87%, transparent 87% 100%)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.18), 0 0 28px rgba(14,27,77,0.12)",
+    pattern: "flag-ribbon",
   },
   "profile-border-rotating-trabzonspor": {
     animation: "wave-drift",
@@ -383,43 +386,44 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
   },
   "profile-border-rotating-goztepe": {
     animation: "flag-sheen",
-    baseGradient: "repeating-linear-gradient(90deg, #d8a100 0 16px, #a81e2a 16px 32px)",
+    baseGradient: "linear-gradient(135deg, #d8a100 0%, #f2c14f 36%, #c73a2d 68%, #a81e2a 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(242,213,122,0.18) 0 8%, transparent 8% 92%, rgba(242,213,122,0.18) 92% 100%)",
+      "linear-gradient(180deg, rgba(168,30,42,0.76) 0 8%, transparent 8% 92%, rgba(168,30,42,0.76) 92% 100%)",
     innerStripe:
-      "linear-gradient(90deg, rgba(0,0,0,0.12) 0 10%, transparent 10% 90%, rgba(0,0,0,0.12) 90% 100%)",
-    outerGlow: "0 0 18px rgba(216,161,0,0.24), 0 0 26px rgba(168,30,42,0.18)",
-    pattern: "vertical-pinstripes",
+      "repeating-linear-gradient(125deg, transparent 0 12px, rgba(168,30,42,0.88) 12px 18px, rgba(242,193,79,0.86) 18px 28px, transparent 28px 40px)",
+    outerGlow: "0 0 18px rgba(255,150,58,0.24), 0 0 26px rgba(168,30,42,0.16)",
+    pattern: "racing-diagonals",
   },
   "profile-border-rotating-turkey-nt": {
-    animation: "royal-shimmer",
-    baseGradient: "linear-gradient(180deg, #8a0018 0%, #c8102e 56%, #6c0011 100%)",
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #790016 0%, #a80022 34%, #c8102e 68%, #6c0011 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(255,255,255,0.08) 0 10%, transparent 10% 90%, rgba(255,255,255,0.08) 90% 100%)",
+      "linear-gradient(90deg, rgba(255,255,255,0.9) 0 8%, transparent 8% 92%, rgba(255,255,255,0.9) 92% 100%)",
     innerStripe:
-      "linear-gradient(90deg, transparent 0 16%, rgba(255,255,255,0.12) 16% 18%, transparent 18% 82%, rgba(255,255,255,0.12) 82% 84%, transparent 84% 100%)",
+      "linear-gradient(135deg, transparent 0 26%, rgba(255,255,255,0.88) 26% 38%, transparent 38% 100%), linear-gradient(90deg, transparent 0 14%, rgba(255,255,255,0.2) 14% 18%, transparent 18% 82%, rgba(255,255,255,0.2) 82% 86%, transparent 86% 100%)",
     motif: "crescent-star",
-    outerGlow: "0 0 18px rgba(200,16,46,0.28), 0 0 26px rgba(255,255,255,0.14)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.16), 0 0 26px rgba(200,16,46,0.26)",
+    pattern: "flag-ribbon",
   },
   "profile-border-rotating-union-berlin": {
-    animation: "subtle-glow",
-    baseGradient: "linear-gradient(180deg, #3b1418 0%, #7a1e24 56%, #211d1f 100%)",
+    animation: "ember-flicker",
+    baseGradient: "linear-gradient(180deg, #451519 0%, #7a1e24 52%, #151313 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(158,155,151,0.62) 0 7%, transparent 7% 93%, rgba(158,155,151,0.62) 93% 100%)",
+      "linear-gradient(90deg, rgba(24,24,24,0.9) 0 8%, transparent 8% 92%, rgba(24,24,24,0.9) 92% 100%)",
     innerStripe:
-      "linear-gradient(180deg, rgba(255,255,255,0.06) 0 8%, transparent 8% 92%, rgba(0,0,0,0.18) 92% 100%)",
-    outerGlow: "0 0 18px rgba(122,30,36,0.28), 0 0 24px rgba(47,42,44,0.28)",
+      "linear-gradient(90deg, transparent 0 12%, rgba(76,76,76,0.72) 12% 15%, transparent 15% 85%, rgba(76,76,76,0.72) 85% 88%, transparent 88% 100%)",
+    outerGlow: "0 0 18px rgba(122,30,36,0.3), 0 0 24px rgba(28,28,28,0.18)",
     pattern: "industrial-brush",
   },
   "profile-border-rotating-usa-nt": {
     animation: "flag-sheen",
-    baseGradient: "linear-gradient(180deg, #1f2852 0%, #3c3b6e 100%)",
+    baseGradient: "linear-gradient(180deg, #1f2852 0%, #2f3b75 46%, #b22234 100%)",
     cornerAccents:
-      "linear-gradient(180deg, rgba(255,255,255,0.16) 0 8%, transparent 8% 92%, rgba(255,255,255,0.16) 92% 100%)",
+      "linear-gradient(90deg, rgba(31,40,82,0.96) 0 8%, transparent 8% 92%, rgba(31,40,82,0.96) 92% 100%)",
     innerStripe:
-      "repeating-linear-gradient(180deg, rgba(178,34,52,0.95) 0 10px, rgba(255,255,255,0.95) 10px 18px, transparent 18px 26px)",
+      "repeating-linear-gradient(180deg, rgba(178,34,52,0.96) 0 9px, rgba(255,255,255,0.96) 9px 17px, transparent 17px 24px), linear-gradient(90deg, rgba(31,40,82,0.92) 0 34%, transparent 34% 100%)",
     motif: "tiny-stars",
-    outerGlow: "0 0 18px rgba(60,59,110,0.28), 0 0 26px rgba(178,34,52,0.18)",
+    outerGlow: "0 0 18px rgba(255,255,255,0.14), 0 0 26px rgba(60,59,110,0.2)",
     pattern: "soft-stars",
   },
   "profile-border-rotating-england-nt": {
