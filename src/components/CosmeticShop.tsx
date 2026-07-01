@@ -35,14 +35,99 @@ export function CosmeticShop({
 }: CosmeticShopProps) {
   const sortByPrice = (items: CosmeticItem[]) =>
     [...items].sort((a, b) => a.price - b.price);
-  const groupedItems = {
-    "speech-avatar": sortByPrice(shopItems.filter((item) => item.type === "speech-avatar")),
-    "profile-border": sortByPrice(shopItems.filter((item) => item.type === "profile-border")),
-  };
+  const groupedItems = [
+    {
+      label: "Speech Bubble Avatars",
+      type: "speech-avatar" as const,
+      items: sortByPrice(shopItems.filter((item) => item.type === "speech-avatar")),
+    },
+    {
+      label: "Avatar Backgrounds",
+      type: "avatar-background" as const,
+      items: sortByPrice(shopItems.filter((item) => item.type === "avatar-background")),
+    },
+    {
+      label: "Profile Header Borders",
+      type: "profile-border" as const,
+      items: sortByPrice(shopItems.filter((item) => item.type === "profile-border")),
+    },
+  ].filter((group) => group.items.length > 0);
   const usernameColorItems = sortByPrice(shopItems.filter((item) => item.type === "username-color"));
   const usernameGlowItems = sortByPrice(shopItems.filter((item) => item.type === "username-glow"));
   const displayNameChangeItem = shopItems.find((item) => item.id === "display-name-change");
   const premiumOwned = ownedTitleIds.includes(premiumTitle.id);
+
+  const renderPreview = (item: CosmeticItem) => {
+    if (item.type === "avatar-background") {
+      const isDefaultBackground = item.id === "avatar-background-none";
+
+      return (
+        <div className="mb-3 overflow-hidden rounded-2xl border border-white/10 bg-black/35">
+          <div className="relative h-20 w-full">
+            {item.backgroundFallback ? (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{ background: item.backgroundFallback }}
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-[linear-gradient(140deg,rgba(24,24,27,0.95),rgba(63,63,70,0.7),rgba(9,9,11,0.95))]"
+              />
+            )}
+            {item.backgroundPath ? (
+              <Image
+                alt={item.name}
+                className="object-cover object-center"
+                fill
+                src={item.backgroundPath}
+                unoptimized
+              />
+            ) : null}
+            {item.backgroundOverlayPath ? (
+              <Image
+                alt=""
+                aria-hidden="true"
+                className="object-cover object-center"
+                fill
+                src={item.backgroundOverlayPath}
+                unoptimized
+              />
+            ) : null}
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.42))]" />
+            <div className="absolute inset-0 border border-white/10" />
+            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.18em] text-white/85">
+              <span>{isDefaultBackground ? "Default" : "Backdrop"}</span>
+              <span>{isDefaultBackground ? "Clean" : "Preview"}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (item.image && item.type !== "profile-border") {
+      return (
+        <div
+          className={`mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-black/35 ${
+            item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
+          }`}
+        >
+          <Image
+            alt={item.name}
+            className={`h-11 w-11 object-contain ${
+              item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
+            }`}
+            height={44}
+            src={item.image}
+            width={44}
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   const renderCosmeticCards = (items: CosmeticItem[]) =>
     items.map((item) => {
@@ -69,23 +154,7 @@ export function CosmeticShop({
           }`}
           key={item.id}
         >
-          {item.image && item.type !== "profile-border" && (
-            <div
-              className={`mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-black/35 ${
-                item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
-              }`}
-            >
-              <Image
-                alt={item.name}
-                className={`h-11 w-11 object-contain ${
-                  item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
-                }`}
-                height={44}
-                src={item.image}
-                width={44}
-              />
-            </div>
-          )}
+          {renderPreview(item)}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p
@@ -167,13 +236,13 @@ export function CosmeticShop({
         Total, and they also build your all time coin spendings badge progress.
       </p>
 
-      {Object.entries(groupedItems).map(([type, items]) => (
-        <div className="mt-6" key={type}>
+      {groupedItems.map((group) => (
+        <div className="mt-6" key={group.type}>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">
-            {type === "speech-avatar" ? "Speech Bubble Avatars" : "Profile Header Borders"}
+            {group.label}
           </p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {renderCosmeticCards(items)}
+            {renderCosmeticCards(group.items)}
           </div>
         </div>
       ))}

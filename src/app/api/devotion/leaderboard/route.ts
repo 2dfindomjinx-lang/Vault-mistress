@@ -98,6 +98,7 @@ export async function GET(request: Request) {
 
   const usernameStyles = getUsernameStylesByUserId((cosmeticResult.data ?? []) as EquippedUsernameCosmeticRow[]);
   const profileBorderByUserId = new Map<string, { color: string | null; itemId: string | null }>();
+  const backgroundByUserId = new Map<string, string | null>();
 
   ((cosmeticResult.data ?? []) as Array<{
     equipped: boolean | null;
@@ -105,14 +106,21 @@ export async function GET(request: Request) {
     item_type: string;
     user_id: string;
   }>).forEach((row) => {
-    if (row.item_type !== "profile-border" || !row.equipped) {
+    if (!row.equipped) {
       return;
     }
 
-    profileBorderByUserId.set(String(row.user_id), {
-      color: getCosmeticItem(row.item_id)?.color ?? null,
-      itemId: row.item_id,
-    });
+    if (row.item_type === "avatar-background") {
+      backgroundByUserId.set(String(row.user_id), row.item_id);
+      return;
+    }
+
+    if (row.item_type === "profile-border") {
+      profileBorderByUserId.set(String(row.user_id), {
+        color: getCosmeticItem(row.item_id)?.color ?? null,
+        itemId: row.item_id,
+      });
+    }
   });
 
   const titleByUserId = new Map(
@@ -153,10 +161,12 @@ export async function GET(request: Request) {
 
     return {
       badgeImagePath: profile.badgeImagePath,
+      backgroundItemId: backgroundByUserId.get(String(row.user_id)) ?? null,
       devotion: period === "all_time" ? profile.totalDevotion : Number(row.devotion ?? 0),
       displayName: profile.displayName,
       equippedAvatarSlots: profile.equippedAvatarSlots,
       frameColor: border?.color ?? null,
+      frameItemId: borderItemId,
       frameVariant: getDevotionFrameVariant(borderItemId),
       hasUncensoredAvatar: profile.hasUncensoredAvatar,
       rank: Number(row.rank ?? 0),

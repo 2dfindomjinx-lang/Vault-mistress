@@ -1,11 +1,22 @@
 import { LEADERSHIP_RANKS } from "@/lib/leadership";
+import {
+  footballInspiredRotatingBorders,
+  type ProfileBorderStyle,
+} from "@/lib/profile-border-cosmetics";
+import {
+  rotatingProfileFrameCosmeticItems,
+  type ProfileFrameCosmeticType,
+} from "@/lib/profile-frame-cosmetics";
+import { avatarBackgroundCosmeticItems } from "@/lib/avatar-background-cosmetics";
 
 export type CosmeticType =
   | "speech-avatar"
+  | "avatar-background"
   | "username-color"
   | "username-glow"
   | "display-name-change"
-  | "profile-border";
+  | "profile-border"
+  | ProfileFrameCosmeticType;
 
 export type CosmeticItem = {
   id: string;
@@ -16,6 +27,12 @@ export type CosmeticItem = {
   image?: string;
   color?: string;
   glow?: string;
+  borderPalette?: [string, string, string?];
+  borderStyle?: ProfileBorderStyle;
+  backgroundPath?: string | null;
+  backgroundOverlayPath?: string | null;
+  backgroundFallback?: string;
+  isArchived?: boolean;
 };
 
 export type SpendBadgeTierId = "bronze" | "silver" | "gold" | "emerald" | "diamond";
@@ -6434,6 +6451,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     price: 2500,
     image: "/icons/coin.png",
   },
+  ...avatarBackgroundCosmeticItems,
   {
     id: "profile-border-rainbow-animated",
     name: "Rainbow Animated Border",
@@ -6516,6 +6534,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     price: 20000,
     color: "#a855f7",
   },
+  ...footballInspiredRotatingBorders,
   {
     id: "username-color-rotating-sunset",
     name: "Sunset Name",
@@ -6572,6 +6591,7 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     price: 8000,
     glow: "0 0 24px rgba(251,191,36,0.95)",
   },
+  ...rotatingProfileFrameCosmeticItems,
 ];
 
 export const cosmeticItems: CosmeticItem[] = [...permanentCosmeticItems, ...rotatingCosmeticItems];

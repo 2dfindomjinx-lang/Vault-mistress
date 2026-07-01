@@ -44,6 +44,9 @@ import {
   type EquippedAvatarSlots,
 } from "@/lib/avatar-slots";
 import {
+  getAvatarBackgroundPresentation,
+} from "@/lib/avatar-background-cosmetics";
+import {
   cosmeticItems,
   DEFAULT_SPEECH_AVATAR_ID,
   getCosmeticItem,
@@ -62,6 +65,7 @@ import {
   type CosmeticType,
   type TitleItem,
 } from "@/lib/cosmetics";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 import type { RandomEvent } from "@/lib/events";
 import {
   normalizeDevotionPeriod,
@@ -70,6 +74,8 @@ import {
   type DevotionPeriod,
 } from "@/lib/devotion";
 import {
+  getCurrentRotatingShopItems,
+  getRotatingCosmeticItems,
   getNextRotatingShopRefresh,
   type CommunityStatusResponse,
   type PublicCommunityProfile,
@@ -2189,6 +2195,7 @@ export default function Home() {
   }, [persistedSpeechAvatarId, randomSpeechAvatarCandidates, randomSpeechAvatarId]);
   const equippedUsernameColor = getCosmeticItem(equippedCosmeticIds["username-color"] ?? "");
   const equippedUsernameGlow = getCosmeticItem(equippedCosmeticIds["username-glow"] ?? "");
+  const equippedAvatarBackground = getCosmeticItem(equippedCosmeticIds["avatar-background"] ?? "");
   const equippedProfileBorder = getCosmeticItem(equippedCosmeticIds["profile-border"] ?? "");
   const equippedTitle = getTitleItem(equippedTitleId ?? "") ?? getTitleItem(getDefaultTitleId(tributeTotal));
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
@@ -2196,33 +2203,13 @@ export default function Home() {
     color: equippedUsernameColor?.color,
     textShadow: equippedUsernameGlow?.glow,
   };
-  const avatarFrameVariant =
-    equippedProfileBorder?.id === "profile-border-rainbow-animated"
-      ? "rainbow"
-      : equippedProfileBorder?.id === "profile-border-animated"
-        ? "runner"
-        : null;
-  const avatarFrameClassName = equippedProfileBorder?.color
-    ? "bg-white/10"
-    : avatarFrameVariant === "rainbow"
-      ? "bg-[conic-gradient(from_180deg,rgba(244,114,182,0.26)_0deg,rgba(168,85,247,0.28)_60deg,rgba(34,211,238,0.28)_120deg,rgba(16,185,129,0.26)_180deg,rgba(245,158,11,0.26)_240deg,rgba(244,63,94,0.28)_300deg,rgba(244,114,182,0.26)_360deg)]"
-      : avatarFrameVariant === "runner"
-        ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.15),rgba(251,113,133,0.22),rgba(236,72,153,0.24),rgba(255,255,255,0.1))]"
-        : "bg-white/10";
-  const avatarFrameStyle = equippedProfileBorder?.color
-    ? {
-        backgroundColor: equippedProfileBorder.color,
-        boxShadow: `0 0 24px ${equippedProfileBorder.color}55`,
-      }
-    : avatarFrameVariant === "rainbow"
-      ? {
-          boxShadow: "0 0 16px rgba(168, 85, 247, 0.18), 0 0 28px rgba(34, 211, 238, 0.12)",
-        }
-      : avatarFrameVariant === "runner"
-        ? {
-            boxShadow: "0 0 16px rgba(236, 72, 153, 0.18), 0 0 24px rgba(251, 113, 133, 0.12)",
-          }
-      : undefined;
+  const avatarBackgroundPresentation = getAvatarBackgroundPresentation(
+    equippedAvatarBackground,
+  );
+  const profileBorderPresentation = getProfileBorderFramePresentation(equippedProfileBorder);
+  const avatarFrameVariant = profileBorderPresentation.variant;
+  const avatarFrameClassName = profileBorderPresentation.backgroundClassName;
+  const avatarFrameStyle = profileBorderPresentation.backgroundStyle;
   const userLevelProgress = getUserLevelProgress(userXp);
   const globalPrincipessaRequirement = getGlobalPrincipessaXpRequirement(globalPrincipessa.level);
   const globalPrincipessaProgressPercent = getGlobalPrincipessaProgressPercent(
@@ -9670,7 +9657,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const currentUserPrestigeBadges = communityStatus?.currentUserBadges ?? [];
   const hallOfFameCards = communityStatus?.hallOfFame ?? [];
   const communityGoal = communityStatus?.communityGoal ?? null;
-  const visibleRotatingShopItems: CosmeticItem[] = [];
+  const visibleRotatingShopItems = getCurrentRotatingShopItems(currentTime);
+  const possibleRotatingShopItems = getRotatingCosmeticItems();
   const nextRotatingShopRefresh = getNextRotatingShopRefresh(currentTime).toISOString();
   const soundControls = (
     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-2.5 py-2">
@@ -10072,6 +10060,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
           equippedAvatarSlots={equippedAvatarSlots}
+          equippedCosmeticIds={effectiveEquippedCosmeticIds}
           hasUncensoredAvatar={hasUncensoredAvatar}
           avatarFrameClassName={avatarFrameClassName}
           avatarFrameStyle={avatarFrameStyle}
@@ -10404,12 +10393,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
                 endsAt={nextRotatingShopRefresh}
+                equippedAvatarSlots={equippedAvatarSlots}
                 equippedCosmeticIds={effectiveEquippedCosmeticIds}
+                hasUncensoredAvatar={hasUncensoredAvatar}
                 items={visibleRotatingShopItems}
                 ownedCosmeticIds={ownedCosmeticIds}
                 pendingCosmeticIds={pendingTaskActionIds
                   .filter((id) => id.startsWith("cosmetic:"))
                   .map((id) => id.slice("cosmetic:".length))}
+                possibleItems={possibleRotatingShopItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
               />
@@ -10476,6 +10468,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                         <div className="relative h-[440px] overflow-hidden rounded-[1.35rem] border border-white/10 bg-black/40">
                           <LayeredAvatar
                             alt="Avatar wardrobe preview"
+                            backgroundOverlayPath={avatarBackgroundPresentation.backgroundOverlayPath}
+                            backgroundPath={avatarBackgroundPresentation.backgroundPath}
+                            backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
                             className="absolute inset-0"
                             equipped={isAvatarActionPending ? committedEquippedRef.current : equippedAvatarSlots}
                             hasUncensored={hasUncensoredAvatar}

@@ -1,8 +1,11 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
+import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
+import { getCosmeticItem } from "@/lib/cosmetics";
 import type { HallOfFameCardData } from "@/lib/prestige";
 import { normalizeEquipment } from "@/lib/avatar-slots";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type HallOfFameSectionProps = {
   cards: HallOfFameCardData[];
@@ -19,40 +22,13 @@ function getFramePresentation(card: HallOfFameCardData) {
       frameStyle: undefined,
     };
   }
-
-  if (winner.frameColor) {
-    return {
-      frameClassName: "bg-white/10",
-      frameStyle: {
-        backgroundColor: winner.frameColor,
-        boxShadow: `0 0 28px ${winner.frameColor}55`,
-      },
-    };
-  }
-
-  if (winner.frameVariant === "rainbow") {
-    return {
-      frameClassName:
-        "bg-[conic-gradient(from_180deg,rgba(251,191,36,0.34)_0deg,rgba(244,114,182,0.26)_80deg,rgba(34,211,238,0.26)_160deg,rgba(16,185,129,0.22)_240deg,rgba(245,158,11,0.3)_320deg,rgba(251,191,36,0.34)_360deg)]",
-      frameStyle: {
-        boxShadow: "0 0 24px rgba(251,191,36,0.16), 0 0 36px rgba(34,211,238,0.1)",
-      },
-    };
-  }
-
-  if (winner.frameVariant === "runner") {
-    return {
-      frameClassName:
-        "bg-[linear-gradient(135deg,rgba(255,255,255,0.18),rgba(251,191,36,0.18),rgba(244,114,182,0.26),rgba(255,255,255,0.14))]",
-      frameStyle: {
-        boxShadow: "0 0 24px rgba(244,114,182,0.15), 0 0 36px rgba(251,191,36,0.08)",
-      },
-    };
-  }
+  const presentation = getProfileBorderFramePresentation(
+    getCosmeticItem(winner.frameItemId ?? ""),
+  );
 
   return {
-    frameClassName: "bg-white/10",
-    frameStyle: undefined,
+    frameClassName: presentation.backgroundClassName,
+    frameStyle: presentation.backgroundStyle,
   };
 }
 
@@ -83,6 +59,9 @@ export function HallOfFameSection({
           cards.map((card) => {
             const winner = card.winner;
             const frame = getFramePresentation(card);
+            const background = getAvatarBackgroundPresentation(
+              getCosmeticItem(winner?.backgroundItemId ?? ""),
+            );
             const displayName = winner?.displayName?.trim() || winner?.username || "No winner yet";
 
             return (
@@ -124,6 +103,9 @@ export function HallOfFameSection({
                       {winner ? (
                         <LayeredAvatar
                           alt={`${displayName} avatar`}
+                          backgroundOverlayPath={background.backgroundOverlayPath}
+                          backgroundPath={background.backgroundPath}
+                          backgroundStyle={background.backgroundStyle}
                           className="absolute inset-0"
                           equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})}
                           hasUncensored={winner.hasUncensoredAvatar}

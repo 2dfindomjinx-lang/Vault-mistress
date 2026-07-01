@@ -5,7 +5,10 @@ import { useEffect, useId, type CSSProperties, type ReactNode } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { PageStatCard } from "@/components/PageStatCard";
-import type { SpendBadge } from "@/lib/cosmetics";
+import { ProfileFrameOrnaments } from "@/components/ProfileFrameOrnaments";
+import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
+import { getCosmeticItem } from "@/lib/cosmetics";
+import type { CosmeticType, SpendBadge } from "@/lib/cosmetics";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 
 type AvatarFrameVariant = "runner" | "rainbow" | null;
@@ -36,7 +39,9 @@ type ProfileHeaderProps = {
   avatarFrameClassName?: string;
   avatarFrameStyle?: CSSProperties;
   avatarFrameVariant?: AvatarFrameVariant;
+  avatarBackgroundItemId?: string | null;
   spendBadge?: SpendBadge | null;
+  equippedCosmeticIds?: Partial<Record<CosmeticType, string>>;
   actions?: ReactNode;
   progressStrip?: ReactNode;
   // Display Name change right pencil mechanic in the top header box
@@ -68,7 +73,9 @@ export function ProfileHeader({
   avatarFrameClassName,
   avatarFrameStyle,
   avatarFrameVariant = null,
+  avatarBackgroundItemId = null,
   spendBadge,
+  equippedCosmeticIds,
   displayName,
   hasDisplayNameChangeRight = false,
   isEditingDisplayName = false,
@@ -80,6 +87,11 @@ export function ProfileHeader({
   onDisplayNameEditInputChange,
 }: ProfileHeaderProps) {
   const profileBorderIds = useId().replaceAll(":", "");
+  const avatarBackgroundPresentation = getAvatarBackgroundPresentation(
+    getCosmeticItem(
+      avatarBackgroundItemId ?? equippedCosmeticIds?.["avatar-background"] ?? "",
+    ),
+  );
 
   useEffect(() => {
     if (!isEditingDisplayName || !onCancelDisplayNameEdit) {
@@ -126,12 +138,20 @@ export function ProfileHeader({
           <div className="absolute inset-[3px] z-10 overflow-hidden rounded-[calc(1.5rem-3px)] bg-black/35">
             <LayeredAvatar
               alt="Full-body Principessa avatar preview"
+              backgroundOverlayPath={avatarBackgroundPresentation.backgroundOverlayPath}
+              backgroundPath={avatarBackgroundPresentation.backgroundPath}
+              backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
               className="absolute inset-0"
               equipped={equippedAvatarSlots}
               hasUncensored={hasUncensoredAvatar}
               priority
             />
           </div>
+          {equippedCosmeticIds ? (
+            <div className="absolute inset-[3px] z-20 pointer-events-none overflow-hidden rounded-[calc(1.5rem-3px)]">
+              <ProfileFrameOrnaments equippedCosmeticIds={equippedCosmeticIds} />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex min-w-0 flex-col justify-between gap-5">

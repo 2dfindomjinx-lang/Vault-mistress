@@ -257,6 +257,33 @@ button:disabled {
   }
 }
 
+@keyframes profileFrameParticleFloat {
+  0% {
+    opacity: 0.35;
+    transform: translate3d(0, 8px, 0) scale(0.92) rotate(0deg);
+  }
+
+  25% {
+    opacity: 0.95;
+    transform: translate3d(3px, -6px, 0) scale(1) rotate(8deg);
+  }
+
+  50% {
+    opacity: 0.78;
+    transform: translate3d(-2px, -14px, 0) scale(1.04) rotate(-10deg);
+  }
+
+  75% {
+    opacity: 0.92;
+    transform: translate3d(4px, -7px, 0) scale(0.98) rotate(6deg);
+  }
+
+  100% {
+    opacity: 0.4;
+    transform: translate3d(0, 8px, 0) scale(0.9) rotate(0deg);
+  }
+}
+
 .profile-border-frame {
   isolation: isolate;
   overflow: hidden;

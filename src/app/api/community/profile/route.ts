@@ -66,9 +66,11 @@ export async function GET(request: Request) {
     profile: {
       badgeImagePath: profile.badgeImagePath,
       badges: profile.badges,
+      backgroundItemId: profile.backgroundItemId,
       displayName: profile.displayName,
       equippedAvatarSlots: profile.equippedAvatarSlots,
       frameColor: profile.frameColor,
+      frameItemId: profile.frameItemId,
       frameVariant: profile.frameVariant,
       hasUncensoredAvatar: profile.hasUncensoredAvatar,
       loyaltyStreak: profile.loyaltyStreak,

@@ -1,4 +1,9 @@
-import { cosmeticItems, getCosmeticItem, type CosmeticItem } from "@/lib/cosmetics";
+import {
+  getCosmeticItem,
+  rotatingCosmeticItems,
+  type CosmeticItem,
+} from "@/lib/cosmetics";
+import { rotatingProfileFrameCosmeticItems } from "@/lib/profile-frame-cosmetics";
 import { DAY_MS, GMT3_OFFSET_MS } from "@/lib/time";
 
 export type PrestigeBadgeTone = "gold" | "rose" | "cyan" | "emerald";
@@ -18,9 +23,11 @@ export type UserPrestigeBadge = PrestigeBadgeDefinition & {
 export type CommunityProfileSnippet = {
   badgeImagePath: string | null;
   badges: UserPrestigeBadge[];
+  backgroundItemId: string | null;
   displayName: string | null;
   equippedAvatarSlots: Record<string, string> | null;
   frameColor: string | null;
+  frameItemId: string | null;
   frameVariant: "rainbow" | "runner" | null;
   hasUncensoredAvatar: boolean;
   titleName: string | null;
@@ -93,7 +100,10 @@ type CommunityGoalDefinition = {
 };
 
 type RotatingShopDefinition = {
-  guaranteedIds: string[];
+  buckets: Array<{
+    itemIds: string[];
+    picks: number;
+  }>;
   itemIds: string[];
   picks: number;
   rotationDays: number;
@@ -188,29 +198,48 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
   },
 ];
 
-const rotatingShopDefinition: RotatingShopDefinition = {
-  guaranteedIds: ["profile-border-rotating-vaultfire"],
-  itemIds: [
-    "profile-border-rotating-vaultfire",
-    "profile-border-rotating-solar-flare",
-    "profile-border-rotating-gilded-noir",
-    "profile-border-rotating-afterglow",
-    "username-color-rotating-sunset",
-    "username-color-rotating-lagoon",
-    "username-glow-rotating-embers",
-    "username-glow-rotating-aurora",
-    "username-glow-rotating-frostline",
-    "username-color-event-summer-2026",
-    "username-glow-event-summer-2026",
-  ],
-  picks: 4,
-  rotationDays: 3,
-};
+const rotatingBorderIds = rotatingCosmeticItems
+  .filter((item) => item.type === "profile-border" && !item.isArchived)
+  .map((item) => item.id);
 
-const summerEventRotatingIds = new Set([
-  "username-color-event-summer-2026",
-  "username-glow-event-summer-2026",
-]);
+const rotatingBottomIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-bottom")
+  .map((item) => item.id);
+const rotatingSideIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-side")
+  .map((item) => item.id);
+const rotatingCornerIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-corner")
+  .map((item) => item.id);
+const rotatingTopIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-top")
+  .map((item) => item.id);
+const rotatingOverlayIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-overlay")
+  .map((item) => item.id);
+const rotatingParticleIds = rotatingProfileFrameCosmeticItems
+  .filter((item) => item.type === "profile-frame-particles")
+  .map((item) => item.id);
+const rotatingShowpieceIds = [
+  ...rotatingBorderIds,
+  ...rotatingBottomIds,
+  ...rotatingSideIds,
+  ...rotatingOverlayIds,
+];
+const rotatingAccentIds = [...rotatingCornerIds, ...rotatingTopIds];
+const rotatingWildIds = rotatingProfileFrameCosmeticItems.map((item) => item.id);
+
+const rotatingShopDefinition: RotatingShopDefinition = {
+  buckets: [
+    { itemIds: rotatingShowpieceIds, picks: 1 },
+    { itemIds: rotatingAccentIds, picks: 1 },
+    { itemIds: rotatingParticleIds, picks: 1 },
+    { itemIds: rotatingWildIds, picks: 1 },
+  ],
+  itemIds: [...rotatingBorderIds, ...rotatingWildIds],
+  picks: 4,
+  rotationDays: 2,
+};
 
 export const SUPPORT_REASON_SET = new Set([
   "throne_tribute",
@@ -295,33 +324,92 @@ function pickStableIndices(length: number, picks: number, seed: number) {
   return selected;
 }
 
+function pickStableItemIds(itemIds: string[], picks: number, seed: number) {
+  return pickStableIndices(itemIds.length, picks, seed)
+    .map((index) => itemIds[index])
+    .filter((itemId): itemId is string => Boolean(itemId));
+}
+
+function pickRotationItemIdsForIndex(
+  rotationIndex: number,
+  pooledItemIds: string[],
+  previousRotationIds: string[],
+) {
+  const pooledSet = new Set(pooledItemIds);
+  const previouslyShown = new Set(previousRotationIds);
+  const used = new Set<string>();
+  const selected: string[] = [];
+
+  rotatingShopDefinition.buckets.forEach((bucket, bucketIndex) => {
+    const availableInBucket = bucket.itemIds.filter(
+      (itemId) => pooledSet.has(itemId) && !used.has(itemId),
+    );
+    const preferred = availableInBucket.filter(
+      (itemId) => !previouslyShown.has(itemId),
+    );
+    const source =
+      preferred.length >= bucket.picks ? preferred : availableInBucket;
+    const pickedIds = pickStableItemIds(
+      source,
+      bucket.picks,
+      (rotationIndex + 1) * 131 + (bucketIndex + 1) * 977,
+    );
+
+    pickedIds.forEach((itemId) => {
+      if (!used.has(itemId)) {
+        used.add(itemId);
+        selected.push(itemId);
+      }
+    });
+  });
+
+  if (selected.length < rotatingShopDefinition.picks) {
+    const remainingPool = pooledItemIds.filter((itemId) => !used.has(itemId));
+    const preferredRemaining = remainingPool.filter(
+      (itemId) => !previouslyShown.has(itemId),
+    );
+    const source =
+      preferredRemaining.length >=
+      rotatingShopDefinition.picks - selected.length
+        ? preferredRemaining
+        : remainingPool;
+    const fillerIds = pickStableItemIds(
+      source,
+      rotatingShopDefinition.picks - selected.length,
+      (rotationIndex + 1) * 7919,
+    );
+
+    fillerIds.forEach((itemId) => {
+      if (!used.has(itemId)) {
+        used.add(itemId);
+        selected.push(itemId);
+      }
+    });
+  }
+
+  return selected.slice(0, rotatingShopDefinition.picks);
+}
+
 export function getCurrentRotatingShopItems(date: Date | number | string = new Date()) {
   const rotationStartMs = getRotationStartMs(date);
   const rotationIndex = Math.floor(
     (rotationStartMs - new Date("2026-06-01T00:00:00+03:00").getTime()) /
       (rotatingShopDefinition.rotationDays * DAY_MS),
   );
-  const nowMs = new Date(date).getTime();
-  const isSummerWindow =
-    nowMs >= new Date("2026-06-01T00:00:00+03:00").getTime() &&
-    nowMs < new Date("2026-09-01T00:00:00+03:00").getTime();
+  const pooledItems = rotatingShopDefinition.itemIds;
+  let previousRotationIds: string[] = [];
+  let currentRotationIds: string[] = [];
 
-  const pooledItems = rotatingShopDefinition.itemIds.filter((itemId) => {
-    if (summerEventRotatingIds.has(itemId)) {
-      return isSummerWindow;
-    }
+  for (let index = 0; index <= rotationIndex; index += 1) {
+    currentRotationIds = pickRotationItemIdsForIndex(
+      index,
+      pooledItems,
+      previousRotationIds,
+    );
+    previousRotationIds = currentRotationIds;
+  }
 
-    return true;
-  });
-  const guaranteed = rotatingShopDefinition.guaranteedIds.filter((itemId) => pooledItems.includes(itemId));
-  const remaining = pooledItems.filter((itemId) => !guaranteed.includes(itemId));
-  const pickedIndices = pickStableIndices(
-    remaining.length,
-    Math.max(0, rotatingShopDefinition.picks - guaranteed.length),
-    rotationIndex + 1,
-  );
-
-  return [...guaranteed, ...pickedIndices.map((index) => remaining[index])]
+  return currentRotationIds
     .map((itemId) => getCosmeticItem(itemId))
     .filter((item): item is CosmeticItem => Boolean(item));
 }
@@ -464,5 +552,7 @@ export function getBadgeToneClasses(tone: PrestigeBadgeTone) {
 }
 
 export function getRotatingCosmeticItems() {
-  return cosmeticItems.filter((item) => rotatingShopDefinition.itemIds.includes(item.id));
+  return rotatingCosmeticItems.filter((item) =>
+    rotatingShopDefinition.itemIds.includes(item.id) && !item.isArchived,
+  );
 }

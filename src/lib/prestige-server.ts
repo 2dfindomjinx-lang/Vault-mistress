@@ -172,18 +172,26 @@ export async function loadCommunityProfiles(
     (cosmeticResult.data ?? []) as EquippedUsernameCosmeticRow[],
   );
   const borderByUserId = new Map<string, { color: string | null; itemId: string | null }>();
+  const backgroundByUserId = new Map<string, string | null>();
   const titleByUserId = new Map<string, string | null>();
   const badgesByUserId = new Map<string, UserPrestigeBadge[]>();
 
   ((cosmeticResult.data ?? []) as EquippedCosmeticRow[]).forEach((row) => {
-    if (!row.equipped || row.item_type !== "profile-border") {
+    if (!row.equipped) {
       return;
     }
 
-    borderByUserId.set(row.user_id, {
-      color: getCosmeticItem(row.item_id)?.color ?? null,
-      itemId: row.item_id,
-    });
+    if (row.item_type === "avatar-background") {
+      backgroundByUserId.set(row.user_id, row.item_id);
+      return;
+    }
+
+    if (row.item_type === "profile-border") {
+      borderByUserId.set(row.user_id, {
+        color: getCosmeticItem(row.item_id)?.color ?? null,
+        itemId: row.item_id,
+      });
+    }
   });
 
   ((titleResult.data ?? []) as EquippedTitleRow[]).forEach((row) => {
@@ -215,9 +223,11 @@ export async function loadCommunityProfiles(
         {
           badgeImagePath: spendBadge.isEarned ? spendBadge.imagePath : null,
           badges: badgesByUserId.get(profile.id) ?? [],
+          backgroundItemId: backgroundByUserId.get(profile.id) ?? null,
           displayName: profile.display_name ?? null,
           equippedAvatarSlots: profile.equipped_avatar_slots ?? null,
           frameColor: border?.color ?? null,
+          frameItemId: border?.itemId ?? null,
           frameVariant: getDevotionFrameVariant(border?.itemId ?? null),
           hasUncensoredAvatar: Boolean(profile.has_uncensored_avatar),
           loyaltyStreak: Number(profile.loyalty_streak ?? 0),

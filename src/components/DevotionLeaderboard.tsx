@@ -1,11 +1,14 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
+import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
+import { getCosmeticItem } from "@/lib/cosmetics";
 import {
   type DevotionLeaderboardEntry,
   type DevotionLeaderboardResponse,
   type DevotionPeriod,
 } from "@/lib/devotion";
 import { normalizeEquipment } from "@/lib/avatar-slots";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type DevotionLeaderboardProps = {
   data: DevotionLeaderboardResponse;
@@ -22,30 +25,14 @@ const periodOptions: Array<{ id: DevotionPeriod; label: string }> = [
 ];
 
 function getAvatarFrameClasses(entry: DevotionLeaderboardEntry) {
-  const frameClassName = entry.frameColor
-    ? "bg-white/10"
-    : entry.frameVariant === "rainbow"
-      ? "bg-[conic-gradient(from_180deg,rgba(244,114,182,0.26)_0deg,rgba(168,85,247,0.28)_60deg,rgba(34,211,238,0.28)_120deg,rgba(16,185,129,0.26)_180deg,rgba(245,158,11,0.26)_240deg,rgba(244,63,94,0.28)_300deg,rgba(244,114,182,0.26)_360deg)]"
-      : entry.frameVariant === "runner"
-        ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.15),rgba(251,113,133,0.22),rgba(236,72,153,0.24),rgba(255,255,255,0.1))]"
-        : "bg-white/10";
+  const presentation = getProfileBorderFramePresentation(
+    getCosmeticItem(entry.frameItemId ?? ""),
+  );
 
-  const frameStyle = entry.frameColor
-    ? {
-        backgroundColor: entry.frameColor,
-        boxShadow: `0 0 24px ${entry.frameColor}55`,
-      }
-    : entry.frameVariant === "rainbow"
-      ? {
-          boxShadow: "0 0 16px rgba(168, 85, 247, 0.18), 0 0 28px rgba(34, 211, 238, 0.12)",
-        }
-      : entry.frameVariant === "runner"
-        ? {
-            boxShadow: "0 0 16px rgba(236, 72, 153, 0.18), 0 0 24px rgba(251, 113, 133, 0.12)",
-          }
-        : undefined;
-
-  return { frameClassName, frameStyle };
+  return {
+    frameClassName: presentation.backgroundClassName,
+    frameStyle: presentation.backgroundStyle,
+  };
 }
 
 function formatCountdown(ms: number) {
@@ -62,6 +49,9 @@ function formatCountdown(ms: number) {
 
 function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboardEntry; highlight?: boolean }) {
   const { frameClassName, frameStyle } = getAvatarFrameClasses(entry);
+  const background = getAvatarBackgroundPresentation(
+    getCosmeticItem(entry.backgroundItemId ?? ""),
+  );
   const mainName = entry.displayName?.trim() || entry.username;
 
   return (
@@ -80,6 +70,9 @@ function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboa
           <div className="relative h-full w-full overflow-hidden rounded-[1rem] border border-white/12 bg-black/45">
             <LayeredAvatar
               alt={`${mainName} avatar`}
+              backgroundOverlayPath={background.backgroundOverlayPath}
+              backgroundPath={background.backgroundPath}
+              backgroundStyle={background.backgroundStyle}
               className="absolute inset-0"
               equipped={normalizeEquipment(entry.equippedAvatarSlots ?? {})}
               hasUncensored={entry.hasUncensoredAvatar}

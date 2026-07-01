@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
+import { getCosmeticItem } from "@/lib/cosmetics";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 import type { PublicCommunityProfile } from "@/lib/prestige";
 
 type PublicProfileModalProps = {
@@ -41,6 +43,9 @@ export function PublicProfileModal({
 
   const profile = data?.profile ?? null;
   const stats = data?.stats ?? [];
+  const profileBorderPresentation = getProfileBorderFramePresentation(
+    getCosmeticItem(profile?.frameItemId ?? ""),
+  );
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm">
@@ -72,16 +77,10 @@ export function PublicProfileModal({
         ) : profile ? (
           <div className="space-y-5">
             <ProfileHeader
-              avatarFrameClassName={profile.frameColor ? "bg-white/10" : undefined}
-              avatarFrameStyle={
-                profile.frameColor
-                  ? {
-                      backgroundColor: profile.frameColor,
-                      boxShadow: `0 0 28px ${profile.frameColor}55`,
-                    }
-                  : undefined
-              }
-              avatarFrameVariant={profile.frameVariant}
+              avatarFrameClassName={profileBorderPresentation.backgroundClassName}
+              avatarBackgroundItemId={profile.backgroundItemId}
+              avatarFrameStyle={profileBorderPresentation.backgroundStyle}
+              avatarFrameVariant={profileBorderPresentation.variant}
               avatarSrc=""
               coins={0}
               currentTitle={profile.titleName ?? undefined}

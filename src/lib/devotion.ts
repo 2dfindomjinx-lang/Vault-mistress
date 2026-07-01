@@ -17,7 +17,9 @@ export type DevotionLeaderboardEntry = {
     textShadow?: string;
   };
   badgeImagePath: string | null;
+  backgroundItemId: string | null;
   frameColor: string | null;
+  frameItemId: string | null;
   frameVariant: DevotionFrameVariant;
   titleName: string | null;
 };
