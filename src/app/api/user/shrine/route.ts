@@ -4,8 +4,9 @@ import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   buildShrineStatus,
+  getShrineDevotionReward,
   isShrinePurchaseAmount,
-  SHRINE_DEVOTION_REWARD,
+  resolveShrineMemories,
 } from "@/lib/shrine";
 import {
   createSupabaseAdminClient,
@@ -35,7 +36,7 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-async function getShrineImagePaths() {
+async function getShrineImageFileNames() {
   const shrineDir = path.join(process.cwd(), "public", "shrine");
 
   try {
@@ -43,9 +44,7 @@ async function getShrineImagePaths() {
 
     return entries
       .filter((entry) => entry.isFile() && /\.(avif|gif|jpe?g|png|webp)$/i.test(entry.name))
-      .map((entry) => entry.name)
-      .sort((left, right) => left.localeCompare(right))
-      .map((fileName) => `/shrine/${fileName}`);
+      .map((entry) => entry.name);
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException | null;
 
@@ -101,13 +100,13 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [{ data: transactions, error: transactionError }, imagePaths] = await Promise.all([
+  const [{ data: transactions, error: transactionError }, imageFileNames] = await Promise.all([
     supabase
       .from("coin_transactions")
       .select("amount, metadata")
       .eq("user_id", authResult.userId)
       .eq("reason", "tribute:shrine"),
-    getShrineImagePaths(),
+    getShrineImageFileNames(),
   ]);
 
   if (transactionError) {
@@ -116,7 +115,10 @@ export async function GET() {
   }
 
   return Response.json({
-    shrine: buildShrineStatus(getShrineSpendTotal((transactions ?? []) as CoinTransactionRow[]), imagePaths),
+    shrine: buildShrineStatus(
+      getShrineSpendTotal((transactions ?? []) as CoinTransactionRow[]),
+      resolveShrineMemories(imageFileNames),
+    ),
   });
 }
 
@@ -141,12 +143,13 @@ export async function POST(request: Request) {
   if (!isShrinePurchaseAmount(amount)) {
     return jsonError("Invalid shrine purchase amount.", 422);
   }
+  const devotionReward = getShrineDevotionReward(amount);
 
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId;
   const now = new Date().toISOString();
 
-  const [{ data: profile, error: profileError }, { data: previousShrineTransactions, error: shrineHistoryError }, imagePaths] =
+  const [{ data: profile, error: profileError }, { data: previousShrineTransactions, error: shrineHistoryError }, imageFileNames] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -158,7 +161,7 @@ export async function POST(request: Request) {
         .select("amount, metadata")
         .eq("user_id", userId)
         .eq("reason", "tribute:shrine"),
-      getShrineImagePaths(),
+      getShrineImageFileNames(),
     ]);
 
   if (profileError || !profile) {
@@ -181,6 +184,7 @@ export async function POST(request: Request) {
     return jsonError("Not enough coins for that shrine offering.", 402);
   }
 
+  const shrineMemories = resolveShrineMemories(imageFileNames);
   const previousShrineSpent = getShrineSpendTotal((previousShrineTransactions ?? []) as CoinTransactionRow[]);
   const nextCoins = currentProfile.coins - amount;
   const nextTributeTotal = (currentProfile.tribute_total ?? 0) + amount;
@@ -204,8 +208,8 @@ export async function POST(request: Request) {
   }
 
   const nextShrineSpent = previousShrineSpent + amount;
-  const shrineStatus = buildShrineStatus(nextShrineSpent, imagePaths);
-  const previousUnlockedCount = buildShrineStatus(previousShrineSpent, imagePaths).unlockedImageCount;
+  const shrineStatus = buildShrineStatus(nextShrineSpent, shrineMemories);
+  const previousUnlockedCount = buildShrineStatus(previousShrineSpent, shrineMemories).unlockedImageCount;
 
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
@@ -214,7 +218,7 @@ export async function POST(request: Request) {
       balance_after: nextCoins,
       balance_before: currentProfile.coins,
       metadata: {
-        devotionAmount: SHRINE_DEVOTION_REWARD,
+        devotionAmount: devotionReward,
         prestigeSource: "shrine",
         shrineImageUnlocked: shrineStatus.unlockedImageCount > previousUnlockedCount,
         shrineTotalSpentAfter: nextShrineSpent,
@@ -242,8 +246,9 @@ export async function POST(request: Request) {
 
   try {
     await awardDevotion(supabase, {
-      amount: SHRINE_DEVOTION_REWARD,
+      amount: devotionReward,
       metadata: {
+        devotionAmount: devotionReward,
         shrineTotalSpentAfter: nextShrineSpent,
         spendAmount: amount,
       },

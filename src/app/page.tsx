@@ -82,7 +82,7 @@ import {
 } from "@/lib/prestige";
 import {
   buildShrineStatus,
-  SHRINE_DEVOTION_REWARD,
+  getShrineDevotionReward,
   type ShrineStatus,
 } from "@/lib/shrine";
 import {
@@ -7327,6 +7327,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const currentCoins = coinsRef.current;
+    const devotionReward = getShrineDevotionReward(amount);
 
     if (currentCoins < amount) {
       setAvatarMistressReply("Not enough coins. Even the Shrine rejects empty pockets.");
@@ -7339,20 +7340,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         const nextCoins = currentCoins - amount;
         const nextTributeTotal = getNextTributeTotal(amount);
         const previousStatus = shrineStatus ?? buildShrineStatus(0, []);
-        const nextShrineStatus = buildShrineStatus(previousStatus.totalSpent + amount, previousStatus.imagePaths);
+        const nextShrineStatus = buildShrineStatus(previousStatus.totalSpent + amount, previousStatus.memories);
         const unlockedNewImage = nextShrineStatus.unlockedImageCount > previousStatus.unlockedImageCount;
 
         setCoins(nextCoins);
         coinsRef.current = nextCoins;
         setTributeTotal(nextTributeTotal);
-        setTotalDevotion((current) => current + SHRINE_DEVOTION_REWARD);
+        setTotalDevotion((current) => current + devotionReward);
         setShrineStatus(nextShrineStatus);
         unlockProgressionTitles(nextTributeTotal);
         emitSoundEvent("tribute_sent");
         setAvatarMistressReply(
           unlockedNewImage
-            ? "The Shrine accepted your coins. A new image tier stirred awake."
-            : "The Shrine swallowed your coins and your devotion ticked higher.",
+            ? "Your offering was accepted. A new Shrine Memory now stirs into view."
+            : "Your offering was received. Tribute rose, and your devotion deepened.",
         );
         finishTaskAction(actionId);
         return;
@@ -7382,8 +7383,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       emitSoundEvent("tribute_sent");
       setAvatarMistressReply(
         payload.shrine.unlockedImageCount > previousUnlockedCount
-          ? "The Shrine devoured your offering. A fresh image unlock now belongs to you."
-          : "The Shrine accepted the offering. Tribute rose, devotion deepened.",
+          ? "Principessa accepted the offering. A new Shrine Memory has been revealed."
+          : "The offering was welcomed. Tribute rose, devotion deepened.",
       );
     } catch (error) {
       console.error("Failed to complete shrine purchase", error);

@@ -1,6 +1,5 @@
 import Image from "next/image";
 import {
-  SHRINE_DEVOTION_REWARD,
   SHRINE_IMAGE_UNLOCK_COST,
   SHRINE_PURCHASE_OPTIONS,
   type ShrineStatus,
@@ -78,7 +77,7 @@ export function TributePanel({
 
           <p className="mt-5 text-sm leading-6 text-zinc-400">
             {isMaxAffection
-              ? "Principessa's mood is already at its peak. Standard tribute is sealed, but the Shrine can still consume coins."
+              ? "Principessa's mood is already at its peak. Ordinary tribute rests now, but the Shrine still welcomes offerings."
               : disabled
                 ? "Timeout is active. Tribute actions are locked until the timer ends."
               : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
@@ -91,20 +90,20 @@ export function TributePanel({
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-black uppercase tracking-[0.26em] text-amber-100/70">
-                Post-100 Coin Sink
+                Sacred Offerings
               </p>
               <h3 className="mt-2 text-2xl font-black text-white">
-                Keep paying at the shrine.
+                Deepen your devotion through sacred offerings.
               </h3>
               <p className="mt-2 text-sm leading-6 text-amber-50/80">
-                Every shrine purchase spends coins, adds to tribute total, and grants +0.1% devotion.
-                Every {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} shrine coins spent unlocks the next shrine image.
+                Each offering increases your Tribute Score, grants Devotion, and contributes toward revealing new Shrine Memories.
+                Every {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} shrine coins offered reveals the next Shrine Memory.
               </p>
             </div>
             <div className="rounded-2xl border border-amber-200/15 bg-black/30 px-4 py-3 text-sm text-amber-50/85">
-              <p className="font-semibold">Shrine spent: {shrine?.totalSpent.toLocaleString() ?? "0"} coins</p>
+              <p className="font-semibold">Offered at the Shrine: {shrine?.totalSpent.toLocaleString() ?? "0"} coins</p>
               <p className="mt-1">
-                Images unlocked: {shrine?.unlockedImageCount ?? 0}/{shrine?.availableImageCount ?? 0}
+                Memories Revealed: {shrine?.unlockedImageCount ?? 0}/{shrine?.availableImageCount ?? 0}
               </p>
             </div>
           </div>
@@ -125,10 +124,10 @@ export function TributePanel({
                   <p className="mt-4 text-sm leading-6 text-zinc-300">{option.description}</p>
                   <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-amber-50/85">
                     <span className="rounded-full border border-amber-200/20 bg-black/25 px-3 py-2">
-                      +{SHRINE_DEVOTION_REWARD / 10}% devotion
+                      +{option.devotionReward} Devotion
                     </span>
                     <span className="rounded-full border border-pink-200/20 bg-black/25 px-3 py-2">
-                      Tribute +{option.amount.toLocaleString()}
+                      +{option.amount.toLocaleString()} Tribute
                     </span>
                   </div>
                 </button>
@@ -138,36 +137,45 @@ export function TributePanel({
             <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
-                  Shrine Gallery
+                  Shrine Memories
                 </p>
                 {shrine?.coinsUntilNextUnlock !== null ? (
                   <span className="rounded-full border border-amber-200/15 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-50">
-                    {shrine?.coinsUntilNextUnlock?.toLocaleString() ?? "0"} to next unlock
+                    {shrine?.coinsUntilNextUnlock?.toLocaleString() ?? "0"} until the next memory
                   </span>
                 ) : (
                   <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-50">
-                    All current images unlocked
+                    Every current memory revealed
                   </span>
                 )}
               </div>
 
               <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.18),rgba(0,0,0,0.62))]">
                 {shrine?.currentImagePath ? (
-                  <Image
-                    alt="Current shrine unlock"
-                    className="h-auto w-full object-cover"
-                    height={900}
-                    src={shrine.currentImagePath}
-                    width={700}
-                  />
+                  <div>
+                    <Image
+                      alt={shrine.currentMemory?.title ?? "Current Shrine Memory"}
+                      className="h-auto w-full object-cover"
+                      height={900}
+                      src={shrine.currentImagePath}
+                      width={700}
+                    />
+                    {shrine.currentMemory?.title ? (
+                      <div className="border-t border-amber-200/10 bg-black/35 px-4 py-3">
+                        <p className="text-sm font-semibold text-amber-50">{shrine.currentMemory.title}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-100/60">
+                          Most recently revealed memory
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="flex min-h-[17rem] flex-col items-center justify-center px-6 py-10 text-center">
                     <p className="text-sm font-black uppercase tracking-[0.24em] text-amber-50/70">
-                      Awaiting Shrine Images
+                      Awaiting Shrine Memories
                     </p>
                     <p className="mt-3 max-w-xs text-sm leading-6 text-zinc-300">
-                      The unlock system is live already. Drop future shrine images into `public/shrine`
-                      and every new file automatically adds another {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} coin cycle.
+                      Future Shrine Memories can be placed in `public/shrine`, and each new one will become part of the next revelation cycle.
                     </p>
                   </div>
                 )}
@@ -191,8 +199,8 @@ export function TributePanel({
               </div>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
                 {shrine?.availableImageCount
-                  ? `Unlocked ${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} current shrine images.`
-                  : "No shrine images are installed yet, but progress is already accumulating in the background."}
+                  ? `${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} Shrine Memories have been revealed.`
+                  : "No Shrine Memories have been placed yet, but your offerings are already being remembered."}
               </p>
             </div>
           </div>
