@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import {
   PrincipessaShowcasePreview,
   hasRenderableProfileFramePreview,
 } from "@/components/ProfileFrameOrnaments";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import type { CosmeticItem } from "@/lib/cosmetics";
+import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 import {
+  getProfileFrameDecorationDefinition,
   getProfileFrameCosmeticTypeLabel,
   isProfileFrameCosmeticType,
 } from "@/lib/profile-frame-cosmetics";
@@ -102,6 +105,130 @@ function createAnimatedSlotState(item: CosmeticItem | null): AnimatedSlotState {
     next: null,
     isAnimating: false,
   };
+}
+
+function CompactCatalogPreview({ item }: { item: CosmeticItem }) {
+  if (item.type === "profile-border") {
+    return (
+      <div className="mx-auto w-12">
+        <ProfileBorderFrame
+          className="aspect-[180/285] rounded-[0.9rem]"
+          contentClassName="overflow-hidden rounded-[calc(0.9rem-3px)] bg-[linear-gradient(180deg,rgba(16,8,22,0.98),rgba(6,3,10,0.96))]"
+          presentation={getProfileBorderFramePresentation(item)}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.14),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_18%,rgba(255,255,255,0.06)_75%,rgba(0,0,0,0.18)_100%)]" />
+        </ProfileBorderFrame>
+      </div>
+    );
+  }
+
+  if (!isProfileFrameCosmeticType(item.type)) {
+    return (
+      <div className="flex min-h-[3.5rem] items-center justify-center">
+        <div className="h-4 w-4 rounded-full border border-white/20 bg-white/12" />
+      </div>
+    );
+  }
+
+  const definition = getProfileFrameDecorationDefinition(item.id);
+  const palette = definition?.palette ?? ["#f59e0b", "#fcd34d", "#fff7ed"];
+  const primary = palette[0];
+  const secondary = palette[1] ?? palette[0];
+  const accent = palette[2] ?? palette[1] ?? palette[0];
+
+  return (
+    <div className="flex min-h-[3.5rem] items-center justify-center">
+      <div className="relative h-[3.55rem] w-[2.45rem] rounded-[0.9rem] bg-[linear-gradient(180deg,rgba(14,7,20,0.96),rgba(5,2,8,0.98))] shadow-[0_0_16px_rgba(0,0,0,0.18)]">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 rounded-[0.9rem] border-[2px]"
+          style={{
+            borderColor: primary,
+            boxShadow: `0 0 10px ${primary}33, inset 0 0 10px ${secondary}22`,
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-[3px] rounded-[0.72rem] border border-white/8"
+          style={{
+            background: `linear-gradient(180deg, ${secondary}12, transparent 26%, ${accent}10 100%)`,
+          }}
+        />
+
+        {item.type === "profile-frame-bottom" ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="absolute left-1/2 top-[2.55rem] h-2.5 w-4.5 -translate-x-1/2 rounded-full"
+              style={{ background: `linear-gradient(90deg, ${primary}, ${secondary})` }}
+            />
+            <div
+              aria-hidden="true"
+              className="absolute left-[0.58rem] top-[2.82rem] h-2 w-2.5 -rotate-12 rounded-full"
+              style={{ backgroundColor: primary }}
+            />
+            <div
+              aria-hidden="true"
+              className="absolute right-[0.58rem] top-[2.82rem] h-2 w-2.5 rotate-12 rounded-full"
+              style={{ backgroundColor: secondary }}
+            />
+          </>
+        ) : null}
+
+        {item.type === "profile-frame-side" ? (
+          <>
+            <div aria-hidden="true" className="absolute left-[-1px] top-[1rem] h-6 w-1 rounded-full" style={{ backgroundColor: primary }} />
+            <div aria-hidden="true" className="absolute right-[-1px] top-[1rem] h-6 w-1 rounded-full" style={{ backgroundColor: secondary }} />
+            <div aria-hidden="true" className="absolute left-[0.12rem] top-[1.55rem] h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+            <div aria-hidden="true" className="absolute right-[0.12rem] top-[1.55rem] h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+          </>
+        ) : null}
+
+        {item.type === "profile-frame-corner" ? (
+          <>
+            <div aria-hidden="true" className="absolute left-[0.2rem] top-[2.45rem] h-2.5 w-2.5 rounded-full" style={{ backgroundColor: primary }} />
+            <div aria-hidden="true" className="absolute right-[0.2rem] top-[2.45rem] h-2.5 w-2.5 rounded-full" style={{ backgroundColor: secondary }} />
+          </>
+        ) : null}
+
+        {item.type === "profile-frame-top" ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="absolute left-1/2 top-[-3px] h-0 w-0 -translate-x-1/2 border-x-[8px] border-b-[10px] border-x-transparent"
+              style={{ borderBottomColor: primary }}
+            />
+            <div aria-hidden="true" className="absolute left-1/2 top-[0.28rem] h-1.5 w-1.5 -translate-x-1/2 rounded-full" style={{ backgroundColor: accent }} />
+          </>
+        ) : null}
+
+        {item.type === "profile-frame-overlay" ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="absolute left-[0.38rem] right-[0.38rem] top-[2.4rem] h-[2px] rounded-full"
+              style={{ backgroundColor: primary }}
+            />
+            <div
+              aria-hidden="true"
+              className="absolute left-[0.55rem] right-[0.55rem] top-[2.72rem] h-[2px] rounded-full opacity-80"
+              style={{ backgroundColor: secondary }}
+            />
+          </>
+        ) : null}
+
+        {item.type === "profile-frame-particles" ? (
+          <>
+            <div aria-hidden="true" className="absolute left-[0.3rem] top-[0.55rem] h-1 w-1 rounded-full" style={{ backgroundColor: primary }} />
+            <div aria-hidden="true" className="absolute right-[0.35rem] top-[0.85rem] h-1.5 w-1.5 rounded-full" style={{ backgroundColor: secondary }} />
+            <div aria-hidden="true" className="absolute left-[0.72rem] top-[1.55rem] h-1 w-1 rounded-full" style={{ backgroundColor: accent }} />
+            <div aria-hidden="true" className="absolute right-[0.72rem] top-[2.2rem] h-1 w-1 rounded-full" style={{ backgroundColor: primary }} />
+            <div aria-hidden="true" className="absolute left-[1.05rem] top-[2.72rem] h-1.5 w-1.5 rounded-full" style={{ backgroundColor: secondary }} />
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function RotatingShop({
@@ -416,7 +543,6 @@ export function RotatingShop({
     const canAfford = coins >= item.price;
     const isCurrentlyOffered = activeItemIdSet.has(item.id);
     const canInteract = owned || isCurrentlyOffered;
-    const previewCosmeticIds = getCatalogPreviewIds(equippedCosmeticIds, item);
     const buttonDisabled =
       disabled ||
       pending ||
@@ -459,14 +585,7 @@ export function RotatingShop({
         key={item.id}
       >
         {hasRenderableProfileFramePreview(item) ? (
-          <PrincipessaShowcasePreview
-            className="mx-auto w-14"
-            equippedAvatarSlots={equippedAvatarSlots}
-            equippedCosmeticIds={previewCosmeticIds}
-            hasUncensoredAvatar={hasUncensoredAvatar}
-            previewItem={item}
-            previewMode="shop"
-          />
+          <CompactCatalogPreview item={item} />
         ) : (
           <div className="flex min-h-[3.5rem] items-center justify-center">
             {renderMinimalPreview(item)}

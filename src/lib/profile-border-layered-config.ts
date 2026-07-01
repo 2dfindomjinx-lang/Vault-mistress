@@ -115,6 +115,16 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     outerGlow: "0 0 18px rgba(3,70,148,0.34), 0 0 28px rgba(212,175,55,0.18)",
     pattern: "city-rings",
   },
+  "profile-border-rotating-manchester-united": {
+    animation: "ember-flicker",
+    baseGradient: "linear-gradient(180deg, #6f0006 0%, #da020e 54%, #490004 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, rgba(246,184,0,0.92) 0 9%, transparent 9% 91%, rgba(246,184,0,0.92) 91% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(126deg, transparent 0 12px, rgba(246,184,0,0.72) 12px 16px, rgba(255,255,255,0.1) 16px 21px, transparent 21px 35px)",
+    outerGlow: "0 0 18px rgba(218,2,14,0.34), 0 0 28px rgba(246,184,0,0.2)",
+    pattern: "racing-diagonals",
+  },
   "profile-border-rotating-dortmund": {
     animation: "subtle-glow",
     baseGradient: "linear-gradient(180deg, #fde100 0%, #f7c600 100%)",
@@ -281,6 +291,26 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
       "linear-gradient(90deg, transparent 0 13%, rgba(213,177,90,0.24) 13% 15%, transparent 15% 85%, rgba(213,177,90,0.24) 85% 87%, transparent 87% 100%)",
     outerGlow: "0 0 18px rgba(213,177,90,0.26), 0 0 28px rgba(182,146,255,0.12)",
   },
+  "profile-border-rotating-barcelona": {
+    animation: "royal-shimmer",
+    baseGradient: "linear-gradient(90deg, #a50044 0 42%, #004d98 42% 100%)",
+    cornerAccents:
+      "linear-gradient(180deg, rgba(255,195,0,0.14) 0 8%, transparent 8% 92%, rgba(255,195,0,0.14) 92% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(90deg, rgba(165,0,68,0.88) 0 18px, rgba(0,77,152,0.94) 18px 36px, rgba(255,195,0,0.14) 36px 40px)",
+    outerGlow: "0 0 18px rgba(165,0,68,0.26), 0 0 30px rgba(0,77,152,0.2)",
+    pattern: "vertical-pinstripes",
+  },
+  "profile-border-rotating-atletico-madrid": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(135deg, #c9342f 0 26%, #ffffff 26% 42%, #c9342f 42% 58%, #ffffff 58% 74%, #0b2c62 74% 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, rgba(11,44,98,0.85) 0 8%, transparent 8% 92%, rgba(11,44,98,0.85) 92% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(124deg, transparent 0 14px, rgba(201,52,47,0.24) 14px 18px, rgba(255,255,255,0.16) 18px 26px, transparent 26px 40px)",
+    outerGlow: "0 0 18px rgba(201,52,47,0.24), 0 0 28px rgba(11,44,98,0.16)",
+    pattern: "racing-diagonals",
+  },
   "profile-border-rotating-roma": {
     animation: "royal-shimmer",
     baseGradient: "linear-gradient(180deg, #4f1722 0%, #7a263a 56%, #2c0f16 100%)",
@@ -331,6 +361,36 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     outerGlow: "0 0 18px rgba(108,29,69,0.28), 0 0 28px rgba(45,103,167,0.18)",
     pattern: "wave-ribbon",
   },
+  "profile-border-rotating-galatasaray": {
+    animation: "ember-flicker",
+    baseGradient: "linear-gradient(135deg, #c71432 0%, #921123 42%, #f6c200 72%, #ff7a00 100%)",
+    cornerAccents:
+      "radial-gradient(circle at 14% 18%, rgba(255,196,0,0.9) 0 5%, transparent 6%), radial-gradient(circle at 86% 84%, rgba(255,122,0,0.8) 0 5%, transparent 6%)",
+    innerStripe:
+      "repeating-linear-gradient(118deg, transparent 0 14px, rgba(255,196,0,0.28) 14px 18px, rgba(255,122,0,0.22) 18px 24px, transparent 24px 40px)",
+    outerGlow: "0 0 18px rgba(199,20,50,0.28), 0 0 30px rgba(246,194,0,0.22)",
+    pattern: "flame-flickers",
+  },
+  "profile-border-rotating-fenerbahce": {
+    animation: "royal-shimmer",
+    baseGradient: "linear-gradient(180deg, #071a42 0%, #0b2c62 58%, #f2c200 100%)",
+    cornerAccents:
+      "radial-gradient(circle at 20% 20%, rgba(255,242,161,0.85) 0 4%, transparent 5%), radial-gradient(circle at 80% 18%, rgba(255,242,161,0.78) 0 4%, transparent 5%), radial-gradient(circle at 50% 82%, rgba(255,242,161,0.72) 0 4%, transparent 5%)",
+    innerStripe:
+      "linear-gradient(90deg, transparent 0 12%, rgba(242,194,0,0.82) 12% 16%, transparent 16% 84%, rgba(242,194,0,0.82) 84% 88%, transparent 88% 100%)",
+    outerGlow: "0 0 18px rgba(11,44,98,0.32), 0 0 28px rgba(242,194,0,0.18)",
+    pattern: "soft-stars",
+  },
+  "profile-border-rotating-goztepe": {
+    animation: "flag-sheen",
+    baseGradient: "repeating-linear-gradient(90deg, #d8a100 0 16px, #a81e2a 16px 32px)",
+    cornerAccents:
+      "linear-gradient(180deg, rgba(242,213,122,0.18) 0 8%, transparent 8% 92%, rgba(242,213,122,0.18) 92% 100%)",
+    innerStripe:
+      "linear-gradient(90deg, rgba(0,0,0,0.12) 0 10%, transparent 10% 90%, rgba(0,0,0,0.12) 90% 100%)",
+    outerGlow: "0 0 18px rgba(216,161,0,0.24), 0 0 26px rgba(168,30,42,0.18)",
+    pattern: "vertical-pinstripes",
+  },
   "profile-border-rotating-turkey-nt": {
     animation: "royal-shimmer",
     baseGradient: "linear-gradient(180deg, #8a0018 0%, #c8102e 56%, #6c0011 100%)",
@@ -361,6 +421,84 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     motif: "tiny-stars",
     outerGlow: "0 0 18px rgba(60,59,110,0.28), 0 0 26px rgba(178,34,52,0.18)",
     pattern: "soft-stars",
+  },
+  "profile-border-rotating-england-nt": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, transparent 0 43%, #c8102e 43% 57%, transparent 57% 100%), linear-gradient(180deg, transparent 0 43%, #c8102e 43% 57%, transparent 57% 100%)",
+    innerStripe:
+      "linear-gradient(90deg, transparent 0 39%, rgba(200,16,46,0.18) 39% 61%, transparent 61% 100%), linear-gradient(180deg, transparent 0 39%, rgba(200,16,46,0.18) 39% 61%, transparent 61% 100%)",
+    outerGlow: "0 0 18px rgba(200,16,46,0.18), 0 0 24px rgba(169,182,201,0.12)",
+    pattern: "nordic-cross",
+  },
+  "profile-border-rotating-belgium-nt": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(90deg, #111111 0 33.33%, #f0c419 33.33% 66.66%, #c8102e 66.66% 100%)",
+    cornerAccents:
+      "linear-gradient(180deg, rgba(255,255,255,0.08) 0 8%, transparent 8% 92%, rgba(255,255,255,0.08) 92% 100%)",
+    innerStripe:
+      "linear-gradient(90deg, rgba(255,255,255,0.1) 0 34%, transparent 34% 66%, rgba(255,255,255,0.1) 66% 100%)",
+    outerGlow: "0 0 18px rgba(240,196,25,0.24), 0 0 26px rgba(200,16,46,0.14)",
+  },
+  "profile-border-rotating-netherlands-nt": {
+    animation: "ember-flicker",
+    baseGradient: "linear-gradient(180deg, #f97316 0%, #fdba74 52%, #7c2d12 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, rgba(255,255,255,0.12) 0 10%, transparent 10% 90%, rgba(255,255,255,0.12) 90% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(120deg, transparent 0 16px, rgba(255,255,255,0.12) 16px 20px, rgba(124,45,18,0.22) 20px 30px, transparent 30px 42px)",
+    outerGlow: "0 0 18px rgba(249,115,22,0.32), 0 0 28px rgba(124,45,18,0.2)",
+    pattern: "flame-flickers",
+  },
+  "profile-border-rotating-austria-nt": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #c8102e 0 30%, #ffffff 30% 70%, #9d1127 70% 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, rgba(255,255,255,0.14) 0 10%, transparent 10% 90%, rgba(255,255,255,0.14) 90% 100%)",
+    innerStripe:
+      "linear-gradient(180deg, transparent 0 26%, rgba(255,255,255,0.1) 26% 30%, transparent 30% 70%, rgba(157,17,39,0.12) 70% 74%, transparent 74% 100%)",
+    outerGlow: "0 0 18px rgba(200,16,46,0.22), 0 0 24px rgba(255,255,255,0.12)",
+  },
+  "profile-border-rotating-denmark-nt": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #b91c1c 0%, #8f1212 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, transparent 0 28%, #ffffff 28% 40%, transparent 40% 100%), linear-gradient(180deg, transparent 0 42%, #ffffff 42% 58%, transparent 58% 100%)",
+    innerStripe:
+      "linear-gradient(90deg, transparent 0 24%, rgba(255,255,255,0.16) 24% 44%, transparent 44% 100%), linear-gradient(180deg, transparent 0 38%, rgba(255,255,255,0.16) 38% 62%, transparent 62% 100%)",
+    outerGlow: "0 0 18px rgba(185,28,28,0.24), 0 0 24px rgba(255,255,255,0.14)",
+    pattern: "nordic-cross",
+  },
+  "profile-border-rotating-sweden-nt": {
+    animation: "royal-shimmer",
+    baseGradient: "linear-gradient(180deg, #005293 0%, #003f70 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, transparent 0 29%, #fecb00 29% 42%, transparent 42% 100%), linear-gradient(180deg, transparent 0 42%, #fecb00 42% 57%, transparent 57% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(135deg, transparent 0 16px, rgba(254,203,0,0.16) 16px 20px, transparent 20px 34px)",
+    outerGlow: "0 0 18px rgba(0,82,147,0.28), 0 0 28px rgba(254,203,0,0.18)",
+    pattern: "nordic-cross",
+  },
+  "profile-border-rotating-norway-nt": {
+    animation: "flag-sheen",
+    baseGradient: "linear-gradient(180deg, #ba0c2f 0%, #8f0923 100%)",
+    cornerAccents:
+      "linear-gradient(90deg, transparent 0 26%, #ffffff 26% 42%, #00205b 42% 52%, #ffffff 52% 60%, transparent 60% 100%), linear-gradient(180deg, transparent 0 40%, #ffffff 40% 58%, #00205b 58% 66%, #ffffff 66% 74%, transparent 74% 100%)",
+    innerStripe:
+      "linear-gradient(90deg, transparent 0 22%, rgba(255,255,255,0.14) 22% 62%, transparent 62% 100%), linear-gradient(180deg, transparent 0 36%, rgba(255,255,255,0.14) 36% 76%, transparent 76% 100%)",
+    outerGlow: "0 0 18px rgba(186,12,47,0.22), 0 0 28px rgba(0,32,91,0.18)",
+    pattern: "nordic-cross",
+  },
+  "profile-border-rotating-brazil-nt": {
+    animation: "wave-drift",
+    baseGradient: "linear-gradient(180deg, #009c3b 0%, #1b5e20 100%)",
+    cornerAccents:
+      "radial-gradient(circle at 50% 50%, rgba(255,223,0,0.88) 0 18%, transparent 19%), linear-gradient(135deg, transparent 0 35%, rgba(255,223,0,0.8) 35% 50%, transparent 50% 100%)",
+    innerStripe:
+      "repeating-linear-gradient(140deg, rgba(255,223,0,0.12) 0 12px, transparent 12px 30px), linear-gradient(90deg, transparent 0 36%, rgba(44,108,223,0.78) 36% 64%, transparent 64% 100%)",
+    outerGlow: "0 0 18px rgba(0,156,59,0.28), 0 0 30px rgba(255,223,0,0.18)",
+    pattern: "wave-ribbon",
   },
   "profile-border-rotating-argentina-nt": {
     animation: "royal-shimmer",
