@@ -399,7 +399,8 @@ export async function POST(request: Request) {
       : installmentCompleted
         ? contract.debt_amount
         : remainingInstallment;
-    const nextMissedPeriods = contract.missed_periods + (installmentCompleted && overdue ? 1 : 0);
+    const missedThisPayment = installmentCompleted && overdue && !plan.autoPayEnabled;
+    const nextMissedPeriods = contract.missed_periods + (missedThisPayment ? 1 : 0);
     const nextCoins = profile.coins - paidAmount;
     const immediateTribute = paidAmount;
     const deferredTribute = 0;
@@ -481,13 +482,13 @@ export async function POST(request: Request) {
           debtTributeImmediateAmount: immediateTribute,
           duePeriods: plan.duePeriods,
           installmentCompleted,
-          missedPeriods: installmentCompleted && overdue ? 1 : 0,
+          missedPeriods: missedThisPayment ? 1 : 0,
           paidAmount,
           partialPayment: !installmentCompleted,
           spendAmount: paidAmount,
           tributeTotalChanged: immediateTribute > 0,
         },
-        reason: body.action === "autoCollect" && overdue
+        reason: body.action === "autoCollect" && missedThisPayment
           ? "tribute:debt-contract:missed"
           : body.action === "autoCollect"
             ? "tribute:debt-contract:auto"

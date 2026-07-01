@@ -2614,9 +2614,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const isTimeoutActive = timeoutRemaining > 0;
   const isDebtOverdueTimeoutActive =
     isTimeoutActive && timeoutReason === "debt_contract_overdue";
-  const isUnderageTimeoutActive =
-    isTimeoutActive &&
-    (timeoutReason === "evil_debt_underage" || timeoutRemaining >= 9 * 365 * DAY_MS);
+  const isUnderageTimeoutActive = isTimeoutActive && timeoutReason === "evil_debt_underage";
   const timeoutClearFee = getTimeoutClearFee(timeoutUntil, timeoutReason, currentTime);
   const canSelfClearTimeout =
     isTimeoutActive && !isUnderageTimeoutActive && !isDebtOverdueTimeoutActive;
@@ -4096,10 +4094,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               autoPayEnabled: debtAutoPayEnabled,
             })
           : null;
+      const shouldAutoCollect = Boolean(activeDebtContract && debtAutoPayEnabled && duePlan);
 
       setIsDebtAutoPayEnabled(debtAutoPayEnabled);
 
-      if (!activeDebtContract || !duePlan) {
+      if (!activeDebtContract || !shouldAutoCollect) {
         setPetDebtContract(activeDebtContract);
       } else {
         try {
@@ -4152,10 +4151,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               `Partial debt payment applied. ${Number(result.paidAmount ?? 0).toLocaleString()} coins paid, ${Number(result.plan?.currentInstallmentRemaining ?? 0).toLocaleString()} coins still due.`,
             );
           } else {
+            const autoCollectAmount = Number(result.plan?.amount ?? duePlan?.amount ?? 0).toLocaleString();
             setAvatarMistressReply(
               (result.plan?.missedPeriods ?? 0) > 0
-                ? `Missed Debt Contract collected automatically. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`
-                : `Debt Contract auto-payment completed. ${Number(result.plan?.amount ?? duePlan.amount).toLocaleString()} coins charged.`,
+                ? `Missed Debt Contract collected automatically. ${autoCollectAmount} coins charged.`
+                : `Debt Contract auto-payment completed. ${autoCollectAmount} coins charged.`,
             );
           }
         } catch (error) {
@@ -10781,7 +10781,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "debt" && (
             <DebtSection
-              disabled={isTimeoutActive || isPreviewRestricted}
+              disabled={isPreviewRestricted}
+              isTimeoutActive={isTimeoutActive}
               isDebtAutoPayEnabled={isDebtAutoPayEnabled}
               pendingPetActionIds={pendingPetActionIds}
               petDebtContract={petDebtContract}

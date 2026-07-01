@@ -55,6 +55,7 @@ type DebtContractForm = {
 
 type DebtSectionProps = {
   disabled?: boolean;
+  isTimeoutActive?: boolean;
   isDebtAutoPayEnabled: boolean;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onPayDebtPeriod: () => void;
@@ -176,6 +177,7 @@ function getRandomDebtDraft(): {
 
 export function DebtSection({
   disabled = false,
+  isTimeoutActive = false,
   isDebtAutoPayEnabled,
   onDebtAutoPayChange,
   onPayDebtPeriod,
@@ -209,12 +211,14 @@ export function DebtSection({
   const hasOpenDebtContract = Boolean(
     petDebtContract && ["active", "pending"].includes(petDebtContract.status),
   );
+  const contractControlsDisabled = disabled || isTimeoutActive;
   const activeContract = petDebtContract;
   const blockingContractMessage = hasOpenDebtContract
     ? activeDebtContractType === "evil"
       ? "Evil Debt Contract is active or pending. Normal Debt Contract cannot be signed until it ends."
       : "Normal Debt Contract is active or pending. Evil Debt Contract cannot be signed until it ends."
     : null;
+  const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
   const debtPaymentDue = activeContract
     ? activeContract.paid_periods === 0 || new Date(activeContract.next_due_at ?? "").getTime() <= now
     : false;
@@ -354,6 +358,7 @@ export function DebtSection({
         hasOpenDebtContract={hasOpenDebtContract}
         isDebtAutoPayEnabled={isDebtAutoPayEnabled}
         isPetActionPending={isPetActionPending}
+        isTimeoutActive={isTimeoutActive}
         kind="normal"
         normalDebtDuration={normalDebtDuration}
         normalDebtDurationLimit={normalDebtDurationLimit}
@@ -396,6 +401,7 @@ export function DebtSection({
         hasOpenDebtContract={hasOpenDebtContract}
         isDebtAutoPayEnabled={isDebtAutoPayEnabled}
         isPetActionPending={isPetActionPending}
+        isTimeoutActive={isTimeoutActive}
         onDebtAutoPayChange={onDebtAutoPayChange}
         onEvilAgeChange={setEvilAge}
         onEvilConsentPrimaryChange={setEvilConsentPrimary}
@@ -428,6 +434,7 @@ function DebtCard(props: {
   hasOpenDebtContract: boolean;
   isDebtAutoPayEnabled: boolean;
   isPetActionPending: (actionId: string) => boolean;
+  isTimeoutActive: boolean;
   kind: "normal";
   normalDebtAmount: string;
   normalDebtDuration: string;
@@ -458,6 +465,7 @@ function DebtCard(props: {
     hasOpenDebtContract,
     isDebtAutoPayEnabled,
     isPetActionPending,
+    isTimeoutActive,
     normalDebtAmount,
     normalDebtDuration,
     normalDebtDurationLimit,
@@ -478,6 +486,8 @@ function DebtCard(props: {
   } = props;
 
   const showLockedState = hasOpenDebtContract && !active && petDebtContract;
+  const contractControlsDisabled = disabled || isTimeoutActive;
+  const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
     <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
@@ -515,7 +525,7 @@ function DebtCard(props: {
           </p>
           <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
             <AutoPaymentSwitch
-              disabled={disabled}
+              disabled={contractControlsDisabled}
               enabled={isDebtAutoPayEnabled}
               onChange={onDebtAutoPayChange}
             />
@@ -528,7 +538,7 @@ function DebtCard(props: {
           </div>
           <button
             className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
+            disabled={disabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
             onClick={onPayDebtPeriod}
             type="button"
           >
@@ -556,7 +566,7 @@ function DebtCard(props: {
             className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
             onChange={(event) => onNormalPetNameChange(event.target.value)}
             value={normalPetName}
-            disabled={hasOpenDebtContract}
+            disabled={contractCreationDisabled}
           >
             {DEBT_PET_NAMES.map((name) => (
               <option key={name} value={name}>
@@ -572,7 +582,7 @@ function DebtCard(props: {
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
               onChange={(event) => onNormalDebtPeriodTypeChange(event.target.value as "weekly" | "monthly")}
               value={normalDebtPeriodType}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             >
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
@@ -584,7 +594,7 @@ function DebtCard(props: {
               onChange={(event) => onNormalDebtAmountChange(event.target.value)}
               placeholder={`Min ${normalDebtMinimumPayment.toLocaleString()}`}
               value={normalDebtAmount}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
             <input
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
@@ -594,7 +604,7 @@ function DebtCard(props: {
               onChange={(event) => onNormalDebtDurationChange(event.target.value)}
               placeholder={`${normalDebtDurationLimit.label} ${normalDebtDurationLimit.min}-${normalDebtDurationLimit.max}`}
               value={normalDebtDuration}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
           </div>
           <p className="text-xs text-zinc-500">
@@ -602,7 +612,7 @@ function DebtCard(props: {
           </p>
           <button
             className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition enabled:hover:border-red-200/50 enabled:hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={hasOpenDebtContract || isPetActionPending("pet-debt-contract")}
+            disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}
             onClick={onRandomDebtSign}
             type="button"
           >
@@ -616,14 +626,14 @@ function DebtCard(props: {
           </p>
           <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
             <AutoPaymentSwitch
-              disabled={disabled || hasOpenDebtContract}
+              disabled={contractControlsDisabled || hasOpenDebtContract}
               enabled={isDebtAutoPayEnabled}
               onChange={onDebtAutoPayChange}
             />
           </div>
           <button
             className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={disabled || hasOpenDebtContract}
+            disabled={contractCreationDisabled}
             onClick={onSign}
             type="button"
           >
@@ -658,6 +668,7 @@ function EvilDebtCard(props: {
   hasOpenDebtContract: boolean;
   isDebtAutoPayEnabled: boolean;
   isPetActionPending: (actionId: string) => boolean;
+  isTimeoutActive: boolean;
   now: number;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onEvilAgeChange: (value: string) => void;
@@ -698,6 +709,7 @@ function EvilDebtCard(props: {
     hasOpenDebtContract,
     isDebtAutoPayEnabled,
     isPetActionPending,
+    isTimeoutActive,
     now,
     onDebtAutoPayChange,
     onEvilAgeChange,
@@ -717,6 +729,8 @@ function EvilDebtCard(props: {
   } = props;
 
   const showLockedState = hasOpenDebtContract && !active && petDebtContract;
+  const contractControlsDisabled = disabled || isTimeoutActive;
+  const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
     <article className="rounded-[1.5rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(69,10,10,0.5),rgba(0,0,0,0.8))] p-4 shadow-[0_0_28px_rgba(127,29,29,0.2)]">
@@ -760,7 +774,7 @@ function EvilDebtCard(props: {
             <>
               <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
                 <AutoPaymentSwitch
-                  disabled={disabled}
+                  disabled={contractControlsDisabled}
                   enabled={isDebtAutoPayEnabled}
                   onChange={onDebtAutoPayChange}
                 />
@@ -770,7 +784,7 @@ function EvilDebtCard(props: {
               </div>
               <button
                 className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!debtPaymentDue || isPetActionPending("pet-debt-contract")}
+                disabled={disabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
                 onClick={onPayDebtPeriod}
                 type="button"
               >
@@ -806,7 +820,7 @@ function EvilDebtCard(props: {
               onChange={(event) => onEvilFullNameChange(event.target.value)}
               placeholder="Full name"
               value={evilFullName}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
             <input
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
@@ -815,13 +829,13 @@ function EvilDebtCard(props: {
               placeholder="Age"
               type="number"
               value={evilAge}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
             <select
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
               onChange={(event) => onEvilTimezoneChange(event.target.value)}
               value={evilTimezone}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             >
               {EVIL_DEBT_TIMEZONE_OPTIONS.map((timezone) => (
                 <option key={timezone} value={timezone}>
@@ -836,7 +850,7 @@ function EvilDebtCard(props: {
             onChange={(event) => onEvilCustomNoteChange(event.target.value)}
             placeholder="Optional note"
             value={evilCustomNote}
-            disabled={hasOpenDebtContract}
+            disabled={contractCreationDisabled}
           />
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
             Optional note, max 240 characters.
@@ -849,7 +863,7 @@ function EvilDebtCard(props: {
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
               onChange={(event) => onEvilDebtPeriodTypeChange(event.target.value as "weekly" | "monthly")}
               value={evilDebtPeriodType}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             >
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
@@ -862,7 +876,7 @@ function EvilDebtCard(props: {
               placeholder={`Min ${evilDebtMinimumPayment.toLocaleString()}`}
               step={5000}
               value={evilDebtAmount}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
             <input
               className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
@@ -872,7 +886,7 @@ function EvilDebtCard(props: {
               onChange={(event) => onEvilDebtDurationChange(event.target.value)}
               placeholder={`${evilDebtDurationLimit.label} ${evilDebtDurationLimit.min}-${evilDebtDurationLimit.max}`}
               value={evilDebtDuration}
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
           </div>
           <label className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
@@ -883,7 +897,7 @@ function EvilDebtCard(props: {
               multiple
               onChange={(event) => void onEvilDebtImagesChange(event.target.files)}
               type="file"
-              disabled={hasOpenDebtContract}
+              disabled={contractCreationDisabled}
             />
           </label>
           {evilImageError && (
@@ -908,7 +922,7 @@ function EvilDebtCard(props: {
             onChange={(event) => onEvilConsentPrimaryChange(event.target.value)}
             placeholder={EVIL_CONSENT_PRIMARY_TEXT}
             value={evilConsentPrimary}
-            disabled={hasOpenDebtContract}
+            disabled={contractCreationDisabled}
           />
           <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
             Consent 1 must be typed exactly: {EVIL_CONSENT_PRIMARY_TEXT}
@@ -918,7 +932,7 @@ function EvilDebtCard(props: {
             onChange={(event) => onEvilConsentSecondaryChange(event.target.value)}
             placeholder={EVIL_CONSENT_SECONDARY_TEXT}
             value={evilConsentSecondary}
-            disabled={hasOpenDebtContract}
+            disabled={contractCreationDisabled}
           />
           <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
             Consent 2 must be typed exactly: {EVIL_CONSENT_SECONDARY_TEXT}
@@ -928,7 +942,7 @@ function EvilDebtCard(props: {
           </p>
           <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
             <AutoPaymentSwitch
-              disabled={disabled || hasOpenDebtContract}
+              disabled={contractControlsDisabled || hasOpenDebtContract}
               enabled={isDebtAutoPayEnabled}
               onChange={onDebtAutoPayChange}
             />
@@ -937,7 +951,7 @@ function EvilDebtCard(props: {
             className="rounded-2xl border border-red-200/25 bg-red-700/25 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-700/35 disabled:cursor-not-allowed disabled:opacity-40"
             onClick={onSign}
             type="button"
-            disabled={hasOpenDebtContract}
+            disabled={contractCreationDisabled}
           >
             Sign Evil Debt Contract
           </button>
