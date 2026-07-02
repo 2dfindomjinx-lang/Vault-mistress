@@ -8,11 +8,14 @@ export type LayeredBorderPattern =
   | "industrial-brush"
   | "laurel-columns"
   | "maple-fragments"
+  | "ottoman-filigree"
   | "neon-double-lines"
   | "nordic-cross"
+  | "chrome-command"
   | "racing-diagonals"
   | "sea-foam"
   | "soft-stars"
+  | "stadium-ribs"
   | "sunburst-rays"
   | "vertical-pinstripes"
   | "wave-ribbon";
@@ -20,6 +23,7 @@ export type LayeredBorderPattern =
 export type LayeredBorderMotif =
   | "crescent-star"
   | "rising-sun"
+  | "crescent-seal"
   | "sun-core"
   | "swiss-cross"
   | "tiny-stars"
@@ -395,36 +399,35 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     pattern: "racing-diagonals",
   },
   "profile-border-rotating-turkey-nt": {
-    animation: "flag-sheen",
-    baseGradient: "linear-gradient(180deg, #790016 0%, #a80022 34%, #c8102e 68%, #6c0011 100%)",
+    animation: "royal-shimmer",
+    baseGradient: "linear-gradient(165deg, #3d0812 0%, #6d0b1c 18%, #b1122f 52%, #6a0d1c 78%, #26050c 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(255,255,255,0.9) 0 8%, transparent 8% 92%, rgba(255,255,255,0.9) 92% 100%)",
+      "linear-gradient(90deg, rgba(216,180,106,0.9) 0 10%, transparent 10% 90%, rgba(216,180,106,0.9) 90% 100%), linear-gradient(180deg, rgba(240,232,219,0.12) 0 7%, transparent 7% 93%, rgba(216,180,106,0.22) 93% 100%)",
     innerStripe:
-      "linear-gradient(135deg, transparent 0 26%, rgba(255,255,255,0.88) 26% 38%, transparent 38% 100%), linear-gradient(90deg, transparent 0 14%, rgba(255,255,255,0.2) 14% 18%, transparent 18% 82%, rgba(255,255,255,0.2) 82% 86%, transparent 86% 100%)",
-    motif: "crescent-star",
-    outerGlow: "0 0 18px rgba(255,255,255,0.16), 0 0 26px rgba(200,16,46,0.26)",
-    pattern: "flag-ribbon",
+      "linear-gradient(90deg, transparent 0 12%, rgba(240,232,219,0.88) 12% 13.5%, rgba(216,180,106,0.9) 13.5% 16%, transparent 16% 84%, rgba(216,180,106,0.9) 84% 86.5%, rgba(240,232,219,0.88) 86.5% 88%, transparent 88% 100%), linear-gradient(180deg, transparent 0 14%, rgba(216,180,106,0.14) 14% 18%, transparent 18% 82%, rgba(216,180,106,0.14) 82% 86%, transparent 86% 100%)",
+    motif: "crescent-seal",
+    outerGlow: "0 0 18px rgba(177,18,47,0.34), 0 0 30px rgba(216,180,106,0.2)",
+    pattern: "ottoman-filigree",
   },
   "profile-border-rotating-union-berlin": {
     animation: "ember-flicker",
-    baseGradient: "linear-gradient(180deg, #451519 0%, #7a1e24 52%, #151313 100%)",
+    baseGradient: "linear-gradient(165deg, #09090a 0%, #151416 18%, #25191b 32%, #8b2028 66%, #121113 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(24,24,24,0.9) 0 8%, transparent 8% 92%, rgba(24,24,24,0.9) 92% 100%)",
+      "linear-gradient(135deg, rgba(200,183,161,0.8) 0 8%, transparent 8% 92%, rgba(139,32,40,0.55) 92% 100%), linear-gradient(225deg, rgba(200,183,161,0.65) 0 7%, transparent 7% 93%, rgba(18,17,19,0.88) 93% 100%)",
     innerStripe:
-      "linear-gradient(90deg, transparent 0 12%, rgba(76,76,76,0.72) 12% 15%, transparent 15% 85%, rgba(76,76,76,0.72) 85% 88%, transparent 88% 100%)",
-    outerGlow: "0 0 18px rgba(122,30,36,0.3), 0 0 24px rgba(28,28,28,0.18)",
-    pattern: "industrial-brush",
+      "linear-gradient(90deg, transparent 0 11%, rgba(200,183,161,0.45) 11% 12.5%, rgba(139,32,40,0.92) 12.5% 15%, transparent 15% 85%, rgba(139,32,40,0.92) 85% 87.5%, rgba(200,183,161,0.45) 87.5% 89%, transparent 89% 100%), linear-gradient(180deg, transparent 0 18%, rgba(255,255,255,0.05) 18% 20%, transparent 20% 80%, rgba(255,255,255,0.05) 80% 82%, transparent 82% 100%)",
+    outerGlow: "0 0 18px rgba(139,32,40,0.32), 0 0 26px rgba(200,183,161,0.12)",
+    pattern: "stadium-ribs",
   },
   "profile-border-rotating-usa-nt": {
-    animation: "flag-sheen",
-    baseGradient: "linear-gradient(180deg, #1f2852 0%, #2f3b75 46%, #b22234 100%)",
+    animation: "neon-pulse",
+    baseGradient: "linear-gradient(165deg, #f7fbff 0%, #bcc7d3 18%, #7f8b99 38%, #d7dee8 58%, #49525f 82%, #111823 100%)",
     cornerAccents:
-      "linear-gradient(90deg, rgba(31,40,82,0.96) 0 8%, transparent 8% 92%, rgba(31,40,82,0.96) 92% 100%)",
+      "linear-gradient(90deg, rgba(28,43,79,0.96) 0 7%, transparent 7% 93%, rgba(214,69,93,0.94) 93% 100%), linear-gradient(180deg, rgba(255,255,255,0.34) 0 8%, transparent 8% 92%, rgba(28,43,79,0.18) 92% 100%)",
     innerStripe:
-      "repeating-linear-gradient(180deg, rgba(178,34,52,0.96) 0 9px, rgba(255,255,255,0.96) 9px 17px, transparent 17px 24px), linear-gradient(90deg, rgba(31,40,82,0.92) 0 34%, transparent 34% 100%)",
-    motif: "tiny-stars",
-    outerGlow: "0 0 18px rgba(255,255,255,0.14), 0 0 26px rgba(60,59,110,0.2)",
-    pattern: "soft-stars",
+      "linear-gradient(90deg, transparent 0 10%, rgba(214,69,93,0.92) 10% 12%, transparent 12% 50%, rgba(62,143,255,0.82) 50% 52%, transparent 52% 88%, rgba(28,43,79,0.94) 88% 90%, transparent 90% 100%), repeating-linear-gradient(180deg, rgba(255,255,255,0.1) 0 10px, rgba(31,40,52,0.08) 10px 18px, transparent 18px 30px)",
+    outerGlow: "0 0 18px rgba(185,197,214,0.26), 0 0 28px rgba(62,143,255,0.16), 0 0 24px rgba(214,69,93,0.12)",
+    pattern: "chrome-command",
   },
   "profile-border-rotating-england-nt": {
     animation: "flag-sheen",

@@ -147,10 +147,59 @@ function resolvePattern(pattern: LayeredBorderPattern | undefined, vars: BorderV
           "linear-gradient(225deg, rgba(213,43,30,0.9) 0 8%, transparent 8% 100%)",
         ].join(", "),
       };
+    case "ottoman-filigree":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(180deg, rgba(255,255,255,0.05) 0 4px, transparent 4px 14px)",
+          svgDataUri(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+              <g fill="none" stroke="${withAlpha(accent, "99")}" stroke-linecap="round" stroke-width="2.4">
+                <path d="M24 44 C40 34 56 34 72 44 C56 58 40 58 24 44 Z"/>
+                <path d="M168 44 C184 34 200 34 216 44 C200 58 184 58 168 44 Z"/>
+                <path d="M24 316 C40 302 56 302 72 316 C56 330 40 330 24 316 Z"/>
+                <path d="M168 316 C184 302 200 302 216 316 C200 330 184 330 168 316 Z"/>
+                <path d="M42 96 C66 84 90 84 114 96"/>
+                <path d="M126 96 C150 84 174 84 198 96"/>
+                <path d="M42 264 C66 276 90 276 114 264"/>
+                <path d="M126 264 C150 276 174 276 198 264"/>
+              </g>
+              <g fill="${withAlpha(primary, "55")}">
+                <circle cx="52" cy="46" r="3.2"/>
+                <circle cx="188" cy="46" r="3.2"/>
+                <circle cx="52" cy="314" r="3.2"/>
+                <circle cx="188" cy="314" r="3.2"/>
+              </g>
+            </svg>
+          `),
+        ].join(", "),
+        backgroundSize: "100% 100%, 100% 100%",
+      };
     case "neon-double-lines":
       return {
         backgroundImage:
           "linear-gradient(90deg, transparent 0 24%, rgba(63,214,255,0.8) 24% 26%, transparent 26% 74%, rgba(63,214,255,0.8) 74% 76%, transparent 76% 100%)",
+      };
+    case "chrome-command":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(135deg, rgba(255,255,255,0.18) 0 8px, rgba(90,102,118,0.1) 8px 18px, transparent 18px 34px)",
+          svgDataUri(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+              <g fill="none" stroke="${withAlpha(secondary, "66")}" stroke-width="2">
+                <path d="M22 54 H218"/>
+                <path d="M34 76 H206"/>
+                <path d="M22 306 H218"/>
+                <path d="M34 284 H206"/>
+              </g>
+              <g fill="${withAlpha(primary, "88")}">
+                <polygon points="50,44 53,50 60,50 54.5,54.5 56.5,61 50,57 43.5,61 45.5,54.5 40,50 47,50"/>
+                <polygon points="74,44 77,50 84,50 78.5,54.5 80.5,61 74,57 67.5,61 69.5,54.5 64,50 71,50"/>
+                <polygon points="98,44 101,50 108,50 102.5,54.5 104.5,61 98,57 91.5,61 93.5,54.5 88,50 95,50"/>
+              </g>
+            </svg>
+          `),
+        ].join(", "),
+        backgroundSize: "150% 150%, 100% 100%",
       };
     case "nordic-cross":
       return {
@@ -179,6 +228,30 @@ function resolvePattern(pattern: LayeredBorderPattern | undefined, vars: BorderV
           "radial-gradient(circle at 26% 74%, rgba(255,255,255,0.22) 0 1.3%, transparent 1.5%)",
           "radial-gradient(circle at 82% 78%, rgba(255,255,255,0.22) 0 1.4%, transparent 1.6%)",
         ].join(", "),
+      };
+    case "stadium-ribs":
+      return {
+        backgroundImage: [
+          "repeating-linear-gradient(132deg, rgba(255,255,255,0.08) 0 14px, rgba(0,0,0,0.18) 14px 28px, transparent 28px 48px)",
+          svgDataUri(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+              <g fill="none" stroke="${withAlpha(accent, "55")}" stroke-width="3">
+                <path d="M20 68 L62 36"/>
+                <path d="M20 112 L84 52"/>
+                <path d="M20 156 L106 68"/>
+                <path d="M220 68 L178 36"/>
+                <path d="M220 112 L156 52"/>
+                <path d="M220 156 L134 68"/>
+              </g>
+              <g fill="none" stroke="${withAlpha(primary, "88")}" stroke-width="2.4">
+                <path d="M34 286 H206"/>
+                <path d="M48 306 H192"/>
+                <path d="M62 326 H178"/>
+              </g>
+            </svg>
+          `),
+        ].join(", "),
+        backgroundSize: "160% 160%, 100% 100%",
       };
     case "sunburst-rays":
       return {
@@ -217,6 +290,24 @@ function resolveMotif(motif: LayeredBorderMotif | undefined, vars: BorderVars) {
         `),
         backgroundRepeat: "no-repeat",
         backgroundPosition: "18% 18%",
+        backgroundSize: "32% 32%",
+      };
+    case "crescent-seal":
+      return {
+        backgroundImage: svgDataUri(`
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360">
+            <g transform="translate(0 0)">
+              <circle cx="120" cy="70" r="26" fill="${withAlpha(accent, "dd")}"/>
+              <circle cx="120" cy="70" r="20" fill="${withAlpha(secondary, "ee")}"/>
+              <circle cx="112" cy="70" r="11" fill="rgba(248,241,230,0.94)"/>
+              <circle cx="117" cy="70" r="9" fill="${secondary}"/>
+              <polygon points="128,60 131,67 139,67 133,72 135,80 128,75 121,80 123,72 117,67 125,67" fill="rgba(248,241,230,0.94)"/>
+              <path d="M93 98 C108 89 132 89 147 98" fill="none" stroke="${withAlpha(accent, "aa")}" stroke-width="2.2" stroke-linecap="round"/>
+            </g>
+          </svg>
+        `),
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center 12%",
         backgroundSize: "32% 32%",
       };
     case "rising-sun":

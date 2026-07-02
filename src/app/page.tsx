@@ -19,6 +19,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { PetSection } from "@/components/PetSection";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
+import { ProfileHeaderCustomizationPanel } from "@/components/ProfileHeaderCustomizationPanel";
 import { PublicProfileModal } from "@/components/PublicProfileModal";
 import {
   RecentTributesTicker,
@@ -81,7 +82,6 @@ import {
   type CommunityStatusResponse,
   type PublicCommunityProfile,
 } from "@/lib/prestige";
-import { getProfileFrameCosmeticTypeLabel, isProfileFrameCosmeticType } from "@/lib/profile-frame-cosmetics";
 import {
   buildShrineStatus,
   getShrineDevotionReward,
@@ -2436,26 +2436,34 @@ export default function Home() {
       })),
     [shrineStatus?.revealedMemories],
   );
-  const galleryItems =
-    affection >= 100
-      ? [
-          ...visibleGalleryItems,
-          secretGalleryItem,
-          ...sacrificeGalleryItems.filter((item) =>
-            unlockedGalleryIds.includes(item.id),
-          ),
-          ...shrineGalleryItems,
-        ]
-      : [
-          ...visibleGalleryItems,
-          ...sacrificeGalleryItems.filter((item) =>
-            unlockedGalleryIds.includes(item.id),
-          ),
-        ];
-  const visibleGallery = galleryItems.map((item) => ({
-    ...item,
-    unlocked: item.isShrineMemory ? true : unlockedGalleryIds.includes(item.id),
-  }));
+  const unlockedGalleryIdSet = useMemo(() => new Set(unlockedGalleryIds), [unlockedGalleryIds]);
+  const unlockedSacrificeGalleryItems = useMemo(
+    () => sacrificeGalleryItems.filter((item) => unlockedGalleryIdSet.has(item.id)),
+    [unlockedGalleryIdSet],
+  );
+  const galleryItems = useMemo(
+    () =>
+      affection >= 100
+        ? [
+            ...visibleGalleryItems,
+            secretGalleryItem,
+            ...unlockedSacrificeGalleryItems,
+            ...shrineGalleryItems,
+          ]
+        : [
+            ...visibleGalleryItems,
+            ...unlockedSacrificeGalleryItems,
+          ],
+    [affection, shrineGalleryItems, unlockedSacrificeGalleryItems],
+  );
+  const visibleGallery = useMemo(
+    () =>
+      galleryItems.map((item) => ({
+        ...item,
+        unlocked: item.isShrineMemory ? true : unlockedGalleryIdSet.has(item.id),
+      })),
+    [galleryItems, unlockedGalleryIdSet],
+  );
   const unseenShrineMemoryIds = useMemo(
     () =>
       shrineGalleryItems
@@ -2474,10 +2482,21 @@ export default function Home() {
     (spentCoins: number) => tributeTotal + Math.max(0, spentCoins),
     [tributeTotal],
   );
+  const eventMultiplierByType = useMemo(() => {
+    const multiplierMap = new Map<RandomEvent["effect"]["type"], number>();
+
+    for (const event of activeEvents) {
+      if (!multiplierMap.has(event.effect.type)) {
+        multiplierMap.set(event.effect.type, event.effect.multiplier);
+      }
+    }
+
+    return multiplierMap;
+  }, [activeEvents]);
   const getEventMultiplier = useCallback(
     (type: RandomEvent["effect"]["type"], fallback = 1) =>
-      activeEvents.find((event) => event.effect.type === type)?.effect.multiplier ?? fallback,
-    [activeEvents],
+      eventMultiplierByType.get(type) ?? fallback,
+    [eventMultiplierByType],
   );
   const getEventTaskReward = useCallback(
     (baseReward: number) =>
@@ -2503,70 +2522,88 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     (task) => task.id.startsWith("streak-bonus-") && task.completed && !task.claimed,
   );
   const todayKey = getGmt3DateKey();
-  const tasksCompletedToday = tasks.filter((task) => {
-    if (task.id.startsWith("streak-bonus-")) {
-      return false;
-    }
+  const tasksCompletedToday = useMemo(
+    () =>
+      tasks.filter((task) => {
+        if (task.id.startsWith("streak-bonus-")) {
+          return false;
+        }
 
-    if (task.id === "case-opening") {
-      return task.caseSpunAt ? getGmt3DateKey(task.caseSpunAt) === todayKey : false;
-    }
+        if (task.id === "case-opening") {
+          return task.caseSpunAt ? getGmt3DateKey(task.caseSpunAt) === todayKey : false;
+        }
 
-    if (task.id === "typing-accuracy" || task.id === "daily-login") {
-      return task.cooldownUntil ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey : false;
-    }
+        if (task.id === "typing-accuracy" || task.id === "daily-login") {
+          return task.cooldownUntil
+            ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey
+            : false;
+        }
 
-    if (task.id === "timeout-risk") {
-      return (task.safeWinsToday ?? 0) > 0;
-    }
+        if (task.id === "timeout-risk") {
+          return (task.safeWinsToday ?? 0) > 0;
+        }
 
-    if (task.id === "irl-task-wheel") {
-      return Boolean(task.assignedIrlDueAt && getGmt3DateKey(task.assignedIrlDueAt) === todayKey);
-    }
+        if (task.id === "irl-task-wheel") {
+          return Boolean(task.assignedIrlDueAt && getGmt3DateKey(task.assignedIrlDueAt) === todayKey);
+        }
 
-    const cooldownToday = task.cooldownUntil
-      ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey
-      : false;
+        const cooldownToday = task.cooldownUntil
+          ? getGmt3DateKey(new Date(new Date(task.cooldownUntil).getTime() - 1)) === todayKey
+          : false;
 
-    return cooldownToday || (task.completed && !task.claimed);
-  });
-  const taskCoinsEarnedToday = tasksCompletedToday.reduce((sum, task) => {
-    if (task.id === "case-opening") {
-      return sum + Math.max(0, task.caseReward ?? 0);
-    }
+        return cooldownToday || (task.completed && !task.claimed);
+      }),
+    [tasks, todayKey],
+  );
+  const taskCoinsEarnedToday = useMemo(
+    () =>
+      tasksCompletedToday.reduce((sum, task) => {
+        if (task.id === "case-opening") {
+          return sum + Math.max(0, task.caseReward ?? 0);
+        }
 
-    if (task.id === "timeout-risk") {
-      return sum + (task.safeWinsToday ?? 0) * eventSafeReward * (task.timeoutRiskMultiplier ?? 1);
-    }
+        if (task.id === "timeout-risk") {
+          return sum + (task.safeWinsToday ?? 0) * eventSafeReward * (task.timeoutRiskMultiplier ?? 1);
+        }
 
-    if (task.id === "irl-task-wheel") {
-      return sum;
-    }
+        if (task.id === "irl-task-wheel") {
+          return sum;
+        }
 
-    return sum + Math.max(0, getEventTaskReward(task.reward));
-  }, 0);
-  const petTasksCompletedToday = petTaskState.filter((task) => {
-    const approvedAt = task.reviewedAt ?? task.completedAt;
-    return approvedAt ? getGmt3DateKey(approvedAt) === todayKey : false;
-  });
-  const petCoinsEarnedToday = petTasksCompletedToday.reduce((sum, task) => {
-    if (task.kind === "weekly-tax") {
-      return sum;
-    }
-    if (task.kind === "favor-roulette") {
-      return sum + eventFavorCoinReward;
-    }
-    if (task.kind === "review") {
-      return sum + PET_REVIEW_TASK_COIN_REWARD;
-    }
-    if (task.kind === "throne-tribute") {
-      return sum + PET_REVIEW_TASK_COIN_REWARD;
-    }
-    if (task.kind === "daily-click") {
-      return sum + Math.min(PET_DAILY_CLICK_MAX_COIN_REWARD, task.clickRequirement ?? 0);
-    }
-    return sum + eventPetTaskCoinReward;
-  }, 0);
+        return sum + Math.max(0, getEventTaskReward(task.reward));
+      }, 0),
+    [eventSafeReward, getEventTaskReward, tasksCompletedToday],
+  );
+  const petTasksCompletedToday = useMemo(
+    () =>
+      petTaskState.filter((task) => {
+        const approvedAt = task.reviewedAt ?? task.completedAt;
+        return approvedAt ? getGmt3DateKey(approvedAt) === todayKey : false;
+      }),
+    [petTaskState, todayKey],
+  );
+  const petCoinsEarnedToday = useMemo(
+    () =>
+      petTasksCompletedToday.reduce((sum, task) => {
+        if (task.kind === "weekly-tax") {
+          return sum;
+        }
+        if (task.kind === "favor-roulette") {
+          return sum + eventFavorCoinReward;
+        }
+        if (task.kind === "review") {
+          return sum + PET_REVIEW_TASK_COIN_REWARD;
+        }
+        if (task.kind === "throne-tribute") {
+          return sum + PET_REVIEW_TASK_COIN_REWARD;
+        }
+        if (task.kind === "daily-click") {
+          return sum + Math.min(PET_DAILY_CLICK_MAX_COIN_REWARD, task.clickRequirement ?? 0);
+        }
+        return sum + eventPetTaskCoinReward;
+      }, 0),
+    [eventFavorCoinReward, eventPetTaskCoinReward, petTasksCompletedToday],
+  );
   const getReadableSpeechAvatarName = useCallback((avatarId: string | null | undefined) => {
     if (!avatarId) {
       return "Unknown Avatar";
@@ -9876,14 +9913,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     return grouped;
   }, [ownedProfileHeaderRotatingCosmetics]);
-  const equippedProfileHeaderItems = useMemo(
-    () =>
-      PROFILE_HEADER_COSMETIC_TYPE_ORDER.map((type) => {
-        const itemId = effectiveEquippedCosmeticIds[type];
-        return itemId ? getCosmeticItem(itemId) : null;
-      }).filter((item): item is CosmeticItem => Boolean(item)),
-    [effectiveEquippedCosmeticIds],
-  );
 
   // Group wardrobe items by their avatar slot category for cleaner UI
   const equippableByCategory = useMemo(() => {
@@ -11082,155 +11111,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100/70">
-                        Profile Header Customization
-                      </p>
-                      <h3 className="mt-1 text-xl font-black text-white">
-                        Manage your rotating header cosmetics
-                      </h3>
-                      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-                        Rotating Shop profile header items live here after purchase. Equip one item per category, or
-                        unequip any currently active header cosmetic whenever you want.
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-200/15 bg-amber-400/10 px-4 py-3 text-sm text-amber-50/85">
-                      <p className="font-semibold">
-                        Owned header cosmetics: {ownedProfileHeaderRotatingCosmetics.length}
-                      </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-100/65">
-                        Equipped now: {equippedProfileHeaderItems.length}
-                      </p>
-                    </div>
-                  </div>
-
-                  {ownedProfileHeaderRotatingCosmetics.length === 0 ? (
-                    <div className="mt-4 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-sm leading-6 text-zinc-400">
-                      You do not own any Profile Header cosmetics yet. Buy limited header items from the Rotating Shop
-                      to customize borders, ornaments, particles, and username presentation here.
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        {equippedProfileHeaderItems.length > 0 ? (
-                          equippedProfileHeaderItems.map((item) => (
-                            <span
-                              key={`equipped-header-${item.id}`}
-                              className="rounded-full border border-amber-200/25 bg-amber-400/12 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-amber-50"
-                            >
-                              {item.name}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
-                            No header cosmetic equipped
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid gap-4 xl:grid-cols-2">
-                        {PROFILE_HEADER_COSMETIC_TYPE_ORDER.map((type) => {
-                          const items = profileHeaderCosmeticsByType.get(type) ?? [];
-
-                          if (items.length === 0) {
-                            return null;
-                          }
-
-                          const equippedItemId = effectiveEquippedCosmeticIds[type];
-                          const label = isProfileFrameCosmeticType(type)
-                            ? getProfileFrameCosmeticTypeLabel(type)
-                            : type === "profile-border"
-                              ? "Profile Border"
-                              : type === "username-color"
-                                ? "Username Color"
-                                : "Username Glow";
-
-                          return (
-                            <div
-                              key={`header-cosmetics-${type}`}
-                              className="rounded-[1.2rem] border border-white/10 bg-black/25 p-3"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">
-                                    {label}
-                                  </p>
-                                  <p className="mt-1 text-xs text-zinc-500">{items.length} owned</p>
-                                </div>
-                                {equippedItemId ? (
-                                  <button
-                                    className="rounded-full border border-red-300/20 bg-red-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-red-100 transition hover:border-red-300/40 hover:bg-red-500/18 disabled:cursor-not-allowed disabled:opacity-40"
-                                    disabled={pendingTaskActionIds.includes(`cosmetic:unequip:${type}`)}
-                                    onClick={() => void handleUnequipCosmetic(type)}
-                                    type="button"
-                                  >
-                                    Unequip
-                                  </button>
-                                ) : (
-                                  <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
-                                    Empty
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="mt-3 grid gap-2">
-                                {items.map((item) => {
-                                  const isEquipped = equippedItemId === item.id;
-                                  const isPending =
-                                    pendingTaskActionIds.includes(`cosmetic:${item.id}`) ||
-                                    pendingTaskActionIds.includes(`cosmetic:unequip:${type}`);
-
-                                  return (
-                                    <div
-                                      key={`header-item-${item.id}`}
-                                      className={`rounded-[1rem] border px-3 py-3 ${
-                                        isEquipped
-                                          ? "border-amber-200/35 bg-amber-400/10"
-                                          : "border-white/10 bg-black/20"
-                                      }`}
-                                    >
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                          <div className="flex items-center gap-2">
-                                            <p
-                                              className="truncate text-sm font-black text-white"
-                                              style={{
-                                                color: item.type === "username-color" ? item.color : undefined,
-                                                textShadow: item.type === "username-glow" ? item.glow : undefined,
-                                              }}
-                                            >
-                                              {item.name}
-                                            </p>
-                                            {isEquipped ? (
-                                              <span className="rounded-full border border-amber-200/25 bg-amber-400/12 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-50">
-                                                Equipped
-                                              </span>
-                                            ) : null}
-                                          </div>
-                                          <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
-                                        </div>
-                                        <button
-                                          className="shrink-0 rounded-xl border border-amber-200/22 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-400/18 disabled:cursor-not-allowed disabled:opacity-40"
-                                          disabled={isPending || isEquipped}
-                                          onClick={() => void handleEquipCosmetic(item)}
-                                          type="button"
-                                        >
-                                          {isPending ? "Saving..." : isEquipped ? "Equipped" : "Equip"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ProfileHeaderCustomizationPanel
+                  currentTitle={equippedTitle?.name}
+                  displayName={effectiveDisplayName}
+                  equippedAvatarSlots={equippedAvatarSlots}
+                  equippedCosmeticIds={effectiveEquippedCosmeticIds}
+                  hasUncensoredAvatar={hasUncensoredAvatar}
+                  ownedItems={ownedProfileHeaderRotatingCosmetics}
+                  ownedItemsByType={profileHeaderCosmeticsByType}
+                  pendingActionIds={pendingTaskActionIds}
+                  typeOrder={PROFILE_HEADER_COSMETIC_TYPE_ORDER}
+                  username={username}
+                  usernameStyle={usernameStyle}
+                  onEquipItem={handleEquipCosmetic}
+                  onUnequipType={handleUnequipCosmetic}
+                />
               </section>
             </div>
           )}

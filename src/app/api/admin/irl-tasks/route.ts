@@ -1,3 +1,4 @@
+import { listAdminIrlTasks } from "@/lib/admin-irl-tasks";
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { requireAdminProfile } from "@/lib/admin-guard";
 import {
@@ -344,41 +345,15 @@ export async function POST(request: Request) {
     console.error("Admin IRL reviewed task cleanup failed", cleanupError);
   }
 
-  const { data, error } = await supabase
-    .from("user_irl_tasks")
-    .select("id, user_id, task_label, task_description, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at")
-    .eq("status", "assigned")
-    .order("assigned_at", { ascending: false })
-    .limit(ADMIN_IRL_TASK_LIST_LIMIT);
+  try {
+    const tasks = await listAdminIrlTasks(supabase, {
+      limit: ADMIN_IRL_TASK_LIST_LIMIT,
+      select:
+        "id, user_id, task_label, task_description, wheel_index, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, shamed_at, assigned_at",
+    });
 
-  if (error) {
-    console.error("Admin IRL task list failed", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ tasks });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "IRL task list failed." }, { status: 500 });
   }
-
-  const userIds = Array.from(new Set((data ?? []).map((entry) => entry.user_id)));
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, username, timeout_until")
-    .in("id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  if (profileError) {
-    console.error("Admin IRL task profile lookup failed", profileError);
-  }
-
-  const profileMap = new Map(
-    (profiles ?? []).map((profile) => [profile.id, profile]),
-  );
-
-  return Response.json({
-    tasks: (data ?? []).map((entry) => {
-      const profile = profileMap.get(entry.user_id);
-
-      return {
-        ...entry,
-        timeout_until: profile?.timeout_until ?? null,
-        username: profile?.username ?? "@unknown",
-      };
-    }),
-  });
 }

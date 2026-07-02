@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const WALLPAPER_BASE_URL = "https://vault-mistress.vercel.app/wallpapers/pool";
-const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 const MAX_POOL_SIZE = 200;
 
 function wallpaperFileName(index: number) {
@@ -29,11 +29,12 @@ function getAvailableWallpapers() {
 export async function GET() {
   const availableWallpapers = getAvailableWallpapers();
   const nowMs = Date.now();
-  const windowNumber = Math.floor(nowMs / FOUR_HOURS_MS);
-  const windowStartMs = windowNumber * FOUR_HOURS_MS;
-  const nextWindowStartMs = windowStartMs + FOUR_HOURS_MS;
+  const windowNumber = Math.floor(nowMs / THREE_HOURS_MS);
+  const windowStartMs = windowNumber * THREE_HOURS_MS;
+  const nextWindowStartMs = windowStartMs + THREE_HOURS_MS;
   const updatedAt = new Date(windowStartMs).toISOString();
   const nextUpdateAt = new Date(nextWindowStartMs).toISOString();
+  const secondsUntilNextWindow = Math.max(1, Math.ceil((nextWindowStartMs - nowMs) / 1000));
 
   if (availableWallpapers.length === 0) {
     return Response.json(
@@ -58,7 +59,7 @@ export async function GET() {
     },
     {
       headers: {
-        "Cache-Control": "public, s-maxage=14400, stale-while-revalidate=3600",
+        "Cache-Control": `public, s-maxage=${secondsUntilNextWindow}, stale-while-revalidate=60`,
       },
     },
   );

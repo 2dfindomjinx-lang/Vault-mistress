@@ -74,6 +74,12 @@ function getTopUserId(metricMap: Map<string, number>) {
     .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]))[0]?.[0] ?? null;
 }
 
+function getTopVisibleUserId(metricMap: Map<string, number>, hiddenUserIds: Set<string>) {
+  return Array.from(metricMap.entries())
+    .filter(([userId]) => !hiddenUserIds.has(userId))
+    .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]))[0]?.[0] ?? null;
+}
+
 function getTopValue(metricMap: Map<string, number>, userId: string | null) {
   return userId ? metricMap.get(userId) ?? 0 : 0;
 }
@@ -119,6 +125,7 @@ export async function GET() {
     supabase
       .from("profiles")
       .select("id, loyalty_streak")
+      .eq("hide_from_leaderboard", false)
       .order("loyalty_streak", { ascending: false })
       .limit(10),
     supabase
@@ -177,13 +184,41 @@ export async function GET() {
   const devotionMonth = sumSimpleMetricByUser(devotionRows, monthStartMs, nowMs + 1, (row) => Number(row.amount ?? 0));
   const longestStreakUserId = streakRows
     .sort((first, second) => Number(second.loyalty_streak ?? 0) - Number(first.loyalty_streak ?? 0))[0]?.id ?? null;
+  const candidateWinnerIds = Array.from(new Set([
+    ...supporterToday.keys(),
+    ...supporterWeek.keys(),
+    ...supporterMonth.keys(),
+    ...devotionToday.keys(),
+    ...devotionMonth.keys(),
+    ...streakRows.map((row) => row.id),
+  ]));
+  const hiddenProfilesResult = candidateWinnerIds.length
+    ? await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", candidateWinnerIds)
+      .eq("hide_from_leaderboard", true)
+    : { data: [], error: null };
+
+  if (hiddenProfilesResult.error) {
+    return jsonError(hiddenProfilesResult.error.message, 500);
+  }
+
+  const hiddenUserIds = new Set((hiddenProfilesResult.data ?? []).map((row) => row.id));
+  const supporterTodayUserId = getTopVisibleUserId(supporterToday, hiddenUserIds);
+  const supporterWeekUserId = getTopVisibleUserId(supporterWeek, hiddenUserIds);
+  const supporterMonthUserId = getTopVisibleUserId(supporterMonth, hiddenUserIds);
+  const devotionTodayUserId = getTopVisibleUserId(devotionToday, hiddenUserIds);
+  const devotionMonthUserId = getTopVisibleUserId(devotionMonth, hiddenUserIds);
+  const visibleLongestStreakUserId =
+    longestStreakUserId && !hiddenUserIds.has(longestStreakUserId) ? longestStreakUserId : null;
   const allWinnerIds = [
-    getTopUserId(supporterToday),
-    getTopUserId(supporterWeek),
-    getTopUserId(supporterMonth),
-    getTopUserId(devotionToday),
-    getTopUserId(devotionMonth),
-    longestStreakUserId,
+    supporterTodayUserId,
+    supporterWeekUserId,
+    supporterMonthUserId,
+    devotionTodayUserId,
+    devotionMonthUserId,
+    visibleLongestStreakUserId,
   ].filter((id): id is string => Boolean(id));
 
   const profiles = await loadCommunityProfiles(supabase, allWinnerIds);
@@ -192,49 +227,49 @@ export async function GET() {
       id: "supporter-today",
       title: "Biggest Supporter Today",
       metricLabel: "Supported today",
-      metricValue: getTopValue(supporterToday, getTopUserId(supporterToday)),
-      valueDisplay: getTopValue(supporterToday, getTopUserId(supporterToday)).toLocaleString(),
-      winner: profiles.get(getTopUserId(supporterToday) ?? "") ?? null,
+      metricValue: getTopValue(supporterToday, supporterTodayUserId),
+      valueDisplay: getTopValue(supporterToday, supporterTodayUserId).toLocaleString(),
+      winner: profiles.get(supporterTodayUserId ?? "") ?? null,
     },
     {
       id: "supporter-week",
       title: "Biggest Supporter This Week",
       metricLabel: "Supported this week",
-      metricValue: getTopValue(supporterWeek, getTopUserId(supporterWeek)),
-      valueDisplay: getTopValue(supporterWeek, getTopUserId(supporterWeek)).toLocaleString(),
-      winner: profiles.get(getTopUserId(supporterWeek) ?? "") ?? null,
+      metricValue: getTopValue(supporterWeek, supporterWeekUserId),
+      valueDisplay: getTopValue(supporterWeek, supporterWeekUserId).toLocaleString(),
+      winner: profiles.get(supporterWeekUserId ?? "") ?? null,
     },
     {
       id: "supporter-month",
       title: "Biggest Supporter This Month",
       metricLabel: "Supported this month",
-      metricValue: getTopValue(supporterMonth, getTopUserId(supporterMonth)),
-      valueDisplay: getTopValue(supporterMonth, getTopUserId(supporterMonth)).toLocaleString(),
-      winner: profiles.get(getTopUserId(supporterMonth) ?? "") ?? null,
+      metricValue: getTopValue(supporterMonth, supporterMonthUserId),
+      valueDisplay: getTopValue(supporterMonth, supporterMonthUserId).toLocaleString(),
+      winner: profiles.get(supporterMonthUserId ?? "") ?? null,
     },
     {
       id: "devotion-today",
       title: "Highest Devotion Today",
       metricLabel: "Devotion today",
-      metricValue: getTopValue(devotionToday, getTopUserId(devotionToday)),
-      valueDisplay: getTopValue(devotionToday, getTopUserId(devotionToday)).toLocaleString(),
-      winner: profiles.get(getTopUserId(devotionToday) ?? "") ?? null,
+      metricValue: getTopValue(devotionToday, devotionTodayUserId),
+      valueDisplay: getTopValue(devotionToday, devotionTodayUserId).toLocaleString(),
+      winner: profiles.get(devotionTodayUserId ?? "") ?? null,
     },
     {
       id: "devotion-month",
       title: "Highest Devotion This Month",
       metricLabel: "Devotion this month",
-      metricValue: getTopValue(devotionMonth, getTopUserId(devotionMonth)),
-      valueDisplay: getTopValue(devotionMonth, getTopUserId(devotionMonth)).toLocaleString(),
-      winner: profiles.get(getTopUserId(devotionMonth) ?? "") ?? null,
+      metricValue: getTopValue(devotionMonth, devotionMonthUserId),
+      valueDisplay: getTopValue(devotionMonth, devotionMonthUserId).toLocaleString(),
+      winner: profiles.get(devotionMonthUserId ?? "") ?? null,
     },
     {
       id: "login-streak",
       title: "Longest Login Streak",
       metricLabel: "Current streak",
-      metricValue: profiles.get(longestStreakUserId ?? "")?.loyaltyStreak ?? 0,
-      valueDisplay: `${(profiles.get(longestStreakUserId ?? "")?.loyaltyStreak ?? 0).toLocaleString()} days`,
-      winner: profiles.get(longestStreakUserId ?? "") ?? null,
+      metricValue: profiles.get(visibleLongestStreakUserId ?? "")?.loyaltyStreak ?? 0,
+      valueDisplay: `${(profiles.get(visibleLongestStreakUserId ?? "")?.loyaltyStreak ?? 0).toLocaleString()} days`,
+      winner: profiles.get(visibleLongestStreakUserId ?? "") ?? null,
     },
   ];
   const communityGoal = buildCommunityGoalStatus(currentGoal, goalRows, authData.user.id);

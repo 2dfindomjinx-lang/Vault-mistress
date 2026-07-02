@@ -35,15 +35,18 @@ export type ProfileBorderStyle =
   | "fleur-royale"
   | "sun-ember"
   | "crescent-trail"
+  | "crescent-luxe"
   | "nordic-cross"
   | "scandi-geo"
   | "crystal-glass"
   | "ice-crystal"
   | "starfield"
+  | "chrome-command"
   | "maple-corners"
   | "sun-rays"
   | "tropical-leaves"
-  | "sakura-sun";
+  | "sakura-sun"
+  | "stadium-steel";
 
 export type ProfileBorderCatalogItem = {
   id: string;
@@ -160,11 +163,11 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-union-berlin",
     name: "Union Berlin Border",
-    description: "Dark red steel with an industrial grit and colder metallic pressure.",
+    description: "Blackened stadium steel cut by Union red light channels and hard industrial geometry.",
     price: 10000,
-    color: "#7A1E24",
-    borderPalette: ["#7A1E24", "#2F2A2C", "#9E9B97"],
-    borderStyle: "industrial-steel",
+    color: "#8B2028",
+    borderPalette: ["#8B2028", "#161416", "#C8B7A1"],
+    borderStyle: "stadium-steel",
   }),
   footballBorder({
     id: "profile-border-rotating-inter-milan",
@@ -376,11 +379,11 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-turkey-nt",
     name: "Turkiye National Border",
-    description: "A bold red field lit by a crescent-star trail moving through the border.",
+    description: "Metallic crimson luxury with engraved crescent-star detailing and restrained Ottoman-inspired goldwork.",
     price: 10000,
-    color: "#C8102E",
-    borderPalette: ["#C8102E", "#8A0018", "#FFFFFF"],
-    borderStyle: "crescent-trail",
+    color: "#B1122F",
+    borderPalette: ["#B1122F", "#4A0A16", "#D8B46A"],
+    borderStyle: "crescent-luxe",
   }),
   footballBorder({
     id: "profile-border-rotating-austria-nt",
@@ -448,11 +451,11 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-usa-nt",
     name: "United States National Border",
-    description: "Navy, red, and white layered with a subtle premium starfield.",
+    description: "Brushed chrome framed by red-blue light rails, etched stars, and a modern command-panel finish.",
     price: 10000,
-    color: "#3C3B6E",
-    borderPalette: ["#3C3B6E", "#B22234", "#FFFFFF"],
-    borderStyle: "starfield",
+    color: "#B9C5D6",
+    borderPalette: ["#B9C5D6", "#1C2B4F", "#D6455D"],
+    borderStyle: "chrome-command",
   }),
   footballBorder({
     id: "profile-border-rotating-canada-nt",

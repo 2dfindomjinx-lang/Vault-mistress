@@ -1,32 +1,18 @@
+import { listAdminIrlTasks } from "@/lib/admin-irl-tasks";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function listIrlTasks(supabase: SupabaseClient) {
-  const { data, error } = await supabase
-    .from("user_irl_tasks")
-    .select("id, user_id, task_label, task_description, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, assigned_at")
-    .eq("status", "assigned")
-    .order("assigned_at", { ascending: false })
-    .limit(100);
-  if (error) throw error;
+const MOBILE_ADMIN_IRL_TASK_SELECT =
+  "id, user_id, task_label, task_description, cost_coins, status, due_at, penalty_timeout_minutes, completed_at, reviewed_at, assigned_at";
 
-  const rows = (data ?? []) as Array<Record<string, unknown> & { user_id: string }>;
-  const userIds = Array.from(new Set(rows.map((entry) => entry.user_id)));
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, username, timeout_until")
-    .in("id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]);
-  const profileRows = (profiles ?? []) as Array<{ id: string; timeout_until: string | null; username: string }>;
-  const profileMap = new Map(profileRows.map((profile) => [profile.id, profile]));
-
-  return rows.map((task) => {
-    const profile = profileMap.get(task.user_id);
-    return { ...task, username: profile?.username ?? "@unknown", timeout_until: profile?.timeout_until ?? null };
+async function listIrlTasks(supabase: Parameters<typeof listAdminIrlTasks>[0]) {
+  return listAdminIrlTasks(supabase, {
+    limit: 100,
+    select: MOBILE_ADMIN_IRL_TASK_SELECT,
   });
 }
 

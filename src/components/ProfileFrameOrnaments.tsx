@@ -15,7 +15,6 @@ import {
   getProfileFrameDecorationDefinition,
   isProfileFrameCosmeticType,
   resolveFrameAttachment,
-  type FrameAttachmentAnchor,
   type ProfileFrameDecorationDefinition,
 } from "@/lib/profile-frame-cosmetics";
 
@@ -298,6 +297,467 @@ function RoseCluster({ definition }: { definition: ProfileFrameDecorationDefinit
       <path d="M80 257 C78 253 74 252 69 254 C72 260 76 262 80 257 Z" fill={palette.metal} />
       <path d="M100 257 C102 253 106 252 111 254 C108 260 104 262 100 257 Z" fill={palette.metal} />
       <path d="M89 252 L89 271" stroke={palette.metal} strokeWidth="2.2" />
+    </g>
+  );
+}
+
+function FestoonMedallion({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g>
+      <path
+        d="M-50 -6 C-35 3 -22 7 -8 6"
+        fill="none"
+        stroke={withAlpha(palette.metal, "d8")}
+        strokeLinecap="round"
+        strokeWidth="2.4"
+      />
+      <path
+        d="M50 -6 C35 3 22 7 8 6"
+        fill="none"
+        stroke={withAlpha(palette.metal, "d8")}
+        strokeLinecap="round"
+        strokeWidth="2.4"
+      />
+      <path
+        d="M-56 -10 C-46 -18 -33 -17 -24 -9 C-29 -1 -39 2 -50 -1 Z"
+        fill={palette.primary}
+        stroke={palette.accent}
+        strokeWidth="1.6"
+      />
+      <path
+        d="M56 -10 C46 -18 33 -17 24 -9 C29 -1 39 2 50 -1 Z"
+        fill={palette.secondary}
+        stroke={palette.accent}
+        strokeWidth="1.6"
+      />
+      <circle cx="0" cy="-2" fill={palette.primary} r="15.5" stroke={palette.metal} strokeWidth="2" />
+      <circle cx="0" cy="-2" fill={withAlpha(palette.secondary, "84")} r="10.5" />
+      <path
+        d="M0 -11 L4 -3 L13 -2 L6 4 L8 13 L0 8 L-8 13 L-6 4 L-13 -2 L-4 -3 Z"
+        fill={palette.metal}
+      />
+      <circle cx="-29" cy="10" fill={palette.metal} r="3.1" />
+      <circle cx="29" cy="10" fill={palette.metal} r="3.1" />
+      <path d="M-29 13 L-29 28" stroke={palette.metal} strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M29 13 L29 28" stroke={palette.metal} strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M0 14 L0 34" stroke={palette.metal} strokeWidth="2" strokeLinecap="round" />
+      <path d="M-35 30 L-29 24 L-23 30 Z" fill={palette.accent} />
+      <path d="M23 30 L29 24 L35 30 Z" fill={palette.accent} />
+      <path d="M-8 36 L0 24 L8 36 Z" fill={palette.accent} />
+    </g>
+  );
+}
+
+function JeweledLocket({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g>
+      <path
+        d="M-49 -6 C-33 -20 -18 -18 -7 -7 C-18 1 -31 5 -44 6 Z"
+        fill={palette.primary}
+        stroke={palette.metal}
+        strokeWidth="1.5"
+      />
+      <path
+        d="M49 -6 C33 -20 18 -18 7 -7 C18 1 31 5 44 6 Z"
+        fill={palette.secondary}
+        stroke={palette.metal}
+        strokeWidth="1.5"
+      />
+      <path
+        d="M-18 -16 H18 L24 -5 L18 15 H-18 L-24 -5 Z"
+        fill={withAlpha(palette.primary, "ea")}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <rect x="-12" y="-8" width="24" height="16" rx="4" fill={withAlpha(palette.secondary, "92")} />
+      <circle cx="0" cy="-5" fill={palette.metal} r="3.4" />
+      <path d="M-7 0 H7" stroke={palette.accent} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M0 15 L0 27" stroke={palette.metal} strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M0 42 C-7.6 35.8 -12.4 30.8 -12.4 25.6 C-12.4 21.3 -9 18 -5 18 C-2.7 18 -0.9 19 -0.1 20.4 C0.9 19 2.7 18 5 18 C9 18 12.4 21.3 12.4 25.6 C12.4 30.8 7.6 35.8 0 42 Z"
+        fill={palette.accent}
+        stroke={palette.metal}
+        strokeWidth="1.5"
+      />
+    </g>
+  );
+}
+
+function CathedralTassel({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g>
+      <path
+        d="M-34 -2 C-24 -14 -12 -20 0 -20 C12 -20 24 -14 34 -2"
+        fill="none"
+        stroke={withAlpha(palette.accent, "b8")}
+        strokeLinecap="round"
+        strokeWidth="2.3"
+      />
+      <path
+        d="M-24 -2 C-15 -11 -8 -15 0 -15 C8 -15 15 -11 24 -2"
+        fill="none"
+        stroke={withAlpha(palette.metal, "d6")}
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M-16 -3 L-6 18 L0 8 L6 18 L16 -3 Z"
+        fill={palette.primary}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <circle cx="0" cy="-2" fill={palette.metal} r="5.2" />
+      <circle cx="0" cy="-2" fill={palette.accent} r="2.3" />
+      <path d="M-8 18 V38 M0 10 V44 M8 18 V38" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.8" />
+      <path d="M-11 38 L-7 48 L-3 38 Z" fill={palette.secondary} />
+      <path d="M-4 44 L0 56 L4 44 Z" fill={palette.accent} />
+      <path d="M3 38 L7 48 L11 38 Z" fill={palette.secondary} />
+    </g>
+  );
+}
+
+function OperaRoseSwag({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g>
+      <path
+        d="M-47 -3 C-31 8 -17 12 0 12 C17 12 31 8 47 -3"
+        fill="none"
+        stroke={withAlpha(palette.metal, "ca")}
+        strokeLinecap="round"
+        strokeWidth="2.1"
+      />
+      <path
+        d="M-24 15 C-14 22 -6 24 0 24 C6 24 14 22 24 15"
+        fill="none"
+        stroke={withAlpha(palette.accent, "bc")}
+        strokeLinecap="round"
+        strokeWidth="1.7"
+      />
+      <ellipse cx="-26" cy="-2" fill={palette.primary} rx="9.2" ry="8.4" />
+      <ellipse cx="0" cy="-8" fill={palette.secondary} rx="10.5" ry="9.4" />
+      <ellipse cx="26" cy="-2" fill={palette.primary} rx="9.2" ry="8.4" />
+      <path d="M-30 -2 C-27 -6 -24 -6 -21 -2 C-24 2 -27 2 -30 -2 Z" fill={palette.accent} />
+      <path d="M-4 -8 C-1 -13 2 -13 5 -8 C2 -3 -1 -3 -4 -8 Z" fill={palette.accent} />
+      <path d="M22 -2 C25 -6 28 -6 31 -2 C28 2 25 2 22 -2 Z" fill={palette.accent} />
+      <path d="M-17 11 C-20 6 -25 6 -31 10 C-28 17 -22 18 -17 11 Z" fill={palette.metal} />
+      <path d="M17 11 C20 6 25 6 31 10 C28 17 22 18 17 11 Z" fill={palette.metal} />
+      <circle cx="0" cy="25" fill={palette.metal} r="3.1" />
+      <path d="M0 28 V38" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.7" />
+      <path d="M-6 39 L0 31 L6 39 Z" fill={palette.secondary} />
+    </g>
+  );
+}
+
+function CornerFiligree({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  const renderCorner = (mirror = false) => (
+    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      <path
+        d="M11 249 C11 233 17 223 30 217 C25 226 25 233 29 240 C35 236 42 236 48 239 C38 241 31 248 27 256 C21 256 15 254 11 249 Z"
+        fill={withAlpha(palette.primary, "df")}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M17 250 C20 241 26 235 36 231"
+        fill="none"
+        stroke={withAlpha(palette.accent, "c4")}
+        strokeLinecap="round"
+        strokeWidth="1.6"
+      />
+      <circle cx="26" cy="245" fill={palette.metal} r="2.8" />
+      <path d="M32 243 C35 239 39 238 43 240" fill="none" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.4" />
+    </g>
+  );
+
+  return (
+    <g>
+      {renderCorner(false)}
+      {renderCorner(true)}
+    </g>
+  );
+}
+
+function CornerClaws({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  const renderCorner = (mirror = false) => (
+    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      <path
+        d="M8 246 L18 229 L35 221 L30 236 L42 243 L27 247 L18 260 Z"
+        fill={palette.primary}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path d="M18 232 L25 242 L18 252" fill="none" stroke={withAlpha(palette.accent, "c8")} strokeWidth="1.5" />
+      <path
+        d="M28 239 L34 244 L28 249 L22 244 Z"
+        fill={palette.secondary}
+        stroke={palette.metal}
+        strokeWidth="1.3"
+      />
+      <circle cx="28" cy="244" fill={palette.accent} r="2.1" />
+    </g>
+  );
+
+  return (
+    <g>
+      {renderCorner(false)}
+      {renderCorner(true)}
+    </g>
+  );
+}
+
+function CornerRosettes({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  const renderCorner = (mirror = false) => (
+    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      <ellipse cx="22" cy="247" fill={palette.primary} rx="8" ry="7.4" />
+      <ellipse cx="33" cy="239" fill={palette.secondary} rx="7.2" ry="6.7" />
+      <path d="M18 247 C21 243 24 243 26 247 C24 250 21 251 18 247 Z" fill={palette.accent} />
+      <path d="M30 239 C32 235 35 235 37 239 C35 242 32 243 30 239 Z" fill={palette.accent} />
+      <path d="M10 254 C13 248 18 247 24 249 C20 258 15 260 10 254 Z" fill={palette.metal} />
+      <path d="M29 249 C33 244 39 243 45 247 C39 255 34 256 29 249 Z" fill={withAlpha(palette.metal, "d2")} />
+    </g>
+  );
+
+  return (
+    <g>
+      {renderCorner(false)}
+      {renderCorner(true)}
+    </g>
+  );
+}
+
+function CornerGems({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  const renderCorner = (mirror = false) => (
+    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      <path
+        d="M11 249 L20 231 L38 225 L47 239 L35 252 L16 258 Z"
+        fill={withAlpha(palette.primary, "da")}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M22 237 L30 232 L39 238 L34 247 L24 247 Z"
+        fill={palette.secondary}
+        stroke={withAlpha(palette.accent, "c8")}
+        strokeWidth="1.3"
+      />
+      <circle cx="29" cy="240" fill={palette.accent} r="2.4" />
+      <path d="M17 259 L29 248 L40 250" fill="none" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.5" />
+    </g>
+  );
+
+  return (
+    <g>
+      {renderCorner(false)}
+      {renderCorner(true)}
+    </g>
+  );
+}
+
+function TopTiara({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const palette = getPalette(definition);
+  const s = previewMode === "shop" ? 0.92 : 1;
+
+  return (
+    <g transform={`scale(${s})`}>
+      <path
+        d="M-24 -4 C-16 -15 -8 -18 0 -18 C8 -18 16 -15 24 -4 L24 2 H-24 Z"
+        fill={palette.primary}
+        stroke={palette.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path d="M-20 -4 L-12 -18 L-5 -7 L0 -22 L5 -7 L12 -18 L20 -4" fill="none" stroke={palette.metal} strokeWidth="1.6" />
+      <circle cx="-12" cy="-17" fill={palette.accent} r="2.3" />
+      <circle cx="0" cy="-22" fill={palette.accent} r="2.8" />
+      <circle cx="12" cy="-17" fill={palette.accent} r="2.3" />
+    </g>
+  );
+}
+
+function TopMedallion({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const palette = getPalette(definition);
+  const s = previewMode === "shop" ? 0.9 : 1;
+
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M-16 -10 C-10 -20 -4 -24 0 -24 C4 -24 10 -20 16 -10" fill="none" stroke={palette.metal} strokeWidth="1.5" />
+      <path
+        d="M0 -25 C7 -25 13 -19 13 -10 C13 -3 7 2 0 3 C-7 2 -13 -3 -13 -10 C-13 -19 -7 -25 0 -25 Z"
+        fill={palette.primary}
+        stroke={palette.metal}
+        strokeWidth="1.8"
+      />
+      <path
+        d="M0 -18 C4.6 -18 8.4 -14.7 8.4 -10.2 C8.4 -5.4 4.7 -2.3 0 -0.2 C-4.7 -2.3 -8.4 -5.4 -8.4 -10.2 C-8.4 -14.7 -4.6 -18 0 -18 Z"
+        fill={palette.accent}
+      />
+      <circle cx="0" cy="-20.5" fill={palette.metal} r="2.3" />
+    </g>
+  );
+}
+
+function TopHalo({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const palette = getPalette(definition);
+  const s = previewMode === "shop" ? 0.9 : 1;
+
+  return (
+    <g transform={`scale(${s})`}>
+      <path
+        d="M0 -29 L4 -22 L11 -24 L9 -17 L16 -15 L10 -10 L15 -4 L7 -4 L5 3 L0 -3 L-5 3 L-7 -4 L-15 -4 L-10 -10 L-16 -15 L-9 -17 L-11 -24 L-4 -22 Z"
+        fill={palette.metal}
+      />
+      <circle cx="0" cy="-13" fill={palette.primary} r="9.5" stroke={palette.accent} strokeWidth="1.8" />
+      <circle cx="0" cy="-13" fill={palette.secondary} r="4.2" />
+    </g>
+  );
+}
+
+function TopAigrette({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const palette = getPalette(definition);
+  const s = previewMode === "shop" ? 0.92 : 1;
+
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M0 1 L0 -8" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
+      <path d="M0 -7 C-4 -15 -7 -22 -7 -31 C-1 -26 3 -20 4 -11" fill={palette.primary} />
+      <path d="M2 -8 C7 -16 10 -22 12 -30 C6 -25 2 -18 -1 -10" fill={palette.secondary} />
+      <path d="M-2 -6 C-8 -13 -13 -17 -17 -21 C-13 -12 -9 -7 -3 -4" fill={withAlpha(palette.accent, "cc")} />
+      <circle cx="0" cy="-4" fill={palette.metal} r="4.4" />
+      <circle cx="0" cy="-4" fill={palette.accent} r="2" />
+    </g>
+  );
+}
+
+function OverlayBeadVeil({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+  const strands = [-50, -34, -18, 0, 18, 34, 50];
+
+  return (
+    <g opacity="0.9">
+      <path d="M-60 4 C-38 0 -16 -1 0 -1 C16 -1 38 0 60 4" fill="none" stroke={withAlpha(palette.metal, "c8")} strokeWidth="2" />
+      {strands.map((x, index) => {
+        const height = 42 + (index % 2 === 0 ? 0 : 12);
+        return (
+          <g key={x}>
+            <path d={`M${x} 6 V${height}`} fill="none" stroke={withAlpha(palette.primary, "be")} strokeLinecap="round" strokeWidth="1.4" />
+            <circle cx={x} cy={height - 14} fill={palette.secondary} r="2.6" />
+            <circle cx={x} cy={height} fill={palette.metal} r="3.2" />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function OverlayChainCurtain({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g opacity="0.88">
+      <circle cx="-58" cy="9" fill={palette.metal} r="3.8" />
+      <circle cx="58" cy="9" fill={palette.metal} r="3.8" />
+      <path d="M-58 9 C-44 24 -24 31 0 31 C24 31 44 24 58 9" fill="none" stroke={withAlpha(palette.metal, "d2")} strokeWidth="2.1" />
+      <path d="M-46 16 C-34 27 -18 35 0 35 C18 35 34 27 46 16" fill="none" stroke={withAlpha(palette.primary, "c4")} strokeWidth="1.6" />
+      <path d="M-58 9 C-53 30 -48 47 -42 60" fill="none" stroke={withAlpha(palette.secondary, "b8")} strokeWidth="1.5" />
+      <path d="M58 9 C53 30 48 47 42 60" fill="none" stroke={withAlpha(palette.secondary, "b8")} strokeWidth="1.5" />
+      <circle cx="-42" cy="60" fill={palette.accent} r="3.1" />
+      <circle cx="42" cy="60" fill={palette.accent} r="3.1" />
+    </g>
+  );
+}
+
+function OverlayCrystalFacet({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  const palette = getPalette(definition);
+
+  return (
+    <g opacity="0.66">
+      <path
+        d="M-68 4 L-18 4 L-3 24 L-16 58 L-58 58 L-72 26 Z"
+        fill={withAlpha(palette.primary, "66")}
+        stroke={withAlpha(palette.metal, "84")}
+        strokeWidth="1.4"
+      />
+      <path
+        d="M68 4 L18 4 L3 24 L16 58 L58 58 L72 26 Z"
+        fill={withAlpha(palette.secondary, "66")}
+        stroke={withAlpha(palette.metal, "84")}
+        strokeWidth="1.4"
+      />
+      <path d="M-18 4 L-35 30 L-16 58 M18 4 L35 30 L16 58" fill="none" stroke={withAlpha(palette.accent, "90")} strokeWidth="1.2" />
+    </g>
+  );
+}
+
+function OverlayStageCanopy({
+  definition,
+  previewMode = "default",
+}: {
+  definition: ProfileFrameDecorationDefinition;
+  previewMode?: "default" | "shop";
+}) {
+  const palette = getPalette(definition);
+  const depth = previewMode === "shop" ? 40 : 52;
+
+  return (
+    <g opacity="0.9">
+      <path
+        d={`M-70 5 C-44 0 -18 -3 0 -3 C18 -3 44 0 70 5 C56 ${depth * 0.15} 36 ${depth * 0.32} 0 ${depth * 0.32} C-36 ${depth * 0.32} -56 ${depth * 0.15} -70 5 Z`}
+        fill={withAlpha(palette.primary, "d0")}
+        stroke={palette.metal}
+        strokeWidth="1.7"
+      />
+      <path d="M-54 7 C-38 16 -22 20 0 20 C22 20 38 16 54 7" fill="none" stroke={withAlpha(palette.accent, "c2")} strokeWidth="1.7" />
+      <circle cx="-50" cy="10" fill={palette.metal} r="3.2" />
+      <circle cx="50" cy="10" fill={palette.metal} r="3.2" />
+      <path d={`M-50 13 V${depth}`} stroke={withAlpha(palette.metal, "d6")} strokeWidth="1.5" strokeLinecap="round" />
+      <path d={`M50 13 V${depth}`} stroke={withAlpha(palette.metal, "d6")} strokeWidth="1.5" strokeLinecap="round" />
+      <path d={`M-55 ${depth} L-50 ${depth + 11} L-45 ${depth} Z`} fill={palette.secondary} />
+      <path d={`M45 ${depth} L50 ${depth + 11} L55 ${depth} Z`} fill={palette.secondary} />
     </g>
   );
 }
@@ -831,31 +1291,23 @@ function BottomDecoration({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  // For backward compatibility with remaining global paths, compensate x-90 and y shift.
-  // (Some bottom motifs updated to relative; this keeps others working until full refactor.)
   const extraY = previewMode === "shop" ? 2 : 0;
   const content = (() => {
     switch (definition.motif) {
-      case "ribbon-bow":
-        return <g transform={`translate(0 ${extraY})`}><RibbonBow definition={definition} /></g>;
-      case "hanging-heart-lock":
-        return <g transform={`translate(0 ${extraY})`}><HangingHeartLock definition={definition} /></g>;
-      case "hanging-moon-bell":
-        return <g transform={`translate(0 ${extraY})`}><HangingMoonBell definition={definition} /></g>;
-      case "wax-seal":
-        return <g transform={`translate(0 ${extraY})`}><WaxSeal definition={definition} /></g>;
-      case "wax-crest":
-        return <g transform={`translate(0 ${extraY})`}><WaxSeal crest definition={definition} /></g>;
-      case "gem-clasp":
-        return <g transform={`translate(0 ${extraY})`}><GemClasp definition={definition} /></g>;
-      case "rose-cluster":
-        return <g transform={`translate(0 ${extraY})`}><RoseCluster definition={definition} /></g>;
+      case "festoon-medallion":
+        return <g transform={`translate(0 ${extraY})`}><FestoonMedallion definition={definition} /></g>;
+      case "jeweled-locket":
+        return <g transform={`translate(0 ${extraY})`}><JeweledLocket definition={definition} /></g>;
+      case "cathedral-tassel":
+        return <g transform={`translate(0 ${extraY})`}><CathedralTassel definition={definition} /></g>;
+      case "opera-rose-swag":
+        return <g transform={`translate(0 ${extraY})`}><OperaRoseSwag definition={definition} /></g>;
       default:
         return null;
     }
   })();
 
-  return <g transform="translate(-90 -240)">{content}</g>;
+  return content;
 }
 
 export function ProfileFrameOrnaments({
@@ -868,7 +1320,6 @@ export function ProfileFrameOrnaments({
   const renderAttached = (
     def: ProfileFrameDecorationDefinition | null,
     children: ReactNode,
-    defaultAnchor: FrameAttachmentAnchor = "bottom-center",
   ) => {
     if (!def) return null;
     const att = resolveFrameAttachment(def);
@@ -888,11 +1339,20 @@ export function ProfileFrameOrnaments({
   return (
     <>
       {items.overlay ? (
-        renderAttached(items.overlay, items.overlay.motif === "overlay-lace" ? (
-          <OverlayLace definition={items.overlay} />
-        ) : (
-          <OverlayDrape definition={items.overlay} previewMode={previewMode} />
-        ), "bottom-center")
+        renderAttached(items.overlay, (() => {
+          switch (items.overlay?.motif) {
+            case "overlay-bead-veil":
+              return <OverlayBeadVeil definition={items.overlay} />;
+            case "overlay-chain-curtain":
+              return <OverlayChainCurtain definition={items.overlay} />;
+            case "overlay-crystal-facet":
+              return <OverlayCrystalFacet definition={items.overlay} />;
+            case "overlay-stage-canopy":
+              return <OverlayStageCanopy definition={items.overlay} previewMode={previewMode} />;
+            default:
+              return null;
+          }
+        })())
       ) : null}
       {items.particles ? <ParticleLayer definition={items.particles} /> : null}
       {items.side ? (
@@ -906,18 +1366,40 @@ export function ProfileFrameOrnaments({
       ) : null}
       {items.corner ? (
         <DecorationSvg className="z-[20]">
-          <CornerBows definition={items.corner} />
+          {(() => {
+            switch (items.corner?.motif) {
+              case "corner-filigree":
+                return <CornerFiligree definition={items.corner} />;
+              case "corner-claws":
+                return <CornerClaws definition={items.corner} />;
+              case "corner-rosette":
+                return <CornerRosettes definition={items.corner} />;
+              case "corner-gems":
+                return <CornerGems definition={items.corner} />;
+              default:
+                return null;
+            }
+          })()}
         </DecorationSvg>
       ) : null}
       {items.top ? (
-        renderAttached(items.top, items.top.motif === "top-crown" ? (
-          <TopCrown definition={items.top} previewMode={previewMode} />
-        ) : (
-          <TopCrest definition={items.top} previewMode={previewMode} />
-        ), "top-center")
+        renderAttached(items.top, (() => {
+          switch (items.top?.motif) {
+            case "top-tiara":
+              return <TopTiara definition={items.top} previewMode={previewMode} />;
+            case "top-medallion":
+              return <TopMedallion definition={items.top} previewMode={previewMode} />;
+            case "top-halo":
+              return <TopHalo definition={items.top} previewMode={previewMode} />;
+            case "top-aigrette":
+              return <TopAigrette definition={items.top} previewMode={previewMode} />;
+            default:
+              return null;
+          }
+        })())
       ) : null}
       {items.bottom ? (
-        renderAttached(items.bottom, <BottomDecoration definition={items.bottom} previewMode={previewMode} />, "bottom-center")
+        renderAttached(items.bottom, <BottomDecoration definition={items.bottom} previewMode={previewMode} />)
       ) : null}
     </>
   );

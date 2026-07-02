@@ -1,56 +1,8 @@
-import { adminDebtContractSelect } from "@/lib/debt-contract-select";
+import { getDebtPeriodMs, getFirstDebtDueAtIso, listAdminDebtContracts } from "@/lib/admin-debt-contracts";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function getDebtPeriodMs(periodType: "weekly" | "monthly") {
-  return periodType === "weekly" ? 7 * DAY_MS : 30 * DAY_MS;
-}
-
-function getFirstDebtDueAtIso(periodType: "weekly" | "monthly", start: Date) {
-  return new Date(start.getTime() + getDebtPeriodMs(periodType)).toISOString();
-}
-
-async function listDebtContracts(supabase: SupabaseClient) {
-  const { data, error } = await supabase
-    .from("pet_debt_contracts")
-    .select(adminDebtContractSelect)
-    .order("created_at", { ascending: false })
-    .limit(120);
-  if (error) throw error;
-
-  const rows = (data ?? []) as Array<Record<string, unknown> & { user_id: string }>;
-  const userIds = Array.from(new Set(rows.map((entry) => entry.user_id)));
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .in("id", userIds.length > 0 ? userIds : ["00000000-0000-0000-0000-000000000000"]);
-  const profileRows = (profiles ?? []) as Array<{ id: string; username: string }>;
-  const profileMap = new Map(profileRows.map((profile) => [profile.id, profile.username]));
-  const contractIds = rows.map((entry) => entry.id as string);
-  const { data: imageRows } = await supabase
-    .from("evil_debt_contract_images")
-    .select("contract_id, image_url")
-    .in("contract_id", contractIds.length > 0 ? contractIds : ["00000000-0000-0000-0000-000000000000"])
-    .order("created_at", { ascending: true });
-  const imageMap = new Map<string, string[]>();
-
-  for (const row of (imageRows ?? []) as Array<{ contract_id: string; image_url: string }>) {
-    const current = imageMap.get(row.contract_id) ?? [];
-    current.push(row.image_url);
-    imageMap.set(row.contract_id, current);
-  }
-
-  return rows.map((contract) => ({
-    ...contract,
-    image_urls: imageMap.get(contract.id as string) ?? [],
-    username: profileMap.get(contract.user_id) ?? "@unknown",
-  }));
-}
 
 export async function POST(request: Request) {
   const admin = await requireMobileAdmin(request);
@@ -107,5 +59,5 @@ export async function POST(request: Request) {
     if (error) return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json({ contracts: await listDebtContracts(admin.supabase) });
+  return Response.json({ contracts: await listAdminDebtContracts(admin.supabase) });
 }

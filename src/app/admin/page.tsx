@@ -214,9 +214,19 @@ export default function AdminPage() {
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
-  const [isBusy, setIsBusy] = useState(false);
+  const [busyRequestCount, setBusyRequestCount] = useState(0);
   const [adminNow, setAdminNow] = useState(() => Date.now());
   const didMountTabEffect = useRef(false);
+  const isBusy = busyRequestCount > 0;
+  const setIsBusy = (next: boolean) => {
+    setBusyRequestCount((current) => {
+      if (next) {
+        return current + 1;
+      }
+
+      return Math.max(0, current - 1);
+    });
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setAdminNow(Date.now()), 1000);
