@@ -15,6 +15,8 @@ export type SidebarNavItem = {
   label: string;
   disabled?: boolean;
   badge?: string;
+  hasIndicator?: boolean;
+  onHover?: () => void;
 };
 
 type SidebarNavProps = {
@@ -65,10 +67,20 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
                 }`}
                 disabled={item.disabled}
                 key={item.key}
+                onFocus={() => item.onHover?.()}
+                onMouseEnter={() => item.onHover?.()}
                 onClick={() => onSelect(item.key)}
                 type="button"
               >
-                <span className="whitespace-nowrap">{item.label}</span>
+                <span className="flex items-center gap-2 whitespace-nowrap">
+                  {item.label}
+                  {item.hasIndicator ? (
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.95)]"
+                    />
+                  ) : null}
+                </span>
                 {item.badge && (
                   <span className="rounded-full border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-pink-50">
                     {item.badge}

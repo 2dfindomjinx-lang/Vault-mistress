@@ -76,6 +76,19 @@ function getRemainingDebtBalance(contract: PetDebtContract) {
     + Math.max(0, contract.duration_periods - contract.paid_periods - 1) * contract.debt_amount;
 }
 
+function hasMissedDebtInstallment(contract: PetDebtContract | null, now: number) {
+  if (!contract || contract.status !== "active") {
+    return false;
+  }
+
+  const dueMs = new Date(contract.next_due_at ?? "").getTime();
+  const currentInstallmentNumber = Math.min(contract.paid_periods + 1, contract.duration_periods);
+  return (
+    (Number.isFinite(dueMs) && dueMs <= now) ||
+    contract.missed_periods >= currentInstallmentNumber
+  );
+}
+
 function formatRemaining(target: string | null, now: number) {
   if (!target || now <= 0) {
     return "Not scheduled";
@@ -224,6 +237,7 @@ export function DebtSection({
   const debtPaymentDue = activeContract
     ? new Date(activeContract.next_due_at ?? "").getTime() <= now
     : false;
+  const hasMissedInstallment = hasMissedDebtInstallment(activeContract, now);
   const debtInstallmentNumber = activeContract
     ? Math.min(activeContract.paid_periods + 1, activeContract.duration_periods)
     : 0;
@@ -353,6 +367,7 @@ export function DebtSection({
         active={activeDebtContractType === "normal"}
         currentKind={showDebtSigningImage}
         debtInstallmentNumber={debtInstallmentNumber}
+        hasMissedInstallment={hasMissedInstallment}
         debtPaymentDue={debtPaymentDue}
         debtTask={debtTask}
         canManageActiveDebtWhileTimedOut={canManageActiveDebtWhileTimedOut}
@@ -386,6 +401,7 @@ export function DebtSection({
         canManageActiveDebtWhileTimedOut={canManageActiveDebtWhileTimedOut}
         currentKind={showDebtSigningImage}
         debtInstallmentNumber={debtInstallmentNumber}
+        hasMissedInstallment={hasMissedInstallment}
         debtPaymentDue={debtPaymentDue}
         disabled={disabled}
         blockingContractMessage={blockingContractMessage}
@@ -433,6 +449,7 @@ function DebtCard(props: {
   currentKind: "normal" | "evil" | null;
   debtInstallmentNumber: number;
   debtPaymentDue: boolean;
+  hasMissedInstallment: boolean;
   debtTask: PetTaskItem;
   disabled: boolean;
   blockingContractMessage: string | null;
@@ -465,6 +482,7 @@ function DebtCard(props: {
     currentKind,
     debtInstallmentNumber,
     debtPaymentDue,
+    hasMissedInstallment,
     debtTask,
     disabled,
     blockingContractMessage,
@@ -538,23 +556,23 @@ function DebtCard(props: {
               onChange={onDebtAutoPayChange}
             />
             <p className="mt-2 text-yellow-50/75">
-              When enabled, each installment is paid automatically as soon as it becomes available.
+              When enabled, the full installment is collected automatically the moment your balance can cover it.
             </p>
             <p className="mt-2 text-yellow-50/75">
-              If the account cannot cover the full installment, it now pays only the available coins and keeps the remaining debt due.
+              If the due time passes without enough coins, the installment becomes missed and the debt timeout stays until you catch up.
             </p>
           </div>
           <button
             className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
+            disabled={activeDebtControlsDisabled || !hasMissedInstallment || isPetActionPending("pet-debt-contract")}
             onClick={onPayDebtPeriod}
             type="button"
           >
             {isPetActionPending("pet-debt-contract")
               ? "Saving..."
-              : !debtPaymentDue
+              : !hasMissedInstallment
                 ? "Next installment locked"
-                : `Pay installment ${debtInstallmentNumber}`}
+                : "Pay missed installments"}
           </button>
         </div>
       ) : showLockedState ? (
@@ -630,7 +648,7 @@ function DebtCard(props: {
             Warning: Sign Random Debt immediately creates a debt contract with a random Pet name, weekly/monthly type, amount, and duration.
           </p>
           <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-            Auto payment is off by default. Overdue debt can no longer push balance below zero; it only takes what is available and leaves the rest due.
+            Auto payment is off by default. Turn it on only if you want the full installment collected the moment your balance can cover it.
           </p>
           <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
             <AutoPaymentSwitch
@@ -659,6 +677,7 @@ function EvilDebtCard(props: {
   currentKind: "normal" | "evil" | null;
   debtInstallmentNumber: number;
   debtPaymentDue: boolean;
+  hasMissedInstallment: boolean;
   disabled: boolean;
   blockingContractMessage: string | null;
   evilAge: string;
@@ -701,6 +720,7 @@ function EvilDebtCard(props: {
     currentKind,
     debtInstallmentNumber,
     debtPaymentDue,
+    hasMissedInstallment,
     disabled,
     blockingContractMessage,
     evilAge,
@@ -791,20 +811,23 @@ function EvilDebtCard(props: {
                   onChange={onDebtAutoPayChange}
                 />
                 <p className="mt-2 text-yellow-50/75">
-                  When enabled, each installment is paid automatically as soon as it becomes available.
+                  When enabled, the full installment is collected automatically the moment your balance can cover it.
+                </p>
+                <p className="mt-2 text-yellow-50/75">
+                  If the due time passes without enough coins, the installment becomes missed and the debt timeout stays until you catch up.
                 </p>
               </div>
               <button
                 className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
+                disabled={activeDebtControlsDisabled || !hasMissedInstallment || isPetActionPending("pet-debt-contract")}
                 onClick={onPayDebtPeriod}
                 type="button"
               >
                 {isPetActionPending("pet-debt-contract")
                   ? "Saving..."
-                  : !debtPaymentDue
+                  : !hasMissedInstallment
                     ? "Next installment locked"
-                    : `Pay installment ${debtInstallmentNumber}`}
+                    : "Pay missed installments"}
               </button>
             </>
           ) : (

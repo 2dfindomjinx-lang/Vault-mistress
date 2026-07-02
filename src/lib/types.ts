@@ -1,4 +1,4 @@
-export type GalleryRarity = "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice";
+export type GalleryRarity = "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice" | "Shrine";
 
 export type GalleryTag = string;
 
@@ -11,6 +11,7 @@ export type GalleryItem = {
   tag: GalleryTag;
   image: string;
   unlocked: boolean;
+  isShrineMemory?: boolean;
 };
 
 export type TaskItem = {

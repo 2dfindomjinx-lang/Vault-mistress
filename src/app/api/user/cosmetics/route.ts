@@ -8,8 +8,9 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Body = {
-  action?: "equip" | "purchase";
+  action?: "equip" | "purchase" | "unequip";
   itemId?: string;
+  itemType?: CosmeticType;
 };
 
 function jsonError(message: string, status = 400) {
@@ -34,14 +35,69 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Body | null;
   const action = body?.action;
-  const item = getCosmetic(body?.itemId);
+  const item = action === "unequip" ? null : getCosmetic(body?.itemId);
 
-  if (!action || !item) {
+  if (!action || (action !== "unequip" && !item)) {
     return jsonError("Invalid cosmetic request.");
   }
 
   const supabase = createSupabaseAdminClient();
   const userId = authData.user.id;
+
+  if (action === "unequip") {
+    const itemType = body?.itemType;
+    const validTypes = new Set(cosmeticItems.map((entry) => entry.type));
+
+    if (!itemType || !validTypes.has(itemType)) {
+      return jsonError("Invalid cosmetic type.");
+    }
+
+    const { error: clearError } = await supabase
+      .from("user_cosmetics")
+      .update({ equipped: false })
+      .eq("user_id", userId)
+      .eq("item_type", itemType);
+
+    if (clearError) {
+      console.error("[cosmetics] unequip failed", clearError);
+      return jsonError("Cosmetic unequip failed.", 500);
+    }
+
+    if (itemType === "speech-avatar") {
+      const defaultItem = getCosmetic("default-principessa");
+
+      if (!defaultItem) {
+        return jsonError("Default speech avatar is missing.", 500);
+      }
+
+      const { data: cosmetic, error: restoreError } = await supabase
+        .from("user_cosmetics")
+        .upsert(
+          {
+            user_id: userId,
+            item_id: defaultItem.id,
+            item_type: defaultItem.type,
+            equipped: true,
+          },
+          { onConflict: "user_id,item_id" },
+        )
+        .select("item_id, item_type, equipped")
+        .single();
+
+      if (restoreError || !cosmetic) {
+        console.error("[cosmetics] default speech avatar restore failed", restoreError);
+        return jsonError("Default speech avatar restore failed.", 500);
+      }
+
+      return Response.json({ cosmetic });
+    }
+
+    return Response.json({ unequipped: true, itemType });
+  }
+
+  if (!item) {
+    return jsonError("Invalid cosmetic request.");
+  }
 
   if (action === "equip") {
     if (item.price > 0) {

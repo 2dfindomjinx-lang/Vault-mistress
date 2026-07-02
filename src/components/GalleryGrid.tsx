@@ -8,11 +8,13 @@ type GalleryGridProps = {
   coins: number;
   disabled?: boolean;
   mood: number;
+  newItemIds?: string[];
   pendingUnlockIds?: string[];
+  onItemHover?: (itemId: string) => void;
   onUnlock: (itemId: string) => void;
 };
 
-type GalleryFilter = "All" | "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice";
+type GalleryFilter = "All" | "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice" | "Shrine";
 
 const rarityStyles: Record<GalleryRarity, string> = {
   Common: "border-zinc-300/30 text-zinc-100",
@@ -20,6 +22,7 @@ const rarityStyles: Record<GalleryRarity, string> = {
   Divine: "border-yellow-200/50 text-yellow-100",
   Secret: "border-pink-200/70 text-pink-50 shadow-[0_0_22px_rgba(236,72,153,0.28)]",
   Sacrifice: "border-red-200/60 text-red-100 shadow-[0_0_22px_rgba(248,113,113,0.22)]",
+  Shrine: "border-amber-200/60 text-amber-50 shadow-[0_0_22px_rgba(251,191,36,0.24)]",
 };
 
 export function GalleryGrid({
@@ -27,11 +30,14 @@ export function GalleryGrid({
   disabled = false,
   items,
   mood,
+  newItemIds = [],
   pendingUnlockIds = [],
+  onItemHover,
   onUnlock,
 }: GalleryGridProps) {
   const hasSecret = items.some((item) => item.rarity === "Secret");
   const hasSacrifice = items.some((item) => item.rarity === "Sacrifice");
+  const hasShrine = items.some((item) => item.rarity === "Shrine");
   const [filter, setFilter] = useState<GalleryFilter>("All");
 
   const filters = useMemo<GalleryFilter[]>(() => {
@@ -43,12 +49,16 @@ export function GalleryGrid({
 
     base.push("Common", "Rare", "Divine");
 
+    if (hasShrine) {
+      base.push("Shrine");
+    }
+
     if (hasSecret) {
       base.push("Secret");
     }
 
     return base;
-  }, [hasSacrifice, hasSecret]);
+  }, [hasSacrifice, hasSecret, hasShrine]);
 
   const filteredItems =
     filter === "All" ? items : items.filter((item) => item.rarity === filter);
@@ -64,12 +74,12 @@ export function GalleryGrid({
             Gallery Unlock
           </p>
           <h2 className="text-2xl font-black sm:text-3xl">The Vault Gallery</h2>
-          <p className="mt-2 text-sm text-zinc-400">
-            {disabled
-              ? "Timeout is active. Gallery unlocks are locked until the timer ends."
-              : "Common cards use coins. Rare and Divine cards obey Principessa's mood."}
-          </p>
-        </div>
+        <p className="mt-2 text-sm text-zinc-400">
+          {disabled
+            ? "Timeout is active. Gallery unlocks are locked until the timer ends."
+            : "Common cards use coins. Rare and Divine cards obey Principessa's mood. Shrine Memories gather here once revealed."}
+        </p>
+      </div>
         <div className="text-sm text-zinc-400">
           Balance: <CoinAmount amount={coins} className="font-bold text-pink-100" iconSize={16} label="" />
           <span className="mx-2 text-zinc-600">/</span>
@@ -89,7 +99,11 @@ export function GalleryGrid({
             onClick={() => setFilter(option)}
             type="button"
           >
-            {option === "Sacrifice" ? "Sacrifice Collection" : option}
+            {option === "Sacrifice"
+              ? "Sacrifice Collection"
+              : option === "Shrine"
+                ? "Shrine Memories"
+                : option}
           </button>
         ))}
       </div>
@@ -99,7 +113,9 @@ export function GalleryGrid({
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
           const isSacrifice = item.rarity === "Sacrifice";
+          const isShrineMemory = item.rarity === "Shrine" || item.isShrineMemory;
           const isPending = pendingUnlockIds.includes(item.id);
+          const isNew = item.unlocked && newItemIds.includes(item.id);
           const canAfford = isCommon && coins >= (item.unlockCost ?? 0);
           const lockedText = isCommon
             ? "Locked"
@@ -119,23 +135,33 @@ export function GalleryGrid({
           return (
             <article
               className={`min-w-0 overflow-hidden rounded-[1.1rem] border bg-white/[0.045] transition hover:-translate-y-0.5 sm:rounded-[1.5rem] ${
-                isSecret || isSacrifice
+                isSecret || isSacrifice || isShrineMemory
                   ? "border-pink-200/60 shadow-[0_0_34px_rgba(236,72,153,0.24)]"
                   : "border-white/10 hover:border-pink-300/30"
               }`}
               key={item.id}
+              onMouseEnter={() => {
+                if (isNew) {
+                  onItemHover?.(item.id);
+                }
+              }}
             >
               <div className="relative aspect-[4/5] bg-fuchsia-950/30">
                 <Image
                   alt={`${item.title} gallery placeholder`}
                   className={`object-cover transition duration-500 ${
                     item.unlocked ? "" : "scale-105 blur-md grayscale"
-                  } ${isSecret || isSacrifice ? "saturate-150 contrast-125" : ""}`}
+                  } ${isSecret || isSacrifice || isShrineMemory ? "saturate-150 contrast-125" : ""}`}
                   fill
                   unoptimized
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                   src={item.image}
                 />
+                {isNew ? (
+                  <div className="absolute right-3 top-3 z-10 rounded-full border border-amber-200/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100 shadow-[0_0_16px_rgba(251,191,36,0.35)]">
+                    New
+                  </div>
+                ) : null}
                 {!item.unlocked && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/68 text-center">
                     <div className="rounded-full border border-pink-200/30 bg-black/70 px-4 py-2 text-sm font-black uppercase tracking-[0.25em] text-pink-100">

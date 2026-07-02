@@ -48,6 +48,17 @@ type ProfileRow = {
   tribute_total: number;
 };
 
+type DebtPaymentPlan = {
+  amount: number;
+  autoPayEnabled: boolean;
+  canAutoCollectNow: boolean;
+  duePeriods: number;
+  installmentAlreadyMissed: boolean;
+  missedPeriods: number;
+  overdue: boolean;
+  shouldMarkMissed: boolean;
+};
+
 type Body =
   | {
       action?: "sign";
@@ -98,6 +109,10 @@ function getCurrentInstallmentRemaining(contract: Pick<ContractRow, "current_ins
   return Math.max(0, Math.floor(Number(contract.debt_amount ?? 0)));
 }
 
+function getCurrentInstallmentNumber(contract: Pick<ContractRow, "paid_periods" | "duration_periods">) {
+  return Math.min(contract.paid_periods + 1, contract.duration_periods);
+}
+
 function isValidEvilDebtImage(value: unknown) {
   return (
     typeof value === "string" &&
@@ -106,31 +121,57 @@ function isValidEvilDebtImage(value: unknown) {
   );
 }
 
-function getDueDebtPaymentPlan(contract: ContractRow, autoPayEnabled: boolean) {
+function getDueDebtPaymentPlan(
+  contract: ContractRow,
+  options: {
+    autoPayEnabled: boolean;
+    availableCoins: number;
+    mode: "pay" | "autoCollect";
+    nowMs?: number;
+  },
+): DebtPaymentPlan | null {
   if (contract.status !== "active") {
     return null;
   }
 
-  const now = Date.now();
+  const now = options.nowMs ?? Date.now();
   const nextDueMs = new Date(contract.next_due_at).getTime();
-
-  if (!Number.isFinite(nextDueMs) || nextDueMs > now) {
-    return null;
-  }
-
   const currentInstallmentRemaining = getCurrentInstallmentRemaining(contract);
 
-  if (currentInstallmentRemaining <= 0) {
+  if (!Number.isFinite(nextDueMs) || currentInstallmentRemaining <= 0) {
     return null;
   }
 
   const overdue = nextDueMs <= now;
+  const installmentAlreadyMissed =
+    contract.missed_periods >= getCurrentInstallmentNumber(contract);
+  const canAutoCollectNow =
+    options.mode === "autoCollect" &&
+    options.autoPayEnabled &&
+    Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
+  const shouldMarkMissed =
+    options.mode === "autoCollect" &&
+    overdue &&
+    !installmentAlreadyMissed &&
+    Math.max(0, options.availableCoins) < currentInstallmentRemaining;
+
+  if (options.mode === "pay" && !overdue) {
+    return null;
+  }
+
+  if (options.mode === "autoCollect" && !canAutoCollectNow && !shouldMarkMissed) {
+    return null;
+  }
 
   return {
     amount: currentInstallmentRemaining,
-    autoPayEnabled,
+    autoPayEnabled: options.autoPayEnabled,
+    canAutoCollectNow,
     duePeriods: 1,
-    missedPeriods: overdue && !autoPayEnabled ? 1 : 0,
+    installmentAlreadyMissed,
+    missedPeriods: shouldMarkMissed ? 1 : 0,
+    overdue,
+    shouldMarkMissed,
   };
 }
 
@@ -365,18 +406,6 @@ export async function POST(request: Request) {
       return jsonError(contractError?.message ?? "Debt contract not found.", 404);
     }
 
-    const contract = contractData as ContractRow;
-    const nowMs = Date.now();
-    const dueAtMs = new Date(contract.next_due_at).getTime();
-    const manualPaymentDue = Number.isFinite(dueAtMs) && dueAtMs <= nowMs;
-    const plan = body.action === "pay"
-      ? getDueDebtPaymentPlan(contract, false)
-      : getDueDebtPaymentPlan(contract, Boolean(body.autoPayEnabled));
-
-    if (!plan || (body.action === "pay" && !manualPaymentDue)) {
-      return jsonError("Debt payment is not due.", 409);
-    }
-
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("id, coins, tribute_total, debt_tribute_pending, timeout_until, timeout_reason")
@@ -388,12 +417,39 @@ export async function POST(request: Request) {
     }
 
     const profile = profileData as ProfileRow;
+    const contract = contractData as ContractRow;
+    const nowMs = Date.now();
+    const dueAtMs = new Date(contract.next_due_at).getTime();
+    const plan = getDueDebtPaymentPlan(contract, {
+      autoPayEnabled: Boolean(body.autoPayEnabled),
+      availableCoins: profile.coins,
+      mode: body.action,
+      nowMs,
+    });
+
+    if (!plan) {
+      if (body.action === "autoCollect") {
+        return Response.json({
+          autoPaySkipped: true,
+          contract: contractData,
+          paidAmount: 0,
+          plan: null,
+          reason: Number.isFinite(dueAtMs) && dueAtMs > nowMs ? "not_due" : "waiting_for_coins",
+        });
+      }
+
+      return jsonError("Debt payment is not due.", 409);
+    }
+
     const collectedAt = new Date().toISOString();
     const currentInstallmentRemaining = getCurrentInstallmentRemaining(contract);
-    const paidAmount = Math.min(Math.max(0, profile.coins), currentInstallmentRemaining);
+    const paidAmount =
+      body.action === "autoCollect"
+        ? (plan.canAutoCollectNow ? currentInstallmentRemaining : 0)
+        : Math.min(Math.max(0, profile.coins), currentInstallmentRemaining);
     const remainingInstallment = Math.max(0, currentInstallmentRemaining - paidAmount);
-    const installmentCompleted = remainingInstallment === 0;
-    const overdue = Number.isFinite(dueAtMs) && dueAtMs <= nowMs;
+    const installmentCompleted = paidAmount > 0 && remainingInstallment === 0;
+    const overdue = plan.overdue;
     const nextPaidPeriods = installmentCompleted ? contract.paid_periods + 1 : contract.paid_periods;
     const contractCompleted = installmentCompleted && nextPaidPeriods >= contract.duration_periods;
     const periodMs = getDebtPeriodMs(contract.period_type);
@@ -407,14 +463,17 @@ export async function POST(request: Request) {
       : installmentCompleted
         ? contract.debt_amount
         : remainingInstallment;
-    const missedThisPayment = installmentCompleted && overdue && !plan.autoPayEnabled;
+    const missedThisPayment = plan.shouldMarkMissed;
     const nextMissedPeriods = contract.missed_periods + (missedThisPayment ? 1 : 0);
     const nextCoins = profile.coins - paidAmount;
     const immediateTribute = paidAmount;
     const deferredTribute = 0;
     const nextTributeTotal = (profile.tribute_total ?? 0) + immediateTribute;
     const nextDebtTributePending = profile.debt_tribute_pending ?? 0;
-    const shouldKeepDebtTimeout = overdue && !contractCompleted && nextInstallmentRemaining > 0;
+    const shouldKeepDebtTimeout =
+      !contractCompleted &&
+      nextInstallmentRemaining > 0 &&
+      (overdue || plan.installmentAlreadyMissed || missedThisPayment);
     const nextTimeoutUntil = shouldKeepDebtTimeout
       ? new Date(
           Math.max(
@@ -486,6 +545,7 @@ export async function POST(request: Request) {
           autoCollected: body.action === "autoCollect",
           contractId: contract.id,
           currentInstallmentRemaining: nextInstallmentRemaining,
+          debtInstallmentMissed: missedThisPayment,
           debtTributeDeferredAmount: deferredTribute,
           debtTributeImmediateAmount: immediateTribute,
           duePeriods: plan.duePeriods,
@@ -496,9 +556,7 @@ export async function POST(request: Request) {
           spendAmount: paidAmount,
           tributeTotalChanged: immediateTribute > 0,
         },
-        reason: body.action === "autoCollect" && missedThisPayment
-          ? "tribute:debt-contract:missed"
-          : body.action === "autoCollect"
+        reason: body.action === "autoCollect"
             ? "tribute:debt-contract:auto"
             : "tribute:debt-contract",
         user_id: userId,
@@ -664,7 +722,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json({
-      autoPaySkipped: paidAmount === 0,
+      autoPaySkipped: body.action === "autoCollect" && paidAmount === 0,
       contract: contractCompleted ? null : updatedContract,
       paidAmount,
       plan: {
@@ -676,7 +734,12 @@ export async function POST(request: Request) {
         nextPaidPeriods,
       },
       profile: updatedProfile,
-      reason: paidAmount === 0 ? "insufficient_coins" : undefined,
+      reason:
+        paidAmount === 0
+          ? missedThisPayment
+            ? "missed_installment"
+            : "insufficient_coins"
+          : undefined,
     });
   }
 

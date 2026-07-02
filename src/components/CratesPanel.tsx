@@ -806,6 +806,7 @@ export function CratesPanel({
           name: info.name,
           rarity: info.rarity,
           percentage: total > 0 ? ((d.weight || 1) / total) * 100 : 0,
+          sell_value: info.sell_value ?? 0,
         };
       })
       .filter(Boolean)

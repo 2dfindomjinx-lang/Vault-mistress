@@ -60,6 +60,7 @@ import {
   getUnlockedInventoryTitleIds,
   getUnlockedPetTitleIds,
   permanentCosmeticItems,
+  rotatingCosmeticItems,
   titleItems,
   type CosmeticItem,
   type CosmeticType,
@@ -80,6 +81,7 @@ import {
   type CommunityStatusResponse,
   type PublicCommunityProfile,
 } from "@/lib/prestige";
+import { getProfileFrameCosmeticTypeLabel, isProfileFrameCosmeticType } from "@/lib/profile-frame-cosmetics";
 import {
   buildShrineStatus,
   getShrineDevotionReward,
@@ -289,6 +291,18 @@ const sacrificeGalleryItems: GalleryItem[] = Array.from({ length: 10 }, (_, inde
   image: `/gallery/sacrifice-${index + 1}.png`,
   unlocked: false,
 }));
+const SHRINE_MEMORY_SEEN_STORAGE_KEY = "vault-mistress:shrine-memory-seen:v1";
+const PROFILE_HEADER_COSMETIC_TYPE_ORDER: CosmeticType[] = [
+  "profile-border",
+  "profile-frame-bottom",
+  "profile-frame-side",
+  "profile-frame-corner",
+  "profile-frame-top",
+  "profile-frame-overlay",
+  "profile-frame-particles",
+  "username-color",
+  "username-glow",
+];
 
 const moodUnlocks = [
   { id: "rare-loyal-glimpse", mood: 20 },
@@ -1509,7 +1523,7 @@ function getDebtCurrentInstallmentRemaining(contract: Pick<PetDebtContract, "cur
 
 function getDueDebtPaymentPlan(
   contract: PetDebtContract,
-  options: { autoPayEnabled: boolean; nowMs?: number },
+  options: { autoPayEnabled: boolean; availableCoins: number; nowMs?: number },
 ) {
   if (contract.status !== "active") {
     return null;
@@ -1517,22 +1531,35 @@ function getDueDebtPaymentPlan(
 
   const nowMs = options.nowMs ?? Date.now();
   const dueMs = new Date(contract.next_due_at).getTime();
+  const currentInstallmentRemaining = getDebtCurrentInstallmentRemaining(contract);
+  const overdue = Number.isFinite(dueMs) && dueMs <= nowMs;
+  const installmentNumber = Math.min(contract.paid_periods + 1, contract.duration_periods);
+  const installmentAlreadyMissed = contract.missed_periods >= installmentNumber;
+  const canAutoCollectNow =
+    options.autoPayEnabled &&
+    Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
+  const shouldMarkMissed =
+    overdue &&
+    !installmentAlreadyMissed &&
+    Math.max(0, options.availableCoins) < currentInstallmentRemaining;
 
-  if (!Number.isFinite(dueMs) || dueMs > nowMs) {
+  if (!Number.isFinite(dueMs) || currentInstallmentRemaining <= 0) {
     return null;
   }
 
-  const currentInstallmentRemaining = getDebtCurrentInstallmentRemaining(contract);
-
-  if (currentInstallmentRemaining <= 0) {
+  if (!canAutoCollectNow && !shouldMarkMissed) {
     return null;
   }
 
   return {
     amount: currentInstallmentRemaining,
     autoPayEnabled: options.autoPayEnabled,
+    canAutoCollectNow,
     duePeriods: 1,
-    missedPeriods: options.autoPayEnabled ? 0 : 1,
+    installmentAlreadyMissed,
+    missedPeriods: shouldMarkMissed ? 1 : 0,
+    overdue,
+    shouldMarkMissed,
   };
 }
 
@@ -1927,6 +1954,7 @@ export default function Home() {
   const [tributeTotal, setTributeTotal] = useState(0);
   const [totalDevotion, setTotalDevotion] = useState(0);
   const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
+  const [seenShrineMemoryIds, setSeenShrineMemoryIds] = useState<string[]>([]);
   const [lifetimeSpentCoins, setLifetimeSpentCoins] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
   const [userXp, setUserXp] = useState(0);
@@ -2091,6 +2119,7 @@ export default function Home() {
   const lastPlayedJackpotWinnerSoundKeyRef = useRef<string | null>(null);
   const activeEventIdsRef = useRef<string[]>([]);
   const profileIdRef = useRef<string | null>(null);
+  const debtAutoCollectRequestRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
   const initialAuthCheckInFlightRef = useRef(false);
@@ -2336,6 +2365,55 @@ export default function Home() {
       window.clearInterval(interval);
     };
   }, [isGuestMode, isPreviewRestricted, isVaultReady, loadGlobalPrincipessa]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(SHRINE_MEMORY_SEEN_STORAGE_KEY);
+      if (!stored) {
+        setSeenShrineMemoryIds([]);
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as unknown;
+      if (Array.isArray(parsed)) {
+        setSeenShrineMemoryIds(parsed.filter((value): value is string => typeof value === "string"));
+      }
+    } catch (error) {
+      console.warn("Failed to read stored Shrine memory indicators", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        SHRINE_MEMORY_SEEN_STORAGE_KEY,
+        JSON.stringify(seenShrineMemoryIds),
+      );
+    } catch (error) {
+      console.warn("Failed to persist Shrine memory indicators", error);
+    }
+  }, [seenShrineMemoryIds]);
+
+  const markShrineMemoriesSeen = useCallback((itemIds: string[]) => {
+    if (itemIds.length === 0) {
+      return;
+    }
+
+    setSeenShrineMemoryIds((current) => {
+      const next = new Set(current);
+      itemIds.forEach((itemId) => next.add(itemId));
+      return Array.from(next);
+    });
+  }, []);
+
   const handleGlobalPointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
     const target = event.target;
 
@@ -2345,6 +2423,19 @@ export default function Home() {
 
     unlockSoundPlayback();
   }, []);
+  const shrineGalleryItems: GalleryItem[] = useMemo(
+    () =>
+      (shrineStatus?.revealedMemories ?? []).map((memory) => ({
+        id: `shrine-memory:${memory.fileName}`,
+        image: memory.path,
+        isShrineMemory: true,
+        rarity: "Shrine" as const,
+        tag: "Shrine Memory",
+        title: memory.title,
+        unlocked: true,
+      })),
+    [shrineStatus?.revealedMemories],
+  );
   const galleryItems =
     affection >= 100
       ? [
@@ -2353,6 +2444,7 @@ export default function Home() {
           ...sacrificeGalleryItems.filter((item) =>
             unlockedGalleryIds.includes(item.id),
           ),
+          ...shrineGalleryItems,
         ]
       : [
           ...visibleGalleryItems,
@@ -2362,8 +2454,15 @@ export default function Home() {
         ];
   const visibleGallery = galleryItems.map((item) => ({
     ...item,
-    unlocked: unlockedGalleryIds.includes(item.id),
+    unlocked: item.isShrineMemory ? true : unlockedGalleryIds.includes(item.id),
   }));
+  const unseenShrineMemoryIds = useMemo(
+    () =>
+      shrineGalleryItems
+        .map((item) => item.id)
+        .filter((itemId) => !seenShrineMemoryIds.includes(itemId)),
+    [seenShrineMemoryIds, shrineGalleryItems],
+  );
   const displayMechanics = useMemo(
     () => ({
       ...mechanics,
@@ -4111,82 +4210,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } else {
       const activeDebtContract = (debtData as PetDebtContract | null) ?? null;
       const debtAutoPayEnabled = readDebtAutoPayEnabled(profile.id);
-      const duePlan =
-        activeDebtContract
-          ? getDueDebtPaymentPlan(activeDebtContract, {
-              autoPayEnabled: debtAutoPayEnabled,
-            })
-          : null;
-      const shouldAutoCollect = Boolean(activeDebtContract && debtAutoPayEnabled && duePlan);
 
       setIsDebtAutoPayEnabled(debtAutoPayEnabled);
-
-      if (!activeDebtContract || !shouldAutoCollect) {
-        setPetDebtContract(activeDebtContract);
-      } else {
-        try {
-          const response = await fetch("/api/user/debt-contracts", {
-            body: JSON.stringify({
-              action: "autoCollect",
-              autoPayEnabled: debtAutoPayEnabled,
-              contractId: activeDebtContract.id,
-            }),
-            headers: { "Content-Type": "application/json" },
-            method: "POST",
-          });
-          const result = (await response.json()) as {
-            autoPaySkipped?: boolean;
-            contract?: PetDebtContract | null;
-            error?: string;
-            paidAmount?: number;
-            plan?: { amount: number; currentInstallmentRemaining?: number; installmentCompleted?: boolean; missedPeriods: number };
-            profile?: Profile;
-            reason?: string;
-          };
-
-          if (!response.ok) {
-            throw new Error(result.error ?? "Debt auto-collection failed.");
-          }
-
-          if (result.profile) {
-            const updatedProfile = result.profile;
-            setCoins(updatedProfile.coins);
-            coinsRef.current = updatedProfile.coins;
-            setAffection(updatedProfile.affection);
-            setTributeTotal(updatedProfile.tribute_total ?? profile.tribute_total ?? 0);
-            timeoutUntilRef.current = updatedProfile.timeout_until ?? null;
-            timeoutReasonRef.current = updatedProfile.timeout_reason ?? null;
-            setTimeoutUntil(updatedProfile.timeout_until ?? null);
-            setTimeoutReason(updatedProfile.timeout_reason ?? null);
-            setPetScore(updatedProfile.pet_score ?? 0);
-            setOwnerLikeness(updatedProfile.owner_likeness ?? 100);
-            setPetUnlockedAt(updatedProfile.pet_unlocked_at ?? null);
-            setLastPetTaxAt(updatedProfile.last_pet_tax_at ?? null);
-            unlockProgressionTitles(result.profile.tribute_total ?? profile.tribute_total ?? 0);
-            void loadLeadershipTop();
-          }
-
-          setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
-          if (result.autoPaySkipped) {
-            setAvatarMistressReply("Debt Contract is overdue. No coins were available, so timeout stays active until the installment is paid.");
-          } else if ((result.paidAmount ?? 0) > 0 && !result.plan?.installmentCompleted) {
-            setAvatarMistressReply(
-              `Partial debt payment applied. ${Number(result.paidAmount ?? 0).toLocaleString()} coins paid, ${Number(result.plan?.currentInstallmentRemaining ?? 0).toLocaleString()} coins still due.`,
-            );
-          } else {
-            const autoCollectAmount = Number(result.plan?.amount ?? duePlan?.amount ?? 0).toLocaleString();
-            setAvatarMistressReply(
-              (result.plan?.missedPeriods ?? 0) > 0
-                ? `Missed Debt Contract collected automatically. ${autoCollectAmount} coins charged.`
-                : `Debt Contract auto-payment completed. ${autoCollectAmount} coins charged.`,
-            );
-          }
-        } catch (error) {
-          console.error("Failed to auto-collect overdue debt payment", error);
-          setAuthError(describeError(error));
-          setPetDebtContract(activeDebtContract);
-        }
-      }
+      setPetDebtContract(activeDebtContract);
     }
 
     const { data: taskData, error: taskError } = await supabase
@@ -4322,6 +4348,123 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setIsLoggedIn(true);
     // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
   }, []);
+
+  useEffect(() => {
+    if (
+      !authUserId ||
+      isGuestMode ||
+      isPreviewMode ||
+      !petDebtContract ||
+      petDebtContract.status !== "active" ||
+      !isDebtAutoPayEnabled
+    ) {
+      return;
+    }
+
+    const duePlan = getDueDebtPaymentPlan(petDebtContract, {
+      autoPayEnabled: isDebtAutoPayEnabled,
+      availableCoins: coins,
+    });
+
+    if (!duePlan) {
+      return;
+    }
+
+    const requestKey = [
+      petDebtContract.id,
+      petDebtContract.paid_periods,
+      petDebtContract.missed_periods,
+      petDebtContract.current_installment_remaining,
+      duePlan.canAutoCollectNow ? "collect" : "mark-missed",
+    ].join(":");
+
+    if (debtAutoCollectRequestRef.current === requestKey) {
+      return;
+    }
+
+    let cancelled = false;
+    debtAutoCollectRequestRef.current = requestKey;
+
+    void fetch("/api/user/debt-contracts", {
+      body: JSON.stringify({
+        action: "autoCollect",
+        autoPayEnabled: isDebtAutoPayEnabled,
+        contractId: petDebtContract.id,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).then(async (response) => {
+      const result = (await response.json().catch(() => ({}))) as {
+        autoPaySkipped?: boolean;
+        contract?: PetDebtContract | null;
+        error?: string;
+        paidAmount?: number;
+        plan?: {
+          amount?: number;
+          currentInstallmentRemaining?: number;
+          installmentCompleted?: boolean;
+          missedPeriods?: number;
+        } | null;
+        profile?: Profile;
+        reason?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Debt auto-collection failed.");
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (result.profile) {
+        applyProfileStats(result.profile);
+        unlockProgressionTitles(result.profile.tribute_total ?? 0);
+      }
+
+      setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
+      void loadLeadershipTop();
+
+      if (result.reason === "missed_installment" || (result.autoPaySkipped && duePlan.shouldMarkMissed)) {
+        setAvatarMistressReply(
+          "The installment passed without enough coins. It is now missed, and the debt timeout stays until you pay it.",
+        );
+        return;
+      }
+
+      if ((result.paidAmount ?? 0) <= 0) {
+        return;
+      }
+
+      const autoCollectAmount = Number(result.plan?.amount ?? duePlan.amount ?? 0).toLocaleString();
+      setAvatarMistressReply(`Debt Contract auto-payment completed. ${autoCollectAmount} coins charged.`);
+    }).catch((error) => {
+      if (cancelled) {
+        return;
+      }
+
+      console.error("Failed to auto-collect debt payment", error);
+      setAuthError(describeError(error));
+    }).finally(() => {
+      if (debtAutoCollectRequestRef.current === requestKey) {
+        debtAutoCollectRequestRef.current = null;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    applyProfileStats,
+    authUserId,
+    coins,
+    isDebtAutoPayEnabled,
+    isGuestMode,
+    isPreviewMode,
+    loadLeadershipTop,
+    petDebtContract,
+    unlockProgressionTitles,
+  ]);
 
   const shouldHydrateAdminSession = isLoggedIn && Boolean(authUserId) && !isGuestMode;
 
@@ -7653,6 +7796,54 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const handleUnequipCosmetic = async (itemType: CosmeticType) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (!authUserId && !isGuestMode) {
+      return;
+    }
+
+    const actionId = `cosmetic:unequip:${itemType}`;
+
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      if (!isGuestMode) {
+        const response = await fetch("/api/user/cosmetics", {
+          body: JSON.stringify({ action: "unequip", itemType }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+        if (!response.ok) {
+          throw createApiError("/api/user/cosmetics", response, payload ?? {});
+        }
+      }
+
+      setEquippedCosmeticIds((current) => {
+        if (itemType === "speech-avatar") {
+          return { ...current, "speech-avatar": DEFAULT_SPEECH_AVATAR_ID };
+        }
+
+        const next = { ...current };
+        delete next[itemType];
+        return next;
+      });
+      setAvatarMistressReply("Cosmetic unequipped.");
+      finishTaskAction(actionId);
+    } catch (error) {
+      console.error("Failed to unequip cosmetic", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The cosmetic unequip failed. Try again.");
+      finishTaskAction(actionId);
+    }
+  };
+
   const handlePurchaseTitle = async (title: TitleItem) => {
     if (blockIfTimedOut()) {
       return;
@@ -8668,6 +8859,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         if (result.contract) {
           setPetDebtContract(result.contract as PetDebtContract);
         }
+        const debtAutoPayUserId = profileIdRef.current ?? authUserId ?? LOCAL_GUEST_USER_ID;
+        writeDebtAutoPayEnabled(debtAutoPayUserId, false);
+        setIsDebtAutoPayEnabled(false);
       } catch (error) {
         console.error("Failed to create debt contract", error);
         const maybeTimeoutUntil = (error as { payload?: { timeoutUntil?: unknown } })?.payload?.timeoutUntil;
@@ -9657,6 +9851,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   );
 
   const hasDisplayNameChangeRight = ownedCosmeticIds.includes("display-name-change");
+  const ownedProfileHeaderRotatingCosmetics = useMemo(() => {
+    const rotatingHeaderItems = rotatingCosmeticItems.filter((item) =>
+      PROFILE_HEADER_COSMETIC_TYPE_ORDER.includes(item.type),
+    );
+
+    return rotatingHeaderItems.filter((item) => ownedCosmeticIds.includes(item.id));
+  }, [ownedCosmeticIds]);
+  const profileHeaderCosmeticsByType = useMemo(() => {
+    const grouped = new Map<CosmeticType, CosmeticItem[]>();
+
+    ownedProfileHeaderRotatingCosmetics.forEach((item) => {
+      const current = grouped.get(item.type) ?? [];
+      current.push(item);
+      grouped.set(item.type, current);
+    });
+
+    PROFILE_HEADER_COSMETIC_TYPE_ORDER.forEach((type) => {
+      const entries = grouped.get(type);
+      if (entries) {
+        entries.sort((left, right) => left.name.localeCompare(right.name));
+      }
+    });
+
+    return grouped;
+  }, [ownedProfileHeaderRotatingCosmetics]);
+  const equippedProfileHeaderItems = useMemo(
+    () =>
+      PROFILE_HEADER_COSMETIC_TYPE_ORDER.map((type) => {
+        const itemId = effectiveEquippedCosmeticIds[type];
+        return itemId ? getCosmeticItem(itemId) : null;
+      }).filter((item): item is CosmeticItem => Boolean(item)),
+    [effectiveEquippedCosmeticIds],
+  );
 
   // Group wardrobe items by their avatar slot category for cleaner UI
   const equippableByCategory = useMemo(() => {
@@ -9762,7 +9989,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       key: "debt" as const,
       label: "Debt Contract",
     },
-    { key: "collection" as const, label: "Gallery" },
+    {
+      key: "collection" as const,
+      label: "Gallery",
+      hasIndicator: unseenShrineMemoryIds.length > 0,
+      onHover: () => markShrineMemoriesSeen(unseenShrineMemoryIds),
+    },
     { key: "profile" as const, label: "Profile" },
   ];
   const activePageLabel =
@@ -10424,9 +10656,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               mood={affection}
+              newItemIds={unseenShrineMemoryIds}
               pendingUnlockIds={pendingTaskActionIds
                 .filter((id) => id.startsWith("gallery:"))
                 .map((id) => id.slice("gallery:".length))}
+              onItemHover={(itemId) => markShrineMemoriesSeen([itemId])}
               onUnlock={handleUnlock}
             />
           )}
@@ -10576,7 +10810,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
                   Avatar Wardrobe
                 </p>
-                <h2 className="mt-1 text-2xl font-black text-white">Profile Customization</h2>
+                <h2 className="mt-1 text-2xl font-black text-white">Avatar Customization</h2>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
                   Items grouped by category (hands &amp; mouth added). Click items to equip or unequip. Avatar preview updates live.
                 </p>
@@ -10846,6 +11080,156 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100/70">
+                        Profile Header Customization
+                      </p>
+                      <h3 className="mt-1 text-xl font-black text-white">
+                        Manage your rotating header cosmetics
+                      </h3>
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+                        Rotating Shop profile header items live here after purchase. Equip one item per category, or
+                        unequip any currently active header cosmetic whenever you want.
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-amber-200/15 bg-amber-400/10 px-4 py-3 text-sm text-amber-50/85">
+                      <p className="font-semibold">
+                        Owned header cosmetics: {ownedProfileHeaderRotatingCosmetics.length}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-100/65">
+                        Equipped now: {equippedProfileHeaderItems.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {ownedProfileHeaderRotatingCosmetics.length === 0 ? (
+                    <div className="mt-4 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-5 text-sm leading-6 text-zinc-400">
+                      You do not own any Profile Header cosmetics yet. Buy limited header items from the Rotating Shop
+                      to customize borders, ornaments, particles, and username presentation here.
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        {equippedProfileHeaderItems.length > 0 ? (
+                          equippedProfileHeaderItems.map((item) => (
+                            <span
+                              key={`equipped-header-${item.id}`}
+                              className="rounded-full border border-amber-200/25 bg-amber-400/12 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-amber-50"
+                            >
+                              {item.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
+                            No header cosmetic equipped
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-2">
+                        {PROFILE_HEADER_COSMETIC_TYPE_ORDER.map((type) => {
+                          const items = profileHeaderCosmeticsByType.get(type) ?? [];
+
+                          if (items.length === 0) {
+                            return null;
+                          }
+
+                          const equippedItemId = effectiveEquippedCosmeticIds[type];
+                          const label = isProfileFrameCosmeticType(type)
+                            ? getProfileFrameCosmeticTypeLabel(type)
+                            : type === "profile-border"
+                              ? "Profile Border"
+                              : type === "username-color"
+                                ? "Username Color"
+                                : "Username Glow";
+
+                          return (
+                            <div
+                              key={`header-cosmetics-${type}`}
+                              className="rounded-[1.2rem] border border-white/10 bg-black/25 p-3"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">
+                                    {label}
+                                  </p>
+                                  <p className="mt-1 text-xs text-zinc-500">{items.length} owned</p>
+                                </div>
+                                {equippedItemId ? (
+                                  <button
+                                    className="rounded-full border border-red-300/20 bg-red-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-red-100 transition hover:border-red-300/40 hover:bg-red-500/18 disabled:cursor-not-allowed disabled:opacity-40"
+                                    disabled={pendingTaskActionIds.includes(`cosmetic:unequip:${type}`)}
+                                    onClick={() => void handleUnequipCosmetic(type)}
+                                    type="button"
+                                  >
+                                    Unequip
+                                  </button>
+                                ) : (
+                                  <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-400">
+                                    Empty
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="mt-3 grid gap-2">
+                                {items.map((item) => {
+                                  const isEquipped = equippedItemId === item.id;
+                                  const isPending =
+                                    pendingTaskActionIds.includes(`cosmetic:${item.id}`) ||
+                                    pendingTaskActionIds.includes(`cosmetic:unequip:${type}`);
+
+                                  return (
+                                    <div
+                                      key={`header-item-${item.id}`}
+                                      className={`rounded-[1rem] border px-3 py-3 ${
+                                        isEquipped
+                                          ? "border-amber-200/35 bg-amber-400/10"
+                                          : "border-white/10 bg-black/20"
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <p
+                                              className="truncate text-sm font-black text-white"
+                                              style={{
+                                                color: item.type === "username-color" ? item.color : undefined,
+                                                textShadow: item.type === "username-glow" ? item.glow : undefined,
+                                              }}
+                                            >
+                                              {item.name}
+                                            </p>
+                                            {isEquipped ? (
+                                              <span className="rounded-full border border-amber-200/25 bg-amber-400/12 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-50">
+                                                Equipped
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                          <p className="mt-1 text-xs leading-5 text-zinc-400">{item.description}</p>
+                                        </div>
+                                        <button
+                                          className="shrink-0 rounded-xl border border-amber-200/22 bg-amber-400/12 px-3 py-2 text-xs font-black text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-400/18 disabled:cursor-not-allowed disabled:opacity-40"
+                                          disabled={isPending || isEquipped}
+                                          onClick={() => void handleEquipCosmetic(item)}
+                                          type="button"
+                                        >
+                                          {isPending ? "Saving..." : isEquipped ? "Equipped" : "Equip"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

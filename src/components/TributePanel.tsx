@@ -108,25 +108,29 @@ export function TributePanel({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(19rem,0.7fr)]">
-            <div className="grid gap-4 md:grid-cols-3">
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.55fr)]">
+            <div className="grid gap-3 md:grid-cols-3">
               {SHRINE_PURCHASE_OPTIONS.map((option) => (
                 <button
-                  className="group rounded-[1.5rem] border border-amber-200/15 bg-[linear-gradient(160deg,rgba(251,191,36,0.12),rgba(236,72,153,0.1),rgba(0,0,0,0.45))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_30px_rgba(251,191,36,0.18)] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="group rounded-[1.35rem] border border-amber-200/15 bg-[linear-gradient(160deg,rgba(251,191,36,0.12),rgba(236,72,153,0.1),rgba(0,0,0,0.45))] p-4 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={disabled || shrinePending || coins < option.amount}
                   key={option.amount}
                   onClick={() => onShrinePurchase?.(option.amount)}
                   type="button"
                 >
                   <p className="text-sm font-semibold text-amber-50">{option.label}</p>
-                  <p className="mt-4 text-4xl font-black text-white">{option.amount}</p>
-                  <p className="mt-1 text-sm text-zinc-400">coins</p>
-                  <p className="mt-4 text-sm leading-6 text-zinc-300">{option.description}</p>
-                  <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-amber-50/85">
-                    <span className="rounded-full border border-amber-200/20 bg-black/25 px-3 py-2">
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-3xl font-black text-white">{option.amount.toLocaleString()}</p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-400">coins offered</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-zinc-300">{option.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-50/85">
+                    <span className="rounded-full border border-amber-200/20 bg-black/25 px-2.5 py-1.5">
                       +{option.devotionReward} Devotion
                     </span>
-                    <span className="rounded-full border border-pink-200/20 bg-black/25 px-3 py-2">
+                    <span className="rounded-full border border-pink-200/20 bg-black/25 px-2.5 py-1.5">
                       +{option.amount.toLocaleString()} Tribute
                     </span>
                   </div>
@@ -134,14 +138,14 @@ export function TributePanel({
               ))}
             </div>
 
-            <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+            <div className="rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
-                  Shrine Memories
+                  Latest Shrine Memory
                 </p>
                 {shrine?.coinsUntilNextUnlock !== null ? (
                   <span className="rounded-full border border-amber-200/15 bg-amber-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-amber-50">
-                    {shrine?.coinsUntilNextUnlock?.toLocaleString() ?? "0"} until the next memory
+                    {shrine?.coinsUntilNextUnlock?.toLocaleString() ?? "0"} to next reveal
                   </span>
                 ) : (
                   <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-50">
@@ -150,27 +154,27 @@ export function TributePanel({
                 )}
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.18),rgba(0,0,0,0.62))]">
+              <div className="mt-4 overflow-hidden rounded-[1.1rem] border border-amber-200/15 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.18),rgba(0,0,0,0.62))]">
                 {shrine?.currentImagePath ? (
                   <div>
                     <Image
                       alt={shrine.currentMemory?.title ?? "Current Shrine Memory"}
-                      className="h-auto w-full object-cover"
-                      height={900}
+                      className="h-40 w-full object-cover"
+                      height={320}
                       src={shrine.currentImagePath}
-                      width={700}
+                      width={480}
                     />
                     {shrine.currentMemory?.title ? (
-                      <div className="border-t border-amber-200/10 bg-black/35 px-4 py-3">
+                      <div className="border-t border-amber-200/10 bg-black/35 px-3 py-2.5">
                         <p className="text-sm font-semibold text-amber-50">{shrine.currentMemory.title}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-100/60">
-                          Most recently revealed memory
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-amber-100/60">
+                          Full Shrine Memories now live in Gallery
                         </p>
                       </div>
                     ) : null}
                   </div>
                 ) : (
-                  <div className="flex min-h-[17rem] flex-col items-center justify-center px-6 py-10 text-center">
+                  <div className="flex min-h-[12rem] flex-col items-center justify-center px-5 py-8 text-center">
                     <p className="text-sm font-black uppercase tracking-[0.24em] text-amber-50/70">
                       Awaiting Shrine Memories
                     </p>
@@ -199,7 +203,7 @@ export function TributePanel({
               </div>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
                 {shrine?.availableImageCount
-                  ? `${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} Shrine Memories have been revealed.`
+                  ? `${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} Shrine Memories have been revealed. Browse the full collection in Gallery.`
                   : "No Shrine Memories have been placed yet, but your offerings are already being remembered."}
               </p>
             </div>

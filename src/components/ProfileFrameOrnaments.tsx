@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
@@ -597,6 +597,9 @@ function OverlayDrape({
 }
 
 type ParticleSpec = {
+  animationDelay: string;
+  animationDuration: string;
+  color: string;
   delay: string;
   duration: number;
   leftPercent: number;
@@ -607,6 +610,33 @@ type ParticleSpec = {
   translateX: number;
   translateY: number;
 };
+
+const particleSpecCache = new Map<string, ParticleSpec[]>();
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    update();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", update);
+      return () => mediaQuery.removeEventListener("change", update);
+    }
+
+    mediaQuery.addListener(update);
+    return () => mediaQuery.removeListener(update);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 function hashString(value: string) {
   let hash = 2166136261;
@@ -632,37 +662,57 @@ function createSeededRandom(seed: number) {
 }
 
 function buildParticleSpecs(definition: ProfileFrameDecorationDefinition): ParticleSpec[] {
+  const cached = particleSpecCache.get(definition.id);
+
+  if (cached) {
+    return cached;
+  }
+
   const seededRandom = createSeededRandom(hashString(definition.id));
+  const palette = getPalette(definition);
   const totalParticles = (() => {
     switch (definition.motif) {
       case "particles-dust":
-        return 24;
+        return 12;
       case "particles-hearts":
       case "particles-petals":
-        return 18;
+        return 10;
       case "particles-embers":
-        return 20;
+        return 12;
       default:
-        return 16;
+        return 8;
     }
   })();
 
-  return Array.from({ length: totalParticles }, () => ({
-    delay: `${(seededRandom() * -4.5).toFixed(2)}s`,
-    duration: 4.8 + seededRandom() * 3.8,
-    leftPercent: 6 + seededRandom() * 88,
-    opacity: 0.38 + seededRandom() * 0.54,
-    scale: 0.72 + seededRandom() * 0.7,
-    size: 6 + Math.round(seededRandom() * 6),
-    topPercent: 6 + seededRandom() * 88,
-    translateX: -10 + seededRandom() * 20,
-    translateY: -16 + seededRandom() * 18,
-  }));
+  const specs = Array.from({ length: totalParticles }, (_, index) => {
+    const duration = 4.8 + seededRandom() * 3.8;
+    const delay = `${(seededRandom() * -4.5).toFixed(2)}s`;
+
+    return {
+      animationDelay: delay,
+      animationDuration: `${duration.toFixed(2)}s`,
+      color: index % 2 === 0 ? palette.primary : palette.secondary,
+      delay,
+      duration,
+      leftPercent: 6 + seededRandom() * 88,
+      opacity: 0.4 + seededRandom() * 0.42,
+      scale: 0.76 + seededRandom() * 0.56,
+      size: 5 + Math.round(seededRandom() * 4),
+      topPercent: 6 + seededRandom() * 88,
+      translateX: -8 + seededRandom() * 16,
+      translateY: -14 + seededRandom() * 16,
+    };
+  });
+
+  particleSpecCache.set(definition.id, specs);
+  return specs;
 }
 
-function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+const ParticleLayer = memo(function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefinition }) {
   const palette = getPalette(definition);
-  const specs = useMemo(() => buildParticleSpecs(definition), [definition]);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const specs = useMemo(() => buildParticleSpecs(definition), [definition.id]);
+  const visibleSpecs = prefersReducedMotion ? specs.slice(0, Math.min(4, specs.length)) : specs;
 
   const renderShape = (size: number, key: string) => {
     switch (definition.motif) {
@@ -741,10 +791,12 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[17] overflow-hidden rounded-[inherit]">
-      {specs.map((spec, index) => {
+      {visibleSpecs.map((spec, index) => {
         const particleStyle = {
-          animation: `profileFrameParticleFloat ${spec.duration.toFixed(2)}s ease-in-out infinite`,
-          animationDelay: spec.delay,
+          animation: prefersReducedMotion
+            ? "none"
+            : `profileFrameParticleFloat ${spec.animationDuration} ease-in-out infinite`,
+          animationDelay: spec.animationDelay,
           left: `${spec.leftPercent}%`,
           opacity: spec.opacity,
           top: `${spec.topPercent}%`,
@@ -754,7 +806,7 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
         return (
           <div
             aria-hidden="true"
-            className="absolute will-change-transform"
+            className="absolute transform-gpu"
             key={`${definition.id}-${index}`}
             style={particleStyle}
           >
@@ -763,14 +815,14 @@ function ParticleLayer({ definition }: { definition: ProfileFrameDecorationDefin
               viewBox={`0 0 ${Math.round(spec.size * 1.7)} ${Math.round(spec.size * 1.7)}`}
               width={Math.round(spec.size * 1.8)}
             >
-              {renderShape(spec.size, index % 2 === 0 ? palette.primary : palette.secondary)}
+              {renderShape(spec.size, spec.color)}
             </svg>
           </div>
         );
       })}
     </div>
   );
-}
+});
 
 function BottomDecoration({
   definition,

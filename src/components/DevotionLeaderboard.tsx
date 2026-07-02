@@ -167,7 +167,7 @@ export function DevotionLeaderboard({
           <span className="font-black text-amber-200">{formatCountdown(refreshCountdownMs)}</span>.
         </p>
         <p className="mt-1 text-[11px] text-pink-100/55">
-          Weekly uses the last 7 days, monthly uses the last 30 days.
+          Weekly resets at the beginning of each week. Monthly resets at the beginning of each month.
         </p>
       </div>
 
