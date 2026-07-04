@@ -30,7 +30,7 @@ async function clearInvalidDebtOverdueTimeoutIfNeeded(
 
   const { data: contract, error: contractError } = await supabase
     .from("pet_debt_contracts")
-    .select("id, status, next_due_at")
+    .select("id, status, next_due_at, paid_periods, missed_periods, duration_periods")
     .eq("user_id", userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -42,12 +42,15 @@ async function clearInvalidDebtOverdueTimeoutIfNeeded(
     return profile;
   }
 
-  const nextDueMs = contract?.next_due_at ? new Date(contract.next_due_at).getTime() : NaN;
+  const currentInstallmentNumber = contract
+    ? Math.min(Number(contract.paid_periods ?? 0) + 1, Number(contract.duration_periods ?? 0))
+    : 0;
+  const hasMissedCurrentInstallment =
+    contract && Number(contract.missed_periods ?? 0) >= currentInstallmentNumber;
   const shouldClearTimeout =
     !contract ||
     contract.status !== "active" ||
-    !Number.isFinite(nextDueMs) ||
-    nextDueMs > Date.now();
+    !hasMissedCurrentInstallment;
 
   if (!shouldClearTimeout) {
     return profile;

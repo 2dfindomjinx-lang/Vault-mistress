@@ -85,7 +85,9 @@ export async function listAppLicenses(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+    .select(
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+    )
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -101,7 +103,9 @@ export async function listAppLicenseEvents(appKey = PRINCIPESSA_DISCIPLINE_APP_K
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("app_activation_events")
-    .select("id, activation_id, activation_code_snapshot, owner_name_snapshot, event_type, installation_id, device_label, metadata, created_at")
+    .select(
+      "id, activation_id, activation_code_snapshot, owner_name_snapshot, event_type, installation_id, device_label, metadata, created_at",
+    )
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -117,7 +121,9 @@ export async function findAppLicense(appKey: string, activationCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+    .select(
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+    )
     .eq("app_key", appKey)
     .eq("activation_code", normalizeLicenseCode(activationCode))
     .maybeSingle();
@@ -129,7 +135,10 @@ export async function findAppLicense(appKey: string, activationCode: string) {
   return (data ?? null) as AppLicenseRow | null;
 }
 
-export async function insertAppLicense(input: { appKey: string; notes?: string | null }) {
+export async function insertAppLicense(input: {
+  appKey: string;
+  notes?: string | null;
+}) {
   const supabase = createSupabaseAdminClient();
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -142,7 +151,9 @@ export async function insertAppLicense(input: { appKey: string; notes?: string |
         notes: input.notes?.trim() || null,
         status: "active",
       })
-      .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+      .select(
+        "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+      )
       .single();
 
     if (!error && data) {
@@ -272,7 +283,9 @@ export async function revokeAppLicense(licenseId: string) {
   const supabase = createSupabaseAdminClient();
   const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+    .select(
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+    )
     .eq("id", licenseId)
     .single();
 
@@ -292,10 +305,7 @@ export async function revokeAppLicense(licenseId: string) {
     throw new Error("Used activation codes can no longer be revoked.");
   }
 
-  const { error } = await supabase
-    .from("app_activation_codes")
-    .delete()
-    .eq("id", licenseId);
+  const { error } = await supabase.from("app_activation_codes").delete().eq("id", licenseId);
 
   if (error) {
     throw error;
@@ -339,7 +349,9 @@ export async function resetAppLicense(licenseId: string) {
       updated_at: now,
     })
     .eq("id", licenseId)
-    .select("id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at")
+    .select(
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+    )
     .single();
 
   if (error) {

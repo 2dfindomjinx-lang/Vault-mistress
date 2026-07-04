@@ -113,6 +113,12 @@ function getCurrentInstallmentNumber(contract: Pick<ContractRow, "paid_periods" 
   return Math.min(contract.paid_periods + 1, contract.duration_periods);
 }
 
+function hasMissedCurrentInstallment(
+  contract: Pick<ContractRow, "duration_periods" | "missed_periods" | "paid_periods">,
+) {
+  return contract.missed_periods >= getCurrentInstallmentNumber(contract);
+}
+
 function isValidEvilDebtImage(value: unknown) {
   return (
     typeof value === "string" &&
@@ -143,10 +149,10 @@ function getDueDebtPaymentPlan(
   }
 
   const overdue = nextDueMs <= now;
-  const installmentAlreadyMissed =
-    contract.missed_periods >= getCurrentInstallmentNumber(contract);
+  const installmentAlreadyMissed = hasMissedCurrentInstallment(contract);
   const canAutoCollectNow =
     options.mode === "autoCollect" &&
+    overdue &&
     options.autoPayEnabled &&
     Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
   const shouldMarkMissed =
@@ -473,7 +479,7 @@ export async function POST(request: Request) {
     const shouldKeepDebtTimeout =
       !contractCompleted &&
       nextInstallmentRemaining > 0 &&
-      (overdue || plan.installmentAlreadyMissed || missedThisPayment);
+      (plan.installmentAlreadyMissed || missedThisPayment);
     const nextTimeoutUntil = shouldKeepDebtTimeout
       ? new Date(
           Math.max(

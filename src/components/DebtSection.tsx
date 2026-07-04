@@ -81,12 +81,9 @@ function hasMissedDebtInstallment(contract: PetDebtContract | null, now: number)
     return false;
   }
 
-  const dueMs = new Date(contract.next_due_at ?? "").getTime();
   const currentInstallmentNumber = Math.min(contract.paid_periods + 1, contract.duration_periods);
-  return (
-    (Number.isFinite(dueMs) && dueMs <= now) ||
-    contract.missed_periods >= currentInstallmentNumber
-  );
+  void now;
+  return contract.missed_periods >= currentInstallmentNumber;
 }
 
 function formatRemaining(target: string | null, now: number) {
@@ -564,15 +561,17 @@ function DebtCard(props: {
           </div>
           <button
             className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={activeDebtControlsDisabled || !hasMissedInstallment || isPetActionPending("pet-debt-contract")}
+            disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
             onClick={onPayDebtPeriod}
             type="button"
           >
             {isPetActionPending("pet-debt-contract")
               ? "Saving..."
-              : !hasMissedInstallment
+              : !debtPaymentDue
                 ? "Next installment locked"
-                : "Pay missed installments"}
+                : hasMissedInstallment
+                  ? "Catch up missed installment"
+                  : "Pay current installment"}
           </button>
         </div>
       ) : showLockedState ? (
@@ -819,15 +818,17 @@ function EvilDebtCard(props: {
               </div>
               <button
                 className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeDebtControlsDisabled || !hasMissedInstallment || isPetActionPending("pet-debt-contract")}
+                disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
                 onClick={onPayDebtPeriod}
                 type="button"
               >
                 {isPetActionPending("pet-debt-contract")
                   ? "Saving..."
-                  : !hasMissedInstallment
+                  : !debtPaymentDue
                     ? "Next installment locked"
-                    : "Pay missed installments"}
+                    : hasMissedInstallment
+                      ? "Catch up missed installment"
+                      : "Pay current installment"}
               </button>
             </>
           ) : (

@@ -1395,7 +1395,7 @@ export function PetSection({
               />
             </div>
             <p className="mt-2 text-xs text-zinc-400">
-              Complete 6 Pet tasks per day to keep Owner Likeness stable.
+              Complete 5 approved Pet tasks per day to keep Owner Likeness stable.
             </p>
           </div>
 

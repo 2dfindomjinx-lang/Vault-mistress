@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1243,9 +1243,9 @@ export default function AdminPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className="rounded-full border border-cyan-200/20 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-50">
-                                {opener.totalOpens} opens Â· {opener.totalCoinsWon.toLocaleString()} coins won
+                                {opener.totalOpens} opens - {opener.totalCoinsWon.toLocaleString()} coins won
                               </span>
-                              <span className="text-cyan-100">{expanded ? "âˆ’" : "+"}</span>
+                              <span className="text-cyan-100">{expanded ? "-" : "+"}</span>
                             </div>
                           </button>
 
@@ -1285,7 +1285,7 @@ export default function AdminPage() {
                                             ? "n/a"
                                             : `${opening.itemChancePercent.toFixed(2)}%`}
                                         </span>{" "}
-                                        Â· Value{" "}
+                                        - Value{" "}
                                         <span className="font-bold text-amber-100">
                                           {opening.itemSellValue === null
                                             ? "n/a"
@@ -2189,3 +2189,4 @@ export default function AdminPage() {
     </main>
   );
 }
+

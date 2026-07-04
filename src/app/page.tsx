@@ -400,6 +400,7 @@ const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
+const PET_OWNER_LIKENESS_DAILY_TASK_TARGET = 5;
 const IMAGE_DOWNLOAD_ALLOW_SELECTOR = "[data-allow-image-download]";
 const LOCAL_GUEST_USER_ID = "local-guest-user";
 const DEFAULT_SITE_ANNOUNCEMENT: Pick<SiteAnnouncement, "title" | "body"> = {
@@ -1536,6 +1537,7 @@ function getDueDebtPaymentPlan(
   const installmentNumber = Math.min(contract.paid_periods + 1, contract.duration_periods);
   const installmentAlreadyMissed = contract.missed_periods >= installmentNumber;
   const canAutoCollectNow =
+    overdue &&
     options.autoPayEnabled &&
     Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
   const shouldMarkMissed =
@@ -2761,7 +2763,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? "An overdue debt installment is locking the account. This timeout stays active until the installment is fully paid or an admin removes it."
         : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
   const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
-  const isPetUnlocked = affection >= 100 || (petEverUnlocked && affection >= 85);
+  const isPetUnlocked = petEverUnlocked;
   const nextPetTaxDueAt = petUnlockedAt
     ? new Date(new Date(lastPetTaxAt ?? petUnlockedAt).getTime() + WEEK_MS).toISOString()
     : null;
@@ -4697,20 +4699,31 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const lastLikenessKey = getGmt3DateKey(nextLastOwnerLikenessAt ?? nextPetUnlockedAt);
 
       if (lastLikenessKey !== todayKey) {
-        const { start: dayStart, end: dayEnd } = getGmt3DayBounds(nowIso);
-        const { count, error: countError } = await supabase
+        const { data: approvedPetTasks, error: approvedPetTasksError } = await supabase
           .from("user_pet_tasks")
-          .select("id", { count: "exact", head: true })
+          .select("task_id, completed_at, status, reviewed_at, metadata")
           .eq("user_id", profile.id)
-          .eq("status", "approved")
-          .gte("completed_at", dayStart.toISOString())
-          .lt("completed_at", dayEnd.toISOString());
+          .eq("status", "approved");
 
-        if (countError) {
-          console.error("Failed to count daily Pet tasks for Owner Likeness", countError);
+        if (approvedPetTasksError) {
+          console.error("Failed to load daily Pet tasks for Owner Likeness", approvedPetTasksError);
         }
 
-        if ((count ?? 0) >= 5) {
+        const approvedTodayCount = ((approvedPetTasks ?? []) as Array<{
+          completed_at: string | null;
+          metadata: Record<string, unknown> | null;
+          reviewed_at: string | null;
+          status?: string | null;
+          task_id: string;
+        }>).filter((task) => isPetTaskApprovedToday({
+          clickDate: getTaskMetadataString(task.metadata, "date"),
+          completedAt: task.completed_at,
+          id: task.task_id,
+          reviewedAt: task.reviewed_at,
+          status: task.status ?? null,
+        } as PetTaskItem, todayKey)).length;
+
+        if (approvedTodayCount >= PET_OWNER_LIKENESS_DAILY_TASK_TARGET) {
           nextOwnerLikeness = Math.min(100, nextOwnerLikeness + 10);
         } else {
           nextOwnerLikeness = Math.max(0, nextOwnerLikeness - 25);

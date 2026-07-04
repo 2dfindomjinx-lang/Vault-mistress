@@ -11,6 +11,12 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type Body = {
+  action?: "generate" | "revoke" | "reset" | "list";
+  licenseId?: string;
+  notes?: string;
+};
+
 export async function GET() {
   const admin = await requireAdminProfile();
 
@@ -38,11 +44,7 @@ export async function POST(request: Request) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const body = (await request.json()) as {
-    action?: "generate" | "revoke" | "reset" | "list";
-    licenseId?: string;
-    notes?: string;
-  };
+  const body = (await request.json()) as Body;
 
   try {
     if (body.action === "list") {
