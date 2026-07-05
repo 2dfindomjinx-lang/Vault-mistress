@@ -1,5 +1,6 @@
 import { getDebtPeriodMs, getFirstDebtDueAtIso, listAdminDebtContracts } from "@/lib/admin-debt-contracts";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { createUserNotification } from "@/lib/user-notifications";
 
 const DEBT_TRANSACTION_REASONS = [
   "tribute:debt-contract",
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
 
     const { data: contract, error: contractError } = await admin.supabase
       .from("pet_debt_contracts")
-      .select("id, debt_amount, user_id")
+      .select("id, debt_amount, status, user_id")
       .eq("id", contractId);
 
     if (contractError) {
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
 
     let refundTransactionId: string | null = null;
     let refundedInstallmentAmount = 0;
+    const shouldRefundOnRemove = activeContract.status === "active";
     let refundProfileRollback:
       | {
           coins: number;
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
         }
       | null = null;
 
-    if (lastDebtTransaction) {
+    if (shouldRefundOnRemove && lastDebtTransaction) {
       const transactionMetadata =
         lastDebtTransaction.metadata && typeof lastDebtTransaction.metadata === "object"
           ? (lastDebtTransaction.metadata as Record<string, unknown>)
@@ -212,6 +214,7 @@ export async function POST(request: Request) {
     return Response.json({
       contracts: await listAdminDebtContracts(admin.supabase, { projectOverdueMissedPeriods: true }),
       refundedInstallmentAmount,
+      removalMode: shouldRefundOnRemove ? "refunded_active_contract" : "cleared_finished_record",
     });
   }
 
@@ -224,7 +227,7 @@ export async function POST(request: Request) {
 
     const { data: contract, error: readError } = await admin.supabase
       .from("pet_debt_contracts")
-      .select("id, contract_type, duration_periods, period_type, status")
+      .select("id, contract_type, duration_periods, period_type, status, user_id")
       .eq("id", contractId)
       .eq("contract_type", "evil")
       .eq("status", "pending")
@@ -256,6 +259,20 @@ export async function POST(request: Request) {
     if (error) {
       console.error("Admin evil debt approval failed", error);
       return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    try {
+      await createUserNotification(admin.supabase, {
+        body: "Your Evil Debt Contract was approved and is now active.",
+        kind: "debt_evil_approved",
+        metadata: {
+          contractId: contract.id,
+        },
+        title: "Evil Debt Approved",
+        userId: contract.user_id,
+      });
+    } catch (notificationError) {
+      console.error("Admin evil debt approval notification failed", notificationError);
     }
   }
 

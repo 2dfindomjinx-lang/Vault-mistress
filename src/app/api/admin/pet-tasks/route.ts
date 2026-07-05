@@ -12,6 +12,7 @@ import {
   getPetThroneRewardBreakdown,
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
+import { createUserNotification } from "@/lib/user-notifications";
 
 const PET_TASK_COIN_REWARD = 250;
 const LARGE_THRONE_PENDING_AMOUNT = Number(process.env.ADMIN_SECURITY_LARGE_COIN_AMOUNT ?? 50000);
@@ -114,6 +115,21 @@ export async function POST(request: Request) {
     if (error) {
       console.error("Admin pet task reject failed", error);
       return Response.json({ error: error.message }, { status: 500 });
+    }
+
+    try {
+      await createUserNotification(supabase, {
+        body: `Your pet task "${task.task_id}" was rejected during review.`,
+        kind: "pet_task_rejected",
+        metadata: {
+          taskId: task.id,
+          taskKey: task.task_id,
+        },
+        title: "Pet Task Rejected",
+        userId: task.user_id,
+      });
+    } catch (notificationError) {
+      console.error("Admin pet task reject notification failed", notificationError);
     }
 
     return Response.json({
@@ -414,6 +430,26 @@ export async function POST(request: Request) {
     if (transaction?.id) {
       transactionIds = [transaction.id];
     }
+  }
+
+  try {
+    await createUserNotification(supabase, {
+      body: isThroneTask
+        ? "Your Throne-related pet task was approved."
+        : `Your pet task "${task.task_id}" was approved. You received +${petScoreDelta} Pet Score and +${PET_TASK_COIN_REWARD} coins.`,
+      kind: "pet_task_approved",
+      metadata: {
+        coinRewardAmount,
+        petScoreDelta,
+        taskId: task.id,
+        taskKey: task.task_id,
+        throneTotalCoinAmount: isThroneTask ? throneTotalCoinAmount : 0,
+      },
+      title: "Pet Task Approved",
+      userId: task.user_id,
+    });
+  } catch (notificationError) {
+    console.error("Admin pet task approval notification failed", notificationError);
   }
 
   const { data: approvedTask, error: taskUpdateError } = await supabase

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 
@@ -136,6 +136,17 @@ type CaseOpener = {
   recentOpenings: CaseOpening[];
 };
 
+type AdminTabKey =
+  | "announcements"
+  | "caseOpeners"
+  | "console"
+  | "debt"
+  | "events"
+  | "irlTasks"
+  | "maxAffection"
+  | "petTasks"
+  | "timeouts";
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -189,9 +200,7 @@ export default function AdminPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
-  const [activeTab, setActiveTab] = useState<
-    "console" | "caseOpeners" | "irlTasks" | "timeouts" | "maxAffection" | "petTasks" | "debt" | "events" | "announcements"
-  >("console");
+  const [activeTab, setActiveTab] = useState<AdminTabKey>("console");
   const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil">("normal");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
@@ -681,6 +690,7 @@ export default function AdminPage() {
         contracts?: AdminDebtContract[];
         error?: string;
         refundedInstallmentAmount?: number;
+        removalMode?: "cleared_finished_record" | "refunded_active_contract";
       };
 
       if (!response.ok) {
@@ -691,12 +701,16 @@ export default function AdminPage() {
       setStatus(
         result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
           ? `Debt contract removed. Refunded last installment: ${result.refundedInstallmentAmount.toLocaleString()} coins.`
-          : "Debt contract removed.",
+          : result.removalMode === "cleared_finished_record"
+            ? "Finished debt record removed. No refund was applied."
+            : "Debt contract removed.",
       );
       setDefneMessage(
         result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
           ? "Debt removed. The last installment was refunded and the ledger was corrected."
-          : "Debt removed. The ledger has been corrected.",
+          : result.removalMode === "cleared_finished_record"
+            ? "Finished debt record removed without changing the ledger."
+            : "Debt removed. The ledger has been corrected.",
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Debt removal failed.");
@@ -1109,17 +1123,17 @@ export default function AdminPage() {
 
         <div className="mt-6">
           <div className="flex flex-wrap gap-2">
-              {([
-                ["console", "Command Console"],
-                ["caseOpeners", "Case Openers"],
-                ["irlTasks", "IRL Tasks"],
-                ["petTasks", "Pet Tasks"],
-                ["debt", "Debt"],
-                ["events", "Events"],
-                ["announcements", "Announcements"],
-                ["timeouts", "Active Timeouts"],
-                ["maxAffection", "100 Affection"],
-              ] as const).map(([key, label]) => (
+            {([
+              ["console", "Command Console"],
+              ["caseOpeners", "Case Openers"],
+              ["irlTasks", "IRL Tasks"],
+              ["petTasks", "Pet Tasks"],
+              ["debt", "Debt"],
+              ["events", "Events"],
+              ["announcements", "Announcements"],
+              ["timeouts", "Active Timeouts"],
+              ["maxAffection", "100 Affection"],
+            ] as const).map(([key, label]) => (
               <button
                 className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
                   activeTab === key

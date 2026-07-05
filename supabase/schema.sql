@@ -158,6 +158,24 @@ create table if not exists public.user_pet_tasks (
   unique(user_id, task_id)
 );
 
+create table if not exists public.user_notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null,
+  title text not null,
+  body text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  read_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists user_notifications_user_created_idx
+  on public.user_notifications(user_id, created_at desc);
+
+create index if not exists user_notifications_user_read_idx
+  on public.user_notifications(user_id, read_at, deleted_at);
+
 create table if not exists public.user_pet_gallery (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,

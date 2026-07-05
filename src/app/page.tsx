@@ -16,6 +16,7 @@ import { GalleryGrid } from "@/components/GalleryGrid";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
+import { NotificationBell } from "@/components/NotificationBell";
 import { PetSection } from "@/components/PetSection";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
@@ -2095,7 +2096,6 @@ export default function Home() {
   const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
-  const [pendingIrlReviewCount, setPendingIrlReviewCount] = useState(0);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
     gameplayEnabled: true,
     masterVolume: 0.7,
@@ -3844,46 +3844,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     void loadSelectedCommunityProfile(selectedCommunityProfileId);
   }, [loadSelectedCommunityProfile, selectedCommunityProfileId]);
-
-  const loadPendingIrlReviewCount = useCallback(async () => {
-    try {
-      const response = await fetch("/api/admin/notifications", {
-        body: JSON.stringify({}),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        count?: number;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Pending IRL review count failed.");
-      }
-
-      setPendingIrlReviewCount(payload.count ?? 0);
-    } catch (error) {
-      console.error("Failed to load pending IRL review count", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isAdminUser || !isLoggedIn) {
-      return;
-    }
-
-    const immediateTimer = window.setTimeout(() => {
-      void loadPendingIrlReviewCount();
-    }, 0);
-    const timer = window.setInterval(() => {
-      void loadPendingIrlReviewCount();
-    }, 120000);
-
-    return () => {
-      window.clearInterval(timer);
-      window.clearTimeout(immediateTimer);
-    };
-  }, [isAdminUser, isLoggedIn, loadPendingIrlReviewCount]);
 
   useEffect(() => {
     // Load crates data also for preview/guest so the crate UI is visible on localhost
@@ -7368,7 +7328,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setJackpot(null);
     setJackpotError("");
     setIsAdminUser(false);
-    setPendingIrlReviewCount(0);
     setCoins(100);
     setAffection(0);
     setLastLoyaltyAt(null);
@@ -8939,7 +8898,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   };
 
   const handleDebtAutoPayChange = (enabled: boolean) => {
-    if (blockIfTimedOut()) {
+    if (blockIfTimedOut({ allowWhileTimedOut: true })) {
       return;
     }
 
@@ -9837,8 +9796,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         setAvatarMistressReply("Pet milestone claimed. +10 Pet Score.");
     };
 
-  const runPetAction = useCallback(async (actionId: string, action: () => Promise<unknown> | unknown) => {
-    if (blockIfTimedOut()) {
+  const runPetAction = useCallback(async (
+    actionId: string,
+    action: () => Promise<unknown> | unknown,
+    options?: { allowWhileTimedOut?: boolean },
+  ) => {
+    if (blockIfTimedOut({ allowWhileTimedOut: options?.allowWhileTimedOut })) {
       return;
     }
 
@@ -9858,7 +9821,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       finishPetAction(actionId);
     }
-  }, [beginPetAction, finishPetAction, resyncAuthenticatedProfile, setAvatarMistressReply]);
+  }, [beginPetAction, blockIfTimedOut, finishPetAction, resyncAuthenticatedProfile, setAvatarMistressReply]);
 
   const stats = {
     coins,
@@ -10331,6 +10294,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
         Greedy Mode
       </div>
+      <NotificationBell isAdmin={isAdminUser} isLoggedIn={isLoggedIn} />
       {isAdminUser && (
         <>
           <Link
@@ -10338,11 +10302,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             href="/admin"
           >
             Admin
-            {pendingIrlReviewCount > 0 && (
-              <span className="ml-2 rounded-full bg-pink-500 px-2 py-0.5 text-xs font-black text-white">
-                {pendingIrlReviewCount}
-              </span>
-            )}
           </Link>
           <Link
             className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
@@ -11200,7 +11159,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               petDebtContract={petDebtContract}
               tasks={petTaskState}
               onDebtAutoPayChange={handleDebtAutoPayChange}
-              onPayDebtPeriod={() => runPetAction("pet-debt-contract", handleDebtContractPayment)}
+              onPayDebtPeriod={() =>
+                runPetAction("pet-debt-contract", handleDebtContractPayment, {
+                  allowWhileTimedOut: true,
+                })
+              }
               onSignDebtContract={handleDebtContractSign}
             />
           )}

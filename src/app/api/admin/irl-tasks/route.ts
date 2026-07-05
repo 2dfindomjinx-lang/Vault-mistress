@@ -8,6 +8,7 @@ import {
 } from "@/lib/devotion";
 import { IRL_TASK_APPROVAL_AFFECTION_GAIN } from "@/lib/irl-task-wheel";
 import { recordIrlFailureAndAutoApproveIntentionalFail } from "@/lib/server-irl-task-auto-approval";
+import { createUserNotification } from "@/lib/user-notifications";
 
 const ADMIN_IRL_TASK_LIST_LIMIT = 250;
 
@@ -184,6 +185,21 @@ export async function POST(request: Request) {
         console.error("Admin IRL devotion success award failed", devotionError);
       }
 
+      try {
+        await createUserNotification(supabase, {
+          body: `Your IRL task was approved. You gained +${IRL_TASK_APPROVAL_AFFECTION_GAIN} affection.`,
+          kind: "irl_task_approved",
+          metadata: {
+            affectionGain: IRL_TASK_APPROVAL_AFFECTION_GAIN,
+            taskId: task.id,
+          },
+          title: "IRL Task Approved",
+          userId: profile.id,
+        });
+      } catch (notificationError) {
+        console.error("Admin IRL approval notification failed", notificationError);
+      }
+
       return Response.json({
         message: `Approved ${profile.username}. +${IRL_TASK_APPROVAL_AFFECTION_GAIN} affection.`,
       });
@@ -308,6 +324,24 @@ export async function POST(request: Request) {
         console.error("Admin IRL devotion fail penalty failed", devotionError);
       }
 
+      try {
+        await createUserNotification(supabase, {
+          body: timeoutUntil
+            ? "Your IRL task was rejected. A fail was added and a timeout penalty was applied."
+            : "Your IRL task was rejected. A fail was added.",
+          kind: "irl_task_failed",
+          metadata: {
+            penaltyTimeoutMinutes: penaltyMinutes,
+            taskId: taskDetails.id,
+            timeoutUntil,
+          },
+          title: "IRL Task Rejected",
+          userId: taskDetails.user_id,
+        });
+      } catch (notificationError) {
+        console.error("Admin IRL reject notification failed", notificationError);
+      }
+
       return Response.json({
         message: intentionalFailResult.autoApproved
           ? `Cancelled task and added +1 fail to ${profile.username}. ${intentionalFailResult.message}`
@@ -329,6 +363,20 @@ export async function POST(request: Request) {
         { error: excuseError?.message ?? "This IRL task has already been reviewed." },
         { status: excuseError ? 500 : 409 },
       );
+    }
+
+    try {
+      await createUserNotification(supabase, {
+        body: "Your IRL task was cleared via Throne support. No affection or timeout was applied.",
+        kind: "irl_task_excused",
+        metadata: {
+          taskId: task.id,
+        },
+        title: "IRL Task Cleared",
+        userId: task.user_id,
+      });
+    } catch (notificationError) {
+      console.error("Admin IRL excuse notification failed", notificationError);
     }
 
     return Response.json({
