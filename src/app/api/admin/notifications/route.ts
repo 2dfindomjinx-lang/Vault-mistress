@@ -17,8 +17,7 @@ export async function POST() {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const now = new Date().toISOString();
-  const [irl, pet, debtDue, evilDebtPending] = await Promise.all([
+  const [irl, pet, evilDebtPending] = await Promise.all([
     admin.supabase
       .from("user_irl_tasks")
       .select("id", { count: "exact", head: true })
@@ -30,16 +29,11 @@ export async function POST() {
     admin.supabase
       .from("pet_debt_contracts")
       .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .lte("next_due_at", now),
-    admin.supabase
-      .from("pet_debt_contracts")
-      .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .eq("contract_type", "evil"),
   ]);
 
-  const errors = [irl.error, pet.error, debtDue.error, evilDebtPending.error].filter(Boolean);
+  const errors = [irl.error, pet.error, evilDebtPending.error].filter(Boolean);
 
   if (errors.length > 0) {
     console.error("Admin notification count failed", errors);
@@ -47,7 +41,7 @@ export async function POST() {
   }
 
   const counts = {
-    debtDue: debtDue.count ?? 0,
+    debtDue: 0,
     evilDebtPending: evilDebtPending.count ?? 0,
     irlPending: irl.count ?? 0,
     petPending: pet.count ?? 0,
@@ -75,16 +69,9 @@ export async function POST() {
       title: "Evil Debt Requests",
       tone: "amber" as const,
     },
-    {
-      count: counts.debtDue,
-      description: `${counts.debtDue} active debt contract${counts.debtDue === 1 ? " is" : "s are"} currently due.`,
-      id: "debt-due",
-      title: "Due Debt Contracts",
-      tone: "sky" as const,
-    },
   ].filter((item) => item.count > 0);
 
-  const count = counts.irlPending + counts.petPending + counts.evilDebtPending + counts.debtDue;
+  const count = counts.irlPending + counts.petPending + counts.evilDebtPending;
 
   return Response.json({
     count,

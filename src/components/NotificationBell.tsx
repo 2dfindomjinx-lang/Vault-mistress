@@ -176,8 +176,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
   const totalAdminCount =
     adminCounts.irlPending +
     adminCounts.petPending +
-    adminCounts.evilDebtPending +
-    adminCounts.debtDue;
+    adminCounts.evilDebtPending;
   const totalCount = totalAdminCount + userUnreadCount;
 
   const handleUserAction = useCallback(
@@ -260,7 +259,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-40 w-[min(28rem,calc(100vw-1.5rem))] rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.48)]">
+        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-40 w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(80vh,42rem)] overflow-y-auto rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 pr-3 shadow-[0_24px_80px_rgba(0,0,0,0.48)] [scrollbar-width:thin]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-100/70">
@@ -327,7 +326,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
                 {userUnreadCount} unread
               </span>
             </div>
-            <div className="mt-3 max-h-[24rem] space-y-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <div className="mt-3 space-y-2">
               {userNotifications.length > 0 ? (
                 userNotifications.map((notification) => (
                   <article
