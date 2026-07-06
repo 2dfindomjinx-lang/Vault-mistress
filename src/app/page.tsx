@@ -1543,6 +1543,7 @@ function getDueDebtPaymentPlan(
     Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
   const shouldMarkMissed =
     overdue &&
+    options.autoPayEnabled &&
     !installmentAlreadyMissed &&
     Math.max(0, options.availableCoins) < currentInstallmentRemaining;
 
@@ -2122,6 +2123,7 @@ export default function Home() {
   const activeEventIdsRef = useRef<string[]>([]);
   const profileIdRef = useRef<string | null>(null);
   const debtAutoCollectRequestRef = useRef<string | null>(null);
+  const debtOverdueSyncRequestRef = useRef<string | null>(null);
   const authProfileLoadInFlightRef = useRef<string | null>(null);
   const authProfileLoadedRef = useRef<string | null>(null);
   const initialAuthCheckInFlightRef = useRef(false);
@@ -4461,6 +4463,100 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     isGuestMode,
     isPreviewMode,
     loadLeadershipTop,
+    petDebtContract,
+    unlockProgressionTitles,
+  ]);
+
+  useEffect(() => {
+    if (
+      !authUserId ||
+      isGuestMode ||
+      isPreviewMode ||
+      !petDebtContract ||
+      petDebtContract.status !== "active" ||
+      isDebtAutoPayEnabled
+    ) {
+      return;
+    }
+
+    const dueAtMs = new Date(petDebtContract.next_due_at).getTime();
+    const currentInstallmentRemaining = getDebtCurrentInstallmentRemaining(petDebtContract);
+    const overdue =
+      Number.isFinite(dueAtMs) &&
+      dueAtMs <= Date.now() &&
+      currentInstallmentRemaining > 0;
+
+    if (!overdue || isDebtOverdueTimeoutActive) {
+      return;
+    }
+
+    const requestKey = [
+      petDebtContract.id,
+      petDebtContract.paid_periods,
+      petDebtContract.missed_periods,
+      petDebtContract.current_installment_remaining,
+      "sync-overdue",
+    ].join(":");
+
+    if (debtOverdueSyncRequestRef.current === requestKey) {
+      return;
+    }
+
+    let cancelled = false;
+    debtOverdueSyncRequestRef.current = requestKey;
+
+    void fetch("/api/user/debt-contracts", {
+      body: JSON.stringify({
+        action: "syncOverdue",
+        contractId: petDebtContract.id,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).then(async (response) => {
+      const result = (await response.json().catch(() => ({}))) as {
+        contract?: PetDebtContract | null;
+        error?: string;
+        profile?: Profile;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Debt overdue sync failed.");
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (result.profile) {
+        applyProfileStats(result.profile);
+        unlockProgressionTitles(result.profile.tribute_total ?? 0);
+      }
+
+      if (result.contract) {
+        setPetDebtContract(result.contract);
+      }
+    }).catch((error) => {
+      if (cancelled) {
+        return;
+      }
+
+      console.error("Failed to sync overdue debt state", error);
+    }).finally(() => {
+      if (debtOverdueSyncRequestRef.current === requestKey) {
+        debtOverdueSyncRequestRef.current = null;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    applyProfileStats,
+    authUserId,
+    isDebtAutoPayEnabled,
+    isDebtOverdueTimeoutActive,
+    isGuestMode,
+    isPreviewMode,
     petDebtContract,
     unlockProgressionTitles,
   ]);

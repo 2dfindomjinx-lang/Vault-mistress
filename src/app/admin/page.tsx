@@ -147,6 +147,17 @@ type AdminTabKey =
   | "petTasks"
   | "timeouts";
 
+type AdminLoadKey =
+  | "announcements"
+  | "caseOpeners"
+  | "debt"
+  | "events"
+  | "irlTasks"
+  | "maxAffection"
+  | "petTaskLogs"
+  | "petTasks"
+  | "timeouts";
+
 function formatRemaining(target: string, now: number) {
   const remaining = Math.max(0, new Date(target).getTime() - now);
   const totalMinutes = Math.ceil(remaining / 60000);
@@ -224,9 +235,32 @@ export default function AdminPage() {
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
   const [busyRequestCount, setBusyRequestCount] = useState(0);
+  const [loadingSections, setLoadingSections] = useState<Record<AdminLoadKey, boolean>>({
+    announcements: false,
+    caseOpeners: false,
+    debt: false,
+    events: false,
+    irlTasks: false,
+    maxAffection: false,
+    petTaskLogs: false,
+    petTasks: false,
+    timeouts: false,
+  });
+  const [loadedSections, setLoadedSections] = useState<Record<AdminLoadKey, boolean>>({
+    announcements: false,
+    caseOpeners: false,
+    debt: false,
+    events: false,
+    irlTasks: false,
+    maxAffection: false,
+    petTaskLogs: false,
+    petTasks: false,
+    timeouts: false,
+  });
   const [adminNow, setAdminNow] = useState(() => Date.now());
   const didMountTabEffect = useRef(false);
   const isBusy = busyRequestCount > 0;
+  const activeSectionLoadCount = Object.values(loadingSections).filter(Boolean).length;
   const setIsBusy = (next: boolean) => {
     setBusyRequestCount((current) => {
       if (next) {
@@ -235,6 +269,12 @@ export default function AdminPage() {
 
       return Math.max(0, current - 1);
     });
+  };
+  const setSectionLoading = (key: AdminLoadKey, next: boolean) => {
+    setLoadingSections((current) => ({ ...current, [key]: next }));
+  };
+  const markSectionLoaded = (key: AdminLoadKey) => {
+    setLoadedSections((current) => ({ ...current, [key]: true }));
   };
 
   useEffect(() => {
@@ -248,7 +288,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("irlTasks", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -269,10 +309,11 @@ export default function AdminPage() {
       }
 
       setIrlTasks(result.tasks ?? []);
+      markSectionLoaded("irlTasks");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "IRL task list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("irlTasks", false);
     }
   };
 
@@ -281,7 +322,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("timeouts", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -302,10 +343,11 @@ export default function AdminPage() {
       }
 
       setTimedOutUsers(result.users ?? []);
+      markSectionLoaded("timeouts");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Timeout list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("timeouts", false);
     }
   };
 
@@ -316,7 +358,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("maxAffection", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -337,10 +379,11 @@ export default function AdminPage() {
       }
 
       setMaxAffectionUsers(result.users ?? []);
+      markSectionLoaded("maxAffection");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Max affection list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("maxAffection", false);
     }
   };
 
@@ -349,7 +392,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("caseOpeners", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -366,10 +409,11 @@ export default function AdminPage() {
       }
 
       setCaseOpeners(result.openers ?? []);
+      markSectionLoaded("caseOpeners");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Recent case openers failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("caseOpeners", false);
     }
   };
 
@@ -378,7 +422,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("petTasks", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -399,10 +443,11 @@ export default function AdminPage() {
       }
 
       setPetTasks(result.tasks ?? []);
+      markSectionLoaded("petTasks");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Pet task list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("petTasks", false);
     }
   };
 
@@ -411,7 +456,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("petTaskLogs", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -428,10 +473,11 @@ export default function AdminPage() {
       }
 
       setPetTaskLogs(result.logs ?? []);
+      markSectionLoaded("petTaskLogs");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Pet task log list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("petTaskLogs", false);
     }
   };
 
@@ -440,7 +486,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("debt", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -461,10 +507,11 @@ export default function AdminPage() {
       }
 
       setDebtContracts(result.contracts ?? []);
+      markSectionLoaded("debt");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Debt contract list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("debt", false);
     }
   };
 
@@ -473,7 +520,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("events", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -490,10 +537,11 @@ export default function AdminPage() {
       }
 
       setEvents(result.events ?? []);
+      markSectionLoaded("events");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Event list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("events", false);
     }
   };
 
@@ -502,7 +550,7 @@ export default function AdminPage() {
       return;
     }
 
-    setIsBusy(true);
+    setSectionLoading("announcements", true);
     if (!keepStatus) {
       setStatus("");
     }
@@ -519,10 +567,11 @@ export default function AdminPage() {
       }
 
       setAnnouncements(result.announcements ?? []);
+      markSectionLoaded("announcements");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Announcement list failed.");
     } finally {
-      setIsBusy(false);
+      setSectionLoading("announcements", false);
     }
   };
 
@@ -799,19 +848,13 @@ export default function AdminPage() {
 
     const timer = window.setTimeout(() => {
       void loadIrlTasks({ keepStatus: true });
-      void loadPetTasks({ keepStatus: true });
-      void loadPetTaskLogs({ keepStatus: true });
-      void loadTimeouts({ keepStatus: true });
-      void loadMaxAffectionUsers({ keepStatus: true });
-      void loadCaseOpeners({ keepStatus: true });
       void loadDebtContracts({ keepStatus: true });
-      void loadEvents({ keepStatus: true });
-      void loadAnnouncements({ keepStatus: true });
-    }, 0);
+      void loadTimeouts({ keepStatus: true });
+    }, 120);
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
+  }, [isAdmin, activeTab]);
 
   useEffect(() => {
     if (!didMountTabEffect.current) {
@@ -1054,28 +1097,47 @@ export default function AdminPage() {
 
     switch (key) {
       case "irlTasks":
-        void loadIrlTasks();
+        if (!loadedSections.irlTasks && !loadingSections.irlTasks) {
+          void loadIrlTasks();
+        }
         break;
       case "caseOpeners":
-        void loadCaseOpeners();
+        if (!loadedSections.caseOpeners && !loadingSections.caseOpeners) {
+          void loadCaseOpeners();
+        }
         break;
       case "petTasks":
-        void loadPetTasks();
+        if (!loadedSections.petTasks && !loadingSections.petTasks) {
+          void loadPetTasks();
+        }
+        if (!loadedSections.petTaskLogs && !loadingSections.petTaskLogs) {
+          void loadPetTaskLogs({ keepStatus: true });
+        }
         break;
       case "debt":
-        void loadDebtContracts();
+        if (!loadedSections.debt && !loadingSections.debt) {
+          void loadDebtContracts();
+        }
         break;
       case "events":
-        void loadEvents();
+        if (!loadedSections.events && !loadingSections.events) {
+          void loadEvents();
+        }
         break;
       case "announcements":
-        void loadAnnouncements();
+        if (!loadedSections.announcements && !loadingSections.announcements) {
+          void loadAnnouncements();
+        }
         break;
       case "timeouts":
-        void loadTimeouts();
+        if (!loadedSections.timeouts && !loadingSections.timeouts) {
+          void loadTimeouts();
+        }
         break;
       case "maxAffection":
-        void loadMaxAffectionUsers();
+        if (!loadedSections.maxAffection && !loadingSections.maxAffection) {
+          void loadMaxAffectionUsers();
+        }
         break;
       default:
         break;
@@ -1122,7 +1184,7 @@ export default function AdminPage() {
       label: "Case Openers",
       eyebrow: "Recent activity",
       description: "Track the latest case-opening momentum.",
-      countLabel: `${caseOpeners.length} users loaded`,
+      countLabel: loadedSections.caseOpeners ? `${caseOpeners.length} users loaded` : "not loaded",
       tone: "from-cyan-500/16 via-sky-500/10 to-transparent border-cyan-300/18",
     },
     {
@@ -1130,7 +1192,7 @@ export default function AdminPage() {
       label: "IRL Tasks",
       eyebrow: "Manual review",
       description: "Review assigned wheel tasks and shame-state outcomes.",
-      countLabel: `${pendingIrlTaskCount} pending`,
+      countLabel: loadedSections.irlTasks ? `${pendingIrlTaskCount} pending` : "not loaded",
       tone: "from-pink-500/16 via-fuchsia-500/10 to-transparent border-pink-300/18",
     },
     {
@@ -1138,7 +1200,7 @@ export default function AdminPage() {
       label: "Pet Tasks",
       eyebrow: "Submission queue",
       description: "Approve pet tasks and watch throne logs.",
-      countLabel: `${pendingPetTaskCount} pending`,
+      countLabel: loadedSections.petTasks ? `${pendingPetTaskCount} pending` : "not loaded",
       tone: "from-rose-500/16 via-red-500/10 to-transparent border-rose-300/18",
     },
     {
@@ -1146,7 +1208,7 @@ export default function AdminPage() {
       label: "Debt Contracts",
       eyebrow: "Risk control",
       description: "Manage normal and evil debt flows in one place.",
-      countLabel: `${liveDebtCount} live`,
+      countLabel: loadedSections.debt ? `${liveDebtCount} live` : "not loaded",
       tone: "from-red-500/16 via-rose-500/10 to-transparent border-red-300/18",
     },
     {
@@ -1154,7 +1216,7 @@ export default function AdminPage() {
       label: "Events",
       eyebrow: "Global modifiers",
       description: "Schedule and rotate limited-time global bonuses.",
-      countLabel: `${activeEventCount} active`,
+      countLabel: loadedSections.events ? `${activeEventCount} active` : "not loaded",
       tone: "from-amber-500/16 via-yellow-500/10 to-transparent border-yellow-300/18",
     },
     {
@@ -1162,7 +1224,7 @@ export default function AdminPage() {
       label: "Announcements",
       eyebrow: "Homepage banner",
       description: "Publish and retire public-facing messages.",
-      countLabel: `${activeAnnouncementCount} active`,
+      countLabel: loadedSections.announcements ? `${activeAnnouncementCount} active` : "not loaded",
       tone: "from-pink-500/16 via-rose-500/10 to-transparent border-pink-300/18",
     },
     {
@@ -1170,7 +1232,7 @@ export default function AdminPage() {
       label: "Active Timeouts",
       eyebrow: "Discipline",
       description: "Adjust or clear currently timed-out users.",
-      countLabel: `${activeTimeoutCount} active`,
+      countLabel: loadedSections.timeouts ? `${activeTimeoutCount} active` : "not loaded",
       tone: "from-violet-500/16 via-fuchsia-500/10 to-transparent border-violet-300/18",
     },
     {
@@ -1178,7 +1240,7 @@ export default function AdminPage() {
       label: "100 Affection",
       eyebrow: "High-value users",
       description: "Watch who hit Principessa's maximum mood.",
-      countLabel: `${maxAffectionUsers.length} profiles`,
+      countLabel: loadedSections.maxAffection ? `${maxAffectionUsers.length} profiles` : "not loaded",
       tone: "from-emerald-500/16 via-teal-500/10 to-transparent border-emerald-300/18",
     },
   ] as const satisfies ReadonlyArray<{
@@ -1276,30 +1338,42 @@ export default function AdminPage() {
                     Session State
                   </p>
                   <p className="mt-2 text-lg font-black text-white">
-                    {isBusy ? "Processing requests" : "Stable and ready"}
+                    {isBusy
+                      ? "Processing requests"
+                      : activeSectionLoadCount > 0
+                        ? "Syncing section data"
+                        : "Stable and ready"}
                   </p>
                 </div>
                 <span
                   className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
                     isBusy
                       ? "border-amber-200/20 bg-amber-500/10 text-amber-100"
-                      : "border-emerald-200/20 bg-emerald-500/10 text-emerald-100"
+                      : activeSectionLoadCount > 0
+                        ? "border-sky-200/20 bg-sky-500/10 text-sky-100"
+                        : "border-emerald-200/20 bg-emerald-500/10 text-emerald-100"
                   }`}
                 >
-                  {isBusy ? `${busyRequestCount} active` : "idle"}
+                  {isBusy
+                    ? `${busyRequestCount} active`
+                    : activeSectionLoadCount > 0
+                      ? `${activeSectionLoadCount} loading`
+                      : "idle"}
                 </span>
               </div>
               <div className="mt-5 grid gap-3 text-sm text-zinc-300">
                 <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Pending reviews</p>
                   <p className="mt-1 text-2xl font-black text-white">
-                    {pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount}
+                    {loadedSections.irlTasks || loadedSections.petTasks || loadedSections.debt
+                      ? pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount
+                      : "—"}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Loaded surfaces</p>
                   <p className="mt-1 text-sm font-semibold text-zinc-200">
-                    {caseOpeners.length} case users, {events.length} events, {announcements.length} announcements
+                    {Object.values(loadedSections).filter(Boolean).length} sections ready
                   </p>
                 </div>
               </div>
@@ -1344,19 +1418,24 @@ export default function AdminPage() {
             ))}
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
-            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-3">
-                <p className="px-2 text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+          <div className="mt-6">
+            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-3">
+              <div className="flex items-center justify-between gap-3 px-2">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
                   Control Areas
                 </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                <p className="hidden text-[11px] uppercase tracking-[0.22em] text-zinc-600 md:block">
+                  Swipe or scroll sideways if needed
+                </p>
+              </div>
+              <div className="mt-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                <div className="flex min-w-max gap-2">
                   {adminTabs.map((tab) => {
                     const isActive = activeTab === tab.key;
 
                     return (
                       <button
-                        className={`rounded-[1.25rem] border bg-gradient-to-br px-4 py-3 text-left transition ${
+                        className={`w-[15.5rem] shrink-0 rounded-[1.25rem] border bg-gradient-to-br px-4 py-3 text-left transition ${
                           isActive
                             ? `${tab.tone} text-white shadow-[0_10px_30px_rgba(0,0,0,0.18)]`
                             : "border-white/8 from-white/[0.04] to-transparent text-zinc-300 hover:border-white/14 hover:text-white"
@@ -1378,9 +1457,9 @@ export default function AdminPage() {
                   })}
                 </div>
               </div>
-            </aside>
+            </div>
 
-            <div className="min-w-0">
+            <div className="mt-6 min-w-0">
               <div className="rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 md:p-5">
                 <div className="flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -2402,7 +2481,7 @@ export default function AdminPage() {
             </div>
           )}
               </div>
-            </div>
+          </div>
           </div>
 
           {status && (

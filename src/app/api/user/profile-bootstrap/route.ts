@@ -13,24 +13,29 @@ type Body = {
 };
 
 const DEBT_OVERDUE_TIMEOUT_REASON = "debt_contract_overdue";
+const DEBT_OVERDUE_TIMEOUT_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-async function clearInvalidDebtOverdueTimeoutIfNeeded(
+function getCurrentInstallmentRemaining(contract: Record<string, any>) {
+  const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
+
+  if (Number.isInteger(currentInstallmentRemaining) && currentInstallmentRemaining > 0) {
+    return currentInstallmentRemaining;
+  }
+
+  return Math.max(0, Math.floor(Number(contract.debt_amount ?? 0)));
+}
+
+async function syncDebtOverdueTimeoutIfNeeded(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   userId: string,
   profile: Record<string, any>,
   nowIso: string,
 ) {
-  if (
-    profile.timeout_reason !== DEBT_OVERDUE_TIMEOUT_REASON ||
-    !profile.timeout_until ||
-    new Date(profile.timeout_until).getTime() <= Date.now()
-  ) {
-    return profile;
-  }
+  const nowMs = Date.now();
 
   const { data: contract, error: contractError } = await supabase
     .from("pet_debt_contracts")
-    .select("id, status, next_due_at, paid_periods, missed_periods, duration_periods")
+    .select("id, status, next_due_at, paid_periods, missed_periods, duration_periods, current_installment_remaining, debt_amount")
     .eq("user_id", userId)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -45,26 +50,74 @@ async function clearInvalidDebtOverdueTimeoutIfNeeded(
   const currentInstallmentNumber = contract
     ? Math.min(Number(contract.paid_periods ?? 0) + 1, Number(contract.duration_periods ?? 0))
     : 0;
+  const currentInstallmentRemaining = contract ? getCurrentInstallmentRemaining(contract) : 0;
+  const nextDueAtMs = contract ? new Date(String(contract.next_due_at ?? "")).getTime() : Number.NaN;
+  const overdue =
+    Boolean(contract) &&
+    contract?.status === "active" &&
+    Number.isFinite(nextDueAtMs) &&
+    nextDueAtMs <= nowMs &&
+    currentInstallmentRemaining > 0;
   const hasMissedCurrentInstallment =
     contract && Number(contract.missed_periods ?? 0) >= currentInstallmentNumber;
+  const shouldMarkMissed = overdue && !hasMissedCurrentInstallment;
+  const shouldKeepTimeout = overdue;
   const shouldClearTimeout =
-    !contract ||
-    contract.status !== "active" ||
-    !hasMissedCurrentInstallment;
+    profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON &&
+    profile.timeout_until &&
+    !shouldKeepTimeout;
 
-  if (!shouldClearTimeout) {
+  if (shouldMarkMissed) {
+    const { data: updatedContract, error: markMissedError } = await supabase
+      .from("pet_debt_contracts")
+      .update({
+        missed_periods: Number(contract?.missed_periods ?? 0) + 1,
+        updated_at: nowIso,
+      })
+      .eq("id", contract?.id)
+      .eq("missed_periods", Number(contract?.missed_periods ?? 0))
+      .select("id, status, next_due_at, paid_periods, missed_periods, duration_periods, current_installment_remaining, debt_amount")
+      .maybeSingle();
+
+    if (markMissedError) {
+      console.error("Debt timeout sync mark-missed failed", markMissedError);
+    } else if (updatedContract) {
+      contract.missed_periods = updatedContract.missed_periods;
+    }
+  }
+
+  const nextTimeoutReason = shouldKeepTimeout
+    ? DEBT_OVERDUE_TIMEOUT_REASON
+    : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+      ? null
+      : profile.timeout_reason;
+  const nextTimeoutUntil = shouldKeepTimeout
+    ? new Date(
+        Math.max(
+          nowMs + DEBT_OVERDUE_TIMEOUT_MS,
+          new Date(profile.timeout_until ?? 0).getTime(),
+        ),
+      ).toISOString()
+    : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+      ? null
+      : profile.timeout_until;
+
+  if (
+    nextTimeoutReason === (profile.timeout_reason ?? null) &&
+    nextTimeoutUntil === (profile.timeout_until ?? null)
+  ) {
     return profile;
   }
 
   const { data: healedProfile, error: healError } = await supabase
     .from("profiles")
     .update({
-      timeout_reason: null,
-      timeout_until: null,
+      timeout_reason: nextTimeoutReason,
+      timeout_until: nextTimeoutUntil,
       updated_at: nowIso,
     })
     .eq("id", userId)
-    .eq("timeout_reason", DEBT_OVERDUE_TIMEOUT_REASON)
+    .eq("timeout_reason", profile.timeout_reason)
     .eq("timeout_until", profile.timeout_until)
     .select(profileSelect)
     .maybeSingle();
@@ -145,7 +198,7 @@ export async function POST(request: Request) {
       .select(profileSelect)
       .eq("id", authData.user.id)
       .single();
-    const normalizedProfile = await clearInvalidDebtOverdueTimeoutIfNeeded(
+    const normalizedProfile = await syncDebtOverdueTimeoutIfNeeded(
       supabase,
       authData.user.id,
       (refreshed ?? existing) as Record<string, any>,

@@ -79,7 +79,7 @@ type Body =
       timezone?: string;
     }
   | {
-      action?: "pay" | "autoCollect";
+      action?: "pay" | "autoCollect" | "syncOverdue";
       autoPayEnabled?: boolean;
       contractId?: string;
     };
@@ -158,6 +158,7 @@ function getDueDebtPaymentPlan(
   const shouldMarkMissed =
     options.mode === "autoCollect" &&
     overdue &&
+    options.autoPayEnabled &&
     !installmentAlreadyMissed &&
     Math.max(0, options.availableCoins) < currentInstallmentRemaining;
 
@@ -393,7 +394,7 @@ export async function POST(request: Request) {
     return Response.json({ contract: data });
   }
 
-  if (body?.action === "pay" || body?.action === "autoCollect") {
+  if (body?.action === "pay" || body?.action === "autoCollect" || body?.action === "syncOverdue") {
     const contractId = String(body.contractId ?? "").trim();
 
     if (!contractId) {
@@ -426,6 +427,94 @@ export async function POST(request: Request) {
     const contract = contractData as ContractRow;
     const nowMs = Date.now();
     const dueAtMs = new Date(contract.next_due_at).getTime();
+
+    if (body.action === "syncOverdue") {
+      const currentInstallmentRemaining = getCurrentInstallmentRemaining(contract);
+      const overdue =
+        contract.status === "active" &&
+        Number.isFinite(dueAtMs) &&
+        dueAtMs <= nowMs &&
+        currentInstallmentRemaining > 0;
+      const installmentAlreadyMissed = hasMissedCurrentInstallment(contract);
+      const shouldMarkMissed = overdue && !installmentAlreadyMissed;
+      const nextMissedPeriods = contract.missed_periods + (shouldMarkMissed ? 1 : 0);
+      const shouldKeepDebtTimeout = overdue;
+      const nextTimeoutUntil = shouldKeepDebtTimeout
+        ? new Date(
+            Math.max(
+              nowMs + DEBT_OVERDUE_TIMEOUT_MS,
+              new Date(profile.timeout_until ?? 0).getTime(),
+            ),
+          ).toISOString()
+        : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+          ? null
+          : profile.timeout_until;
+      const nextTimeoutReason = shouldKeepDebtTimeout
+        ? DEBT_OVERDUE_TIMEOUT_REASON
+        : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
+          ? null
+          : profile.timeout_reason;
+      const shouldUpdateProfile =
+        nextTimeoutUntil !== (profile.timeout_until ?? null) ||
+        nextTimeoutReason !== (profile.timeout_reason ?? null);
+
+      let syncedProfile: Record<string, unknown> = profileData as ProfileRow;
+      let syncedContract: Record<string, unknown> = contractData as ContractRow;
+
+      if (shouldMarkMissed) {
+        const { data: updatedContract, error: updateContractError } = await supabase
+          .from("pet_debt_contracts")
+          .update({
+            missed_periods: nextMissedPeriods,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", contract.id)
+          .eq("missed_periods", contract.missed_periods)
+          .select(userDebtContractSelect)
+          .maybeSingle();
+
+        if (updateContractError || !updatedContract) {
+          return jsonError(
+            updateContractError?.message ?? "Debt overdue sync contract update failed.",
+            updateContractError ? 500 : 409,
+          );
+        }
+
+        syncedContract = updatedContract;
+      }
+
+      if (shouldUpdateProfile) {
+        const { data: updatedProfile, error: updateProfileError } = await supabase
+          .from("profiles")
+          .update({
+            timeout_reason: nextTimeoutReason,
+            timeout_until: nextTimeoutUntil,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId)
+          .eq("timeout_reason", profile.timeout_reason)
+          .eq("timeout_until", profile.timeout_until)
+          .select(profileSelect)
+          .maybeSingle();
+
+        if (updateProfileError || !updatedProfile) {
+          return jsonError(
+            updateProfileError?.message ?? "Debt overdue sync profile update failed.",
+            updateProfileError ? 500 : 409,
+          );
+        }
+
+        syncedProfile = updatedProfile;
+      }
+
+      return Response.json({
+        contract: syncedContract,
+        overdue,
+        profile: syncedProfile,
+        reason: shouldMarkMissed ? "missed_installment" : overdue ? "overdue_timeout_active" : "overdue_cleared",
+      });
+    }
+
     const plan = getDueDebtPaymentPlan(contract, {
       autoPayEnabled: Boolean(body.autoPayEnabled),
       availableCoins: profile.coins,
