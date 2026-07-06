@@ -163,10 +163,10 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-union-berlin",
     name: "Union Berlin Border",
-    description: "Blackened stadium steel cut by Union red light channels and hard industrial geometry.",
+    description: "A clean Union Berlin frame built from bold red-white horizontal striping with a subtle animated sheen.",
     price: 10000,
-    color: "#8B2028",
-    borderPalette: ["#8B2028", "#161416", "#C8B7A1"],
+    color: "#C81E2A",
+    borderPalette: ["#C81E2A", "#FFFFFF", "#8E121B"],
     borderStyle: "stadium-steel",
   }),
   footballBorder({
@@ -379,10 +379,10 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-turkey-nt",
     name: "Turkiye National Border",
-    description: "Metallic crimson luxury with engraved crescent-star detailing and restrained Ottoman-inspired goldwork.",
+    description: "True Turkish crimson with silver crescent-star detailing and premium Ottoman-inspired engraving.",
     price: 10000,
-    color: "#B1122F",
-    borderPalette: ["#B1122F", "#4A0A16", "#D8B46A"],
+    color: "#C8102E",
+    borderPalette: ["#C8102E", "#7A0F20", "#F3F4F6"],
     borderStyle: "crescent-luxe",
   }),
   footballBorder({
@@ -451,10 +451,10 @@ export const footballInspiredRotatingBorders: ProfileBorderCatalogItem[] = [
   footballBorder({
     id: "profile-border-rotating-usa-nt",
     name: "United States National Border",
-    description: "Brushed chrome framed by red-blue light rails, etched stars, and a modern command-panel finish.",
+    description: "An unmistakable stars-and-stripes frame with a navy canton, crisp white bands, and premium lacquered red trim.",
     price: 10000,
-    color: "#B9C5D6",
-    borderPalette: ["#B9C5D6", "#1C2B4F", "#D6455D"],
+    color: "#1C2B4F",
+    borderPalette: ["#1C2B4F", "#B22234", "#FFFFFF"],
     borderStyle: "chrome-command",
   }),
   footballBorder({
