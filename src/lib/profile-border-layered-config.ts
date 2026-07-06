@@ -423,10 +423,10 @@ export const layeredBorderConfigById: Record<string, LayeredBorderConfig> = {
     animation: "flag-sheen",
     baseGradient: "repeating-linear-gradient(180deg, #b22234 0 11px, #ffffff 11px 22px)",
     cornerAccents:
-      "linear-gradient(180deg, #1c2b4f 0 36%, transparent 36% 100%), linear-gradient(90deg, #1c2b4f 0 38%, transparent 38% 100%), linear-gradient(90deg, rgba(255,255,255,0.16) 0 4%, transparent 4% 96%, rgba(255,255,255,0.16) 96% 100%)",
+      `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='0' y='0' width='46' height='27' rx='2' ry='2' fill='%231c2b4f'/%3E%3Cpath d='M46 0v27M0 27h46' stroke='%23ffffff' stroke-opacity='0.82' stroke-width='1.3'/%3E%3Cg fill='%23ffffff' opacity='0.92'%3E%3Ccircle cx='7' cy='7' r='1.15'/%3E%3Ccircle cx='15' cy='7' r='1.15'/%3E%3Ccircle cx='23' cy='7' r='1.15'/%3E%3Ccircle cx='31' cy='7' r='1.15'/%3E%3Ccircle cx='39' cy='7' r='1.15'/%3E%3Ccircle cx='11' cy='13' r='1.15'/%3E%3Ccircle cx='19' cy='13' r='1.15'/%3E%3Ccircle cx='27' cy='13' r='1.15'/%3E%3Ccircle cx='35' cy='13' r='1.15'/%3E%3Ccircle cx='43' cy='13' r='1.15'/%3E%3Ccircle cx='7' cy='19' r='1.15'/%3E%3Ccircle cx='15' cy='19' r='1.15'/%3E%3Ccircle cx='23' cy='19' r='1.15'/%3E%3Ccircle cx='31' cy='19' r='1.15'/%3E%3Ccircle cx='39' cy='19' r='1.15'/%3E%3C/g%3E%3C/svg%3E"), linear-gradient(90deg, rgba(255,255,255,0.16) 0 4%, transparent 4% 96%, rgba(255,255,255,0.16) 96% 100%)`,
     innerStripe:
-      "linear-gradient(90deg, transparent 0 38%, rgba(255,255,255,0.22) 38% 40%, transparent 40% 100%), repeating-linear-gradient(180deg, rgba(255,255,255,0.12) 0 11px, transparent 11px 22px)",
-    motif: "tiny-stars",
+      "linear-gradient(90deg, transparent 0 46%, rgba(255,255,255,0.12) 46% 47.25%, transparent 47.25% 100%), linear-gradient(180deg, transparent 0 27%, rgba(255,255,255,0.12) 27% 28.25%, transparent 28.25% 100%), repeating-linear-gradient(180deg, rgba(255,255,255,0.12) 0 11px, transparent 11px 22px)",
+    motif: null,
     outerGlow: "0 0 18px rgba(178,34,52,0.24), 0 0 24px rgba(28,43,79,0.22), 0 0 18px rgba(255,255,255,0.12)",
     pattern: "vertical-pinstripes",
   },

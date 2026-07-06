@@ -1049,6 +1049,149 @@ export default function AdminPage() {
     }
   };
 
+  const openAdminTab = (key: AdminTabKey) => {
+    setActiveTab(key);
+
+    switch (key) {
+      case "irlTasks":
+        void loadIrlTasks();
+        break;
+      case "caseOpeners":
+        void loadCaseOpeners();
+        break;
+      case "petTasks":
+        void loadPetTasks();
+        break;
+      case "debt":
+        void loadDebtContracts();
+        break;
+      case "events":
+        void loadEvents();
+        break;
+      case "announcements":
+        void loadAnnouncements();
+        break;
+      case "timeouts":
+        void loadTimeouts();
+        break;
+      case "maxAffection":
+        void loadMaxAffectionUsers();
+        break;
+      default:
+        break;
+    }
+  };
+
+  const pendingIrlTaskCount = irlTasks.filter((task) => task.status === "pending").length;
+  const pendingPetTaskCount = petTasks.filter((task) => task.status === "pending").length;
+  const pendingEvilDebtCount = debtContracts.filter(
+    (contract) => contract.contract_type === "evil" && contract.status === "pending",
+  ).length;
+  const liveDebtCount = debtContracts.filter((contract) =>
+    ["active", "pending"].includes(contract.status),
+  ).length;
+  const activeTimeoutCount = timedOutUsers.filter(
+    (user) => new Date(user.timeout_until).getTime() > adminNow,
+  ).length;
+  const activeEventCount = events.filter((event) => {
+    const endsAt = new Date(event.ends_at).getTime();
+    return event.active && (!Number.isFinite(endsAt) || endsAt > adminNow);
+  }).length;
+  const activeAnnouncementCount = announcements.filter((announcement) => {
+    const endsAt = new Date(announcement.ends_at).getTime();
+    return announcement.active && (!Number.isFinite(endsAt) || endsAt > adminNow);
+  }).length;
+  const overdueDebtCount = debtContracts.filter((contract) => {
+    if (contract.status !== "active") {
+      return false;
+    }
+
+    return new Date(contract.next_due_at).getTime() <= adminNow;
+  }).length;
+  const adminTabs = [
+    {
+      key: "console",
+      label: "Command Console",
+      eyebrow: "Direct actions",
+      description: "Run manual commands and privileged adjustments.",
+      countLabel: command.trim() ? "1 command ready" : "idle",
+      tone: "from-fuchsia-500/16 via-pink-500/10 to-transparent border-fuchsia-300/18",
+    },
+    {
+      key: "caseOpeners",
+      label: "Case Openers",
+      eyebrow: "Recent activity",
+      description: "Track the latest case-opening momentum.",
+      countLabel: `${caseOpeners.length} users loaded`,
+      tone: "from-cyan-500/16 via-sky-500/10 to-transparent border-cyan-300/18",
+    },
+    {
+      key: "irlTasks",
+      label: "IRL Tasks",
+      eyebrow: "Manual review",
+      description: "Review assigned wheel tasks and shame-state outcomes.",
+      countLabel: `${pendingIrlTaskCount} pending`,
+      tone: "from-pink-500/16 via-fuchsia-500/10 to-transparent border-pink-300/18",
+    },
+    {
+      key: "petTasks",
+      label: "Pet Tasks",
+      eyebrow: "Submission queue",
+      description: "Approve pet tasks and watch throne logs.",
+      countLabel: `${pendingPetTaskCount} pending`,
+      tone: "from-rose-500/16 via-red-500/10 to-transparent border-rose-300/18",
+    },
+    {
+      key: "debt",
+      label: "Debt Contracts",
+      eyebrow: "Risk control",
+      description: "Manage normal and evil debt flows in one place.",
+      countLabel: `${liveDebtCount} live`,
+      tone: "from-red-500/16 via-rose-500/10 to-transparent border-red-300/18",
+    },
+    {
+      key: "events",
+      label: "Events",
+      eyebrow: "Global modifiers",
+      description: "Schedule and rotate limited-time global bonuses.",
+      countLabel: `${activeEventCount} active`,
+      tone: "from-amber-500/16 via-yellow-500/10 to-transparent border-yellow-300/18",
+    },
+    {
+      key: "announcements",
+      label: "Announcements",
+      eyebrow: "Homepage banner",
+      description: "Publish and retire public-facing messages.",
+      countLabel: `${activeAnnouncementCount} active`,
+      tone: "from-pink-500/16 via-rose-500/10 to-transparent border-pink-300/18",
+    },
+    {
+      key: "timeouts",
+      label: "Active Timeouts",
+      eyebrow: "Discipline",
+      description: "Adjust or clear currently timed-out users.",
+      countLabel: `${activeTimeoutCount} active`,
+      tone: "from-violet-500/16 via-fuchsia-500/10 to-transparent border-violet-300/18",
+    },
+    {
+      key: "maxAffection",
+      label: "100 Affection",
+      eyebrow: "High-value users",
+      description: "Watch who hit Principessa's maximum mood.",
+      countLabel: `${maxAffectionUsers.length} profiles`,
+      tone: "from-emerald-500/16 via-teal-500/10 to-transparent border-emerald-300/18",
+    },
+  ] as const satisfies ReadonlyArray<{
+    countLabel: string;
+    description: string;
+    eyebrow: string;
+    key: AdminTabKey;
+    label: string;
+    tone: string;
+  }>;
+  const currentTabMeta =
+    adminTabs.find((tab) => tab.key === activeTab) ?? adminTabs[0];
+
   if (isCheckingAdmin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#06030a] px-4 text-pink-100">
@@ -1088,94 +1231,174 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
-      <section className="relative mx-auto max-w-5xl rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-              Admin Console
-            </p>
-            <h1 className="text-3xl font-black">Vault Control Room</h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Supabase admin-only controls. Access is verified by your authenticated admin UUID.
-            </p>
-          </div>
-          <Link
-            className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
-            href="/"
-          >
-            Dashboard
-          </Link>
-          <Link
-            className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
-            href="/admin/analytics"
-          >
-            Analytics
-          </Link>
-          <Link
-            className="rounded-full border border-emerald-200/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/50 hover:text-white"
-            href="/admin/app-licenses"
-          >
-            Activation Codes
-          </Link>
-        </div>
+    <main className="min-h-screen bg-[#050209] px-4 py-6 text-white sm:px-6 lg:px-8">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(168,85,247,0.1),transparent_30%),linear-gradient(180deg,rgba(8,4,14,0),#050209_78%)]" />
+      <section className="relative mx-auto max-w-[92rem]">
+        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,10,24,0.96),rgba(6,3,10,0.98))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_22rem]">
+            <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-5 md:p-6">
+              <p className="text-[11px] uppercase tracking-[0.34em] text-pink-200/70">
+                Admin Console
+              </p>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-4xl">
+                Vault Control Room
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400 md:text-[15px]">
+                The console has grown into a full operations surface. This layout keeps the tools dense,
+                but gives them clearer hierarchy, faster scanning, and less visual friction.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <Link
+                  className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+                  href="/"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
+                  href="/admin/analytics"
+                >
+                  Analytics
+                </Link>
+                <Link
+                  className="rounded-full border border-emerald-200/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/50 hover:text-white"
+                  href="/admin/app-licenses"
+                >
+                  Activation Codes
+                </Link>
+              </div>
+            </div>
 
-        <div className="mt-6">
-          <div className="flex flex-wrap gap-2">
-            {([
-              ["console", "Command Console"],
-              ["caseOpeners", "Case Openers"],
-              ["irlTasks", "IRL Tasks"],
-              ["petTasks", "Pet Tasks"],
-              ["debt", "Debt"],
-              ["events", "Events"],
-              ["announcements", "Announcements"],
-              ["timeouts", "Active Timeouts"],
-              ["maxAffection", "100 Affection"],
-            ] as const).map(([key, label]) => (
-              <button
-                className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
-                  activeTab === key
-                    ? "bg-pink-500/20 text-pink-50"
-                    : "border border-white/10 bg-black/35 text-zinc-300"
-                }`}
-                key={key}
-                onClick={() => {
-                  setActiveTab(key);
-                  if (key === "irlTasks") {
-                    void loadIrlTasks();
-                  }
-                  if (key === "caseOpeners") {
-                    void loadCaseOpeners();
-                  }
-                  if (key === "petTasks") {
-                    void loadPetTasks();
-                  }
-                  if (key === "debt") {
-                    void loadDebtContracts();
-                  }
-                  if (key === "events") {
-                    void loadEvents();
-                  }
-                  if (key === "announcements") {
-                    void loadAnnouncements();
-                  }
-                  if (key === "timeouts") {
-                    void loadTimeouts();
-                  }
-                  if (key === "maxAffection") {
-                    void loadMaxAffectionUsers();
-                  }
-                }}
-                type="button"
+            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+                    Session State
+                  </p>
+                  <p className="mt-2 text-lg font-black text-white">
+                    {isBusy ? "Processing requests" : "Stable and ready"}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
+                    isBusy
+                      ? "border-amber-200/20 bg-amber-500/10 text-amber-100"
+                      : "border-emerald-200/20 bg-emerald-500/10 text-emerald-100"
+                  }`}
+                >
+                  {isBusy ? `${busyRequestCount} active` : "idle"}
+                </span>
+              </div>
+              <div className="mt-5 grid gap-3 text-sm text-zinc-300">
+                <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Pending reviews</p>
+                  <p className="mt-1 text-2xl font-black text-white">
+                    {pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Loaded surfaces</p>
+                  <p className="mt-1 text-sm font-semibold text-zinc-200">
+                    {caseOpeners.length} case users, {events.length} events, {announcements.length} announcements
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: "Review Queue",
+                tone: "text-pink-100",
+                value: pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount,
+                hint: `${pendingIrlTaskCount} IRL, ${pendingPetTaskCount} pet, ${pendingEvilDebtCount} evil debt`,
+              },
+              {
+                label: "Live Debt",
+                tone: "text-red-100",
+                value: liveDebtCount,
+                hint: overdueDebtCount > 0 ? `${overdueDebtCount} overdue windows` : "No overdue windows",
+              },
+              {
+                label: "Timeout Pressure",
+                tone: "text-violet-100",
+                value: activeTimeoutCount,
+                hint: activeTimeoutCount > 0 ? "Users currently restricted" : "No active restrictions",
+              },
+              {
+                label: "Public Signals",
+                tone: "text-amber-100",
+                value: activeEventCount + activeAnnouncementCount,
+                hint: `${activeEventCount} event, ${activeAnnouncementCount} announcement`,
+              },
+            ].map((item) => (
+              <article
+                className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-4"
+                key={item.label}
               >
-                {label}
-              </button>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">{item.label}</p>
+                <p className={`mt-2 text-3xl font-black ${item.tone}`}>{item.value}</p>
+                <p className="mt-1 text-sm text-zinc-400">{item.hint}</p>
+              </article>
             ))}
           </div>
 
-          {activeTab === "console" && (
+          <div className="mt-6 grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-3">
+                <p className="px-2 text-[11px] uppercase tracking-[0.28em] text-zinc-500">
+                  Control Areas
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  {adminTabs.map((tab) => {
+                    const isActive = activeTab === tab.key;
+
+                    return (
+                      <button
+                        className={`rounded-[1.25rem] border bg-gradient-to-br px-4 py-3 text-left transition ${
+                          isActive
+                            ? `${tab.tone} text-white shadow-[0_10px_30px_rgba(0,0,0,0.18)]`
+                            : "border-white/8 from-white/[0.04] to-transparent text-zinc-300 hover:border-white/14 hover:text-white"
+                        }`}
+                        key={tab.key}
+                        onClick={() => openAdminTab(tab.key)}
+                        type="button"
+                      >
+                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500/90">
+                          {tab.eyebrow}
+                        </p>
+                        <p className="mt-1 text-sm font-black">{tab.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-400">{tab.description}</p>
+                        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                          {tab.countLabel}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </aside>
+
+            <div className="min-w-0">
+              <div className="rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 md:p-5">
+                <div className="flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
+                      {currentTabMeta.eyebrow}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-white">{currentTabMeta.label}</h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
+                      {currentTabMeta.description}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-right">
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Current load</p>
+                    <p className="mt-1 text-sm font-black text-white">{currentTabMeta.countLabel}</p>
+                  </div>
+                </div>
+
+                {activeTab === "console" && (
             <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
               <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
                 Command Console
@@ -2178,13 +2401,16 @@ export default function AdminPage() {
               </div>
             </div>
           )}
-        </div>
+              </div>
+            </div>
+          </div>
 
-        {status && (
-          <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
-            {status}
-          </p>
-        )}
+          {status && (
+            <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
+              {status}
+            </p>
+          )}
+        </div>
       </section>
       {previewDebtImage && (
         <button
