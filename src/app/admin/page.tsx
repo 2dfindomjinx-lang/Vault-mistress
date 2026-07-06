@@ -1176,7 +1176,7 @@ export default function AdminPage() {
       label: "Command Console",
       eyebrow: "Direct actions",
       description: "Run manual commands and privileged adjustments.",
-      countLabel: command.trim() ? "1 command ready" : "idle",
+      countLabel: command.trim() ? "1" : "0",
       tone: "from-fuchsia-500/16 via-pink-500/10 to-transparent border-fuchsia-300/18",
     },
     {
@@ -1184,7 +1184,7 @@ export default function AdminPage() {
       label: "Case Openers",
       eyebrow: "Recent activity",
       description: "Track the latest case-opening momentum.",
-      countLabel: loadedSections.caseOpeners ? `${caseOpeners.length} users loaded` : "not loaded",
+      countLabel: loadedSections.caseOpeners ? String(caseOpeners.length) : "0",
       tone: "from-cyan-500/16 via-sky-500/10 to-transparent border-cyan-300/18",
     },
     {
@@ -1192,7 +1192,7 @@ export default function AdminPage() {
       label: "IRL Tasks",
       eyebrow: "Manual review",
       description: "Review assigned wheel tasks and shame-state outcomes.",
-      countLabel: loadedSections.irlTasks ? `${pendingIrlTaskCount} pending` : "not loaded",
+      countLabel: loadedSections.irlTasks ? String(pendingIrlTaskCount) : "0",
       tone: "from-pink-500/16 via-fuchsia-500/10 to-transparent border-pink-300/18",
     },
     {
@@ -1200,7 +1200,7 @@ export default function AdminPage() {
       label: "Pet Tasks",
       eyebrow: "Submission queue",
       description: "Approve pet tasks and watch throne logs.",
-      countLabel: loadedSections.petTasks ? `${pendingPetTaskCount} pending` : "not loaded",
+      countLabel: loadedSections.petTasks ? String(pendingPetTaskCount) : "0",
       tone: "from-rose-500/16 via-red-500/10 to-transparent border-rose-300/18",
     },
     {
@@ -1208,7 +1208,7 @@ export default function AdminPage() {
       label: "Debt Contracts",
       eyebrow: "Risk control",
       description: "Manage normal and evil debt flows in one place.",
-      countLabel: loadedSections.debt ? `${liveDebtCount} live` : "not loaded",
+      countLabel: loadedSections.debt ? String(liveDebtCount) : "0",
       tone: "from-red-500/16 via-rose-500/10 to-transparent border-red-300/18",
     },
     {
@@ -1216,7 +1216,7 @@ export default function AdminPage() {
       label: "Events",
       eyebrow: "Global modifiers",
       description: "Schedule and rotate limited-time global bonuses.",
-      countLabel: loadedSections.events ? `${activeEventCount} active` : "not loaded",
+      countLabel: loadedSections.events ? String(activeEventCount) : "0",
       tone: "from-amber-500/16 via-yellow-500/10 to-transparent border-yellow-300/18",
     },
     {
@@ -1224,7 +1224,7 @@ export default function AdminPage() {
       label: "Announcements",
       eyebrow: "Homepage banner",
       description: "Publish and retire public-facing messages.",
-      countLabel: loadedSections.announcements ? `${activeAnnouncementCount} active` : "not loaded",
+      countLabel: loadedSections.announcements ? String(activeAnnouncementCount) : "0",
       tone: "from-pink-500/16 via-rose-500/10 to-transparent border-pink-300/18",
     },
     {
@@ -1232,7 +1232,7 @@ export default function AdminPage() {
       label: "Active Timeouts",
       eyebrow: "Discipline",
       description: "Adjust or clear currently timed-out users.",
-      countLabel: loadedSections.timeouts ? `${activeTimeoutCount} active` : "not loaded",
+      countLabel: loadedSections.timeouts ? String(activeTimeoutCount) : "0",
       tone: "from-violet-500/16 via-fuchsia-500/10 to-transparent border-violet-300/18",
     },
     {
@@ -1240,7 +1240,7 @@ export default function AdminPage() {
       label: "100 Affection",
       eyebrow: "High-value users",
       description: "Watch who hit Principessa's maximum mood.",
-      countLabel: loadedSections.maxAffection ? `${maxAffectionUsers.length} profiles` : "not loaded",
+      countLabel: loadedSections.maxAffection ? String(maxAffectionUsers.length) : "0",
       tone: "from-emerald-500/16 via-teal-500/10 to-transparent border-emerald-300/18",
     },
   ] as const satisfies ReadonlyArray<{
@@ -1297,7 +1297,7 @@ export default function AdminPage() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(168,85,247,0.1),transparent_30%),linear-gradient(180deg,rgba(8,4,14,0),#050209_78%)]" />
       <section className="relative mx-auto max-w-[92rem]">
         <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,10,24,0.96),rgba(6,3,10,0.98))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_22rem]">
+          <div className="grid gap-4">
             <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-5 md:p-6">
               <p className="text-[11px] uppercase tracking-[0.34em] text-pink-200/70">
                 Admin Console
@@ -1328,54 +1328,6 @@ export default function AdminPage() {
                 >
                   Activation Codes
                 </Link>
-              </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-                    Session State
-                  </p>
-                  <p className="mt-2 text-lg font-black text-white">
-                    {isBusy
-                      ? "Processing requests"
-                      : activeSectionLoadCount > 0
-                        ? "Syncing section data"
-                        : "Stable and ready"}
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
-                    isBusy
-                      ? "border-amber-200/20 bg-amber-500/10 text-amber-100"
-                      : activeSectionLoadCount > 0
-                        ? "border-sky-200/20 bg-sky-500/10 text-sky-100"
-                        : "border-emerald-200/20 bg-emerald-500/10 text-emerald-100"
-                  }`}
-                >
-                  {isBusy
-                    ? `${busyRequestCount} active`
-                    : activeSectionLoadCount > 0
-                      ? `${activeSectionLoadCount} loading`
-                      : "idle"}
-                </span>
-              </div>
-              <div className="mt-5 grid gap-3 text-sm text-zinc-300">
-                <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Pending reviews</p>
-                  <p className="mt-1 text-2xl font-black text-white">
-                    {loadedSections.irlTasks || loadedSections.petTasks || loadedSections.debt
-                      ? pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount
-                      : "—"}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/8 bg-black/25 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-zinc-500">Loaded surfaces</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-200">
-                    {Object.values(loadedSections).filter(Boolean).length} sections ready
-                  </p>
-                </div>
               </div>
             </div>
           </div>
