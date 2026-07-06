@@ -1419,39 +1419,38 @@ export default function AdminPage() {
           </div>
 
           <div className="mt-6">
-            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-3">
-              <div className="flex items-center justify-between gap-3 px-2">
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-3">
+              <div className="flex items-center justify-between gap-3 px-1">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
                   Control Areas
                 </p>
-                <p className="hidden text-[11px] uppercase tracking-[0.22em] text-zinc-600 md:block">
-                  Swipe or scroll sideways if needed
-                </p>
               </div>
-              <div className="mt-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                <div className="flex min-w-max gap-2">
+              <div className="mt-3">
+                <div className="flex flex-wrap gap-2">
                   {adminTabs.map((tab) => {
                     const isActive = activeTab === tab.key;
 
                     return (
                       <button
-                        className={`w-[15.5rem] shrink-0 rounded-[1.25rem] border bg-gradient-to-br px-4 py-3 text-left transition ${
+                        className={`rounded-full border px-3 py-2 text-left transition ${
                           isActive
-                            ? `${tab.tone} text-white shadow-[0_10px_30px_rgba(0,0,0,0.18)]`
-                            : "border-white/8 from-white/[0.04] to-transparent text-zinc-300 hover:border-white/14 hover:text-white"
+                            ? "border-pink-300/24 bg-pink-500/14 text-white shadow-[0_6px_18px_rgba(0,0,0,0.14)]"
+                            : "border-white/8 bg-white/[0.03] text-zinc-300 hover:border-white/14 hover:text-white"
                         }`}
                         key={tab.key}
                         onClick={() => openAdminTab(tab.key)}
                         type="button"
                       >
-                        <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500/90">
-                          {tab.eyebrow}
-                        </p>
-                        <p className="mt-1 text-sm font-black">{tab.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-zinc-400">{tab.description}</p>
-                        <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                          {tab.countLabel}
-                        </p>
+                        <span className="flex items-center gap-2">
+                          <span className="text-[12px] font-black leading-none">{tab.label}</span>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
+                              isActive ? "bg-white/10 text-pink-50" : "bg-black/25 text-zinc-400"
+                            }`}
+                          >
+                            {tab.countLabel}
+                          </span>
+                        </span>
                       </button>
                     );
                   })}
