@@ -27,7 +27,7 @@ export type PuzzleImagePoolItem = {
 };
 
 export const PUZZLE_COIN_COST_PER_PIECE = 15;
-export const PUZZLE_DAILY_IMAGE_COUNT = 5;
+export const PUZZLE_DAILY_IMAGE_COUNT = 1;
 
 function createPuzzlePreset(
   difficulty: PuzzleDifficulty,
@@ -46,20 +46,20 @@ function createPuzzlePreset(
 
 const standardPuzzlePresets: PuzzlePreset[] = [
   createPuzzlePreset("glimpse", "Glimpse", 9, 9),
-  createPuzzlePreset("focus", "Focus", 10, 10),
-  createPuzzlePreset("devotion", "Devotion", 12, 12),
-  createPuzzlePreset("trial", "Trial", 15, 15),
-  createPuzzlePreset("mastery", "Mastery", 18, 18),
-  createPuzzlePreset("obsession", "Obsession", 25, 20),
+  createPuzzlePreset("focus", "Focus", 10, 9),
+  createPuzzlePreset("devotion", "Devotion", 10, 10),
+  createPuzzlePreset("trial", "Trial", 12, 10),
+  createPuzzlePreset("mastery", "Mastery", 12, 12),
+  createPuzzlePreset("obsession", "Obsession", 15, 15),
 ];
 
 const verticalPuzzlePresets: PuzzlePreset[] = [
   createPuzzlePreset("glimpse", "Glimpse", 7, 12),
-  createPuzzlePreset("focus", "Focus", 8, 13),
-  createPuzzlePreset("devotion", "Devotion", 10, 16),
-  createPuzzlePreset("trial", "Trial", 12, 20),
-  createPuzzlePreset("mastery", "Mastery", 14, 24),
-  createPuzzlePreset("obsession", "Obsession", 16, 30),
+  createPuzzlePreset("focus", "Focus", 8, 11),
+  createPuzzlePreset("devotion", "Devotion", 9, 12),
+  createPuzzlePreset("trial", "Trial", 10, 14),
+  createPuzzlePreset("mastery", "Mastery", 12, 15),
+  createPuzzlePreset("obsession", "Obsession", 14, 18),
 ];
 
 export function getPuzzlePresets(aspect: PuzzleAspectKind) {

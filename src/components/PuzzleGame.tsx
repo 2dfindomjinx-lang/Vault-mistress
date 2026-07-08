@@ -73,11 +73,11 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [images, setImages] = useState<PuzzleImagePoolItem[]>([]);
   const [completions, setCompletions] = useState<PuzzleCompletion[]>([]);
   const [presets, setPresets] = useState<PuzzleResponse["presets"] | null>(null);
-  const [selectedImageId, setSelectedImageId] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<PuzzleDifficulty>("glimpse");
   const [aspect, setAspect] = useState<"standard" | "vertical">("standard");
   const [attempt, setAttempt] = useState<PuzzleAttempt | null>(null);
   const [board, setBoard] = useState<number[]>([]);
+  const [boardView, setBoardView] = useState<"fit" | "detail">("fit");
   const [selectedPieceIndex, setSelectedPieceIndex] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
@@ -89,7 +89,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [poolCount, setPoolCount] = useState(0);
   const startedAtRef = useRef<number | null>(null);
 
-  const selectedImage = images.find((image) => image.id === selectedImageId) ?? images[0] ?? null;
+  const selectedImage = images[0] ?? null;
   const activePresets = presets?.[aspect] ?? [];
   const selectedPreset = activePresets.find((preset) => preset.difficulty === selectedDifficulty) ?? activePresets[0] ?? null;
 
@@ -108,7 +108,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       setNextDailyResetAt(payload.nextDailyResetAt ?? null);
       setPoolCount(payload.poolCount ?? payload.images?.length ?? 0);
       setPresets(payload.presets ?? null);
-      setSelectedImageId((current) => current || payload.images?.[0]?.id || "");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle data could not be loaded.");
     }
@@ -267,92 +266,99 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {selectedImage ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            height={1}
+            onLoadingComplete={(image) => {
+              setAspect(image.naturalHeight / Math.max(1, image.naturalWidth) >= 1.25 ? "vertical" : "standard");
+            }}
+            src={selectedImage.image}
+            unoptimized
+            width={1}
+          />
+        ) : null}
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(22rem,1.15fr)]">
+          <div className="rounded-[1.25rem] border border-sky-200/15 bg-black/35 p-4">
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-sky-100/65">
+              Today&apos;s hidden puzzle
+            </p>
+            <h3 className="mt-3 text-2xl font-black text-white">One daily image, no preview</h3>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Pool her gün tek görsel seçer. Başlamadan görsel gösterilmez; sadece zorluk, parça sayısı ve coin bedeli görünür.
+            </p>
+            <div className="mt-5 grid gap-2 text-sm text-sky-50/70">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                Daily selection: <span className="font-black text-white">{images.length}/{poolCount}</span>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                Daily key: <span className="font-black text-white">{dailyKey || "today"}</span>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                Aspect mode: <span className="font-black text-white">{aspect === "vertical" ? "Vertical" : "Standard"}</span>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                Reset: <span className="font-black text-white">
+                  {nextDailyResetAt ? new Date(nextDailyResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "daily"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <aside className="rounded-[1.25rem] border border-white/10 bg-black/35 p-4">
             {images.length === 0 ? (
-              <div className="col-span-full rounded-[1.25rem] border border-sky-200/15 bg-black/35 px-4 py-8 text-center">
+              <div className="rounded-[1.25rem] border border-sky-200/15 bg-black/35 px-4 py-8 text-center">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-sky-100/65">
                   Puzzle pool is empty
                 </p>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Add images to public/puzzle and the daily selection will appear here.
+                  Add images to public/puzzle and the daily hidden selection will appear here.
                 </p>
               </div>
-            ) : images.map((image) => (
-              <button
-                className={`overflow-hidden rounded-[1rem] border bg-black/35 text-left transition ${
-                  selectedImage?.id === image.id
-                    ? "border-sky-200/55 shadow-[0_0_24px_rgba(125,211,252,0.22)]"
-                    : "border-white/10 hover:border-sky-200/35"
-                }`}
-                key={`${image.sourceType}:${image.id}`}
-                onClick={() => setSelectedImageId(image.id)}
-                type="button"
-              >
-                <div className="relative aspect-[4/5]">
-                  <Image alt={image.title} className="object-cover" fill sizes="240px" src={image.image} unoptimized />
-                </div>
-                <div className="p-3">
-                  <p className="truncate text-sm font-black text-white">{image.title}</p>
-                  <p className="mt-1 text-xs text-sky-100/60">{image.tag}{dailyKey ? ` / ${dailyKey}` : ""}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+            ) : (
+              <>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {activePresets.map((preset) => {
+                    const completion = selectedImage
+                      ? completionMap.get(`${selectedImage.sourceType}:${selectedImage.id}:${preset.difficulty}`)
+                      : null;
 
-          <aside className="rounded-[1.25rem] border border-white/10 bg-black/35 p-4">
-            {selectedImage ? (
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[1rem] border border-white/10">
-                <Image
-                  alt={selectedImage.title}
-                  className="object-cover"
-                  fill
-                  onLoadingComplete={(image) => {
-                    setAspect(image.naturalHeight / Math.max(1, image.naturalWidth) >= 1.25 ? "vertical" : "standard");
-                  }}
-                  sizes="340px"
-                  src={selectedImage.image}
-                  unoptimized
-                />
-              </div>
-            ) : null}
-            <div className="mt-4 grid gap-2">
-              {activePresets.map((preset) => {
-                const completion = selectedImage
-                  ? completionMap.get(`${selectedImage.sourceType}:${selectedImage.id}:${preset.difficulty}`)
-                  : null;
-
-                return (
-                  <button
-                    className={`rounded-2xl border px-3 py-2 text-left transition ${
-                      selectedDifficulty === preset.difficulty
-                        ? "border-sky-200/55 bg-sky-300/12"
-                        : "border-white/10 bg-white/[0.04] hover:border-sky-200/30"
-                    }`}
-                    key={preset.difficulty}
-                    onClick={() => setSelectedDifficulty(preset.difficulty)}
-                    type="button"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-black text-white">{preset.label}</span>
-                      <CoinAmount amount={preset.coinCost} className="text-xs font-bold text-sky-50" iconSize={14} label="" />
-                    </div>
-                    <p className="mt-1 text-xs text-sky-100/60">
-                      {preset.cols}x{preset.rows} / {preset.cols * preset.rows} pieces
-                      {completion ? " / completed" : ""}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              className="mt-4 w-full rounded-2xl bg-sky-300 px-4 py-3 text-sm font-black text-black transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={disabled || isBusy || !selectedImage || !selectedPreset || coins < (selectedPreset?.coinCost ?? 0)}
-              onClick={() => void startPuzzle()}
-              type="button"
-            >
-              Start Puzzle
-            </button>
+                    return (
+                      <button
+                        className={`rounded-2xl border px-3 py-2 text-left transition ${
+                          selectedDifficulty === preset.difficulty
+                            ? "border-sky-200/55 bg-sky-300/12"
+                            : "border-white/10 bg-white/[0.04] hover:border-sky-200/30"
+                        }`}
+                        key={preset.difficulty}
+                        onClick={() => setSelectedDifficulty(preset.difficulty)}
+                        type="button"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-black text-white">{preset.label}</span>
+                          <CoinAmount amount={preset.coinCost} className="text-xs font-bold text-sky-50" iconSize={14} label="" />
+                        </div>
+                        <p className="mt-1 text-xs text-sky-100/60">
+                          {preset.cols}x{preset.rows} / {preset.cols * preset.rows} pieces
+                          {completion ? " / completed" : ""}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  className="mt-4 w-full rounded-2xl bg-sky-300 px-4 py-3 text-sm font-black text-black transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={disabled || isBusy || !selectedImage || !selectedPreset || coins < (selectedPreset?.coinCost ?? 0)}
+                  onClick={() => void startPuzzle()}
+                  type="button"
+                >
+                  Start Puzzle
+                </button>
+              </>
+            )}
           </aside>
         </div>
 
@@ -363,44 +369,70 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         <section className="rounded-[1.5rem] border border-white/10 bg-black/55 p-3 sm:rounded-[2rem] sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100/60">{selectedImage.title}</p>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100/60">Daily hidden puzzle</p>
               <h3 className="mt-1 text-xl font-black text-white">{attempt.grid_cols}x{attempt.grid_rows} Puzzle Board</h3>
             </div>
-            <div className="flex gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
+            <div className="flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{formatTimer(seconds)}</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{moves} moves</span>
+              <button
+                className={`rounded-full border px-3 py-2 transition ${
+                  boardView === "fit" ? "border-sky-200/55 bg-sky-300/15" : "border-white/10 bg-white/5 hover:border-sky-200/35"
+                }`}
+                onClick={() => setBoardView("fit")}
+                type="button"
+              >
+                Fit
+              </button>
+              <button
+                className={`rounded-full border px-3 py-2 transition ${
+                  boardView === "detail" ? "border-sky-200/55 bg-sky-300/15" : "border-white/10 bg-white/5 hover:border-sky-200/35"
+                }`}
+                onClick={() => setBoardView("detail")}
+                type="button"
+              >
+                Detail
+              </button>
             </div>
           </div>
 
-          <div
-            className="mt-4 grid overflow-hidden rounded-[1rem] border border-white/10 bg-black/70"
-            style={{
-              aspectRatio: `${attempt.grid_cols} / ${attempt.grid_rows}`,
-              gridTemplateColumns: `repeat(${attempt.grid_cols}, minmax(0, 1fr))`,
-            }}
-          >
-            {board.map((piece, index) => {
-              const correctCol = piece % attempt.grid_cols;
-              const correctRow = Math.floor(piece / attempt.grid_cols);
-              const selected = selectedPieceIndex === index;
+          <p className="mt-3 text-sm text-sky-50/60">
+            Fit tüm board&apos;u sığdırır. Detail parçaları büyütür; büyük puzzle&apos;larda alanı kaydırarak oynarsın.
+          </p>
 
-              return (
-                <button
-                  aria-label={`Puzzle piece ${index + 1}`}
-                  className={`aspect-square border border-black/35 bg-cover bg-no-repeat outline-none ${
-                    selected ? "z-10 ring-2 ring-sky-200" : ""
-                  }`}
-                  key={`${attempt.id}:${index}`}
-                  onClick={() => selectPiece(index)}
-                  style={{
-                    backgroundImage: `url(${selectedImage.image})`,
-                    backgroundPosition: `${attempt.grid_cols === 1 ? 0 : (correctCol / (attempt.grid_cols - 1)) * 100}% ${attempt.grid_rows === 1 ? 0 : (correctRow / (attempt.grid_rows - 1)) * 100}%`,
-                    backgroundSize: `${attempt.grid_cols * 100}% ${attempt.grid_rows * 100}%`,
-                  }}
-                  type="button"
-                />
-              );
-            })}
+          <div className="mt-4 overflow-auto rounded-[1rem] border border-white/10 bg-black/80 p-2 shadow-inner shadow-black/60">
+            <div
+              className="mx-auto grid overflow-hidden rounded-[0.8rem] border border-sky-100/15 bg-black/70"
+              style={{
+                aspectRatio: `${attempt.grid_cols} / ${attempt.grid_rows}`,
+                gridTemplateColumns: `repeat(${attempt.grid_cols}, minmax(0, 1fr))`,
+                minWidth: boardView === "detail" ? `${attempt.grid_cols * 52}px` : undefined,
+                width: boardView === "fit" ? "100%" : "max-content",
+              }}
+            >
+              {board.map((piece, index) => {
+                const correctCol = piece % attempt.grid_cols;
+                const correctRow = Math.floor(piece / attempt.grid_cols);
+                const selected = selectedPieceIndex === index;
+
+                return (
+                  <button
+                    aria-label={`Puzzle piece ${index + 1}`}
+                    className={`aspect-square border border-black/55 bg-cover bg-no-repeat outline-none transition-[filter,transform] ${
+                      selected ? "z-10 scale-[1.03] ring-2 ring-sky-200 brightness-110" : "hover:brightness-110"
+                    }`}
+                    key={`${attempt.id}:${index}`}
+                    onClick={() => selectPiece(index)}
+                    style={{
+                      backgroundImage: `url(${selectedImage.image})`,
+                      backgroundPosition: `${attempt.grid_cols === 1 ? 0 : (correctCol / (attempt.grid_cols - 1)) * 100}% ${attempt.grid_rows === 1 ? 0 : (correctRow / (attempt.grid_rows - 1)) * 100}%`,
+                      backgroundSize: `${attempt.grid_cols * 100}% ${attempt.grid_rows * 100}%`,
+                    }}
+                    type="button"
+                  />
+                );
+              })}
+            </div>
           </div>
         </section>
       ) : null}

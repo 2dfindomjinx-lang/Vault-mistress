@@ -153,7 +153,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   return (
-    <div className="fixed bottom-4 left-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-start gap-3 sm:bottom-5 lg:left-[304px]">
+    <div className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
       {isOpen ? (
         <section className="w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -257,10 +257,16 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
       ) : null}
 
       <button
-        className="rounded-full border border-pink-200/30 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.28)] transition hover:scale-[1.02]"
+        className="group inline-flex items-center gap-2 rounded-full border border-pink-200/30 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.28)] transition hover:scale-[1.02]"
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
+        <span
+          aria-hidden="true"
+          className={`text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}
+        >
+          ▲
+        </span>
         Live Chat
       </button>
     </div>
