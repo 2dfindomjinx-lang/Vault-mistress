@@ -19,7 +19,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 
 type PuzzleBody = {
-  action?: "start" | "complete";
+  action?: "start" | "complete" | "preview";
   aspect?: string;
   attemptId?: string;
   difficulty?: string;
@@ -38,6 +38,9 @@ type ProfileRow = {
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
+
+const PUZZLE_PREVIEW_COIN_COST = 500;
+const PUZZLE_PREVIEW_SECONDS = 10;
 
 async function getAuthedUserId() {
   const authSupabase = await createSupabaseServerClient();
@@ -223,6 +226,74 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ attempt: { ...attempt, completed_at: completedAt, move_count: moveCount, solve_seconds: solveSeconds, status: "completed" } });
+  }
+
+  if (body?.action === "preview") {
+    if (!body.sourceImageId || !body.sourceType) {
+      return jsonError("Invalid puzzle preview payload.", 422);
+    }
+
+    const [imagePool, profileResult] = await Promise.all([
+      getPuzzleImagePool(),
+      supabase.from("profiles").select(profileSelect).eq("id", userId).single(),
+    ]);
+    const dailyKey = getGmt3DateKey();
+    const dailyImagePool = pickDailyPuzzleImages(imagePool, dailyKey, PUZZLE_DAILY_IMAGE_COUNT);
+    const sourceImage = dailyImagePool.find((item) => item.id === body.sourceImageId && item.sourceType === body.sourceType);
+
+    if (!sourceImage) {
+      return jsonError("That image is not in today's puzzle selection.", 403);
+    }
+
+    if (profileResult.error || !profileResult.data) {
+      return jsonError(profileResult.error?.message ?? "Profile not found.", 404);
+    }
+
+    const profile = profileResult.data as ProfileRow;
+    if ((profile.coins ?? 0) < PUZZLE_PREVIEW_COIN_COST) {
+      return jsonError("Not enough coins to preview that puzzle.", 402);
+    }
+
+    const now = new Date().toISOString();
+    const nextCoins = profile.coins - PUZZLE_PREVIEW_COIN_COST;
+    const { data: updatedProfile, error: profileUpdateError } = await supabase
+      .from("profiles")
+      .update({ coins: nextCoins, updated_at: now })
+      .eq("id", userId)
+      .eq("coins", profile.coins)
+      .select(profileSelect)
+      .maybeSingle();
+
+    if (profileUpdateError || !updatedProfile) {
+      return jsonError(profileUpdateError?.message ?? "Puzzle preview was stale.", profileUpdateError ? 500 : 409);
+    }
+
+    const { error: transactionError } = await supabase
+      .from("coin_transactions")
+      .insert({
+        amount: -PUZZLE_PREVIEW_COIN_COST,
+        balance_after: nextCoins,
+        balance_before: profile.coins,
+        metadata: {
+          previewSeconds: PUZZLE_PREVIEW_SECONDS,
+          puzzleDailyKey: dailyKey,
+          sourceImageId: sourceImage.id,
+          sourceType: sourceImage.sourceType,
+          spendAmount: PUZZLE_PREVIEW_COIN_COST,
+        },
+        reason: "spend:puzzle-preview",
+        user_id: userId,
+      });
+
+    if (transactionError) {
+      await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", userId).eq("coins", nextCoins);
+      return jsonError("Puzzle preview spending could not be logged.", 500);
+    }
+
+    return Response.json({
+      previewSeconds: PUZZLE_PREVIEW_SECONDS,
+      profile: updatedProfile,
+    });
   }
 
   if (body?.action !== "start") {

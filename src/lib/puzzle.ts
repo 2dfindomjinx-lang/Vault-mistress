@@ -2,9 +2,7 @@ export type PuzzleDifficulty =
   | "glimpse"
   | "focus"
   | "devotion"
-  | "trial"
-  | "mastery"
-  | "obsession";
+  | "trial";
 
 export type PuzzleAspectKind = "standard" | "vertical";
 
@@ -45,21 +43,17 @@ function createPuzzlePreset(
 }
 
 const standardPuzzlePresets: PuzzlePreset[] = [
-  createPuzzlePreset("glimpse", "Glimpse", 9, 9),
-  createPuzzlePreset("focus", "Focus", 10, 9),
-  createPuzzlePreset("devotion", "Devotion", 10, 10),
-  createPuzzlePreset("trial", "Trial", 12, 10),
-  createPuzzlePreset("mastery", "Mastery", 12, 12),
-  createPuzzlePreset("obsession", "Obsession", 15, 15),
+  createPuzzlePreset("glimpse", "Glimpse", 3, 3),
+  createPuzzlePreset("focus", "Focus", 4, 4),
+  createPuzzlePreset("devotion", "Devotion", 5, 5),
+  createPuzzlePreset("trial", "Trial", 6, 6),
 ];
 
 const verticalPuzzlePresets: PuzzlePreset[] = [
-  createPuzzlePreset("glimpse", "Glimpse", 7, 12),
-  createPuzzlePreset("focus", "Focus", 8, 11),
-  createPuzzlePreset("devotion", "Devotion", 9, 12),
-  createPuzzlePreset("trial", "Trial", 10, 14),
-  createPuzzlePreset("mastery", "Mastery", 12, 15),
-  createPuzzlePreset("obsession", "Obsession", 14, 18),
+  createPuzzlePreset("glimpse", "Glimpse", 3, 3),
+  createPuzzlePreset("focus", "Focus", 4, 4),
+  createPuzzlePreset("devotion", "Devotion", 5, 5),
+  createPuzzlePreset("trial", "Trial", 6, 6),
 ];
 
 export function getPuzzlePresets(aspect: PuzzleAspectKind) {

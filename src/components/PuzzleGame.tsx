@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { memo, type MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
+import { memo, type MutableRefObject, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import type { PuzzleDifficulty, PuzzleImagePoolItem, PuzzlePreset } from "@/lib/puzzle";
 import type { Profile } from "@/lib/supabase/client";
@@ -53,6 +53,35 @@ type JigsawEdges = {
   left: JigsawEdge;
   right: JigsawEdge;
   top: JigsawEdge;
+};
+
+type PuzzlePieceState = {
+  col: number;
+  correctX: number;
+  correctY: number;
+  currentX: number;
+  currentY: number;
+  height: number;
+  id: number;
+  placed: boolean;
+  row: number;
+  width: number;
+};
+
+type PuzzleLayout = {
+  boardHeight: number;
+  boardWidth: number;
+  boardX: number;
+  boardY: number;
+  stageHeight: number;
+  stageWidth: number;
+};
+
+type DragState = {
+  id: number;
+  offsetX: number;
+  offsetY: number;
+  pointerId: number;
 };
 
 function seededShuffle(length: number, seed: string) {
@@ -124,19 +153,23 @@ function TimerBadge({ startedAtRef }: { startedAtRef: MutableRefObject<number | 
 
 const PuzzleBoard = memo(function PuzzleBoard({
   attempt,
-  board,
-  boardView,
   imageUrl,
-  onSelectPiece,
-  selectedPieceIndex,
+  onComplete,
+  onMove,
 }: {
   attempt: PuzzleAttempt;
-  board: number[];
-  boardView: "fit" | "detail";
   imageUrl: string;
-  onSelectPiece: (index: number) => void;
-  selectedPieceIndex: number | null;
+  onComplete: (moves: number) => void;
+  onMove: (moves: number) => void;
 }) {
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [layout, setLayout] = useState<PuzzleLayout | null>(null);
+  const [pieces, setPieces] = useState<PuzzlePieceState[]>([]);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [moveCount, setMoveCount] = useState(0);
+  const [snapPieceId, setSnapPieceId] = useState<number | null>(null);
+  const completedRef = useRef(false);
+
   const jigsawShapes = useMemo(() => {
     const shapes = new Map<string, string>();
 
@@ -151,8 +184,181 @@ const PuzzleBoard = memo(function PuzzleBoard({
     return Array.from(shapes.entries());
   }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count]);
 
+  const calculateLayout = useCallback((containerWidth: number): PuzzleLayout => {
+    const stageWidth = Math.max(920, Math.floor(containerWidth));
+    const boardMaxWidth = Math.min(620, Math.floor(stageWidth * 0.58));
+    const boardMinWidth = attempt.grid_cols >= 6 ? 480 : 420;
+    const boardWidth = Math.max(boardMinWidth, boardMaxWidth);
+    const boardHeight = Math.round(boardWidth * (attempt.grid_rows / attempt.grid_cols));
+    const boardX = Math.round((stageWidth - boardWidth) / 2);
+    const boardY = 64;
+    const stageHeight = Math.max(560, boardY + boardHeight + 72);
+
+    return { boardHeight, boardWidth, boardX, boardY, stageHeight, stageWidth };
+  }, [attempt.grid_cols, attempt.grid_rows]);
+
+  const buildPieces = useCallback((nextLayout: PuzzleLayout) => {
+    const pieceWidth = nextLayout.boardWidth / attempt.grid_cols;
+    const pieceHeight = nextLayout.boardHeight / attempt.grid_rows;
+    const shuffled = seededShuffle(attempt.piece_count, attempt.shuffle_seed);
+    const leftTrayX = 28;
+    const rightTrayX = nextLayout.boardX + nextLayout.boardWidth + 28;
+    const trayWidth = Math.max(120, nextLayout.boardX - 52);
+    const usableHeight = nextLayout.stageHeight - pieceHeight - 56;
+
+    return shuffled.map((pieceId, trayIndex) => {
+      const row = Math.floor(pieceId / attempt.grid_cols);
+      const col = pieceId % attempt.grid_cols;
+      const side = trayIndex % 2 === 0 ? "left" : "right";
+      const sideIndex = Math.floor(trayIndex / 2);
+      const lane = sideIndex % Math.max(1, attempt.grid_rows);
+      const stack = Math.floor(sideIndex / Math.max(1, attempt.grid_rows));
+      const drift = ((pieceId * 37 + sideIndex * 19) % 54) - 27;
+      const trayX = side === "left"
+        ? leftTrayX + ((pieceId * 23) % Math.max(1, trayWidth - pieceWidth))
+        : rightTrayX + ((pieceId * 29) % Math.max(1, trayWidth - pieceWidth));
+      const trayY = 34 + ((lane * (pieceHeight * 0.82 + 22) + stack * 17 + drift) % Math.max(1, usableHeight));
+
+      return {
+        col,
+        correctX: nextLayout.boardX + col * pieceWidth,
+        correctY: nextLayout.boardY + row * pieceHeight,
+        currentX: trayX,
+        currentY: trayY,
+        height: pieceHeight,
+        id: pieceId,
+        placed: false,
+        row,
+        width: pieceWidth,
+      };
+    });
+  }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count, attempt.shuffle_seed]);
+
+  useEffect(() => {
+    const element = stageRef.current;
+    if (!element) {
+      return;
+    }
+
+    const syncLayout = () => {
+      const nextLayout = calculateLayout(element.parentElement?.clientWidth ?? element.clientWidth);
+      setLayout(nextLayout);
+      setPieces((currentPieces) => {
+        if (currentPieces.length === 0 || currentPieces.some((piece) => piece.placed)) {
+          return buildPieces(nextLayout).map((piece) => {
+            const existing = currentPieces.find((currentPiece) => currentPiece.id === piece.id);
+            return existing?.placed
+              ? { ...piece, currentX: piece.correctX, currentY: piece.correctY, placed: true }
+              : piece;
+          });
+        }
+
+        return buildPieces(nextLayout);
+      });
+    };
+
+    syncLayout();
+    const observer = new ResizeObserver(syncLayout);
+    observer.observe(element.parentElement ?? element);
+
+    return () => observer.disconnect();
+  }, [buildPieces, calculateLayout]);
+
+  useEffect(() => {
+    completedRef.current = false;
+    setMoveCount(0);
+    setDrag(null);
+    setSnapPieceId(null);
+    setPieces(layout ? buildPieces(layout) : []);
+  }, [attempt.id, buildPieces, layout]);
+
+  const placedCount = pieces.filter((piece) => piece.placed).length;
+
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, piece: PuzzlePieceState) => {
+    if (piece.placed) {
+      return;
+    }
+
+    const stageRect = stageRef.current?.getBoundingClientRect();
+    if (!stageRect) {
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDrag({
+      id: piece.id,
+      offsetX: event.clientX - stageRect.left - piece.currentX,
+      offsetY: event.clientY - stageRect.top - piece.currentY,
+      pointerId: event.pointerId,
+    });
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!drag) {
+      return;
+    }
+
+    const stageRect = stageRef.current?.getBoundingClientRect();
+    if (!stageRect) {
+      return;
+    }
+
+    const nextX = event.clientX - stageRect.left - drag.offsetX;
+    const nextY = event.clientY - stageRect.top - drag.offsetY;
+    setPieces((currentPieces) => currentPieces.map((piece) => (
+      piece.id === drag.id ? { ...piece, currentX: nextX, currentY: nextY } : piece
+    )));
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLButtonElement>, piece: PuzzlePieceState) => {
+    if (!drag || drag.id !== piece.id) {
+      return;
+    }
+
+    event.currentTarget.releasePointerCapture(drag.pointerId);
+    setDrag(null);
+    const nextMoveCount = moveCount + 1;
+    setMoveCount(nextMoveCount);
+    onMove(nextMoveCount);
+
+    setPieces((currentPieces) => {
+      const snapDistance = Math.max(24, Math.min(40, piece.width * 0.34));
+      let snapped = false;
+      const nextPieces = currentPieces.map((currentPiece) => {
+        if (currentPiece.id !== piece.id || currentPiece.placed) {
+          return currentPiece;
+        }
+
+        const distance = Math.hypot(currentPiece.currentX - currentPiece.correctX, currentPiece.currentY - currentPiece.correctY);
+        if (distance <= snapDistance) {
+          snapped = true;
+          return {
+            ...currentPiece,
+            currentX: currentPiece.correctX,
+            currentY: currentPiece.correctY,
+            placed: true,
+          };
+        }
+
+        return currentPiece;
+      });
+
+      if (snapped) {
+        setSnapPieceId(piece.id);
+        window.setTimeout(() => setSnapPieceId((current) => (current === piece.id ? null : current)), 360);
+      }
+
+      if (!completedRef.current && nextPieces.every((nextPiece) => nextPiece.placed)) {
+        completedRef.current = true;
+        onComplete(nextMoveCount);
+      }
+
+      return nextPieces;
+    });
+  };
+
   return (
-    <div className="mt-4 overflow-auto rounded-[1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_34%),linear-gradient(135deg,rgba(35,35,42,0.96),rgba(10,10,16,0.98))] p-4 shadow-inner shadow-black/60">
+    <div className="mt-4 overflow-x-auto rounded-[1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.08),transparent_32%),linear-gradient(135deg,rgba(18,18,24,0.98),rgba(4,8,13,0.98))] p-3 shadow-inner shadow-black/70">
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
         <defs>
           {jigsawShapes.map(([key, path]) => (
@@ -163,45 +369,77 @@ const PuzzleBoard = memo(function PuzzleBoard({
         </defs>
       </svg>
       <div
-        className="mx-auto grid"
-        style={{
-          aspectRatio: `${attempt.grid_cols} / ${attempt.grid_rows}`,
-          gap: boardView === "detail" ? "6px" : "3px",
-          gridTemplateColumns: `repeat(${attempt.grid_cols}, minmax(0, 1fr))`,
-          minWidth: boardView === "detail" ? `${attempt.grid_cols * 58}px` : undefined,
-          width: boardView === "fit" ? "100%" : "max-content",
-        }}
+        className="relative mx-auto overflow-hidden rounded-[1.25rem] border border-sky-100/10 bg-[linear-gradient(90deg,rgba(255,255,255,0.04),transparent_18%,transparent_82%,rgba(255,255,255,0.04)),radial-gradient(circle_at_50%_45%,rgba(56,189,248,0.10),transparent_34%)]"
+        ref={stageRef}
+        style={{ height: layout?.stageHeight ?? 560, minWidth: 920, width: layout?.stageWidth ?? "100%" }}
       >
-        {board.map((piece, index) => {
-          const correctCol = piece % attempt.grid_cols;
-          const correctRow = Math.floor(piece / attempt.grid_cols);
-          const selected = selectedPieceIndex === index;
-          const shapeKey = getJigsawShapeKey(getJigsawEdges(piece, attempt.grid_cols, attempt.grid_rows)).replaceAll(":", "-");
-
-          return (
-            <button
-              aria-label={`Puzzle piece ${index + 1}`}
-              className={`aspect-square bg-cover bg-no-repeat outline-none transition-[filter,transform] ${
-                selected
-                  ? "z-10 scale-[1.08] drop-shadow-[0_0_14px_rgba(125,211,252,0.72)] brightness-110"
-                  : "hover:brightness-110"
-              }`}
-              key={`${attempt.id}:${index}`}
-              onClick={() => onSelectPiece(index)}
+        {layout ? (
+          <>
+            <div className="absolute inset-y-8 left-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
+            <div className="absolute inset-y-8 right-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
+            <div
+              className="absolute rounded-[1rem] border border-sky-100/25 bg-black/45 shadow-[0_0_34px_rgba(125,211,252,0.14),inset_0_0_48px_rgba(0,0,0,0.72)]"
               style={{
-                backgroundImage: `url(${imageUrl})`,
-                backgroundPosition: `${attempt.grid_cols === 1 ? 0 : (correctCol / (attempt.grid_cols - 1)) * 100}% ${attempt.grid_rows === 1 ? 0 : (correctRow / (attempt.grid_rows - 1)) * 100}%`,
-                backgroundSize: `${attempt.grid_cols * 100}% ${attempt.grid_rows * 100}%`,
-                clipPath: `url(#jigsaw-${shapeKey})`,
+                height: layout.boardHeight,
+                left: layout.boardX,
+                top: layout.boardY,
+                width: layout.boardWidth,
               }}
-              type="button"
-            />
-          );
-        })}
+            >
+              <div
+                className="absolute inset-0 opacity-[0.16]"
+                style={{
+                  backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.34) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.34) 1px, transparent 1px)`,
+                  backgroundSize: `${layout.boardWidth / attempt.grid_cols}px ${layout.boardHeight / attempt.grid_rows}px`,
+                }}
+              />
+              <div className="absolute inset-0 rounded-[1rem] ring-1 ring-inset ring-white/10" />
+            </div>
+            <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-sky-100/15 bg-black/45 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-sky-50/75">
+              Assembly Board / {placedCount}/{attempt.piece_count} placed
+            </div>
+            {pieces.map((piece) => {
+              const shapeKey = getJigsawShapeKey(getJigsawEdges(piece.id, attempt.grid_cols, attempt.grid_rows)).replaceAll(":", "-");
+              const isDragging = drag?.id === piece.id;
+              const isSnapping = snapPieceId === piece.id;
+
+              return (
+                <button
+                  aria-label={`Puzzle piece ${piece.row + 1}-${piece.col + 1}`}
+                  className={`absolute touch-none bg-no-repeat outline-none transition-[filter,transform,box-shadow] duration-150 ${
+                    piece.placed
+                      ? "cursor-default drop-shadow-[0_0_10px_rgba(125,211,252,0.34)]"
+                      : "cursor-grab hover:z-30 hover:scale-[1.055] hover:drop-shadow-[0_0_18px_rgba(125,211,252,0.66)] active:cursor-grabbing"
+                  } ${isDragging ? "z-40 scale-[1.08] brightness-110 drop-shadow-[0_0_24px_rgba(125,211,252,0.78)]" : ""} ${
+                    isSnapping ? "animate-[pulse_0.36s_ease-out_1] brightness-125" : ""
+                  }`}
+                  key={`${attempt.id}:${piece.id}`}
+                  onPointerDown={(event) => handlePointerDown(event, piece)}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={(event) => handlePointerUp(event, piece)}
+                  style={{
+                    backgroundImage: `url(${imageUrl})`,
+                    backgroundPosition: `-${piece.col * piece.width}px -${piece.row * piece.height}px`,
+                    backgroundSize: `${layout.boardWidth}px ${layout.boardHeight}px`,
+                    clipPath: `url(#jigsaw-${shapeKey})`,
+                    height: piece.height,
+                    left: piece.currentX,
+                    top: piece.currentY,
+                    width: piece.width,
+                    zIndex: piece.placed ? 8 : isDragging ? 40 : 18 + (piece.id % 7),
+                  }}
+                  type="button"
+                />
+              );
+            })}
+          </>
+        ) : null}
       </div>
     </div>
   );
 });
+
+const PUZZLE_PREVIEW_COIN_COST = 500;
 
 export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleGameProps) {
   const [images, setImages] = useState<PuzzleImagePoolItem[]>([]);
@@ -210,12 +448,12 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [selectedDifficulty, setSelectedDifficulty] = useState<PuzzleDifficulty>("glimpse");
   const [aspect, setAspect] = useState<"standard" | "vertical">("standard");
   const [attempt, setAttempt] = useState<PuzzleAttempt | null>(null);
-  const [board, setBoard] = useState<number[]>([]);
-  const [boardView, setBoardView] = useState<"fit" | "detail">("fit");
-  const [selectedPieceIndex, setSelectedPieceIndex] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const [isPreviewBusy, setIsPreviewBusy] = useState(false);
+  const [previewUntil, setPreviewUntil] = useState<number | null>(null);
+  const [previewSecondsLeft, setPreviewSecondsLeft] = useState(0);
   const [completedAttemptId, setCompletedAttemptId] = useState<string | null>(null);
   const [dailyKey, setDailyKey] = useState("");
   const [nextDailyResetAt, setNextDailyResetAt] = useState<string | null>(null);
@@ -249,6 +487,26 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   useEffect(() => {
     void loadPuzzleData();
   }, []);
+
+  useEffect(() => {
+    if (!previewUntil) {
+      setPreviewSecondsLeft(0);
+      return;
+    }
+
+    const syncPreviewTimer = () => {
+      const secondsLeft = Math.max(0, Math.ceil((previewUntil - Date.now()) / 1000));
+      setPreviewSecondsLeft(secondsLeft);
+      if (secondsLeft <= 0) {
+        setPreviewUntil(null);
+      }
+    };
+
+    syncPreviewTimer();
+    const timer = window.setInterval(syncPreviewTimer, 250);
+
+    return () => window.clearInterval(timer);
+  }, [previewUntil]);
 
   const completionMap = useMemo(() => {
     const map = new Map<string, PuzzleCompletion>();
@@ -289,9 +547,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       }
 
       setAttempt(payload.attempt);
-      setBoard(seededShuffle(payload.attempt.piece_count, payload.attempt.shuffle_seed));
       setMoves(0);
-      setSelectedPieceIndex(null);
       setCompletedAttemptId(null);
       startedAtRef.current = Date.now();
 
@@ -305,19 +561,60 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
     }
   };
 
-  const completePuzzle = async (nextBoard: number[], nextMoves: number) => {
+  const previewPuzzle = async () => {
+    if (!selectedImage || isPreviewBusy) {
+      return;
+    }
+
+    setIsPreviewBusy(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/user/puzzle", {
+        body: JSON.stringify({
+          action: "preview",
+          sourceImageId: selectedImage.id,
+          sourceType: selectedImage.sourceType,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        previewSeconds?: number;
+        profile?: Profile;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Puzzle preview could not start.");
+      }
+
+      setPreviewUntil(Date.now() + Math.max(1, payload.previewSeconds ?? 10) * 1000);
+
+      if (payload.profile) {
+        onProfileUpdate?.(payload.profile);
+      }
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Puzzle preview could not start.");
+    } finally {
+      setIsPreviewBusy(false);
+    }
+  };
+
+  const completePuzzle = async (nextMoves: number) => {
     if (!attempt || completedAttemptId === attempt.id) {
       return;
     }
 
     setCompletedAttemptId(attempt.id);
+    setMoves(nextMoves);
 
     try {
       const response = await fetch("/api/user/puzzle", {
         body: JSON.stringify({
           action: "complete",
           attemptId: attempt.id,
-          finalBoard: nextBoard,
+          finalBoard: Array.from({ length: attempt.piece_count }, (_, index) => index),
           moveCount: nextMoves,
           solveSeconds: Math.max(1, Math.floor((Date.now() - (startedAtRef.current ?? Date.now())) / 1000)),
         }),
@@ -335,36 +632,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       setCompletedAttemptId(null);
       setError(completeError instanceof Error ? completeError.message : "Puzzle completion could not be saved.");
     }
-  };
-
-  const selectPiece = (index: number) => {
-    if (!attempt) {
-      return;
-    }
-
-    if (selectedPieceIndex === null) {
-      setSelectedPieceIndex(index);
-      return;
-    }
-
-    if (selectedPieceIndex === index) {
-      setSelectedPieceIndex(null);
-      return;
-    }
-
-    setBoard((current) => {
-      const next = [...current];
-      [next[selectedPieceIndex], next[index]] = [next[index], next[selectedPieceIndex]];
-      const nextMoves = moves + 1;
-      setMoves(nextMoves);
-
-      if (next.every((value, pieceIndex) => value === pieceIndex)) {
-        void completePuzzle(next, nextMoves);
-      }
-
-      return next;
-    });
-    setSelectedPieceIndex(null);
   };
 
   return (
@@ -402,12 +669,58 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(22rem,1.15fr)]">
           <div className="rounded-[1.25rem] border border-sky-200/15 bg-black/35 p-4">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-sky-100/65">
-              Today&apos;s hidden puzzle
+              Today&apos;s image pool
             </p>
-            <h3 className="mt-3 text-2xl font-black text-white">One daily image, no preview</h3>
+            <h3 className="mt-3 text-2xl font-black text-white">Assembly challenge</h3>
             <p className="mt-3 text-sm leading-6 text-zinc-400">
-              Pool her gun tek gorsel secer. Baslamadan gorsel gosterilmez; sadece zorluk, parca sayisi ve coin bedeli gorunur.
+              The image comes from the existing puzzle pool. Pick a piece count, pay the entry cost, then drag each loose piece onto the board.
             </p>
+            <div
+              className="relative mt-5 select-none overflow-hidden rounded-[1rem] border border-white/10 bg-black/55"
+              onContextMenu={(event) => event.preventDefault()}
+              onDragStart={(event) => event.preventDefault()}
+            >
+              <div className="aspect-[4/3]">
+                {selectedImage && previewSecondsLeft > 0 ? (
+                  <Image
+                    alt={selectedImage.title}
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                    fill
+                    onContextMenu={(event) => event.preventDefault()}
+                    onDragStart={(event) => event.preventDefault()}
+                    sizes="(min-width: 1024px) 34vw, 100vw"
+                    src={selectedImage.image}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.14),transparent_35%),linear-gradient(135deg,rgba(255,255,255,0.06),rgba(0,0,0,0.82))]">
+                    <span className="text-xs font-black uppercase tracking-[0.3em] text-sky-50/55">Preview locked</span>
+                  </div>
+                )}
+              </div>
+              {previewSecondsLeft > 0 ? (
+                <div className="absolute right-3 top-3 rounded-full border border-black/40 bg-black/70 px-3 py-1 text-xs font-black text-white">
+                  {previewSecondsLeft}s
+                </div>
+              ) : null}
+              {previewSecondsLeft > 0 ? (
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 cursor-default"
+                  onContextMenu={(event) => event.preventDefault()}
+                  onDragStart={(event) => event.preventDefault()}
+                />
+              ) : null}
+            </div>
+            <button
+              className="mt-3 w-full rounded-2xl border border-sky-200/25 bg-sky-300/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-100/55 hover:bg-sky-300/16 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled || isPreviewBusy || !selectedImage || coins < PUZZLE_PREVIEW_COIN_COST}
+              onClick={() => void previewPuzzle()}
+              type="button"
+            >
+              Preview 10s / <CoinAmount amount={PUZZLE_PREVIEW_COIN_COST} className="font-black text-white" iconSize={14} label="" />
+            </button>
             <div className="mt-5 grid gap-2 text-sm text-sky-50/70">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
                 Daily selection: <span className="font-black text-white">{images.length}/{poolCount}</span>
@@ -493,38 +806,18 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             <div className="flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
               <TimerBadge startedAtRef={startedAtRef} />
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{moves} moves</span>
-              <button
-                className={`rounded-full border px-3 py-2 transition ${
-                  boardView === "fit" ? "border-sky-200/55 bg-sky-300/15" : "border-white/10 bg-white/5 hover:border-sky-200/35"
-                }`}
-                onClick={() => setBoardView("fit")}
-                type="button"
-              >
-                Fit
-              </button>
-              <button
-                className={`rounded-full border px-3 py-2 transition ${
-                  boardView === "detail" ? "border-sky-200/55 bg-sky-300/15" : "border-white/10 bg-white/5 hover:border-sky-200/35"
-                }`}
-                onClick={() => setBoardView("detail")}
-                type="button"
-              >
-                Detail
-              </button>
             </div>
           </div>
 
           <p className="mt-3 text-sm text-sky-50/60">
-            Fit tum board&apos;u sigdirir. Detail parcalari buyutur; buyuk puzzle&apos;larda alani kaydirarak oynarsin.
+            Drag pieces from the side trays onto the assembly board. Pieces snap and lock when they are close enough to their true position.
           </p>
 
           <PuzzleBoard
             attempt={attempt}
-            board={board}
-            boardView={boardView}
             imageUrl={selectedImage.image}
-            onSelectPiece={selectPiece}
-            selectedPieceIndex={selectedPieceIndex}
+            onComplete={(nextMoves) => void completePuzzle(nextMoves)}
+            onMove={setMoves}
           />
         </section>
       ) : null}
