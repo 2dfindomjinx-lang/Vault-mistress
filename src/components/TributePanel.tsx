@@ -1,6 +1,7 @@
 import Image from "next/image";
 import {
   SHRINE_IMAGE_UNLOCK_COST,
+  SHRINE_LEVEL_COIN_INTERVAL,
   SHRINE_PURCHASE_OPTIONS,
   type ShrineStatus,
 } from "@/lib/shrine";
@@ -97,13 +98,16 @@ export function TributePanel({
               </h3>
               <p className="mt-2 text-sm leading-6 text-amber-50/80">
                 Each offering increases your Tribute Score, grants Devotion, and contributes toward revealing new Shrine Memories.
-                Every {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} shrine coins offered reveals the next Shrine Memory.
+                Every {SHRINE_IMAGE_UNLOCK_COST.toLocaleString()} shrine coins reveals a memory, and every {SHRINE_LEVEL_COIN_INTERVAL.toLocaleString()} coins raises Worship Level.
               </p>
             </div>
             <div className="rounded-2xl border border-amber-200/15 bg-black/30 px-4 py-3 text-sm text-amber-50/85">
               <p className="font-semibold">Offered at the Shrine: {shrine?.totalSpent.toLocaleString() ?? "0"} coins</p>
               <p className="mt-1">
                 Memories Revealed: {shrine?.unlockedImageCount ?? 0}/{shrine?.availableImageCount ?? 0}
+              </p>
+              <p className="mt-1">
+                Worship Level: {shrine?.level.toLocaleString() ?? "0"}
               </p>
             </div>
           </div>
@@ -133,11 +137,15 @@ export function TributePanel({
                     <span className="rounded-full border border-pink-200/20 bg-black/25 px-2.5 py-1.5">
                       +{option.amount.toLocaleString()} Tribute
                     </span>
+                    <span className="rounded-full border border-sky-200/20 bg-black/25 px-2.5 py-1.5">
+                      +{Math.floor(option.amount / SHRINE_LEVEL_COIN_INTERVAL)} Worship
+                    </span>
                   </div>
                 </button>
               ))}
             </div>
 
+            <div className="grid gap-4">
             <div className="rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
@@ -206,6 +214,38 @@ export function TributePanel({
                   ? `${shrine?.unlockedImageCount ?? 0} of ${shrine?.availableImageCount ?? 0} Shrine Memories have been revealed. Browse the full collection in Gallery.`
                   : "No Shrine Memories have been placed yet, but your offerings are already being remembered."}
               </p>
+            </div>
+              <div className="rounded-[1.35rem] border border-amber-200/15 bg-black/30 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
+                  Top 5 Worshippers
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {(shrine?.topWorshippers ?? []).length > 0 ? (
+                    shrine?.topWorshippers.map((worshipper, index) => (
+                      <div
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2"
+                        key={worshipper.userId}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-white">
+                            #{index + 1} {worshipper.displayName || worshipper.username}
+                          </p>
+                          {worshipper.displayName ? (
+                            <p className="truncate text-xs text-amber-100/55">{worshipper.username}</p>
+                          ) : null}
+                        </div>
+                        <p className="shrink-0 text-sm font-black text-amber-50">
+                          {worshipper.totalSpent.toLocaleString()}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-zinc-400">
+                      No Shrine offerings yet.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -22,6 +22,7 @@ import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import { ProfileHeaderCustomizationPanel } from "@/components/ProfileHeaderCustomizationPanel";
 import { PublicProfileModal } from "@/components/PublicProfileModal";
+import { PuzzleGame } from "@/components/PuzzleGame";
 import {
   RecentTributesTicker,
   type RecentTribute,
@@ -10088,10 +10089,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const dashboardNavItems = [
     { key: "home" as const, label: "Home" },
     { key: "devotion" as const, label: "Devotion" },
-    { key: "tribute" as const, label: "Tribute" },
+    { key: "tribute" as const, label: affection >= 100 ? "Shrine" : "Tribute" },
     { key: "shop" as const, label: "Shop" },
     { key: "tasks" as const, label: "Tasks" },
     { key: "crates" as const, label: "Cases" },
+    { key: "puzzle" as const, label: "Puzzle" },
     {
       key: "pet" as const,
       label: "Pet",
@@ -10510,6 +10512,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       <AppShell
         activePage={activePanel}
         items={dashboardNavItems}
+        onCoinsChange={(nextCoins) => {
+          setCoins(nextCoins);
+          coinsRef.current = nextCoins;
+        }}
         onNavigate={(page) => {
           emitSoundEvent("button_click");
           resetViewportScroll();
@@ -10771,6 +10777,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 .map((id) => id.slice("gallery:".length))}
               onItemHover={(itemId) => markShrineMemoriesSeen([itemId])}
               onUnlock={handleUnlock}
+            />
+          )}
+          {activePanel === "puzzle" && (
+            <PuzzleGame
+              coins={coins}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              onProfileUpdate={(profile) => {
+                applyProfileStats(profile);
+                void loadCommunityStatus();
+              }}
             />
           )}
           {activePanel === "tasks" && (

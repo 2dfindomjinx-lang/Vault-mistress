@@ -10,28 +10,36 @@ export type ShrineMemoryRecord = {
   title: string;
 };
 
+export type ShrineWorshipper = {
+  displayName: string | null;
+  totalSpent: number;
+  userId: string;
+  username: string;
+};
+
 export const SHRINE_PURCHASE_OPTIONS = [
   {
-    amount: 1000,
+    amount: 5000,
     description: "A simple offering laid before Principessa's Shrine.",
     devotionReward: 1,
     label: "Offering",
   },
   {
-    amount: 2500,
+    amount: 10000,
     description: "A richer act of worship for a more meaningful tribute.",
-    devotionReward: 3,
+    devotionReward: 2,
     label: "Blessed Offering",
   },
   {
-    amount: 5000,
+    amount: 25000,
     description: "A lavish royal offering worthy of deeper reverence.",
-    devotionReward: 7,
+    devotionReward: 5,
     label: "Royal Offering",
   },
 ] as const;
 
-export const SHRINE_IMAGE_UNLOCK_COST = 20000;
+export const SHRINE_IMAGE_UNLOCK_COST = 10000;
+export const SHRINE_LEVEL_COIN_INTERVAL = 5000;
 
 export const SHRINE_MEMORY_LIBRARY: ShrineMemoryDefinition[] = [
   { fileName: "shrine_1.jpg", path: "/shrine/shrine_1.jpg", title: "Throne of Tribute" },
@@ -69,10 +77,12 @@ export type ShrineStatus = {
   currentImagePath: string | null;
   currentMemory: ShrineMemoryRecord | null;
   imagePaths: string[];
+  level: number;
   memories: ShrineMemoryRecord[];
   nextUnlockAt: number | null;
   revealedMemories: ShrineMemoryRecord[];
   totalSpent: number;
+  topWorshippers: ShrineWorshipper[];
   unlockedImageCount: number;
   unlockedImagePaths: string[];
 };
@@ -128,6 +138,7 @@ export function buildShrineStatus(totalSpent: number, memories: ShrineMemoryReco
     Math.floor(safeTotalSpent / SHRINE_IMAGE_UNLOCK_COST),
   );
   const revealedMemories = memories.slice(0, unlockedImageCount);
+  const level = Math.floor(safeTotalSpent / SHRINE_LEVEL_COIN_INTERVAL);
   const unlockedImagePaths = revealedMemories.map((memory) => memory.path);
   const hasMoreImages = unlockedImageCount < availableImageCount;
   const nextUnlockAt = hasMoreImages
@@ -144,10 +155,12 @@ export function buildShrineStatus(totalSpent: number, memories: ShrineMemoryReco
     currentImagePath: currentMemory?.path ?? null,
     currentMemory,
     imagePaths: memories.map((memory) => memory.path),
+    level,
     memories,
     nextUnlockAt,
     revealedMemories,
     totalSpent: safeTotalSpent,
+    topWorshippers: [],
     unlockedImageCount,
     unlockedImagePaths,
   };

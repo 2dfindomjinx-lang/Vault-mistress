@@ -5,6 +5,7 @@ export type DashboardPage =
   | "pet"
   | "debt"
   | "crates"
+  | "puzzle"
   | "shop"
   | "collection"
   | "tribute"

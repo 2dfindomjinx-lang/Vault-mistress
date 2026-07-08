@@ -22,6 +22,7 @@ type Body = {
 type CoinTransactionRow = {
   amount: number | null;
   metadata?: Record<string, unknown> | null;
+  user_id?: string | null;
 };
 
 type ProfileRow = {
@@ -67,6 +68,61 @@ function getShrineSpendTotal(rows: CoinTransactionRow[]) {
   }, 0);
 }
 
+async function getTopShrineWorshippers(supabase: ReturnType<typeof createSupabaseAdminClient>) {
+  const { data: transactions, error: transactionError } = await supabase
+    .from("coin_transactions")
+    .select("user_id, amount, metadata")
+    .eq("reason", "tribute:shrine");
+
+  if (transactionError) {
+    console.warn("[shrine] top worshipper transaction lookup failed", transactionError);
+    return [];
+  }
+
+  const totals = new Map<string, number>();
+
+  ((transactions ?? []) as CoinTransactionRow[]).forEach((transaction) => {
+    if (!transaction.user_id) {
+      return;
+    }
+
+    totals.set(
+      transaction.user_id,
+      (totals.get(transaction.user_id) ?? 0) + getShrineSpendTotal([transaction]),
+    );
+  });
+
+  const topEntries = Array.from(totals.entries())
+    .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]))
+    .slice(0, 5);
+
+  if (topEntries.length === 0) {
+    return [];
+  }
+
+  const { data: profiles, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, username, display_name")
+    .in("id", topEntries.map(([userId]) => userId));
+
+  if (profileError) {
+    console.warn("[shrine] top worshipper profile lookup failed", profileError);
+  }
+
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]));
+
+  return topEntries.map(([userId, totalSpent]) => {
+    const profile = profileMap.get(userId);
+
+    return {
+      displayName: typeof profile?.display_name === "string" ? profile.display_name : null,
+      totalSpent,
+      userId,
+      username: typeof profile?.username === "string" ? profile.username : "Unknown",
+    };
+  });
+}
+
 async function getAuthedUserId() {
   const authSupabase = await createSupabaseServerClient();
   const { data: authData, error: authError } = await authSupabase.auth.getUser();
@@ -100,13 +156,14 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [{ data: transactions, error: transactionError }, imageFileNames] = await Promise.all([
+  const [{ data: transactions, error: transactionError }, imageFileNames, topWorshippers] = await Promise.all([
     supabase
       .from("coin_transactions")
       .select("amount, metadata")
       .eq("user_id", authResult.userId)
       .eq("reason", "tribute:shrine"),
     getShrineImageFileNames(),
+    getTopShrineWorshippers(supabase),
   ]);
 
   if (transactionError) {
@@ -114,11 +171,16 @@ export async function GET() {
     return jsonError("Shrine progress could not be loaded.", 500);
   }
 
+  const shrine = buildShrineStatus(
+    getShrineSpendTotal((transactions ?? []) as CoinTransactionRow[]),
+    resolveShrineMemories(imageFileNames),
+  );
+
   return Response.json({
-    shrine: buildShrineStatus(
-      getShrineSpendTotal((transactions ?? []) as CoinTransactionRow[]),
-      resolveShrineMemories(imageFileNames),
-    ),
+    shrine: {
+      ...shrine,
+      topWorshippers,
+    },
   });
 }
 
@@ -149,7 +211,7 @@ export async function POST(request: Request) {
   const userId = authResult.userId;
   const now = new Date().toISOString();
 
-  const [{ data: profile, error: profileError }, { data: previousShrineTransactions, error: shrineHistoryError }, imageFileNames] =
+  const [{ data: profile, error: profileError }, { data: previousShrineTransactions, error: shrineHistoryError }, imageFileNames, topWorshippers] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -162,6 +224,7 @@ export async function POST(request: Request) {
         .eq("user_id", userId)
         .eq("reason", "tribute:shrine"),
       getShrineImageFileNames(),
+      getTopShrineWorshippers(supabase),
     ]);
 
   if (profileError || !profile) {
@@ -208,7 +271,10 @@ export async function POST(request: Request) {
   }
 
   const nextShrineSpent = previousShrineSpent + amount;
-  const shrineStatus = buildShrineStatus(nextShrineSpent, shrineMemories);
+  let shrineStatus = {
+    ...buildShrineStatus(nextShrineSpent, shrineMemories),
+    topWorshippers,
+  };
   const previousUnlockedCount = buildShrineStatus(previousShrineSpent, shrineMemories).unlockedImageCount;
 
   const { data: transaction, error: transactionError } = await supabase
@@ -259,6 +325,11 @@ export async function POST(request: Request) {
   } catch (devotionError) {
     console.error("[shrine] devotion award failed", devotionError);
   }
+
+  shrineStatus = {
+    ...shrineStatus,
+    topWorshippers: await getTopShrineWorshippers(supabase),
+  };
 
   const { data: refreshedProfile, error: refreshedProfileError } = await supabase
     .from("profiles")

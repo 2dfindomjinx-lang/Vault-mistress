@@ -1996,6 +1996,129 @@ create policy "Users can read own crate open grants"
   to authenticated
   using (auth.uid() = user_id);
 
+-- ============================================================
+-- LIVE CHAT + PUZZLE SYSTEMS
+-- ============================================================
+
+create table if not exists public.live_chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  message text not null,
+  created_at timestamp with time zone not null default now(),
+  is_deleted boolean not null default false,
+  deleted_by uuid references auth.users(id),
+  deleted_at timestamp with time zone,
+  message_type text not null default 'normal',
+  coin_cost integer not null default 0,
+  expires_at timestamp with time zone
+);
+
+create index if not exists live_chat_messages_created_at_idx
+  on public.live_chat_messages(created_at desc);
+
+create table if not exists public.live_chat_mutes (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  muted_until timestamp with time zone,
+  reason text,
+  muted_by uuid references auth.users(id),
+  created_at timestamp with time zone not null default now()
+);
+
+create table if not exists public.puzzle_attempts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source_image_id text not null,
+  source_type text not null default 'puzzle',
+  difficulty text not null,
+  grid_cols integer not null,
+  grid_rows integer not null,
+  piece_count integer not null,
+  coin_cost integer not null,
+  status text not null default 'active',
+  started_at timestamp with time zone not null default now(),
+  completed_at timestamp with time zone,
+  solve_seconds integer,
+  move_count integer not null default 0,
+  used_hints boolean not null default false,
+  shuffle_seed text not null,
+  created_at timestamp with time zone not null default now()
+);
+
+create index if not exists puzzle_attempts_user_created_at_idx
+  on public.puzzle_attempts(user_id, created_at desc);
+
+create index if not exists puzzle_attempts_image_user_idx
+  on public.puzzle_attempts(source_image_id, user_id);
+
+create table if not exists public.puzzle_completions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source_image_id text not null,
+  source_type text not null default 'puzzle',
+  difficulty text not null,
+  best_solve_seconds integer,
+  best_move_count integer,
+  completed_count integer not null default 0,
+  unassisted_completed boolean not null default false,
+  assisted_completed boolean not null default false,
+  first_completed_at timestamp with time zone,
+  last_completed_at timestamp with time zone,
+  unique (user_id, source_image_id, difficulty)
+);
+
+alter table public.live_chat_messages enable row level security;
+alter table public.live_chat_mutes enable row level security;
+alter table public.puzzle_attempts enable row level security;
+alter table public.puzzle_completions enable row level security;
+
+drop policy if exists "Authenticated can read live chat messages" on public.live_chat_messages;
+create policy "Authenticated can read live chat messages"
+  on public.live_chat_messages for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Users can read own live chat mute" on public.live_chat_mutes;
+create policy "Users can read own live chat mute"
+  on public.live_chat_mutes for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own puzzle attempts" on public.puzzle_attempts;
+create policy "Users can read own puzzle attempts"
+  on public.puzzle_attempts for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own puzzle completions" on public.puzzle_completions;
+create policy "Users can read own puzzle completions"
+  on public.puzzle_completions for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop trigger if exists block_client_live_chat_messages_mutations_trigger on public.live_chat_messages;
+create trigger block_client_live_chat_messages_mutations_trigger
+  before insert or update or delete on public.live_chat_messages
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_live_chat_mutes_mutations_trigger on public.live_chat_mutes;
+create trigger block_client_live_chat_mutes_mutations_trigger
+  before insert or update or delete on public.live_chat_mutes
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_puzzle_attempts_mutations_trigger on public.puzzle_attempts;
+create trigger block_client_puzzle_attempts_mutations_trigger
+  before insert or update or delete on public.puzzle_attempts
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_puzzle_completions_mutations_trigger on public.puzzle_completions;
+create trigger block_client_puzzle_completions_mutations_trigger
+  before insert or update or delete on public.puzzle_completions
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
 -- Note: All writes to these tables must go through server routes using the admin client.
 -- Existing is_privileged_db_context trigger (from security-hardening) will protect against direct client writes.
 drop policy if exists "Users can read own irl tasks"
