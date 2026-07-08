@@ -38,11 +38,13 @@ function getMessageProfile(message: LiveChatMessage) {
   return Array.isArray(message.profiles) ? message.profiles[0] : message.profiles;
 }
 
+const chatTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 function formatChatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+  return chatTimeFormatter.format(new Date(value));
 }
 
 export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
@@ -265,7 +267,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
           aria-hidden="true"
           className={`text-xs transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
-          ▲
+          ^
         </span>
         Live Chat
       </button>

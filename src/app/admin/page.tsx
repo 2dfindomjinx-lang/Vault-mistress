@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
+import type { ThroneDebtContract } from "@/lib/throne-debt";
 
 type AdminIrlTask = {
   id: string;
@@ -99,6 +100,10 @@ type AdminDebtContract = {
   consent_primary?: boolean | null;
   consent_secondary?: boolean | null;
   image_urls?: string[] | null;
+};
+
+type AdminThroneDebtContract = ThroneDebtContract & {
+  username?: string;
 };
 
 type AdminEvent = RandomEvent & {
@@ -234,11 +239,12 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
   const [activeTab, setActiveTab] = useState<AdminTabKey>("console");
-  const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil">("normal");
+  const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil" | "throne">("normal");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
   const [petTasks, setPetTasks] = useState<AdminPetTask[]>([]);
   const [petTaskLogs, setPetTaskLogs] = useState<AdminPetTaskLog[]>([]);
   const [debtContracts, setDebtContracts] = useState<AdminDebtContract[]>([]);
+  const [throneDebtContracts, setThroneDebtContracts] = useState<AdminThroneDebtContract[]>([]);
   const [expandedEvilDebtId, setExpandedEvilDebtId] = useState<string | null>(null);
   const [previewDebtImage, setPreviewDebtImage] = useState<string | null>(null);
   const [events, setEvents] = useState<AdminEvent[]>([]);
@@ -527,6 +533,22 @@ export default function AdminPage() {
       }
 
       setDebtContracts(result.contracts ?? []);
+
+      const throneResponse = await fetch("/api/admin/throne-debts", {
+        body: JSON.stringify({ action: "list" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const throneResult = (await throneResponse.json()) as {
+        contracts?: AdminThroneDebtContract[];
+        error?: string;
+      };
+
+      if (!throneResponse.ok) {
+        throw new Error(throneResult.error ?? "Throne Debt list failed.");
+      }
+
+      setThroneDebtContracts(throneResult.contracts ?? []);
       markSectionLoaded("debt");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Debt contract list failed.");
@@ -816,6 +838,56 @@ export default function AdminPage() {
       setDefneMessage("Evil debt approved. The repayment schedule is active.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Evil Debt approval failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleThroneDebtAction = async (payload: {
+    action:
+      | "approve_contract"
+      | "approve_installment_payment"
+      | "apply_throne_debt_timeout"
+      | "cancel_contract"
+      | "lift_timeout"
+      | "mark_defaulted"
+      | "pause_contract"
+      | "reject_contract"
+      | "reject_installment_payment"
+      | "resume_contract";
+    adminNote?: string;
+    contractId?: string;
+    installmentId?: string;
+    rejectionReason?: string;
+    reviewId?: string;
+  }) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/admin/throne-debts", {
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as {
+        contracts?: AdminThroneDebtContract[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Throne Debt action failed.");
+      }
+
+      setThroneDebtContracts(result.contracts ?? []);
+      setStatus("Throne Debt action completed.");
+      setDefneMessage("Throne Debt ledger updated. Manual review stayed authoritative.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Throne Debt action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -1160,8 +1232,15 @@ export default function AdminPage() {
   const pendingEvilDebtCount = debtContracts.filter(
     (contract) => contract.contract_type === "evil" && contract.status === "pending",
   ).length;
+  const pendingThroneDebtCount = throneDebtContracts.filter((contract) =>
+    contract.status === "pending_review" ||
+    contract.status === "timeout" ||
+    (contract.payment_reviews ?? []).some((review) => review.status === "pending"),
+  ).length;
   const liveDebtCount = debtContracts.filter((contract) =>
     ["active", "pending"].includes(contract.status),
+  ).length + throneDebtContracts.filter((contract) =>
+    ["pending_review", "active", "overdue", "timeout", "paused"].includes(contract.status),
   ).length;
   const activeTimeoutCount = timedOutUsers.filter(
     (user) => new Date(user.timeout_until).getTime() > adminNow,
@@ -1740,6 +1819,18 @@ export default function AdminPage() {
                     Evil Debts
                   </button>
                   <button
+                    className={`rounded-full px-3 py-1 text-xs font-black transition ${
+                      debtSubTab === "throne"
+                        ? "bg-amber-500/20 text-amber-50"
+                        : "border border-white/10 bg-white/[0.05] text-zinc-200"
+                    }`}
+                    disabled={isBusy}
+                    onClick={() => setDebtSubTab("throne")}
+                    type="button"
+                  >
+                    Throne Debts {pendingThroneDebtCount > 0 ? `(${pendingThroneDebtCount})` : ""}
+                  </button>
+                  <button
                     className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
                     disabled={isBusy}
                     onClick={() => void loadDebtContracts()}
@@ -1801,6 +1892,238 @@ export default function AdminPage() {
                     ) : (
                       <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
                         No debt contracts yet.
+                      </p>
+                    )}
+                  </div>
+                ) : debtSubTab === "throne" ? (
+                  <div className="grid gap-3">
+                    {throneDebtContracts.length > 0 ? (
+                      throneDebtContracts.map((contract) => {
+                        const paidInstallments = (contract.installments ?? []).filter((item) => item.status === "approved_paid");
+                        const pendingReviews = (contract.payment_reviews ?? []).filter((review) => review.status === "pending");
+                        const overdueInstallments = (contract.installments ?? []).filter((item) =>
+                          item.status !== "approved_paid" &&
+                          new Date(item.due_date).getTime() <= adminNow,
+                        );
+                        const paidUsd = paidInstallments.reduce((sum, item) => sum + Number(item.amount_usd ?? 0), 0);
+
+                        return (
+                          <article
+                            className="rounded-2xl border border-amber-200/15 bg-amber-950/10 p-3"
+                            key={contract.id}
+                          >
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <p className="text-sm font-black text-white">
+                                  {contract.username ?? "@unknown"} - ${contract.total_amount_usd.toFixed(2)}
+                                </p>
+                                <p className="mt-1 text-sm text-amber-50">
+                                  {contract.repayment_frequency} / {contract.installment_count} installments / ${contract.installment_amount_usd.toFixed(2)}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  Paid ${paidUsd.toFixed(2)} - remaining ${Math.max(0, contract.total_amount_usd - paidUsd).toFixed(2)}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  User note: {contract.user_note || "-"}
+                                </p>
+                                {contract.status === "timeout" ? (
+                                  <p className="mt-1 text-xs font-bold text-red-100">
+                                    Timeout redemption: ${Number(contract.timeout_overdue_amount_usd ?? 0).toFixed(2)} overdue x {Number(contract.timeout_redemption_multiplier ?? 1.3).toFixed(2)} = ${Number(contract.timeout_redemption_amount_usd ?? 0).toFixed(2)}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                                <span className="rounded-full border border-amber-200/20 bg-amber-400/10 px-3 py-1 text-xs font-black uppercase text-amber-50">
+                                  {contract.status}
+                                </span>
+                                {pendingReviews.length > 0 ? (
+                                  <span className="rounded-full border border-sky-200/20 bg-sky-400/10 px-3 py-1 text-xs font-black uppercase text-sky-50">
+                                    {pendingReviews.length} payment review
+                                  </span>
+                                ) : null}
+                                {overdueInstallments.length > 0 ? (
+                                  <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
+                                    {overdueInstallments.length} overdue
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {contract.status === "pending_review" ? (
+                                <>
+                                  <button
+                                    className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({ action: "approve_contract", contractId: contract.id })}
+                                    type="button"
+                                  >
+                                    Approve Contract
+                                  </button>
+                                  <button
+                                    className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({
+                                      action: "reject_contract",
+                                      adminNote: window.prompt("Reject reason / admin note") ?? "",
+                                      contractId: contract.id,
+                                    })}
+                                    type="button"
+                                  >
+                                    Reject Contract
+                                  </button>
+                                </>
+                              ) : null}
+                              {["active", "overdue"].includes(contract.status) ? (
+                                <>
+                                  <button
+                                    className="rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-100 transition hover:border-yellow-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({ action: "pause_contract", contractId: contract.id })}
+                                    type="button"
+                                  >
+                                    Pause
+                                  </button>
+                                  {overdueInstallments.length > 0 ? (
+                                    <button
+                                      className="rounded-2xl border border-red-200/25 bg-red-500/15 px-3 py-2 text-xs font-black text-red-100 transition hover:border-red-200/50 disabled:opacity-50"
+                                      disabled={isBusy}
+                                      onClick={() => void handleThroneDebtAction({
+                                        action: "apply_throne_debt_timeout",
+                                        adminNote: window.prompt("Timeout admin note") ?? "",
+                                        contractId: contract.id,
+                                      })}
+                                      type="button"
+                                    >
+                                      Apply Throne Debt Timeout
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-100 transition hover:border-red-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({ action: "mark_defaulted", contractId: contract.id })}
+                                    type="button"
+                                  >
+                                    Mark Defaulted
+                                  </button>
+                                </>
+                              ) : contract.status === "timeout" ? (
+                                <>
+                                  <button
+                                    className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({
+                                      action: "lift_timeout",
+                                      adminNote: window.prompt("Lift timeout note") ?? "",
+                                      contractId: contract.id,
+                                    })}
+                                    type="button"
+                                  >
+                                    Lift Timeout
+                                  </button>
+                                  <button
+                                    className="rounded-2xl border border-red-200/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-100 transition hover:border-red-200/50 disabled:opacity-50"
+                                    disabled={isBusy}
+                                    onClick={() => void handleThroneDebtAction({ action: "mark_defaulted", contractId: contract.id })}
+                                    type="button"
+                                  >
+                                    Mark Defaulted
+                                  </button>
+                                </>
+                              ) : contract.status === "paused" ? (
+                                <button
+                                  className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:opacity-50"
+                                  disabled={isBusy}
+                                  onClick={() => void handleThroneDebtAction({ action: "resume_contract", contractId: contract.id })}
+                                  type="button"
+                                >
+                                  Resume
+                                </button>
+                              ) : null}
+                              {["active", "overdue", "timeout", "paused", "pending_review"].includes(contract.status) ? (
+                                <button
+                                  className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:opacity-50"
+                                  disabled={isBusy}
+                                  onClick={() => void handleThroneDebtAction({ action: "cancel_contract", contractId: contract.id })}
+                                  type="button"
+                                >
+                                  Cancel
+                                </button>
+                              ) : null}
+                            </div>
+
+                            <div className="mt-3 grid gap-2">
+                              {(contract.installments ?? []).map((installment) => {
+                                const review = pendingReviews.find((item) => item.installment_id === installment.id);
+                                const overdue =
+                                  installment.status !== "approved_paid" &&
+                                  new Date(installment.due_date).getTime() <= adminNow;
+
+                                return (
+                                  <div
+                                    className="rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs"
+                                    key={installment.id}
+                                  >
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                      <div>
+                                        <p className="font-black text-white">
+                                          #{installment.installment_number} - ${installment.amount_usd.toFixed(2)} - {installment.status}
+                                        </p>
+                                        <p className="mt-1 text-zinc-500">
+                                          Due {new Date(installment.due_date).toLocaleString()}
+                                          {overdue ? " - overdue" : ""}
+                                        </p>
+                                        {review ? (
+                                          <p className="mt-1 text-amber-100">
+                                            Review: {review.throne_order_link} {review.user_note ? `- ${review.user_note}` : ""}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                      {review ? (
+                                        <div className="flex flex-wrap gap-2">
+                                          <button
+                                            className="rounded-xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 font-black text-emerald-100 disabled:opacity-50"
+                                            disabled={isBusy}
+                                            onClick={() => void handleThroneDebtAction({
+                                              action: "approve_installment_payment",
+                                              installmentId: installment.id,
+                                              reviewId: review.id,
+                                            })}
+                                            type="button"
+                                          >
+                                            {contract.status === "timeout" ? "Approve Redemption" : "Approve Payment"}
+                                          </button>
+                                          <button
+                                            className="rounded-xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 font-black text-rose-100 disabled:opacity-50"
+                                            disabled={isBusy}
+                                            onClick={() => void handleThroneDebtAction({
+                                              action: "reject_installment_payment",
+                                              adminNote: window.prompt("Payment rejection reason") ?? "",
+                                              installmentId: installment.id,
+                                              reviewId: review.id,
+                                            })}
+                                            type="button"
+                                          >
+                                            {contract.status === "timeout" ? "Reject Redemption" : "Reject Payment"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {(contract.installments ?? []).length === 0 ? (
+                                <p className="rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-zinc-400">
+                                  Installments are generated after contract approval.
+                                </p>
+                              ) : null}
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
+                        No Throne Debt contracts yet.
                       </p>
                     )}
                   </div>

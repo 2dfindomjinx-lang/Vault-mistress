@@ -6,7 +6,13 @@ export type UserNotificationKind =
   | "irl_task_excused"
   | "irl_task_failed"
   | "pet_task_approved"
-  | "pet_task_rejected";
+  | "pet_task_rejected"
+  | "throne_debt_approved"
+  | "throne_debt_changes_requested"
+  | "throne_debt_payment_approved"
+  | "throne_debt_payment_rejected"
+  | "throne_debt_rejected"
+  | "throne_debt_timeout_applied";
 
 export type UserNotificationRecord = {
   body: string;

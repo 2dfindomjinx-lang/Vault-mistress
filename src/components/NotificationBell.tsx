@@ -142,12 +142,18 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
       return;
     }
 
+    const refreshNotifications = () => {
+      if (document.visibilityState !== "hidden") {
+        void loadNotifications();
+      }
+    };
+
     const initialTimer = window.setTimeout(() => {
-      void loadNotifications();
+      refreshNotifications();
     }, 0);
     const interval = window.setInterval(() => {
-      void loadNotifications();
-    }, 60000);
+      refreshNotifications();
+    }, 180000);
 
     return () => {
       window.clearTimeout(initialTimer);

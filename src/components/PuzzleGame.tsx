@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, type MutableRefObject, useEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import type { PuzzleDifficulty, PuzzleImagePoolItem, PuzzlePreset } from "@/lib/puzzle";
 import type { Profile } from "@/lib/supabase/client";
@@ -46,6 +46,15 @@ type PuzzleGameProps = {
   onProfileUpdate?: (profile: Profile) => void;
 };
 
+type JigsawEdge = -1 | 0 | 1;
+
+type JigsawEdges = {
+  bottom: JigsawEdge;
+  left: JigsawEdge;
+  right: JigsawEdge;
+  top: JigsawEdge;
+};
+
 function seededShuffle(length: number, seed: string) {
   const values = Array.from({ length }, (_, index) => index);
   let state = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 2166136261);
@@ -69,6 +78,131 @@ function formatTimer(seconds: number) {
   return `${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
+function getJigsawEdges(piece: number, cols: number, rows: number): JigsawEdges {
+  const col = piece % cols;
+  const row = Math.floor(piece / cols);
+  const right: JigsawEdge = col === cols - 1 ? 0 : (row + col) % 2 === 0 ? 1 : -1;
+  const bottom: JigsawEdge = row === rows - 1 ? 0 : (row * 3 + col) % 2 === 0 ? -1 : 1;
+  const left: JigsawEdge = col === 0 ? 0 : (row + col - 1) % 2 === 0 ? -1 : 1;
+  const top: JigsawEdge = row === 0 ? 0 : ((row - 1) * 3 + col) % 2 === 0 ? 1 : -1;
+
+  return { bottom, left, right, top };
+}
+
+function getJigsawShapeKey(edges: JigsawEdges) {
+  return `${edges.top}:${edges.right}:${edges.bottom}:${edges.left}`;
+}
+
+function getJigsawPath(edges: JigsawEdges) {
+  const topY = edges.top === 1 ? "0.01" : edges.top === -1 ? "0.17" : "0.08";
+  const rightX = edges.right === 1 ? "0.99" : edges.right === -1 ? "0.83" : "0.92";
+  const bottomY = edges.bottom === 1 ? "0.99" : edges.bottom === -1 ? "0.83" : "0.92";
+  const leftX = edges.left === 1 ? "0.01" : edges.left === -1 ? "0.17" : "0.08";
+  const top = edges.top === 0 ? "L 0.92 0.08" : `L 0.36 0.08 C 0.39 ${topY} 0.61 ${topY} 0.64 0.08 L 0.92 0.08`;
+  const right = edges.right === 0 ? "L 0.92 0.92" : `L 0.92 0.36 C ${rightX} 0.39 ${rightX} 0.61 0.92 0.64 L 0.92 0.92`;
+  const bottom = edges.bottom === 0 ? "L 0.08 0.92" : `L 0.64 0.92 C 0.61 ${bottomY} 0.39 ${bottomY} 0.36 0.92 L 0.08 0.92`;
+  const left = edges.left === 0 ? "L 0.08 0.08" : `L 0.08 0.64 C ${leftX} 0.61 ${leftX} 0.39 0.08 0.36 L 0.08 0.08`;
+
+  return `M 0.08 0.08 ${top} ${right} ${bottom} ${left} Z`;
+}
+
+function TimerBadge({ startedAtRef }: { startedAtRef: MutableRefObject<number | null> }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (startedAtRef.current) {
+        setSeconds(Math.max(1, Math.floor((Date.now() - startedAtRef.current) / 1000)));
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [startedAtRef]);
+
+  return <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{formatTimer(seconds)}</span>;
+}
+
+const PuzzleBoard = memo(function PuzzleBoard({
+  attempt,
+  board,
+  boardView,
+  imageUrl,
+  onSelectPiece,
+  selectedPieceIndex,
+}: {
+  attempt: PuzzleAttempt;
+  board: number[];
+  boardView: "fit" | "detail";
+  imageUrl: string;
+  onSelectPiece: (index: number) => void;
+  selectedPieceIndex: number | null;
+}) {
+  const jigsawShapes = useMemo(() => {
+    const shapes = new Map<string, string>();
+
+    for (let piece = 0; piece < attempt.piece_count; piece += 1) {
+      const edges = getJigsawEdges(piece, attempt.grid_cols, attempt.grid_rows);
+      const key = getJigsawShapeKey(edges);
+      if (!shapes.has(key)) {
+        shapes.set(key, getJigsawPath(edges));
+      }
+    }
+
+    return Array.from(shapes.entries());
+  }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count]);
+
+  return (
+    <div className="mt-4 overflow-auto rounded-[1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_34%),linear-gradient(135deg,rgba(35,35,42,0.96),rgba(10,10,16,0.98))] p-4 shadow-inner shadow-black/60">
+      <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
+        <defs>
+          {jigsawShapes.map(([key, path]) => (
+            <clipPath clipPathUnits="objectBoundingBox" id={`jigsaw-${key.replaceAll(":", "-")}`} key={key}>
+              <path d={path} />
+            </clipPath>
+          ))}
+        </defs>
+      </svg>
+      <div
+        className="mx-auto grid"
+        style={{
+          aspectRatio: `${attempt.grid_cols} / ${attempt.grid_rows}`,
+          gap: boardView === "detail" ? "6px" : "3px",
+          gridTemplateColumns: `repeat(${attempt.grid_cols}, minmax(0, 1fr))`,
+          minWidth: boardView === "detail" ? `${attempt.grid_cols * 58}px` : undefined,
+          width: boardView === "fit" ? "100%" : "max-content",
+        }}
+      >
+        {board.map((piece, index) => {
+          const correctCol = piece % attempt.grid_cols;
+          const correctRow = Math.floor(piece / attempt.grid_cols);
+          const selected = selectedPieceIndex === index;
+          const shapeKey = getJigsawShapeKey(getJigsawEdges(piece, attempt.grid_cols, attempt.grid_rows)).replaceAll(":", "-");
+
+          return (
+            <button
+              aria-label={`Puzzle piece ${index + 1}`}
+              className={`aspect-square bg-cover bg-no-repeat outline-none transition-[filter,transform] ${
+                selected
+                  ? "z-10 scale-[1.08] drop-shadow-[0_0_14px_rgba(125,211,252,0.72)] brightness-110"
+                  : "hover:brightness-110"
+              }`}
+              key={`${attempt.id}:${index}`}
+              onClick={() => onSelectPiece(index)}
+              style={{
+                backgroundImage: `url(${imageUrl})`,
+                backgroundPosition: `${attempt.grid_cols === 1 ? 0 : (correctCol / (attempt.grid_cols - 1)) * 100}% ${attempt.grid_rows === 1 ? 0 : (correctRow / (attempt.grid_rows - 1)) * 100}%`,
+                backgroundSize: `${attempt.grid_cols * 100}% ${attempt.grid_rows * 100}%`,
+                clipPath: `url(#jigsaw-${shapeKey})`,
+              }}
+              type="button"
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
 export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleGameProps) {
   const [images, setImages] = useState<PuzzleImagePoolItem[]>([]);
   const [completions, setCompletions] = useState<PuzzleCompletion[]>([]);
@@ -80,7 +214,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [boardView, setBoardView] = useState<"fit" | "detail">("fit");
   const [selectedPieceIndex, setSelectedPieceIndex] = useState<number | null>(null);
   const [moves, setMoves] = useState(0);
-  const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [completedAttemptId, setCompletedAttemptId] = useState<string | null>(null);
@@ -116,20 +249,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   useEffect(() => {
     void loadPuzzleData();
   }, []);
-
-  useEffect(() => {
-    if (!attempt) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      if (startedAtRef.current) {
-        setSeconds(Math.max(1, Math.floor((Date.now() - startedAtRef.current) / 1000)));
-      }
-    }, 1000);
-
-    return () => window.clearInterval(timer);
-  }, [attempt]);
 
   const completionMap = useMemo(() => {
     const map = new Map<string, PuzzleCompletion>();
@@ -172,7 +291,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       setAttempt(payload.attempt);
       setBoard(seededShuffle(payload.attempt.piece_count, payload.attempt.shuffle_seed));
       setMoves(0);
-      setSeconds(0);
       setSelectedPieceIndex(null);
       setCompletedAttemptId(null);
       startedAtRef.current = Date.now();
@@ -201,7 +319,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           attemptId: attempt.id,
           finalBoard: nextBoard,
           moveCount: nextMoves,
-          solveSeconds: Math.max(1, seconds),
+          solveSeconds: Math.max(1, Math.floor((Date.now() - (startedAtRef.current ?? Date.now())) / 1000)),
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -288,7 +406,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             </p>
             <h3 className="mt-3 text-2xl font-black text-white">One daily image, no preview</h3>
             <p className="mt-3 text-sm leading-6 text-zinc-400">
-              Pool her gün tek görsel seçer. Başlamadan görsel gösterilmez; sadece zorluk, parça sayısı ve coin bedeli görünür.
+              Pool her gun tek gorsel secer. Baslamadan gorsel gosterilmez; sadece zorluk, parca sayisi ve coin bedeli gorunur.
             </p>
             <div className="mt-5 grid gap-2 text-sm text-sky-50/70">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
@@ -373,7 +491,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
               <h3 className="mt-1 text-xl font-black text-white">{attempt.grid_cols}x{attempt.grid_rows} Puzzle Board</h3>
             </div>
             <div className="flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{formatTimer(seconds)}</span>
+              <TimerBadge startedAtRef={startedAtRef} />
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{moves} moves</span>
               <button
                 className={`rounded-full border px-3 py-2 transition ${
@@ -397,43 +515,17 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           </div>
 
           <p className="mt-3 text-sm text-sky-50/60">
-            Fit tüm board&apos;u sığdırır. Detail parçaları büyütür; büyük puzzle&apos;larda alanı kaydırarak oynarsın.
+            Fit tum board&apos;u sigdirir. Detail parcalari buyutur; buyuk puzzle&apos;larda alani kaydirarak oynarsin.
           </p>
 
-          <div className="mt-4 overflow-auto rounded-[1rem] border border-white/10 bg-black/80 p-2 shadow-inner shadow-black/60">
-            <div
-              className="mx-auto grid overflow-hidden rounded-[0.8rem] border border-sky-100/15 bg-black/70"
-              style={{
-                aspectRatio: `${attempt.grid_cols} / ${attempt.grid_rows}`,
-                gridTemplateColumns: `repeat(${attempt.grid_cols}, minmax(0, 1fr))`,
-                minWidth: boardView === "detail" ? `${attempt.grid_cols * 52}px` : undefined,
-                width: boardView === "fit" ? "100%" : "max-content",
-              }}
-            >
-              {board.map((piece, index) => {
-                const correctCol = piece % attempt.grid_cols;
-                const correctRow = Math.floor(piece / attempt.grid_cols);
-                const selected = selectedPieceIndex === index;
-
-                return (
-                  <button
-                    aria-label={`Puzzle piece ${index + 1}`}
-                    className={`aspect-square border border-black/55 bg-cover bg-no-repeat outline-none transition-[filter,transform] ${
-                      selected ? "z-10 scale-[1.03] ring-2 ring-sky-200 brightness-110" : "hover:brightness-110"
-                    }`}
-                    key={`${attempt.id}:${index}`}
-                    onClick={() => selectPiece(index)}
-                    style={{
-                      backgroundImage: `url(${selectedImage.image})`,
-                      backgroundPosition: `${attempt.grid_cols === 1 ? 0 : (correctCol / (attempt.grid_cols - 1)) * 100}% ${attempt.grid_rows === 1 ? 0 : (correctRow / (attempt.grid_rows - 1)) * 100}%`,
-                      backgroundSize: `${attempt.grid_cols * 100}% ${attempt.grid_rows * 100}%`,
-                    }}
-                    type="button"
-                  />
-                );
-              })}
-            </div>
-          </div>
+          <PuzzleBoard
+            attempt={attempt}
+            board={board}
+            boardView={boardView}
+            imageUrl={selectedImage.image}
+            onSelectPiece={selectPiece}
+            selectedPieceIndex={selectedPieceIndex}
+          />
         </section>
       ) : null}
     </section>

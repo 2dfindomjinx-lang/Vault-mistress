@@ -2354,17 +2354,28 @@ export default function Home() {
       return;
     }
 
-    const initialTimer = window.setTimeout(() => {
-      void loadGlobalPrincipessa(false).catch((error) => {
-        console.error("Failed to load Global Principessa progress", error);
+    const refreshGlobalPrincipessa = (announceLevelUp: boolean) => {
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+
+      void loadGlobalPrincipessa(announceLevelUp).catch((error) => {
+        console.error(
+          announceLevelUp
+            ? "Failed to refresh Global Principessa progress"
+            : "Failed to load Global Principessa progress",
+          error,
+        );
       });
+    };
+
+    const initialTimer = window.setTimeout(() => {
+      refreshGlobalPrincipessa(false);
     }, 0);
 
     const interval = window.setInterval(() => {
-      void loadGlobalPrincipessa(true).catch((error) => {
-        console.error("Failed to refresh Global Principessa progress", error);
-      });
-    }, 120000);
+      refreshGlobalPrincipessa(true);
+    }, 300000);
 
     return () => {
       window.clearTimeout(initialTimer);
@@ -2746,10 +2757,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const isTimeoutActive = timeoutRemaining > 0;
   const isDebtOverdueTimeoutActive =
     isTimeoutActive && timeoutReason === "debt_contract_overdue";
+  const isThroneDebtTimeoutActive =
+    isTimeoutActive && typeof timeoutReason === "string" && timeoutReason.startsWith("throne_debt_timeout:");
   const isUnderageTimeoutActive = isTimeoutActive && timeoutReason === "evil_debt_underage";
   const timeoutClearFee = getTimeoutClearFee(timeoutUntil, timeoutReason, currentTime);
   const canSelfClearTimeout =
-    isTimeoutActive && !isUnderageTimeoutActive && !isDebtOverdueTimeoutActive;
+    isTimeoutActive && !isUnderageTimeoutActive && !isDebtOverdueTimeoutActive && !isThroneDebtTimeoutActive;
   const accountAnnouncement = siteAnnouncement ?? (siteAnnouncementLoadFailed ? DEFAULT_SITE_ANNOUNCEMENT : null);
   const showAccountAnnouncement = Boolean(accountAnnouncement?.body.trim());
   const isFreeFridayActive = isFreeTaskFriday(currentTime);
@@ -2763,6 +2776,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const timeoutMessage =
       isUnderageTimeoutActive
         ? "This account is under a special Evil Debt Contract safety timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof."
+        : isThroneDebtTimeoutActive
+          ? "Your account is in Throne Debt Timeout because a Throne Debt payment is overdue. To request removal, submit a Throne payment for the redemption amount. This must be manually reviewed and approved."
         : isDebtOverdueTimeoutActive
           ? "An overdue debt installment is locking the account. This timeout stays active until the installment is fully paid or an admin removes it."
         : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
@@ -3044,14 +3059,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, []);
 
   useEffect(() => {
-    const initialTimer = window.setTimeout(() => setCurrentTime(Date.now()), 0);
-    const timer = window.setInterval(() => setCurrentTime(Date.now()), 1000);
+    const needsLiveClock = activePanel === "devotion" || activePanel === "home" || activePanel === "tasks";
+    const refreshClock = () => {
+      if (document.visibilityState !== "hidden") {
+        setCurrentTime(Date.now());
+      }
+    };
+
+    const initialTimer = window.setTimeout(refreshClock, 0);
+    const timer = window.setInterval(refreshClock, needsLiveClock ? 1000 : 30000);
 
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
-  }, []);
+  }, [activePanel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3829,10 +3851,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    void loadCommunityStatus();
+    const refreshCommunityStatus = () => {
+      if (document.visibilityState !== "hidden") {
+        void loadCommunityStatus();
+      }
+    };
+
+    refreshCommunityStatus();
     const timer = window.setInterval(() => {
-      void loadCommunityStatus();
-    }, 60000);
+      refreshCommunityStatus();
+    }, 300000);
 
     return () => {
       window.clearInterval(timer);
