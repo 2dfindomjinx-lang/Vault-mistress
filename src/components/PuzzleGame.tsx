@@ -23,11 +23,17 @@ type PuzzleAttempt = {
   grid_cols: number;
   grid_rows: number;
   id: string;
+  move_count?: number | null;
   piece_count: number;
+  progress_state?: PuzzleProgressState | null;
   shuffle_seed: string;
+  source_image_id?: string;
+  source_type?: string;
 };
 
 type PuzzleResponse = {
+  activeAttempt?: PuzzleAttempt | null;
+  activeImage?: PuzzleImagePoolItem | null;
   completions?: PuzzleCompletion[];
   dailyKey?: string;
   imageCount?: number;
@@ -82,6 +88,20 @@ type DragState = {
   offsetX: number;
   offsetY: number;
   pointerId: number;
+};
+
+type PuzzlePieceProgress = {
+  id: number;
+  placed: boolean;
+  x: number;
+  y: number;
+};
+
+type PuzzleProgressState = {
+  moves: number;
+  pieces: PuzzlePieceProgress[];
+  stageHeight: number;
+  stageWidth: number;
 };
 
 function seededShuffle(length: number, seed: string) {
@@ -154,14 +174,20 @@ function TimerBadge({ startedAtRef }: { startedAtRef: MutableRefObject<number | 
 const PuzzleBoard = memo(function PuzzleBoard({
   attempt,
   imageUrl,
+  initialMoveCount,
+  initialProgress,
   onComplete,
   onMove,
+  onProgressSave,
   previewSecondsLeft,
 }: {
   attempt: PuzzleAttempt;
   imageUrl: string;
+  initialMoveCount: number;
+  initialProgress: PuzzleProgressState | null;
   onComplete: (moves: number) => void;
   onMove: (moves: number) => void;
+  onProgressSave: (progressState: PuzzleProgressState, moves: number) => void;
   previewSecondsLeft: number;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -238,6 +264,48 @@ const PuzzleBoard = memo(function PuzzleBoard({
     });
   }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count, attempt.shuffle_seed]);
 
+  const applyProgress = useCallback((nextPieces: PuzzlePieceState[], nextLayout: PuzzleLayout) => {
+    if (!initialProgress || initialProgress.pieces.length === 0) {
+      return nextPieces;
+    }
+
+    const progressById = new Map(initialProgress.pieces.map((piece) => [piece.id, piece]));
+
+    return nextPieces.map((piece) => {
+      const progress = progressById.get(piece.id);
+      if (!progress) {
+        return piece;
+      }
+
+      if (progress.placed) {
+        return {
+          ...piece,
+          currentX: piece.correctX,
+          currentY: piece.correctY,
+          placed: true,
+        };
+      }
+
+      return {
+        ...piece,
+        currentX: Math.max(0, Math.min(nextLayout.stageWidth - piece.width, progress.x * nextLayout.stageWidth)),
+        currentY: Math.max(0, Math.min(nextLayout.stageHeight - piece.height, progress.y * nextLayout.stageHeight)),
+      };
+    });
+  }, [initialProgress]);
+
+  const createProgressState = useCallback((nextPieces: PuzzlePieceState[], nextMoves: number, nextLayout: PuzzleLayout): PuzzleProgressState => ({
+    moves: nextMoves,
+    pieces: nextPieces.map((piece) => ({
+      id: piece.id,
+      placed: piece.placed,
+      x: piece.currentX / nextLayout.stageWidth,
+      y: piece.currentY / nextLayout.stageHeight,
+    })),
+    stageHeight: nextLayout.stageHeight,
+    stageWidth: nextLayout.stageWidth,
+  }), []);
+
   useEffect(() => {
     const element = stageRef.current;
     if (!element) {
@@ -248,7 +316,11 @@ const PuzzleBoard = memo(function PuzzleBoard({
       const nextLayout = calculateLayout(element.parentElement?.clientWidth ?? element.clientWidth);
       setLayout(nextLayout);
       setPieces((currentPieces) => {
-        if (currentPieces.length === 0 || currentPieces.some((piece) => piece.placed)) {
+        if (currentPieces.length === 0) {
+          return applyProgress(buildPieces(nextLayout), nextLayout);
+        }
+
+        if (currentPieces.some((piece) => piece.placed)) {
           return buildPieces(nextLayout).map((piece) => {
             const existing = currentPieces.find((currentPiece) => currentPiece.id === piece.id);
             return existing?.placed
@@ -270,12 +342,13 @@ const PuzzleBoard = memo(function PuzzleBoard({
 
   useEffect(() => {
     completedRef.current = false;
-    setMoveCount(0);
+    setMoveCount(initialMoveCount);
+    onMove(initialMoveCount);
     setDrag(null);
     setSnapPieceId(null);
     setIsSolved(false);
-    setPieces(layout ? buildPieces(layout) : []);
-  }, [attempt.id, buildPieces, layout]);
+    setPieces(layout ? applyProgress(buildPieces(layout), layout) : []);
+  }, [applyProgress, attempt.id, buildPieces, initialMoveCount, layout, onMove]);
 
   const placedCount = pieces.filter((piece) => piece.placed).length;
 
@@ -357,6 +430,8 @@ const PuzzleBoard = memo(function PuzzleBoard({
         completedRef.current = true;
         setIsSolved(true);
         onComplete(nextMoveCount);
+      } else if (layout) {
+        onProgressSave(createProgressState(nextPieces, nextMoveCount, layout), nextMoveCount);
       }
 
       return nextPieces;
@@ -495,6 +570,7 @@ const PUZZLE_PREVIEW_COIN_COST = 500;
 
 export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleGameProps) {
   const [images, setImages] = useState<PuzzleImagePoolItem[]>([]);
+  const [activeImage, setActiveImage] = useState<PuzzleImagePoolItem | null>(null);
   const [completions, setCompletions] = useState<PuzzleCompletion[]>([]);
   const [presets, setPresets] = useState<PuzzleResponse["presets"] | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<PuzzleDifficulty>("glimpse");
@@ -512,7 +588,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [poolCount, setPoolCount] = useState(0);
   const startedAtRef = useRef<number | null>(null);
 
-  const selectedImage = images[0] ?? null;
+  const selectedImage = activeImage ?? images[0] ?? null;
   const activePresets = presets?.[aspect] ?? [];
   const selectedPreset = activePresets.find((preset) => preset.difficulty === selectedDifficulty) ?? activePresets[0] ?? null;
 
@@ -526,11 +602,19 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       }
 
       setImages(payload.images ?? []);
+      setActiveImage(payload.activeImage ?? null);
       setCompletions(payload.completions ?? []);
       setDailyKey(payload.dailyKey ?? "");
       setNextDailyResetAt(payload.nextDailyResetAt ?? null);
       setPoolCount(payload.poolCount ?? payload.images?.length ?? 0);
       setPresets(payload.presets ?? null);
+      if (payload.activeAttempt) {
+        const restoredMoves = Number(payload.activeAttempt.progress_state?.moves ?? payload.activeAttempt.move_count ?? 0);
+        setAttempt(payload.activeAttempt);
+        setMoves(restoredMoves);
+        setCompletedAttemptId(null);
+        startedAtRef.current = Date.now();
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle data could not be loaded.");
     }
@@ -599,6 +683,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       }
 
       setAttempt(payload.attempt);
+      setActiveImage(selectedImage);
       setMoves(0);
       setCompletedAttemptId(null);
       setPreviewUntil(null);
@@ -653,6 +738,32 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
     }
   };
 
+  const savePuzzleProgress = async (progressState: PuzzleProgressState, nextMoves: number) => {
+    if (!attempt || completedAttemptId === attempt.id) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/puzzle", {
+        body: JSON.stringify({
+          action: "save-progress",
+          attemptId: attempt.id,
+          moveCount: nextMoves,
+          progressState,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Puzzle progress could not be saved.");
+      }
+    } catch (progressError) {
+      setError(progressError instanceof Error ? progressError.message : "Puzzle progress could not be saved.");
+    }
+  };
+
   const completePuzzle = async (nextMoves: number) => {
     if (!attempt || completedAttemptId === attempt.id) {
       return;
@@ -679,6 +790,8 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         throw new Error(payload.error ?? "Puzzle completion could not be saved.");
       }
 
+      setAttempt(null);
+      setActiveImage(null);
       await loadPuzzleData();
     } catch (completeError) {
       setCompletedAttemptId(null);
@@ -801,11 +914,11 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
                 </div>
                 <button
                   className="mt-4 w-full rounded-2xl bg-sky-300 px-4 py-3 text-sm font-black text-black transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={disabled || isBusy || !selectedImage || !selectedPreset || coins < (selectedPreset?.coinCost ?? 0)}
+                  disabled={disabled || isBusy || Boolean(attempt) || !selectedImage || !selectedPreset || coins < (selectedPreset?.coinCost ?? 0)}
                   onClick={() => void startPuzzle()}
                   type="button"
                 >
-                  Start Puzzle
+                  {attempt ? "Puzzle Active" : "Start Puzzle"}
                 </button>
               </>
             )}
@@ -843,8 +956,11 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           <PuzzleBoard
             attempt={attempt}
             imageUrl={selectedImage.image}
+            initialMoveCount={moves}
+            initialProgress={attempt.progress_state ?? null}
             onComplete={(nextMoves) => void completePuzzle(nextMoves)}
             onMove={setMoves}
+            onProgressSave={(progressState, nextMoves) => void savePuzzleProgress(progressState, nextMoves)}
             previewSecondsLeft={previewSecondsLeft}
           />
         </section>

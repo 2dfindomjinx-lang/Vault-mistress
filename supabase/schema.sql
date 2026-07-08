@@ -2041,6 +2041,8 @@ create table if not exists public.puzzle_attempts (
   move_count integer not null default 0,
   used_hints boolean not null default false,
   shuffle_seed text not null,
+  progress_state jsonb,
+  progress_saved_at timestamp with time zone,
   created_at timestamp with time zone not null default now()
 );
 
@@ -2049,6 +2051,12 @@ create index if not exists puzzle_attempts_user_created_at_idx
 
 create index if not exists puzzle_attempts_image_user_idx
   on public.puzzle_attempts(source_image_id, user_id);
+
+alter table public.puzzle_attempts
+  add column if not exists progress_state jsonb;
+
+alter table public.puzzle_attempts
+  add column if not exists progress_saved_at timestamp with time zone;
 
 create table if not exists public.puzzle_completions (
   id uuid primary key default gen_random_uuid(),

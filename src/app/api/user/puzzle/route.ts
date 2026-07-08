@@ -19,12 +19,13 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 
 type PuzzleBody = {
-  action?: "start" | "complete" | "preview";
+  action?: "start" | "complete" | "preview" | "save-progress";
   aspect?: string;
   attemptId?: string;
   difficulty?: string;
   finalBoard?: number[];
   moveCount?: number;
+  progressState?: unknown;
   solveSeconds?: number;
   sourceImageId?: string;
   sourceType?: string;
@@ -87,6 +88,15 @@ async function getPuzzleImagePool(): Promise<PuzzleImagePoolItem[]> {
     }));
 }
 
+function isPuzzleProgressState(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const state = value as { pieces?: unknown };
+  return Array.isArray(state.pieces) && state.pieces.length <= 700;
+}
+
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -98,12 +108,20 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
 
   try {
-    const [imagePool, completionsResult] = await Promise.all([
+    const [imagePool, completionsResult, activeAttemptResult] = await Promise.all([
       getPuzzleImagePool(),
       supabase
         .from("puzzle_completions")
         .select("source_image_id, source_type, difficulty, best_solve_seconds, best_move_count, completed_count, unassisted_completed, assisted_completed")
         .eq("user_id", authResult.userId!),
+      supabase
+        .from("puzzle_attempts")
+        .select("*")
+        .eq("user_id", authResult.userId!)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (completionsResult.error) {
@@ -112,8 +130,14 @@ export async function GET() {
 
     const dailyKey = getGmt3DateKey();
     const images = pickDailyPuzzleImages(imagePool, dailyKey);
+    const activeAttempt = activeAttemptResult.data ?? null;
+    const activeImage = activeAttempt
+      ? imagePool.find((item) => item.id === activeAttempt.source_image_id && item.sourceType === activeAttempt.source_type) ?? null
+      : null;
 
     return Response.json({
+      activeAttempt,
+      activeImage,
       completions: completionsResult.data ?? [],
       dailyKey,
       nextDailyResetAt: getNextGmt3Reset().toISOString(),
@@ -179,6 +203,8 @@ export async function POST(request: Request) {
       .update({
         completed_at: completedAt,
         move_count: moveCount,
+        progress_saved_at: completedAt,
+        progress_state: null,
         solve_seconds: solveSeconds,
         status: "completed",
       })
@@ -295,10 +321,41 @@ export async function POST(request: Request) {
       return jsonError("Puzzle preview spending could not be logged.", 500);
     }
 
+    await supabase
+      .from("puzzle_attempts")
+      .update({ used_hints: true })
+      .eq("id", attemptResult.data.id)
+      .eq("status", "active");
+
     return Response.json({
       previewSeconds: PUZZLE_PREVIEW_SECONDS,
       profile: updatedProfile,
     });
+  }
+
+  if (body?.action === "save-progress") {
+    const moveCount = Math.max(0, Math.floor(Number(body.moveCount ?? 0)));
+
+    if (!body.attemptId || !isPuzzleProgressState(body.progressState)) {
+      return jsonError("Invalid puzzle progress payload.", 422);
+    }
+
+    const { error: progressError } = await supabase
+      .from("puzzle_attempts")
+      .update({
+        move_count: moveCount,
+        progress_saved_at: new Date().toISOString(),
+        progress_state: body.progressState,
+      })
+      .eq("id", body.attemptId)
+      .eq("user_id", userId)
+      .eq("status", "active");
+
+    if (progressError) {
+      return jsonError(progressError.message, 500);
+    }
+
+    return Response.json({ ok: true });
   }
 
   if (body?.action !== "start") {
