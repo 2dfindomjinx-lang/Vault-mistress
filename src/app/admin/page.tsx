@@ -81,6 +81,7 @@ type AdminDebtContract = {
   username: string;
   pet_name: string;
   contract_type?: "normal" | "evil";
+  current_installment_remaining?: number;
   period_type: "weekly" | "monthly";
   debt_amount: number;
   duration_periods: number;
@@ -146,6 +147,27 @@ type AdminTabKey =
   | "maxAffection"
   | "petTasks"
   | "timeouts";
+
+function getAdminDebtCurrentInstallmentNumber(contract: Pick<AdminDebtContract, "duration_periods" | "paid_periods">) {
+  return Math.min(contract.paid_periods + 1, contract.duration_periods);
+}
+
+function getAdminDebtCurrentInstallmentRemaining(
+  contract: Pick<AdminDebtContract, "current_installment_remaining" | "debt_amount">,
+) {
+  const currentInstallmentRemaining = Math.floor(Number(contract.current_installment_remaining ?? 0));
+  return currentInstallmentRemaining > 0 ? currentInstallmentRemaining : Math.max(0, contract.debt_amount);
+}
+
+function getAdminDebtRemainingBalance(
+  contract: Pick<AdminDebtContract, "current_installment_remaining" | "debt_amount" | "duration_periods" | "paid_periods">,
+) {
+  const currentInstallmentRemaining = getAdminDebtCurrentInstallmentRemaining(contract);
+  return (
+    currentInstallmentRemaining +
+    Math.max(0, contract.duration_periods - contract.paid_periods - 1) * contract.debt_amount
+  );
+}
 
 type AdminLoadKey =
   | "announcements"
@@ -258,9 +280,7 @@ export default function AdminPage() {
     timeouts: false,
   });
   const [adminNow, setAdminNow] = useState(() => Date.now());
-  const didMountTabEffect = useRef(false);
   const isBusy = busyRequestCount > 0;
-  const activeSectionLoadCount = Object.values(loadingSections).filter(Boolean).length;
   const setIsBusy = (next: boolean) => {
     setBusyRequestCount((current) => {
       if (next) {
@@ -856,15 +876,6 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, activeTab]);
 
-  useEffect(() => {
-    if (!didMountTabEffect.current) {
-      didMountTabEffect.current = true;
-      return;
-    }
-
-    window.scrollTo({ left: 0, top: 0, behavior: "auto" });
-  }, [activeTab]);
-
   const handleRunCommand = async () => {
     if (!isAdmin) {
       setStatus("Admin access required.");
@@ -1163,13 +1174,6 @@ export default function AdminPage() {
     const endsAt = new Date(announcement.ends_at).getTime();
     return announcement.active && (!Number.isFinite(endsAt) || endsAt > adminNow);
   }).length;
-  const overdueDebtCount = debtContracts.filter((contract) => {
-    if (contract.status !== "active") {
-      return false;
-    }
-
-    return new Date(contract.next_due_at).getTime() <= adminNow;
-  }).length;
   const adminTabs = [
     {
       key: "console",
@@ -1251,9 +1255,6 @@ export default function AdminPage() {
     label: string;
     tone: string;
   }>;
-  const currentTabMeta =
-    adminTabs.find((tab) => tab.key === activeTab) ?? adminTabs[0];
-
   if (isCheckingAdmin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#06030a] px-4 text-pink-100">
@@ -1293,100 +1294,45 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050209] px-4 py-6 text-white sm:px-6 lg:px-8">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_28%),radial-gradient(circle_at_85%_12%,rgba(59,130,246,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(168,85,247,0.1),transparent_30%),linear-gradient(180deg,rgba(8,4,14,0),#050209_78%)]" />
-      <section className="relative mx-auto max-w-[92rem]">
-        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,10,24,0.96),rgba(6,3,10,0.98))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.38)] backdrop-blur">
-          <div className="grid gap-4">
-            <div className="rounded-[1.75rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(244,114,182,0.18),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-5 md:p-6">
-              <p className="text-[11px] uppercase tracking-[0.34em] text-pink-200/70">
-                Admin Console
-              </p>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-white md:text-4xl">
-                Vault Control Room
-              </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400 md:text-[15px]">
-                The console has grown into a full operations surface. This layout keeps the tools dense,
-                but gives them clearer hierarchy, faster scanning, and less visual friction.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-2.5">
+    <main className="min-h-screen bg-[#08070b] px-3 py-4 text-white sm:px-5 lg:px-6">
+      <section className="mx-auto max-w-[94rem] rounded-xl border border-white/10 bg-[#0d0a12] shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Admin Console</p>
+            <h1 className="mt-1 text-xl font-black text-white">Vault Control Room</h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
                 <Link
-                  className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
+                  className="rounded-md border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-bold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
                   href="/"
                 >
                   Dashboard
                 </Link>
                 <Link
-                  className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
+                  className="rounded-md border border-pink-200/20 bg-pink-500/10 px-3 py-1.5 text-xs font-bold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
                   href="/admin/analytics"
                 >
                   Analytics
                 </Link>
                 <Link
-                  className="rounded-full border border-emerald-200/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/50 hover:text-white"
+                  className="rounded-md border border-emerald-200/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-100 transition hover:border-emerald-300/50 hover:text-white"
                   href="/admin/app-licenses"
                 >
                   Activation Codes
                 </Link>
               </div>
-            </div>
-          </div>
+        </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              {
-                label: "Review Queue",
-                tone: "text-pink-100",
-                value: pendingIrlTaskCount + pendingPetTaskCount + pendingEvilDebtCount,
-                hint: `${pendingIrlTaskCount} IRL, ${pendingPetTaskCount} pet, ${pendingEvilDebtCount} evil debt`,
-              },
-              {
-                label: "Live Debt",
-                tone: "text-red-100",
-                value: liveDebtCount,
-                hint: overdueDebtCount > 0 ? `${overdueDebtCount} overdue windows` : "No overdue windows",
-              },
-              {
-                label: "Timeout Pressure",
-                tone: "text-violet-100",
-                value: activeTimeoutCount,
-                hint: activeTimeoutCount > 0 ? "Users currently restricted" : "No active restrictions",
-              },
-              {
-                label: "Public Signals",
-                tone: "text-amber-100",
-                value: activeEventCount + activeAnnouncementCount,
-                hint: `${activeEventCount} event, ${activeAnnouncementCount} announcement`,
-              },
-            ].map((item) => (
-              <article
-                className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-4"
-                key={item.label}
-              >
-                <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">{item.label}</p>
-                <p className={`mt-2 text-3xl font-black ${item.tone}`}>{item.value}</p>
-                <p className="mt-1 text-sm text-zinc-400">{item.hint}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-6">
-            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-3">
-              <div className="flex items-center justify-between gap-3 px-1">
-                <p className="text-[11px] uppercase tracking-[0.28em] text-zinc-500">
-                  Control Areas
-                </p>
-              </div>
-              <div className="mt-3">
-                <div className="flex flex-wrap gap-2">
+        <div className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0a12]/95 px-4 py-2 backdrop-blur">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
                   {adminTabs.map((tab) => {
                     const isActive = activeTab === tab.key;
 
                     return (
                       <button
-                        className={`rounded-full border px-3 py-2 text-left transition ${
+                        className={`shrink-0 rounded-md border px-3 py-1.5 text-left transition ${
                           isActive
-                            ? "border-pink-300/24 bg-pink-500/14 text-white shadow-[0_6px_18px_rgba(0,0,0,0.14)]"
+                            ? "border-pink-300/35 bg-pink-500/16 text-white"
                             : "border-white/8 bg-white/[0.03] text-zinc-300 hover:border-white/14 hover:text-white"
                         }`}
                         key={tab.key}
@@ -1406,27 +1352,10 @@ export default function AdminPage() {
                       </button>
                     );
                   })}
-                </div>
-              </div>
-            </div>
+          </div>
+        </div>
 
-            <div className="mt-6 min-w-0">
-              <div className="rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 md:p-5">
-                <div className="flex flex-col gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-                      {currentTabMeta.eyebrow}
-                    </p>
-                    <h2 className="mt-2 text-2xl font-black text-white">{currentTabMeta.label}</h2>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-                      {currentTabMeta.description}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-right">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Current load</p>
-                    <p className="mt-1 text-sm font-black text-white">{currentTabMeta.countLabel}</p>
-                  </div>
-                </div>
+        <div className="min-w-0 px-4 pb-4 pt-3">
 
                 {activeTab === "console" && (
             <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
@@ -1880,6 +1809,19 @@ export default function AdminPage() {
                     {debtContracts.filter((contract) => contract.contract_type === "evil").length > 0 ? (
                       debtContracts.filter((contract) => contract.contract_type === "evil").map((contract) => {
                         const expanded = expandedEvilDebtId === contract.id;
+                        const installmentNumber = getAdminDebtCurrentInstallmentNumber(contract);
+                        const currentInstallmentRemaining = getAdminDebtCurrentInstallmentRemaining(contract);
+                        const remainingBalance = getAdminDebtRemainingBalance(contract);
+                        const dueAtMs = new Date(contract.next_due_at).getTime();
+                        const isOverdue = contract.status === "active" && Number.isFinite(dueAtMs) && dueAtMs <= adminNow;
+                        const installmentStateLabel =
+                          contract.status !== "active"
+                            ? contract.status
+                            : currentInstallmentRemaining < contract.debt_amount
+                              ? "partial"
+                              : isOverdue
+                                ? "due"
+                                : "upcoming";
 
                         return (
                           <article
@@ -1894,7 +1836,7 @@ export default function AdminPage() {
                               <span className="font-black text-white">{contract.username}</span>
                               <span className="text-red-50">{contract.full_name ?? "No name"}</span>
                               <span className="text-zinc-300">
-                                {contract.debt_amount.toLocaleString()} / {contract.period_type}
+                                {currentInstallmentRemaining.toLocaleString()} / {contract.debt_amount.toLocaleString()}
                               </span>
                               <span className="rounded-full border border-red-200/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase text-red-50">
                                 {contract.status}
@@ -1902,6 +1844,32 @@ export default function AdminPage() {
                             </button>
                             {expanded && (
                               <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+                                <div className="grid gap-2 sm:grid-cols-4">
+                                  <div className="rounded-2xl border border-red-200/12 bg-red-500/8 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Installment</p>
+                                    <p className="mt-1 text-lg font-black text-white">
+                                      {installmentNumber}/{contract.duration_periods}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-2xl border border-red-200/12 bg-red-500/8 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Current Due</p>
+                                    <p className="mt-1 text-lg font-black text-red-50">
+                                      {currentInstallmentRemaining.toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-2xl border border-red-200/12 bg-red-500/8 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Remaining Debt</p>
+                                    <p className="mt-1 text-lg font-black text-white">
+                                      {remainingBalance.toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-2xl border border-red-200/12 bg-red-500/8 px-3 py-3">
+                                    <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Payment State</p>
+                                    <p className="mt-1 text-lg font-black uppercase text-amber-100">
+                                      {installmentStateLabel}
+                                    </p>
+                                  </div>
+                                </div>
                                 <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
                                   <span>Full name: {contract.full_name ?? "-"}</span>
                                   <span>Age: {contract.declared_age ?? "-"}</span>
@@ -1909,10 +1877,18 @@ export default function AdminPage() {
                                   <span>User id: {contract.user_id}</span>
                                   <span>Timezone: {contract.timezone ?? "-"}</span>
                                   <span>Custom note: {contract.custom_note ?? "-"}</span>
-                                  <span>Debt amount: {contract.debt_amount.toLocaleString()}</span>
+                                  <span>Debt amount per installment: {contract.debt_amount.toLocaleString()}</span>
                                   <span>Duration: {contract.duration_periods}</span>
                                   <span>Frequency: {contract.period_type}</span>
                                   <span>Status: {contract.status}</span>
+                                  <span>Paid periods: {contract.paid_periods}</span>
+                                  <span>Missed periods: {contract.missed_periods}</span>
+                                  <span>
+                                    Next due: {Number.isFinite(dueAtMs) ? new Date(dueAtMs).toLocaleString() : "-"}
+                                  </span>
+                                  <span>
+                                    Due state: {contract.status !== "active" ? "Not active" : isOverdue ? "Overdue now" : "Not due yet"}
+                                  </span>
                                   <span>Consent 1: {contract.consent_primary ? "Confirmed" : "Missing"}</span>
                                   <span>Consent 2: {contract.consent_secondary ? "Confirmed" : "Missing"}</span>
                                   <span>Signed: {new Date(contract.started_at).toLocaleString()}</span>
@@ -2431,16 +2407,13 @@ export default function AdminPage() {
               </div>
             </div>
           )}
-              </div>
-          </div>
-          </div>
+        </div>
 
           {status && (
             <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
               {status}
             </p>
           )}
-        </div>
       </section>
       {previewDebtImage && (
         <button

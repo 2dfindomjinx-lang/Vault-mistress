@@ -1929,12 +1929,30 @@ create table if not exists public.crate_opens (
   opened_at timestamptz default now()
 );
 
+create table if not exists public.user_crate_open_grants (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  crate_type text not null,
+  goal_id text not null,
+  source text not null default 'community_goal',
+  total_opens integer not null check (total_opens > 0),
+  remaining_opens integer not null check (remaining_opens >= 0),
+  granted_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, goal_id, crate_type)
+);
+
+create index if not exists user_crate_open_grants_user_crate_idx
+  on public.user_crate_open_grants(user_id, crate_type)
+  where remaining_opens > 0;
+
 -- Enable RLS
 alter table public.crate_types enable row level security;
 alter table public.crate_items enable row level security;
 alter table public.crate_drop_weights enable row level security;
 alter table public.user_crate_inventory enable row level security;
 alter table public.crate_opens enable row level security;
+alter table public.user_crate_open_grants enable row level security;
 
 -- Public read for crate definitions (so client can show shop)
 drop policy if exists "Authenticated can read enabled crate types" on public.crate_types;
@@ -1969,6 +1987,12 @@ create policy "Users can read own crate inventory"
 drop policy if exists "Users can read own crate history" on public.crate_opens;
 create policy "Users can read own crate history"
   on public.crate_opens for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own crate open grants" on public.user_crate_open_grants;
+create policy "Users can read own crate open grants"
+  on public.user_crate_open_grants for select
   to authenticated
   using (auth.uid() = user_id);
 

@@ -1984,6 +1984,7 @@ export default function Home() {
     blessing_legendary_pity: 0,
   });
   const [crateFreeOpensUsedToday, setCrateFreeOpensUsedToday] = useState<Record<string, boolean>>({});
+  const [crateOpenCredits, setCrateOpenCredits] = useState<Record<string, number>>({});
   const [cratePending, setCratePending] = useState(false);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
@@ -3280,6 +3281,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAvailableCrates(seededCrates);
       setCrateInventory(seededInventory);
       setCrateFreeOpensUsedToday({});
+      setCrateOpenCredits({});
       setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
       return;
     }
@@ -3290,6 +3292,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         error?: string;
         crates?: CrateDefinition[];
         inventory?: CrateInventoryItem[];
+        crate_open_credits?: Record<string, number>;
         free_opens_used_today?: Record<string, boolean>;
         pity?: {
           principessa_bad_luck?: number;
@@ -3303,6 +3306,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
       setAvailableCrates(result.crates ?? []);
       setCrateInventory(result.inventory ?? []);
+      setCrateOpenCredits(result.crate_open_credits ?? {});
       setCrateFreeOpensUsedToday(result.free_opens_used_today ?? {});
       if (result.pity) {
         setPityStats({
@@ -3330,6 +3334,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         result?: { item?: CrateInventoryItem & { sell_value: number }; items?: Array<CrateInventoryItem & { sell_value: number }>; newCoins: number };
+        community_goal_keys_used?: number;
         free_open_applied?: boolean;
         pity?: {
           principessa_bad_luck?: number;
@@ -3356,6 +3361,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
       if (payload.free_open_applied) {
         setCrateFreeOpensUsedToday((current) => ({ ...current, [crateType]: true }));
+      }
+      if ((payload.community_goal_keys_used ?? 0) > 0) {
+        setCrateOpenCredits((current) => ({
+          ...current,
+          [crateType]: Math.max(0, (current[crateType] ?? 0) - (payload.community_goal_keys_used ?? 0)),
+        }));
       }
 
       // Merge into local inventory (increase quantity or add)
@@ -7343,6 +7354,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAvailableCrates(seededCrates);
     setCrateInventory(seededInventory);
     setCrateFreeOpensUsedToday({});
+    setCrateOpenCredits({});
     setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
   }, [
     CRATE_TYPES,
@@ -10817,6 +10829,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 crates={availableCrates}
                 inventory={crateInventory}
                 activeEvents={activeEvents}
+                crateOpenCredits={crateOpenCredits}
                 freeOpensUsedToday={crateFreeOpensUsedToday}
                 pending={cratePending}
                 onOpenCrate={handleOpenCrate}

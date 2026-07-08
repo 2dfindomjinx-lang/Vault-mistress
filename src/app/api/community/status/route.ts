@@ -131,7 +131,6 @@ export async function GET() {
     supabase
       .from("coin_transactions")
       .select("user_id, amount, created_at, metadata, reason")
-      .in("reason", currentGoal.includedReasons)
       .gte("created_at", currentGoal.startsAt)
       .lt("created_at", currentGoal.endsAt),
   ]);

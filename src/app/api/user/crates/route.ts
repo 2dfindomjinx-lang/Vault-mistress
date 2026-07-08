@@ -15,8 +15,7 @@ import {
 } from "@/lib/crates";
 import {
   getAdjustedCrateDrops,
-  getCrateBatchCost,
-  getCrateOpenCost,
+  getCrateCostMultiplier,
   hasFreeCrateOpen,
 } from "@/lib/crate-events";
 import { getGmt3DayBounds } from "@/lib/time";
@@ -37,8 +36,140 @@ type CrateActionBody = {
   }>;
 };
 
+type CrateOpenGrantRow = {
+  id: string;
+  remaining_opens: number | null;
+};
+
+type ConsumedCrateGrant = {
+  id: string;
+  previousRemaining: number;
+  used: number;
+};
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
+}
+
+async function getCrateOpenCredits(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+) {
+  const { data, error } = await supabase
+    .from("user_crate_open_grants")
+    .select("crate_type, remaining_opens")
+    .eq("user_id", userId)
+    .gt("remaining_opens", 0);
+
+  if (error) {
+    console.error("[crates] open grant lookup failed", error);
+    return {} as Record<string, number>;
+  }
+
+  return (data ?? []).reduce<Record<string, number>>((totals, row) => {
+    const crateType = typeof row.crate_type === "string" ? row.crate_type : "";
+    if (!crateType) {
+      return totals;
+    }
+
+    totals[crateType] = (totals[crateType] ?? 0) + Math.max(0, Number(row.remaining_opens ?? 0));
+    return totals;
+  }, {});
+}
+
+async function consumeCrateOpenGrants(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  crateType: string,
+  requestedOpens: number,
+) {
+  const targetOpens = Math.max(0, Math.floor(requestedOpens));
+  if (targetOpens <= 0) {
+    return { consumed: [] as ConsumedCrateGrant[], used: 0 };
+  }
+
+  const { data, error } = await supabase
+    .from("user_crate_open_grants")
+    .select("id, remaining_opens")
+    .eq("user_id", userId)
+    .eq("crate_type", crateType)
+    .gt("remaining_opens", 0)
+    .order("granted_at", { ascending: true });
+
+  if (error) {
+    console.error("[crates] open grant consume lookup failed", error);
+    throw new Error("Could not verify free case keys.");
+  }
+
+  let remainingToUse = targetOpens;
+  const consumed: ConsumedCrateGrant[] = [];
+
+  for (const row of (data ?? []) as CrateOpenGrantRow[]) {
+    if (remainingToUse <= 0) {
+      break;
+    }
+
+    const previousRemaining = Math.max(0, Number(row.remaining_opens ?? 0));
+    const used = Math.min(previousRemaining, remainingToUse);
+    if (used <= 0) {
+      continue;
+    }
+
+    const nextRemaining = previousRemaining - used;
+    const { error: updateError } = await supabase
+      .from("user_crate_open_grants")
+      .update({ remaining_opens: nextRemaining, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("remaining_opens", previousRemaining);
+
+    if (updateError) {
+      console.error("[crates] open grant consume update failed", updateError);
+      throw new Error("Could not use free case keys.");
+    }
+
+    consumed.push({ id: row.id, previousRemaining, used });
+    remainingToUse -= used;
+  }
+
+  return {
+    consumed,
+    used: targetOpens - remainingToUse,
+  };
+}
+
+async function restoreCrateOpenGrants(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  consumed: ConsumedCrateGrant[],
+) {
+  await Promise.all(
+    consumed.map((entry) =>
+      supabase
+        .from("user_crate_open_grants")
+        .update({ remaining_opens: entry.previousRemaining, updated_at: new Date().toISOString() })
+        .eq("id", entry.id),
+    ),
+  );
+}
+
+function getCrateBatchPricing(
+  crateCost: number,
+  quantity: number,
+  activeEvents: Array<{ effect: EventEffect }>,
+  freeOpenUsedToday: boolean,
+  grantedOpenCount: number,
+) {
+  const safeQuantity = Math.max(1, Math.floor(quantity));
+  const grantApplied = Math.min(safeQuantity, Math.max(0, Math.floor(grantedOpenCount)));
+  const remainingAfterGrants = Math.max(0, safeQuantity - grantApplied);
+  const eventFreeApplied = hasFreeCrateOpen(activeEvents) && !freeOpenUsedToday && remainingAfterGrants > 0;
+  const paidQuantity = Math.max(0, remainingAfterGrants - (eventFreeApplied ? 1 : 0));
+  const openCost = Math.round(crateCost * getCrateCostMultiplier(activeEvents));
+
+  return {
+    batchCost: openCost * paidQuantity,
+    eventFreeApplied,
+    grantApplied,
+  };
 }
 
 async function getActiveEvents(supabase: ReturnType<typeof createSupabaseAdminClient>) {
@@ -167,15 +298,44 @@ async function openCrateBatch(
 
   const activeEvents = await getActiveEvents(supabase);
   const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
-  const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !freeOpensUsedToday[crateType];
-  const batchCost = getCrateBatchCost(
+  const grantPreview = await getCrateOpenCredits(supabase, userId);
+  const grantedOpenPreview = grantPreview[crateType] ?? 0;
+  const pricing = getCrateBatchPricing(
     crateDef.cost,
     quantity,
     activeEvents,
     freeOpensUsedToday[crateType],
+    grantedOpenPreview,
   );
+  const batchCost = pricing.batchCost;
 
   if (profile.coins < batchCost) {
+    return jsonError("Not enough coins to open this crate.", 422);
+  }
+
+  let consumedGrants: ConsumedCrateGrant[] = [];
+  let grantApplied = 0;
+  if (pricing.grantApplied > 0) {
+    try {
+      const grantResult = await consumeCrateOpenGrants(supabase, userId, crateType, pricing.grantApplied);
+      consumedGrants = grantResult.consumed;
+      grantApplied = grantResult.used;
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Could not use free case keys.", 409);
+    }
+  }
+
+  const finalPricing = getCrateBatchPricing(
+    crateDef.cost,
+    quantity,
+    activeEvents,
+    freeOpensUsedToday[crateType],
+    grantApplied,
+  );
+  const finalBatchCost = finalPricing.batchCost;
+
+  if (profile.coins < finalBatchCost) {
+    await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Not enough coins to open this crate.", 422);
   }
 
@@ -233,7 +393,7 @@ async function openCrateBatch(
     defs.filter((def): def is CrateItem => Boolean(def)).map((def) => [def.item_id, def]),
   );
 
-  const nextCoins = profile.coins - batchCost;
+  const nextCoins = profile.coins - finalBatchCost;
   const nowIso = new Date().toISOString();
 
   const { error: coinUpdateErr } = await supabase
@@ -249,6 +409,7 @@ async function openCrateBatch(
 
   if (coinUpdateErr) {
     console.error("[crates] batch coin deduction failed", coinUpdateErr);
+    await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Crate purchase failed (balance changed).", 409);
   }
 
@@ -260,6 +421,7 @@ async function openCrateBatch(
   if (existingInventory.error) {
     console.error("[crates] batch inventory read failed", existingInventory.error);
     await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Failed to load inventory.", 500);
   }
 
@@ -298,12 +460,13 @@ async function openCrateBatch(
   if (invFailure?.error) {
     console.error("[crates] batch inventory upsert failed", invFailure.error);
     await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Failed to grant item. Coins refunded.", 500);
   }
 
   const txInsert = await supabase.from("coin_transactions").insert({
     user_id: userId,
-    amount: -batchCost,
+    amount: -finalBatchCost,
     balance_before: profile.coins,
     balance_after: nextCoins,
     reason: "crate:open",
@@ -311,7 +474,8 @@ async function openCrateBatch(
       crate_type: crateType,
       quantity,
       batch: true,
-      free_open_applied: freeOpenAvailable,
+      community_goal_keys_used: grantApplied,
+      free_open_applied: finalPricing.eventFreeApplied,
       item_ids: results.map((result) => result.item_id),
     },
   });
@@ -319,6 +483,7 @@ async function openCrateBatch(
   if (txInsert.error) {
     console.error("[crates] batch open transaction logging failed", txInsert.error);
     await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Crate purchase logging failed.", 500);
   }
 
@@ -329,7 +494,7 @@ async function openCrateBatch(
       crate_type: crateType,
       item_id: result.item_id,
       variant: result.variant,
-      cost: Math.round(batchCost / Math.max(1, quantity)),
+      cost: Math.round(finalBatchCost / Math.max(1, quantity)),
       received_sell_value: def?.sell_value ?? 0,
     };
   });
@@ -357,7 +522,8 @@ async function openCrateBatch(
       }),
       newCoins: nextCoins,
     },
-    free_open_applied: freeOpenAvailable,
+    community_goal_keys_used: grantApplied,
+    free_open_applied: finalPricing.eventFreeApplied,
     pity: {
       principessa_bad_luck: principessaBadLuck,
       blessing_legendary_pity: blessingPity,
@@ -463,6 +629,7 @@ export async function GET() {
   }
 
   const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
+  const crateOpenCredits = await getCrateOpenCredits(supabase, userId);
 
   // Sort by rarity then name for nice display, but keep classic pinned first.
   inventory.sort((a, b) => {
@@ -486,6 +653,7 @@ export async function GET() {
       blessing_legendary_pity: pityProfile?.blessing_case_legendary_pity_count ?? 0,
     },
     free_opens_used_today: freeOpensUsedToday,
+    crate_open_credits: crateOpenCredits,
   });
 }
 
@@ -541,14 +709,43 @@ export async function POST(request: Request) {
     let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
     const activeEvents = await getActiveEvents(supabase);
     const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
-    const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !freeOpensUsedToday[resolvedCrateType];
-    const openCost = getCrateOpenCost(
+    const grantPreview = await getCrateOpenCredits(supabase, userId);
+    const pricing = getCrateBatchPricing(
       crateDef.cost,
+      1,
       activeEvents,
       freeOpensUsedToday[resolvedCrateType],
+      grantPreview[resolvedCrateType] ?? 0,
     );
+    const openCost = pricing.batchCost;
 
     if (profile.coins < openCost) {
+      return jsonError("Not enough coins to open this crate.", 422);
+    }
+
+    let consumedGrants: ConsumedCrateGrant[] = [];
+    let grantApplied = 0;
+    if (pricing.grantApplied > 0) {
+      try {
+        const grantResult = await consumeCrateOpenGrants(supabase, userId, resolvedCrateType, pricing.grantApplied);
+        consumedGrants = grantResult.consumed;
+        grantApplied = grantResult.used;
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : "Could not use free case keys.", 409);
+      }
+    }
+
+    const finalPricing = getCrateBatchPricing(
+      crateDef.cost,
+      1,
+      activeEvents,
+      freeOpensUsedToday[resolvedCrateType],
+      grantApplied,
+    );
+    const finalOpenCost = finalPricing.batchCost;
+
+    if (profile.coins < finalOpenCost) {
+      await restoreCrateOpenGrants(supabase, consumedGrants);
       return jsonError("Not enough coins to open this crate.", 422);
     }
 
@@ -637,7 +834,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const nextCoins = profile.coins - openCost;
+    const nextCoins = profile.coins - finalOpenCost;
 
     // Atomic: update coins + inventory quantity + tx + history
     const { error: coinUpdateErr } = await supabase
@@ -648,6 +845,7 @@ export async function POST(request: Request) {
 
     if (coinUpdateErr) {
       console.error("[crates] coin deduction failed", coinUpdateErr);
+      await restoreCrateOpenGrants(supabase, consumedGrants);
       return jsonError("Crate purchase failed (balance changed).", 409);
     }
 
@@ -681,13 +879,14 @@ export async function POST(request: Request) {
       console.error("[crates] inventory upsert failed after coin charge", invErr);
       // Best effort refund
       await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
+      await restoreCrateOpenGrants(supabase, consumedGrants);
       return jsonError("Failed to grant item. Coins refunded.", 500);
     }
 
     // Record negative coin transaction (crate purchase / sink)
     const { error: txErr } = await supabase.from("coin_transactions").insert({
       user_id: userId,
-      amount: -openCost,
+      amount: -finalOpenCost,
       balance_before: profile.coins,
       balance_after: nextCoins,
       reason: "crate:open",
@@ -696,13 +895,15 @@ export async function POST(request: Request) {
         item_id: rolled.item_id,
         variant: rolled.variant,
         rarity: wonItemDef.rarity,
-        free_open_applied: freeOpenAvailable,
+        community_goal_keys_used: grantApplied,
+        free_open_applied: finalPricing.eventFreeApplied,
       },
     });
 
     if (txErr) {
       console.error("[crates] open transaction logging failed", txErr);
       await supabase.from("profiles").update({ coins: profile.coins, updated_at: new Date().toISOString() }).eq("id", userId);
+      await restoreCrateOpenGrants(supabase, consumedGrants);
       if (previousInventoryQty > 0) {
         const { error: restoreInvErr } = await supabase
           .from("user_crate_inventory")
@@ -733,7 +934,7 @@ export async function POST(request: Request) {
       crate_type: crateType,
       item_id: rolled.item_id,
       variant: rolled.variant,
-      cost: openCost,
+      cost: finalOpenCost,
       received_sell_value: wonItemDef.sell_value,
     });
 
@@ -773,7 +974,8 @@ export async function POST(request: Request) {
         },
         newCoins: nextCoins,
       },
-      free_open_applied: freeOpenAvailable,
+      community_goal_keys_used: grantApplied,
+      free_open_applied: finalPricing.eventFreeApplied,
       pity: {
         principessa_bad_luck: updatedBadLuck,
         blessing_legendary_pity: updatedBlessPity,

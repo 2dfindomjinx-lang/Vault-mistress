@@ -11,7 +11,7 @@ import {
   getCrateIconUrl,
   getCrateItemImageUrl,
 } from "@/lib/crates";
-import { getAdjustedCrateDrops, getCrateBatchCost, getCrateOpenCost, hasFreeCrateOpen } from "@/lib/crate-events";
+import { getAdjustedCrateDrops, getCrateCostMultiplier, hasFreeCrateOpen } from "@/lib/crate-events";
 import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
@@ -72,6 +72,7 @@ type CratesPanelProps = {
   }>;
   pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
   activeEvents?: RandomEvent[];
+  crateOpenCredits?: Record<string, number>;
   freeOpensUsedToday?: Record<string, boolean>;
   onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
@@ -125,6 +126,7 @@ export function CratesPanel({
   onSellWonItems,
   pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
   activeEvents = [],
+  crateOpenCredits = {},
   freeOpensUsedToday = {},
   onCrateOpen,
   onCrateResult,
@@ -155,10 +157,16 @@ export function CratesPanel({
   };
 
   const hasFreeOpenToday = (crateType: string) => Boolean(freeOpensUsedToday[crateType]);
-  const getDisplayedCost = (crate: CrateDefinition) =>
-    getCrateOpenCost(crate.cost, activeEvents, hasFreeOpenToday(crate.crate_type));
-  const getBatchOpenCost = (crate: CrateDefinition, qty: number) =>
-    getCrateBatchCost(crate.cost, qty, activeEvents, hasFreeOpenToday(crate.crate_type));
+  const getGrantedOpenCount = (crateType: string) => Math.max(0, Math.floor(crateOpenCredits[crateType] ?? 0));
+  const getBatchOpenCost = (crate: CrateDefinition, qty: number) => {
+    const safeQuantity = Math.max(1, Math.floor(qty));
+    const grantsApplied = Math.min(safeQuantity, getGrantedOpenCount(crate.crate_type));
+    const remainingAfterGrants = Math.max(0, safeQuantity - grantsApplied);
+    const eventFreeApplied = hasFreeCrateOpen(activeEvents) && !hasFreeOpenToday(crate.crate_type) && remainingAfterGrants > 0;
+    const paidQuantity = Math.max(0, remainingAfterGrants - (eventFreeApplied ? 1 : 0));
+    return Math.round(crate.cost * getCrateCostMultiplier(activeEvents)) * paidQuantity;
+  };
+  const getDisplayedCost = (crate: CrateDefinition) => getBatchOpenCost(crate, 1);
 
   // Square cards for better icon visibility (icons are square-designed).
   // Exactly 5 visible during slide. Larger squares, same overall area.
@@ -851,6 +859,8 @@ export function CratesPanel({
             const batchCost = getBatchOpenCost(crate, currentQty);
             const displayCost = getDisplayedCost(crate);
             const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !hasFreeOpenToday(crate.crate_type);
+            const grantedOpenCount = getGrantedOpenCount(crate.crate_type);
+            const grantedOpenApplied = Math.min(currentQty, grantedOpenCount);
             const canAfford = coins >= batchCost;
             const isThisOpening = openingCrate === crate.crate_type;
             const isFlipped = flippedCrate === crate.crate_type;
@@ -909,7 +919,12 @@ export function CratesPanel({
                               Free open today
                             </div>
                           )}
-                          {!freeOpenAvailable && displayCost < crate.cost && (
+                          {grantedOpenCount > 0 && (
+                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                              {grantedOpenCount} Premium Key{grantedOpenCount === 1 ? "" : "s"}
+                            </div>
+                          )}
+                          {!freeOpenAvailable && grantedOpenCount === 0 && displayCost < crate.cost && (
                             <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
                               Lucky Key
                             </div>
@@ -964,7 +979,13 @@ export function CratesPanel({
                         disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
                         className="mt-auto w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                       >
-                        {isThisOpening ? "OPENING..." : canAfford ? `Open ${currentQty}` : "Not enough coins"}
+                        {isThisOpening
+                          ? "OPENING..."
+                          : canAfford
+                            ? grantedOpenApplied > 0
+                              ? `Open ${currentQty} (${grantedOpenApplied} key${grantedOpenApplied === 1 ? "" : "s"})`
+                              : `Open ${currentQty}`
+                            : "Not enough coins"}
                       </button>
                     </div>
 

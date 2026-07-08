@@ -58,6 +58,8 @@ export type CommunityGoalStatus = {
   rewardBadge: PrestigeBadgeDefinition;
   rewardDescription: string;
   rewardTitle: string;
+  rewardCrateType?: string;
+  rewardFreeOpens?: number;
   startsAt: string;
   targetCoins: number;
   title: string;
@@ -92,7 +94,9 @@ type CommunityGoalDefinition = {
   id: string;
   includedReasons: string[];
   rewardBadgeId: string;
+  rewardCrateType?: string;
   rewardDescription: string;
+  rewardFreeOpens?: number;
   rewardTitle: string;
   startsAt: string;
   targetCoins: number;
@@ -176,8 +180,10 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
     endsAt: "2026-09-01T00:00:00+03:00",
     targetCoins: 3_000_000,
     rewardBadgeId: "community-goal-summer-2026",
-    rewardTitle: "Vault Patron 2026 Badge",
-    rewardDescription: "Every participant receives a permanent prestige badge when the community finishes the objective.",
+    rewardCrateType: "premium_case",
+    rewardFreeOpens: 3,
+    rewardTitle: "3x Premium Case Keys",
+    rewardDescription: "Every participant receives 3 free Premium Case opens when the community finishes the objective.",
     includedReasons: [
       "crate:open",
       "jackpot_contribution",
@@ -421,6 +427,27 @@ export function isCommunityGoalReason(reason: string | null | undefined) {
   return COMMUNITY_GOALS.some((goal) => goal.includedReasons.includes(reason ?? ""));
 }
 
+export function isCommunityGoalContribution(transaction: CoinTransactionLite) {
+  const amount = Number(transaction.amount ?? 0);
+  const reason = transaction.reason ?? "";
+
+  if (amount === 0) {
+    return false;
+  }
+
+  if (amount < 0) {
+    return (
+      reason.startsWith("spend:") ||
+      reason.startsWith("tribute:") ||
+      reason === "crate:open" ||
+      reason === "jackpot_contribution" ||
+      reason === "throne_tribute"
+    );
+  }
+
+  return reason === "tribute:support" || reason === "tribute:sacrifice" || reason === "tribute:coin-offer";
+}
+
 export function isSupportTransaction(transaction: CoinTransactionLite) {
   if (!transaction.reason) {
     return false;
@@ -451,7 +478,7 @@ export function getSupportAmountFromTransaction(transaction: CoinTransactionLite
 }
 
 export function getCommunityGoalContributionAmount(transaction: CoinTransactionLite) {
-  if (!transaction.reason || !isCommunityGoalReason(transaction.reason)) {
+  if (!isCommunityGoalContribution(transaction)) {
     return 0;
   }
 
@@ -505,7 +532,7 @@ export function buildCommunityGoalStatus(
   const startsAtMs = new Date(goal.startsAt).getTime();
   const endsAtMs = new Date(goal.endsAt).getTime();
   const relevantTransactions = transactions.filter((transaction) => {
-    if (!transaction.created_at || !goal.includedReasons.includes(transaction.reason ?? "")) {
+    if (!transaction.created_at || !isCommunityGoalContribution(transaction)) {
       return false;
     }
 
@@ -531,7 +558,9 @@ export function buildCommunityGoalStatus(
     progressCoins,
     progressPercent: Math.min(100, Math.round((progressCoins / goal.targetCoins) * 100)),
     rewardBadge: badge,
+    rewardCrateType: goal.rewardCrateType,
     rewardDescription: goal.rewardDescription,
+    rewardFreeOpens: goal.rewardFreeOpens,
     rewardTitle: goal.rewardTitle,
     startsAt: goal.startsAt,
     targetCoins: goal.targetCoins,

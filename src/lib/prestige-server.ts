@@ -115,6 +115,31 @@ export async function syncCurrentUserPrestige(supabase: SupabaseClient, userId: 
     }
   }
 
+  if (
+    goalStatus.progressCoins >= goalStatus.targetCoins &&
+    goalStatus.currentUserParticipating &&
+    goalStatus.rewardCrateType &&
+    (goalStatus.rewardFreeOpens ?? 0) > 0
+  ) {
+    const { error: grantError } = await supabase
+      .from("user_crate_open_grants")
+      .upsert(
+        {
+          crate_type: goalStatus.rewardCrateType,
+          goal_id: goalStatus.id,
+          remaining_opens: goalStatus.rewardFreeOpens,
+          source: "community_goal",
+          total_opens: goalStatus.rewardFreeOpens,
+          user_id: userId,
+        },
+        { onConflict: "user_id,goal_id,crate_type", ignoreDuplicates: true },
+      );
+
+    if (grantError) {
+      throw grantError;
+    }
+  }
+
   return loadUserPrestigeBadges(supabase, userId);
 }
 
