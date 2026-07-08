@@ -74,13 +74,17 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     void loadMessages();
     const timer = window.setInterval(() => {
       void loadMessages();
-    }, 7000);
+    }, 9000);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -149,16 +153,16 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-3 sm:bottom-5 sm:right-5">
+    <div className="fixed bottom-4 left-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-start gap-3 sm:bottom-5 lg:left-[304px]">
       {isOpen ? (
-        <section className="w-full overflow-hidden rounded-[1.35rem] border border-cyan-200/20 bg-[linear-gradient(145deg,rgba(4,12,18,0.96),rgba(10,44,52,0.92),rgba(0,0,0,0.9))] shadow-[0_0_42px_rgba(34,211,238,0.18)]">
+        <section className="w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.26em] text-cyan-100/70">Community</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.26em] text-pink-100/70">Community</p>
               <h2 className="text-base font-black text-white">Live Chat</h2>
             </div>
             <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black text-cyan-50 transition hover:border-cyan-200/40"
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black text-pink-50 transition hover:border-pink-200/40"
               onClick={() => setIsOpen(false)}
               type="button"
             >
@@ -177,7 +181,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                   className={`rounded-[1rem] border px-3 py-2 ${
                     highlightedMessage
                       ? "border-amber-200/45 bg-amber-300/12 shadow-[0_0_24px_rgba(251,191,36,0.16)]"
-                      : "border-white/10 bg-white/[0.045]"
+                      : "border-pink-200/10 bg-white/[0.045]"
                   }`}
                   key={message.id}
                 >
@@ -190,9 +194,9 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-xs font-black text-white">{displayName}</p>
-                        <time className="shrink-0 text-[10px] font-bold text-cyan-100/55">{formatChatTime(message.created_at)}</time>
+                        <time className="shrink-0 text-[10px] font-bold text-pink-100/55">{formatChatTime(message.created_at)}</time>
                       </div>
-                      <p className={`mt-1 break-words text-sm leading-5 ${message.is_deleted ? "italic text-zinc-500" : "text-cyan-50/86"}`}>
+                      <p className={`mt-1 break-words text-sm leading-5 ${message.is_deleted ? "italic text-zinc-500" : "text-pink-50/86"}`}>
                         {message.is_deleted ? "Message deleted." : message.message}
                       </p>
                       {isAdmin && !message.is_deleted ? (
@@ -219,7 +223,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
               </p>
             ) : null}
             <textarea
-              className="min-h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-cyan-200/45"
+              className="min-h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-pink-200/45"
               disabled={Boolean(mutedText) || isSending}
               maxLength={250}
               onChange={(event) => setDraft(event.target.value)}
@@ -231,7 +235,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                 className={`rounded-full border px-3 py-2 text-xs font-black transition ${
                   highlighted
                     ? "border-amber-200/50 bg-amber-300/15 text-amber-50"
-                    : "border-white/10 bg-white/5 text-cyan-50"
+                    : "border-white/10 bg-white/5 text-pink-50"
                 }`}
                 onClick={() => setHighlighted((current) => !current)}
                 type="button"
@@ -239,7 +243,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                 <CoinAmount amount={250} iconSize={14} label="" prefix="Highlight " />
               </button>
               <button
-                className="rounded-full bg-cyan-300 px-4 py-2 text-xs font-black text-black transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!draft.trim() || isSending || Boolean(mutedText)}
                 onClick={() => void sendMessage()}
                 type="button"
@@ -253,7 +257,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
       ) : null}
 
       <button
-        className="rounded-full border border-cyan-200/30 bg-cyan-300 px-5 py-3 text-sm font-black text-black shadow-[0_0_30px_rgba(34,211,238,0.24)] transition hover:bg-cyan-200"
+        className="rounded-full border border-pink-200/30 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.28)] transition hover:scale-[1.02]"
         onClick={() => setIsOpen((current) => !current)}
         type="button"
       >
@@ -262,4 +266,3 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
     </div>
   );
 }
-

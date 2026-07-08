@@ -27,6 +27,7 @@ export type PuzzleImagePoolItem = {
 };
 
 export const PUZZLE_COIN_COST_PER_PIECE = 15;
+export const PUZZLE_DAILY_IMAGE_COUNT = 5;
 
 function createPuzzlePreset(
   difficulty: PuzzleDifficulty,
@@ -71,4 +72,28 @@ export function getPuzzlePreset(difficulty: string, aspect: PuzzleAspectKind) {
 
 export function normalizePuzzleAspect(value: unknown): PuzzleAspectKind {
   return value === "vertical" ? "vertical" : "standard";
+}
+
+function getStableSeed(value: string) {
+  return Array.from(value).reduce((seed, char) => {
+    return ((seed * 31) + char.charCodeAt(0)) >>> 0;
+  }, 2166136261);
+}
+
+export function pickDailyPuzzleImages(
+  images: PuzzleImagePoolItem[],
+  dayKey: string,
+  count = PUZZLE_DAILY_IMAGE_COUNT,
+) {
+  const targetCount = Math.max(1, Math.floor(count));
+  const shuffled = [...images];
+  let seed = getStableSeed(`puzzle:${dayKey}`);
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const swapIndex = seed % (index + 1);
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled.slice(0, Math.min(targetCount, shuffled.length));
 }

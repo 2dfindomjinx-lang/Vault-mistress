@@ -29,7 +29,11 @@ type PuzzleAttempt = {
 
 type PuzzleResponse = {
   completions?: PuzzleCompletion[];
+  dailyKey?: string;
+  imageCount?: number;
   images?: PuzzleImagePoolItem[];
+  nextDailyResetAt?: string;
+  poolCount?: number;
   presets?: {
     standard: PuzzlePreset[];
     vertical: PuzzlePreset[];
@@ -80,6 +84,9 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [completedAttemptId, setCompletedAttemptId] = useState<string | null>(null);
+  const [dailyKey, setDailyKey] = useState("");
+  const [nextDailyResetAt, setNextDailyResetAt] = useState<string | null>(null);
+  const [poolCount, setPoolCount] = useState(0);
   const startedAtRef = useRef<number | null>(null);
 
   const selectedImage = images.find((image) => image.id === selectedImageId) ?? images[0] ?? null;
@@ -97,6 +104,9 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
 
       setImages(payload.images ?? []);
       setCompletions(payload.completions ?? []);
+      setDailyKey(payload.dailyKey ?? "");
+      setNextDailyResetAt(payload.nextDailyResetAt ?? null);
+      setPoolCount(payload.poolCount ?? payload.images?.length ?? 0);
       setPresets(payload.presets ?? null);
       setSelectedImageId((current) => current || payload.images?.[0]?.id || "");
     } catch (loadError) {
@@ -246,9 +256,15 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-sky-100/70">Puzzle</p>
-            <h2 className="text-2xl font-black text-white sm:text-3xl">Puzzle Trial</h2>
+            <h2 className="text-2xl font-black text-white sm:text-3xl">Puzzle</h2>
           </div>
-          <p className="text-sm text-sky-50/72">Balance: <CoinAmount amount={coins} className="font-black text-white" iconSize={16} label="" /></p>
+          <div className="text-sm text-sky-50/72 sm:text-right">
+            <p>Balance: <CoinAmount amount={coins} className="font-black text-white" iconSize={16} label="" /></p>
+            <p className="mt-1 text-xs text-sky-100/55">
+              Daily pool: {images.length}/{poolCount} images
+              {nextDailyResetAt ? ` / resets ${new Date(nextDailyResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+            </p>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -259,7 +275,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
                   Puzzle pool is empty
                 </p>
                 <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Add images to public/puzzle and they will appear here.
+                  Add images to public/puzzle and the daily selection will appear here.
                 </p>
               </div>
             ) : images.map((image) => (
@@ -278,7 +294,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
                 </div>
                 <div className="p-3">
                   <p className="truncate text-sm font-black text-white">{image.title}</p>
-                  <p className="mt-1 text-xs text-sky-100/60">{image.tag}</p>
+                  <p className="mt-1 text-xs text-sky-100/60">{image.tag}{dailyKey ? ` / ${dailyKey}` : ""}</p>
                 </div>
               </button>
             ))}
@@ -348,7 +364,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100/60">{selectedImage.title}</p>
-              <h3 className="mt-1 text-xl font-black text-white">{attempt.grid_cols}x{attempt.grid_rows} Trial</h3>
+              <h3 className="mt-1 text-xl font-black text-white">{attempt.grid_cols}x{attempt.grid_rows} Puzzle Board</h3>
             </div>
             <div className="flex gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{formatTimer(seconds)}</span>

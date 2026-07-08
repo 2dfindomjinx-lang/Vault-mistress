@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { getPuzzlePreset, getPuzzlePresets, normalizePuzzleAspect, type PuzzleImagePoolItem } from "@/lib/puzzle";
+import {
+  getPuzzlePreset,
+  getPuzzlePresets,
+  normalizePuzzleAspect,
+  pickDailyPuzzleImages,
+  PUZZLE_DAILY_IMAGE_COUNT,
+  type PuzzleImagePoolItem,
+} from "@/lib/puzzle";
 import { profileSelect } from "@/lib/server-game-rules";
+import { getGmt3DateKey, getNextGmt3Reset } from "@/lib/time";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -87,7 +95,7 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
 
   try {
-    const [images, completionsResult] = await Promise.all([
+    const [imagePool, completionsResult] = await Promise.all([
       getPuzzleImagePool(),
       supabase
         .from("puzzle_completions")
@@ -99,9 +107,16 @@ export async function GET() {
       console.warn("[puzzle] completions lookup failed", completionsResult.error);
     }
 
+    const dailyKey = getGmt3DateKey();
+    const images = pickDailyPuzzleImages(imagePool, dailyKey);
+
     return Response.json({
       completions: completionsResult.data ?? [],
+      dailyKey,
+      nextDailyResetAt: getNextGmt3Reset().toISOString(),
+      poolCount: imagePool.length,
       images,
+      imageCount: images.length,
       presets: {
         standard: getPuzzlePresets("standard"),
         vertical: getPuzzlePresets("vertical"),
@@ -225,10 +240,12 @@ export async function POST(request: Request) {
     getPuzzleImagePool(),
     supabase.from("profiles").select(profileSelect).eq("id", userId).single(),
   ]);
-  const sourceImage = imagePool.find((item) => item.id === body.sourceImageId && item.sourceType === body.sourceType);
+  const dailyKey = getGmt3DateKey();
+  const dailyImagePool = pickDailyPuzzleImages(imagePool, dailyKey, PUZZLE_DAILY_IMAGE_COUNT);
+  const sourceImage = dailyImagePool.find((item) => item.id === body.sourceImageId && item.sourceType === body.sourceType);
 
   if (!sourceImage) {
-    return jsonError("That image is not unlocked for puzzle play.", 403);
+    return jsonError("That image is not in today's puzzle selection.", 403);
   }
 
   if (profileResult.error || !profileResult.data) {
@@ -263,6 +280,7 @@ export async function POST(request: Request) {
       metadata: {
         difficulty: preset.difficulty,
         pieceCount: preset.cols * preset.rows,
+        puzzleDailyKey: dailyKey,
         sourceImageId: sourceImage.id,
         sourceType: sourceImage.sourceType,
         spendAmount: preset.coinCost,
