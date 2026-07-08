@@ -129,10 +129,6 @@ create policy "Users can read own throne debts"
   using (auth.uid() = user_id);
 
 drop policy if exists "Users can insert own throne debt requests" on public.throne_debts;
-create policy "Users can insert own throne debt requests"
-  on public.throne_debts for insert
-  to authenticated
-  with check (auth.uid() = user_id and status = 'pending_review');
 
 drop policy if exists "Users can read own throne debt installments" on public.throne_debt_installments;
 create policy "Users can read own throne debt installments"
@@ -154,7 +150,3 @@ create policy "Users can read own throne payment reviews"
   using (auth.uid() = user_id);
 
 drop policy if exists "Users can insert own throne payment reviews" on public.throne_debt_payment_reviews;
-create policy "Users can insert own throne payment reviews"
-  on public.throne_debt_payment_reviews for insert
-  to authenticated
-  with check (auth.uid() = user_id);

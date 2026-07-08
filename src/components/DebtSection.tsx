@@ -458,9 +458,9 @@ function ThroneDebtCard({
   isTimeoutActive?: boolean;
 }) {
   const [contracts, setContracts] = useState<ThroneDebtContract[]>([]);
-  const [totalAmountUsd, setTotalAmountUsd] = useState("120");
+  const [totalAmountUsd, setTotalAmountUsd] = useState("");
   const [repaymentFrequency, setRepaymentFrequency] = useState<ThroneDebtFrequency>("weekly");
-  const [contractLengthWeeks, setContractLengthWeeks] = useState("12");
+  const [contractLengthWeeks, setContractLengthWeeks] = useState("");
   const [customLengthWeeks, setCustomLengthWeeks] = useState("");
   const [userNote, setUserNote] = useState("");
   const [selectedInstallmentId, setSelectedInstallmentId] = useState("");
@@ -475,13 +475,18 @@ function ThroneDebtCard({
   const cleanLengthWeeks = contractLengthWeeks === "custom"
     ? Math.floor(Number(customLengthWeeks))
     : Math.floor(Number(contractLengthWeeks));
+  const hasPlanInputs =
+    totalAmountUsd.trim() !== "" &&
+    contractLengthWeeks.trim() !== "" &&
+    (contractLengthWeeks !== "custom" || customLengthWeeks.trim() !== "");
   const plan = calculateThroneDebtPlan({
-    contractLengthWeeks: Number.isFinite(cleanLengthWeeks) ? cleanLengthWeeks : 12,
+    contractLengthWeeks: hasPlanInputs && Number.isFinite(cleanLengthWeeks) ? cleanLengthWeeks : 4,
     repaymentFrequency,
-    totalAmountUsd: Number(totalAmountUsd),
+    totalAmountUsd: hasPlanInputs ? Number(totalAmountUsd) : 0,
   });
   const minimumInstallmentUsd = getThroneDebtMinimumInstallmentUsd(repaymentFrequency);
   const planValid =
+    hasPlanInputs &&
     Number.isFinite(Number(totalAmountUsd)) &&
     Number(totalAmountUsd) > 0 &&
     Number.isInteger(cleanLengthWeeks) &&
@@ -726,6 +731,7 @@ function ThroneDebtCard({
               onChange={(event) => setContractLengthWeeks(event.target.value)}
               value={contractLengthWeeks}
             >
+              <option value="">Length</option>
               {THRONE_DEBT_LENGTH_OPTIONS.map((weeks) => (
                 <option key={weeks} value={weeks}>{weeks} weeks</option>
               ))}
@@ -745,11 +751,17 @@ function ThroneDebtCard({
             ) : null}
           </div>
           <div className="rounded-2xl border border-amber-200/15 bg-black/35 p-3 text-sm text-amber-50">
-            <p>Total Debt: ${plan.totalAmountUsd.toFixed(2)}</p>
-            <p>Installments: {plan.installmentCount}</p>
-            <p>Each Installment: ${plan.installmentAmountUsd.toFixed(2)}</p>
-            <p>Minimum for this frequency: ${minimumInstallmentUsd.toFixed(2)}</p>
-            {!planValid ? (
+            {hasPlanInputs ? (
+              <>
+                <p>Total Debt: ${plan.totalAmountUsd.toFixed(2)}</p>
+                <p>Installments: {plan.installmentCount}</p>
+                <p>Each Installment: ${plan.installmentAmountUsd.toFixed(2)}</p>
+                <p>Minimum for this frequency: ${minimumInstallmentUsd.toFixed(2)}</p>
+              </>
+            ) : (
+              <p>Enter total amount and contract length to calculate the installment plan.</p>
+            )}
+            {hasPlanInputs && !planValid ? (
               <p className="mt-2 text-xs font-bold text-red-200">
                 Increase total amount or adjust length. This plan is below minimum installment.
               </p>
