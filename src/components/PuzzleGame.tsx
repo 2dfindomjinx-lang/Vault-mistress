@@ -156,11 +156,13 @@ const PuzzleBoard = memo(function PuzzleBoard({
   imageUrl,
   onComplete,
   onMove,
+  previewSecondsLeft,
 }: {
   attempt: PuzzleAttempt;
   imageUrl: string;
   onComplete: (moves: number) => void;
   onMove: (moves: number) => void;
+  previewSecondsLeft: number;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [layout, setLayout] = useState<PuzzleLayout | null>(null);
@@ -168,6 +170,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [moveCount, setMoveCount] = useState(0);
   const [snapPieceId, setSnapPieceId] = useState<number | null>(null);
+  const [isSolved, setIsSolved] = useState(false);
   const completedRef = useRef(false);
 
   const jigsawShapes = useMemo(() => {
@@ -185,9 +188,10 @@ const PuzzleBoard = memo(function PuzzleBoard({
   }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count]);
 
   const calculateLayout = useCallback((containerWidth: number): PuzzleLayout => {
-    const stageWidth = Math.max(920, Math.floor(containerWidth));
-    const boardMaxWidth = Math.min(620, Math.floor(stageWidth * 0.58));
-    const boardMinWidth = attempt.grid_cols >= 6 ? 480 : 420;
+    const minimumStageWidth = attempt.grid_cols >= 25 ? 1540 : attempt.grid_cols >= 20 ? 1360 : attempt.grid_cols >= 15 ? 1180 : 980;
+    const stageWidth = Math.max(minimumStageWidth, Math.floor(containerWidth));
+    const boardMaxWidth = Math.min(attempt.grid_cols >= 20 ? 980 : 760, Math.floor(stageWidth * 0.62));
+    const boardMinWidth = attempt.grid_cols >= 25 ? 900 : attempt.grid_cols >= 20 ? 820 : attempt.grid_cols >= 15 ? 700 : 620;
     const boardWidth = Math.max(boardMinWidth, boardMaxWidth);
     const boardHeight = Math.round(boardWidth * (attempt.grid_rows / attempt.grid_cols));
     const boardX = Math.round((stageWidth - boardWidth) / 2);
@@ -269,6 +273,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
     setMoveCount(0);
     setDrag(null);
     setSnapPieceId(null);
+    setIsSolved(false);
     setPieces(layout ? buildPieces(layout) : []);
   }, [attempt.id, buildPieces, layout]);
 
@@ -350,6 +355,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
 
       if (!completedRef.current && nextPieces.every((nextPiece) => nextPiece.placed)) {
         completedRef.current = true;
+        setIsSolved(true);
         onComplete(nextMoveCount);
       }
 
@@ -371,7 +377,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
       <div
         className="relative mx-auto overflow-hidden rounded-[1.25rem] border border-sky-100/10 bg-[linear-gradient(90deg,rgba(255,255,255,0.04),transparent_18%,transparent_82%,rgba(255,255,255,0.04)),radial-gradient(circle_at_50%_45%,rgba(56,189,248,0.10),transparent_34%)]"
         ref={stageRef}
-        style={{ height: layout?.stageHeight ?? 560, minWidth: 920, width: layout?.stageWidth ?? "100%" }}
+        style={{ height: layout?.stageHeight ?? 560, minWidth: 980, width: layout?.stageWidth ?? "100%" }}
       >
         {layout ? (
           <>
@@ -395,6 +401,52 @@ const PuzzleBoard = memo(function PuzzleBoard({
               />
               <div className="absolute inset-0 rounded-[1rem] ring-1 ring-inset ring-white/10" />
             </div>
+            {isSolved ? (
+              <div
+                className="absolute rounded-[1rem] border border-sky-100/55 bg-cover bg-center bg-no-repeat shadow-[0_0_44px_rgba(125,211,252,0.36)] animate-[pulse_0.72s_ease-out_1]"
+                style={{
+                  backgroundImage: `url(${imageUrl})`,
+                  backgroundSize: "100% 100%",
+                  height: layout.boardHeight,
+                  left: layout.boardX,
+                  top: layout.boardY,
+                  width: layout.boardWidth,
+                  zIndex: 60,
+                }}
+              >
+                <div className="absolute inset-0 rounded-[1rem] ring-2 ring-inset ring-white/35" />
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-black/45 bg-black/70 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-white">
+                  Completed
+                </div>
+              </div>
+            ) : null}
+            {!isSolved && previewSecondsLeft > 0 ? (
+              <div
+                className="absolute select-none overflow-hidden rounded-[1rem] border border-sky-100/45 bg-cover bg-center bg-no-repeat shadow-[0_0_44px_rgba(125,211,252,0.30)]"
+                onContextMenu={(event) => event.preventDefault()}
+                onDragStart={(event) => event.preventDefault()}
+                style={{
+                  backgroundImage: `url(${imageUrl})`,
+                  backgroundSize: "100% 100%",
+                  height: layout.boardHeight,
+                  left: layout.boardX,
+                  top: layout.boardY,
+                  width: layout.boardWidth,
+                  zIndex: 70,
+                }}
+              >
+                <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(0,0,0,0.18)_0px,rgba(0,0,0,0.18)_1px,transparent_1px,transparent_5px)]" />
+                <div className="absolute -left-20 top-1/2 flex w-[145%] -translate-y-1/2 -rotate-12 flex-wrap justify-center gap-x-10 gap-y-5 text-center text-[0.68rem] font-black uppercase tracking-[0.28em] text-white/34 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
+                  {Array.from({ length: 24 }, (_, index) => (
+                    <span key={`active-preview-watermark-${index}`}>Vault Mistress Hint / View Only</span>
+                  ))}
+                </div>
+                <div className="absolute right-3 top-3 rounded-full border border-black/40 bg-black/70 px-3 py-1 text-xs font-black text-white">
+                  Hint {previewSecondsLeft}s
+                </div>
+                <div aria-hidden="true" className="absolute inset-0 cursor-default" />
+              </div>
+            ) : null}
             <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-sky-100/15 bg-black/45 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-sky-50/75">
               Assembly Board / {placedCount}/{attempt.piece_count} placed
             </div>
@@ -549,6 +601,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       setAttempt(payload.attempt);
       setMoves(0);
       setCompletedAttemptId(null);
+      setPreviewUntil(null);
       startedAtRef.current = Date.now();
 
       if (payload.profile) {
@@ -562,7 +615,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   };
 
   const previewPuzzle = async () => {
-    if (!selectedImage || isPreviewBusy) {
+    if (!attempt || isPreviewBusy) {
       return;
     }
 
@@ -573,8 +626,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       const response = await fetch("/api/user/puzzle", {
         body: JSON.stringify({
           action: "preview",
-          sourceImageId: selectedImage.id,
-          sourceType: selectedImage.sourceType,
+          attemptId: attempt.id,
         }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
@@ -681,46 +733,13 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
               onDragStart={(event) => event.preventDefault()}
             >
               <div className="aspect-[4/3]">
-                {selectedImage && previewSecondsLeft > 0 ? (
-                  <Image
-                    alt={selectedImage.title}
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                    fill
-                    onContextMenu={(event) => event.preventDefault()}
-                    onDragStart={(event) => event.preventDefault()}
-                    sizes="(min-width: 1024px) 34vw, 100vw"
-                    src={selectedImage.image}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.14),transparent_35%),linear-gradient(135deg,rgba(255,255,255,0.06),rgba(0,0,0,0.82))]">
-                    <span className="text-xs font-black uppercase tracking-[0.3em] text-sky-50/55">Preview locked</span>
-                  </div>
-                )}
-              </div>
-              {previewSecondsLeft > 0 ? (
-                <div className="absolute right-3 top-3 rounded-full border border-black/40 bg-black/70 px-3 py-1 text-xs font-black text-white">
-                  {previewSecondsLeft}s
+                <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.14),transparent_35%),linear-gradient(135deg,rgba(255,255,255,0.06),rgba(0,0,0,0.82))]">
+                  <span className="px-5 text-center text-xs font-black uppercase tracking-[0.26em] text-sky-50/55">
+                    Image hidden until puzzle starts
+                  </span>
                 </div>
-              ) : null}
-              {previewSecondsLeft > 0 ? (
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 cursor-default"
-                  onContextMenu={(event) => event.preventDefault()}
-                  onDragStart={(event) => event.preventDefault()}
-                />
-              ) : null}
+              </div>
             </div>
-            <button
-              className="mt-3 w-full rounded-2xl border border-sky-200/25 bg-sky-300/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-100/55 hover:bg-sky-300/16 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={disabled || isPreviewBusy || !selectedImage || coins < PUZZLE_PREVIEW_COIN_COST}
-              onClick={() => void previewPuzzle()}
-              type="button"
-            >
-              Preview 10s / <CoinAmount amount={PUZZLE_PREVIEW_COIN_COST} className="font-black text-white" iconSize={14} label="" />
-            </button>
             <div className="mt-5 grid gap-2 text-sm text-sky-50/70">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2">
                 Daily selection: <span className="font-black text-white">{images.length}/{poolCount}</span>
@@ -806,6 +825,14 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             <div className="flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-sky-50">
               <TimerBadge startedAtRef={startedAtRef} />
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{moves} moves</span>
+              <button
+                className="rounded-full border border-sky-200/25 bg-sky-300/10 px-3 py-2 transition hover:border-sky-100/55 hover:bg-sky-300/16 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled || isPreviewBusy || previewSecondsLeft > 0 || coins < PUZZLE_PREVIEW_COIN_COST}
+                onClick={() => void previewPuzzle()}
+                type="button"
+              >
+                Hint 10s / <CoinAmount amount={PUZZLE_PREVIEW_COIN_COST} className="font-black text-white" iconSize={13} label="" />
+              </button>
             </div>
           </div>
 
@@ -818,6 +845,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             imageUrl={selectedImage.image}
             onComplete={(nextMoves) => void completePuzzle(nextMoves)}
             onMove={setMoves}
+            previewSecondsLeft={previewSecondsLeft}
           />
         </section>
       ) : null}

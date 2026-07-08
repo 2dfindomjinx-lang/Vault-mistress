@@ -229,20 +229,23 @@ export async function POST(request: Request) {
   }
 
   if (body?.action === "preview") {
-    if (!body.sourceImageId || !body.sourceType) {
+    if (!body.attemptId) {
       return jsonError("Invalid puzzle preview payload.", 422);
     }
 
-    const [imagePool, profileResult] = await Promise.all([
-      getPuzzleImagePool(),
+    const [attemptResult, profileResult] = await Promise.all([
+      supabase
+        .from("puzzle_attempts")
+        .select("*")
+        .eq("id", body.attemptId)
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .maybeSingle(),
       supabase.from("profiles").select(profileSelect).eq("id", userId).single(),
     ]);
-    const dailyKey = getGmt3DateKey();
-    const dailyImagePool = pickDailyPuzzleImages(imagePool, dailyKey, PUZZLE_DAILY_IMAGE_COUNT);
-    const sourceImage = dailyImagePool.find((item) => item.id === body.sourceImageId && item.sourceType === body.sourceType);
 
-    if (!sourceImage) {
-      return jsonError("That image is not in today's puzzle selection.", 403);
+    if (attemptResult.error || !attemptResult.data) {
+      return jsonError("Active puzzle attempt not found.", 404);
     }
 
     if (profileResult.error || !profileResult.data) {
@@ -275,10 +278,12 @@ export async function POST(request: Request) {
         balance_after: nextCoins,
         balance_before: profile.coins,
         metadata: {
+          attemptId: attemptResult.data.id,
+          difficulty: attemptResult.data.difficulty,
+          pieceCount: attemptResult.data.piece_count,
           previewSeconds: PUZZLE_PREVIEW_SECONDS,
-          puzzleDailyKey: dailyKey,
-          sourceImageId: sourceImage.id,
-          sourceType: sourceImage.sourceType,
+          sourceImageId: attemptResult.data.source_image_id,
+          sourceType: attemptResult.data.source_type,
           spendAmount: PUZZLE_PREVIEW_COIN_COST,
         },
         reason: "spend:puzzle-preview",

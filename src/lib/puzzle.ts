@@ -43,17 +43,17 @@ function createPuzzlePreset(
 }
 
 const standardPuzzlePresets: PuzzlePreset[] = [
-  createPuzzlePreset("glimpse", "Glimpse", 3, 3),
-  createPuzzlePreset("focus", "Focus", 4, 4),
-  createPuzzlePreset("devotion", "Devotion", 5, 5),
-  createPuzzlePreset("trial", "Trial", 6, 6),
+  createPuzzlePreset("glimpse", "Glimpse", 10, 10),
+  createPuzzlePreset("focus", "Focus", 15, 15),
+  createPuzzlePreset("devotion", "Devotion", 20, 20),
+  createPuzzlePreset("trial", "Trial", 25, 25),
 ];
 
 const verticalPuzzlePresets: PuzzlePreset[] = [
-  createPuzzlePreset("glimpse", "Glimpse", 3, 3),
-  createPuzzlePreset("focus", "Focus", 4, 4),
-  createPuzzlePreset("devotion", "Devotion", 5, 5),
-  createPuzzlePreset("trial", "Trial", 6, 6),
+  createPuzzlePreset("glimpse", "Glimpse", 10, 10),
+  createPuzzlePreset("focus", "Focus", 15, 15),
+  createPuzzlePreset("devotion", "Devotion", 20, 20),
+  createPuzzlePreset("trial", "Trial", 25, 25),
 ];
 
 export function getPuzzlePresets(aspect: PuzzleAspectKind) {
