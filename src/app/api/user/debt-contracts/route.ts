@@ -19,6 +19,8 @@ const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
   "I consent that Principessa may use these images and I accept the consequences.";
+const EVIL_DEBT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+const EVIL_DEBT_IMAGE_DATA_URL_MAX_LENGTH = Math.ceil(EVIL_DEBT_IMAGE_MAX_BYTES * 1.4);
 const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
   Array.from({ length: 25 }, (_, index) => {
     const offset = index - 12;
@@ -123,7 +125,7 @@ function isValidEvilDebtImage(value: unknown) {
   return (
     typeof value === "string" &&
     /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value) &&
-    value.length <= 1_500_000
+    value.length <= EVIL_DEBT_IMAGE_DATA_URL_MAX_LENGTH
   );
 }
 
@@ -343,7 +345,7 @@ export async function POST(request: Request) {
 
     const nowMs = Date.now();
     const periodMs = getDebtPeriodMs(periodType);
-    const startedAt = contractType === "evil" ? null : new Date(nowMs).toISOString();
+    const startedAt = new Date(nowMs).toISOString();
     const firstDueAt = getFirstDebtDueAtIso(periodType, nowMs);
     const { data, error } = await supabase
       .from("pet_debt_contracts")

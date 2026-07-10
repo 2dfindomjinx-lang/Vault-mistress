@@ -30,6 +30,7 @@ const DEBT_MINIMUM_PAYMENTS = {
   monthly: 50000,
   weekly: 10000,
 };
+const EVIL_DEBT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 const DEBT_RANDOM_AMOUNT_STEPS = {
   monthly: 10000,
   weekly: 5000,
@@ -1200,8 +1201,8 @@ export function PetSection({
       return;
     }
 
-    if (selectedFiles.some((file) => file.size > 1_000_000)) {
-      setEvilImageError("Each image must be 1MB or smaller.");
+    if (selectedFiles.some((file) => file.size > EVIL_DEBT_IMAGE_MAX_BYTES)) {
+      setEvilImageError("Each image must be 4MB or smaller.");
       return;
     }
 

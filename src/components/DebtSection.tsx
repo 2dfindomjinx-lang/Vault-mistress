@@ -31,6 +31,7 @@ const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
   "I consent that Principessa may use these images and I accept the consequences.";
+const EVIL_DEBT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
 const EVIL_DEBT_TIMEZONE_OPTIONS = Array.from({ length: 25 }, (_, index) => {
   const offset = index - 12;
   return `UTC${offset >= 0 ? "+" : ""}${offset}`;
@@ -328,8 +329,8 @@ export function DebtSection({
       return;
     }
 
-    if (selectedFiles.some((file) => file.size > 1_000_000)) {
-      setEvilImageError("Each image must be 1MB or smaller.");
+    if (selectedFiles.some((file) => file.size > EVIL_DEBT_IMAGE_MAX_BYTES)) {
+      setEvilImageError("Each image must be 4MB or smaller.");
       return;
     }
 
