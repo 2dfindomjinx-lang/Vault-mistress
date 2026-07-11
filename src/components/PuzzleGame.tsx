@@ -79,8 +79,11 @@ type PuzzleLayout = {
   boardWidth: number;
   boardX: number;
   boardY: number;
+  compact: boolean;
   stageHeight: number;
   stageWidth: number;
+  trayPieceSize: number;
+  trayY: number;
 };
 
 type DragState = {
@@ -195,6 +198,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   const [pieces, setPieces] = useState<PuzzlePieceState[]>([]);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [moveCount, setMoveCount] = useState(0);
+  const [selectedPieceId, setSelectedPieceId] = useState<number | null>(null);
   const [snapPieceId, setSnapPieceId] = useState<number | null>(null);
   const [isSolved, setIsSolved] = useState(false);
   const completedRef = useRef(false);
@@ -214,6 +218,24 @@ const PuzzleBoard = memo(function PuzzleBoard({
   }, [attempt.grid_cols, attempt.grid_rows, attempt.piece_count]);
 
   const calculateLayout = useCallback((containerWidth: number): PuzzleLayout => {
+    const compact = containerWidth < 720;
+
+    if (compact) {
+      const stageWidth = Math.max(320, Math.floor(containerWidth));
+      const boardWidth = Math.max(300, Math.min(stageWidth - 24, 520));
+      const boardHeight = Math.round(boardWidth * (attempt.grid_rows / attempt.grid_cols));
+      const boardX = Math.round((stageWidth - boardWidth) / 2);
+      const boardY = 56;
+      const trayPieceSize = attempt.grid_cols >= 20 ? 34 : attempt.grid_cols >= 15 ? 38 : 42;
+      const trayGap = 8;
+      const trayColumns = Math.max(1, Math.floor((stageWidth - 24) / (trayPieceSize + trayGap)));
+      const trayRows = Math.ceil(attempt.piece_count / trayColumns);
+      const trayY = boardY + boardHeight + 30;
+      const stageHeight = trayY + trayRows * (trayPieceSize + trayGap) + 22;
+
+      return { boardHeight, boardWidth, boardX, boardY, compact, stageHeight, stageWidth, trayPieceSize, trayY };
+    }
+
     const minimumStageWidth = attempt.grid_cols >= 25 ? 1540 : attempt.grid_cols >= 20 ? 1360 : attempt.grid_cols >= 15 ? 1180 : 980;
     const stageWidth = Math.max(minimumStageWidth, Math.floor(containerWidth));
     const boardMaxWidth = Math.min(attempt.grid_cols >= 20 ? 980 : 760, Math.floor(stageWidth * 0.62));
@@ -224,13 +246,17 @@ const PuzzleBoard = memo(function PuzzleBoard({
     const boardY = 64;
     const stageHeight = Math.max(560, boardY + boardHeight + 72);
 
-    return { boardHeight, boardWidth, boardX, boardY, stageHeight, stageWidth };
+    return { boardHeight, boardWidth, boardX, boardY, compact, stageHeight, stageWidth, trayPieceSize: 0, trayY: 0 };
   }, [attempt.grid_cols, attempt.grid_rows]);
 
   const buildPieces = useCallback((nextLayout: PuzzleLayout) => {
     const pieceWidth = nextLayout.boardWidth / attempt.grid_cols;
     const pieceHeight = nextLayout.boardHeight / attempt.grid_rows;
     const shuffled = seededShuffle(attempt.piece_count, attempt.shuffle_seed);
+    const compactTrayGap = 8;
+    const compactTrayColumns = nextLayout.compact
+      ? Math.max(1, Math.floor((nextLayout.stageWidth - 24) / (nextLayout.trayPieceSize + compactTrayGap)))
+      : 0;
     const leftTrayX = 28;
     const rightTrayX = nextLayout.boardX + nextLayout.boardWidth + 28;
     const trayWidth = Math.max(120, nextLayout.boardX - 52);
@@ -239,6 +265,8 @@ const PuzzleBoard = memo(function PuzzleBoard({
     return shuffled.map((pieceId, trayIndex) => {
       const row = Math.floor(pieceId / attempt.grid_cols);
       const col = pieceId % attempt.grid_cols;
+      const compactTrayX = 12 + (trayIndex % Math.max(1, compactTrayColumns)) * (nextLayout.trayPieceSize + compactTrayGap);
+      const compactTrayY = nextLayout.trayY + Math.floor(trayIndex / Math.max(1, compactTrayColumns)) * (nextLayout.trayPieceSize + compactTrayGap);
       const side = trayIndex % 2 === 0 ? "left" : "right";
       const sideIndex = Math.floor(trayIndex / 2);
       const lane = sideIndex % Math.max(1, attempt.grid_rows);
@@ -253,8 +281,8 @@ const PuzzleBoard = memo(function PuzzleBoard({
         col,
         correctX: nextLayout.boardX + col * pieceWidth,
         correctY: nextLayout.boardY + row * pieceHeight,
-        currentX: trayX,
-        currentY: trayY,
+        currentX: nextLayout.compact ? compactTrayX : trayX,
+        currentY: nextLayout.compact ? compactTrayY : trayY,
         height: pieceHeight,
         id: pieceId,
         placed: false,
@@ -338,13 +366,14 @@ const PuzzleBoard = memo(function PuzzleBoard({
     observer.observe(element.parentElement ?? element);
 
     return () => observer.disconnect();
-  }, [buildPieces, calculateLayout]);
+  }, [applyProgress, buildPieces, calculateLayout]);
 
   useEffect(() => {
     completedRef.current = false;
     setMoveCount(initialMoveCount);
     onMove(initialMoveCount);
     setDrag(null);
+    setSelectedPieceId(null);
     setSnapPieceId(null);
     setIsSolved(false);
     setPieces(layout ? applyProgress(buildPieces(layout), layout) : []);
@@ -353,7 +382,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   const placedCount = pieces.filter((piece) => piece.placed).length;
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, piece: PuzzlePieceState) => {
-    if (piece.placed) {
+    if (piece.placed || layout?.compact) {
       return;
     }
 
@@ -372,7 +401,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-    if (!drag) {
+    if (!drag || layout?.compact) {
       return;
     }
 
@@ -389,7 +418,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLButtonElement>, piece: PuzzlePieceState) => {
-    if (!drag || drag.id !== piece.id) {
+    if (!drag || drag.id !== piece.id || layout?.compact) {
       return;
     }
 
@@ -438,8 +467,50 @@ const PuzzleBoard = memo(function PuzzleBoard({
     });
   };
 
+  const settleMobileMove = (pieceId: number, targetRow: number, targetCol: number) => {
+    if (!layout?.compact) {
+      return;
+    }
+
+    const piece = pieces.find((currentPiece) => currentPiece.id === pieceId);
+    if (!piece || piece.placed) {
+      return;
+    }
+
+    if (piece.row !== targetRow || piece.col !== targetCol) {
+      setSelectedPieceId(pieceId);
+      return;
+    }
+
+    const nextMoveCount = moveCount + 1;
+    setMoveCount(nextMoveCount);
+    onMove(nextMoveCount);
+    setSelectedPieceId(null);
+
+    setPieces((currentPieces) => {
+      const nextPieces = currentPieces.map((currentPiece) => (
+        currentPiece.id === pieceId
+          ? { ...currentPiece, currentX: currentPiece.correctX, currentY: currentPiece.correctY, placed: true }
+          : currentPiece
+      ));
+
+      setSnapPieceId(pieceId);
+      window.setTimeout(() => setSnapPieceId((current) => (current === pieceId ? null : current)), 360);
+
+      if (!completedRef.current && nextPieces.every((nextPiece) => nextPiece.placed)) {
+        completedRef.current = true;
+        setIsSolved(true);
+        onComplete(nextMoveCount);
+      } else {
+        onProgressSave(createProgressState(nextPieces, nextMoveCount, layout), nextMoveCount);
+      }
+
+      return nextPieces;
+    });
+  };
+
   return (
-    <div className="mt-4 overflow-x-auto rounded-[1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.08),transparent_32%),linear-gradient(135deg,rgba(18,18,24,0.98),rgba(4,8,13,0.98))] p-3 shadow-inner shadow-black/70">
+    <div className="mt-4 overflow-x-auto rounded-[1rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.08),transparent_32%),linear-gradient(135deg,rgba(18,18,24,0.98),rgba(4,8,13,0.98))] p-2 shadow-inner shadow-black/70 sm:p-3">
       <svg aria-hidden="true" className="pointer-events-none absolute h-0 w-0">
         <defs>
           {jigsawShapes.map(([key, path]) => (
@@ -452,12 +523,30 @@ const PuzzleBoard = memo(function PuzzleBoard({
       <div
         className="relative mx-auto overflow-hidden rounded-[1.25rem] border border-sky-100/10 bg-[linear-gradient(90deg,rgba(255,255,255,0.04),transparent_18%,transparent_82%,rgba(255,255,255,0.04)),radial-gradient(circle_at_50%_45%,rgba(56,189,248,0.10),transparent_34%)]"
         ref={stageRef}
-        style={{ height: layout?.stageHeight ?? 560, minWidth: 980, width: layout?.stageWidth ?? "100%" }}
+        style={{
+          height: layout?.stageHeight ?? 560,
+          minWidth: layout?.compact ? 0 : 980,
+          width: layout?.stageWidth ?? "100%",
+        }}
       >
         {layout ? (
           <>
-            <div className="absolute inset-y-8 left-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
-            <div className="absolute inset-y-8 right-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
+            {!layout.compact ? (
+              <>
+                <div className="absolute inset-y-8 left-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
+                <div className="absolute inset-y-8 right-5 w-[13%] rounded-2xl border border-white/10 bg-black/25 shadow-inner shadow-black/60" />
+              </>
+            ) : (
+              <div
+                className="absolute rounded-2xl border border-white/10 bg-black/28 shadow-inner shadow-black/60"
+                style={{
+                  height: Math.max(120, layout.stageHeight - layout.trayY - 12),
+                  left: 8,
+                  top: layout.trayY - 8,
+                  width: layout.stageWidth - 16,
+                }}
+              />
+            )}
             <div
               className="absolute rounded-[1rem] border border-sky-100/25 bg-black/45 shadow-[0_0_34px_rgba(125,211,252,0.14),inset_0_0_48px_rgba(0,0,0,0.72)]"
               style={{
@@ -476,6 +565,41 @@ const PuzzleBoard = memo(function PuzzleBoard({
               />
               <div className="absolute inset-0 rounded-[1rem] ring-1 ring-inset ring-white/10" />
             </div>
+            {layout.compact && selectedPieceId !== null ? (
+              <div
+                className="absolute rounded-[1rem] ring-2 ring-sky-200/45"
+                style={{
+                  height: layout.boardHeight,
+                  left: layout.boardX,
+                  top: layout.boardY,
+                  width: layout.boardWidth,
+                  zIndex: 16,
+                }}
+              >
+                {Array.from({ length: attempt.piece_count }, (_, index) => {
+                  const row = Math.floor(index / attempt.grid_cols);
+                  const col = index % attempt.grid_cols;
+                  const cellWidth = layout.boardWidth / attempt.grid_cols;
+                  const cellHeight = layout.boardHeight / attempt.grid_rows;
+
+                  return (
+                    <button
+                      aria-label={`Place selected piece at row ${row + 1}, column ${col + 1}`}
+                      className="absolute rounded-[2px] border border-white/0 bg-sky-200/0 transition hover:bg-sky-200/18 active:bg-sky-100/24"
+                      key={`mobile-target-${index}`}
+                      onClick={() => settleMobileMove(selectedPieceId, row, col)}
+                      style={{
+                        height: cellHeight,
+                        left: col * cellWidth,
+                        top: row * cellHeight,
+                        width: cellWidth,
+                      }}
+                      type="button"
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
             {isSolved ? (
               <div
                 className="absolute rounded-[1rem] border border-sky-100/55 bg-cover bg-center bg-no-repeat shadow-[0_0_44px_rgba(125,211,252,0.36)] animate-[pulse_0.72s_ease-out_1]"
@@ -525,10 +649,23 @@ const PuzzleBoard = memo(function PuzzleBoard({
             <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-sky-100/15 bg-black/45 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-sky-50/75">
               Assembly Board / {placedCount}/{attempt.piece_count} placed
             </div>
+            {layout.compact ? (
+              <div
+                className="absolute left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-[0.66rem] font-black uppercase tracking-[0.18em] text-sky-50/65"
+                style={{ top: layout.trayY - 32 }}
+              >
+                Tap a piece, then tap its place
+              </div>
+            ) : null}
             {pieces.map((piece) => {
               const shapeKey = getJigsawShapeKey(getJigsawEdges(piece.id, attempt.grid_cols, attempt.grid_rows)).replaceAll(":", "-");
               const isDragging = drag?.id === piece.id;
               const isSnapping = snapPieceId === piece.id;
+              const isSelected = selectedPieceId === piece.id;
+              const renderWidth = layout.compact && !piece.placed ? layout.trayPieceSize : piece.width;
+              const renderHeight = layout.compact && !piece.placed ? layout.trayPieceSize : piece.height;
+              const renderBackgroundWidth = layout.compact && !piece.placed ? layout.trayPieceSize * attempt.grid_cols : layout.boardWidth;
+              const renderBackgroundHeight = layout.compact && !piece.placed ? layout.trayPieceSize * attempt.grid_rows : layout.boardHeight;
 
               return (
                 <button
@@ -536,24 +673,33 @@ const PuzzleBoard = memo(function PuzzleBoard({
                   className={`absolute touch-none bg-no-repeat outline-none transition-[filter,transform,box-shadow] duration-150 ${
                     piece.placed
                       ? "cursor-default drop-shadow-[0_0_10px_rgba(125,211,252,0.34)]"
-                      : "cursor-grab hover:z-30 hover:scale-[1.055] hover:drop-shadow-[0_0_18px_rgba(125,211,252,0.66)] active:cursor-grabbing"
+                      : layout.compact
+                        ? "cursor-pointer rounded-md border border-white/10 hover:z-30 hover:scale-[1.08] hover:drop-shadow-[0_0_18px_rgba(125,211,252,0.66)]"
+                        : "cursor-grab hover:z-30 hover:scale-[1.055] hover:drop-shadow-[0_0_18px_rgba(125,211,252,0.66)] active:cursor-grabbing"
                   } ${isDragging ? "z-40 scale-[1.08] brightness-110 drop-shadow-[0_0_24px_rgba(125,211,252,0.78)]" : ""} ${
                     isSnapping ? "animate-[pulse_0.36s_ease-out_1] brightness-125" : ""
+                  } ${
+                    isSelected ? "z-50 scale-[1.14] border-sky-100/70 brightness-125 drop-shadow-[0_0_24px_rgba(125,211,252,0.82)]" : ""
                   }`}
                   key={`${attempt.id}:${piece.id}`}
+                  onClick={() => {
+                    if (layout.compact && !piece.placed) {
+                      setSelectedPieceId((current) => (current === piece.id ? null : piece.id));
+                    }
+                  }}
                   onPointerDown={(event) => handlePointerDown(event, piece)}
                   onPointerMove={handlePointerMove}
                   onPointerUp={(event) => handlePointerUp(event, piece)}
                   style={{
                     backgroundImage: `url(${imageUrl})`,
-                    backgroundPosition: `-${piece.col * piece.width}px -${piece.row * piece.height}px`,
-                    backgroundSize: `${layout.boardWidth}px ${layout.boardHeight}px`,
+                    backgroundPosition: `-${piece.col * renderWidth}px -${piece.row * renderHeight}px`,
+                    backgroundSize: `${renderBackgroundWidth}px ${renderBackgroundHeight}px`,
                     clipPath: `url(#jigsaw-${shapeKey})`,
-                    height: piece.height,
+                    height: renderHeight,
                     left: piece.currentX,
                     top: piece.currentY,
-                    width: piece.width,
-                    zIndex: piece.placed ? 8 : isDragging ? 40 : 18 + (piece.id % 7),
+                    width: renderWidth,
+                    zIndex: piece.placed ? 8 : isSelected ? 50 : isDragging ? 40 : 18 + (piece.id % 7),
                   }}
                   type="button"
                 />
