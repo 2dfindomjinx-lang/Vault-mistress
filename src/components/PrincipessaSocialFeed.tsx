@@ -8,7 +8,7 @@ import { PrincipessaFeedNotifications, PrincipessaFeedNotificationsPage } from "
 import { PrincipessaFeedAchievementsPage, PrincipessaFeedMessagesPage, PrincipessaFeedSearchPage, PrincipessaFeedSocialPanels } from "@/components/PrincipessaFeedSocialPanels";
 
 type Channel = "principessa" | "sub";
-export type PrincipessaFeedView = "achievements" | "home" | "messages" | "notifications" | "profile" | "search";
+export type PrincipessaFeedView = "achievements" | "approvals" | "home" | "messages" | "notifications" | "profile" | "search";
 type MentionUser = { displayName: string; id: string; username: string };
 
 const IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
@@ -386,6 +386,8 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   const [channel, setChannel] = useState<Channel>("principessa");
   const [posts, setPosts] = useState<PrincipessaFeedPost[]>([]);
   const [pendingPosts, setPendingPosts] = useState<PrincipessaFeedPost[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(initialView === "approvals" && isAdmin);
+  const [moderationBusy, setModerationBusy] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [commentBusy, setCommentBusy] = useState<string | null>(null);
   const [interactionBusy, setInteractionBusy] = useState<string | null>(null);
@@ -423,10 +425,34 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
     return () => controller.abort();
   }, [channel, view]);
 
+  const loadPendingPosts = useCallback(async () => {
+    if (!isAdmin) return;
+    await Promise.resolve();
+    setPendingLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/principessa-feed/moderation", { cache: "no-store" });
+      const result = await readJsonResponse<{ error?: string; posts?: PrincipessaFeedPost[] }>(response);
+      if (!response.ok) throw new Error(result.error ?? "Approval queue failed.");
+      setPendingPosts(result.posts ?? []);
+    } catch (queueError) {
+      setError(queueError instanceof Error ? queueError.message : "Approval queue failed.");
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
-    if (view !== "home" || !isAdmin || channel !== "sub") return;
-    fetch("/api/admin/principessa-feed/moderation", { cache: "no-store" }).then(async (response) => { const result = (await response.json()) as { error?: string; posts?: PrincipessaFeedPost[] }; if (!response.ok) throw new Error(result.error); setPendingPosts(result.posts ?? []); }).catch((queueError: unknown) => setError(queueError instanceof Error ? queueError.message : "Queue failed."));
-  }, [channel, isAdmin, view]);
+    if (view !== "approvals" || !isAdmin) return;
+    fetch("/api/admin/principessa-feed/moderation", { cache: "no-store" })
+      .then((response) => readJsonResponse<{ error?: string; posts?: PrincipessaFeedPost[] }>(response).then((result) => {
+        if (!response.ok) throw new Error(result.error ?? "Approval queue failed.");
+        return result.posts ?? [];
+      }))
+      .then(setPendingPosts)
+      .catch((queueError: unknown) => setError(queueError instanceof Error ? queueError.message : "Approval queue failed."))
+      .finally(() => setPendingLoading(false));
+  }, [isAdmin, view]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -550,14 +576,26 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   };
 
   const moderate = async (postId: string, action: "approve" | "reject") => {
-    const response = await fetch("/api/admin/principessa-feed/moderation", { body: JSON.stringify({ action, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
-    const result = (await response.json()) as { error?: string; pendingPosts?: PrincipessaFeedPost[]; publishedPosts?: PrincipessaFeedPost[] };
-    if (!response.ok) { setError(result.error ?? "Moderation failed."); return; }
-    setPendingPosts(result.pendingPosts ?? []); setPosts(result.publishedPosts ?? []);
+    setModerationBusy(postId);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/principessa-feed/moderation", { body: JSON.stringify({ action, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
+      const result = await readJsonResponse<{ error?: string; pendingPosts?: PrincipessaFeedPost[]; publishedPosts?: PrincipessaFeedPost[] }>(response);
+      if (!response.ok) throw new Error(result.error ?? "Moderation failed.");
+      setPendingPosts(result.pendingPosts ?? []);
+      setPosts(result.publishedPosts ?? []);
+      setNotice(action === "approve" ? "Post approved and published in Subs." : "Post rejected and removed.");
+    } catch (moderationError) {
+      setError(moderationError instanceof Error ? moderationError.message : "Moderation failed.");
+    } finally {
+      setModerationBusy(null);
+    }
   };
 
   const viewCopy: Record<PrincipessaFeedView, { subtitle: string; title: string }> = {
     achievements: { subtitle: "Choose what enters the feed", title: "Share Achievement" },
+    approvals: { subtitle: "Admin-only submission review", title: "Post Approvals" },
     home: { subtitle: "Inside Principessa’s court", title: "The Velvet Network" },
     messages: { subtitle: "Private conversations", title: "Direct Messages" },
     notifications: { subtitle: "Mentions, replies and activity", title: "Notifications" },
@@ -568,12 +606,12 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   return (
     <div className="relative mx-auto grid min-h-[calc(100vh-76px)] max-w-[1380px] grid-cols-1 bg-[#060206] lg:grid-cols-[240px_minmax(0,720px)_300px]">
       <div className="pointer-events-none fixed inset-y-[76px] right-0 -z-10 w-[46vw] bg-[url('/principessa-feed/branding/principessa-feed-hero.webp')] bg-cover bg-[65%_center] opacity-[0.1]" />
-      <aside className="hidden border-r border-[#f4c06a]/10 p-5 lg:block"><div className="sticky top-[100px]"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty large />{profile ? <DisplayNameWithUsername className="mt-5" displayName={profile.displayName} primaryClassName="truncate font-serif text-2xl text-[#ffe5b8]" secondaryClassName="mt-1 truncate text-xs text-zinc-600" username={profile.username} /> : <h1 className="mt-5 truncate font-serif text-2xl text-[#ffe5b8]">{isLoggedIn ? "Loading profile..." : "Guest"}</h1>}<div className="mt-4"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /></div><nav className="mt-5 grid gap-2"><Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "home" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed">⌂&nbsp;&nbsp; Home</Link>{isLoggedIn ? <Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "profile" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed/profile">♙&nbsp;&nbsp; Profile</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#f4c06a]/30 pl-3 font-serif text-sm italic leading-6 text-zinc-600">A velvet room for Principessa’s official visions and approved offerings.</p></div></aside>
+      <aside className="hidden border-r border-[#f4c06a]/10 p-5 lg:block"><div className="sticky top-[100px]"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty large />{profile ? <DisplayNameWithUsername className="mt-5" displayName={profile.displayName} primaryClassName="truncate font-serif text-2xl text-[#ffe5b8]" secondaryClassName="mt-1 truncate text-xs text-zinc-600" username={profile.username} /> : <h1 className="mt-5 truncate font-serif text-2xl text-[#ffe5b8]">{isLoggedIn ? "Loading profile..." : "Guest"}</h1>}<div className="mt-4"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /></div><nav className="mt-5 grid gap-2"><Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "home" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed">⌂&nbsp;&nbsp; Home</Link>{isLoggedIn ? <Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "profile" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed/profile">♙&nbsp;&nbsp; Profile</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#f4c06a]/30 pl-3 font-serif text-sm italic leading-6 text-zinc-600">A velvet room for Principessa’s official visions and approved offerings.</p></div></aside>
 
       <section className="min-w-0 border-x border-[#f4c06a]/10 bg-[#090509]/95 shadow-[0_0_50px_rgba(0,0,0,.5)]">
         <header className="sticky top-[76px] z-40 border-b border-[#f4c06a]/10 bg-[#090509]/92 backdrop-blur-xl"><div className="flex items-center justify-between px-4 py-3"><div><h1 className="font-serif text-xl text-[#ffe5b8]">{viewCopy[view].title}</h1><p className="text-[10px] uppercase tracking-[0.18em] text-pink-300/40">{viewCopy[view].subtitle}</p></div><div className="flex gap-2 lg:hidden"><Link className="rounded-full px-3 py-2 text-xs font-black text-zinc-500" href="/principessa-feed">Home</Link>{isLoggedIn ? <Link className="rounded-full px-3 py-2 text-xs font-black text-zinc-500" href="/principessa-feed/profile">Profile</Link> : null}</div></div>{view === "home" ? <div className="grid grid-cols-2">{(["principessa", "sub"] as const).map((item) => <button className="relative py-4 text-sm font-black capitalize text-zinc-500 hover:bg-white/[0.03]" key={item} onClick={() => switchChannel(item)} type="button">{item === "sub" ? "Subs" : item}{channel === item ? <span className="absolute inset-x-1/3 bottom-0 h-0.5 bg-gradient-to-r from-pink-500 via-[#f4c06a] to-pink-500 shadow-[0_0_12px_#ec4899]" /> : null}</button>)}</div> : null}</header>
 
-        <div className="grid grid-cols-2 gap-2 border-b border-white/10 p-3 lg:hidden"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /><PrincipessaFeedSocialPanels activeView={view} isLoggedIn={isLoggedIn} /></div>
+        <div className="grid grid-cols-2 gap-2 border-b border-white/10 p-3 lg:hidden"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /></div>
 
         {view === "profile" ? (
           profileLoading ? <p className="p-16 text-center text-zinc-600">Opening your profile...</p> : profile ? <div>
@@ -583,6 +621,22 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
             <div className="border-y border-[#f4c06a]/10 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Your posts</div>
             {profilePosts.length ? profilePosts.map((post) => <article className={`border-b p-5 ${post.highlightedUntil ? "border-amber-300/30 bg-amber-400/[0.05]" : "border-[#f4c06a]/10"}`} key={post.id}><div className="flex gap-3"><FeedAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><DisplayNameWithUsername displayName={post.author.displayName} primaryClassName="font-black" secondaryClassName="text-xs text-zinc-600" secondaryStyle={post.author.usernameStyle} username={post.author.username} /><div className="flex gap-2">{post.pinned ? <span className="rounded-full border border-[#f4c06a]/20 px-2 py-0.5 text-[9px] font-black uppercase text-[#f4c06a]">Pinned</span> : null}<span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase text-zinc-500">{post.status}</span></div></div><h3 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>{post.status === "published" ? <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} /> : null}{isAdmin && post.channel === "principessa" ? <PostAdminActions onChanged={setProfilePosts} post={post} /> : post.channel === "sub" ? <div className="ml-14 mt-3 flex gap-3"><button className={post.pinned ? "text-xs font-black text-[#f4c06a]" : "text-xs font-black text-zinc-500 hover:text-[#f4c06a]"} onClick={() => void pinOwnPost(post.id)} type="button">{post.pinned ? "Unpin" : "Pin to profile"}</button><button className="text-xs font-black text-red-300/70 hover:text-red-300" onClick={() => void deleteOwnSubPost(post)} type="button">Delete post</button></div> : null}</article>) : <p className="p-16 text-center text-zinc-600">Your submitted posts will appear here.</p>}
           </div> : <p className="p-16 text-center text-sm text-zinc-500">Sign in from Main Page to open your feed profile.</p>
+        ) : view === "approvals" ? (
+          !isAdmin ? <div className="p-16 text-center"><p className="font-serif text-2xl text-[#ffe4b5]">Admin access only.</p><p className="mt-2 text-sm text-zinc-600">Post submissions can only be reviewed by Principessa.</p></div>
+            : <div>
+              <div className="flex items-center justify-between gap-4 border-b border-amber-300/15 bg-[linear-gradient(135deg,rgba(251,191,36,.08),rgba(236,72,153,.04))] p-5">
+                <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/70">Private moderation</p><h2 className="mt-1 font-serif text-2xl text-[#ffe4b5]">Sub post requests</h2><p className="mt-1 text-sm text-zinc-500">Review every offering before it enters the public Subs feed.</p></div>
+                <div className="flex shrink-0 items-center gap-3"><span className="inline-flex min-w-8 items-center justify-center rounded-full bg-amber-300 px-2 py-1 text-xs font-black text-black">{pendingPosts.length}</span><button className="rounded-full border border-amber-300/20 px-4 py-2 text-xs font-black text-amber-100 transition hover:bg-amber-400/10 disabled:opacity-40" disabled={pendingLoading} onClick={() => void loadPendingPosts()} type="button">{pendingLoading ? "Loading..." : "Refresh"}</button></div>
+              </div>
+              {notice ? <p className="border-b border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">{notice}</p> : null}
+              {error ? <p className="border-b border-red-300/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</p> : null}
+              {pendingLoading ? <div className="p-16 text-center"><div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-amber-200/15 border-t-amber-300" /><p className="mt-4 text-sm text-zinc-600">Opening approval queue...</p></div>
+                : pendingPosts.length === 0 ? <div className="p-16 text-center"><p className="font-serif text-2xl text-[#ffe4b5]">The queue is clear.</p><p className="mt-2 text-sm text-zinc-600">New Sub post requests will appear here automatically when this page is opened.</p></div>
+                  : pendingPosts.map((post) => <article className="border-b border-amber-300/10 p-5 transition hover:bg-amber-400/[0.025]" key={post.id}>
+                    <div className="flex gap-3"><FeedAvatar author={post.author} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><DisplayNameWithUsername displayName={post.author.displayName} primaryClassName="font-black text-amber-100" secondaryClassName="text-xs text-zinc-600" secondaryStyle={post.author.usernameStyle} username={post.author.username} /><span className="shrink-0 text-[10px] text-zinc-700">{formatDate(post.createdAt)}</span></div>{post.postType === "confession" ? <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">Confession · identity visible only to Principessa</p> : null}{post.postType === "achievement" ? <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-amber-300">Achievement card</p> : null}<h3 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>
+                    <div className="ml-14 mt-4 grid grid-cols-2 gap-3"><button className="rounded-full bg-emerald-500 py-2.5 text-xs font-black text-black transition hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-40" disabled={moderationBusy !== null} onClick={() => void moderate(post.id, "approve")} type="button">{moderationBusy === post.id ? "Working..." : "Approve & Publish"}</button><button className="rounded-full border border-red-400/30 py-2.5 text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:cursor-wait disabled:opacity-40" disabled={moderationBusy !== null} onClick={() => void moderate(post.id, "reject")} type="button">{moderationBusy === post.id ? "Working..." : "Reject"}</button></div>
+                  </article>)}
+            </div>
         ) : view === "search" ? <PrincipessaFeedSearchPage isLoggedIn={isLoggedIn} />
           : view === "notifications" ? <PrincipessaFeedNotificationsPage isLoggedIn={isLoggedIn} />
           : view === "messages" ? <PrincipessaFeedMessagesPage initialRecipientId={initialRecipientId} isLoggedIn={isLoggedIn} />
@@ -592,7 +646,6 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
         {channel === "principessa" && isAdmin ? <AdminComposer onPublished={setPosts} /> : null}
         {channel === "sub" && isLoggedIn ? <SubComposer onSubmitted={setNotice} /> : null}
         {channel === "sub" && !isLoggedIn ? <p className="border-b border-white/10 p-4 text-sm text-zinc-500">Sign in from Main Page to submit or comment.</p> : null}
-        {channel === "sub" && isAdmin && pendingPosts.length > 0 ? <section className="border-b border-amber-300/20 bg-amber-400/[0.04]"><div className="flex items-center justify-between p-4"><h2 className="font-black text-amber-100">Approval queue</h2><span className="rounded-full bg-amber-300 px-2 py-0.5 text-xs font-black text-black">{pendingPosts.length}</span></div>{pendingPosts.map((post) => <article className="border-t border-amber-300/10 p-4" key={post.id}><DisplayNameWithUsername displayName={post.author.displayName} primaryClassName="text-sm font-black text-amber-200" secondaryClassName="text-xs text-zinc-600" secondaryStyle={post.author.usernameStyle} username={post.author.username} />{post.postType === "confession" ? <p className="mt-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300">Confession · identity visible only to Principessa</p> : null}<h3 className="mt-2 font-black">{post.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /><div className="mt-3 grid grid-cols-2 gap-2"><button className="rounded-full bg-emerald-500 py-2 text-xs font-black text-black" onClick={() => void moderate(post.id, "approve")} type="button">Approve</button><button className="rounded-full border border-red-400/30 py-2 text-xs font-black text-red-300" onClick={() => void moderate(post.id, "reject")} type="button">Reject</button></div></article>)}</section> : null}
         {notice ? <p className="border-b border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">{notice}</p> : null}
         {error ? <p className="border-b border-red-300/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</p> : null}
 

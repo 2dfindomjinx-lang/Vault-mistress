@@ -8,7 +8,7 @@ type PublicIdentity = { displayName: string | null; userId: string; username: st
 type SearchPost = { author: PublicIdentity | null; channel: string; createdAt: string; description: string; id: string; postType: string; title: string };
 type DirectMessage = { body: string; createdAt: string; id: string; mine: boolean; other: PublicIdentity | null; otherId: string; readAt: string | null };
 type Achievement = { data: Record<string, unknown>; description: string; key: string; shared: boolean; title: string };
-type SocialView = "achievements" | "messages" | "notifications" | "search";
+type SocialView = "achievements" | "approvals" | "messages" | "notifications" | "search";
 
 async function json<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as (T & { error?: string }) | null;
@@ -143,11 +143,12 @@ export function PrincipessaFeedAchievementsPage({ isLoggedIn }: { isLoggedIn: bo
   return <div className="p-5"><p className="mb-5 text-sm leading-6 text-zinc-500">Nothing is posted automatically. Choose exactly what you want to send to Principessa for approval.</p>{notice ? <p className="mb-4 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">{notice}</p> : null}{error ? <p className="mb-4 rounded-2xl border border-red-300/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</p> : null}<div className="grid gap-3">{items.map((item) => <article className="rounded-3xl border border-[#f4c06a]/15 bg-[linear-gradient(135deg,rgba(244,192,106,.08),rgba(236,72,153,.05))] p-5" key={item.key}><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f4c06a]">Achievement card</p><h3 className="mt-2 font-serif text-xl text-[#ffe4b5]">{item.title}</h3><p className="mt-1 text-sm leading-6 text-zinc-400">{item.description}</p><button className="mt-4 rounded-full bg-pink-500 px-5 py-2 text-xs font-black disabled:opacity-40" disabled={item.shared} onClick={() => void share(item.key)} type="button">{item.shared ? "Already shared" : "Share"}</button></article>)}{items.length === 0 ? <p className="py-12 text-center text-sm text-zinc-600">No shareable achievements yet.</p> : null}</div></div>;
 }
 
-export function PrincipessaFeedSocialPanels({ activeView, isLoggedIn }: { activeView: string; isLoggedIn: boolean }) {
-  const links: Array<{ href: string; icon: string; label: string; view: SocialView }> = [
+export function PrincipessaFeedSocialPanels({ activeView, isAdmin = false, isLoggedIn }: { activeView: string; isAdmin?: boolean; isLoggedIn: boolean }) {
+  const links: Array<{ adminOnly?: boolean; href: string; icon: string; label: string; view: SocialView }> = [
+    { adminOnly: true, href: "/principessa-feed/approvals", icon: "✓", label: "Post Approvals", view: "approvals" },
     { href: "/principessa-feed/search", icon: "⌕", label: "Search", view: "search" },
     { href: "/principessa-feed/messages", icon: "✉", label: "Direct Messages", view: "messages" },
     { href: "/principessa-feed/achievements", icon: "◇", label: "Share Achievement", view: "achievements" },
   ];
-  return <nav className="mt-2 grid gap-1">{links.filter((link) => isLoggedIn || link.view === "search").map((link) => <Link className={`rounded-2xl px-4 py-3 text-left text-sm font-black transition ${activeView === link.view ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5 hover:text-white"}`} href={link.href} key={link.view}>{link.icon}&nbsp;&nbsp; {link.label}</Link>)}</nav>;
+  return <nav className="mt-2 grid gap-1">{links.filter((link) => (!link.adminOnly || isAdmin) && (isLoggedIn || link.view === "search")).map((link) => <Link className={`rounded-2xl px-4 py-3 text-left text-sm font-black transition ${activeView === link.view ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : link.adminOnly ? "border border-amber-300/10 text-amber-200/70 hover:bg-amber-400/10 hover:text-amber-100" : "text-zinc-500 hover:bg-white/5 hover:text-white"}`} href={link.href} key={link.view}>{link.icon}&nbsp;&nbsp; {link.label}</Link>)}</nav>;
 }
