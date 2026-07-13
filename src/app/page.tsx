@@ -26,19 +26,29 @@ import { ProfileTaskCard } from "@/components/TitleCollection";
 import { TopLevelNav } from "@/components/TopLevelNav";
 import type { DashboardPage, SidebarNavItem } from "@/components/SidebarNav";
 
-const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop));
-const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel));
-const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection));
-const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard));
-const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid));
-const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection));
-const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel));
-const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal));
-const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame));
-const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop));
-const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList));
-const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection));
-const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel));
+function VaultPanelLoading() {
+  return <div aria-live="polite" className="fixed inset-0 z-40 flex items-center justify-center bg-[#06030a]/82 px-6 backdrop-blur-md lg:left-[280px]" role="status">
+    <div className="rounded-[2rem] border border-fuchsia-200/20 bg-[linear-gradient(145deg,rgba(33,8,35,.96),rgba(7,4,10,.98))] px-10 py-8 text-center shadow-[0_0_70px_rgba(236,72,153,.2)]">
+      <div className="relative mx-auto h-14 w-14"><div className="absolute inset-0 animate-ping rounded-full bg-pink-500/15" /><div className="absolute inset-1 animate-spin rounded-full border-2 border-pink-200/15 border-t-pink-400 border-r-fuchsia-400 shadow-[0_0_22px_rgba(236,72,153,.35)]" /><div className="absolute inset-[1.15rem] rounded-full bg-pink-300 shadow-[0_0_14px_#f9a8d4]" /></div>
+      <p className="mt-5 font-serif text-xl text-[#ffe4b5]">Opening the Vault</p>
+      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-pink-200/50">Preparing your page...</p>
+    </div>
+  </div>;
+}
+
+const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
+const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
+const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection), { loading: VaultPanelLoading });
+const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard), { loading: VaultPanelLoading });
+const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid), { loading: VaultPanelLoading });
+const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection), { loading: VaultPanelLoading });
+const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel), { loading: VaultPanelLoading });
+const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal), { loading: VaultPanelLoading });
+const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame), { loading: VaultPanelLoading });
+const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
+const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
+const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection), { loading: VaultPanelLoading });
+const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel), { loading: VaultPanelLoading });
 
 const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown>>> = {
   collection: () => import("@/components/GalleryGrid"),
