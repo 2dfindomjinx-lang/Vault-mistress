@@ -1,4 +1,5 @@
-import { DEFAULT_SPEECH_AVATAR_ID, cosmeticItems } from "@/lib/cosmetics";
+import { cosmeticItems } from "@/lib/cosmetics";
+import { DEFAULT_SPEECH_AVATAR_ID } from "@/lib/speech-bubble-types";
 import { getGmt3DateKey, getGmt3DayBounds } from "@/lib/time";
 
 export type EventEffectType =

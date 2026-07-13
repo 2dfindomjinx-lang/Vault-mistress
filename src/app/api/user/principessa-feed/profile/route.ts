@@ -23,34 +23,38 @@ async function requireUser() {
 async function buildProfileResponse(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   userId: string,
+  includePosts = true,
 ) {
   const [identityResult, feedProfileResult, posts] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
     supabase.from("principessa_feed_profiles").select("avatar_path, header_path").eq("user_id", userId).maybeSingle(),
-    listPrincipessaFeedPosts(supabase, { authorId: userId, channel: "all", status: "all", viewerId: userId, viewerIsAdmin: isTrustedAdminUserId(userId) }),
+    includePosts
+      ? listPrincipessaFeedPosts(supabase, { authorId: userId, channel: "all", status: "all", viewerId: userId, viewerIsAdmin: isTrustedAdminUserId(userId) })
+      : Promise.resolve([]),
   ]);
 
   if (identityResult.error) throw identityResult.error;
   const feedProfile = feedProfileResult.error ? null : feedProfileResult.data;
-  const paths = [feedProfile?.avatar_path, feedProfile?.header_path].filter((path): path is string => Boolean(path));
+  const paths = [feedProfile?.avatar_path, includePosts ? feedProfile?.header_path : null].filter((path): path is string => Boolean(path));
   const signedMap = await getPrincipessaFeedSignedUrlMap(supabase, paths);
 
   return {
     profile: {
       avatarUrl: feedProfile?.avatar_path ? signedMap.get(feedProfile.avatar_path) ?? null : null,
       displayName: identityResult.data?.display_name?.trim() || identityResult.data?.username || "Unknown",
-      headerUrl: feedProfile?.header_path ? signedMap.get(feedProfile.header_path) ?? null : null,
+      headerUrl: includePosts && feedProfile?.header_path ? signedMap.get(feedProfile.header_path) ?? null : null,
       username: identityResult.data?.username || "@unknown",
     },
     posts,
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireUser();
   if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
   try {
-    return Response.json(await buildProfileResponse(auth.supabase, auth.user.id));
+    const includePosts = new URL(request.url).searchParams.get("includePosts") !== "false";
+    return Response.json(await buildProfileResponse(auth.supabase, auth.user.id, includePosts));
   } catch (error) {
     console.error("Feed profile optional data could not be loaded", error);
     const username = String(auth.user.user_metadata?.username ?? auth.user.email?.split("@")[0] ?? "unknown");

@@ -1,40 +1,44 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
-import { CosmeticShop } from "@/components/CosmeticShop";
-import { CratesPanel, type CrateDefinition, type CrateInventoryItem } from "@/components/CratesPanel";
-import { DebtSection } from "@/components/DebtSection";
-import { DevotionLeaderboard } from "@/components/DevotionLeaderboard";
+import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
-import { GalleryGrid } from "@/components/GalleryGrid";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { NotificationBell } from "@/components/NotificationBell";
-import { PetSection } from "@/components/PetSection";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
-import { ProfileHeaderCustomizationPanel } from "@/components/ProfileHeaderCustomizationPanel";
-import { PublicProfileModal } from "@/components/PublicProfileModal";
-import { PuzzleGame } from "@/components/PuzzleGame";
 import {
   RecentTributesTicker,
   type RecentTribute,
   type TopInventory,
 } from "@/components/RecentTributesTicker";
-import { RotatingShop } from "@/components/RotatingShop";
 import { StatsPanel } from "@/components/StatsPanel";
-import { TaskList } from "@/components/TaskList";
-import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
-import { TributePanel } from "@/components/TributePanel";
+import { ProfileTaskCard } from "@/components/TitleCollection";
 import { TopLevelNav } from "@/components/TopLevelNav";
 import type { DashboardPage } from "@/components/SidebarNav";
+
+const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop));
+const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel));
+const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection));
+const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard));
+const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid));
+const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection));
+const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel));
+const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal));
+const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame));
+const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop));
+const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList));
+const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection));
+const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel));
 import {
   AVATAR_SLOT_ORDER,
   resolveAvatarItemIconPath,
@@ -52,12 +56,7 @@ import {
 } from "@/lib/avatar-background-cosmetics";
 import {
   cosmeticItems,
-  DEFAULT_SPEECH_AVATAR_ID,
   getCosmeticItem,
-  getSpeechBubbleMessageForText,
-  getSpeechBubbleMessagePool,
-  getSpeechBubbleResponseMessage,
-  RANDOM_SPEECH_AVATAR_ID,
   getTitleItem,
   getSpendBadge,
   getUnlockedCrateTitleIds,
@@ -70,6 +69,11 @@ import {
   type CosmeticType,
   type TitleItem,
 } from "@/lib/cosmetics";
+import {
+  DEFAULT_SPEECH_AVATAR_ID,
+  RANDOM_SPEECH_AVATAR_ID,
+  type SpeechBubbleMessageCategory,
+} from "@/lib/speech-bubble-types";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 import type { RandomEvent } from "@/lib/events";
 import {
@@ -1918,6 +1922,36 @@ function getGalleryMechanicState(unlockedIds: string[]) {
 }
 
 export default function Home() {
+  const speechBubbleModuleRef = useRef<typeof import("@/lib/speech-bubble-messages") | null>(null);
+  const getSpeechBubbleMessageForText = useCallback((avatarId: string | null | undefined, fallbackMessage: string) =>
+    speechBubbleModuleRef.current?.getSpeechBubbleMessageForText(avatarId, fallbackMessage) ?? fallbackMessage, []);
+  const getSpeechBubbleMessagePool = useCallback((avatarId: string | null | undefined, poolName: "idle" | "petIdle") =>
+    speechBubbleModuleRef.current?.getSpeechBubbleMessagePool(avatarId, poolName)
+      ?? [poolName === "petIdle" ? "Stay focused and keep serving." : "Waiting for my attention again? Cute."], []);
+  const getSpeechBubbleResponseMessage = useCallback((
+    avatarId: string | null | undefined,
+    category: SpeechBubbleMessageCategory,
+    fallbackMessage?: string,
+  ) => speechBubbleModuleRef.current?.getSpeechBubbleResponseMessage(avatarId, category, fallbackMessage)
+    ?? fallbackMessage
+    ?? "Continue serving Principessa.", []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSpeechBubbles = () => {
+      void import("@/lib/speech-bubble-messages").then((module) => {
+        if (!cancelled) speechBubbleModuleRef.current = module;
+      });
+    };
+    const requestIdle = window.requestIdleCallback;
+    if (typeof requestIdle === "function") {
+      const idleId = requestIdle(loadSpeechBubbles, { timeout: 5000 });
+      return () => { cancelled = true; window.cancelIdleCallback(idleId); };
+    }
+    const timer = globalThis.setTimeout(loadSpeechBubbles, 1500);
+    return () => { cancelled = true; globalThis.clearTimeout(timer); };
+  }, []);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);

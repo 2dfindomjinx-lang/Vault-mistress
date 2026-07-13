@@ -436,17 +436,17 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   useEffect(() => {
     if (!isLoggedIn) return;
     const controller = new AbortController();
-    fetch("/api/user/principessa-feed/profile", { cache: "no-store", signal: controller.signal })
+    fetch(`/api/user/principessa-feed/profile?includePosts=${view === "profile" ? "true" : "false"}`, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const result = (await response.json()) as { posts?: PrincipessaFeedPost[]; profile?: FeedProfile };
-        if (response.ok) { setProfile(result.profile ?? null); setProfilePosts(result.posts ?? []); }
+        if (response.ok) { setProfile(result.profile ?? null); if (view === "profile") setProfilePosts(result.posts ?? []); }
       })
       .catch(() => undefined)
       .finally(() => {
         setProfileLoading(false);
       });
     return () => controller.abort();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, view]);
 
   const saveProfile = async () => {
     if (!avatarFile && !headerFile) return;
