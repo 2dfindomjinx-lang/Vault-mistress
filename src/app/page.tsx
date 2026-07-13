@@ -24,7 +24,7 @@ import {
 import { StatsPanel } from "@/components/StatsPanel";
 import { ProfileTaskCard } from "@/components/TitleCollection";
 import { TopLevelNav } from "@/components/TopLevelNav";
-import type { DashboardPage } from "@/components/SidebarNav";
+import type { DashboardPage, SidebarNavItem } from "@/components/SidebarNav";
 
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop));
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel));
@@ -39,6 +39,29 @@ const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((mod
 const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList));
 const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection));
 const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel));
+
+const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown>>> = {
+  collection: () => import("@/components/GalleryGrid"),
+  crates: () => import("@/components/CratesPanel"),
+  debt: () => import("@/components/DebtSection"),
+  devotion: () => import("@/components/DevotionLeaderboard"),
+  pet: () => import("@/components/PetSection"),
+  profile: () => Promise.all([
+    import("@/components/ProfileHeaderCustomizationPanel"),
+    import("@/components/TitleCollection"),
+  ]),
+  puzzle: () => import("@/components/PuzzleGame"),
+  shop: () => Promise.all([
+    import("@/components/CosmeticShop"),
+    import("@/components/RotatingShop"),
+  ]),
+  tasks: () => import("@/components/TaskList"),
+  tribute: () => import("@/components/TributePanel"),
+};
+
+function preloadDashboardPanel(page: DashboardPage) {
+  return dashboardPanelLoaders[page]?.() ?? Promise.resolve();
+}
 import {
   AVATAR_SLOT_ORDER,
   resolveAvatarItemIconPath,
@@ -1965,6 +1988,35 @@ export default function Home() {
   const [hasHydratedInitialProfile, setHasHydratedInitialProfile] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
+
+  useEffect(() => {
+    if (!authBootstrapped || (!isLoggedIn && !isPreviewMode && !isGuestMode)) return;
+    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "crates", "puzzle", "collection", "profile", "pet", "debt"];
+    let cancelled = false;
+    let idleId: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let index = 0;
+
+    const scheduleNext = () => {
+      if (cancelled || index >= panels.length) return;
+      const run = () => {
+        const panel = panels[index++];
+        void preloadDashboardPanel(panel).finally(scheduleNext);
+      };
+      if (typeof window.requestIdleCallback === "function") {
+        idleId = window.requestIdleCallback(run, { timeout: 8000 });
+      } else {
+        timer = globalThis.setTimeout(run, 1200);
+      }
+    };
+
+    scheduleNext();
+    return () => {
+      cancelled = true;
+      if (idleId !== null) window.cancelIdleCallback(idleId);
+      if (timer !== null) globalThis.clearTimeout(timer);
+    };
+  }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode]);
   const [username, setUsername] = useState("@littledevotee");
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [showDisplayNameSetup, setShowDisplayNameSetup] = useState(false);
@@ -10163,7 +10215,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return classes;
   };
 
-  const dashboardNavItems = [
+  const baseDashboardNavItems: SidebarNavItem[] = [
     { key: "home" as const, label: "Home" },
     { key: "devotion" as const, label: "Devotion" },
     { key: "tribute" as const, label: affection >= 100 ? "Shrine" : "Tribute" },
@@ -10189,6 +10241,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     },
     { key: "profile" as const, label: "Profile" },
   ];
+  const dashboardNavItems = baseDashboardNavItems.map((item) => ({
+    ...item,
+    onHover: () => {
+      void preloadDashboardPanel(item.key);
+      item.onHover?.();
+    },
+  }));
   const activePageLabel =
     dashboardNavItems.find((item) => item.key === activePanel)?.label ?? "Home";
   const selectedDevotionRank =
@@ -10594,6 +10653,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           coinsRef.current = nextCoins;
         }}
         onNavigate={(page) => {
+          void preloadDashboardPanel(page);
           emitSoundEvent("button_click");
           resetViewportScroll();
           setActivePanel(page);

@@ -70,6 +70,7 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
                 key={item.key}
                 onFocus={() => item.onHover?.()}
                 onMouseEnter={() => item.onHover?.()}
+                onPointerDown={() => item.onHover?.()}
                 onClick={() => onSelect(item.key)}
                 type="button"
               >

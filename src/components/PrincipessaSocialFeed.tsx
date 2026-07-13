@@ -207,7 +207,6 @@ function ImageCropEditor({ file, onApply, onCancel, target }: { file: File; onAp
 }
 
 function AdminComposer({ onPublished }: { onPublished: (posts: PrincipessaFeedPost[]) => void }) {
-  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -230,15 +229,11 @@ function AdminComposer({ onPublished }: { onPublished: (posts: PrincipessaFeedPo
       const result = await readJsonResponse<{ error?: string; posts?: PrincipessaFeedPost[] }>(response);
       if (!response.ok) throw new Error(result.error ?? "Post could not be published.");
       onPublished(result.posts ?? []);
-      setTitle(""); setDescription(""); setFiles([]); setOpen(false);
+      setTitle(""); setDescription(""); setFiles([]);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Post could not be published.");
     } finally { setBusy(false); }
   };
-
-  if (!open) {
-    return <button className="w-full border-b border-white/10 px-4 py-4 text-left text-lg text-zinc-500 transition hover:bg-white/[0.025] hover:text-white" onClick={() => setOpen(true)} type="button">Share something as Principessa...</button>;
-  }
 
   return (
     <section className="border-b border-white/10 p-4">
@@ -247,7 +242,7 @@ function AdminComposer({ onPublished }: { onPublished: (posts: PrincipessaFeedPo
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
         <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">Add up to 8 images (4 MB total)<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" multiple onChange={(event) => { const next = [...files, ...Array.from(event.target.files ?? [])].slice(0, 8); if (next.reduce((total, file) => total + file.size, 0) > MAX_FUNCTION_UPLOAD_BYTES) setError("The selected images are too large to upload together. Keep the total below 4 MB."); else { setFiles(next); setError(""); } event.target.value = ""; }} type="file" /></label>
         <div className="flex gap-2">
-          <button className="rounded-full px-4 py-2 text-xs font-black text-zinc-400" onClick={() => setOpen(false)} type="button">Cancel</button>
+          <button className="rounded-full px-4 py-2 text-xs font-black text-zinc-400" onClick={() => { setTitle(""); setDescription(""); setFiles([]); setError(""); }} type="button">Clear</button>
           <button className="rounded-full bg-pink-500 px-5 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void submit()} type="button">{busy ? "Publishing..." : "Publish"}</button>
         </div>
       </div>
