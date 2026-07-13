@@ -156,9 +156,11 @@ export async function listPrincipessaFeedPosts(
   const commentRows = (commentsResult.data ?? []) as CommentRow[];
   const likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
   const repostRows = (repostsResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
-  const { data: signedImages, error: signedImagesError } = await supabase.storage
-    .from("principessa-feed")
-    .createSignedUrls(imageRows.map((image) => image.storage_path), 60 * 60);
+  const { data: signedImages, error: signedImagesError } = imageRows.length > 0
+    ? await supabase.storage
+        .from("principessa-feed")
+        .createSignedUrls(imageRows.map((image) => image.storage_path), 60 * 60)
+    : { data: [], error: null };
 
   if (signedImagesError) {
     throw signedImagesError;

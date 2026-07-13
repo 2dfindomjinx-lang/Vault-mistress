@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 
 type PublicIdentity = { displayName: string | null; userId: string; username: string; usernameStyle?: { color?: string; textShadow?: string } };
@@ -16,12 +17,12 @@ async function json<T>(response: Response): Promise<T> {
 }
 
 function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
-  return <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/85 p-3 backdrop-blur-lg" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  return createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/85 p-3 backdrop-blur-lg" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[#f4c06a]/20 bg-[#0e070e] shadow-2xl">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#0e070e]/95 px-5 py-4 backdrop-blur"><h2 className="font-serif text-xl text-[#ffe4b5]">{title}</h2><button className="rounded-full border border-white/10 px-3 py-1 text-xs font-black text-zinc-400" onClick={onClose} type="button">CLOSE</button></header>
       {children}
     </section>
-  </div>;
+  </div>, document.body);
 }
 
 function SearchPanel({ onClose }: { onClose: () => void }) {

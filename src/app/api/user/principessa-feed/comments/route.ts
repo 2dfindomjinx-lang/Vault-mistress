@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
+import { createUserNotification } from "@/lib/user-notifications";
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const { data: post, error: postError } = await supabase
     .from("principessa_posts")
-    .select("id, title")
+    .select("id, title, author_id")
     .eq("id", postId)
     .eq("status", "published")
     .maybeSingle();
@@ -64,6 +65,16 @@ export async function POST(request: Request) {
     postTitle: post.title,
     text: commentBody,
   }).catch((error) => console.error("Principessa feed comment mention notification failed", error));
+
+  if (post.author_id !== authData.user.id) {
+    await createUserNotification(supabase, {
+      body: `Someone replied to “${post.title}”.`,
+      kind: "principessa_feed_reply",
+      metadata: { commentId: insertedComment.id, postId, source: "principessa_feed" },
+      title: "New reply to your post",
+      userId: post.author_id,
+    }).catch((error) => console.error("Principessa feed reply notification failed", error));
+  }
 
   return Response.json({
     comment: {
