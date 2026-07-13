@@ -104,6 +104,12 @@ as $$
   from public.coin_transactions ct
   where ct.reason in ('tribute', 'live_gift', 'throne_tribute', 'admin_grant', 'admin:/give')
     and ct.amount > 0
+    and not exists (
+      select 1
+      from public.admin_pet_task_logs log
+      where log.status = 'reverted'
+        and log.transaction_ids @> jsonb_build_array(ct.id::text)
+    )
   order by ct.created_at desc
   limit greatest(1, least(coalesce(p_limit, 10), 50));
 $$;

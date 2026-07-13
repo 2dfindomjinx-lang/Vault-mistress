@@ -101,6 +101,7 @@ export async function GET() {
     supabase
       .from("live_chat_messages")
       .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
+      .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(75),
     supabase.from("live_chat_mutes").select("*").eq("user_id", authResult.userId!).maybeSingle(),

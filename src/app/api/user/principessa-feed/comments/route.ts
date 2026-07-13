@@ -43,15 +43,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Please wait before posting more comments." }, { status: 429 });
   }
 
-  const { error: insertError } = await supabase.from("principessa_post_comments").insert({
-    body: commentBody,
-    post_id: postId,
-    user_id: authData.user.id,
-  });
+  const { data: insertedComment, error: insertError } = await supabase
+    .from("principessa_post_comments")
+    .insert({
+      body: commentBody,
+      post_id: postId,
+      user_id: authData.user.id,
+    })
+    .select("id, body, created_at")
+    .single();
   if (insertError) {
     console.error("Principessa feed comment insert failed", insertError);
     return Response.json({ error: insertError.message }, { status: 500 });
   }
 
-  return Response.json({ ok: true }, { status: 201 });
+  return Response.json({
+    comment: {
+      body: insertedComment.body,
+      createdAt: insertedComment.created_at,
+      id: insertedComment.id,
+    },
+    ok: true,
+  }, { status: 201 });
 }

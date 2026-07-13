@@ -195,6 +195,10 @@ export default function AdminAnalyticsPage() {
         params.set("userId", userId);
       }
 
+      if (userSort !== "default") {
+        params.set("sort", userSort);
+      }
+
       const response = await fetch(`/api/admin/analytics${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" });
       const payload = (await response.json()) as AnalyticsPayload & { error?: string };
 
@@ -209,7 +213,7 @@ export default function AdminAnalyticsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userSort]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

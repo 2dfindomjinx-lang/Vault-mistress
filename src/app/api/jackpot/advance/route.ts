@@ -11,7 +11,8 @@ import {
   maybeSelectWinner,
   buildJackpotState,
 } from "@/app/api/jackpot/route";
-import { JACKPOT_BASE_POOL, getJackpotCycle } from "@/lib/jackpot";
+import { JACKPOT_BASE_POOL } from "@/lib/jackpot";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
@@ -31,6 +32,16 @@ async function authorizeAdvance(request: Request): Promise<AdminContext> {
     return {
       adminProfile: null,
       adminUser: { id: "cron" },
+      supabase: createSupabaseAdminClient(),
+    } as unknown as AdminContext;
+  }
+
+  const authSupabase = await createSupabaseServerClient();
+  const { data, error } = await authSupabase.auth.getUser();
+  if (!error && data.user && isSupabaseAdminConfigured) {
+    return {
+      adminProfile: null,
+      adminUser: { id: data.user.id },
       supabase: createSupabaseAdminClient(),
     } as unknown as AdminContext;
   }

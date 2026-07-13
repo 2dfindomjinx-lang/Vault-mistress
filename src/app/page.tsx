@@ -3779,19 +3779,33 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const payload = (await response.json()) as {
         jackpot?: LoyaltyJackpotState;
         error?: string;
+        needsAdvance?: boolean;
       };
 
       if (!response.ok) {
         throw new Error(payload.error ?? "Jackpot could not be loaded.");
       }
 
-      setJackpot(payload.jackpot ?? null);
+      let nextJackpot = payload.jackpot ?? null;
+      if (payload.needsAdvance && isLoggedIn) {
+        const advanceResponse = await fetch("/api/jackpot/advance", { method: "POST" });
+        const advancePayload = (await advanceResponse.json().catch(() => null)) as {
+          error?: string;
+          state?: LoyaltyJackpotState | null;
+        } | null;
+        if (!advanceResponse.ok) {
+          throw new Error(advancePayload?.error ?? "Jackpot could not be advanced.");
+        }
+        nextJackpot = advancePayload?.state ?? nextJackpot;
+      }
+
+      setJackpot(nextJackpot);
       setJackpotError("");
     } catch (error) {
       console.error("Failed to load loyalty jackpot", error);
       setJackpotError(describeError(error));
     }
-  }, [isGuestMode, isPreviewMode]);
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   useEffect(() => {
     const revealKey = getJackpotWinnerRevealKey(jackpot);

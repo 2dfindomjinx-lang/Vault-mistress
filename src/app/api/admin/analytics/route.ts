@@ -3,7 +3,6 @@ import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
-const ANALYTICS_PAGE_SIZE = 1000;
 
 type ProfileRow = {
   id: string;
@@ -58,6 +57,26 @@ type GalleryRow = {
   item_id: string;
   unlocked_at: string | null;
 };
+
+type AnalyticsRollup = {
+  affectionBuckets: Array<{ count: number; label: string }>;
+  activeDebtContracts: number;
+  activeToday: number;
+  averageCoins: number;
+  missedDebtPeriods: number;
+  newToday: number;
+  ownerLikenessWarnings: number;
+  todayCoinsEarned: number;
+  todayCoinsSpent: number;
+  todayTributeReceived: number;
+  totalCoinsInCirculation: number;
+  totalProfiles: number;
+};
+
+type TaskUsageRow = { task_id: string; usage_count: number | string };
+type TopInventoryIdRow = { inventory_value: number | string; user_id: string };
+type GalleryCountRow = { item_key: string; unlock_count: number | string };
+type CoinDailyRow = { day: string; earned: number | string; spent: number | string; tribute: number | string };
 
 type TopInventoryItem = {
   itemId: string;
@@ -144,28 +163,6 @@ function currentGmt3DayWindow() {
     day: todayKey,
     resetAt: window.end,
   };
-}
-
-function isTributeTransaction(row: CoinRow) {
-  const reason = row.reason ?? "";
-
-  return reason === "tribute" || reason.startsWith("tribute:");
-}
-
-function getTributeReceivedAmount(row: CoinRow) {
-  if (!isTributeTransaction(row)) {
-    return 0;
-  }
-
-  return row.amount < 0 ? Math.abs(row.amount) : Math.max(0, row.amount);
-}
-
-function getCoinsEarnedAmount(row: CoinRow) {
-  return Math.max(0, row.amount);
-}
-
-function getCoinsSpentAmount(row: CoinRow) {
-  return Math.abs(Math.min(0, row.amount));
 }
 
 function getTransactionReasonLabel(row: CoinRow) {
@@ -287,68 +284,22 @@ function getTaskLabel(taskId: string) {
   return titleizeTaskId(taskId);
 }
 
-async function fetchAllRows<T>(createQuery: () => {
-  range: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
-}) {
-  const rows: T[] = [];
-  let from = 0;
-
-  while (true) {
-    const to = from + ANALYTICS_PAGE_SIZE - 1;
-    const { data, error } = await createQuery().range(from, to);
-
-    if (error) {
-      throw error;
-    }
-
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-
-    if (page.length < ANALYTICS_PAGE_SIZE) {
-      break;
-    }
-
-    from += ANALYTICS_PAGE_SIZE;
-  }
-
-  return rows;
-}
-
 async function countAuthUsers(supabase: {
   auth: {
     admin: {
       listUsers: (params: { page: number; perPage: number }) => Promise<{
-        data: { users?: unknown[] };
+        data: { total?: number; users?: unknown[] };
         error: { message: string } | null;
       }>;
     };
   };
 }) {
-  let page = 1;
-  let total = 0;
-
-  while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage: ANALYTICS_PAGE_SIZE,
-    });
-
-    if (error) {
-      console.error("Admin analytics auth users count failed", error);
-      return null;
-    }
-
-    const users = data.users ?? [];
-    total += users.length;
-
-    if (users.length < ANALYTICS_PAGE_SIZE) {
-      break;
-    }
-
-    page += 1;
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
+  if (error) {
+    console.error("Admin analytics auth users count failed", error);
+    return null;
   }
-
-  return total;
+  return Number(data.total ?? data.users?.length ?? 0);
 }
 
 export async function GET(request: Request) {
@@ -360,70 +311,45 @@ export async function GET(request: Request) {
 
   const requestUrl = new URL(request.url);
   const query = requestUrl.searchParams.get("query")?.trim().toLowerCase() ?? "";
+  const userSort = requestUrl.searchParams.get("sort") === "tribute" ? "tribute" : requestUrl.searchParams.get("sort") === "coins" ? "coins" : "default";
   const selectedUserId = requestUrl.searchParams.get("userId")?.trim() ?? "";
   const supabase = admin.supabase;
   const dayKeys = lastDays(7);
   const sevenDaysAgo = gmt3DayWindow(dayKeys[0]).start;
   const todayWindow = currentGmt3DayWindow();
 
+  let profilesQuery = supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at");
+  const safeQuery = query.replace(/[%_,()]/g, "");
+  if (safeQuery) {
+    const identityFilters = [`username.ilike.%${safeQuery}%`, `display_name.ilike.%${safeQuery}%`];
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(safeQuery)) identityFilters.push(`id.eq.${safeQuery}`);
+    profilesQuery = profilesQuery.or(identityFilters.join(","));
+  }
+  profilesQuery = userSort === "tribute"
+    ? profilesQuery.order("tribute_total", { ascending: false })
+    : userSort === "coins"
+      ? profilesQuery.order("coins", { ascending: false })
+      : profilesQuery.order("created_at", { ascending: false });
+
   const [
     authUsersCount,
-    totalProfilesCountResult,
-    profiles,
-    inventoryRows,
-    userTaskRows,
-    petTaskRows,
-    irlTaskRows,
-    userGalleryRows,
-    petGalleryRows,
-    overviewTransactions,
-    chartTransactions,
+    rollupResult,
+    profilesResult,
+    topInventoryIdsResult,
+    taskUsageResult,
+    galleryCountsResult,
+    coinDailyResult,
     selectedTransactionsResult,
-    debts,
   ] = await Promise.all([
     countAuthUsers(supabase),
-    supabase.from("profiles").select("id", { count: "exact", head: true }),
-    fetchAllRows<ProfileRow>(() =>
-      supabase
-        .from("profiles")
-      .select("id, username, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at")
-        .order("created_at", { ascending: false }),
-    ),
-    fetchAllRows<CrateInventoryRow>(() =>
-      supabase.from("user_crate_inventory").select("user_id, item_id, variant, quantity"),
-    ),
-    fetchAllRows<TaskRow>(() =>
-      supabase
-        .from("user_tasks")
-        .select("user_id, task_id, completed_at, claimed_at, reward_coins"),
-    ),
-    fetchAllRows<TaskRow>(() =>
-      supabase
-        .from("user_pet_tasks")
-        .select("user_id, task_id, completed_at, claimed_at:reviewed_at"),
-    ),
-    fetchAllRows<TaskRow>(() =>
-      supabase
-        .from("user_irl_tasks")
-        .select("user_id, task_id:task_label, completed_at, claimed_at:reviewed_at"),
-    ),
-    fetchAllRows<GalleryRow>(() => supabase.from("user_gallery").select("user_id, item_id, unlocked_at")),
-    fetchAllRows<GalleryRow>(() => supabase.from("user_pet_gallery").select("user_id, item_id, unlocked_at")),
-    fetchAllRows<CoinRow>(() =>
-      supabase
-        .from("coin_transactions")
-        .select("id, user_id, amount, reason, balance_before, balance_after, metadata, created_at")
-        .gte("created_at", todayWindow.start)
-        .lt("created_at", todayWindow.end)
-        .order("created_at", { ascending: false }),
-    ),
-    fetchAllRows<CoinRow>(() =>
-      supabase
-        .from("coin_transactions")
-        .select("id, user_id, amount, reason, balance_before, balance_after, metadata, created_at")
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: false }),
-    ),
+    supabase.rpc("get_admin_analytics_rollup", { p_today_end: todayWindow.end, p_today_start: todayWindow.start }),
+    profilesQuery.limit(safeQuery ? 50 : 20),
+    supabase.rpc("get_admin_top_inventory_user_ids", { p_limit: 20 }),
+    supabase.rpc("get_admin_task_usage"),
+    supabase.rpc("get_admin_gallery_counts"),
+    supabase.rpc("get_admin_coin_daily", { p_end: todayWindow.end, p_start: sevenDaysAgo }),
     selectedUserId
       ? supabase
           .from("coin_transactions")
@@ -432,13 +358,15 @@ export async function GET(request: Request) {
           .order("created_at", { ascending: false })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
-    fetchAllRows<{ id: string; status: string; debt_amount: number; paid_periods: number; missed_periods: number }>(() =>
-      supabase.from("pet_debt_contracts").select("id, status, debt_amount, paid_periods, missed_periods"),
-    ),
   ]);
 
   const failed = [
-    totalProfilesCountResult.error,
+    rollupResult.error,
+    profilesResult.error,
+    topInventoryIdsResult.error,
+    taskUsageResult.error,
+    galleryCountsResult.error,
+    coinDailyResult.error,
     selectedTransactionsResult.error,
   ].find(Boolean);
 
@@ -447,7 +375,29 @@ export async function GET(request: Request) {
     return Response.json({ error: failed.message }, { status: 500 });
   }
 
-  const totalRegisteredUsers = totalProfilesCountResult.count ?? profiles.length;
+  const rollup = (rollupResult.data ?? {}) as AnalyticsRollup;
+  const profiles = (profilesResult.data ?? []) as ProfileRow[];
+  const profileIds = profiles.map((profile) => profile.id);
+  const topInventoryUserIds = ((topInventoryIdsResult.data ?? []) as TopInventoryIdRow[]).map((row) => row.user_id);
+  const [userTaskResult, petTaskResult, irlTaskResult, userGalleryResult, petGalleryResult, inventoryResult, topProfilesResult] = await Promise.all([
+    profileIds.length ? supabase.from("user_tasks").select("user_id, task_id, completed_at, claimed_at, reward_coins").in("user_id", profileIds) : Promise.resolve({ data: [], error: null }),
+    profileIds.length ? supabase.from("user_pet_tasks").select("user_id, task_id, completed_at, claimed_at:reviewed_at").in("user_id", profileIds) : Promise.resolve({ data: [], error: null }),
+    profileIds.length ? supabase.from("user_irl_tasks").select("user_id, task_id:task_label, completed_at, claimed_at:reviewed_at").in("user_id", profileIds) : Promise.resolve({ data: [], error: null }),
+    profileIds.length ? supabase.from("user_gallery").select("user_id, item_id, unlocked_at").in("user_id", profileIds) : Promise.resolve({ data: [], error: null }),
+    profileIds.length ? supabase.from("user_pet_gallery").select("user_id, item_id, unlocked_at").in("user_id", profileIds) : Promise.resolve({ data: [], error: null }),
+    topInventoryUserIds.length ? supabase.from("user_crate_inventory").select("user_id, item_id, variant, quantity").in("user_id", topInventoryUserIds) : Promise.resolve({ data: [], error: null }),
+    topInventoryUserIds.length ? supabase.from("profiles").select("id, username, display_name, avatar_url, coins, affection, tribute_total, loyalty_streak, owner_likeness, created_at, updated_at, last_login_at").in("id", topInventoryUserIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const detailError = [userTaskResult.error, petTaskResult.error, irlTaskResult.error, userGalleryResult.error, petGalleryResult.error, inventoryResult.error, topProfilesResult.error].find(Boolean);
+  if (detailError) return Response.json({ error: detailError.message }, { status: 500 });
+  const userTaskRows = (userTaskResult.data ?? []) as TaskRow[];
+  const petTaskRows = (petTaskResult.data ?? []) as TaskRow[];
+  const irlTaskRows = (irlTaskResult.data ?? []) as TaskRow[];
+  const userGalleryRows = (userGalleryResult.data ?? []) as GalleryRow[];
+  const petGalleryRows = (petGalleryResult.data ?? []) as GalleryRow[];
+  const inventoryRows = (inventoryResult.data ?? []) as CrateInventoryRow[];
+  const topInventoryProfiles = (topProfilesResult.data ?? []) as ProfileRow[];
+  const totalRegisteredUsers = Number(rollup.totalProfiles ?? 0);
   const taskRows = [
     ...userTaskRows,
     ...petTaskRows.map((row) => ({
@@ -472,7 +422,7 @@ export async function GET(request: Request) {
     })),
   ];
   const selectedTransactions = (selectedTransactionsResult.data ?? []) as CoinRow[];
-  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const profileById = new Map([...profiles, ...topInventoryProfiles].map((profile) => [profile.id, profile]));
 
   const uniqueInventoryItemIds = Array.from(
     new Set((inventoryRows as CrateInventoryRow[]).map((row) => row.item_id).filter(Boolean)),
@@ -503,7 +453,7 @@ export async function GET(request: Request) {
     inventoryItemMap.set(row.item_id, row);
   }
 
-  const [registrationsByDay, activeByDay, newTodayResult] = await Promise.all([
+  const [registrationsByDay, activeByDay] = await Promise.all([
     Promise.all(
       dayKeys.map(async (day) => {
         const window = gmt3DayWindow(day);
@@ -536,56 +486,16 @@ export async function GET(request: Request) {
         return { day, count: count ?? 0 };
       }),
     ),
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", todayWindow.start)
-      .lt("created_at", todayWindow.end),
   ]);
 
-  if (newTodayResult.error) {
-    console.error("Admin analytics daily registration count failed", newTodayResult.error);
-    return Response.json({ error: newTodayResult.error.message }, { status: 500 });
-  }
+  const coinDailyMap = new Map(((coinDailyResult.data ?? []) as CoinDailyRow[]).map((row) => [row.day, row]));
+  const tributeByDay = dayKeys.map((day) => ({ day, amount: Number(coinDailyMap.get(day)?.tribute ?? 0) }));
+  const coinNetByDay = dayKeys.map((day) => ({ day, earned: Number(coinDailyMap.get(day)?.earned ?? 0), spent: Number(coinDailyMap.get(day)?.spent ?? 0) }));
 
-  const tributeByDay = dayKeys.map((day) => ({
-    day,
-    amount: chartTransactions
-      .filter((row) => dateKeyGmt3(row.created_at) === day)
-      .reduce((total, row) => total + getTributeReceivedAmount(row), 0),
-  }));
-  const coinNetByDay = dayKeys.map((day) => ({
-    day,
-    earned: chartTransactions
-      .filter((row) => dateKeyGmt3(row.created_at) === day)
-      .reduce((total, row) => total + getCoinsEarnedAmount(row), 0),
-    spent: chartTransactions
-      .filter((row) => dateKeyGmt3(row.created_at) === day)
-      .reduce((total, row) => total + getCoinsSpentAmount(row), 0),
-  }));
-
-  const taskUsage = countBy(
-    activeTaskRows.filter((row) => row.completed_at || row.claimed_at),
-    (row) => row.task_id,
-  ).map((entry) => ({ ...entry, label: getTaskLabel(entry.key) }));
-  const galleryCountEntries = await Promise.all(
-    galleryCatalog.map(async (item) => {
-      const isPetItem = item.id.startsWith("pet:");
-      const table = isPetItem ? "user_pet_gallery" : "user_gallery";
-      const itemId = isPetItem ? item.id.replace(/^pet:/, "") : item.id;
-      const { count, error } = await supabase
-        .from(table)
-        .select("user_id", { count: "exact", head: true })
-        .eq("item_id", itemId);
-
-      if (error) {
-        throw error;
-      }
-
-      return [item.id, count ?? 0] as const;
-    }),
-  );
-  const galleryCounts = new Map(galleryCountEntries);
+  const taskUsage = ((taskUsageResult.data ?? []) as TaskUsageRow[])
+    .filter((row) => !obsoleteTaskIds.has(row.task_id))
+    .map((row) => ({ count: Number(row.usage_count ?? 0), key: row.task_id, label: getTaskLabel(row.task_id) }));
+  const galleryCounts = new Map(((galleryCountsResult.data ?? []) as GalleryCountRow[]).map((row) => [row.item_key, Number(row.unlock_count ?? 0)]));
   const galleryStats = galleryCatalog.map((item) => {
     const unlockedCount = galleryCounts.get(item.id) ?? 0;
     const totalEligibleUsers = totalRegisteredUsers;
@@ -599,19 +509,7 @@ export async function GET(request: Request) {
         totalEligibleUsers > 0 ? Math.round((unlockedCount / totalEligibleUsers) * 1000) / 10 : 0,
     };
   }).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
-  const affectionBuckets = [
-    { label: "0-24", min: 0, max: 24 },
-    { label: "25-49", min: 25, max: 49 },
-    { label: "50-74", min: 50, max: 74 },
-    { label: "75-99", min: 75, max: 99 },
-    { label: "100", min: 100, max: Number.POSITIVE_INFINITY },
-  ].map((bucket) => ({
-    label: bucket.label,
-    count: profiles.filter((profile) => {
-      const affection = profile.affection ?? 0;
-      return affection >= bucket.min && affection <= bucket.max;
-    }).length,
-  }));
+  const affectionBuckets = Array.isArray(rollup.affectionBuckets) ? rollup.affectionBuckets : [];
   const completedTasksByUser = countBy(
     activeTaskRows.filter((row) => row.completed_at || row.claimed_at),
     (row) => row.user_id,
@@ -626,7 +524,7 @@ export async function GET(request: Request) {
     inventoryRowsByUser.set(row.user_id, current);
   }
 
-  const topInventoryUsers: TopInventoryUser[] = profiles
+  const topInventoryUsers: TopInventoryUser[] = topInventoryProfiles
     .map((profile) => {
       const rows = inventoryRowsByUser.get(profile.id) ?? [];
       const itemMap = new Map<string, TopInventoryItem>();
@@ -729,39 +627,16 @@ export async function GET(request: Request) {
       nextResetAt: todayWindow.resetAt,
       profilesMissingFromAuthUsers: Math.max(0, (authUsersCount ?? totalRegisteredUsers) - totalRegisteredUsers),
       totalRegisteredUsers,
-      dailyActiveUsers: activeByDay.at(-1)?.count ?? 0,
-      newRegistrationsToday: newTodayResult.count ?? 0,
-      totalTributeReceived: overviewTransactions.reduce(
-        (total, row) => total + getTributeReceivedAmount(row),
-        0,
-      ),
-      totalCoinsEarned: overviewTransactions.reduce(
-        (total, row) => total + getCoinsEarnedAmount(row),
-        0,
-      ),
-      totalCoinsSpent: overviewTransactions.reduce(
-        (total, row) => total + getCoinsSpentAmount(row),
-        0,
-      ),
-      totalCoinsInCirculation: profiles.reduce(
-        (total, profile) => total + Number(profile.coins ?? 0),
-        0,
-      ),
-      averageCoins:
-        profiles.length > 0
-          ? Math.round(
-              profiles.reduce((total, profile) => total + Number(profile.coins ?? 0), 0) /
-                profiles.length,
-            )
-          : 0,
-      activeDebtContracts: debts.filter((debt) => debt.status === "active").length,
-      missedDebtPeriods: debts.reduce(
-        (total, debt) => total + Number(debt.missed_periods ?? 0),
-        0,
-      ),
-      ownerLikenessWarnings: profiles.filter(
-        (profile) => Number(profile.owner_likeness ?? 100) <= 25,
-      ).length,
+      dailyActiveUsers: Number(rollup.activeToday ?? 0),
+      newRegistrationsToday: Number(rollup.newToday ?? 0),
+      totalTributeReceived: Number(rollup.todayTributeReceived ?? 0),
+      totalCoinsEarned: Number(rollup.todayCoinsEarned ?? 0),
+      totalCoinsSpent: Number(rollup.todayCoinsSpent ?? 0),
+      totalCoinsInCirculation: Number(rollup.totalCoinsInCirculation ?? 0),
+      averageCoins: Number(rollup.averageCoins ?? 0),
+      activeDebtContracts: Number(rollup.activeDebtContracts ?? 0),
+      missedDebtPeriods: Number(rollup.missedDebtPeriods ?? 0),
+      ownerLikenessWarnings: Number(rollup.ownerLikenessWarnings ?? 0),
     },
     charts: {
       registrationsByDay,

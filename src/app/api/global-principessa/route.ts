@@ -1,9 +1,4 @@
 import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
-import {
   createPublicSupabaseClient,
   getSupabasePublicConfigErrors,
   isSupabasePublicConfigured,
@@ -29,19 +24,7 @@ export async function GET() {
     return jsonError(`Supabase public environment is not configured: ${getSupabasePublicConfigErrors().join(", ")}`, 500);
   }
 
-  if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
-  }
-
-  const supabase = createSupabaseAdminClient();
-
-  const { error: syncError } = await supabase.rpc("ensure_global_principessa_current_month");
-
-  if (syncError) {
-    console.error("Global Principessa monthly sync failed", { code: syncError.code, message: syncError.message });
-    return jsonError("Global Principessa monthly sync failed.", 500);
-  }
-
+  const supabase = createPublicSupabaseClient();
   const { data, error } = await supabase
     .from("global_principessa_progress")
     .select("id, month, year, level, xp, updated_at")
@@ -83,7 +66,7 @@ export async function GET() {
     },
     {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
       },
     },
   );

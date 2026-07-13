@@ -28,5 +28,8 @@ export async function GET() {
     return Response.json({ announcement: null }, { status: 200 });
   }
 
-  return Response.json({ announcement: (data ?? null) as SiteAnnouncementRow | null });
+  return Response.json(
+    { announcement: (data ?? null) as SiteAnnouncementRow | null },
+    { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } },
+  );
 }

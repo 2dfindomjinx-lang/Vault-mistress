@@ -1,5 +1,8 @@
 ﻿create extension if not exists pgcrypto;
 
+-- Operational retention, inactive-account deletion, and analytics RPCs are
+-- installed by supabase/retention-maintenance.sql after this base schema.
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,

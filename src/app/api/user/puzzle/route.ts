@@ -42,6 +42,7 @@ function jsonError(message: string, status = 400) {
 
 const PUZZLE_PREVIEW_COIN_COST = 500;
 const PUZZLE_PREVIEW_SECONDS = 10;
+let puzzleImageFileNamesPromise: Promise<string[]> | null = null;
 
 async function getAuthedUserId() {
   const authSupabase = await createSupabaseServerClient();
@@ -64,14 +65,13 @@ function toTitleCaseFromFileName(fileName: string) {
 }
 
 async function getPuzzleImageFileNames() {
-  try {
-    const entries = await readdir(path.join(process.cwd(), "public", "puzzle"), { withFileTypes: true });
-    return entries
+  puzzleImageFileNamesPromise ??= readdir(path.join(process.cwd(), "public", "puzzle"), { withFileTypes: true })
+    .then((entries) => entries
       .filter((entry) => entry.isFile() && /\.(avif|gif|jpe?g|png|webp)$/i.test(entry.name))
-      .map((entry) => entry.name);
-  } catch {
-    return [] as string[];
-  }
+      .map((entry) => entry.name))
+    .catch(() => [] as string[]);
+
+  return puzzleImageFileNamesPromise;
 }
 
 async function getPuzzleImagePool(): Promise<PuzzleImagePoolItem[]> {

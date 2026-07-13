@@ -186,12 +186,14 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
     rewardDescription: "Every participant receives 3 free Premium Case opens when the community finishes the objective.",
     includedReasons: [
       "crate:open",
+      "cosmetic:display_name_change",
       "jackpot_contribution",
       "spend:cosmetic",
       "spend:gallery-unlock",
       "spend:irl-task-wheel",
       "spend:pet-weekly-tax",
       "spend:puzzle",
+      "spend:puzzle-preview",
       "spend:rights",
       "spend:chat-highlight",
       "spend:title",
@@ -427,7 +429,14 @@ export function getCurrentRotatingShopItems(date: Date | number | string = new D
 }
 
 export function isCommunityGoalReason(reason: string | null | undefined) {
-  return COMMUNITY_GOALS.some((goal) => goal.includedReasons.includes(reason ?? ""));
+  const normalizedReason = reason ?? "";
+  return (
+    normalizedReason.startsWith("spend:") ||
+    normalizedReason.startsWith("tribute:") ||
+    normalizedReason === "crate:open" ||
+    normalizedReason === "cosmetic:display_name_change" ||
+    normalizedReason === "jackpot_contribution"
+  );
 }
 
 export function isCommunityGoalContribution(transaction: CoinTransactionLite) {
@@ -443,6 +452,7 @@ export function isCommunityGoalContribution(transaction: CoinTransactionLite) {
       reason.startsWith("spend:") ||
       reason.startsWith("tribute:") ||
       reason === "crate:open" ||
+      reason === "cosmetic:display_name_change" ||
       reason === "jackpot_contribution" ||
       reason === "throne_tribute"
     );

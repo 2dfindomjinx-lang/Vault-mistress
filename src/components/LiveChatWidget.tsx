@@ -83,7 +83,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
     void loadMessages();
     const timer = window.setInterval(() => {
       void loadMessages();
-    }, 9000);
+    }, 15000);
 
     return () => window.clearInterval(timer);
   }, [isOpen]);

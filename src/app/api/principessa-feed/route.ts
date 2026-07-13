@@ -16,7 +16,10 @@ export async function GET(request: Request) {
   try {
     const channel = new URL(request.url).searchParams.get("channel") === "sub" ? "sub" : "principessa";
     const posts = await listPrincipessaFeedPosts(createSupabaseAdminClient(), { channel });
-    return Response.json({ posts });
+    return Response.json(
+      { posts },
+      { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" } },
+    );
   } catch (error) {
     console.error("Principessa feed list failed", error);
     return Response.json(
