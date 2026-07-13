@@ -1,6 +1,11 @@
 import type { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type UserNotificationKind =
+  | "principessa_feed_admin_like"
+  | "principessa_feed_like"
+  | "principessa_feed_mention"
+  | "principessa_feed_repost"
+  | "principessa_feed_dm"
   | "debt_evil_approved"
   | "irl_task_approved"
   | "irl_task_excused"

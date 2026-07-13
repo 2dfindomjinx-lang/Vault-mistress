@@ -1,9 +1,11 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
+import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
 
 const BUCKET = "principessa-feed";
 const MAX_IMAGES = 8;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_REQUEST_IMAGE_BYTES = 4 * 1024 * 1024;
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/gif": "gif",
   "image/jpeg": "jpg",
@@ -41,6 +43,9 @@ function validateImageFiles(files: File[], { required }: { required: boolean }) 
   }
   if (files.some((file) => !MIME_EXTENSIONS[file.type] || file.size > MAX_IMAGE_BYTES)) {
     return "Images must be JPG, PNG, WEBP or GIF and at most 8MB each.";
+  }
+  if (files.reduce((total, file) => total + file.size, 0) > MAX_REQUEST_IMAGE_BYTES) {
+    return "Selected images must be below 4MB in total.";
   }
   return null;
 }
@@ -82,7 +87,7 @@ async function uploadImages(
   return { imageRows, uploadedPaths };
 }
 
-export async function POST(request: Request) {
+async function createPost(request: Request) {
   const admin = await requireAdminProfile();
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
@@ -134,7 +139,28 @@ export async function POST(request: Request) {
     );
   }
 
-  return Response.json({ posts: await listPrincipessaFeedPosts(admin.supabase) }, { status: 201 });
+  await notifyPrincipessaFeedMentions(admin.supabase, {
+    actorId: admin.adminUser.id,
+    postId,
+    postTitle: title,
+    text: `${title}\n${description}`,
+  }).catch((error) => console.error("Principessa feed mention notification failed", error));
+
+  return Response.json({
+    posts: await listPrincipessaFeedPosts(admin.supabase, { viewerId: admin.adminUser.id, viewerIsAdmin: true }),
+  }, { status: 201 });
+}
+
+export async function POST(request: Request) {
+  try {
+    return await createPost(request);
+  } catch (error) {
+    console.error("Principessa feed post request failed", error);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Post could not be published." },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PATCH(request: Request) {
@@ -241,6 +267,8 @@ export async function PATCH(request: Request) {
   return Response.json({
     posts: await listPrincipessaFeedPosts(admin.supabase, {
       channel: post.channel === "sub" ? "sub" : "principessa",
+      viewerId: admin.adminUser.id,
+      viewerIsAdmin: true,
     }),
   });
 }
@@ -298,6 +326,8 @@ export async function DELETE(request: Request) {
   return Response.json({
     posts: await listPrincipessaFeedPosts(admin.supabase, {
       channel: post.channel === "sub" ? "sub" : "principessa",
+      viewerId: admin.adminUser.id,
+      viewerIsAdmin: true,
     }),
   });
 }

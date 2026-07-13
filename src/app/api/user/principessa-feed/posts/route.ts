@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
 
 const BUCKET = "principessa-feed";
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const postType = formData.get("postType") === "confession" ? "confession" : "normal";
+  const confessionMode = formData.get("confessionMode") === "pseudonymous" ? "pseudonymous" : "anonymous";
   const imageEntry = formData.get("image");
   const image = imageEntry instanceof File && imageEntry.size > 0 ? imageEntry : null;
 
@@ -56,7 +59,9 @@ export async function POST(request: Request) {
     author_id: authData.user.id,
     channel: "sub",
     description,
+    confession_mode: postType === "confession" ? confessionMode : null,
     id: postId,
+    post_type: postType,
     status: "pending",
     title,
   });
@@ -81,6 +86,13 @@ export async function POST(request: Request) {
       return Response.json({ error: imageError.message }, { status: 500 });
     }
   }
+
+  await notifyPrincipessaFeedMentions(supabase, {
+    actorId: authData.user.id,
+    postId,
+    postTitle: title,
+    text: `${title}\n${description}`,
+  }).catch((error) => console.error("Principessa feed post mention notification failed", error));
 
   return Response.json(
     { message: "Your post was submitted and is waiting for Principessa approval." },

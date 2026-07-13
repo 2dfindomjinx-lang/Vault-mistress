@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const { data: post, error: postError } = await supabase
     .from("principessa_posts")
-    .select("id")
+    .select("id, title")
     .eq("id", postId)
     .eq("status", "published")
     .maybeSingle();
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
     console.error("Principessa feed comment insert failed", insertError);
     return Response.json({ error: insertError.message }, { status: 500 });
   }
+
+  await notifyPrincipessaFeedMentions(supabase, {
+    actorId: authData.user.id,
+    postId,
+    postTitle: post.title,
+    text: commentBody,
+  }).catch((error) => console.error("Principessa feed comment mention notification failed", error));
 
   return Response.json({
     comment: {

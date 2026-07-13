@@ -1,6 +1,7 @@
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 const BUCKET = "principessa-feed";
 const MIME_EXTENSIONS: Record<string, string> = {
@@ -25,7 +26,7 @@ async function buildProfileResponse(
   const [identityResult, feedProfileResult, posts] = await Promise.all([
     supabase.from("profiles").select("username, display_name").eq("id", userId).maybeSingle(),
     supabase.from("principessa_feed_profiles").select("avatar_path, header_path").eq("user_id", userId).maybeSingle(),
-    listPrincipessaFeedPosts(supabase, { authorId: userId, channel: "all", status: "all" }),
+    listPrincipessaFeedPosts(supabase, { authorId: userId, channel: "all", status: "all", viewerId: userId, viewerIsAdmin: isTrustedAdminUserId(userId) }),
   ]);
 
   if (identityResult.error) throw identityResult.error;

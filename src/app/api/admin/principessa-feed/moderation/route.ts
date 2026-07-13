@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   return Response.json({
-    posts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "pending" }),
+    posts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "pending", viewerId: admin.adminUser.id, viewerIsAdmin: true }),
   });
 }
 
@@ -75,8 +75,7 @@ export async function POST(request: Request) {
   }
 
   return Response.json({
-    pendingPosts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "pending" }),
-    publishedPosts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "published" }),
+    pendingPosts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "pending", viewerId: admin.adminUser.id, viewerIsAdmin: true }),
+    publishedPosts: await listPrincipessaFeedPosts(admin.supabase, { channel: "sub", status: "published", viewerId: admin.adminUser.id, viewerIsAdmin: true }),
   });
 }
-

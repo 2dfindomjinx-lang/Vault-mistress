@@ -4,6 +4,8 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
+import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) {
@@ -15,10 +17,16 @@ export async function GET(request: Request) {
 
   try {
     const channel = new URL(request.url).searchParams.get("channel") === "sub" ? "sub" : "principessa";
-    const posts = await listPrincipessaFeedPosts(createSupabaseAdminClient(), { channel });
+    const authSupabase = await createSupabaseServerClient();
+    const { data: authData } = await authSupabase.auth.getUser();
+    const posts = await listPrincipessaFeedPosts(createSupabaseAdminClient(), {
+      channel,
+      viewerId: authData.user?.id,
+      viewerIsAdmin: isTrustedAdminUserId(authData.user?.id),
+    });
     return Response.json(
       { posts },
-      { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" } },
+      { headers: { "Cache-Control": authData.user ? "private, no-store" : "public, s-maxage=10, stale-while-revalidate=20" } },
     );
   } catch (error) {
     console.error("Principessa feed list failed", error);
