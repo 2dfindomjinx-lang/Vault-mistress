@@ -29,8 +29,7 @@ async function buildProfileResponse(
   ]);
 
   if (identityResult.error) throw identityResult.error;
-  if (feedProfileResult.error) throw feedProfileResult.error;
-  const feedProfile = feedProfileResult.data;
+  const feedProfile = feedProfileResult.error ? null : feedProfileResult.data;
   const paths = [feedProfile?.avatar_path, feedProfile?.header_path].filter((path): path is string => Boolean(path));
   const { data: signed, error: signedError } = paths.length > 0
     ? await supabase.storage.from(BUCKET).createSignedUrls(paths, 60 * 60)
@@ -55,7 +54,17 @@ export async function GET() {
   try {
     return Response.json(await buildProfileResponse(auth.supabase, auth.user.id));
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Feed profile could not be loaded." }, { status: 500 });
+    console.error("Feed profile optional data could not be loaded", error);
+    const username = String(auth.user.user_metadata?.username ?? auth.user.email?.split("@")[0] ?? "unknown");
+    return Response.json({
+      posts: [],
+      profile: {
+        avatarUrl: null,
+        displayName: String(auth.user.user_metadata?.display_name ?? username),
+        headerUrl: null,
+        username,
+      },
+    });
   }
 }
 
@@ -124,4 +133,3 @@ export async function POST(request: Request) {
 
   return Response.json(await buildProfileResponse(auth.supabase, auth.user.id));
 }
-

@@ -146,9 +146,8 @@ export async function listPrincipessaFeedPosts(
   ]);
 
   if (profilesResult.error) throw profilesResult.error;
-  if (feedProfilesResult.error) throw feedProfilesResult.error;
 
-  const feedProfileRows = (feedProfilesResult.data ?? []) as FeedProfileRow[];
+  const feedProfileRows = (feedProfilesResult.error ? [] : (feedProfilesResult.data ?? [])) as FeedProfileRow[];
   const avatarPaths = feedProfileRows.flatMap((profile) => profile.avatar_path ? [profile.avatar_path] : []);
   const { data: signedAvatars, error: signedAvatarsError } = avatarPaths.length > 0
     ? await supabase.storage.from("principessa-feed").createSignedUrls(avatarPaths, 60 * 60)

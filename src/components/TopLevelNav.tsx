@@ -7,7 +7,7 @@ export function TopLevelNav({ active }: { active: "feed" | "main" }) {
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(8,2,9,.99)_0%,rgba(20,4,15,.9)_46%,rgba(8,2,9,.92)_100%)]" />
       <div className="mx-auto flex min-h-[76px] w-full max-w-7xl items-center justify-between gap-4">
         <div className="hidden items-center gap-3 sm:flex">
-          <div className="h-11 w-11 rounded-full border border-[#f4c06a]/50 bg-[url('/principessa-feed/branding/principessa-feed-hero.png')] bg-cover bg-[72%_28%] shadow-[0_0_24px_rgba(236,72,153,.3)]" />
+          <div className="h-11 w-11 rounded-full border border-[#f4c06a]/50 bg-[url('/principessa-feed/branding/principessa-feed-mark-v2.png')] bg-cover bg-center shadow-[0_0_24px_rgba(236,72,153,.3)]" />
           <div>
             <p className="font-serif text-lg tracking-[0.08em] text-[#ffe3b0]">Principessa</p>
             <p className="text-[9px] font-bold uppercase tracking-[0.28em] text-pink-300/60">The Velvet Network</p>
