@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const files = getImageFiles(formData);
-  const validationError = validatePostFields(title, description) ?? validateImageFiles(files, { required: true });
+  const validationError = validatePostFields(title, description) ?? validateImageFiles(files, { required: false });
   if (validationError) {
     return Response.json({ error: validationError }, { status: 422 });
   }
@@ -118,9 +118,9 @@ export async function POST(request: Request) {
     const upload = await uploadImages(admin, postId, files);
     uploadedPaths.push(...upload.uploadedPaths);
 
-    const { error: imagesError } = await admin.supabase.from("principessa_post_images").insert(upload.imageRows);
-    if (imagesError) {
-      throw imagesError;
+    if (upload.imageRows.length > 0) {
+      const { error: imagesError } = await admin.supabase.from("principessa_post_images").insert(upload.imageRows);
+      if (imagesError) throw imagesError;
     }
   } catch (error) {
     console.error("Principessa feed image upload failed", error);

@@ -32,13 +32,20 @@ type ProfileRow = {
   username: string;
 };
 
+type FeedProfileRow = {
+  avatar_path: string | null;
+  user_id: string;
+};
+
 export type PrincipessaFeedPost = {
   author: {
+    avatarUrl: string | null;
     displayName: string;
     username: string;
   };
   comments: Array<{
     author: {
+      avatarUrl: string | null;
       displayName: string;
       username: string;
     };
@@ -58,28 +65,33 @@ export type PrincipessaFeedPost = {
   status: "pending" | "published" | "rejected";
 };
 
-function publicIdentity(profile?: ProfileRow) {
+function publicIdentity(profile?: ProfileRow, avatarUrl: string | null = null) {
   const username = profile?.username || "@unknown";
   const displayName = profile?.display_name?.trim() || username;
-  return { displayName, username };
+  return { avatarUrl, displayName, username };
 }
 
 export async function listPrincipessaFeedPosts(
   supabase: SupabaseClient,
   options: {
-    channel?: "principessa" | "sub";
-    status?: "pending" | "published" | "rejected";
+    authorId?: string;
+    channel?: "all" | "principessa" | "sub";
+    status?: "all" | "pending" | "published" | "rejected";
   } = {},
 ): Promise<PrincipessaFeedPost[]> {
   const channel = options.channel ?? "principessa";
   const status = options.status ?? "published";
-  const { data: posts, error: postsError } = await supabase
+  let postsQuery = supabase
     .from("principessa_posts")
     .select("id, author_id, channel, status, title, description, created_at, updated_at")
-    .eq("channel", channel)
-    .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(50);
+
+  if (channel !== "all") postsQuery = postsQuery.eq("channel", channel);
+  if (status !== "all") postsQuery = postsQuery.eq("status", status);
+  if (options.authorId) postsQuery = postsQuery.eq("author_id", options.authorId);
+
+  const { data: posts, error: postsError } = await postsQuery;
 
   if (postsError) {
     throw postsError;
@@ -128,17 +140,28 @@ export async function listPrincipessaFeedPosts(
   const profileIds = Array.from(
     new Set([...postRows.map((post) => post.author_id), ...commentRows.map((comment) => comment.user_id)]),
   );
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, username, display_name")
-    .in("id", profileIds);
+  const [profilesResult, feedProfilesResult] = await Promise.all([
+    supabase.from("profiles").select("id, username, display_name").in("id", profileIds),
+    supabase.from("principessa_feed_profiles").select("user_id, avatar_path").in("user_id", profileIds),
+  ]);
 
-  if (profilesError) {
-    throw profilesError;
-  }
+  if (profilesResult.error) throw profilesResult.error;
+  if (feedProfilesResult.error) throw feedProfilesResult.error;
+
+  const feedProfileRows = (feedProfilesResult.data ?? []) as FeedProfileRow[];
+  const avatarPaths = feedProfileRows.flatMap((profile) => profile.avatar_path ? [profile.avatar_path] : []);
+  const { data: signedAvatars, error: signedAvatarsError } = avatarPaths.length > 0
+    ? await supabase.storage.from("principessa-feed").createSignedUrls(avatarPaths, 60 * 60)
+    : { data: [], error: null };
+  if (signedAvatarsError) throw signedAvatarsError;
+  const signedAvatarMap = new Map((signedAvatars ?? []).map((image) => [image.path, image.signedUrl]));
+  const avatarMap = new Map(feedProfileRows.map((profile) => [
+    profile.user_id,
+    profile.avatar_path ? signedAvatarMap.get(profile.avatar_path) ?? null : null,
+  ]));
 
   const profileMap = new Map(
-    ((profiles ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]),
+    ((profilesResult.data ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]),
   );
   const imageMap = new Map<string, ImageRow[]>();
   const commentMap = new Map<string, CommentRow[]>();
@@ -151,10 +174,10 @@ export async function listPrincipessaFeedPosts(
   }
 
   return postRows.map((post) => ({
-    author: publicIdentity(profileMap.get(post.author_id)),
+    author: publicIdentity(profileMap.get(post.author_id), avatarMap.get(post.author_id) ?? null),
     channel: post.channel,
     comments: (commentMap.get(post.id) ?? []).map((comment) => ({
-      author: publicIdentity(profileMap.get(comment.user_id)),
+      author: publicIdentity(profileMap.get(comment.user_id), avatarMap.get(comment.user_id) ?? null),
       body: comment.body,
       createdAt: comment.created_at,
       id: comment.id,

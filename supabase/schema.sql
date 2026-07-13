@@ -282,6 +282,14 @@ create table if not exists public.principessa_post_comments (
   updated_at timestamp with time zone not null default now()
 );
 
+create table if not exists public.principessa_feed_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  avatar_path text,
+  header_path text,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now()
+);
+
 create table if not exists public.random_events (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -2462,10 +2470,12 @@ create index if not exists principessa_post_comments_user_created_idx
 alter table public.principessa_posts enable row level security;
 alter table public.principessa_post_images enable row level security;
 alter table public.principessa_post_comments enable row level security;
+alter table public.principessa_feed_profiles enable row level security;
 
 revoke all on public.principessa_posts from anon, authenticated;
 revoke all on public.principessa_post_images from anon, authenticated;
 revoke all on public.principessa_post_comments from anon, authenticated;
+revoke all on public.principessa_feed_profiles from anon, authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
