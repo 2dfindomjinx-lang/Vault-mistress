@@ -33,6 +33,7 @@ import { StatsPanel } from "@/components/StatsPanel";
 import { TaskList } from "@/components/TaskList";
 import { ProfileTaskCard, TitleCollection } from "@/components/TitleCollection";
 import { TributePanel } from "@/components/TributePanel";
+import { TopLevelNav } from "@/components/TopLevelNav";
 import type { DashboardPage } from "@/components/SidebarNav";
 import {
   AVATAR_SLOT_ORDER,
@@ -10550,6 +10551,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           setActivePanel(page);
         }}
       >
+        <TopLevelNav active="main" />
         <ProfileHeader
           actions={headerActions}
           avatarBorderPresentation={profileBorderPresentation}
