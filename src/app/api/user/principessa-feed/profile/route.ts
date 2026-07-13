@@ -1,4 +1,5 @@
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
+import { getPrincipessaFeedSignedUrlMap } from "@/lib/principessa-feed-media";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
@@ -32,11 +33,7 @@ async function buildProfileResponse(
   if (identityResult.error) throw identityResult.error;
   const feedProfile = feedProfileResult.error ? null : feedProfileResult.data;
   const paths = [feedProfile?.avatar_path, feedProfile?.header_path].filter((path): path is string => Boolean(path));
-  const { data: signed, error: signedError } = paths.length > 0
-    ? await supabase.storage.from(BUCKET).createSignedUrls(paths, 60 * 60)
-    : { data: [], error: null };
-  if (signedError) throw signedError;
-  const signedMap = new Map((signed ?? []).map((item) => [item.path, item.signedUrl]));
+  const signedMap = await getPrincipessaFeedSignedUrlMap(supabase, paths);
 
   return {
     profile: {

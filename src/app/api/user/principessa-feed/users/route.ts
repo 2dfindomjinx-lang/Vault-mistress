@@ -10,7 +10,16 @@ export async function GET(request: Request) {
   const { data: authData } = await authSupabase.auth.getUser();
   if (!authData.user) return Response.json({ error: "Sign in to tag users." }, { status: 401 });
 
-  const query = new URL(request.url).searchParams.get("q")?.trim().replace(/^@/, "") ?? "";
+  const searchParams = new URL(request.url).searchParams;
+  const requestedId = searchParams.get("id")?.trim() ?? "";
+  if (requestedId) {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase.from("profiles").select("id, username, display_name").eq("id", requestedId).maybeSingle();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ users: data ? [{ displayName: data.display_name?.trim() || data.username, id: data.id, username: String(data.username).replace(/^@/, "") }] : [] });
+  }
+
+  const query = searchParams.get("q")?.trim().replace(/^@/, "") ?? "";
   if (query.length < 1 || query.length > 40 || !/^[a-zA-Z0-9_.-]+$/.test(query)) {
     return Response.json({ users: [] });
   }

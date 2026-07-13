@@ -266,7 +266,7 @@ export async function PATCH(request: Request) {
 
   return Response.json({
     posts: await listPrincipessaFeedPosts(admin.supabase, {
-      channel: post.channel === "sub" ? "sub" : "principessa",
+      channel: post.channel === "sub" ? "all" : "principessa",
       viewerId: admin.adminUser.id,
       viewerIsAdmin: true,
     }),
@@ -325,7 +325,7 @@ export async function DELETE(request: Request) {
 
   return Response.json({
     posts: await listPrincipessaFeedPosts(admin.supabase, {
-      channel: post.channel === "sub" ? "sub" : "principessa",
+      channel: post.channel === "sub" ? "all" : "principessa",
       viewerId: admin.adminUser.id,
       viewerIsAdmin: true,
     }),

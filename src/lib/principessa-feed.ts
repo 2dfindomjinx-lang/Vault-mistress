@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { getPrincipessaFeedSignedUrlMap } from "@/lib/principessa-feed-media";
 import { loadCommunityProfiles } from "@/lib/prestige-server";
 
 type PostRow = {
@@ -43,6 +44,7 @@ export type PrincipessaFeedPost = {
   author: {
     avatarUrl: string | null;
     displayName: string | null;
+    userId?: string | null;
     username: string;
     usernameStyle?: { color?: string; textShadow?: string };
   };
@@ -81,12 +83,13 @@ export type PrincipessaFeedPost = {
 };
 
 function publicIdentity(
-  profile?: { displayName: string | null; username: string; usernameStyle?: { color?: string; textShadow?: string } },
+  profile?: { displayName: string | null; userId?: string; username: string; usernameStyle?: { color?: string; textShadow?: string } },
   avatarUrl: string | null = null,
 ) {
   return {
     avatarUrl,
     displayName: profile?.displayName?.trim() || null,
+    userId: profile?.userId ?? null,
     username: profile?.username || "@unknown",
     usernameStyle: profile?.usernameStyle,
   };
@@ -156,18 +159,9 @@ export async function listPrincipessaFeedPosts(
   const commentRows = (commentsResult.data ?? []) as CommentRow[];
   const likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
   const repostRows = (repostsResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
-  const { data: signedImages, error: signedImagesError } = imageRows.length > 0
-    ? await supabase.storage
-        .from("principessa-feed")
-        .createSignedUrls(imageRows.map((image) => image.storage_path), 60 * 60)
-    : { data: [], error: null };
-
-  if (signedImagesError) {
-    throw signedImagesError;
-  }
-
-  const signedImageMap = new Map(
-    (signedImages ?? []).map((image) => [image.path, image.signedUrl]),
+  const signedImageMap = await getPrincipessaFeedSignedUrlMap(
+    supabase,
+    imageRows.map((image) => image.storage_path),
   );
   const profileIds = Array.from(
     new Set([...postRows.map((post) => post.author_id), ...commentRows.map((comment) => comment.user_id)]),
@@ -179,11 +173,7 @@ export async function listPrincipessaFeedPosts(
 
   const feedProfileRows = (feedProfilesResult.error ? [] : (feedProfilesResult.data ?? [])) as FeedProfileRow[];
   const avatarPaths = feedProfileRows.flatMap((profile) => profile.avatar_path ? [profile.avatar_path] : []);
-  const { data: signedAvatars, error: signedAvatarsError } = avatarPaths.length > 0
-    ? await supabase.storage.from("principessa-feed").createSignedUrls(avatarPaths, 60 * 60)
-    : { data: [], error: null };
-  if (signedAvatarsError) throw signedAvatarsError;
-  const signedAvatarMap = new Map((signedAvatars ?? []).map((image) => [image.path, image.signedUrl]));
+  const signedAvatarMap = await getPrincipessaFeedSignedUrlMap(supabase, avatarPaths);
   const avatarMap = new Map(feedProfileRows.map((profile) => [
     profile.user_id,
     profile.avatar_path ? signedAvatarMap.get(profile.avatar_path) ?? null : null,

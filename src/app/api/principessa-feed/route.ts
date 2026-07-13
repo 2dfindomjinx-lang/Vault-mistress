@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const authSupabase = await createSupabaseServerClient();
     const { data: authData } = await authSupabase.auth.getUser();
     const posts = await listPrincipessaFeedPosts(createSupabaseAdminClient(), {
-      channel,
+      channel: channel === "sub" ? "all" : "principessa",
       viewerId: authData.user?.id,
       viewerIsAdmin: isTrustedAdminUserId(authData.user?.id),
     });

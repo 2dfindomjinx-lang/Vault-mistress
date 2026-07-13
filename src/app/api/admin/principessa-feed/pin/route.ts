@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   return Response.json({
     pinned,
     posts: await listPrincipessaFeedPosts(admin.supabase, {
-      channel: post.channel === "sub" ? "sub" : "principessa",
+      channel: post.channel === "sub" ? "all" : "principessa",
       viewerId: admin.adminUser.id,
       viewerIsAdmin: true,
     }),
