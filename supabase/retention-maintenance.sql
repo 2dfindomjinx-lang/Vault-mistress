@@ -32,6 +32,12 @@ revoke all on public.deleted_user_financial_archive from anon, authenticated;
 create index if not exists coin_transactions_user_reason_idx on public.coin_transactions(user_id, reason);
 create index if not exists coin_transactions_created_at_idx on public.coin_transactions(created_at desc);
 create index if not exists profiles_inactive_cleanup_idx on public.profiles(last_login_at, created_at, tribute_total) where not is_admin;
+create index if not exists profiles_inactive_cleanup_effective_idx
+  on public.profiles ((coalesce(last_login_at, created_at)), tribute_total)
+  where not coalesce(is_admin, false);
+create index if not exists admin_pet_task_logs_pending_action_id_idx on public.admin_pet_task_logs(pending_action_id);
+create index if not exists admin_pet_task_logs_transaction_ids_gin_idx
+  on public.admin_pet_task_logs using gin(transaction_ids jsonb_path_ops);
 create index if not exists pending_admin_actions_retention_idx on public.pending_admin_actions(status, expires_at, created_at);
 create index if not exists puzzle_attempts_completed_retention_idx on public.puzzle_attempts(completed_at) where status = 'completed';
 create index if not exists user_notifications_retention_idx on public.user_notifications(created_at) where read_at is not null or deleted_at is not null;
@@ -87,6 +93,45 @@ begin
 end;
 $$;
 
+-- Explicit purchaseType metadata is authoritative for new rows. For legacy rows,
+-- old positive throne grants are protected conservatively unless they carry a
+-- known pet-task marker. Legacy live_gift rows must contain purchase metadata.
+create or replace function public.is_real_money_coin_purchase(
+  p_reason text,
+  p_amount integer,
+  p_metadata jsonb
+)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select coalesce(p_amount, 0) > 0
+    and (
+      coalesce(p_metadata ->> 'purchaseType', '') = 'real_money'
+      or (
+        coalesce(p_metadata ->> 'purchaseType', '') <> 'reward'
+        and not (coalesce(p_metadata, '{}'::jsonb) ? 'petTaskId')
+        and coalesce(p_metadata ->> 'source', '') not in (
+          'pet_throne_task',
+          'pet_task_admin_approval',
+          'mobile_pet_task_admin_approval'
+        )
+        and (
+          p_reason = 'throne_tribute'
+          or (
+            p_reason = 'live_gift'
+            and (
+              p_metadata ->> 'command' = 'give'
+              or p_metadata ->> 'kind' = 'manual_coin_purchase'
+              or p_metadata ->> 'source' = 'throne'
+            )
+          )
+        )
+      )
+    );
+$$;
+
 create or replace function public.get_inactive_user_deletion_batch(p_limit integer default 25)
 returns table (
   user_id uuid,
@@ -111,7 +156,13 @@ as $$
       select 1
       from public.coin_transactions ct
       where ct.user_id = p.id
-        and ct.reason in ('throne_tribute', 'live_gift')
+        and public.is_real_money_coin_purchase(ct.reason, ct.amount, ct.metadata)
+        and not exists (
+          select 1
+          from public.admin_pet_task_logs task_log
+          where task_log.pending_action_id::text = ct.metadata ->> 'pendingActionId'
+             or task_log.transaction_ids @> jsonb_build_array(ct.id::text)
+        )
     )
   order by coalesce(p.last_login_at, p.created_at) asc
   limit greatest(1, least(coalesce(p_limit, 25), 100));
@@ -131,8 +182,16 @@ as $$
       and coalesce(p.last_login_at, p.created_at) < now() -
         case when coalesce(p.tribute_total, 0) >= 5000 then interval '90 days' else interval '30 days' end
       and not exists (
-        select 1 from public.coin_transactions ct
-        where ct.user_id = p.id and ct.reason in ('throne_tribute', 'live_gift')
+        select 1
+        from public.coin_transactions ct
+        where ct.user_id = p.id
+          and public.is_real_money_coin_purchase(ct.reason, ct.amount, ct.metadata)
+          and not exists (
+            select 1
+            from public.admin_pet_task_logs task_log
+            where task_log.pending_action_id::text = ct.metadata ->> 'pendingActionId'
+               or task_log.transaction_ids @> jsonb_build_array(ct.id::text)
+          )
       )
   );
 $$;
@@ -296,6 +355,7 @@ as $$
 $$;
 
 revoke all on function public.run_data_retention() from public, anon, authenticated;
+revoke all on function public.is_real_money_coin_purchase(text, integer, jsonb) from public, anon, authenticated;
 revoke all on function public.get_inactive_user_deletion_batch(integer) from public, anon, authenticated;
 revoke all on function public.is_inactive_user_deletion_eligible(uuid) from public, anon, authenticated;
 revoke all on function public.archive_inactive_user_data(uuid, jsonb) from public, anon, authenticated;
@@ -306,6 +366,7 @@ revoke all on function public.get_admin_task_usage() from public, anon, authenti
 revoke all on function public.get_admin_gallery_counts() from public, anon, authenticated;
 revoke all on function public.get_admin_coin_daily(timestamptz, timestamptz) from public, anon, authenticated;
 grant execute on function public.run_data_retention() to service_role;
+grant execute on function public.is_real_money_coin_purchase(text, integer, jsonb) to service_role;
 grant execute on function public.get_inactive_user_deletion_batch(integer) to service_role;
 grant execute on function public.is_inactive_user_deletion_eligible(uuid) to service_role;
 grant execute on function public.archive_inactive_user_data(uuid, jsonb) to service_role;

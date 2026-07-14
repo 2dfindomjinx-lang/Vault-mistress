@@ -59,8 +59,8 @@ export async function POST(request: Request) {
   if (!card) return Response.json({ error: "This achievement is unavailable or was already shared." }, { status: 409 });
   const { error } = await auth.supabase.from("principessa_posts").insert({
     achievement_data: card.data, achievement_key: card.key, author_id: auth.user.id,
-    channel: "sub", description: card.description, post_type: "achievement", status: "pending", title: card.title,
+    channel: "sub", description: card.description, post_type: "achievement", status: "published", title: card.title,
   });
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ message: "Achievement card was sent for Principessa approval." }, { status: 201 });
+  return Response.json({ message: "Achievement card was published to the Subs feed." }, { status: 201 });
 }

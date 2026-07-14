@@ -27,7 +27,7 @@ function getFirebaseMessaging() {
 export async function sendAdminMobilePush(input: {
   title: string;
   body: string;
-  type: "irl_task" | "pet_task" | "debt" | "admin";
+  type: "irl_task" | "pet_task" | "debt" | "admin" | "principessa_post" | "live_chat";
   important?: boolean;
 }) {
   const messaging = getFirebaseMessaging();
@@ -88,4 +88,45 @@ export async function sendAdminMobilePush(input: {
       .update({ revoked_at: new Date().toISOString() })
       .in("fcm_token", invalidTokens);
   }
+}
+
+export async function sendAdminMobileChatPushOnce(input: { body: string; title: string }) {
+  const messaging = getFirebaseMessaging();
+  if (!messaging) return;
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("admin_mobile_device_tokens")
+    .update({ chat_notification_pending: true })
+    .eq("platform", "android")
+    .eq("notifications_enabled", true)
+    .eq("important_only", false)
+    .eq("chat_notification_pending", false)
+    .is("revoked_at", null)
+    .select("fcm_token");
+  if (error) {
+    console.error("Live Chat mobile notification claim failed", error);
+    return;
+  }
+  const tokens = (data ?? []).map((row) => String(row.fcm_token)).filter(Boolean);
+  if (!tokens.length) return;
+  const result = await messaging.sendEachForMulticast({
+    tokens,
+    notification: { title: input.title, body: input.body },
+    data: { type: "live_chat", important: "false" },
+    android: { priority: "normal", notification: { channelId: "admin_alerts" } },
+  });
+  const retryTokens = result.responses.flatMap((response, index) => response.success ? [] : [tokens[index]]);
+  if (retryTokens.length > 0) {
+    await supabase.from("admin_mobile_device_tokens").update({ chat_notification_pending: false }).in("fcm_token", retryTokens);
+  }
+}
+
+export async function markAdminMobileChatRead(adminUserId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("admin_mobile_device_tokens")
+    .update({ chat_last_read_at: new Date().toISOString(), chat_notification_pending: false })
+    .eq("admin_user_id", adminUserId)
+    .is("revoked_at", null);
+  if (error) throw error;
 }

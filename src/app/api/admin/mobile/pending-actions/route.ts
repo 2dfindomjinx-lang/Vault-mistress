@@ -152,9 +152,16 @@ export async function POST(request: Request) {
   const cmd = (claimed.command || "").toLowerCase();
   const amount = Number(claimed.amount);
   const targetId = claimed.target_user_id;
+  const claimedMetadata = (claimed.metadata ?? {}) as Record<string, unknown>;
+  const claimedSource = typeof claimedMetadata.source === "string" ? claimedMetadata.source : "";
+  const isPetTaskReward = Boolean(
+    claimedMetadata.petTaskId
+    || claimedMetadata.adminPetTaskLogId
+    || claimedSource === "pet_throne_task",
+  );
   const extraAddAmount = Math.max(
     0,
-    Number((claimed.metadata as Record<string, unknown> | null)?.extraAddAmount ?? 0),
+    Number(claimedMetadata.extraAddAmount ?? 0),
   );
   const targetSnap = claimed.target_username_snapshot || "unknown";
 
@@ -203,6 +210,7 @@ export async function POST(request: Request) {
         metadata: {
           command: cmd,
           kind: isGive ? "manual_coin_purchase" : "admin_adjustment",
+          purchaseType: isGive ? (isPetTaskReward ? "reward" : "real_money") : "admin_adjustment",
           source: "approved_admin_action",
           pendingActionId: claimed.id,
           verifiedAdminUserId: approverId,

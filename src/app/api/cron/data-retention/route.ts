@@ -72,11 +72,24 @@ export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) return Response.json({ error: "Supabase admin is not configured." }, { status: 500 });
 
   const supabase = createSupabaseAdminClient();
-  const { data: retention, error: retentionError } = await supabase.rpc("run_data_retention");
-  if (retentionError) return Response.json({ error: retentionError.message }, { status: 500 });
+  const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
+  let retention: unknown = null;
+  if (!dryRun) {
+    const { data, error } = await supabase.rpc("run_data_retention");
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    retention = data;
+  }
 
-  const { data: deletionRows, error: deletionError } = await supabase.rpc("get_inactive_user_deletion_batch", { p_limit: 50 });
+  const { data: deletionRows, error: deletionError } = await supabase.rpc("get_inactive_user_deletion_batch", { p_limit: dryRun ? 100 : 50 });
   if (deletionError) return Response.json({ error: deletionError.message, retention }, { status: 500 });
+
+  if (dryRun) {
+    return Response.json({
+      candidates: deletionRows ?? [],
+      cappedAt: 100,
+      policy: { protectRealMoneyCoinPurchases: true, standardDays: 30, tribute5000Days: 90 },
+    });
+  }
 
   const deleted: Array<{ userId: string; username: string }> = [];
   const failed: Array<{ error: string; userId: string; username: string }> = [];
@@ -129,7 +142,7 @@ export async function GET(request: Request) {
   }
 
   await supabase.from("data_retention_audit").insert({
-    details: { deleted, failed, skipped, policy: { protectedReasons: ["throne_tribute", "live_gift"], standardDays: 30, tribute5000Days: 90 } },
+    details: { deleted, failed, skipped, policy: { protectRealMoneyCoinPurchases: true, standardDays: 30, tribute5000Days: 90 } },
     run_type: "inactive_user_deletion",
   });
 

@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const [irl, pet, debtDue, securityAlerts, pendingAdminCount] = await Promise.all([
+  const [irl, pet, debtDue, securityAlerts, pendingAdminCount, pendingFeedPosts] = await Promise.all([
     admin.supabase
       .from("user_irl_tasks")
       .select("id", { count: "exact", head: true })
@@ -64,15 +64,25 @@ export async function GET(request: Request) {
       .lte("next_due_at", now),
     getAdminCoinSecurityAlerts(admin.supabase),
     getPendingAdminActionsCount(admin.supabase),
+    admin.supabase.from("principessa_posts").select("id", { count: "exact", head: true }).eq("channel", "sub").eq("status", "pending"),
   ]);
 
-  const errors = [irl.error, pet.error, debtDue.error, securityAlerts.error].filter(Boolean);
+  const errors = [irl.error, pet.error, debtDue.error, securityAlerts.error, pendingFeedPosts.error].filter(Boolean);
   if (errors.length > 0) {
     return Response.json({ error: errors[0]?.message ?? "Notification lookup failed." }, { status: 500 });
   }
 
   const notifications = [
     ...securityAlerts.notifications,
+    (pendingFeedPosts.count ?? 0) > 0 && {
+      id: "pending-principessa-posts",
+      title: "Principessa Post Approvals",
+      body: `${pendingFeedPosts.count ?? 0} Sub post request(s) waiting for review.`,
+      type: "principessa_post_approvals",
+      created_at: now,
+      read_at: null,
+      action: "principessa_post_approvals",
+    },
     pendingAdminCount > 0 && {
       id: "pending-admin-actions",
       title: "Admin Approvals",
@@ -106,7 +116,7 @@ export async function GET(request: Request) {
       created_at: now,
       read_at: null,
     },
-  ].filter(Boolean).filter((notification: any) => !notification.body?.startsWith("0 "));
+  ].filter(Boolean).filter((notification) => typeof notification === "object" && "body" in notification && !String(notification.body).startsWith("0 "));
 
   return Response.json({ notifications });
 }

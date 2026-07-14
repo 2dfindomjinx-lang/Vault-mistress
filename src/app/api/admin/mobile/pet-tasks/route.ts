@@ -199,6 +199,7 @@ export async function POST(request: Request) {
           command: "give",
           kind: "manual_coin_purchase",
           petTaskId: task.id,
+          purchaseType: "reward",
           requestedAmount: throneBaseCoinAmount,
           source: "mobile_pet_task_admin_approval",
           target_username_snapshot: profile.username,

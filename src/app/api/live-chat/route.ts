@@ -5,8 +5,9 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
 
-const CHAT_HIGHLIGHT_COST = 250;
+const CHAT_HIGHLIGHT_COST = 2000;
 const CHAT_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MS = 8000;
 
@@ -288,6 +289,12 @@ export async function POST(request: Request) {
   }
 
   const [hydratedMessage] = await hydrateMessages(supabase, [createdMessage as LiveChatMessageRow]);
+  if (!currentProfile.is_admin) {
+    await sendAdminMobileChatPushOnce({
+      body: `${currentProfile.display_name?.trim() || `@${currentProfile.username}`}: ${message}`,
+      title: "New Live Chat message",
+    }).catch((error) => console.error("Live Chat mobile push failed", error));
+  }
 
   return Response.json({
     message: hydratedMessage,

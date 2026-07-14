@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
+import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
 
 const BUCKET = "principessa-feed";
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -93,6 +94,12 @@ export async function POST(request: Request) {
     postTitle: title,
     text: `${title}\n${description}`,
   }).catch((error) => console.error("Principessa feed post mention notification failed", error));
+  await sendAdminMobilePush({
+    body: `@${String(authData.user.user_metadata?.username ?? authData.user.email?.split("@")[0] ?? "sub").replace(/^@/, "")} sent “${title}” for approval.`,
+    important: true,
+    title: "New Principessa post request",
+    type: "principessa_post",
+  }).catch((error) => console.error("Principessa post approval push failed", error));
 
   return Response.json(
     { message: "Your post was submitted and is waiting for Principessa approval." },

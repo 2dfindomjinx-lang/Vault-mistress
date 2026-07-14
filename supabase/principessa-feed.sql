@@ -149,3 +149,8 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+-- Achievement cards are verified system-generated posts and bypass moderation.
+update public.principessa_posts
+set status = 'published', updated_at = now()
+where post_type = 'achievement' and status = 'pending';

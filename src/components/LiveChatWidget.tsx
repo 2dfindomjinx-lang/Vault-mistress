@@ -80,12 +80,12 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
       return;
     }
 
-    void loadMessages();
+    const initialTimer = window.setTimeout(() => void loadMessages(), 0);
     const timer = window.setInterval(() => {
       void loadMessages();
     }, 15000);
 
-    return () => window.clearInterval(timer);
+    return () => { window.clearTimeout(initialTimer); window.clearInterval(timer); };
   }, [isOpen]);
 
   useEffect(() => {
@@ -242,7 +242,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                 onClick={() => setHighlighted((current) => !current)}
                 type="button"
               >
-                <CoinAmount amount={250} iconSize={14} label="" prefix="Highlight " />
+                <CoinAmount amount={2000} iconSize={14} label="" prefix="Highlight " />
               </button>
               <button
                 className="rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"

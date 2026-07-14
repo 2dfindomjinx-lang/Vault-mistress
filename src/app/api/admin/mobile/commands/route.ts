@@ -154,6 +154,7 @@ export async function POST(request: Request) {
     metadata: {
       command: giveMatch ? "give" : drainMatch ? "drain" : "add",
       kind: giveMatch ? "manual_coin_purchase" : drainMatch ? "coin_loss_request" : "admin_adjustment",
+      purchaseType: giveMatch ? "real_money" : drainMatch ? "coin_loss" : "admin_adjustment",
       source: giveMatch ? "throne" : "mobile_admin",
       verifiedAdminUserId: admin.adminUser.id,
       requestedAmount: amount,

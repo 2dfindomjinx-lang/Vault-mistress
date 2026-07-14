@@ -277,8 +277,9 @@ function SubComposer({ onSubmitted }: { onSubmitted: (message: string) => void }
   };
 
   const chooseImage = (file?: File) => {
-    if (!file || !IMAGE_TYPES.has(file.type) || file.size > 4 * 1024 * 1024) {
-      setImage(null); setError("Choose one JPG, PNG, WEBP or GIF image up to 4MB."); return;
+    if (!file) return;
+    if (!IMAGE_TYPES.has(file.type) || file.size > 4 * 1024 * 1024) {
+      setError("Choose one JPG, PNG, WEBP or GIF image up to 4MB."); return;
     }
     setImage(file); setError("");
   };
@@ -288,11 +289,12 @@ function SubComposer({ onSubmitted }: { onSubmitted: (message: string) => void }
       <div className="flex gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-black">SUB</div>
         <div className="min-w-0 flex-1">
+          <div className="mb-4 rounded-2xl border border-amber-300/10 bg-amber-400/[0.04] px-4 py-3"><p className="text-xs font-black text-amber-100">Submit to the Subs feed</p><p className="mt-1 text-xs leading-5 text-zinc-500">Your post stays private until Principessa approves it. You can track pending requests from your profile.</p></div>
           <div className="mb-3 flex flex-wrap gap-2"><button className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${postType === "normal" ? "bg-pink-500 text-white" : "border border-white/10 text-zinc-500"}`} onClick={() => setPostType("normal")} type="button">Regular post</button><button className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${postType === "confession" ? "bg-fuchsia-500 text-white" : "border border-white/10 text-zinc-500"}`} onClick={() => setPostType("confession")} type="button">Confession</button>{postType === "confession" ? <select className="rounded-full border border-fuchsia-300/20 bg-black/40 px-3 py-1 text-[10px] font-black text-fuchsia-200" onChange={(event) => setConfessionMode(event.target.value === "pseudonymous" ? "pseudonymous" : "anonymous")} value={confessionMode}><option value="anonymous">Fully anonymous</option><option value="pseudonymous">Veiled alias</option></select> : null}</div>
-          <input className="w-full bg-transparent font-black outline-none placeholder:text-zinc-700" maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Short title" value={title} />
+          <div className="flex items-center gap-3"><input className="min-w-0 flex-1 bg-transparent font-black outline-none placeholder:text-zinc-700" maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Short title" value={title} /><span className={title.length > 70 ? "text-xs text-amber-300" : "text-xs text-zinc-700"}>{title.length}/80</span></div>
           <MentionTextarea className="mt-2 min-h-24 w-full resize-none bg-transparent text-lg leading-7 outline-none placeholder:text-zinc-700" maxLength={500} onChange={setDescription} placeholder="Share with the community... Type @ to tag someone." value={description} />
           <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-            <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">{image ? "Change image" : "Add one image (optional)"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => chooseImage(e.target.files?.[0])} type="file" /></label>
+            <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">{image ? "Change image" : "Add one image (optional)"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; chooseImage(file); }} type="file" /></label>
             <div className="flex items-center gap-3"><span className={description.length > 460 ? "text-xs text-amber-300" : "text-xs text-zinc-600"}>{description.length}/500</span><button className="rounded-full bg-pink-500 px-5 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void submit()} type="button">{busy ? "Sending..." : "Send for approval"}</button></div>
           </div>
           <SelectedImagePreviews files={image ? [image] : []} onRemove={() => setImage(null)} />
@@ -365,6 +367,16 @@ function FeedAvatar({ author, empty = false, official = false, large = false }: 
   return <div className={`${size} flex shrink-0 items-center justify-center rounded-full border border-white/10 bg-zinc-900 text-xs font-black`}>{author?.displayName?.slice(0, 1).toUpperCase() || "S"}</div>;
 }
 
+function FeedAuthorAvatar({ author, official = false }: { author: PrincipessaFeedPost["author"]; official?: boolean }) {
+  const avatar = <FeedAvatar author={author} official={official} />;
+  return author.userId ? <Link aria-label={`Open ${author.displayName ?? author.username}'s profile`} className="rounded-full transition hover:brightness-125" href={`/principessa-feed/profile/${encodeURIComponent(author.userId)}`}>{avatar}</Link> : avatar;
+}
+
+function FeedAuthorName({ author, primaryClassName = "font-black text-white" }: { author: PrincipessaFeedPost["author"]; primaryClassName?: string }) {
+  const name = <DisplayNameWithUsername displayName={author.displayName} primaryClassName={primaryClassName} secondaryClassName="text-xs text-zinc-600" secondaryStyle={author.usernameStyle} username={author.username} />;
+  return author.userId ? <Link className="min-w-0 transition hover:brightness-125" href={`/principessa-feed/profile/${encodeURIComponent(author.userId)}`}>{name}</Link> : name;
+}
+
 function PostInteractions({ busy, isLoggedIn, onHighlight, onToggle, post }: {
   busy: string | null;
   isLoggedIn: boolean;
@@ -381,7 +393,7 @@ function PostInteractions({ busy, isLoggedIn, onHighlight, onToggle, post }: {
   </div>;
 }
 
-export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "home", isAdmin, isLoggedIn }: { initialRecipientId?: string; initialView?: PrincipessaFeedView; isAdmin: boolean; isLoggedIn: boolean }) {
+export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId = "", initialRecipientId = "", initialView = "home", isAdmin, isLoggedIn }: { currentUserId?: string; initialProfileUserId?: string; initialRecipientId?: string; initialView?: PrincipessaFeedView; isAdmin: boolean; isLoggedIn: boolean }) {
   const [view] = useState<PrincipessaFeedView>(initialView);
   const [channel, setChannel] = useState<Channel>("principessa");
   const [posts, setPosts] = useState<PrincipessaFeedPost[]>([]);
@@ -396,7 +408,7 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   const [notice, setNotice] = useState("");
   const [profile, setProfile] = useState<FeedProfile | null>(null);
   const [profilePosts, setProfilePosts] = useState<PrincipessaFeedPost[]>([]);
-  const [profileLoading, setProfileLoading] = useState(initialView === "profile" && isLoggedIn);
+  const [profileLoading, setProfileLoading] = useState(initialView === "profile" && (isLoggedIn || Boolean(initialProfileUserId)));
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
@@ -404,6 +416,7 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   const [cropTarget, setCropTarget] = useState<CropTarget>("avatar");
   const avatarPreviewUrl = useFilePreview(avatarFile);
   const headerPreviewUrl = useFilePreview(headerFile);
+  const isOwnProfile = !initialProfileUserId || initialProfileUserId === currentUserId;
 
   const switchChannel = (nextChannel: Channel) => {
     if (nextChannel === channel) return;
@@ -455,9 +468,12 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
   }, [isAdmin, view]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn && (view !== "profile" || !initialProfileUserId)) return;
     const controller = new AbortController();
-    fetch(`/api/user/principessa-feed/profile?includePosts=${view === "profile" ? "true" : "false"}`, { cache: "no-store", signal: controller.signal })
+    const profileUrl = view === "profile" && !isOwnProfile
+      ? `/api/principessa-feed/profile?userId=${encodeURIComponent(initialProfileUserId)}`
+      : `/api/user/principessa-feed/profile?includePosts=${view === "profile" ? "true" : "false"}`;
+    fetch(profileUrl, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const result = (await response.json()) as { posts?: PrincipessaFeedPost[]; profile?: FeedProfile };
         if (response.ok) { setProfile(result.profile ?? null); if (view === "profile") setProfilePosts(result.posts ?? []); }
@@ -467,7 +483,7 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
         setProfileLoading(false);
       });
     return () => controller.abort();
-  }, [isLoggedIn, view]);
+  }, [initialProfileUserId, isLoggedIn, isOwnProfile, view]);
 
   const saveProfile = async () => {
     if (!avatarFile && !headerFile) return;
@@ -616,10 +632,10 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
         {view === "profile" ? (
           profileLoading ? <p className="p-16 text-center text-zinc-600">Opening your profile...</p> : profile ? <div>
             <div className="relative mb-16"><div className={`h-52 bg-cover bg-center sm:h-64 ${headerPreviewUrl || profile.headerUrl ? "" : "bg-[radial-gradient(circle_at_70%_20%,rgba(190,24,93,.18),transparent_35%),linear-gradient(135deg,#160815,#080408)]"}`} style={headerPreviewUrl || profile.headerUrl ? { backgroundImage: `linear-gradient(0deg,rgba(9,5,9,.72),transparent 60%),url(${headerPreviewUrl || profile.headerUrl})` } : undefined} /><div className="absolute -bottom-14 left-5"><FeedAvatar author={{ avatarUrl: avatarPreviewUrl || profile.avatarUrl, displayName: profile.displayName, username: profile.username }} empty large /></div>{headerFile ? <span className="absolute right-4 top-4 rounded-full bg-black/75 px-3 py-1 text-[10px] font-black text-pink-200">UNSAVED PREVIEW</span> : null}</div>
-            <div className="px-5 pb-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="font-serif text-2xl text-[#ffe4b5]">{profile.displayName}</h2><p className="text-sm text-zinc-600">@{profile.username.replace(/^@/, "")}</p><p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-pink-300/50">{profilePosts.length} feed post{profilePosts.length === 1 ? "" : "s"}</p></div><div className="flex flex-wrap gap-2"><label className="cursor-pointer rounded-full border border-[#f4c06a]/20 px-4 py-2 text-xs font-black text-[#f8dca8]">{avatarFile ? "Re-crop photo" : "Change photo"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { beginCrop("avatar", event.target.files?.[0]); event.target.value = ""; }} type="file" /></label><label className="cursor-pointer rounded-full border border-[#f4c06a]/20 px-4 py-2 text-xs font-black text-[#f8dca8]">{headerFile ? "Re-crop header" : "Change header"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { beginCrop("header", event.target.files?.[0]); event.target.value = ""; }} type="file" /></label><button className="rounded-full bg-gradient-to-r from-pink-600 to-fuchsia-600 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={profileSaving || (!avatarFile && !headerFile)} onClick={() => void saveProfile()} type="button">{profileSaving ? "Saving..." : "Save appearance"}</button></div></div>{avatarFile ? <p className="mt-3 text-xs text-pink-200/60">Profile photo preview is shown above. Save appearance to publish it.</p> : null}</div>
+            <div className="px-5 pb-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="font-serif text-2xl text-[#ffe4b5]">{profile.displayName}</h2><p className="text-sm text-zinc-600">@{profile.username.replace(/^@/, "")}</p><p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-pink-300/50">{profilePosts.length} feed post{profilePosts.length === 1 ? "" : "s"}</p></div>{isOwnProfile ? <div className="flex flex-wrap gap-2"><label className="cursor-pointer rounded-full border border-[#f4c06a]/20 px-4 py-2 text-xs font-black text-[#f8dca8]">{avatarFile ? "Re-crop photo" : "Change photo"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { beginCrop("avatar", event.target.files?.[0]); event.target.value = ""; }} type="file" /></label><label className="cursor-pointer rounded-full border border-[#f4c06a]/20 px-4 py-2 text-xs font-black text-[#f8dca8]">{headerFile ? "Re-crop header" : "Change header"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { beginCrop("header", event.target.files?.[0]); event.target.value = ""; }} type="file" /></label><button className="rounded-full bg-gradient-to-r from-pink-600 to-fuchsia-600 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={profileSaving || (!avatarFile && !headerFile)} onClick={() => void saveProfile()} type="button">{profileSaving ? "Saving..." : "Save appearance"}</button></div> : null}</div>{isOwnProfile && avatarFile ? <p className="mt-3 text-xs text-pink-200/60">Profile photo preview is shown above. Save appearance to publish it.</p> : null}</div>
             {notice ? <p className="border-y border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">{notice}</p> : null}{error ? <p className="border-y border-red-300/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</p> : null}
             <div className="border-y border-[#f4c06a]/10 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-zinc-500">Your posts</div>
-            {profilePosts.length ? profilePosts.map((post) => <article className={`border-b p-5 ${post.highlightedUntil ? "border-amber-300/30 bg-amber-400/[0.05]" : "border-[#f4c06a]/10"}`} key={post.id}><div className="flex gap-3"><FeedAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><DisplayNameWithUsername displayName={post.author.displayName} primaryClassName="font-black" secondaryClassName="text-xs text-zinc-600" secondaryStyle={post.author.usernameStyle} username={post.author.username} /><div className="flex gap-2">{post.pinned ? <span className="rounded-full border border-[#f4c06a]/20 px-2 py-0.5 text-[9px] font-black uppercase text-[#f4c06a]">Pinned</span> : null}<span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase text-zinc-500">{post.status}</span></div></div><h3 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>{post.status === "published" ? <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} /> : null}{isAdmin && post.channel === "principessa" ? <PostAdminActions onChanged={setProfilePosts} post={post} /> : post.channel === "sub" ? <div className="ml-14 mt-3 flex gap-3"><button className={post.pinned ? "text-xs font-black text-[#f4c06a]" : "text-xs font-black text-zinc-500 hover:text-[#f4c06a]"} onClick={() => void pinOwnPost(post.id)} type="button">{post.pinned ? "Unpin" : "Pin to profile"}</button><button className="text-xs font-black text-red-300/70 hover:text-red-300" onClick={() => void deleteOwnSubPost(post)} type="button">Delete post</button></div> : null}</article>) : <p className="p-16 text-center text-zinc-600">Your submitted posts will appear here.</p>}
+            {profilePosts.length ? profilePosts.map((post) => <article className={`border-b p-5 ${post.highlightedUntil ? "border-amber-300/30 bg-amber-400/[0.05]" : "border-[#f4c06a]/10"}`} key={post.id}><div className="flex gap-3"><FeedAuthorAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><FeedAuthorName author={post.author} primaryClassName="font-black" /><div className="flex gap-2">{post.pinned ? <span className="rounded-full border border-[#f4c06a]/20 px-2 py-0.5 text-[9px] font-black uppercase text-[#f4c06a]">Pinned</span> : null}<span className="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase text-zinc-500">{post.status}</span></div></div><h3 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h3><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>{post.status === "published" ? <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} /> : null}{isAdmin && post.channel === "principessa" ? <PostAdminActions onChanged={setProfilePosts} post={post} /> : post.ownedByViewer && post.channel === "sub" ? <div className="ml-14 mt-3 flex gap-3"><button className={post.pinned ? "text-xs font-black text-[#f4c06a]" : "text-xs font-black text-zinc-500 hover:text-[#f4c06a]"} onClick={() => void pinOwnPost(post.id)} type="button">{post.pinned ? "Unpin" : "Pin to profile"}</button><button className="text-xs font-black text-red-300/70 hover:text-red-300" onClick={() => void deleteOwnSubPost(post)} type="button">Delete post</button></div> : null}</article>) : <p className="p-16 text-center text-zinc-600">No published posts yet.</p>}
           </div> : <p className="p-16 text-center text-sm text-zinc-500">Sign in from Main Page to open your feed profile.</p>
         ) : view === "approvals" ? (
           !isAdmin ? <div className="p-16 text-center"><p className="font-serif text-2xl text-[#ffe4b5]">Admin access only.</p><p className="mt-2 text-sm text-zinc-600">Post submissions can only be reviewed by Principessa.</p></div>
@@ -651,7 +667,7 @@ export function PrincipessaSocialFeed({ initialRecipientId = "", initialView = "
 
         {loading ? <p className="p-16 text-center text-zinc-600">Loading feed...</p> : posts.length === 0 ? <div className="p-16 text-center"><p className="text-lg font-black">No posts yet.</p><p className="mt-2 text-sm text-zinc-600">Published posts will appear here.</p></div> : posts.map((post) => (
           <article className={`border-b p-4 transition ${post.highlightedUntil ? "border-amber-300/30 bg-[linear-gradient(135deg,rgba(251,191,36,.11),rgba(236,72,153,.06))] shadow-[inset_3px_0_0_#f4c06a]" : "border-white/10 hover:bg-white/[0.015]"}`} key={post.id}>
-            <div className="flex gap-3"><FeedAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div><DisplayNameWithUsername displayName={post.author.displayName} primaryClassName="font-black text-white" secondaryClassName="text-xs text-zinc-600" secondaryStyle={post.author.usernameStyle} username={post.author.username} /><div className="mt-1 flex flex-wrap items-center gap-2"><span className={post.channel === "principessa" ? "text-[10px] font-black uppercase text-pink-400" : "text-[10px] font-black uppercase text-zinc-600"}>{post.channel === "principessa" ? "◆ Official court" : "Approved Sub"}</span>{post.pinned ? <span className="text-[10px] font-black uppercase text-[#f4c06a]">⌖ Pinned</span> : null}{post.postType === "confession" ? <span className="text-[10px] font-black uppercase text-fuchsia-300">◐ Confession</span> : null}{post.postType === "achievement" ? <span className="text-[10px] font-black uppercase text-amber-300">◇ Achievement</span> : null}{post.highlightedUntil ? <span className="text-[10px] font-black uppercase text-amber-300">✦ Highlighted</span> : null}</div></div><span className="shrink-0 text-[10px] text-zinc-700">{formatDate(post.createdAt)}</span></div><h2 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h2><p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>
+            <div className="flex gap-3"><FeedAuthorAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><FeedAuthorName author={post.author} /><div className="mt-1 flex flex-wrap items-center gap-2"><span className={post.channel === "principessa" ? "text-[10px] font-black uppercase text-pink-400" : "text-[10px] font-black uppercase text-zinc-600"}>{post.channel === "principessa" ? "◆ Official court" : "Approved Sub"}</span>{post.pinned ? <span className="text-[10px] font-black uppercase text-[#f4c06a]">⌖ Pinned</span> : null}{post.postType === "confession" ? <span className="text-[10px] font-black uppercase text-fuchsia-300">◐ Confession</span> : null}{post.postType === "achievement" ? <span className="text-[10px] font-black uppercase text-amber-300">◇ Achievement</span> : null}{post.highlightedUntil ? <span className="text-[10px] font-black uppercase text-amber-300">✦ Highlighted</span> : null}</div></div><span className="shrink-0 text-[10px] text-zinc-700">{formatDate(post.createdAt)}</span></div><h2 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h2><p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>
             {isLoggedIn && post.author.userId && !post.ownedByViewer ? <div className="ml-14 mt-3"><Link className="inline-flex items-center gap-2 rounded-full border border-pink-300/15 px-3 py-1.5 text-[10px] font-black text-pink-200 transition hover:bg-pink-500/10" href={`/principessa-feed/messages?to=${encodeURIComponent(post.author.userId)}`}>✉ Message</Link></div> : null}
             <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} />
             {isAdmin ? <PostAdminActions onChanged={setPosts} post={post} /> : null}
