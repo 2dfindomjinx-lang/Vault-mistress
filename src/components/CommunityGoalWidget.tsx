@@ -58,6 +58,9 @@ export function CommunityGoalWidget({ goal }: CommunityGoalWidgetProps) {
           <p className="mt-1 text-sm leading-6 text-emerald-50/72">
             Goal ends in <span className="font-black text-white">{formatCountdown(goal.endsAt)}</span>.
           </p>
+          <p className="mt-1 text-sm leading-6 text-emerald-50/72">
+            You contributed: <span className="font-black text-white">{goal.currentUserContributionCoins.toLocaleString()}</span>
+          </p>
         </div>
       </div>
     </section>

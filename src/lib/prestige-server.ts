@@ -69,7 +69,11 @@ export async function loadUserPrestigeBadges(
     .filter((badge): badge is UserPrestigeBadge => Boolean(badge));
 }
 
-export async function syncCurrentUserPrestige(supabase: SupabaseClient, userId: string) {
+export async function syncCurrentUserPrestige(
+  supabase: SupabaseClient,
+  userId: string,
+  communityGoalSnapshot?: { currentUserParticipating: boolean; progressCoins: number },
+) {
   const currentGoal = getCurrentCommunityGoal();
   const earliestSeasonStart = "2026-06-01T00:00:00+03:00";
   const earliestStart = new Date(
@@ -90,9 +94,12 @@ export async function syncCurrentUserPrestige(supabase: SupabaseClient, userId: 
   const transactions = (data ?? []) as CoinTransactionLite[];
   const seasonBadgeIds = getEarnedSeasonBadgeIds(transactions);
   const goalStatus = buildCommunityGoalStatus(currentGoal, transactions, userId);
+  const goalProgressCoins = communityGoalSnapshot?.progressCoins ?? goalStatus.progressCoins;
+  const currentUserParticipating = communityGoalSnapshot?.currentUserParticipating ?? goalStatus.currentUserParticipating;
+  const communityGoalCompleted = goalProgressCoins >= goalStatus.targetCoins;
   const badgeIds = new Set(seasonBadgeIds);
 
-  if (goalStatus.progressCoins >= goalStatus.targetCoins && goalStatus.currentUserParticipating) {
+  if (communityGoalCompleted && currentUserParticipating) {
     badgeIds.add(goalStatus.rewardBadge.id);
   }
 
@@ -116,8 +123,8 @@ export async function syncCurrentUserPrestige(supabase: SupabaseClient, userId: 
   }
 
   if (
-    goalStatus.progressCoins >= goalStatus.targetCoins &&
-    goalStatus.currentUserParticipating &&
+    communityGoalCompleted &&
+    currentUserParticipating &&
     goalStatus.rewardCrateType &&
     (goalStatus.rewardFreeOpens ?? 0) > 0
   ) {

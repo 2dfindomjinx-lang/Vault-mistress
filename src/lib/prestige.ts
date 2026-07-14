@@ -49,6 +49,7 @@ export type HallOfFameCardData = {
 };
 
 export type CommunityGoalStatus = {
+  currentUserContributionCoins: number;
   currentUserParticipating: boolean;
   endsAt: string;
   id: string;
@@ -564,6 +565,11 @@ export function buildCommunityGoalStatus(
   );
 
   return {
+    currentUserContributionCoins: currentUserId
+      ? relevantTransactions
+        .filter((transaction) => transaction.user_id === currentUserId)
+        .reduce((sum, transaction) => sum + getCommunityGoalContributionAmount(transaction), 0)
+      : 0,
     currentUserParticipating: currentUserId ? participantIds.has(currentUserId) : false,
     endsAt: goal.endsAt,
     id: goal.id,

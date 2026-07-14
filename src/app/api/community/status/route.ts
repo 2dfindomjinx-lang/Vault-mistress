@@ -22,6 +22,7 @@ type MinimalProfileRow = {
 };
 
 type CommunityMetrics = {
+  currentUserContributionCoins: number;
   currentUserParticipating: boolean;
   devotionMonthUserId: string | null;
   devotionMonthValue: number;
@@ -93,6 +94,7 @@ function normalizeAggregate(value: unknown): CommunityMetrics | null {
   const row = value as Record<string, unknown>;
 
   return {
+    currentUserContributionCoins: asNumber(row.currentUserContributionCoins),
     currentUserParticipating: Boolean(row.currentUserParticipating),
     devotionMonthUserId: asNullableId(row.devotionMonthUserId),
     devotionMonthValue: asNumber(row.devotionMonthValue),
@@ -197,6 +199,7 @@ async function loadLegacyMetrics(
   const longestStreak = streakRows[0] ?? null;
 
   return {
+    currentUserContributionCoins: goalStatus.currentUserContributionCoins,
     currentUserParticipating: goalStatus.currentUserParticipating,
     devotionMonthUserId: monthDevotion?.[0] ?? null,
     devotionMonthValue: monthDevotion?.[1] ?? 0,
@@ -249,10 +252,26 @@ export async function GET() {
     const supabase = createSupabaseAdminClient();
     const nowMs = Date.now();
     const currentGoal = getCurrentCommunityGoal(nowMs);
-    const [currentUserBadges, metrics] = await Promise.all([
-      syncCurrentUserPrestige(supabase, authData.user.id),
-      loadCommunityMetrics(supabase, authData.user.id, nowMs),
-    ]);
+    const metrics = await loadCommunityMetrics(supabase, authData.user.id, nowMs);
+    if (metrics.goalProgressCoins >= currentGoal.targetCoins) {
+      const { error: rewardError } = await supabase.rpc("grant_community_goal_rewards", {
+        p_badge_id: currentGoal.rewardBadgeId,
+        p_crate_type: currentGoal.rewardCrateType ?? null,
+        p_free_opens: currentGoal.rewardFreeOpens ?? 0,
+        p_goal_end: currentGoal.endsAt,
+        p_goal_id: currentGoal.id,
+        p_goal_reasons: currentGoal.includedReasons,
+        p_goal_start: currentGoal.startsAt,
+        p_target_coins: currentGoal.targetCoins,
+      });
+      if (rewardError && rewardError.code !== "PGRST202" && rewardError.code !== "42883") {
+        console.error("Community goal bulk reward grant failed", rewardError.message);
+      }
+    }
+    const currentUserBadges = await syncCurrentUserPrestige(supabase, authData.user.id, {
+      currentUserParticipating: metrics.currentUserParticipating,
+      progressCoins: metrics.goalProgressCoins,
+    });
     const winnerIds = [
       metrics.supporterTodayUserId,
       metrics.supporterWeekUserId,
@@ -283,6 +302,7 @@ export async function GET() {
     return Response.json({
       communityGoal: {
         ...baseGoal,
+        currentUserContributionCoins: metrics.currentUserContributionCoins,
         currentUserParticipating: metrics.currentUserParticipating,
         participantCount: metrics.goalParticipantCount,
         progressCoins,

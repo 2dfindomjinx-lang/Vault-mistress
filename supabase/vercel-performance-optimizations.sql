@@ -145,8 +145,112 @@ as $$
     ), 0),
     'goalProgressCoins', coalesce((select sum(amount) from goal_rows), 0),
     'goalParticipantCount', (select count(distinct user_id) from goal_rows where amount > 0),
+    'currentUserContributionCoins', coalesce((select sum(amount) from goal_rows where user_id = p_user_id), 0),
     'currentUserParticipating', exists(select 1 from goal_rows where user_id = p_user_id and amount > 0)
   );
+$$;
+
+create or replace function public.grant_community_goal_rewards(
+  p_goal_id text,
+  p_badge_id text,
+  p_crate_type text,
+  p_free_opens integer,
+  p_target_coins bigint,
+  p_goal_start timestamptz,
+  p_goal_end timestamptz,
+  p_goal_reasons text[]
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  badge_awards integer := 0;
+  crate_awards integer := 0;
+  progress_coins bigint := 0;
+begin
+  with goal_rows as (
+    select tx.user_id, abs(tx.amount)::bigint as amount
+    from public.coin_transactions tx
+    where tx.created_at >= p_goal_start
+      and tx.created_at < p_goal_end
+      and (
+        tx.reason = any(p_goal_reasons)
+        or tx.reason like 'spend:%'
+        or tx.reason like 'tribute:%'
+        or tx.reason in ('cosmetic:display_name_change', 'throne_tribute')
+      )
+      and tx.amount <> 0
+      and (
+        (tx.amount < 0 and (
+          tx.reason like 'spend:%'
+          or tx.reason like 'tribute:%'
+          or tx.reason in ('crate:open', 'cosmetic:display_name_change', 'jackpot_contribution', 'throne_tribute')
+        ))
+        or (tx.amount > 0 and tx.reason in ('tribute:support', 'tribute:sacrifice', 'tribute:coin-offer'))
+      )
+  )
+  select coalesce(sum(amount), 0) into progress_coins from goal_rows;
+
+  if progress_coins < p_target_coins then
+    return jsonb_build_object('completed', false, 'progressCoins', progress_coins, 'badgeAwards', 0, 'crateAwards', 0);
+  end if;
+
+  with participants as (
+    select distinct tx.user_id
+    from public.coin_transactions tx
+    where tx.created_at >= p_goal_start
+      and tx.created_at < p_goal_end
+      and (
+        tx.reason = any(p_goal_reasons)
+        or tx.reason like 'spend:%'
+        or tx.reason like 'tribute:%'
+        or tx.reason in ('cosmetic:display_name_change', 'throne_tribute')
+      )
+      and tx.amount <> 0
+      and (
+        (tx.amount < 0 and (
+          tx.reason like 'spend:%'
+          or tx.reason like 'tribute:%'
+          or tx.reason in ('crate:open', 'cosmetic:display_name_change', 'jackpot_contribution', 'throne_tribute')
+        ))
+        or (tx.amount > 0 and tx.reason in ('tribute:support', 'tribute:sacrifice', 'tribute:coin-offer'))
+      )
+  ), inserted_badges as (
+    insert into public.user_prestige_badges (user_id, badge_id, source, metadata)
+    select user_id, p_badge_id, 'community_goal', jsonb_build_object('goalId', p_goal_id)
+    from participants
+    on conflict (user_id, badge_id) do nothing
+    returning id
+  )
+  select count(*) into badge_awards from inserted_badges;
+
+  if p_crate_type is not null and p_free_opens > 0 then
+    with participants as (
+      select distinct badge.user_id
+      from public.user_prestige_badges badge
+      where badge.badge_id = p_badge_id
+        and badge.source = 'community_goal'
+    ), inserted_grants as (
+      insert into public.user_crate_open_grants (
+        user_id, crate_type, goal_id, source, total_opens, remaining_opens
+      )
+      select user_id, p_crate_type, p_goal_id, 'community_goal', p_free_opens, p_free_opens
+      from participants
+      on conflict (user_id, goal_id, crate_type) do nothing
+      returning id
+    )
+    select count(*) into crate_awards from inserted_grants;
+  end if;
+
+  return jsonb_build_object(
+    'completed', true,
+    'progressCoins', progress_coins,
+    'badgeAwards', badge_awards,
+    'crateAwards', crate_awards
+  );
+end;
 $$;
 
 create or replace function public.get_jackpot_contribution_summary(
@@ -169,7 +273,11 @@ as $$
 $$;
 
 revoke all on function public.get_community_status_aggregates(uuid, timestamptz, timestamptz, timestamptz, timestamptz, timestamptz, timestamptz, text[]) from public, anon, authenticated;
+revoke all on function public.grant_community_goal_rewards(text, text, text, integer, bigint, timestamptz, timestamptz, text[]) from public, anon, authenticated;
 revoke all on function public.get_jackpot_contribution_summary(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.ensure_global_principessa_current_month() from public;
 grant execute on function public.get_community_status_aggregates(uuid, timestamptz, timestamptz, timestamptz, timestamptz, timestamptz, timestamptz, text[]) to service_role;
+grant execute on function public.grant_community_goal_rewards(text, text, text, integer, bigint, timestamptz, timestamptz, text[]) to service_role;
 grant execute on function public.get_jackpot_contribution_summary(uuid, uuid) to service_role;
+grant execute on function public.ensure_global_principessa_current_month() to anon, authenticated, service_role;
 grant execute on function public.get_public_recent_tribute_transactions(integer) to anon, authenticated;

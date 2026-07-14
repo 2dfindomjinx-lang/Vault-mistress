@@ -1512,6 +1512,9 @@ begin
 end;
 $$;
 
+revoke all on function public.ensure_global_principessa_current_month() from public;
+grant execute on function public.ensure_global_principessa_current_month() to anon, authenticated, service_role;
+
 create or replace function public.perform_level_drain(p_user_id uuid)
 returns jsonb
 language plpgsql

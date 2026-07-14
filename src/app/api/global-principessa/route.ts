@@ -25,19 +25,19 @@ export async function GET() {
   }
 
   const supabase = createPublicSupabaseClient();
-  const { data, error } = await supabase
-    .from("global_principessa_progress")
-    .select("id, month, year, level, xp, updated_at")
-    .eq("id", 1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("ensure_global_principessa_current_month");
 
   if (error) {
-    console.error("Global Principessa progress lookup failed", { code: error.code, message: error.message });
-    return jsonError("Global Principessa progress lookup failed.", 500);
+    console.error("Global Principessa monthly reset failed", { code: error.code, message: error.message });
+    return jsonError("Global Principessa monthly reset failed.", 500);
   }
 
-  const currentPeriod = data
-    ? getGmt3MonthBounds(Number(data.year ?? new Date().getFullYear()), Number(data.month ?? new Date().getMonth() + 1))
+  const progress = data && typeof data === "object" && !Array.isArray(data)
+    ? data as { id?: string | boolean; level: number; month: number; updated_at?: string | null; xp: number; year: number }
+    : null;
+
+  const currentPeriod = progress
+    ? getGmt3MonthBounds(Number(progress.year ?? new Date().getFullYear()), Number(progress.month ?? new Date().getMonth() + 1))
     : null;
 
   const latestLevelUpResult = currentPeriod
@@ -62,7 +62,7 @@ export async function GET() {
   return Response.json(
     {
       latestLevelUp: latestLevelUpResult.data ?? null,
-      progress: data ?? null,
+      progress,
     },
     {
       headers: {
