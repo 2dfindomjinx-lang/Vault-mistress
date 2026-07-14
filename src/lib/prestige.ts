@@ -157,7 +157,7 @@ export const PRESTIGE_BADGE_MAP = new Map(
 export const SEASONAL_BADGES: SeasonalBadgeDefinition[] = [
   {
     ...PRESTIGE_BADGE_MAP.get("summer-supporter-2026")!,
-    startsAt: "2026-06-28T16:39:58+03:00",
+    startsAt: "2026-06-01T00:00:00+03:00",
     endsAt: "2026-09-01T00:00:00+03:00",
   },
   {
@@ -176,7 +176,7 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
   {
     id: "summer-community-goal-2026",
     title: "Spend 3,000,000 Coins",
-    startsAt: "2026-06-01T00:00:00+03:00",
+    startsAt: "2026-06-28T16:39:58+03:00",
     endsAt: "2026-09-01T00:00:00+03:00",
     targetCoins: 3_000_000,
     rewardBadgeId: "community-goal-summer-2026",
