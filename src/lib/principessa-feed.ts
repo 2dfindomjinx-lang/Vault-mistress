@@ -40,6 +40,21 @@ type FeedProfileRow = {
   user_id: string;
 };
 
+const OPTIONAL_POST_COLUMNS = [
+  "achievement_data",
+  "achievement_key",
+  "confession_mode",
+  "highlighted_until",
+  "pinned_at",
+  "post_type",
+] as const;
+
+function isMissingOptionalPostColumn(error: { code?: string; message?: string } | null) {
+  if (!error || (error.code !== "42703" && error.code !== "PGRST204")) return false;
+  const message = String(error.message ?? "").toLowerCase();
+  return OPTIONAL_POST_COLUMNS.some((column) => message.includes(column));
+}
+
 export type PrincipessaFeedPost = {
   author: {
     avatarUrl: string | null;
@@ -118,7 +133,33 @@ export async function listPrincipessaFeedPosts(
   if (status !== "all") postsQuery = postsQuery.eq("status", status);
   if (options.authorId) postsQuery = postsQuery.eq("author_id", options.authorId);
 
-  const { data: posts, error: postsError } = await postsQuery;
+  let { data: posts, error: postsError } = await postsQuery;
+
+  // The social post extras were added after the original moderation table.
+  // A normal Sub submission and its approval queue should remain usable during
+  // a rolling deploy even when those optional columns have not landed yet.
+  if (isMissingOptionalPostColumn(postsError)) {
+    let compatibilityQuery = supabase
+      .from("principessa_posts")
+      .select("id, author_id, channel, status, title, description, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (channel !== "all") compatibilityQuery = compatibilityQuery.eq("channel", channel);
+    if (status !== "all") compatibilityQuery = compatibilityQuery.eq("status", status);
+    if (options.authorId) compatibilityQuery = compatibilityQuery.eq("author_id", options.authorId);
+
+    const compatibilityResult = await compatibilityQuery;
+    postsError = compatibilityResult.error;
+    posts = (compatibilityResult.data ?? []).map((post) => ({
+      ...post,
+      achievement_data: {},
+      achievement_key: null,
+      confession_mode: null,
+      highlighted_until: null,
+      pinned_at: null,
+      post_type: "normal",
+    }));
+  }
 
   if (postsError) {
     throw postsError;

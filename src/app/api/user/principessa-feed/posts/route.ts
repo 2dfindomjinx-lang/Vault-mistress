@@ -56,16 +56,23 @@ export async function POST(request: Request) {
   }
 
   const postId = crypto.randomUUID();
-  const { error: postError } = await supabase.from("principessa_posts").insert({
+  const postPayload: Record<string, unknown> = {
     author_id: authData.user.id,
     channel: "sub",
     description,
-    confession_mode: postType === "confession" ? confessionMode : null,
     id: postId,
-    post_type: postType,
     status: "pending",
     title,
-  });
+  };
+  // Keep ordinary submissions independent from the optional Confession columns.
+  // This also lets a normal post enter moderation while a database migration is
+  // briefly behind the deployed application version.
+  if (postType === "confession") {
+    postPayload.confession_mode = confessionMode;
+    postPayload.post_type = "confession";
+  }
+
+  const { error: postError } = await supabase.from("principessa_posts").insert(postPayload);
   if (postError) {
     return Response.json({ error: postError.message }, { status: 500 });
   }
