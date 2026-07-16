@@ -168,7 +168,7 @@ export function CosmeticShop({
 
       return (
         <article
-          className={`rounded-[1.35rem] border p-4 transition ${
+          className={`court-grid-card court-grid-card--violet rounded-[1.35rem] border p-4 transition ${
             equipped
               ? "border-pink-200/45 bg-pink-500/12 shadow-[0_0_24px_rgba(236,72,153,0.18)]"
               : owned
@@ -242,7 +242,7 @@ export function CosmeticShop({
     });
 
   return (
-    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
@@ -264,7 +264,7 @@ export function CosmeticShop({
           <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">
             {group.label}
           </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="court-grid court-grid--collection mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {renderCosmeticCards(group.items)}
           </div>
         </div>
@@ -277,7 +277,7 @@ export function CosmeticShop({
         {usernameColorItems.length > 0 && (
           <div className="mt-3">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Username Colors</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="court-grid court-grid--collection mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {renderCosmeticCards(usernameColorItems)}
             </div>
           </div>
@@ -286,7 +286,7 @@ export function CosmeticShop({
         {usernameGlowItems.length > 0 && (
           <div className="mt-3">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Username Glow</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="court-grid court-grid--collection mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {renderCosmeticCards(usernameGlowItems)}
             </div>
           </div>
@@ -295,7 +295,7 @@ export function CosmeticShop({
         {displayNameChangeItem && (
           <div className="mt-3">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200/70">Display Name Change</p>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="court-grid court-grid--collection mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {renderCosmeticCards([displayNameChangeItem])}
             </div>
           </div>

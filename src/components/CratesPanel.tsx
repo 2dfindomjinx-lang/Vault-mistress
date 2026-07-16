@@ -827,7 +827,7 @@ export function CratesPanel({
   };
 
   return (
-    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Cosmetics • Collectibles</p>
@@ -848,8 +848,8 @@ export function CratesPanel({
 
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
-        <div className="mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
-          <div className="grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
+          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -873,7 +873,7 @@ export function CratesPanel({
                   : "Protection: None";
 
             return (
-              <div key={crate.crate_type} className="w-full">
+              <div key={crate.crate_type} className="court-grid-card court-grid-card--violet w-full p-2">
                 <div
                   className="relative h-[340px] sm:h-[364px] w-full [perspective:1200px]"
                   onClick={() => {
@@ -1116,7 +1116,7 @@ export function CratesPanel({
               Your inventory is empty. Open some cases to start hoarding.
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="court-grid court-grid--collection grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {inventory.map((item) => {
                 const key = item.item_id + item.variant;
                 const isSelling = sellPending === key || sellPending === "all";
@@ -1126,7 +1126,7 @@ export function CratesPanel({
                 return (
                   <article
                     key={key}
-                    className={`rounded-[1.35rem] border p-4 ${getRarityColor(item.rarity)}`}
+                    className={`court-grid-card court-grid-card--violet rounded-[1.35rem] border p-4 ${getRarityColor(item.rarity)}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>

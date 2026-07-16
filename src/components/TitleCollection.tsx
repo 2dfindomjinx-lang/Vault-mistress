@@ -85,7 +85,7 @@ export function TitleCollection({
   const isHorizontal = layout === "horizontal";
 
   return (
-    <section className="rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
+    <section className="court-feature-panel rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/70">
@@ -106,7 +106,7 @@ export function TitleCollection({
       </p>
 
       <div
-        className={`mt-3 pr-1 ${
+        className={`court-grid court-grid--collection mt-3 pr-1 ${
           isHorizontal
             ? "w-full flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-3 touch-pan-x scroll-smooth snap-x snap-mandatory scrollbar-thin scrollbar-thumb-pink-400/40 scrollbar-track-transparent"
             : "max-h-64 space-y-2 overflow-y-auto"
@@ -118,7 +118,7 @@ export function TitleCollection({
 
           return (
             <button
-              className={`${isHorizontal ? "min-h-[10rem] min-w-[17rem] max-w-[17rem] shrink-0 snap-start" : "w-full"} rounded-2xl border px-3 py-2 text-left transition ${
+              className={`court-grid-card court-grid-card--violet ${isHorizontal ? "min-h-[10rem] min-w-[17rem] max-w-[17rem] shrink-0 snap-start" : "w-full"} rounded-2xl border px-3 py-2 text-left transition ${
                 disabled
                   ? "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
                   : isOwned
@@ -176,7 +176,7 @@ export function ProfileTaskCard({
   onRebrandProfile,
 }: ProfileTaskCardProps) {
   return (
-    <section className="flex min-h-[18rem] flex-col justify-between rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+    <section className="court-feature-panel court-grid-card flex min-h-[18rem] flex-col justify-between rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-200/70">
           Profile Task

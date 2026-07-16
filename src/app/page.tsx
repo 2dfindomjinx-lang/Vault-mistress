@@ -6,8 +6,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import { AppShell } from "@/components/AppShell";
-import { CharacterCard } from "@/components/CharacterCard";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
+import { CourtChamberIntro } from "@/components/CourtChamberIntro";
+import { CourtHomeStage } from "@/components/CourtHomeStage";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
@@ -3156,7 +3157,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, []);
 
   useEffect(() => {
-    const needsLiveClock = activePanel === "devotion" || activePanel === "home" || activePanel === "tasks";
+    const needsPageClock =
+      Boolean(timeoutUntil) ||
+      activePanel === "home" ||
+      activePanel === "tasks" ||
+      activePanel === "devotion" ||
+      activePanel === "shop";
+
+    if (!needsPageClock) {
+      return;
+    }
+
     const refreshClock = () => {
       if (document.visibilityState !== "hidden") {
         setCurrentTime(Date.now());
@@ -3164,13 +3175,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     };
 
     const initialTimer = window.setTimeout(refreshClock, 0);
-    const timer = window.setInterval(refreshClock, needsLiveClock ? 1000 : 30000);
+    // Keep coarse, page-level time boundaries current without re-rendering the
+    // entire 11k-line dashboard tree every second. Interactive countdowns own
+    // their precise clocks inside their smaller panel components.
+    const timer = window.setInterval(refreshClock, 30000);
 
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
-  }, [activePanel]);
+  }, [activePanel, timeoutUntil]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4308,20 +4322,48 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setIsTitleManuallySelected(equippedTitle !== fallbackTitle);
     }
 
-    const { data: galleryData, error: galleryError } = await supabase
-      .from("user_gallery")
-      .select("item_id")
-      .eq("user_id", profile.id);
+    const [
+      { data: galleryData, error: galleryError },
+      { data: legacyGalleryData, error: legacyGalleryError },
+      { data: petGalleryData, error: petGalleryError },
+      { data: debtData, error: debtError },
+      { data: taskData, error: taskError },
+      { data: petTaskData, error: petTaskError },
+      { data: irlTaskData, error: irlTaskError },
+    ] = await Promise.all([
+      supabase.from("user_gallery").select("item_id").eq("user_id", profile.id),
+      supabase.from("unlocked_gallery_items").select("item_id").eq("user_id", profile.id),
+      supabase.from("user_pet_gallery").select("item_id").eq("user_id", profile.id),
+      supabase
+        .from("pet_debt_contracts")
+        .select(userDebtContractSelect)
+        .eq("user_id", profile.id)
+        .in("status", ["active", "pending"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("user_tasks")
+        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+        .eq("user_id", profile.id),
+      supabase
+        .from("user_pet_tasks")
+        .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+        .eq("user_id", profile.id),
+      supabase
+        .from("user_irl_tasks")
+        .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
+        .eq("user_id", profile.id)
+        .eq("status", "assigned")
+        .order("assigned_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (galleryError) {
       console.error("Failed to load persisted gallery unlocks", galleryError);
       throw galleryError;
     }
-
-    const { data: legacyGalleryData, error: legacyGalleryError } = await supabase
-      .from("unlocked_gallery_items")
-      .select("item_id")
-      .eq("user_id", profile.id);
 
     if (legacyGalleryError) {
       console.warn("Failed to load legacy gallery unlocks", legacyGalleryError);
@@ -4335,26 +4377,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     setUnlockedGalleryIds(unlockedIds);
 
-    const { data: petGalleryData, error: petGalleryError } = await supabase
-      .from("user_pet_gallery")
-      .select("item_id")
-      .eq("user_id", profile.id);
-
     if (petGalleryError) {
       console.warn("Failed to load pet gallery unlocks", petGalleryError);
       setPetGalleryUnlockedIds([]);
     } else {
       setPetGalleryUnlockedIds(petGalleryData?.map((entry) => entry.item_id) ?? []);
     }
-
-    const { data: debtData, error: debtError } = await supabase
-      .from("pet_debt_contracts")
-      .select(userDebtContractSelect)
-      .eq("user_id", profile.id)
-      .in("status", ["active", "pending"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
     if (debtError) {
       console.warn("Failed to load Pet debt contract", debtError);
@@ -4366,11 +4394,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setIsDebtAutoPayEnabled(debtAutoPayEnabled);
       setPetDebtContract(activeDebtContract);
     }
-
-    const { data: taskData, error: taskError } = await supabase
-      .from("user_tasks")
-      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-      .eq("user_id", profile.id);
 
     if (taskError) {
       console.error("Failed to load persisted task state", taskError);
@@ -4406,11 +4429,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     }
 
-    const { data: petTaskData, error: petTaskError } = await supabase
-      .from("user_pet_tasks")
-      .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
-      .eq("user_id", profile.id);
-
     if (petTaskError) {
       console.warn("Failed to load pet task state", petTaskError);
       setPetTaskState(petTasks);
@@ -4428,15 +4446,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setPetTaskState(buildPetTasksFromRows(petRows, profile.last_pet_tax_at, highLowTaskRow));
       setPetAffectionClaimDate(petMilestoneClaimDate);
     }
-
-    const { data: irlTaskData, error: irlTaskError } = await supabase
-      .from("user_irl_tasks")
-      .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
-      .eq("user_id", profile.id)
-      .eq("status", "assigned")
-      .order("assigned_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
     if (irlTaskError) {
       console.error("Failed to load assigned IRL task", irlTaskError);
@@ -10227,12 +10236,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const baseDashboardNavItems: SidebarNavItem[] = [
     { key: "home" as const, label: "Home" },
-    { key: "devotion" as const, label: "Devotion" },
-    { key: "tribute" as const, label: affection >= 100 ? "Shrine" : "Tribute" },
-    { key: "shop" as const, label: "Shop" },
+    { key: "tribute" as const, label: "Shrine" },
     { key: "tasks" as const, label: "Tasks" },
-    { key: "crates" as const, label: "Cases" },
-    { key: "puzzle" as const, label: "Puzzle" },
     {
       key: "pet" as const,
       label: "Pet",
@@ -10243,6 +10248,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       key: "debt" as const,
       label: "Debt Contract",
     },
+    { key: "devotion" as const, label: "Devotion" },
+    { key: "shop" as const, label: "Shop" },
+    { key: "crates" as const, label: "Cases" },
+    { key: "puzzle" as const, label: "Puzzle" },
     {
       key: "collection" as const,
       label: "Gallery",
@@ -10651,10 +10660,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   return (
     <main
-      className="min-h-screen overflow-x-hidden bg-[#06030a] text-white"
+      className="relative min-h-screen overflow-x-hidden bg-[#06030a] text-white"
       onPointerDown={handleGlobalPointerDown}
     >
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <AppShell
         activePage={activePanel}
         items={dashboardNavItems}
@@ -10670,7 +10679,23 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }}
       >
         <TopLevelNav active="main" />
-        <ProfileHeader
+        <div className="relative isolate">
+          {activePanel === "home" ? (
+            <CourtHomeStage
+              affection={affection}
+              coins={coins}
+              dailyMessage={dailyMessage}
+              displayName={effectiveDisplayName ?? username}
+              onNavigate={(page) => {
+                void preloadDashboardPanel(page);
+                resetViewportScroll();
+                setActivePanel(page);
+              }}
+            />
+          ) : null}
+          {activePanel !== "home" ? <CourtChamberIntro page={activePanel} /> : null}
+          <div className="relative z-30 -mt-px lg:mx-5 lg:-mt-10 [&>header]:shadow-[0_-22px_58px_rgba(0,0,0,.82)]">
+            <ProfileHeader
           actions={headerActions}
           avatarBorderPresentation={profileBorderPresentation}
           avatarSrc={characterEvolutionStage.image}
@@ -10701,8 +10726,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             setIsEditingDisplayName(false);
             setDisplayNameEditInput("");
           }}
-          onDisplayNameEditInputChange={setDisplayNameEditInput}
-        />
+              onDisplayNameEditInputChange={setDisplayNameEditInput}
+            />
+          </div>
+        </div>
 
           {showAccountAnnouncement && (
             <section className="rounded-[1.25rem] border border-pink-200/30 bg-[linear-gradient(135deg,rgba(236,72,153,0.18),rgba(0,0,0,0.58))] px-4 py-3 shadow-[0_0_28px_rgba(236,72,153,0.14)]">
@@ -10848,7 +10875,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
-        <section className="min-w-0 pb-10">
+        <section className="court-panel-stage min-w-0 pb-10">
           {activePanel === "home" && (
             <div className="flex min-w-0 flex-col gap-6">
               <HallOfFameSection
@@ -10863,11 +10890,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               ) : null}
               <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 <div className="flex min-w-0 flex-col gap-6">
-                  <CharacterCard
-                    dailyMessage={dailyMessage}
-                    evolutionStage={characterEvolutionStage}
-                    stageRevealToken={affectionStageRevealToken}
-                  />
                   <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
                     <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
                       Affection Read
@@ -10916,6 +10938,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {activePanel === "collection" && (
             <GalleryGrid
               items={visibleGallery}
+              petItems={petGalleryItems}
+              petScore={petScore}
+              petUnlockedItemIds={petGalleryUnlockedIds}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               mood={affection}
@@ -11080,7 +11105,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onEquipTitle={handleEquipTitle}
               />
 
-              <section className="rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
+              <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
                 <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
                   Avatar Wardrobe
                 </p>
@@ -11089,7 +11114,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   Items grouped by category (hands &amp; mouth added). Click items to equip or unequip. Avatar preview updates live.
                 </p>
                 <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                  <div className="flex min-w-0 flex-col rounded-[1.5rem] border border-white/10 bg-black/35 p-3">
+                  <div className="court-feature-card flex min-w-0 flex-col rounded-[1.5rem] border border-white/10 bg-black/35 p-3">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
                       Avatar Preview
                     </p>
@@ -11233,7 +11258,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                     </div>
                   </div>
 
-                  <div className="min-w-0 rounded-[1.5rem] border border-white/5 bg-black/30 p-4">
+                  <div className="court-feature-card min-w-0 rounded-[1.5rem] border border-white/5 bg-black/30 p-4">
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
                       Wardrobe Items
                       {wardrobeCategoryFilter && (
@@ -11378,14 +11403,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             <PetSection
               disabled={isTimeoutActive || isPreviewRestricted}
               coins={coins}
-              galleryItems={petGalleryItems}
               isGuest={isGuestMode}
               favorCoinReward={eventFavorCoinReward}
               nextTaxDueAt={nextPetTaxDueAt}
               ownerLikeness={ownerLikeness}
               petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
               petTaskCoinReward={eventPetTaskCoinReward}
-              petGalleryUnlockedIds={petGalleryUnlockedIds}
               petScore={petScore}
               petAffectionClaimed={petAffectionClaimed}
               storedRights={storedRights}

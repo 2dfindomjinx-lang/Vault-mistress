@@ -35,6 +35,242 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.court-scrollbar {
+  scrollbar-color: rgba(200, 154, 85, 0.35) transparent;
+  scrollbar-width: thin;
+}
+
+.court-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.court-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(200, 154, 85, 0.35);
+}
+
+.principessa-court-ui {
+  --court-gold: #c89a55;
+  --court-ivory: #fff0d2;
+  --court-wine: #6f153c;
+}
+
+.principessa-court-ui .court-panel-stage > section,
+.principessa-court-ui .court-panel-stage > div {
+  border-color: rgba(200, 154, 85, 0.16) !important;
+}
+
+.principessa-court-ui .court-feature-panel {
+  position: relative;
+  border: 1px solid rgba(200, 154, 85, 0.2) !important;
+  border-radius: 0.25rem !important;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(159, 18, 69, 0.13), transparent 34%),
+    linear-gradient(118deg, rgba(13, 7, 9, 0.98), rgba(32, 8, 19, 0.82) 58%, rgba(7, 4, 6, 0.98)) !important;
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.32) !important;
+}
+
+.principessa-court-ui .court-feature-panel::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 1.5rem;
+  left: 1.5rem;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(227, 184, 109, 0.6), transparent);
+}
+
+.principessa-court-ui .court-feature-card {
+  border: 1px solid rgba(200, 154, 85, 0.15) !important;
+  border-radius: 0.18rem !important;
+  background:
+    linear-gradient(135deg, rgba(26, 8, 16, 0.72), rgba(5, 3, 4, 0.82)) !important;
+  box-shadow: inset 0 1px rgba(255, 240, 210, 0.025), 0 12px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.principessa-court-ui .court-feature-inset {
+  border-color: rgba(200, 154, 85, 0.12) !important;
+  border-radius: 0.15rem !important;
+  background: rgba(4, 2, 3, 0.58) !important;
+}
+
+.principessa-court-ui .court-feature-panel :is(h2, h3) {
+  color: var(--court-ivory);
+}
+
+/* Court grid system: semantic cards used by tasks, pet records, ledgers and collections. */
+.principessa-court-ui .court-grid {
+  --court-card-accent: 200 154 85;
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+.principessa-court-ui .court-grid--tasks {
+  --court-card-accent: 226 92 147;
+}
+
+.principessa-court-ui .court-grid--pet {
+  --court-card-accent: 190 72 93;
+}
+
+.principessa-court-ui .court-grid--debt {
+  --court-card-accent: 214 164 83;
+}
+
+.principessa-court-ui .court-grid--collection {
+  --court-card-accent: 184 114 211;
+}
+
+.principessa-court-ui .court-grid--shop {
+  --court-card-accent: 227 184 109;
+}
+
+.principessa-court-ui .court-grid-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(var(--court-card-accent) / 0.24) !important;
+  border-radius: 0.2rem !important;
+  background:
+    linear-gradient(90deg, rgb(var(--court-card-accent) / 0.12), transparent 1px) 1rem 0 / 1px 100% no-repeat,
+    radial-gradient(circle at 92% 4%, rgb(var(--court-card-accent) / 0.15), transparent 31%),
+    linear-gradient(145deg, rgba(25, 8, 15, 0.96), rgba(8, 4, 7, 0.98) 62%, rgba(17, 6, 11, 0.96)) !important;
+  box-shadow:
+    inset 0 1px rgba(255, 240, 210, 0.035),
+    inset 3px 0 rgb(var(--court-card-accent) / 0.07),
+    0 16px 34px rgba(0, 0, 0, 0.26) !important;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.principessa-court-ui .court-grid-card::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 2.35rem;
+  left: 1rem;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(var(--court-card-accent) / 0.72), rgb(var(--court-card-accent) / 0.08), transparent);
+}
+
+.principessa-court-ui .court-grid-card::after {
+  position: absolute;
+  z-index: 0;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-top: 1px solid rgb(var(--court-card-accent) / 0.46);
+  border-right: 1px solid rgb(var(--court-card-accent) / 0.46);
+  content: "";
+  pointer-events: none;
+}
+
+.principessa-court-ui .court-grid-card > :not([class*="absolute"]):not([class*="fixed"]):not([class*="sticky"]) {
+  position: relative;
+  z-index: 1;
+}
+
+.principessa-court-ui .court-grid-card:is(:hover, :focus-within) {
+  border-color: rgb(var(--court-card-accent) / 0.46) !important;
+  box-shadow:
+    inset 0 1px rgba(255, 240, 210, 0.06),
+    inset 3px 0 rgb(var(--court-card-accent) / 0.16),
+    0 20px 42px rgba(0, 0, 0, 0.34) !important;
+  transform: translateY(-2px);
+}
+
+.principessa-court-ui .court-grid-card h3 {
+  max-width: calc(100% - 1.75rem);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.principessa-court-ui .court-grid-card :is(div, article, aside, button, input, textarea, select)[class*="rounded-2xl"],
+.principessa-court-ui .court-grid-card :is(div, article, aside, button, input, textarea, select)[class*="rounded-xl"] {
+  border-radius: 0.18rem !important;
+}
+
+.principessa-court-ui .court-grid-card span[class*="rounded-full"] {
+  border-radius: 0.16rem !important;
+}
+
+.principessa-court-ui .court-grid-card--danger {
+  --court-card-accent: 210 66 86;
+}
+
+.principessa-court-ui .court-grid-card--gold {
+  --court-card-accent: 227 184 109;
+}
+
+.principessa-court-ui .court-grid-card--violet {
+  --court-card-accent: 190 116 218;
+}
+
+.principessa-court-ui .court-grid-card--success {
+  --court-card-accent: 89 178 139;
+}
+
+.principessa-court-ui .court-inset-tile {
+  position: relative;
+  border: 1px solid rgb(var(--court-card-accent, 200 154 85) / 0.15) !important;
+  border-radius: 0.12rem !important;
+  background: linear-gradient(135deg, rgba(255, 240, 210, 0.035), rgba(0, 0, 0, 0.24)) !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.principessa-court-ui .court-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(200, 154, 85, 0.15);
+}
+
+.principessa-court-ui .court-section-heading::before {
+  display: grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(200, 154, 85, 0.25);
+  color: rgba(227, 184, 109, 0.72);
+  content: attr(data-mark);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.26);
+}
+
+@media (max-width: 639px) {
+  .principessa-court-ui .court-grid-card:is(:hover, :focus-within) {
+    transform: none;
+  }
+}
+
+.principessa-court-ui .court-panel-stage :is(section, article, div)[class*="rounded-[2rem]"],
+.principessa-court-ui .court-panel-stage :is(section, article, div)[class*="rounded-[1.5rem]"] {
+  border-radius: 0.35rem !important;
+}
+
+.principessa-court-ui .court-panel-stage > :is(section, div[class*="flex"], div[class*="grid"]) {
+  animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .principessa-court-ui *,
+  .principessa-court-ui *::before,
+  .principessa-court-ui *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}
+
 @keyframes tribute-slide-in {
   from {
     opacity: 0;
@@ -261,12 +497,10 @@ button:disabled {
   0%,
   100% {
     opacity: 0.9;
-    filter: saturate(0.96) brightness(0.98);
   }
 
   50% {
     opacity: 1;
-    filter: saturate(1.08) brightness(1.06);
   }
 }
 
@@ -274,12 +508,10 @@ button:disabled {
   0%,
   100% {
     opacity: 0.86;
-    filter: brightness(0.96) saturate(0.98);
   }
 
   50% {
     opacity: 1;
-    filter: brightness(1.16) saturate(1.18);
   }
 }
 
@@ -303,17 +535,14 @@ button:disabled {
 @keyframes profileBorderShimmer {
   0% {
     background-position: 0% 50%;
-    filter: saturate(0.98);
   }
 
   50% {
     background-position: 100% 50%;
-    filter: saturate(1.12);
   }
 
   100% {
     background-position: 0% 50%;
-    filter: saturate(1);
   }
 }
 
@@ -334,22 +563,18 @@ button:disabled {
   0%,
   100% {
     opacity: 0.9;
-    filter: brightness(0.98) saturate(0.96);
   }
 
   25% {
     opacity: 1;
-    filter: brightness(1.08) saturate(1.08);
   }
 
   55% {
     opacity: 0.94;
-    filter: brightness(1.14) saturate(1.18);
   }
 
   80% {
     opacity: 0.98;
-    filter: brightness(1.02) saturate(1.04);
   }
 }
 
@@ -422,9 +647,7 @@ button:disabled {
     transparent 90deg 360deg
   );
   animation: profileBorderRunner 5.8s linear infinite;
-  filter:
-    drop-shadow(0 0 8px rgba(255, 255, 255, 0.35))
-    drop-shadow(0 0 16px rgba(236, 72, 153, 0.25));
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
 }
 
 .profile-border-frame--runner::before {
@@ -434,10 +657,7 @@ button:disabled {
 .profile-border-frame--runner::after {
   animation-delay: -2.9s;
   opacity: 0.72;
-  filter:
-    blur(0.8px)
-    drop-shadow(0 0 10px rgba(255, 255, 255, 0.2))
-    drop-shadow(0 0 18px rgba(236, 72, 153, 0.16));
+  filter: drop-shadow(0 0 10px rgba(236, 72, 153, 0.18));
 }
 
 .profile-border-frame--rainbow {
@@ -466,17 +686,18 @@ button:disabled {
     transparent 96deg 360deg
   );
   animation: profileBorderRunner 5.8s linear infinite;
-  filter:
-    drop-shadow(0 0 8px rgba(255, 255, 255, 0.28))
-    drop-shadow(0 0 18px rgba(236, 72, 153, 0.2))
-    drop-shadow(0 0 20px rgba(34, 211, 238, 0.18));
+  filter: drop-shadow(0 0 9px rgba(168, 85, 247, 0.24));
 }
 
 .profile-border-frame--rainbow::after {
   animation-delay: -2.9s;
   opacity: 0.68;
-  filter:
-    blur(1px)
-    drop-shadow(0 0 10px rgba(255, 255, 255, 0.18))
-    drop-shadow(0 0 18px rgba(168, 85, 247, 0.16));
+  filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.16));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-border-frame::before,
+  .profile-border-frame::after {
+    animation: none;
+  }
 }

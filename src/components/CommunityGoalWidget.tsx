@@ -20,7 +20,7 @@ function formatCountdown(targetIso: string) {
 
 export function CommunityGoalWidget({ goal }: CommunityGoalWidgetProps) {
   return (
-    <section className="rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(145deg,rgba(2,22,18,0.9),rgba(6,78,59,0.48),rgba(0,0,0,0.62))] p-5 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(145deg,rgba(2,22,18,0.9),rgba(6,78,59,0.48),rgba(0,0,0,0.62))] p-5 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.32em] text-emerald-200/74">Community Goal</p>
@@ -44,13 +44,13 @@ export function CommunityGoalWidget({ goal }: CommunityGoalWidgetProps) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
+      <div className="court-grid mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="court-grid-card court-grid-card--success rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Reward</p>
           <p className="mt-2 text-lg font-black text-white">{goal.rewardTitle}</p>
           <p className="mt-1 text-sm leading-6 text-emerald-50/72">{goal.rewardDescription}</p>
         </div>
-        <div className="rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
+        <div className="court-grid-card court-grid-card--success rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Status</p>
           <p className="mt-2 text-lg font-black text-white">
             {goal.currentUserParticipating ? "You are contributing" : "You have not contributed yet"}

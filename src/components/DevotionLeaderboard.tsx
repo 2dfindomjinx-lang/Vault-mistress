@@ -52,7 +52,7 @@ function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboa
 
   return (
     <div
-      className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[1.5rem] border px-3 py-3 sm:px-4 ${
+      className={`court-grid-card ${highlight ? "court-grid-card--gold" : ""} grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-[1.5rem] border px-3 py-3 sm:px-4 ${
         highlight
           ? "border-amber-300/35 bg-[linear-gradient(135deg,rgba(245,158,11,0.14),rgba(236,72,153,0.12),rgba(0,0,0,0.5))] shadow-[0_0_30px_rgba(245,158,11,0.12)]"
           : "border-white/10 bg-black/30"
@@ -128,7 +128,7 @@ export function DevotionLeaderboard({
   onPeriodChange,
 }: DevotionLeaderboardProps) {
   return (
-    <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.7),rgba(66,12,55,0.5),rgba(107,33,58,0.22))] p-5 shadow-[0_0_44px_rgba(244,114,182,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.7),rgba(66,12,55,0.5),rgba(107,33,58,0.22))] p-5 shadow-[0_0_44px_rgba(244,114,182,0.12)]">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.32em] text-amber-200/70">Devotion</p>
@@ -156,7 +156,7 @@ export function DevotionLeaderboard({
         </div>
       </div>
 
-      <div className="mt-4 rounded-[1.4rem] border border-white/10 bg-black/25 px-4 py-3 text-xs text-pink-100/72">
+        <div className="court-feature-inset mt-4 rounded-[1.4rem] border border-white/10 bg-black/25 px-4 py-3 text-xs text-pink-100/72">
         <p className="font-black uppercase tracking-[0.2em] text-amber-100/70">Refresh schedule</p>
         <p className="mt-1">
           Updates at <span className="font-black text-white">00:00</span> and{" "}
@@ -171,7 +171,7 @@ export function DevotionLeaderboard({
         </p>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="court-grid court-grid--shop mt-5 grid gap-3">
         {isLoading ? (
           <div className="rounded-[1.5rem] border border-white/10 bg-black/25 px-4 py-10 text-center text-sm text-pink-100/70">
             Loading devotion leaderboard...

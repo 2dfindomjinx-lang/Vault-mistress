@@ -44,8 +44,8 @@ export function StatsPanel({
   const leadership = getLeadershipRank(stats.tributeTotal);
 
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-      <div className="rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)] sm:col-span-2">
+    <section className="court-grid court-grid--collection grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="court-grid-card court-grid-card--violet rounded-[1.5rem] border border-pink-200/20 bg-pink-500/[0.08] p-4 shadow-[0_0_34px_rgba(236,72,153,0.14)] sm:col-span-2">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Leadership</p>
@@ -74,7 +74,7 @@ export function StatsPanel({
       </div>
 
       <div className="grid grid-cols-1 items-stretch gap-3 sm:col-span-2 sm:grid-cols-2">
-        <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="court-grid-card court-grid-card--violet flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-fuchsia-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase leading-tight tracking-[0.22em] text-fuchsia-200/70">
               <span className="whitespace-nowrap">Top 5</span>
@@ -93,7 +93,7 @@ export function StatsPanel({
 
                 return (
                   <div
-                    className={`flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                    className={`court-inset-tile flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
                       isCurrentUser ? "border-pink-200/30 bg-pink-500/10" : "border-white/10 bg-white/[0.035]"
                     }`}
                     key={leader.rawUsername ?? leader.username}
@@ -125,7 +125,7 @@ export function StatsPanel({
           </div>
         </div>
 
-        <div className="flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
+        <div className="court-grid-card court-grid-card--gold flex h-full min-h-[26rem] flex-col rounded-[1.5rem] border border-amber-200/15 bg-black/45 p-4 shadow-[0_0_28px_rgba(168,85,247,0.1)]">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs uppercase tracking-[0.22em] text-amber-100/75">Top 5 Valuable Inventories</p>
             <p className="text-xs font-semibold text-zinc-500">By Inventory Value</p>
@@ -134,7 +134,7 @@ export function StatsPanel({
             {topValuableInventories.slice(0, 5).length > 0 ? (
               topValuableInventories.slice(0, 5).map((entry, index) => (
               <div
-                  className="flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                  className="court-inset-tile flex min-h-[4.25rem] items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
                   key={entry.rawUsername ?? entry.username}
                 >
                   <div className="min-w-0">
@@ -162,7 +162,7 @@ export function StatsPanel({
         </div>
       </div>
 
-      <div className="rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)] sm:col-span-2">
+      <div className="court-grid-card court-grid-card--danger rounded-[1.5rem] border border-rose-200/15 bg-[linear-gradient(145deg,rgba(244,63,94,0.1),rgba(0,0,0,0.42))] p-4 shadow-[0_0_28px_rgba(244,63,94,0.08)] sm:col-span-2">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs uppercase tracking-[0.22em] text-rose-100/75">Public Fail Board</p>
           <p className="text-xs font-semibold text-zinc-500">Failed IRL tasks</p>
@@ -177,7 +177,7 @@ export function StatsPanel({
 
               return (
                 <div
-                  className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
+                  className={`court-inset-tile flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 ${
                     isCurrentUser ? "border-rose-200/30 bg-rose-500/10" : "border-white/10 bg-white/[0.035]"
                   }`}
                   key={entry.rawUsername ?? entry.username}

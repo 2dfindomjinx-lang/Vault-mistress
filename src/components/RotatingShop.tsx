@@ -454,7 +454,7 @@ export function RotatingShop({
 
     return (
       <article
-        className={`flex h-full min-h-[15.75rem] flex-col rounded-[1.45rem] border p-3 transition lg:min-h-[14rem] ${
+        className={`court-grid-card court-grid-card--gold flex h-full min-h-[15.75rem] flex-col rounded-[1.45rem] border p-3 transition lg:min-h-[14rem] ${
           equipped
             ? "border-amber-200/50 bg-amber-400/12 shadow-[0_0_26px_rgba(251,191,36,0.14)]"
             : owned
@@ -643,7 +643,7 @@ export function RotatingShop({
   };
 
   return (
-    <section className="rounded-[2rem] border border-amber-200/18 bg-[linear-gradient(145deg,rgba(22,10,2,0.92),rgba(120,53,15,0.52),rgba(0,0,0,0.68))] p-5 shadow-[0_0_46px_rgba(251,191,36,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-amber-200/18 bg-[linear-gradient(145deg,rgba(22,10,2,0.92),rgba(120,53,15,0.52),rgba(0,0,0,0.68))] p-5 shadow-[0_0_46px_rgba(251,191,36,0.12)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-amber-200/74">Rotating Shop</p>
@@ -680,7 +680,7 @@ export function RotatingShop({
           the catalog is seeded.
         </div>
       ) : (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="court-grid court-grid--shop mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {activeSlots.map((slot, index) => (
             <div className="h-full" key={`active-slot-${index}`}>
               {renderAnimatedActiveSlot(slot, index)}
@@ -712,7 +712,7 @@ export function RotatingShop({
                   </p>
                   <p className="text-[11px] text-amber-50/45">{groupedItems.length} items</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
+          <div className="court-grid court-grid--shop grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
                   {groupedItems.map((item) => renderCatalogTile(item))}
                 </div>
               </div>

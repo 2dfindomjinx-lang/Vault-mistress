@@ -38,7 +38,7 @@ export function TributePanel({
   const isMaxAffection = affection >= 100;
 
   return (
-    <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
@@ -53,10 +53,10 @@ export function TributePanel({
 
       {!hideAffectionOffer && (
         <>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-3">
             {tributeOptions.map((option) => (
               <button
-                className="group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="court-grid-card court-grid-card--gold group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={disabled || pending || isMaxAffection || coins < option.amount}
                 key={option.amount}
                 onClick={() => onTribute(option.amount)}
@@ -87,7 +87,7 @@ export function TributePanel({
       )}
 
       {hideAffectionOffer && (
-        <div className="mt-5 rounded-[1.6rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.28),rgba(88,28,135,0.16),rgba(0,0,0,0.5))] p-5 shadow-[0_0_34px_rgba(251,191,36,0.12)]">
+      <div className="court-feature-card court-grid-card court-grid-card--gold mt-5 rounded-[1.6rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.28),rgba(88,28,135,0.16),rgba(0,0,0,0.5))] p-5 shadow-[0_0_34px_rgba(251,191,36,0.12)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl">
               <p className="text-xs font-black uppercase tracking-[0.26em] text-amber-100/70">
@@ -112,41 +112,47 @@ export function TributePanel({
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.55fr)]">
-            <div className="grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.55fr)]">
+            <div className="court-grid court-grid--shop grid items-start gap-3 md:grid-cols-3">
               {SHRINE_PURCHASE_OPTIONS.map((option) => (
                 <button
-                  className="group rounded-[1.35rem] border border-amber-200/15 bg-[linear-gradient(160deg,rgba(251,191,36,0.12),rgba(236,72,153,0.1),rgba(0,0,0,0.45))] p-4 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="court-grid-card court-grid-card--gold group self-start overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.24),rgba(88,28,135,0.12),rgba(0,0,0,0.52))] text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={disabled || shrinePending || coins < option.amount}
                   key={option.amount}
                   onClick={() => onShrinePurchase?.(option.amount)}
                   type="button"
                 >
-                  <p className="text-sm font-semibold text-amber-50">{option.label}</p>
-                  <div className="mt-3 flex items-end justify-between gap-3">
-                    <div>
-                      <p className="text-3xl font-black text-white">{option.amount.toLocaleString()}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-400">coins offered</p>
-                    </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-amber-200/10 bg-amber-300/[0.035] px-4 py-3">
+                    <p className="text-sm font-black text-amber-50">{option.label}</p>
+                    <span className="rounded-full border border-amber-200/15 bg-black/25 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/75 transition group-enabled:group-hover:border-amber-200/35 group-enabled:group-hover:text-amber-50">
+                      Offer
+                    </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-zinc-300">{option.description}</p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-50/85">
-                    <span className="rounded-full border border-amber-200/20 bg-black/25 px-2.5 py-1.5">
-                      +{option.devotionReward} Devotion
-                    </span>
-                    <span className="rounded-full border border-pink-200/20 bg-black/25 px-2.5 py-1.5">
-                      +{option.amount.toLocaleString()} Tribute
-                    </span>
-                    <span className="rounded-full border border-sky-200/20 bg-black/25 px-2.5 py-1.5">
-                      +{Math.floor(option.amount / SHRINE_LEVEL_COIN_INTERVAL)} Worship
-                    </span>
+                  <div className="p-4">
+                    <p className="text-2xl font-black leading-none text-white">{option.amount.toLocaleString()}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">coins offered</p>
+                    <p className="mt-3 min-h-10 text-xs leading-5 text-zinc-300">{option.description}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-white/[0.06] pt-3 text-center">
+                      <span className="rounded-lg bg-amber-300/[0.06] px-1.5 py-2">
+                        <strong className="block text-xs text-amber-50">+{option.devotionReward}</strong>
+                        <span className="mt-0.5 block text-[8px] font-black uppercase tracking-[0.12em] text-amber-100/50">Devotion</span>
+                      </span>
+                      <span className="rounded-lg bg-pink-300/[0.06] px-1.5 py-2">
+                        <strong className="block truncate text-xs text-pink-50">+{option.amount.toLocaleString()}</strong>
+                        <span className="mt-0.5 block text-[8px] font-black uppercase tracking-[0.12em] text-pink-100/50">Tribute</span>
+                      </span>
+                      <span className="rounded-lg bg-sky-300/[0.06] px-1.5 py-2">
+                        <strong className="block text-xs text-sky-50">+{Math.floor(option.amount / SHRINE_LEVEL_COIN_INTERVAL)}</strong>
+                        <span className="mt-0.5 block text-[8px] font-black uppercase tracking-[0.12em] text-sky-100/50">Worship</span>
+                      </span>
+                    </div>
                   </div>
                 </button>
               ))}
             </div>
 
             <div className="grid gap-4">
-            <div className="rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
+          <div className="court-feature-card court-grid-card rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
                   Latest Shrine Memory

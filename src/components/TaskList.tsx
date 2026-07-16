@@ -12,6 +12,7 @@ import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpo
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 import { emitSoundEvent } from "@/lib/sound";
 import type { MechanicsState, TaskItem } from "@/lib/types";
+import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const SACRIFICE_COST = 250;
 const SUPPORT_COST = 2500;
@@ -234,7 +235,10 @@ export function TaskList({
   tasks,
   usernameStyle,
 }: TaskListProps) {
-  const [now, setNow] = useState(0);
+  const now = useDeadlineClock(
+    tasks.flatMap((task) => [task.cooldownUntil, task.timeoutUntil, task.assignedIrlDueAt]),
+    30_000,
+  );
   const [typingValue, setTypingValue] = useState("");
   const [stake, setStake] = useState(10);
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
@@ -362,18 +366,11 @@ export function TaskList({
     onCooldownAttempt?.(message);
   };
 
-  useEffect(() => {
-    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
-      if (irlWheelTimerRef.current) {
-        window.clearTimeout(irlWheelTimerRef.current);
-      }
-      stopCaseOpenAnimation();
-    };
+  useEffect(() => () => {
+    if (irlWheelTimerRef.current) {
+      window.clearTimeout(irlWheelTimerRef.current);
+    }
+    stopCaseOpenAnimation();
   }, [stopCaseOpenAnimation]);
 
   const movementTask = tasks.find((task) => task.kind === "movement");
@@ -648,15 +645,17 @@ export function TaskList({
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
 
   return (
-    <section className="min-w-0 rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div>
-        <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-          Tasks & Games
+    <section className="court-feature-panel min-w-0 rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+      <div className="court-section-heading" data-mark="III">
+        <div>
+        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">
+          Standing orders
         </p>
-        <h2 className="text-3xl font-black">Play the Vault</h2>
+        <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Assignments & Trials</h2>
+        </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="court-grid court-grid--tasks mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MechanicCard
           actionLabel="Beg"
           cooldownUntil={mechanics.begCooldownUntil}
@@ -700,7 +699,7 @@ export function TaskList({
         />
       </div>
 
-      <article className="mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
+      <article className="court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
         <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
               <div className="mx-auto flex w-full max-w-[18rem] flex-col gap-2">
                 <div className="relative aspect-[3/2] w-full overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
@@ -792,7 +791,7 @@ export function TaskList({
         usernameStyle={usernameStyle}
       />
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
+      <div className="court-grid court-grid--tasks mt-5 grid gap-3 md:grid-cols-2">
         {visibleTasks.map((task) => {
           const isTimeoutRisk = task.kind === "timeout-risk";
           const cooldownRemaining = task.cooldownUntil
@@ -828,7 +827,7 @@ export function TaskList({
                 key="risk-wheel-layout"
               >
                 <div className="flex min-h-full min-w-0 flex-col gap-3">
-                  <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-black text-white">{task.title}</h3>
@@ -928,7 +927,7 @@ export function TaskList({
                   </article>
 
                   {waitTask && (
-                    <article className="rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <h3 className="text-lg font-black text-white">{waitTask.title}</h3>
@@ -965,7 +964,7 @@ export function TaskList({
                 </div>
 
                 {irlTask && (
-                  <article className="flex min-h-full flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+          <article className="court-feature-card court-grid-card flex min-h-full flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-black text-white">{irlTask.title}</h3>
@@ -1105,7 +1104,7 @@ export function TaskList({
 
           return (
             <article
-              className={`rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
+              className={`court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
                 task.kind === "movement" &&
                 (movementLocalActive || task.movementState === "active" || task.movementState === "fake_hope")
                   ? "md:col-span-2"
@@ -1916,7 +1915,7 @@ function LoyaltyJackpotTaskCard({
   };
 
   return (
-    <article className="mt-5 rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(245,158,11,0.16),rgba(0,0,0,0.38))] p-4 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
+      <article className="court-feature-card court-grid-card court-grid-card--gold mt-5 rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(245,158,11,0.16),rgba(0,0,0,0.38))] p-4 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-100/70">
@@ -2512,7 +2511,7 @@ function MechanicCard({
   const isCoolingDown = cooldownRemaining > 0;
 
   return (
-    <article className="rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(145deg,rgba(236,72,153,0.1),rgba(0,0,0,0.35))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(145deg,rgba(236,72,153,0.1),rgba(0,0,0,0.35))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-white">{title}</h3>

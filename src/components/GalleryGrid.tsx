@@ -1,10 +1,13 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
-import type { GalleryItem, GalleryRarity } from "@/lib/types";
+import type { GalleryItem, GalleryRarity, PetGalleryItem } from "@/lib/types";
 
 type GalleryGridProps = {
   items: GalleryItem[];
+  petItems: PetGalleryItem[];
+  petScore: number;
+  petUnlockedItemIds: string[];
   coins: number;
   disabled?: boolean;
   mood: number;
@@ -15,6 +18,7 @@ type GalleryGridProps = {
 };
 
 type GalleryFilter = "All" | "Common" | "Rare" | "Divine" | "Secret" | "Sacrifice" | "Shrine";
+type GalleryView = "vault" | "pet";
 
 const rarityStyles: Record<GalleryRarity, string> = {
   Common: "border-zinc-300/30 text-zinc-100",
@@ -30,6 +34,9 @@ export function GalleryGrid({
   disabled = false,
   items,
   mood,
+  petItems,
+  petScore,
+  petUnlockedItemIds,
   newItemIds = [],
   pendingUnlockIds = [],
   onItemHover,
@@ -39,6 +46,11 @@ export function GalleryGrid({
   const hasSacrifice = items.some((item) => item.rarity === "Sacrifice");
   const hasShrine = items.some((item) => item.rarity === "Shrine");
   const [filter, setFilter] = useState<GalleryFilter>("All");
+  const [view, setView] = useState<GalleryView>("vault");
+  const vaultUnlockedCount = items.filter((item) => item.unlocked).length;
+  const petUnlockedCount = petItems.filter(
+    (item) => petUnlockedItemIds.includes(item.id) || petScore >= item.unlockCost,
+  ).length;
 
   const filters = useMemo<GalleryFilter[]>(() => {
     const base: GalleryFilter[] = ["All"];
@@ -65,21 +77,19 @@ export function GalleryGrid({
 
   return (
     <section
-      className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5"
+      className="court-feature-panel rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5"
       data-allow-image-download
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-            Gallery Unlock
+            The Court Archive
           </p>
-          <h2 className="text-2xl font-black sm:text-3xl">The Vault Gallery</h2>
-        <p className="mt-2 text-sm text-zinc-400">
-          {disabled
-            ? "Timeout is active. Gallery unlocks are locked until the timer ends."
-            : "Common cards use coins. Rare and Divine cards obey Principessa's mood. Shrine Memories gather here once revealed."}
-        </p>
-      </div>
+          <h2 className="text-2xl font-black sm:text-3xl">Gallery</h2>
+          <p className="mt-2 text-sm text-zinc-400">
+            Vault rewards and Pet Score memories live in separate wings of the archive.
+          </p>
+        </div>
         <div className="text-sm text-zinc-400">
           Balance: <CoinAmount amount={coins} className="font-bold text-pink-100" iconSize={16} label="" />
           <span className="mx-2 text-zinc-600">/</span>
@@ -87,6 +97,53 @@ export function GalleryGrid({
         </div>
       </div>
 
+      <div
+        aria-label="Gallery collection"
+        className="mt-5 grid gap-2 rounded-[1.3rem] border border-white/10 bg-black/45 p-1.5 sm:grid-cols-2"
+        role="tablist"
+      >
+        <button
+          aria-selected={view === "vault"}
+          className={`group flex min-w-0 items-center justify-between gap-3 rounded-[1rem] border px-4 py-3 text-left transition ${
+            view === "vault"
+              ? "border-fuchsia-200/30 bg-[linear-gradient(120deg,rgba(217,70,239,0.2),rgba(236,72,153,0.1))] text-white shadow-[0_0_22px_rgba(217,70,239,0.12)]"
+              : "border-transparent text-zinc-400 hover:border-white/10 hover:bg-white/[0.035] hover:text-zinc-100"
+          }`}
+          onClick={() => setView("vault")}
+          role="tab"
+          type="button"
+        >
+          <span>
+            <span className="block text-sm font-black uppercase tracking-[0.16em]">Vault Gallery</span>
+            <span className="mt-1 block text-xs font-medium opacity-65">Coins, mood and Shrine memories</span>
+          </span>
+          <span className="shrink-0 rounded-full border border-current/20 px-2.5 py-1 text-xs font-black">
+            {vaultUnlockedCount}/{items.length}
+          </span>
+        </button>
+        <button
+          aria-selected={view === "pet"}
+          className={`group flex min-w-0 items-center justify-between gap-3 rounded-[1rem] border px-4 py-3 text-left transition ${
+            view === "pet"
+              ? "border-rose-200/30 bg-[linear-gradient(120deg,rgba(244,63,94,0.18),rgba(168,85,247,0.12))] text-white shadow-[0_0_22px_rgba(244,63,94,0.12)]"
+              : "border-transparent text-zinc-400 hover:border-white/10 hover:bg-white/[0.035] hover:text-zinc-100"
+          }`}
+          onClick={() => setView("pet")}
+          role="tab"
+          type="button"
+        >
+          <span>
+            <span className="block text-sm font-black uppercase tracking-[0.16em]">Pet Gallery</span>
+            <span className="mt-1 block text-xs font-medium opacity-65">Pet Score progression archive</span>
+          </span>
+          <span className="shrink-0 rounded-full border border-current/20 px-2.5 py-1 text-xs font-black">
+            {petUnlockedCount}/{petItems.length}
+          </span>
+        </button>
+      </div>
+
+      {view === "vault" ? (
+        <>
       <div className="mt-5 flex flex-wrap gap-2">
         {filters.map((option) => (
           <button
@@ -108,7 +165,7 @@ export function GalleryGrid({
         ))}
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+      <div className="court-grid court-grid--collection mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
         {filteredItems.map((item) => {
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
@@ -134,7 +191,7 @@ export function GalleryGrid({
 
           return (
             <article
-              className={`min-w-0 overflow-hidden rounded-[1.1rem] border bg-white/[0.045] transition hover:-translate-y-0.5 sm:rounded-[1.5rem] ${
+              className={`court-feature-card court-grid-card court-grid-card--violet min-w-0 overflow-hidden rounded-[1.1rem] border bg-white/[0.045] transition hover:-translate-y-0.5 sm:rounded-[1.5rem] ${
                 isSecret || isSacrifice || isShrineMemory
                   ? "border-pink-200/60 shadow-[0_0_34px_rgba(236,72,153,0.24)]"
                   : "border-white/10 hover:border-pink-300/30"
@@ -239,6 +296,67 @@ export function GalleryGrid({
           );
         })}
       </div>
+        </>
+      ) : (
+        <div className="mt-5">
+          <div className="court-feature-card court-grid-card court-grid-card--danger flex flex-col gap-3 rounded-[1.25rem] border border-rose-200/15 bg-[linear-gradient(120deg,rgba(136,19,55,0.22),rgba(88,28,135,0.12),rgba(0,0,0,0.34))] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-rose-100/70">Pet Score Collection</p>
+              <p className="mt-1 text-sm text-zinc-300">Every score threshold reveals another private memory.</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]">
+              <span className="rounded-full border border-rose-200/15 bg-black/30 px-3 py-2 text-rose-50">Score {petScore.toLocaleString()}</span>
+              <span className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-zinc-300">{petUnlockedCount} revealed</span>
+            </div>
+          </div>
+
+          <div className="court-grid court-grid--collection mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
+            {petItems.map((item, index) => {
+              const unlocked = petUnlockedItemIds.includes(item.id) || petScore >= item.unlockCost;
+
+              return (
+                <article
+                  className="court-feature-card court-grid-card court-grid-card--danger min-w-0 overflow-hidden rounded-[1.1rem] border border-rose-200/10 bg-[linear-gradient(160deg,rgba(136,19,55,0.16),rgba(0,0,0,0.54))] sm:rounded-[1.35rem]"
+                  key={item.id}
+                >
+                  <div className="relative aspect-[3/4] bg-black">
+                    <Image
+                      alt={unlocked ? item.title : "Locked Pet Gallery memory"}
+                      className={`object-cover transition duration-500 ${unlocked ? "" : "scale-105 blur-md grayscale opacity-45"}`}
+                      fill
+                      sizes="(min-width: 1280px) 20vw, (min-width: 640px) 33vw, 50vw"
+                      src={item.image}
+                      unoptimized
+                    />
+                    <span className="absolute left-2.5 top-2.5 rounded-full border border-rose-100/20 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-rose-50">
+                      Memory {String(index + 1).padStart(2, "0")}
+                    </span>
+                    {!unlocked ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 px-3 text-center">
+                        <span className="rounded-full border border-rose-200/25 bg-black/70 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-rose-50">Sealed</span>
+                        <span className="mt-2 text-xs font-bold text-rose-100/70">{item.unlockCost.toLocaleString()} Pet Score</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="p-3 sm:p-4">
+                    <p className="truncate text-sm font-black text-white">{item.title}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{unlocked ? "Revealed by devotion" : `${item.unlockCost.toLocaleString()} score required`}</p>
+                    {unlocked ? (
+                      <a
+                        className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-rose-200/20 bg-rose-500/10 px-3 py-2.5 text-xs font-bold text-rose-50 transition hover:border-rose-200/45 hover:bg-rose-500/20"
+                        download
+                        href={item.image}
+                      >
+                        Download Image
+                      </a>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

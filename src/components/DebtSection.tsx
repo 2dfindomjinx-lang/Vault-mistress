@@ -11,6 +11,7 @@ import {
   type ThroneDebtInstallment,
 } from "@/lib/throne-debt";
 import type { PetDebtContract, PetTaskItem } from "@/lib/types";
+import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
 const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.png";
@@ -208,7 +209,10 @@ export function DebtSection({
   petDebtContract,
   tasks,
 }: DebtSectionProps) {
-  const [now, setNow] = useState(0);
+  const now = useDeadlineClock(
+    [petDebtContract?.next_due_at, ...tasks.map((task) => task.cooldownUntil)],
+    60_000,
+  );
   const debtSignTimerRef = useRef<number | null>(null);
   const [normalPetName, setNormalPetName] = useState(DEBT_PET_NAMES[0]);
   const [normalDebtAmount, setNormalDebtAmount] = useState("");
@@ -260,15 +264,10 @@ export function DebtSection({
   };
   const evilDebtMinimumPayment = evilDebtPeriodType === "weekly" ? 40000 : 80000;
 
-  useEffect(() => {
-    setNow(Date.now());
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      window.clearInterval(interval);
-      if (debtSignTimerRef.current !== null) {
-        window.clearTimeout(debtSignTimerRef.current);
-      }
-    };
+  useEffect(() => () => {
+    if (debtSignTimerRef.current !== null) {
+      window.clearTimeout(debtSignTimerRef.current);
+    }
   }, []);
 
   function showSignedImage(kind: "normal" | "evil") {
@@ -369,7 +368,7 @@ export function DebtSection({
   }
 
   return (
-    <section className="grid min-w-0 gap-6 xl:grid-cols-3">
+    <section className="court-grid court-grid--debt grid min-w-0 gap-6 xl:grid-cols-3">
       <DebtCard
         active={activeDebtContractType === "normal"}
         currentKind={showDebtSigningImage}
@@ -613,7 +612,7 @@ function ThroneDebtCard({
   };
 
   return (
-    <article className="rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(180deg,rgba(120,53,15,0.22),rgba(0,0,0,0.72))] p-4 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
+      <article className="court-feature-panel court-grid-card court-grid-card--gold rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(180deg,rgba(120,53,15,0.22),rgba(0,0,0,0.72))] p-4 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-amber-100/70">Throne Debt</p>
@@ -629,7 +628,7 @@ function ThroneDebtCard({
 
       {activeContract ? (
         <div className="mt-4 grid gap-3">
-          <div className="rounded-2xl border border-amber-200/15 bg-black/35 p-3">
+          <div className="court-inset-tile rounded-2xl border border-amber-200/15 bg-black/35 p-3">
             <div className="grid gap-2 text-sm text-amber-50 sm:grid-cols-2">
               <span>Total Debt: ${activeContract.total_amount_usd.toFixed(2)}</span>
               <span>Paid: ${paidUsd.toFixed(2)}</span>
@@ -874,7 +873,7 @@ function DebtCard(props: {
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
-    <article className="rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+      <article className="court-feature-panel court-grid-card court-grid-card--danger rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">Debt</p>
@@ -889,7 +888,7 @@ function DebtCard(props: {
         <SignedBanner />
       )}
       {hasOpenDebtContract && active && petDebtContract ? (
-        <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+        <div className="court-inset-tile mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
           <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
             <span>Pet: {petDebtContract.pet_name}</span>
             <span>{petDebtContract.period_type} debt</span>
@@ -1125,7 +1124,7 @@ function EvilDebtCard(props: {
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
-    <article className="rounded-[1.5rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(69,10,10,0.5),rgba(0,0,0,0.8))] p-4 shadow-[0_0_28px_rgba(127,29,29,0.2)]">
+      <article className="court-feature-panel court-grid-card court-grid-card--danger rounded-[1.5rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(69,10,10,0.5),rgba(0,0,0,0.8))] p-4 shadow-[0_0_28px_rgba(127,29,29,0.2)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">Debt</p>

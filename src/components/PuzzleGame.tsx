@@ -947,7 +947,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
 
   return (
     <section className="flex flex-col gap-5">
-      <div className="rounded-[1.5rem] border border-sky-200/15 bg-[linear-gradient(145deg,rgba(5,18,28,0.92),rgba(12,48,58,0.58),rgba(0,0,0,0.7))] p-4 shadow-[0_0_44px_rgba(14,165,233,0.12)] sm:rounded-[2rem] sm:p-5">
+      <div className="court-feature-panel rounded-[1.5rem] border border-sky-200/15 bg-[linear-gradient(145deg,rgba(5,18,28,0.92),rgba(12,48,58,0.58),rgba(0,0,0,0.7))] p-4 shadow-[0_0_44px_rgba(14,165,233,0.12)] sm:rounded-[2rem] sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-sky-100/70">Puzzle</p>
@@ -977,8 +977,8 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
           />
         ) : null}
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(22rem,1.15fr)]">
-          <div className="rounded-[1.25rem] border border-sky-200/15 bg-black/35 p-4">
+        <div className="court-grid mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(22rem,1.15fr)]">
+          <div className="court-feature-card court-grid-card rounded-[1.25rem] border border-sky-200/15 bg-black/35 p-4">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-sky-100/65">
               Today&apos;s image pool
             </p>
@@ -1017,7 +1017,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             </div>
           </div>
 
-          <aside className="rounded-[1.25rem] border border-white/10 bg-black/35 p-4">
+          <aside className="court-feature-card court-grid-card rounded-[1.25rem] border border-white/10 bg-black/35 p-4">
             {images.length === 0 ? (
               <div className="rounded-[1.25rem] border border-sky-200/15 bg-black/35 px-4 py-8 text-center">
                 <p className="text-sm font-black uppercase tracking-[0.22em] text-sky-100/65">
@@ -1029,7 +1029,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
               </div>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="court-grid grid gap-2 sm:grid-cols-2">
                   {activePresets.map((preset) => {
                     const completion = selectedImage
                       ? completionMap.get(`${selectedImage.sourceType}:${selectedImage.id}:${preset.difficulty}`)
@@ -1075,7 +1075,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       </div>
 
       {attempt && selectedImage ? (
-        <section className="rounded-[1.5rem] border border-white/10 bg-black/55 p-3 sm:rounded-[2rem] sm:p-5">
+      <section className="court-feature-panel rounded-[1.5rem] border border-white/10 bg-black/55 p-3 sm:rounded-[2rem] sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100/60">Daily hidden puzzle</p>

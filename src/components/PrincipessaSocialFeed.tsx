@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PrincipessaFeedPost } from "@/lib/principessa-feed";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { PrincipessaFeedNotifications, PrincipessaFeedNotificationsPage } from "@/components/PrincipessaFeedNotifications";
@@ -33,6 +33,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 async function fetchPosts(channel: Channel, signal?: AbortSignal) {
   const response = await fetch(`/api/principessa-feed?channel=${channel}`, { signal });
   const result = await readJsonResponse<{ error?: string; posts?: PrincipessaFeedPost[] }>(response);
+  if (!response.ok && process.env.NODE_ENV !== "production" && result.error?.includes("Supabase admin is not configured")) return [];
   if (!response.ok) throw new Error(result.error ?? "Feed could not be loaded.");
   return result.posts ?? [];
 }
@@ -393,6 +394,49 @@ function PostInteractions({ busy, isLoggedIn, onHighlight, onToggle, post }: {
   </div>;
 }
 
+const FeedPostCard = memo(function FeedPostCard({
+  commentBusy,
+  interactionBusy,
+  isAdmin,
+  isLoggedIn,
+  onAdminChanged,
+  onComment,
+  onHighlight,
+  onToggle,
+  post,
+}: {
+  commentBusy: boolean;
+  interactionBusy: string | null;
+  isAdmin: boolean;
+  isLoggedIn: boolean;
+  onAdminChanged: (posts: PrincipessaFeedPost[]) => void;
+  onComment: (postId: string, body: string) => Promise<boolean>;
+  onHighlight: (postId: string) => void;
+  onToggle: (postId: string, action: "like" | "repost") => void;
+  post: PrincipessaFeedPost;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const submitComment = async () => {
+    const body = draft.trim();
+    if (!body) return;
+    if (await onComment(post.id, body)) {
+      setDraft("");
+    }
+  };
+
+  return (
+    <article className={`[contain-intrinsic-size:auto_520px] [content-visibility:auto] border-b p-4 transition ${post.highlightedUntil ? "border-amber-300/30 bg-[linear-gradient(135deg,rgba(251,191,36,.11),rgba(236,72,153,.06))] shadow-[inset_3px_0_0_#f4c06a]" : "border-white/10 hover:bg-white/[0.015]"}`}>
+      <div className="flex gap-3"><FeedAuthorAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><FeedAuthorName author={post.author} /><div className="mt-1 flex flex-wrap items-center gap-2"><span className={post.channel === "principessa" ? "text-[10px] font-black uppercase text-pink-400" : "text-[10px] font-black uppercase text-zinc-600"}>{post.channel === "principessa" ? "◆ Official court" : "Approved Sub"}</span>{post.pinned ? <span className="text-[10px] font-black uppercase text-[#f4c06a]">⌖ Pinned</span> : null}{post.postType === "confession" ? <span className="text-[10px] font-black uppercase text-fuchsia-300">◐ Confession</span> : null}{post.postType === "achievement" ? <span className="text-[10px] font-black uppercase text-amber-300">◇ Achievement</span> : null}{post.highlightedUntil ? <span className="text-[10px] font-black uppercase text-amber-300">✦ Highlighted</span> : null}</div></div><span className="shrink-0 text-[10px] text-zinc-700">{formatDate(post.createdAt)}</span></div><h2 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h2><p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>
+      {isLoggedIn && post.author.userId && !post.ownedByViewer ? <div className="ml-14 mt-3"><Link className="inline-flex items-center gap-2 rounded-full border border-pink-300/15 px-3 py-1.5 text-[10px] font-black text-pink-200 transition hover:bg-pink-500/10" href={`/principessa-feed/messages?to=${encodeURIComponent(post.author.userId)}`}>✉ Message</Link></div> : null}
+      <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={onHighlight} onToggle={onToggle} post={post} />
+      {isAdmin ? <PostAdminActions onChanged={onAdminChanged} post={post} /> : null}
+      {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div key={item.id}><div className="flex justify-between gap-2"><DisplayNameWithUsername displayName={item.author.displayName} primaryClassName="text-xs font-black text-zinc-300" secondaryClassName="text-[10px] text-zinc-600" secondaryStyle={item.author.usernameStyle} username={item.author.username} /><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p></div>)}</div> : null}
+      {isLoggedIn ? <div className="ml-14 mt-4 flex gap-2"><input className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm outline-none focus:border-pink-400/40" maxLength={500} onChange={(event) => setDraft(event.target.value)} placeholder="Post your reply" value={draft} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={commentBusy || !draft.trim()} onClick={() => void submitComment()} type="button">Reply</button></div> : null}
+    </article>
+  );
+});
+
 export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId = "", initialRecipientId = "", initialView = "home", isAdmin, isLoggedIn }: { currentUserId?: string; initialProfileUserId?: string; initialRecipientId?: string; initialView?: PrincipessaFeedView; isAdmin: boolean; isLoggedIn: boolean }) {
   const [view] = useState<PrincipessaFeedView>(initialView);
   const [channel, setChannel] = useState<Channel>("principessa");
@@ -400,7 +444,6 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   const [pendingPosts, setPendingPosts] = useState<PrincipessaFeedPost[]>([]);
   const [pendingLoading, setPendingLoading] = useState(initialView === "approvals" && isAdmin);
   const [moderationBusy, setModerationBusy] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [commentBusy, setCommentBusy] = useState<string | null>(null);
   const [interactionBusy, setInteractionBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(initialView === "home");
@@ -531,13 +574,14 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
     } catch (pinError) { setError(pinError instanceof Error ? pinError.message : "Pin update failed."); }
   };
 
-  const comment = async (postId: string) => {
-    const body = String(drafts[postId] ?? "").trim(); if (!body) return; setCommentBusy(postId);
+  const comment = useCallback(async (postId: string, body: string) => {
+    const normalizedBody = body.trim();
+    if (!normalizedBody) return false;
+    setCommentBusy(postId);
     try {
-      const response = await fetch("/api/user/principessa-feed/comments", { body: JSON.stringify({ body, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
+      const response = await fetch("/api/user/principessa-feed/comments", { body: JSON.stringify({ body: normalizedBody, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
       const result = (await response.json()) as { comment?: { body: string; createdAt: string; id: string }; error?: string };
       if (!response.ok) throw new Error(result.error);
-      setDrafts((current) => ({ ...current, [postId]: "" }));
       if (result.comment && profile) {
         const appendedComment: PrincipessaFeedPost["comments"][number] = {
           author: { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username },
@@ -551,11 +595,15 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
       } else {
         await reload();
       }
+      return true;
     }
-    catch (commentError) { setError(commentError instanceof Error ? commentError.message : "Comment failed."); } finally { setCommentBusy(null); }
-  };
+    catch (commentError) {
+      setError(commentError instanceof Error ? commentError.message : "Comment failed.");
+      return false;
+    } finally { setCommentBusy(null); }
+  }, [profile, reload]);
 
-  const toggleInteraction = async (postId: string, action: "like" | "repost") => {
+  const toggleInteraction = useCallback(async (postId: string, action: "like" | "repost") => {
     if (!isLoggedIn) { setNotice("Sign in from Main Page to like or repost."); return; }
     const busyKey = `${postId}:${action}`;
     setInteractionBusy(busyKey); setError("");
@@ -577,9 +625,9 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
     } catch (interactionError) {
       setError(interactionError instanceof Error ? interactionError.message : "Interaction failed.");
     } finally { setInteractionBusy(null); }
-  };
+  }, [isLoggedIn]);
 
-  const highlightPost = async (postId: string) => {
+  const highlightPost = useCallback(async (postId: string) => {
     const busyKey = `${postId}:highlight`; setInteractionBusy(busyKey); setError("");
     try {
       const response = await fetch("/api/user/principessa-feed/highlight", { body: JSON.stringify({ postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
@@ -589,7 +637,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
       setPosts(update); setProfilePosts(update); setNotice("Post highlighted for 24 hours. 2000 LP was charged.");
     } catch (highlightError) { setError(highlightError instanceof Error ? highlightError.message : "Highlight failed."); }
     finally { setInteractionBusy(null); }
-  };
+  }, []);
 
   const moderate = async (postId: string, action: "approve" | "reject") => {
     setModerationBusy(postId);
@@ -620,14 +668,14 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   };
 
   return (
-    <div className="relative mx-auto grid min-h-[calc(100vh-76px)] max-w-[1380px] grid-cols-1 bg-[#060206] lg:grid-cols-[240px_minmax(0,720px)_300px]">
-      <div className="pointer-events-none fixed inset-y-[76px] right-0 -z-10 w-[46vw] bg-[url('/principessa-feed/branding/principessa-feed-hero.webp')] bg-cover bg-[65%_center] opacity-[0.1]" />
-      <aside className="hidden border-r border-[#f4c06a]/10 p-5 lg:block"><div className="sticky top-[100px]"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty large />{profile ? <DisplayNameWithUsername className="mt-5" displayName={profile.displayName} primaryClassName="truncate font-serif text-2xl text-[#ffe5b8]" secondaryClassName="mt-1 truncate text-xs text-zinc-600" username={profile.username} /> : <h1 className="mt-5 truncate font-serif text-2xl text-[#ffe5b8]">{isLoggedIn ? "Loading profile..." : "Guest"}</h1>}<div className="mt-4"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /></div><nav className="mt-5 grid gap-2"><Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "home" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed">⌂&nbsp;&nbsp; Home</Link>{isLoggedIn ? <Link className={`rounded-2xl px-4 py-3 text-left font-black ${view === "profile" ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "text-zinc-500 hover:bg-white/5"}`} href="/principessa-feed/profile">♙&nbsp;&nbsp; Profile</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#f4c06a]/30 pl-3 font-serif text-sm italic leading-6 text-zinc-600">A velvet room for Principessa’s official visions and approved offerings.</p></div></aside>
+    <div className="relative mx-auto grid min-h-[calc(100vh-56px)] max-w-[1480px] grid-cols-1 bg-[#070406] lg:grid-cols-[264px_minmax(0,760px)_280px]">
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_84%_4%,rgba(190,24,93,.16),transparent_28%),linear-gradient(120deg,#060305,#0b0508_58%,#050304)]" />
+      <aside className="hidden border-r border-[#c89a55]/15 bg-[#080406] lg:block"><div className="sticky top-[76px]"><div className="relative h-40 overflow-hidden border-b border-[#c89a55]/15 bg-[url('/principessa-ui/principessa-gaze.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-t from-[#080406] via-transparent to-black/15" /><p className="absolute bottom-4 left-5 text-[9px] font-black uppercase tracking-[.32em] text-[#e1bb78]">The Velvet Network</p></div><div className="p-5"><div className="flex items-center gap-3"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty />{profile ? <DisplayNameWithUsername className="min-w-0" displayName={profile.displayName} primaryClassName="truncate font-serif text-lg text-[#ffe5b8]" secondaryClassName="truncate text-[10px] text-zinc-700" username={profile.username} /> : <h1 className="font-serif text-lg text-[#ffe5b8]">{isLoggedIn ? "Opening identity..." : "Guest audience"}</h1>}</div><nav className="mt-6 grid gap-1"><Link className={`border-l px-4 py-3 font-serif transition ${view === "home" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed">The Feed</Link>{isLoggedIn ? <Link className={`border-l px-4 py-3 font-serif transition ${view === "profile" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed/profile">My Archive</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#c89a55]/20 pl-4 font-serif text-sm italic leading-6 text-zinc-700">Every word enters her network. Not every word earns her attention.</p></div></div></aside>
 
-      <section className="min-w-0 border-x border-[#f4c06a]/10 bg-[#090509]/95 shadow-[0_0_50px_rgba(0,0,0,.5)]">
-        <header className="sticky top-[76px] z-40 border-b border-[#f4c06a]/10 bg-[#090509]/92 backdrop-blur-xl"><div className="flex items-center justify-between px-4 py-3"><div><h1 className="font-serif text-xl text-[#ffe5b8]">{viewCopy[view].title}</h1><p className="text-[10px] uppercase tracking-[0.18em] text-pink-300/40">{viewCopy[view].subtitle}</p></div><div className="flex gap-2 lg:hidden"><Link className="rounded-full px-3 py-2 text-xs font-black text-zinc-500" href="/principessa-feed">Home</Link>{isLoggedIn ? <Link className="rounded-full px-3 py-2 text-xs font-black text-zinc-500" href="/principessa-feed/profile">Profile</Link> : null}</div></div>{view === "home" ? <div className="grid grid-cols-2">{(["principessa", "sub"] as const).map((item) => <button className="relative py-4 text-sm font-black capitalize text-zinc-500 hover:bg-white/[0.03]" key={item} onClick={() => switchChannel(item)} type="button">{item === "sub" ? "Subs" : item}{channel === item ? <span className="absolute inset-x-1/3 bottom-0 h-0.5 bg-gradient-to-r from-pink-500 via-[#f4c06a] to-pink-500 shadow-[0_0_12px_#ec4899]" /> : null}</button>)}</div> : null}</header>
+      <section className="min-w-0 border-r border-[#c89a55]/12 bg-[#0a0608]/95 shadow-[0_0_55px_rgba(0,0,0,.48)]">
+        <header className="sticky top-[56px] z-40 border-b border-[#c89a55]/15 bg-[#0a0608]/96"><div className="flex items-center justify-between gap-3 px-4 py-3"><div className="min-w-0"><p className="text-[8px] font-black uppercase tracking-[.24em] text-[#c89a55]/45 sm:tracking-[.3em]">Velvet dispatch</p><h1 className="mt-1 truncate font-serif text-lg text-[#ffe5b8] sm:text-xl">{viewCopy[view].title}</h1><p className="truncate text-[8px] uppercase tracking-[0.12em] text-pink-300/35 sm:text-[9px] sm:tracking-[0.18em]">{viewCopy[view].subtitle}</p></div><div className="w-36 max-w-[42%] sm:w-44"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} poll={view !== "notifications"} /></div></div>{view === "home" ? <div className="grid grid-cols-2 border-t border-[#c89a55]/10">{(["principessa", "sub"] as const).map((item) => <button className={`relative py-3 font-serif text-sm transition ${channel === item ? "text-[#ffe5b8]" : "text-zinc-700 hover:text-zinc-400"}`} key={item} onClick={() => switchChannel(item)} type="button">{item === "sub" ? <><span className="sm:hidden">Subs</span><span className="hidden sm:inline">The Court&apos;s Subs</span></> : "Principessa"}{channel === item ? <span className="absolute inset-x-1/3 bottom-0 h-px bg-[#e6ba73] shadow-[0_0_9px_#e6ba73]" /> : null}</button>)}</div> : null}</header>
 
-        <div className="grid grid-cols-2 gap-2 border-b border-white/10 p-3 lg:hidden"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} /><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /></div>
+        <div className="border-b border-[#c89a55]/10 p-3 lg:hidden"><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /></div>
 
         {view === "profile" ? (
           profileLoading ? <p className="p-16 text-center text-zinc-600">Opening your profile...</p> : profile ? <div>
@@ -658,27 +706,18 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
           : view === "messages" ? <PrincipessaFeedMessagesPage initialRecipientId={initialRecipientId} isLoggedIn={isLoggedIn} />
           : view === "achievements" ? <PrincipessaFeedAchievementsPage isLoggedIn={isLoggedIn} />
           : <>
-            <div className="relative h-48 overflow-hidden border-b border-[#f4c06a]/10 sm:h-56"><div className="absolute inset-0 bg-[url('/principessa-feed/branding/principessa-feed-hero.webp')] bg-cover bg-[center_28%]" /><div className="absolute inset-0 bg-gradient-to-r from-[#090509] via-[#090509]/30 to-transparent" /><div className="absolute inset-0 bg-gradient-to-t from-[#090509] via-transparent to-transparent" /><div className="absolute bottom-5 left-5 max-w-sm"><p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#f4c06a]">The court is open</p><h2 className="mt-1 font-serif text-3xl">Principessa has entered.</h2><p className="mt-1 text-sm text-zinc-300/70">Official visions, private moments and offerings worthy of the feed.</p></div></div>
+            <div className="relative h-56 overflow-hidden border-b border-[#c89a55]/15 sm:h-64"><div className="absolute inset-0 bg-[url('/principessa-feed/branding/principessa-feed-hero.webp')] bg-cover bg-[center_28%]" /><div className="absolute inset-0 bg-[linear-gradient(90deg,#0a0608_0%,rgba(10,6,8,.84)_38%,rgba(10,6,8,.08)_78%),linear-gradient(0deg,#0a0608,transparent_52%)]" /><div className="absolute bottom-6 left-6 max-w-sm"><p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]">Official transmission</p><h2 className="mt-2 font-serif text-4xl leading-none text-[#fff0d2]">Her voice owns the room.</h2><p className="mt-3 border-l border-pink-400/30 pl-3 text-sm leading-6 text-zinc-400">Visions, orders and offerings selected for Principessa&apos;s network.</p></div></div>
         {channel === "principessa" && isAdmin ? <AdminComposer onPublished={setPosts} /> : null}
         {channel === "sub" && isLoggedIn ? <SubComposer onSubmitted={setNotice} /> : null}
         {channel === "sub" && !isLoggedIn ? <p className="border-b border-white/10 p-4 text-sm text-zinc-500">Sign in from Main Page to submit or comment.</p> : null}
         {notice ? <p className="border-b border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">{notice}</p> : null}
         {error ? <p className="border-b border-red-300/20 bg-red-500/10 p-4 text-sm text-red-100">{error}</p> : null}
 
-        {loading ? <p className="p-16 text-center text-zinc-600">Loading feed...</p> : posts.length === 0 ? <div className="p-16 text-center"><p className="text-lg font-black">No posts yet.</p><p className="mt-2 text-sm text-zinc-600">Published posts will appear here.</p></div> : posts.map((post) => (
-          <article className={`border-b p-4 transition ${post.highlightedUntil ? "border-amber-300/30 bg-[linear-gradient(135deg,rgba(251,191,36,.11),rgba(236,72,153,.06))] shadow-[inset_3px_0_0_#f4c06a]" : "border-white/10 hover:bg-white/[0.015]"}`} key={post.id}>
-            <div className="flex gap-3"><FeedAuthorAvatar author={post.author} official={post.channel === "principessa"} /><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><FeedAuthorName author={post.author} /><div className="mt-1 flex flex-wrap items-center gap-2"><span className={post.channel === "principessa" ? "text-[10px] font-black uppercase text-pink-400" : "text-[10px] font-black uppercase text-zinc-600"}>{post.channel === "principessa" ? "◆ Official court" : "Approved Sub"}</span>{post.pinned ? <span className="text-[10px] font-black uppercase text-[#f4c06a]">⌖ Pinned</span> : null}{post.postType === "confession" ? <span className="text-[10px] font-black uppercase text-fuchsia-300">◐ Confession</span> : null}{post.postType === "achievement" ? <span className="text-[10px] font-black uppercase text-amber-300">◇ Achievement</span> : null}{post.highlightedUntil ? <span className="text-[10px] font-black uppercase text-amber-300">✦ Highlighted</span> : null}</div></div><span className="shrink-0 text-[10px] text-zinc-700">{formatDate(post.createdAt)}</span></div><h2 className="mt-2 font-serif text-xl text-[#ffe4b5]">{post.title}</h2><p className="mt-1 whitespace-pre-wrap text-[15px] leading-6 text-zinc-300"><MentionText text={post.description} /></p><PostImages post={post} /></div></div>
-            {isLoggedIn && post.author.userId && !post.ownedByViewer ? <div className="ml-14 mt-3"><Link className="inline-flex items-center gap-2 rounded-full border border-pink-300/15 px-3 py-1.5 text-[10px] font-black text-pink-200 transition hover:bg-pink-500/10" href={`/principessa-feed/messages?to=${encodeURIComponent(post.author.userId)}`}>✉ Message</Link></div> : null}
-            <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} />
-            {isAdmin ? <PostAdminActions onChanged={setPosts} post={post} /> : null}
-            {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div key={item.id}><div className="flex justify-between gap-2"><DisplayNameWithUsername displayName={item.author.displayName} primaryClassName="text-xs font-black text-zinc-300" secondaryClassName="text-[10px] text-zinc-600" secondaryStyle={item.author.usernameStyle} username={item.author.username} /><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p></div>)}</div> : null}
-            {isLoggedIn ? <div className="ml-14 mt-4 flex gap-2"><input className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm outline-none focus:border-pink-400/40" maxLength={500} onChange={(e) => setDrafts((current) => ({ ...current, [post.id]: e.target.value }))} placeholder="Post your reply" value={drafts[post.id] ?? ""} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={commentBusy === post.id || !String(drafts[post.id] ?? "").trim()} onClick={() => void comment(post.id)} type="button">Reply</button></div> : null}
-          </article>
-        ))}
+        {loading ? <p className="p-16 text-center text-zinc-600">Loading feed...</p> : posts.length === 0 ? <div className="p-16 text-center"><p className="text-lg font-black">No posts yet.</p><p className="mt-2 text-sm text-zinc-600">Published posts will appear here.</p></div> : posts.map((post) => <FeedPostCard commentBusy={commentBusy === post.id} interactionBusy={interactionBusy?.startsWith(`${post.id}:`) ? interactionBusy : null} isAdmin={isAdmin} isLoggedIn={isLoggedIn} key={post.id} onAdminChanged={setPosts} onComment={comment} onHighlight={highlightPost} onToggle={toggleInteraction} post={post} />)}
         </>}
       </section>
 
-      <aside className="hidden p-5 lg:block"><div className="sticky top-[100px] space-y-4"><section className="overflow-hidden rounded-3xl border border-[#f4c06a]/15 bg-[#120813]/80"><div className="h-28 bg-[url('/principessa-feed/branding/principessa-feed-hero.webp')] bg-cover bg-[center_28%] opacity-70" /><div className="p-4"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#f4c06a]">House rules</p><ol className="mt-3 grid gap-3 text-sm text-zinc-500"><li><b className="text-zinc-300">One image.</b> Subs may attach a single offering.</li><li><b className="text-zinc-300">80 / 500.</b> Title and post limits stay concise.</li><li><b className="text-zinc-300">Approval.</b> Every Sub post enters the queue.</li></ol></div></section><section className="rounded-3xl border border-pink-300/10 bg-pink-500/[0.04] p-4 font-serif text-sm italic leading-6 text-pink-100/60">Principessa posts may hold up to eight images. Her court, her rules.</section></div></aside>
+      <aside className="hidden bg-[#080406] p-5 lg:block"><div className="sticky top-[76px] space-y-5"><section className="border border-[#c89a55]/15 bg-black/25"><div className="border-b border-[#c89a55]/12 px-4 py-3"><p className="text-[8px] font-black uppercase tracking-[.32em] text-[#d7ad69]/60">Network protocol</p></div><ol className="grid divide-y divide-[#c89a55]/10 text-sm text-zinc-600"><li className="p-4"><b className="font-serif text-[#ffe5b8]">One offering.</b><span className="mt-1 block text-xs leading-5">Subs attach a single image.</span></li><li className="p-4"><b className="font-serif text-[#ffe5b8]">Concise devotion.</b><span className="mt-1 block text-xs leading-5">80 title · 500 body.</span></li><li className="p-4"><b className="font-serif text-[#ffe5b8]">Her approval.</b><span className="mt-1 block text-xs leading-5">Every request enters review.</span></li></ol></section><section className="border-l border-pink-400/25 px-4 py-2 font-serif text-sm italic leading-6 text-pink-100/35">The feed records attention. It never guarantees it.</section></div></aside>
       {cropSource ? <ImageCropEditor file={cropSource} onApply={(file) => { if (cropTarget === "avatar") setAvatarFile(file); else setHeaderFile(file); setCropSource(null); }} onCancel={() => setCropSource(null)} target={cropTarget} /> : null}
     </div>
   );

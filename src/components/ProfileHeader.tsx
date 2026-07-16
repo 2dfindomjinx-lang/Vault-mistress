@@ -4,20 +4,14 @@ import Image from "next/image";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
-import { PageStatCard } from "@/components/PageStatCard";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { ProfileFrameOrnaments } from "@/components/ProfileFrameOrnaments";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
-import { getCosmeticItem } from "@/lib/cosmetics";
-import type { CosmeticType, SpendBadge } from "@/lib/cosmetics";
+import { getCosmeticItem, type CosmeticType, type SpendBadge } from "@/lib/cosmetics";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import type { ProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
-type ProfileHeaderStat = {
-  label: string;
-  value: ReactNode;
-  hint?: string;
-};
+type ProfileHeaderStat = { label: string; value: ReactNode; hint?: string };
 
 type ProfileHeaderProps = {
   avatarSrc: string;
@@ -39,7 +33,6 @@ type ProfileHeaderProps = {
   equippedCosmeticIds?: Partial<Record<CosmeticType, string>>;
   actions?: ReactNode;
   progressStrip?: ReactNode;
-  // Display Name change right pencil mechanic in the top header box
   hasDisplayNameChangeRight?: boolean;
   isEditingDisplayName?: boolean;
   displayNameEditInput?: string;
@@ -53,7 +46,6 @@ type ProfileHeaderProps = {
 export function ProfileHeader({
   actions,
   progressStrip,
-  avatarSrc,
   badgeStrip,
   coins,
   currentTitle,
@@ -79,156 +71,90 @@ export function ProfileHeader({
   onCancelDisplayNameEdit,
   onDisplayNameEditInputChange,
 }: ProfileHeaderProps) {
-  const avatarBackgroundPresentation = getAvatarBackgroundPresentation(
-    getCosmeticItem(
-      avatarBackgroundItemId ?? equippedCosmeticIds?.["avatar-background"] ?? "",
-    ),
-  );
+  const avatarBackgroundPresentation = getAvatarBackgroundPresentation(getCosmeticItem(avatarBackgroundItemId ?? equippedCosmeticIds?.["avatar-background"] ?? ""));
 
   useEffect(() => {
-    if (!isEditingDisplayName || !onCancelDisplayNameEdit) {
-      return;
-    }
-
+    if (!isEditingDisplayName || !onCancelDisplayNameEdit) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         onCancelDisplayNameEdit();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditingDisplayName, onCancelDisplayNameEdit]);
 
+  const visibleName = displayName?.trim() || username;
+  const ledgerStats: ProfileHeaderStat[] = [
+    ...(showCoinStat ? [{ hint: "Current balance", label: "Treasury", value: <CoinAmount amount={coins} iconSize={18} label="" /> }] : []),
+    ...stats,
+  ];
+
   return (
-    <header className="overflow-hidden rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(135deg,rgba(18,7,27,0.96),rgba(79,13,68,0.48),rgba(0,0,0,0.78))] shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <div className="relative rounded-[1.5rem] sm:h-64 lg:h-72">
-          <ProfileBorderFrame
-            className="h-full rounded-[1.5rem]"
-            contentClassName="overflow-hidden rounded-[calc(1.5rem-3px)] bg-black/35"
-            overlay={equippedCosmeticIds ? <ProfileFrameOrnaments equippedCosmeticIds={equippedCosmeticIds} /> : null}
-            presentation={avatarBorderPresentation ?? { contentInset: 3, layered: false, layers: [], variant: null }}
-          >
-            <LayeredAvatar
-              alt="Full-body Principessa avatar preview"
-              backgroundOverlayPath={avatarBackgroundPresentation.backgroundOverlayPath}
-              backgroundPath={avatarBackgroundPresentation.backgroundPath}
-              backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
-              className="absolute inset-0"
-              equipped={equippedAvatarSlots}
-              hasUncensored={hasUncensoredAvatar}
-              priority
-            />
-          </ProfileBorderFrame>
+    <header className="relative isolate overflow-hidden border border-[#c89a55]/18 bg-[linear-gradient(105deg,rgba(13,6,9,.96),rgba(35,8,21,.78),rgba(8,4,6,.96))] shadow-[0_22px_65px_rgba(0,0,0,.32)]">
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_70%_20%,rgba(190,24,93,.14),transparent_52%)]" />
+      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#d7ad69]/35 to-transparent" />
+
+      <div className="relative grid gap-5 p-4 sm:grid-cols-[132px_minmax(0,1fr)] sm:p-5">
+        <div className="mx-auto w-28 sm:mx-0 sm:w-[132px]">
+          <div className="relative h-36 w-full sm:h-40">
+            <ProfileBorderFrame
+              className="h-full"
+              contentClassName="overflow-hidden bg-black/45"
+              overlay={equippedCosmeticIds ? <ProfileFrameOrnaments equippedCosmeticIds={equippedCosmeticIds} /> : null}
+              presentation={avatarBorderPresentation ?? { contentInset: 3, layered: false, layers: [], variant: null }}
+            >
+              <LayeredAvatar
+                alt="Principessa court profile avatar"
+                backgroundOverlayPath={avatarBackgroundPresentation.backgroundOverlayPath}
+                backgroundPath={avatarBackgroundPresentation.backgroundPath}
+                backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
+                className="absolute inset-0"
+                equipped={equippedAvatarSlots}
+                hasUncensored={hasUncensoredAvatar}
+                priority
+              />
+            </ProfileBorderFrame>
+          </div>
+          <span className="mt-2 block whitespace-nowrap border border-[#c89a55]/20 bg-[#090507] px-2 py-1 text-center text-[8px] font-black uppercase tracking-[.22em] text-[#d7ad69]/60">Court record</span>
         </div>
 
-        <div className="flex min-w-0 flex-col justify-between gap-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
-                {pageLabel}
-              </p>
+              <p className="text-[9px] font-black uppercase tracking-[.34em] text-[#d7ad69]/55">{pageLabel}</p>
               {!isEditingDisplayName ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-3xl font-black text-white sm:text-4xl" style={usernameStyle}>
-                    {displayName && displayName.trim() ? displayName.trim() : username}
-                  </h2>
-                  {spendBadge?.isEarned && (
-                    <span
-                      aria-label={spendBadge.tooltip}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-fuchsia-200/20 bg-white/5 text-lg shadow-[0_0_18px_rgba(217,70,239,0.12)]"
-                      title={spendBadge.tooltip}
-                    >
-                      <Image
-                        alt=""
-                        className="h-7 w-7 rounded-full object-contain"
-                        height={28}
-                        src={spendBadge.imagePath}
-                        width={28}
-                      />
-                    </span>
-                  )}
-                  {hasDisplayNameChangeRight && onStartDisplayNameEdit && (
-                    <button
-                      onClick={onStartDisplayNameEdit}
-                      className="text-lg leading-none text-pink-300 hover:text-pink-200 transition hover:scale-110"
-                      title="Change Display Name using your purchased right"
-                      type="button"
-                    >
-                      ✏️
-                    </button>
-                  )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <h2 className="truncate font-serif text-3xl text-[#fff0d2] sm:text-4xl" style={usernameStyle}>{visibleName}</h2>
+                  {spendBadge?.isEarned ? <span className="inline-flex h-8 w-8 items-center justify-center border border-[#c89a55]/20 bg-black/30" title={spendBadge.tooltip}><Image alt="" className="h-6 w-6 object-contain" height={24} src={spendBadge.imagePath} width={24} /></span> : null}
+                  {hasDisplayNameChangeRight && onStartDisplayNameEdit ? <button className="text-sm text-pink-300/60 transition hover:text-pink-200" onClick={onStartDisplayNameEdit} title="Change Display Name" type="button">✎</button> : null}
                 </div>
               ) : (
-                <div className="relative z-20 flex w-full flex-col gap-3">
-                  <input
-                    value={displayNameEditInput}
-                    onChange={(e) => onDisplayNameEditInputChange?.(e.target.value)}
-                    className="min-w-0 w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2 text-3xl font-black text-white outline-none focus:border-pink-300/60"
-                    maxLength={24}
-                    placeholder="New display name"
-                    autoFocus
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        onCancelDisplayNameEdit?.();
-                      }
-                    }}
-                  />
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    <button
-                      onClick={onSaveDisplayNameEdit}
-                      disabled={isDisplayNameSaveDisabled}
-                      className="rounded-full bg-pink-500 px-4 py-2 font-black text-black transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:bg-pink-500/35 disabled:text-black/60"
-                      type="button"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={onCancelDisplayNameEdit}
-                      className="rounded-full border border-white/20 px-4 py-2 font-black transition hover:border-white/35 hover:bg-white/5"
-                      type="button"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                <div className="mt-2 flex max-w-xl flex-wrap gap-2">
+                  <input autoFocus className="min-w-[14rem] flex-1 border border-[#c89a55]/20 bg-black/50 px-3 py-2 font-serif text-2xl text-[#fff0d2] outline-none focus:border-pink-300/50" maxLength={24} onChange={(event) => onDisplayNameEditInputChange?.(event.target.value)} value={displayNameEditInput} />
+                  <button className="bg-pink-700 px-4 py-2 text-xs font-black text-white disabled:opacity-40" disabled={isDisplayNameSaveDisabled} onClick={onSaveDisplayNameEdit} type="button">Save</button>
+                  <button className="border border-white/10 px-4 py-2 text-xs font-black text-zinc-400" onClick={onCancelDisplayNameEdit} type="button">Cancel</button>
                 </div>
               )}
-              <p className="mt-1 text-sm font-black text-pink-100/70">
-                {displayName && displayName.trim() && !isEditingDisplayName ? username : null}
-              </p>
-              <p className="mt-2 text-sm font-black uppercase tracking-[0.18em] text-pink-100/80">
-                {currentTitle ?? "No title equipped"}
-              </p>
+              <p className="mt-1 text-xs text-pink-200/35">{displayName?.trim() && !isEditingDisplayName ? username : "Identity held by Principessa"}</p>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-[.2em] text-pink-100/65">{currentTitle ?? "No title granted"}</p>
               {badgeStrip ? <div className="mt-3">{badgeStrip}</div> : null}
             </div>
-            <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
-              {soundControls && <div className="flex flex-wrap items-center gap-2">{soundControls}</div>}
-              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+            <div className="flex flex-wrap items-center gap-2 lg:max-w-[46%] lg:justify-end">
+              {soundControls}
+              {actions}
             </div>
           </div>
 
-          {progressStrip ? <div>{progressStrip}</div> : null}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {showCoinStat ? (
-              <PageStatCard
-                hint="Current balance"
-                label="Coins"
-                value={<CoinAmount amount={coins} iconSize={22} label="" />}
-              />
-            ) : null}
-            {stats.map((stat) => (
-              <PageStatCard
-                hint={stat.hint}
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-              />
+          {progressStrip ? <div className="mt-4">{progressStrip}</div> : null}
+          <div className="mt-4 grid border-y border-[#c89a55]/10 sm:grid-cols-2 xl:grid-cols-4">
+            {ledgerStats.map((stat) => (
+              <div className="min-w-0 border-b border-[#c89a55]/10 px-3 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0" key={stat.label}>
+                <p className="text-[8px] font-black uppercase tracking-[.24em] text-[#c89a55]/45">{stat.label}</p>
+                <div className="mt-1 truncate text-lg font-black text-[#fff0d2]">{stat.value}</div>
+                {stat.hint ? <p className="mt-1 truncate text-[9px] text-zinc-700">{stat.hint}</p> : null}
+              </div>
             ))}
           </div>
         </div>

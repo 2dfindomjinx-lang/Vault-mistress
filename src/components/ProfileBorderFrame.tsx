@@ -245,7 +245,6 @@ function ProfileBorderLightRunner({ ids, variant }: ProfileBorderLightRunnerProp
       <path
         d={PROFILE_BORDER_PATH}
         fill="none"
-        filter="blur(1.6px)"
         pathLength={1000}
         stroke={`url(#${auraGradientId})`}
         strokeDasharray={`${dashLength} ${gapLength}`}

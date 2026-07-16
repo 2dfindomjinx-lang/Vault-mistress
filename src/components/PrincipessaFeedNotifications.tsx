@@ -11,19 +11,19 @@ async function parseResponse(response: Response) {
   return payload ?? { notifications: [], unreadCount: 0 };
 }
 
-export function PrincipessaFeedNotifications({ active = false, isLoggedIn }: { active?: boolean; isLoggedIn: boolean }) {
+export function PrincipessaFeedNotifications({ active = false, isLoggedIn, poll = true }: { active?: boolean; isLoggedIn: boolean; poll?: boolean }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const loadCount = useCallback(async () => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !poll) return;
     const payload = await fetch("/api/user/principessa-feed/notifications", { cache: "no-store" }).then(parseResponse);
     setUnreadCount(payload.unreadCount ?? 0);
-  }, [isLoggedIn]);
+  }, [isLoggedIn, poll]);
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !poll) return;
     const initial = window.setTimeout(() => void loadCount(), 0);
     const interval = window.setInterval(() => { if (document.visibilityState !== "hidden") void loadCount(); }, 60_000);
     return () => { window.clearTimeout(initial); window.clearInterval(interval); };
-  }, [isLoggedIn, loadCount]);
+  }, [isLoggedIn, loadCount, poll]);
   if (!isLoggedIn) return null;
   return <Link className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-black transition ${active ? "border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : "border-fuchsia-300/15 bg-fuchsia-500/[0.06] text-fuchsia-100 hover:border-fuchsia-300/30"}`} href="/principessa-feed/notifications"><span>♢ Feed Notifications</span>{unreadCount > 0 ? <span className="rounded-full bg-pink-500 px-2 py-0.5 text-xs text-white">{unreadCount}</span> : null}</Link>;
 }

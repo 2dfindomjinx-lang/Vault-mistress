@@ -8,8 +8,9 @@ import {
   PET_THRONE_AMOUNTS,
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
-import type { PetDebtContract, PetGalleryItem, PetTaskItem } from "@/lib/types";
+import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
+import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const PET_RANKS = [
   { min: 0, title: "Unclaimed Stray" },
@@ -589,7 +590,6 @@ export function PetSection({
   disabled = false,
   coins,
   favorCoinReward,
-  galleryItems,
   isGuest,
   isDebtAutoPayEnabled = false,
   nextTaxDueAt,
@@ -615,7 +615,6 @@ export function PetSection({
   onSubmitThroneTribute,
   highLowAllowanceCap,
   highLowProfitCap,
-  petGalleryUnlockedIds,
   pendingPetActionIds = [],
   ownerLikeness,
   petScore,
@@ -633,7 +632,6 @@ export function PetSection({
   disabled?: boolean;
   coins: number;
   favorCoinReward: number;
-  galleryItems: PetGalleryItem[];
   isGuest?: boolean;
   isDebtAutoPayEnabled?: boolean;
   nextTaxDueAt: string | null;
@@ -672,7 +670,6 @@ export function PetSection({
   onPetEvilWaitStart: () => void;
   onPerfectWritingProgress: (value: string) => void;
   onSubmitThroneTribute: (submission: { amount: number; proofImage: string }) => void;
-  petGalleryUnlockedIds: string[];
   pendingPetActionIds?: string[];
   ownerLikeness: number;
   petScore: number;
@@ -689,7 +686,15 @@ export function PetSection({
   highLowProfitCap: number;
   weeklyTaxCost: number;
 }) {
-  const [now, setNow] = useState(0);
+  const now = useDeadlineClock(
+    [
+      nextTaxDueAt,
+      petDebtContract?.next_due_at,
+      ...rightExpirations,
+      ...tasks.flatMap((task) => [task.cooldownUntil, task.highLowResetAt, task.highLowRoundAvailableAt]),
+    ],
+    60_000,
+  );
   const [highLowStake, setHighLowStake] = useState(10);
   const debtSignTimerRef = useRef<number | null>(null);
   const favorRevealTimerRef = useRef<number | null>(null);
@@ -841,16 +846,6 @@ export function PetSection({
     if (favorRevealTimerRef.current !== null) {
       window.clearTimeout(favorRevealTimerRef.current);
     }
-  }, []);
-
-  useEffect(() => {
-    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
-    };
   }, []);
 
   useEffect(() => {
@@ -1294,7 +1289,7 @@ export function PetSection({
   ];
 
   return (
-    <section className="rounded-[1.5rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-3 shadow-[0_0_54px_rgba(190,18,60,0.18)] sm:rounded-[2rem] sm:p-4">
+    <section className="court-feature-panel rounded-[1.5rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-3 shadow-[0_0_54px_rgba(190,18,60,0.18)] sm:rounded-[2rem] sm:p-4">
       {isGuest && (
         <p className="mb-4 rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
           Guest mode: Pet progression is local-only for development testing.
@@ -1315,7 +1310,7 @@ export function PetSection({
         </div>
       ))}
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
+      <div className="court-grid court-grid--pet grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <div className="space-y-4">
           <div className="relative min-h-[20rem] overflow-hidden rounded-[1.25rem] border border-rose-200/15 bg-black sm:min-h-[24rem] sm:rounded-[1.5rem]">
             <Image
@@ -1348,7 +1343,7 @@ export function PetSection({
 
         <div className="space-y-3">
           <div
-            className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4"
+            className="court-grid-card rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4"
             data-allow-image-download
           >
             <div className="flex items-start justify-between gap-3">
@@ -1375,7 +1370,7 @@ export function PetSection({
             </p>
           </div>
 
-          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+          <div className="court-grid-card rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
@@ -1400,7 +1395,7 @@ export function PetSection({
             </p>
           </div>
 
-          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+          <div className="court-grid-card rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
                 Rank Gallery
@@ -1445,58 +1440,9 @@ export function PetSection({
         </div>
       </div>
 
-      <div className="mt-4 grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
-        <div
-          className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 p-4"
-          data-allow-image-download
-        >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
-              Pet Gallery
-            </p>
-            <p className="text-xs font-semibold text-zinc-500">30-image Pet Score progression</p>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 pr-1 sm:grid-cols-3 sm:gap-3">
-            {galleryItems.map((item) => {
-              const unlocked = petGalleryUnlockedIds.includes(item.id) || petScore >= item.unlockCost;
-
-              return (
-                <article
-                  className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-black/45 sm:rounded-2xl"
-                  key={item.id}
-                >
-                  <div className="relative aspect-[3/4] bg-black">
-                    <Image
-                      alt=""
-                      className={`object-cover ${unlocked ? "" : "blur-md opacity-45"}`}
-                      fill
-                      sizes="180px"
-                      src={item.image}
-                      unoptimized
-                    />
-                    {!unlocked && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-xs font-black uppercase tracking-[0.14em] text-rose-50">
-                        <span>Locked</span>
-                        <span className="mt-2 text-[10px] text-rose-100/70">
-                          {item.unlockCost} score
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-2 sm:p-3">
-                    <p className="truncate text-xs font-black text-white sm:text-sm">{item.title}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {unlocked ? "Unlocked" : `${item.unlockCost} Pet Score`}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-
+      <div className="court-grid court-grid--pet mt-4 min-w-0">
         <div className="space-y-3">
-          <div className="rounded-[1.5rem] border border-yellow-200/15 bg-yellow-400/10 p-4">
+          <div className="court-grid-card court-grid-card--gold rounded-[1.5rem] border border-yellow-200/15 bg-yellow-400/10 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-yellow-100/70">
@@ -1539,7 +1485,7 @@ export function PetSection({
             </button>
           </div>
 
-          <div className="grid min-w-0 gap-3 md:grid-cols-2">
+          <div className="court-grid court-grid--pet grid min-w-0 gap-3 md:grid-cols-2">
             {regularTasks.map((task) => {
               const coolingDown =
                 Boolean(task.cooldownUntil) &&
@@ -1553,7 +1499,7 @@ export function PetSection({
 
               return (
                 <article
-                  className={`flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4 ${
+                  className={`court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4 ${
                     task.kind === "high-low" ? "md:col-span-2" : ""
                   }`}
                   key={task.id}
@@ -2268,7 +2214,7 @@ export function PetSection({
           </div>
           <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
             <div className="grid min-w-0 gap-3">
-              <article className="flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
+            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
@@ -2353,7 +2299,7 @@ export function PetSection({
               </article>
 
               {dailyClickTask && (
-                <article className="flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-black text-white">{dailyClickTask.title}</h3>
@@ -2438,7 +2384,7 @@ export function PetSection({
             </div>
 
             <div className="grid min-w-0 gap-3">
-              <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
+            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-black text-white">{throneTask.title}</h3>
@@ -2568,7 +2514,7 @@ export function PetSection({
                 </div>
               </article>
 
-              <article className="flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
+            <article className="court-feature-card court-grid-card flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">

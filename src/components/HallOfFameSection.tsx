@@ -31,7 +31,7 @@ export function HallOfFameSection({
   onSelectUser,
 }: HallOfFameSectionProps) {
   return (
-    <section className="overflow-hidden rounded-[2.25rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(10,7,2,0.96),rgba(74,22,12,0.74),rgba(111,35,27,0.32))] p-5 shadow-[0_0_56px_rgba(251,191,36,0.12)]">
+    <section className="court-feature-panel overflow-hidden rounded-[2.25rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(10,7,2,0.96),rgba(74,22,12,0.74),rgba(111,35,27,0.32))] p-5 shadow-[0_0_56px_rgba(251,191,36,0.12)]">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.34em] text-amber-200/72">Hall of Fame</p>
@@ -43,7 +43,7 @@ export function HallOfFameSection({
         </p>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {isLoading && cards.length === 0 ? (
           <div className="rounded-[1.8rem] border border-white/10 bg-black/25 px-4 py-10 text-sm text-amber-50/75 md:col-span-2 2xl:col-span-4">
             Loading community honors...
@@ -59,7 +59,7 @@ export function HallOfFameSection({
 
             return (
               <button
-                className="group rounded-[1.8rem] border border-amber-200/18 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(0,0,0,0.28),rgba(0,0,0,0.52))] p-4 text-left transition hover:border-amber-200/40 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(126,34,206,0.08),rgba(0,0,0,0.5))]"
+                className="court-grid-card court-grid-card--gold group rounded-[1.8rem] border border-amber-200/18 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(0,0,0,0.28),rgba(0,0,0,0.52))] p-4 text-left transition hover:border-amber-200/40 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(126,34,206,0.08),rgba(0,0,0,0.5))]"
                 disabled={!winner}
                 key={card.id}
                 onClick={() => winner && onSelectUser(winner.userId)}

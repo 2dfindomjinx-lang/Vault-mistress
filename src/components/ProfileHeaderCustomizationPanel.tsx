@@ -131,7 +131,7 @@ export function ProfileHeaderCustomizationPanel({
   const previewDisplayName = displayName?.trim() || username;
 
   return (
-    <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(150deg,rgba(10,5,15,0.92),rgba(35,10,32,0.45),rgba(0,0,0,0.92))] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+    <div className="court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(150deg,rgba(10,5,15,0.92),rgba(35,10,32,0.45),rgba(0,0,0,0.92))] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
       <div className="border-b border-white/10 px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -184,7 +184,7 @@ export function ProfileHeaderCustomizationPanel({
       ) : (
         <div className="grid gap-0 xl:grid-cols-[23rem_minmax(0,1fr)]">
           <aside className="border-b border-white/10 p-4 sm:p-5 xl:border-b-0 xl:border-r">
-            <div className="rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
+          <div className="court-feature-inset rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-100/62">
                   Preview
@@ -221,7 +221,7 @@ export function ProfileHeaderCustomizationPanel({
               </div>
             </div>
 
-            <div className="mt-4 rounded-[1.35rem] border border-white/10 bg-black/20 p-3">
+          <div className="court-feature-inset mt-4 rounded-[1.35rem] border border-white/10 bg-black/20 p-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                   Equipped loadout
@@ -304,7 +304,7 @@ export function ProfileHeaderCustomizationPanel({
                         </div>
                       ) : null}
 
-                      <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                      <div className="court-grid court-grid--collection grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
                         {items.map((item) => {
                           const isEquipped = equippedItemId === item.id;
                           const isPreviewed = previewItem?.id === item.id;
@@ -314,7 +314,7 @@ export function ProfileHeaderCustomizationPanel({
 
                           return (
                             <button
-                              className={`group flex min-h-[5.5rem] items-start gap-3 rounded-2xl border p-3 text-left transition ${
+                              className={`court-grid-card court-grid-card--violet group flex min-h-[5.5rem] items-start gap-3 rounded-2xl border p-3 text-left transition ${
                                 isEquipped
                                   ? "border-amber-200/35 bg-[linear-gradient(135deg,rgba(251,191,36,0.14),rgba(80,35,10,0.2))]"
                                   : isPreviewed

@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export type DashboardPage =
   | "home"
   | "tasks"
@@ -26,73 +28,92 @@ type SidebarNavProps = {
   onSelect: (page: DashboardPage) => void;
 };
 
+const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
+  home: { code: "I", glyph: "◆" },
+  tribute: { code: "II", glyph: "♛" },
+  tasks: { code: "III", glyph: "✓" },
+  pet: { code: "IV", glyph: "♙" },
+  debt: { code: "V", glyph: "§" },
+  devotion: { code: "VI", glyph: "◇" },
+  shop: { code: "VII", glyph: "✦" },
+  crates: { code: "VIII", glyph: "▣" },
+  puzzle: { code: "IX", glyph: "⌘" },
+  collection: { code: "X", glyph: "◈" },
+  profile: { code: "XI", glyph: "◐" },
+};
+
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (
-    <aside className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[rgba(6,3,10,0.88)] backdrop-blur-xl lg:fixed lg:left-0 lg:top-0 lg:h-screen lg:w-[280px] lg:border-b-0 lg:border-r">
-      <div className="flex h-full max-h-[100dvh] flex-col gap-3 px-3 py-3 sm:px-4 sm:py-4 lg:max-h-none lg:gap-5 lg:p-5">
-        <div className="flex items-center justify-between gap-3 rounded-[1.2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-3 shadow-[0_0_34px_rgba(236,72,153,0.12)] lg:hidden">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
-              Vault Mistress
-            </p>
-            <h1 className="mt-1 text-sm font-black leading-tight text-white">
-              Principessa&apos;s Vault
-            </h1>
-          </div>
-          <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-pink-100">
-            {items.find((item) => item.key === activePage)?.label ?? "Home"}
-          </div>
-        </div>
+    <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
 
-        <div className="hidden rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.48))] px-4 py-4 shadow-[0_0_34px_rgba(236,72,153,0.12)] lg:block">
-          <p className="text-[10px] font-black uppercase tracking-[0.32em] text-fuchsia-200/70">
-            Vault Mistress
-          </p>
-          <h1 className="mt-2 text-xl font-black leading-tight text-white">
-            Principessa&apos;s Vault
-          </h1>
-        </div>
+      <div className="relative hidden h-full flex-col lg:flex">
+        <header className="relative min-h-[150px] overflow-hidden border-b border-[#c89a55]/15 px-6 pb-4 pt-5">
+          <div className="absolute -right-11 -top-12 h-52 w-52 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
+            <Image alt="Principessa watching over the court" className="object-cover object-center" fill priority sizes="208px" src="/principessa-ui/principessa-gaze.jpeg" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#d7ad69]/65">Private domain</p>
+            <h1 className="mt-3 max-w-[9rem] font-serif text-3xl leading-[.92] text-[#fff0d2]">Principessa&apos;s Court</h1>
+            <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-pink-200/35">You enter by her permission.</p>
+          </div>
+        </header>
 
-        <nav className="flex min-h-0 flex-1 gap-2 overflow-x-auto overflow-y-hidden rounded-[1.35rem] border border-white/10 bg-transparent p-0 shadow-none lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto">
+        <nav className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-2">
+          <p className="mb-2 px-3 text-[8px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>
           {items.map((item) => {
+            const meta = navigationMeta[item.key];
             const isActive = activePage === item.key;
-
             return (
-              <button
-                className={`group flex min-h-11 shrink-0 items-center justify-between gap-3 rounded-full border px-4 py-2 text-left text-sm font-black transition lg:w-full lg:rounded-2xl lg:px-3 lg:py-2 ${
-                  isActive
-                    ? "border-pink-200/45 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white shadow-[0_0_22px_rgba(236,72,153,0.32)]"
-                    : item.disabled
-                      ? "cursor-not-allowed border-white/5 bg-black/30 text-zinc-600"
-                      : "border-white/10 bg-black/35 text-pink-100 hover:border-pink-300/40 hover:bg-pink-500/10"
-                }`}
-                disabled={item.disabled}
-                key={item.key}
-                onFocus={() => item.onHover?.()}
-                onMouseEnter={() => item.onHover?.()}
-                onPointerDown={() => item.onHover?.()}
-                onClick={() => onSelect(item.key)}
-                type="button"
-              >
-                <span className="flex items-center gap-2 whitespace-nowrap">
-                  {item.label}
-                  {item.hasIndicator ? (
-                    <span
-                      aria-hidden="true"
-                      className="inline-flex h-2.5 w-2.5 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(252,211,77,0.95)]"
-                    />
-                  ) : null}
-                </span>
-                {item.badge && (
-                  <span className="rounded-full border border-white/10 bg-black/35 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-pink-50">
-                    {item.badge}
+              <div key={item.key}>
+                <button
+                  className={`group relative flex w-full items-center gap-3 border-y border-transparent px-3 py-1.5 text-left transition ${isActive ? "border-[#c89a55]/20 bg-[linear-gradient(90deg,rgba(190,24,93,.2),rgba(190,24,93,.025))] text-[#fff0d2]" : item.disabled ? "cursor-not-allowed text-zinc-700" : "text-zinc-500 hover:bg-white/[.025] hover:text-pink-100"}`}
+                  disabled={item.disabled}
+                  onClick={() => onSelect(item.key)}
+                  onFocus={() => item.onHover?.()}
+                  onMouseEnter={() => item.onHover?.()}
+                  type="button"
+                >
+                  {isActive ? <span className="absolute inset-y-1 left-0 w-px bg-[#e6ba73] shadow-[0_0_10px_rgba(230,186,115,.75)]" /> : null}
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center border text-xs ${isActive ? "border-[#c89a55]/30 bg-black/35 text-pink-300" : "border-white/[.06] bg-black/20 text-zinc-700 group-hover:text-pink-300/70"}`}>{meta.glyph}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-[#c89a55]/35">{meta.code}</span>
+                    <span className="block truncate font-serif text-[15px]">{item.label}</span>
                   </span>
-                )}
-              </button>
+                  {item.hasIndicator ? <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_9px_#fbbf24]" /> : null}
+                  {item.badge ? <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700">{item.badge}</span> : null}
+                </button>
+              </div>
             );
           })}
         </nav>
+
+        <footer className="border-t border-[#c89a55]/12 px-6 py-4 text-[9px] uppercase tracking-[0.22em] text-zinc-700">
+          Her court. Her ledger. Her rules.
+        </footer>
       </div>
+
+      <nav className="court-scrollbar relative flex gap-1 overflow-x-auto px-2 py-2 lg:hidden">
+        {items.map((item) => {
+          const meta = navigationMeta[item.key];
+          const isActive = activePage === item.key;
+          return (
+            <button
+              aria-label={item.label}
+              className={`relative flex min-w-[4.45rem] shrink-0 flex-col items-center gap-1 px-2 py-2 text-[9px] font-black uppercase tracking-[.08em] transition ${isActive ? "text-[#ffe8bd]" : item.disabled ? "text-zinc-800" : "text-zinc-600"}`}
+              disabled={item.disabled}
+              key={item.key}
+              onClick={() => onSelect(item.key)}
+              onPointerDown={() => item.onHover?.()}
+              type="button"
+            >
+              {isActive ? <span className="absolute inset-x-3 -top-2 h-px bg-[#e6ba73] shadow-[0_0_10px_#e6ba73]" /> : null}
+              <span className="text-sm text-pink-300/80">{meta.glyph}</span>
+              <span className="max-w-[4rem] truncate">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </aside>
   );
 }
