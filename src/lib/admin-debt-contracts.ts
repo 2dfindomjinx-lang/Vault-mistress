@@ -46,6 +46,7 @@ export async function listAdminDebtContracts(
   const { data, error } = await supabase
     .from("pet_debt_contracts")
     .select(adminDebtContractSelect)
+    .neq("status", "forgiven")
     .order("created_at", { ascending: false })
     .limit(120);
 
