@@ -7,6 +7,7 @@ import {
   getIrlTaskWheelSegments,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -26,6 +27,7 @@ type ProfileRow = {
   coins: number;
   id: string;
   timeout_until: string | null;
+  address_term?: string | null;
 };
 
 function jsonError(message: string, status = 400) {
@@ -133,7 +135,8 @@ export async function POST(request: Request) {
 
   const { freeFridayAvailable, freeFridayKey } = freeFriday;
   const useFreeFridayPool = freeFriday.freeFridayActive;
-  const wheelSegments = getIrlTaskWheelSegments(useFreeFridayPool);
+  const addressTerm = normalizeAddressTerm(currentProfile.address_term);
+  const wheelSegments = getIrlTaskWheelSegments(addressTerm, useFreeFridayPool);
 
   if (timeoutUntil > Date.now()) {
     return jsonError("Timeout is active. The wheel is not available yet.", 423);

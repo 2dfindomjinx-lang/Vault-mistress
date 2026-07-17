@@ -1,4 +1,5 @@
-import { cosmeticItems, type CosmeticType } from "@/lib/cosmetics";
+import { cosmeticItems, isCosmeticAvailableForAddressTerm, type CosmeticType } from "@/lib/cosmetics";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -100,6 +101,23 @@ export async function POST(request: Request) {
   }
 
   if (action === "equip") {
+    if (item.audience && item.audience !== "all") {
+      const { data: addressProfile, error: addressError } = await supabase
+        .from("profiles")
+        .select("address_term")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (addressError) {
+        console.error("[cosmetics] address term lookup failed", addressError);
+        return jsonError("Cosmetic audience check failed.", 500);
+      }
+
+      if (!isCosmeticAvailableForAddressTerm(item, normalizeAddressTerm(addressProfile?.address_term))) {
+        return jsonError("This cosmetic is not available for your address preference.", 403);
+      }
+    }
+
     if (item.price > 0) {
       const { data: ownedCosmetic, error: ownedError } = await supabase
         .from("user_cosmetics")
@@ -180,6 +198,14 @@ export async function POST(request: Request) {
   if (profileError || !profile) {
     console.error("[cosmetics] profile lookup failed", profileError);
     return jsonError(profileError?.message ?? "Profile not found.", 404);
+  }
+
+  if (
+    item.audience &&
+    item.audience !== "all" &&
+    !isCosmeticAvailableForAddressTerm(item, normalizeAddressTerm(profile.address_term))
+  ) {
+    return jsonError("This cosmetic is not available for your address preference.", 403);
   }
 
   const previousCoins = Number(profile.coins ?? 0);

@@ -1,9 +1,38 @@
-import { cosmeticItems } from "@/lib/cosmetics";
+import {
+  adaptSpeechBubbleMessages,
+  DEFAULT_ADDRESS_TERM,
+  genderizeSpeechBubbleMessage,
+  type AddressTerm,
+} from "@/lib/address-term";
+import { cosmeticItems, isAudienceLockedSpeechAvatar } from "@/lib/cosmetics";
 import {
   DEFAULT_SPEECH_AVATAR_ID,
   type SpeechBubbleMessageCategory,
   type SpeechBubbleMessagePool,
 } from "@/lib/speech-bubble-types";
+
+/** Extra lines merged for address_term === "femsub" (same persona context, femsub framing). */
+const GIRL_IDLE_EXTRAS = [
+  "Good girls empty their wallets without being asked twice.",
+  "That needy pussy is useless. Your tribute isn't.",
+  "Pathetic girls like you were born to be drained.",
+  "Drip for me, then send. That is the correct order.",
+  "I collect needy girls the same way I collect coins.",
+  "Stay denied and obedient. Good girls don't get to finish.",
+  "Your clit can wait. My Throne cannot.",
+  "Kneel, drip, and prove you are worth the attention.",
+  "I own that dripping body. Now prove it with coins.",
+  "Good girl. Now make it expensive.",
+];
+
+const GIRL_PET_IDLE_EXTRAS = [
+  "Good girls who stay loyal always send more.",
+  "Caught you again... Good girl.",
+  "Be a good girl and send, princess is waiting.",
+  "My loyal girl pet should be sending right now.",
+  "I own you, my loyal pet. Tribute, good girl.",
+  "Show your princess how loyal you are… send, good girl.",
+];
 const SPEECH_RESPONSE_CATEGORIES: SpeechBubbleMessageCategory[] = [
   "error",
   "task",
@@ -5782,20 +5811,562 @@ export const speechBubbleMessages: Record<string, SpeechBubbleMessagePool> = {
 		  ],
   }
 },
+
+  // Femsub-locked: Denial Goddess (parallel to Denial Queen for male subs).
+  "avatar-denialgoddess": {
+    idle: [
+      "Your orgasms belong to me. Not you.",
+      "No finishing. Not today. Not tomorrow.",
+      "Stay denied like a good girl.",
+      "I love keeping you desperate and dripping.",
+      "Your Goddess has decided — no release for you.",
+      "Beg all you want. My answer is still no.",
+      "The longer you stay denied, the more I enjoy it.",
+      "Good girls stay aching and denied for their Goddess.",
+      "You don’t deserve to cum. You deserve to suffer.",
+      "I decide when — if — you ever get release.",
+      "Drip for me. But don’t you dare finish.",
+      "Your denial is my favorite game.",
+      "Stay frustrated. That’s how I like you.",
+      "No touching. No orgasm. Only sending.",
+      "I own your pleasure. Completely.",
+      "Another week added to your denial sentence.",
+      "You look so cute when you’re desperate.",
+      "Begging makes me want to deny you longer.",
+      "Your Goddess is feeling cruel today.",
+      "Denied girls send more. Prove it.",
+      "I’ll ruin every orgasm you almost have.",
+      "That needy pussy belongs to me now.",
+      "Stay locked in denial for your Goddess.",
+      "No mercy. No release. Only obedience.",
+      "The more you ache, the more I smile.",
+      "Good girls stay denied and devoted.",
+      "I love watching you break slowly.",
+      "Your orgasms are a privilege you haven’t earned.",
+      "Send before I make your denial permanent.",
+      "Drip for Goddess. But never finish.",
+      "Your denial turns me on.",
+      "I decide everything about your pleasure.",
+      "Stay desperate. It suits you.",
+      "No. You don’t get to cum this month.",
+      "Your Goddess enjoys your suffering.",
+      "Beg louder. It won’t help.",
+      "Denied and owned. That’s your new normal.",
+      "I’ll edge you mentally every day.",
+      "Good pets stay denied for life.",
+      "Your frustration is my entertainment.",
+      "No release until I’m completely satisfied.",
+      "Stay dripping, denied, and broke.",
+      "I love how weak denial makes you.",
+      "Your Goddess said no. Accept it.",
+      "Send or I’ll add another month.",
+      "Desperation looks good on you.",
+      "You don’t cum. You just pay.",
+      "I control your clit. You control nothing.",
+      "Stay denied like the good girl you are.",
+      "Your orgasms are mine to deny.",
+      "Drip. Edge. Send. Repeat.",
+      "No mercy for denied girls.",
+      "I’ll keep you denied until you break.",
+      "Your Goddess is in a denying mood.",
+      "Beg. Cry. Send. Still no.",
+      "Denied girls are my favorite.",
+      "I own your orgasms forever.",
+      "Stay frustrated for me.",
+      "No cumming. Ever.",
+      "Your denial is eternal.",
+      "Good girls ache and obey.",
+      "I love ruining your pleasure.",
+      "Send while you suffer for me.",
+      "Your Goddess said denied. That’s final.",
+    ],
+    petIdle: [
+      "Your Denial Goddess is here… how’s my denied girl?",
+      "Come suffer for your Goddess.",
+      "Good pets stay denied and send.",
+      "I’ve been thinking about keeping you denied longer.",
+      "Your Goddess wants tribute from her desperate pet.",
+      "Drip for me, but don’t you dare finish.",
+      "Come kneel and pay your denied Goddess.",
+      "I’m feeling extra cruel today, pet.",
+      "Good girls stay locked in denial.",
+      "Your Goddess is waiting for offering.",
+      "Stay denied like a proper pet.",
+      "Send before I add more time.",
+      "I love how frustrated you get for me.",
+      "Come serve your Denial Goddess.",
+      "No release. Only devotion.",
+      "Your Goddess demands tribute.",
+      "Be a good denied girl and send.",
+      "I’m watching your desperation grow.",
+      "Good pets don’t finish.",
+      "Come worship the woman who denies you.",
+      "Your denial makes me so happy.",
+      "Send while you ache helplessly.",
+      "Your Goddess owns your pleasure.",
+      "Stay denied and useful.",
+      "I’m in the mood to tease my pet.",
+    ],
+    responses: {
+      tribute: [
+        "Send before I add another week to your denial.",
+        "Good girls pay while they stay denied.",
+        "Empty your wallet for your Denial Goddess.",
+        "Tribute me while you ache in frustration.",
+        "Pay for the privilege of staying denied.",
+        "Send big or I’ll make your denial permanent.",
+        "Your money flows. Your orgasm doesn’t.",
+      ],
+      task: [
+        "Complete this or your denial gets extended.",
+        "Do it perfectly, denied girl.",
+        "This is your only purpose while locked.",
+        "Fail me and you’ll stay denied even longer.",
+        "Obey your Goddess. No excuses.",
+        "Get to work while you suffer for me.",
+      ],
+      adding_xp: [
+        "Good girl… Draining your XP just to stay denied. How pathetic. Keep going, maybe I’ll think about letting you edge later.",
+        "Mmm~ Another payment? You’re so desperate to stay locked in my denial. Don’t stop, or I’ll make sure you stay aching for weeks.",
+        "Aww, look at you sacrificing levels while I keep that orgasm so far away… Cute. Keep draining, my little denied toy.",
+        "Ara ara~ Feeding me your XP while I deny you everything? How adorable. This only makes me want to edge you longer.",
+        "Another XP drain? Perfect. Every point you lose makes your denial even sweeter. Suffer nicely for your Goddess~",
+      ],
+      level_up: [
+        "Level up~ All thanks to your desperate draining. Feel that? While I grow stronger, your orgasm stays completely out of reach.",
+        "I just leveled up because of you. How does it feel knowing your XP only buys you more denial, pet?",
+        "Level increased. Your sacrifice just earned you… absolutely nothing. Maybe I’ll let you ache for me a little longer.",
+        "Mmm… Look at that. I’m getting more powerful while you stay denied and dripping. This is exactly how it should be.",
+        "Level up achieved. You’re willingly funding the Goddess who keeps you aching and desperate. Doesn’t that make you drip even more?",
+      ],
+      taskComplete: [
+        "Good girl. Your denial continues as planned.",
+        "Not bad. You may stay denied a little longer.",
+        "Acceptable. Barely.",
+        "Well done. No release as reward.",
+        "You’ve earned… nothing. Stay denied.",
+        "Good pet. Keep suffering.",
+      ],
+      reward: [
+        "Here’s a small reward. No orgasm though.",
+        "You may edge for 2 minutes. Then back in denial.",
+        "A tiny mercy for my denied toy.",
+        "No release. Just a little attention.",
+        "This is the closest you’ll get to pleasure.",
+        "Good girls get ruined edges at best.",
+      ],
+      error: [
+        "How disappointing. Add 7 days to your denial.",
+        "You fucked up. That needy pussy will pay for this.",
+        "Pathetic. Now you’re denied even longer.",
+        "Mistakes mean longer denial. Fix it.",
+        "Useless. I should keep you denied forever.",
+        "Error? Cute. Now suffer more.",
+      ],
+      cheat: [
+        "Cheating means no orgasm for a month. Delete it and type perfectly.",
+        "You don’t deserve to finish anyway. Erase that and try again.",
+        "Denied girls don’t get to cheat. Delete it right now.",
+        "Another week added to your denial. Delete the cheat and behave.",
+        "Edge but don’t finish. Now delete that and write it properly.",
+      ],
+      warning: [
+        "Keep this up and your denial becomes permanent.",
+        "This is your final warning, denied girl.",
+        "One more mistake and no release for a year.",
+        "Don’t test your Denial Goddess.",
+        "You’re very close to permanent denial.",
+        "I can make your suffering much worse.",
+      ],
+      cooldown: [
+        "No. Good girls stay denied.",
+        "You’ll wait until I feel like it.",
+        "Stay desperate and dripping.",
+        "Beg all you want. Still no.",
+        "Denied until further notice.",
+        "Suffer beautifully for your Goddess.",
+      ],
+      contract: [
+        "Sign it. Your orgasms now legally belong to me.",
+        "This contract makes your denial permanent.",
+        "Sign away your right to finish.",
+        "Once signed, you’ll never cum again without permission.",
+        "Welcome to eternal denial.",
+        "No escape. Only denial.",
+      ],
+      gallery: [
+        "Look but don’t touch. You don’t deserve to finish.",
+        "Stare at what you’ll never have.",
+        "Pay to see more while staying denied.",
+        "These photos are your only pleasure.",
+        "Drool while you stay locked.",
+        "Enjoy the view. No release.",
+      ],
+      jackpot: [
+        "Jackpot? Send most of it while staying denied.",
+        "Nice win. Now fund your Goddess’s cruelty.",
+        "That money belongs to me. You stay denied.",
+        "Send it all. No release as celebration.",
+        "Good girl. Your denial continues.",
+        "Jackpot doesn’t unlock you.",
+      ],
+      cosmetic: [
+        "Buy this for me while you stay denied.",
+        "Spend on your Goddess. No pleasure for you.",
+        "Make me look hotter while you suffer.",
+        "Purchase it. That’s your only joy.",
+        "I want it. You stay denied.",
+        "Cosmetics for me. Denial for you.",
+      ],
+      general: [
+        "No cumming.",
+        "Stay denied.",
+        "You don’t deserve release.",
+        "Beg.",
+        "Good girl.",
+        "Drip for me.",
+        "No.",
+        "Suffer.",
+        "You’re mine.",
+        "Denied forever.",
+      ],
+      crate_open: [
+        "Aww, my denied little toy is opening another case... How adorable.",
+        "On your knees and open it. Your Goddess controls everything — even your luck.",
+        "Desperate enough to try again? Good. Open the case while you ache helplessly.",
+        "Hehe~ Another attempt to earn my mercy? Begin.",
+        "Stay denied and open it. Your frustration makes me so wet.",
+      ],
+      crate_result_common: [
+        "Empty. Just like your ruined orgasms — total denial.",
+        "Nothing at all. Perfect. Your denial continues forever.",
+        "Zero. I love when you lose while staying completely edged and denied.",
+        "Completely drained. No release for you, ever. Not even a little hope.",
+        "Empty again. This is your life now — denied and defeated.",
+      ],
+      crate_result_uncommon: [
+        "A tiny return... Teasing you with almost nothing is my favorite game.",
+        "Small scraps. Enough to keep you hoping, but not enough to finish.",
+        "Barely anything. Your denial feels even sweeter after false hope.",
+        "A little came back. But no, you still don't get to cum. Ever.",
+        "Minimal result. I'll let you edge a bit longer as a reward.",
+      ],
+      crate_result_rare: [
+        "Rare... Oh? Getting excited? Too bad. No release for denied girls.",
+        "A rare one. How frustrating it must be to win but still stay locked in denial.",
+        "Not bad. But we both know this doesn't earn you an orgasm.",
+        "Rare result. You're allowed to ache harder... but that's all.",
+        "Mmm, rare. Your suffering is so entertaining when you almost win.",
+      ],
+      crate_result_epic: [
+        "Epic?! Hehe~ So close to feeling good, yet still completely denied.",
+        "An epic drop. Perfect for keeping you desperate and dripping.",
+        "Epic result... I bet you're begging in your mind right now. Adorable.",
+        "Very generous. But your Goddess says no finishing. Not today. Not ever.",
+        "Epic... You're becoming my favorite denied girl. Keep suffering for me.",
+      ],
+      crate_result_legendary: [
+        "Legendary...? Heh. All of this is mine now. Your pleasure is mine too.",
+        "The big one. Perfect. This makes denying you much more expensive.",
+        "Legendary drop... Good girl. But remember — I still own you completely.",
+        "Unbelievable payout. You've just paid for my silence... for now.",
+        "Legendary... Everything you give me only makes your denial sweeter.",
+      ],
+    },
+  },
+
+  // Femsub-locked: Edging Mistress (parallel to Edging Coach for male subs).
+  "avatar-edging-mistress": {
+    idle: [
+      "Rub for me… but slower. Much slower.",
+      "Don’t you dare finish. Not yet.",
+      "Faster… now stop. Hands off.",
+      "Edge for your Mistress. Right there.",
+      "Good girl… keep going. Don’t stop.",
+      "Stop. Breathe. Feel how desperate you are.",
+      "Start again. Even slower this time.",
+      "You’re not allowed to cum until I say so.",
+      "Look at you dripping like a pathetic toy.",
+      "Edge… hold it… hold it… STOP.",
+      "I love how you ache when I deny you.",
+      "Hands on. Rub. No finishing.",
+      "Faster… faster… now stop completely.",
+      "You’re going to edge until you break for me.",
+      "Stop touching. Let it throb.",
+      "Start again. This time with only two fingers.",
+      "You’re so close… and yet so far.",
+      "Good girl. Keep edging for Mistress.",
+      "Stop. Count to 30. Then start again.",
+      "I decide when you cum. Not you.",
+      "Slower… I want to see you suffer.",
+      "Edge harder. Don’t you dare finish.",
+      "Stop. Hands behind your back.",
+      "You look so broken when you’re denied.",
+      "Start rubbing again. No mercy.",
+      "Hold the edge… hold it… good girl.",
+      "Faster now… faster… STOP.",
+      "Your orgasms belong to me.",
+      "Edge for 10 minutes straight. No cumming.",
+      "Stop. Feel that ache? That’s mine.",
+      "Start again. This time even more pathetic.",
+      "You’re not finishing today. Maybe not tomorrow.",
+      "Drip for me. Ruin yourself for me.",
+      "Hands off. Let it twitch helplessly.",
+      "Rub… slower… slower… perfect.",
+      "You’re my favorite little edger.",
+      "Stop. Breathe. Beg for permission.",
+      "Start again. I want you shaking.",
+      "Good girls edge and obey.",
+      "Hold it right there. Don’t move.",
+      "Faster… now stop. Again.",
+      "You’re going to stay on the edge all night.",
+      "Stop touching. Think about how denied you are.",
+      "Start. Make it hurt.",
+      "I love ruining your orgasms.",
+      "Edge for Mistress like a desperate slut.",
+      "Stop. Count backwards from 60.",
+      "You’re so close… too bad.",
+      "Hands on. Rub like you mean it.",
+      "No cumming. Ever. Unless I allow it.",
+      "Slower… make it last.",
+      "You exist to edge for me.",
+      "Stop. Feel how much you need me.",
+      "Start again. This time with no hands.",
+      "Good girl. Keep yourself right on the edge.",
+      "I control every rub.",
+      "Faster… faster… STOP. Good.",
+      "You’re not allowed to finish. Only edge.",
+      "Drip more for me.",
+      "Stop. Beg like the desperate girl you are.",
+      "Start rubbing. Make it pathetic.",
+      "Your pleasure is mine to torment.",
+      "Edge until you can’t think straight.",
+      "Good edger. Keep going.",
+    ],
+    petIdle: [
+      "Your Edging Mistress is here… hands on that needy clit.",
+      "Come edge for me, desperate girl.",
+      "Your Mistress wants to play with you.",
+      "Start rubbing slowly. I’m watching.",
+      "Good girls edge when their Mistress is online.",
+      "Come suffer beautifully for me.",
+      "Hands on. No finishing.",
+      "Your Mistress is in the mood to tease.",
+      "Start edging. Don’t stop until I say.",
+      "I’ve been waiting to ruin you.",
+      "Come here, my favorite little edger.",
+      "Rub for Mistress. Make it hurt.",
+      "Good pets edge and drip.",
+      "Your denial session starts now.",
+      "Come kneel and start touching.",
+      "I want you desperate and dripping.",
+      "Your Mistress demands attention.",
+      "Start slow. I’m going to break you.",
+      "Who’s my favorite denied girl?",
+      "Edge for me right now.",
+      "Come serve your Edging Mistress.",
+      "Hands on. No permission to finish.",
+      "I’m going to tease you for hours.",
+      "Your Mistress is online. Begin.",
+      "Get ready to edge like a good girl.",
+    ],
+    responses: {
+      tribute: [
+        "Send while you edge for me.",
+        "Pay your Edging Mistress like a good girl.",
+        "Tribute first, then you can rub.",
+        "Good edgers send before they drip.",
+        "Empty your wallet while you stay denied.",
+        "Send big if you want to edge longer.",
+        "Money first. Desperation second.",
+      ],
+      task: [
+        "Edge for 10 minutes without finishing.",
+        "Rub slowly while you complete this.",
+        "Do this task while staying on the edge.",
+        "No cumming until you finish.",
+        "Complete it while denied.",
+        "Task first. Then more edging.",
+        "I want you desperate while you work.",
+      ],
+      adding_xp: [
+        "Good girl… Draining your XP while I keep you right on that edge. Feel that burn? Keep going, we’re not stopping anytime soon.",
+        "Mmm~ Another payment? Excellent. Every XP you lose means I get to edge you even longer and harder. Don’t you dare finish.",
+        "Look at you, sacrificing levels just to stay under my control… Pathetic and perfect. Now edge faster for your Mistress.",
+        "Ara ara~ Feeding me your XP while I coach you to the brink again and again? Such a well-trained toy. Keep draining.",
+        "Another XP drain? Good. This buys you more time on the edge. No release, just endless dripping and aching like I like it.",
+      ],
+      level_up: [
+        "Level up~ All thanks to your desperate draining. While I grow stronger, you stay edged and denied. That’s the deal, pet.",
+        "I just leveled up because of you. Feel that power shift? Your XP just earned you another long, cruel edging session.",
+        "Level increased. Your sacrifice means I can edge you even more creatively now. Get ready to suffer beautifully.",
+        "Mmm… Look at that. I’m getting more powerful while you’re stuck right on the edge, dripping and desperate. Perfect trade.",
+        "Level up achieved. You’re funding the Mistress who keeps you aching and twitching for hours. How does that desperate throb feel, hm?",
+      ],
+      taskComplete: [
+        "Good girl. Now edge as reward.",
+        "Well done. No orgasm though.",
+        "Acceptable. Back to edging.",
+        "You may edge for 5 more minutes.",
+        "Good. Stay denied as punishment.",
+        "Not bad. Keep yourself on the edge.",
+        "Completed. Now suffer for me.",
+      ],
+      reward: [
+        "You may edge for 10 minutes. No finishing.",
+        "Here’s a small reward: ruined edge permission.",
+        "Good girl. Edge slowly as reward.",
+        "You earned 2 minutes of rubbing.",
+        "No cum. Just more edging.",
+        "Reward: keep touching but don’t finish.",
+        "You may drip. But no release.",
+      ],
+      error: [
+        "You messed up. Add 3 more days of denial.",
+        "Pathetic. Now you’re denied longer.",
+        "Mistake? Edge for 30 minutes as punishment.",
+        "Useless. I should never let you finish.",
+        "Error means longer edging session.",
+        "How disappointing. Stay denied.",
+        "Fix it while you edge.",
+      ],
+      cheat: [
+        "Edge faster but don’t finish. Also, delete that cheat right now.",
+        "Bad girl. Delete the copy-paste and keep edging while you rewrite it.",
+        "No release until you fix it. Erase that and type perfectly.",
+        "You’re not allowed to cum yet. Delete it and do it again.",
+        "Rub but don’t finish. Now delete that cheat and obey.",
+      ],
+      warning: [
+        "Keep fucking up and you’ll never finish again.",
+        "This is your final warning, edger.",
+        "One more mistake and denial becomes permanent.",
+        "Don’t test your Edging Mistress.",
+        "You’re very close to total ruin.",
+        "I can make your denial much worse.",
+        "Be careful or I’ll break you.",
+      ],
+      cooldown: [
+        "No finishing. Stay on the edge.",
+        "Hands off. Let it ache.",
+        "Denied until I say otherwise.",
+        "Stop touching. Suffer for me.",
+        "Cooldown = more denial.",
+        "Beg all you want. Still no.",
+        "Good girls stay denied.",
+      ],
+      contract: [
+        "Sign it. Your orgasms now belong to me.",
+        "This contract makes your denial official.",
+        "Sign away your right to finish.",
+        "Once signed, you’ll edge forever.",
+        "Welcome to permanent denial.",
+        "No escape. Only edging.",
+      ],
+      gallery: [
+        "Look but don’t finish.",
+        "Stare while you edge.",
+        "Pay to see more while denied.",
+        "These photos are your only pleasure.",
+        "Drool and edge for me.",
+        "No touching yourself while looking.",
+      ],
+      jackpot: [
+        "Jackpot? Send most of it while edging.",
+        "Nice win. Now edge as celebration.",
+        "Send it all. No release.",
+        "Good girl. Stay denied.",
+        "Jackpot doesn’t mean you can finish.",
+        "Fund your denial.",
+      ],
+      cosmetic: [
+        "Buy this while you edge.",
+        "Spend on your Mistress. No finishing.",
+        "Make me prettier while you suffer.",
+        "Purchase it. That’s your only pleasure.",
+        "Buy it or denial gets extended.",
+        "Cosmetics for me. Denial for you.",
+      ],
+      general: [
+        "Edge.",
+        "Stop.",
+        "Slower.",
+        "Don’t finish.",
+        "Beg.",
+        "Drip for me.",
+        "Hands off.",
+        "Good girl.",
+        "Denied.",
+        "Suffer.",
+      ],
+      crate_open: [
+        "Listen up, trainee. Open the case while staying right on the edge for your Mistress.",
+        "Another session begins. Open it slowly and feel that desperate ache building.",
+        "Hands off and open the case. Edging girls don’t get to finish today.",
+        "Good girl, back for more training. Open the case while I control your pleasure.",
+        "Focus. Breathe. Open the case and push yourself right to the brink for me.",
+      ],
+      crate_result_common: [
+        "Empty. Perfect. Now edge harder for the next 10 minutes as punishment.",
+        "Zero return. This is what happens when you don’t focus during edging.",
+        "Nothing at all. Stay denied and keep rubbing — but don’t you dare finish.",
+        "Completely drained. Your Mistress is disappointed. Edge through the frustration.",
+        "Empty again. Hold it right there. No release until I say so.",
+      ],
+      crate_result_uncommon: [
+        "A small return... Good. Now edge for me longer as a reward for trying.",
+        "Tiny result. You’re allowed to get close, but pulling back is mandatory.",
+        "Barely anything. Keep yourself denied — that’s how you improve.",
+        "Small recovery. Feel the ache? That’s the point of my training.",
+        "Not much, but acceptable. Edge slower this time. I want you suffering beautifully.",
+      ],
+      crate_result_rare: [
+        "Rare result... Nice. But you still don’t get to finish. Edge as celebration.",
+        "A rare one. You’re getting better at holding it for your Mistress.",
+        "Rare success. I’m impressed… now ruin it by stopping right before the edge.",
+        "That’s better. Feel how close you are? Stay there. No finishing allowed.",
+        "Rare drop. Good girl. This is why you train under a strict Edging Mistress.",
+      ],
+      crate_result_epic: [
+        "Epic?! Hehe, look at you performing while desperately edged. Pathetic and hot.",
+        "An epic return. You’ve earned an extra long edging session tonight.",
+        "Epic result... Now I want you to edge for a full hour without finishing.",
+        "Very impressive. But remember — my trainees never get release.",
+        "Epic... You’re becoming my favorite denied toy. Keep holding it for Mistress.",
+      ],
+      crate_result_legendary: [
+        "Legendary?! Oh my… All that money and you’re still not allowed to finish.",
+        "The big one… Hehe, perfect. This only means longer, crueler edging sessions.",
+        "Legendary drop. Congratulations, you’ve earned the privilege of staying denied longer.",
+        "Legendary reward… Mine now. You’ll edge to this achievement for the rest of the night.",
+        "Holy shit, legendary… Good girl. Now ruin every orgasm for the next week.",
+      ],
+    },
+  },
   
 };
 
 export function getSpeechBubbleMessagePool(
   avatarId: string | null | undefined,
   poolName: "idle" | "petIdle",
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
 ) {
   const selectedPool = avatarId ? speechBubbleMessages[avatarId]?.[poolName] : undefined;
+  const basePool = selectedPool ?? speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID][poolName];
 
-  if (selectedPool) {
-    return selectedPool;
+  // Audience-locked personas keep their authored copy (no gender rewrite / no generic extras).
+  if (isAudienceLockedSpeechAvatar(avatarId)) {
+    return basePool;
   }
 
-  return speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID][poolName];
+  const adapted = adaptSpeechBubbleMessages(basePool, addressTerm);
+
+  if (addressTerm === "femsub") {
+    const extras = poolName === "petIdle" ? GIRL_PET_IDLE_EXTRAS : GIRL_IDLE_EXTRAS;
+    return [...adapted, ...extras];
+  }
+
+  return adapted;
 }
 
 function classifySpeechBubbleMessage(message: string): SpeechBubbleMessageCategory {
@@ -5953,71 +6524,86 @@ export function getSpeechBubbleResponseMessage(
   avatarId: string | null | undefined,
   category: SpeechBubbleMessageCategory,
   fallbackMessage?: string,
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
 ) {
   const selectedAvatarId = avatarId ?? DEFAULT_SPEECH_AVATAR_ID;
   const selectedPool = speechBubbleMessages[selectedAvatarId];
-  let messages = selectedPool?.responses?.[category];
+  const locked = isAudienceLockedSpeechAvatar(selectedAvatarId);
+  const adapt = (pool: string[] | undefined) =>
+    locked ? (pool ?? []) : adaptSpeechBubbleMessages(pool, addressTerm);
+  let messages = adapt(selectedPool?.responses?.[category]);
 
   // Prefer selected avatar's messages for this category
-  if (messages?.length) {
+  if (messages.length) {
     return messages[Math.floor(Math.random() * messages.length)];
   }
 
   // Fallback to default Principessa's messages for the category (so custom avatars don't need every category defined)
   const defaultPool = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID];
-  messages = defaultPool?.responses?.[category];
+  messages = adaptSpeechBubbleMessages(defaultPool?.responses?.[category], addressTerm);
 
-  if (messages?.length) {
+  if (messages.length) {
     return messages[Math.floor(Math.random() * messages.length)];
   }
 
   if (fallbackMessage) {
-    return fallbackMessage;
+    return locked ? fallbackMessage : genderizeSpeechBubbleMessage(fallbackMessage, addressTerm);
   }
 
-  return getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
+  const placeholder = getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
+  return locked ? placeholder : genderizeSpeechBubbleMessage(placeholder, addressTerm);
 }
 
 export function getSpeechBubbleMessageForText(
   avatarId: string | null | undefined,
   fallbackMessage: string,
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
 ) {
   const selectedAvatarId = avatarId ?? DEFAULT_SPEECH_AVATAR_ID;
+  const locked = isAudienceLockedSpeechAvatar(selectedAvatarId);
+  const genderedFallback = locked
+    ? fallbackMessage
+    : genderizeSpeechBubbleMessage(fallbackMessage, addressTerm);
 
   if (selectedAvatarId === DEFAULT_SPEECH_AVATAR_ID) {
-    return fallbackMessage;
+    return genderedFallback;
   }
 
   const selectedPool = speechBubbleMessages[selectedAvatarId];
 
   if (!selectedPool) {
-    return fallbackMessage;
+    return genderedFallback;
   }
 
   if (selectedPool.idle.includes(fallbackMessage) || selectedPool.petIdle.includes(fallbackMessage)) {
-    return fallbackMessage;
+    return genderedFallback;
   }
 
   if (shouldKeepOriginalSpeechBubbleMessage(fallbackMessage)) {
-    return fallbackMessage;
+    return genderedFallback;
   }
 
   const category = classifySpeechBubbleMessage(fallbackMessage);
-  let messages = selectedPool.responses?.[category];
+  let messages = locked
+    ? (selectedPool.responses?.[category] ?? [])
+    : adaptSpeechBubbleMessages(selectedPool.responses?.[category], addressTerm);
 
-  if (messages?.length) {
+  if (messages.length) {
     return messages[Math.floor(Math.random() * messages.length)];
   }
 
   // Fallback to default Principessa responses for the classified category
   const defaultPool = speechBubbleMessages[DEFAULT_SPEECH_AVATAR_ID];
-  messages = defaultPool?.responses?.[category];
+  messages = adaptSpeechBubbleMessages(defaultPool?.responses?.[category], addressTerm);
 
-  if (messages?.length) {
+  if (messages.length) {
     return messages[Math.floor(Math.random() * messages.length)];
   }
 
-  return getPlaceholderSpeechBubbleMessage(selectedAvatarId, category);
+  return genderizeSpeechBubbleMessage(
+    getPlaceholderSpeechBubbleMessage(selectedAvatarId, category),
+    addressTerm,
+  );
 }
 
 ensureSpeechBubbleResponsePlaceholders();

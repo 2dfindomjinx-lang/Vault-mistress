@@ -5,6 +5,14 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
+import {
+  ADDRESS_TERM_LABELS,
+  ADDRESS_TERM_VALUES,
+  DEFAULT_ADDRESS_TERM,
+  goodAddressPhrase,
+  normalizeAddressTerm,
+  type AddressTerm,
+} from "@/lib/address-term";
 import { AppShell } from "@/components/AppShell";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CourtChamberIntro } from "@/components/CourtChamberIntro";
@@ -91,6 +99,7 @@ import {
 import {
   cosmeticItems,
   getCosmeticItem,
+  isCosmeticAvailableForAddressTerm,
   getTitleItem,
   getSpendBadge,
   getUnlockedCrateTitleIds,
@@ -135,10 +144,10 @@ import {
 } from "@/lib/global-principessa";
 import { userDebtContractSelect } from "@/lib/debt-contract-select";
 import {
+  getIrlTaskWheelSegments,
   getRandomIrlTaskDurationMinutes,
   getRandomIrlTaskPenaltyMinutes,
   IRL_TASK_WHEEL_COST,
-  irlTaskWheelSegments,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
 import {
@@ -170,6 +179,16 @@ import {
   PET_THRONE_TASK_ID,
   PET_THRONE_URL,
 } from "@/lib/pet-throne";
+import {
+  getDailyPetConfessionSentence,
+  getDailyPetPerfectWritingSentence,
+  getDailyPetVoiceSentence,
+  getPetTasks,
+  petTasks as defaultPetTasks,
+  PET_TASK_REWARD as PET_TASK_CONTENT_REWARD,
+  PET_WEEKLY_TAX_REWARD as PET_TASK_CONTENT_WEEKLY_TAX_REWARD,
+} from "@/lib/pet-tasks-content";
+import { getDailyTypingSentence } from "@/lib/typing-sentences";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
@@ -425,16 +444,16 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
 }
 
 const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, has_uncensored_avatar, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, has_uncensored_avatar, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_MIN_COST = 2500;
 const PET_WEEKLY_TAX_MAX_COST = 10000;
-const PET_TASK_REWARD = 10;
+const PET_TASK_REWARD = PET_TASK_CONTENT_REWARD;
 const PET_TASK_COIN_REWARD = 200;
 const PET_REVIEW_TASK_COIN_REWARD = 250;
-const PET_WEEKLY_TAX_REWARD = 20;
+const PET_WEEKLY_TAX_REWARD = PET_TASK_CONTENT_WEEKLY_TAX_REWARD;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
@@ -457,18 +476,6 @@ function getPetWeeklyTaxCost(coins: number) {
 }
 
 const DEBT_AUTO_PAY_STORAGE_PREFIX = "vault-debt-auto-pay-enabled";
-const PET_X_POST_TEXT = [
-  "I belong to Principessa.",
-  "My small dick is completely hers.",
-  "Every night I’m forced to fill my mandatory humiliation report like the pathetic paypig I am.",
-  "Every day I return for discipline, attention, and control.",
-  "Craving the same shame and control?",
-  "Click Here",
-  "https://vault-mistress.vercel.app",
-  "Weak. Leaking. Addicted."
-].join("\n");
-const PET_X_POST_URL = `https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20small%20dick%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97`;
-void PET_X_POST_TEXT;
 const MAX_TIMEOUT_DAYS = 1;
 const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
@@ -514,142 +521,8 @@ function getJackpotRefreshDelay(jackpot: LoyaltyJackpotState | null) {
   return JACKPOT_IDLE_REFRESH_MS;
 }
 
-const petTasks: PetTaskItem[] = [
-  {
-    id: "pet-confession-dm",
-    title: "Confession Repetition",
-    description: "Type the fixed confession sentence exactly 5 times.",
-    reward: PET_TASK_REWARD,
-    kind: "confession-writing",
-  },
-  {
-    id: "pet-daily-report",
-    title: "Small Dick Touching Journal",
-    description: "Report in full detail how many times you touched and played with your small dick today. Include the exact number of sessions, how long each one lasted, and the times they occurred.",
-    reward: PET_TASK_REWARD,
-    kind: "review",
-  },
-  {
-    id: "pet-twitter-post",
-    title: "X Post Assignment",
-    description: "Open the prepared X post, publish it, then submit for review.",
-    reward: PET_TASK_REWARD,
-    actionLabel: "Open X Post",
-    actionUrl: PET_X_POST_URL,
-    kind: "review",
-  },
-  {
-    id: "pet-weekly-throne-tax",
-    title: "Weekly Throne Tax",
-    description: "Send weekly Throne tax proof by DM.",
-    reward: PET_WEEKLY_TAX_REWARD,
-    kind: "weekly-tax",
-  },
-    {
-      id: PET_THRONE_TASK_ID,
-      title: "Throne Bonus",
-      description: "Pick a Throne tribute amount, open the gift page, then upload the gift screen screenshot for approval.",
-      reward: PET_TASK_REWARD,
-      actionLabel: "Open Throne",
-    actionUrl: PET_THRONE_URL,
-    kind: "throne-tribute",
-  },
-  {
-    id: "pet-voice-proof",
-    title: "Voice Proof",
-    description: "Send a voice recording saying today's required Pet phrase by DM.",
-    reward: PET_TASK_REWARD,
-    kind: "review",
-  },
-  {
-    id: "pet-perfect-writing",
-    title: "Perfect Pet Writing",
-    description: "Write the longer gratitude sentence with no mistakes. One attempt only; DM proof for review.",
-    reward: PET_TASK_REWARD,
-    kind: "perfect-writing",
-  },
-  {
-    id: "pet-evil-wait",
-    title: "Evil Wait Obediently",
-    description: "After a 3 second countdown, do nothing for 2 minutes while distractions appear.",
-    reward: PET_TASK_REWARD,
-    kind: "evil-wait",
-  },
-  {
-    id: "high-low",
-    title: "Higher or Lower",
-    description: "Choose higher or lower against the vault's next hidden number.",
-    reward: 0,
-    kind: "high-low",
-  },
-  {
-    id: "pet-false-hope",
-    title: "Obedience Sequence",
-    description: "Alternate A and D to keep the signal stable. Wrong order pulls progress back.",
-    reward: PET_TASK_REWARD,
-    kind: "false-hope",
-  },
-  {
-    id: "pet-favor-roulette",
-    title: "Favor Roulette",
-    description: "Choose one hidden card. One may hold a Special Favor; the rest are disappointments.",
-    reward: PET_TASK_REWARD,
-    kind: "favor-roulette",
-  },
-  {
-    id: "pet-daily-click",
-    title: "Daily Pet Clicks",
-    description: "Complete today's required Pet clicks. Each click gives 1 coin, up to 200 coins per day.",
-    reward: PET_TASK_REWARD,
-    kind: "daily-click",
-  },
-  {
-    id: "pet-debt-contract",
-    title: "Debt Contract",
-    description: "Sign a recurring debt contract and pay the selected amount each period.",
-    reward: PET_TASK_REWARD,
-    kind: "debt-contract",
-  },
-];
+const petTasks = defaultPetTasks;
 
-const petPerfectWritingSentencePool = [
-  "I am grateful to serve as Principessa's obedient Pet and I will prove it with perfect discipline.",
-  "I am a pathetic and weak pet who is truly grateful to serve Principessa as Her obedient and denied little bitch, and I will prove my worthless devotion with perfect discipline, daily humiliation and total submission every single day.",
-  "I am deeply grateful to serve as Principessa’s pathetic paypig and obedient pet. My small dick, my pleasure and my dignity belong to Her completely, and I will prove my devotion with strict discipline, endless edging and constant shame.",
-  "I am grateful and honored to serve as Principessa’s obedient, locked and denied pet. I exist only for Her amusement and control, and I will prove it every day with perfect discipline, honesty and humiliating obedience.",
-  "I am a desperate, leaking paypig who is truly grateful to serve Principessa as Her personal obedient pet, and I will prove my pathetic submission with perfect discipline, daily reports and total financial and sexual control.",
-  "I am grateful to be allowed to serve as Principessa’s weak and inferior pet. My small dick is useless and belongs to Her, and I will prove my loyalty with perfect discipline, constant denial and shameful obedience.",
-  "I am truly grateful to serve Principessa as her devoted and humiliated pet. I accept my place beneath Her and I will prove my complete submission with perfect discipline, daily confessions and endless worship.",
-  "I am a pathetic small dick loser who is grateful to serve as Principessa’s obedient pet. I will prove my devotion every single day with strict discipline, total honesty and by giving up all control to her.",
-  "I am grateful to serve Principessa as her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
-];
-const petConfessionSentencePool = [
-  "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
-  "Principessa owns my small dick, my mind, my money, and my dignity.",
-  "I crawl back to the vault because I’m too weak to resist Principessa’s control.",
-  "I’m grateful to be trained and humiliated as Principessa’s obedient paypig.",
-  "Principessa’s approval is everything. I will degrade myself daily to earn it.",
-  "I accept my place: locked, denied, and used for Principessa’s amusement.",
-  "My pathetic Pet score and my tiny dick belong entirely to Principessa.",
-  "I will not rush. I will edge and suffer properly like a good denied pet.",
-  "Principessa’s pet waits, leaks, reports, and begs for more humiliation.",
-  "Excuses are for weak losers. I prove my devotion with discipline and shame.",
-  "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
-];
-const petVoiceSentencePool = [
-  "Principessa, I can’t resist spending money on you. Serving you turns me on so much.",
-  "I keep thinking I should send you my entire salary, Principessa. I want to be your slave.",
-  "I confess to Principessa, pleasing you is my greatest pleasure, even if it means going broke.",
-  "Being under your control feels amazing. I’m handing over my money to you, Principessa.",
-  "Every day I want to earn more money just to spend it all on you.",
-  "Principessa, I’m even willing to go into debt for you. This is my deepest confession.",
-  "I admit that I worship you and my money belongs to you, Principessa.",
-  "I can’t stop myself. I constantly want to send you gifts. You are my owner.",
-  "I’m ready to sacrifice every penny just to be crushed under Principessa’s feet.",
-  "I confess, I can’t be happy without your findom. Please take my money, Principessa.",
-  "I work for you, I earn for you, and I want to give it all to you.",
-  "Principessa, owning me financially is your right. I surrender completely.",
-];
 const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
@@ -762,60 +635,38 @@ const startingTasks: TaskItem[] = [
   },
 ];
 
-const typingSentencePool = [
-  "I am a pathetic paypig for Principessa.",
-  "My only purpose is to send and be drained.",
-  "Principessa owns my wallet and my dignity.",
-  "I am a worthless loser.",
-  "I am nothing but a human ATM.",
-  "I get hard when Principessa takes my money.",
-  "I am a weak beta who sends without thinking.",
-  "I am a completely worthless paypig whose only value is in my wallet.",
-  "A loyal player studies before acting.",
-  "Principessa owns my money, my dignity, and my pathetic existence.",
-  "I exist solely to be drained and humiliated by my superior Goddess.",
-  "Please ruin me financially and laugh at how weak I am, Principessa.",
-  "I am a broke, desperate loser who lives to tribute Principessa.",
-  "My purpose in life is to send everything I have to my greedy Mistress.",
-  "I surrender my wallet, my pride, and my self-respect to Principessa.",
-  "Being used and drained by Principessa is the only thing I deserve.",
-  "I am an inferior paypig and I beg you to take everything from me.",
-  "Principessa, I am your devoted financial slave and I will send until I break.",
-  "I am a disgusting paypig who gets aroused only when my money is being stolen.",
-  "Principessa, I am nothing but a pathetic, leaking wallet begging to be emptied.",
-  "Use me, abuse me, and drain every last coin from this worthless beta bitch.",
-  "My biggest pleasure in life is watching my balance drop while you ignore me.",
-  "My entire existence revolves around sending tributes to Principessa and being humiliated for how broke and desperate I am.",
-  "I surrender my wallet, my dignity, and my self-respect to Principessa and I will keep sending until I have nothing left.",
-  "Being financially dominated and ignored by Principessa is the only thing a pathetic paypig like me truly deserves in this life.",
-  "Please drain my account dry and laugh at me while I stroke to the thought of becoming completely broke for you, Principessa.",
-  "I am nothing but a leaking, addicted wallet who lives to be used, abused, and financially destroyed by my greedy Mistress.",
-  "I surrender complete control of my finances to Principessa and I promise to stay a loyal, obedient, and financially ruined paypig for as long as you allow me to serve you.",
-  "The thought of being completely drained and left with nothing by such a powerful and greedy Goddess like Principessa makes this worthless beta leak and throb with shameful excitement.",
-  "I am a pathetic and worthless slave who admits that I deserve nothing but humiliation and contempt from Principessa.",
-  "I confess that I am inferior, useless, and completely pathetic in every way before Principessa.",
-  "I am a pathetic loser with a tiny useless dick who admits that I can never satisfy a woman and deserve only humiliation from Principessa.",
-  "I beg Principessa to laugh at my tiny useless cock while I stroke it shamefully in front of her.",
-  "My wallet exists solely for Principessa to use and destroy as she pleases.",
-  "Principessa owns every cent I have and every shred of my dignity.",
-  "I get painfully hard knowing Principessa is ruining me financially.",
-  "Being used as Principessa’s personal cash cow is my highest purpose.",
-  "My tiny useless cock throbs only when Principessa drains my account.",
-  "I leak like a desperate loser while Principessa ruins my finances.",
-  "I’m a leaking paypig whose tiny cock drips for every dollar Principessa steals.",
-  "Every time I send to Principessa, my small dick leaks in complete submission.",
-];
-
-const dailyTeases = [
-  "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
-  "Want my attention? Pay for it. Principessa doesn’t waste time on broke boys.",
-  "Losers like you don’t need savings. They need a Superior Woman to control them.",
-  "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
-  "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
-  "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
-  "Real men provide. Losers like you just leak and send. Get draining, paypig.",
-  "Your savings are cute. They’d look much better in my account.",
-];
+const dailyTeasesByTerm: Record<AddressTerm, string[]> = {
+  sub: [
+    "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
+    "Want my attention? Pay for it. Principessa doesn’t waste time on broke boys.",
+    "Losers like you don’t need savings. They need a Superior Woman to control them.",
+    "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
+    "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
+    "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
+    "Real men provide. Losers like you just leak and send. Get draining, paypig.",
+    "Your savings are cute. They’d look much better in my account.",
+  ],
+  femsub: [
+    "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
+    "Want my attention? Pay for it. Principessa doesn’t waste time on broke girls.",
+    "Losers like you don’t need savings. They need a Superior Woman to control them.",
+    "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
+    "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
+    "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
+    "Good girls send. Losers like you just drip and drain. Get sending, paypig.",
+    "Your savings are cute. They’d look much better in my account.",
+  ],
+  neutral: [
+    "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
+    "Want my attention? Pay for it. Principessa doesn’t waste time on broke pets.",
+    "Losers like you don’t need savings. They need a Superior Woman to control them.",
+    "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
+    "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
+    "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
+    "Good pets send. Losers like you just ache and drain. Get sending, paypig.",
+    "Your savings are cute. They’d look much better in my account.",
+  ],
+};
 
 const affectionCharacterStages = [
   {
@@ -850,11 +701,7 @@ const affectionCharacterStages = [
   },
 ] as const;
 
-const affectionDailyMessagePools = [
-  {
-    min: 0,
-    messages: dailyTeases,
-  },
+const affectionHigherMessagePools = [
   {
     min: 25,
     messages: [
@@ -935,12 +782,14 @@ const sacrificeFailureLines = [
   "I watched you throw away your coins and laughed.",
 ];
 
-const sacrificeSuccessLines = [
-  "Your sacrifice pleased me. Good boy.",
-  "I took your offering. You may thank me properly.",
-  "I liked your sacrifice. You earned a small mercy.",
-  "Successful sacrifice. I'm marginally impressed.",
-];
+function getSacrificeSuccessLines(term: AddressTerm) {
+  return [
+    `Your sacrifice pleased me. ${goodAddressPhrase(term)}.`,
+    "I took your offering. You may thank me properly.",
+    "I liked your sacrifice. You earned a small mercy.",
+    "Successful sacrifice. I'm marginally impressed.",
+  ];
+}
 
 const supportLines = [
   "Principessa took your coins without a single word. You're nothing to her.",
@@ -967,10 +816,17 @@ function getAffectionCharacterStage(affection: number) {
     .find((stage) => affection >= stage.min) ?? affectionCharacterStages[0];
 }
 
-function getAffectionDailyMessage(affection: number) {
-  const unlockedMessages = affectionDailyMessagePools.flatMap((pool) =>
-    affection >= pool.min ? pool.messages : [],
-  );
+function getAffectionDailyMessage(
+  affection: number,
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
+) {
+  const dailyTeases = dailyTeasesByTerm[addressTerm] ?? dailyTeasesByTerm.sub;
+  const unlockedMessages = [
+    ...dailyTeases,
+    ...affectionHigherMessagePools.flatMap((pool) =>
+      affection >= pool.min ? pool.messages : [],
+    ),
+  ];
   const dayIndex = new Date().getDay();
 
   return unlockedMessages[dayIndex % unlockedMessages.length] ?? dailyTeases[dayIndex % dailyTeases.length];
@@ -1154,8 +1010,9 @@ function buildPetTasksFromRows(
   rows: UserPetTaskRow[],
   lastPetTaxAt?: string | null,
   highLowRow?: UserTaskRow | null,
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
 ) {
-  return petTasks.map((task) => {
+  return getPetTasks(addressTerm).map((task) => {
     const petRow = task.id === "high-low" ? null : rows.find((entry) => entry.task_id === task.id) ?? null;
     const row = task.id === "high-low" ? highLowRow ?? null : petRow;
     const baseStatus =
@@ -1176,7 +1033,7 @@ function buildPetTasksFromRows(
         completedAt,
         cooldownUntil,
         reviewedAt,
-        sentence: getDailyPetPerfectWritingSentence(),
+        sentence: getDailyPetPerfectWritingSentence(addressTerm),
         status: cooldownUntil ? baseStatus : "available",
       };
     }
@@ -1192,7 +1049,7 @@ function buildPetTasksFromRows(
         confessionCount,
         cooldownUntil,
         reviewedAt,
-        sentence: getDailyPetConfessionSentence(),
+        sentence: getDailyPetConfessionSentence(addressTerm),
         status: cooldownUntil ? baseStatus : "available",
       };
     }
@@ -1385,7 +1242,7 @@ function buildPetTasksFromRows(
         completedAt,
         reviewedAt,
         cooldownUntil: getPetTaskCooldownUntil(cooldownAnchor),
-        voiceSentence: getDailyPetVoiceSentence(),
+        voiceSentence: getDailyPetVoiceSentence(addressTerm),
       };
     }
 
@@ -1463,26 +1320,6 @@ function writingStartsWith(sentence: string, value: string) {
 
 function writingEquals(sentence: string, value: string) {
   return normalizeWritingComparisonText(sentence) === normalizeWritingComparisonText(value);
-}
-
-function getDailyTypingSentence() {
-  const dayIndex = getGmt3DayIndex();
-  return typingSentencePool[dayIndex % typingSentencePool.length];
-}
-
-function getDailyPetVoiceSentence() {
-  const dayIndex = getGmt3DayIndex();
-  return petVoiceSentencePool[dayIndex % petVoiceSentencePool.length];
-}
-
-function getDailyPetPerfectWritingSentence() {
-  const dayIndex = getGmt3DayIndex();
-  return petPerfectWritingSentencePool[dayIndex % petPerfectWritingSentencePool.length];
-}
-
-function getDailyPetConfessionSentence() {
-  const dayIndex = getGmt3DayIndex();
-  return petConfessionSentencePool[dayIndex % petConfessionSentencePool.length];
 }
 
 function getDebtAutoPayStorageKey(userId: string) {
@@ -1703,6 +1540,7 @@ function buildTasksFromRows(
   lastLoyaltyAt: string | null,
   assignedIrlTask: UserIrlTaskRow | null,
   timeoutUntil: string | null,
+  addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM,
 ) {
   return startingTasks.map((task) => {
     const row =
@@ -1744,7 +1582,7 @@ function buildTasksFromRows(
         completed: !cooldownUntil && isCompletedAfterClaim(row),
         claimed: Boolean(cooldownUntil),
         cooldownUntil,
-        sentence: getDailyTypingSentence(),
+        sentence: getDailyTypingSentence(addressTerm),
       };
     }
 
@@ -1957,16 +1795,23 @@ function getGalleryMechanicState(unlockedIds: string[]) {
 
 export default function Home() {
   const speechBubbleModuleRef = useRef<typeof import("@/lib/speech-bubble-messages") | null>(null);
+  const addressTermRef = useRef<AddressTerm>(DEFAULT_ADDRESS_TERM);
   const getSpeechBubbleMessageForText = useCallback((avatarId: string | null | undefined, fallbackMessage: string) =>
-    speechBubbleModuleRef.current?.getSpeechBubbleMessageForText(avatarId, fallbackMessage) ?? fallbackMessage, []);
+    speechBubbleModuleRef.current?.getSpeechBubbleMessageForText(avatarId, fallbackMessage, addressTermRef.current)
+      ?? fallbackMessage, []);
   const getSpeechBubbleMessagePool = useCallback((avatarId: string | null | undefined, poolName: "idle" | "petIdle") =>
-    speechBubbleModuleRef.current?.getSpeechBubbleMessagePool(avatarId, poolName)
+    speechBubbleModuleRef.current?.getSpeechBubbleMessagePool(avatarId, poolName, addressTermRef.current)
       ?? [poolName === "petIdle" ? "Stay focused and keep serving." : "Waiting for my attention again? Cute."], []);
   const getSpeechBubbleResponseMessage = useCallback((
     avatarId: string | null | undefined,
     category: SpeechBubbleMessageCategory,
     fallbackMessage?: string,
-  ) => speechBubbleModuleRef.current?.getSpeechBubbleResponseMessage(avatarId, category, fallbackMessage)
+  ) => speechBubbleModuleRef.current?.getSpeechBubbleResponseMessage(
+    avatarId,
+    category,
+    fallbackMessage,
+    addressTermRef.current,
+  )
     ?? fallbackMessage
     ?? "Continue serving Principessa.", []);
 
@@ -2049,6 +1894,9 @@ export default function Home() {
   // For using purchased Display Name Change right from Profile tab
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [displayNameEditInput, setDisplayNameEditInput] = useState("");
+  const [addressTerm, setAddressTerm] = useState<AddressTerm>(DEFAULT_ADDRESS_TERM);
+  const [pendingAddressTerm, setPendingAddressTerm] = useState<AddressTerm | null>(null);
+  const [isSavingAddressTerm, setIsSavingAddressTerm] = useState(false);
   const [coins, setCoins] = useState(100);
   const coinsRef = useRef(coins);
   const [affection, setAffection] = useState(0);
@@ -2245,15 +2093,22 @@ export default function Home() {
     isPreviewMode || (isLoggedIn && hasHydratedInitialProfile && isProfileVerified && !isProfileLoading);
 
   const characterEvolutionStage = getAffectionCharacterStage(affection);
-  const dailyMessage = getAffectionDailyMessage(affection);
+  const dailyMessage = getAffectionDailyMessage(affection, addressTerm);
   const speechAvatarEvent =
     activeEvents.find((event) => event.effect.type === "speech_avatar_override") ?? null;
   const eventSpeechAvatarId =
     speechAvatarEvent?.effect.type === "speech_avatar_override"
       ? speechAvatarEvent.effect.speechAvatarId ?? null
       : null;
-  const persistedSpeechAvatarId =
+  const rawPersistedSpeechAvatarId =
     equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID;
+  const rawPersistedSpeechItem = getCosmeticItem(rawPersistedSpeechAvatarId);
+  const persistedSpeechAvatarId =
+    rawPersistedSpeechItem &&
+    rawPersistedSpeechItem.type === "speech-avatar" &&
+    !isCosmeticAvailableForAddressTerm(rawPersistedSpeechItem, addressTerm)
+      ? DEFAULT_SPEECH_AVATAR_ID
+      : rawPersistedSpeechAvatarId;
   const randomSpeechAvatarCandidates = useMemo(
     () =>
       cosmeticItems
@@ -2261,10 +2116,19 @@ export default function Home() {
           (item) =>
             item.type === "speech-avatar" &&
             item.id !== RANDOM_SPEECH_AVATAR_ID &&
-            item.id !== DEFAULT_SPEECH_AVATAR_ID,
+            item.id !== DEFAULT_SPEECH_AVATAR_ID &&
+            isCosmeticAvailableForAddressTerm(item, addressTerm),
         )
         .map((item) => item.id),
-    [],
+    [addressTerm],
+  );
+  const addressAwarePermanentCosmeticItems = useMemo(
+    () =>
+      permanentCosmeticItems.filter(
+        (item) =>
+          item.type !== "speech-avatar" || isCosmeticAvailableForAddressTerm(item, addressTerm),
+      ),
+    [addressTerm],
   );
   const activeManualTemporarySpeechAvatar =
     speechAvatarEvent &&
@@ -4204,6 +4068,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
+    const nextAddressTerm = normalizeAddressTerm(profile.address_term);
+    setAddressTerm(nextAddressTerm);
+    addressTermRef.current = nextAddressTerm;
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -4431,7 +4298,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (petTaskError) {
       console.warn("Failed to load pet task state", petTaskError);
-      setPetTaskState(petTasks);
+      setPetTaskState(getPetTasks(nextAddressTerm));
       setPetAffectionClaimDate(null);
     } else {
       const petRows = (petTaskData ?? []) as UserPetTaskRow[];
@@ -4443,7 +4310,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         "date",
       );
 
-      setPetTaskState(buildPetTasksFromRows(petRows, profile.last_pet_tax_at, highLowTaskRow));
+      setPetTaskState(
+        buildPetTasksFromRows(petRows, profile.last_pet_tax_at, highLowTaskRow, nextAddressTerm),
+      );
       setPetAffectionClaimDate(petMilestoneClaimDate);
     }
 
@@ -4461,6 +4330,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       profile.last_loyalty_at ?? null,
       latestIrlTask,
       profile.timeout_until ?? null,
+      nextAddressTerm,
     );
     setTasks(rebuiltTasks);
     profileIdRef.current = profile.id;
@@ -4506,6 +4376,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
+    const nextAddressTerm = normalizeAddressTerm(profile.address_term);
+    setAddressTerm(nextAddressTerm);
+    addressTermRef.current = nextAddressTerm;
     setIsLoggedIn(true);
     // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
   }, []);
@@ -6041,7 +5914,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const sentence = task.sentence ?? getDailyTypingSentence();
+    const sentence = task.sentence ?? getDailyTypingSentence(addressTerm);
 
     if (!writingStartsWith(sentence, value)) {
       const actionId = "typing-accuracy";
@@ -7021,7 +6894,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const assignedTask = irlTaskWheelSegments[wheelIndex];
+    const assignedTask = getIrlTaskWheelSegments(addressTerm, isFreeFridayActive)[wheelIndex];
 
     if (!assignedTask) {
       console.error("Invalid IRL wheel index", { wheelIndex });
@@ -7271,7 +7144,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }));
       setAvatarMistressReply(
         unlockedItem
-          ? `${randomFrom(sacrificeSuccessLines)} ${unlockedItem.title} joins the collection.`
+          ? `${randomFrom(getSacrificeSuccessLines(addressTerm))} ${unlockedItem.title} joins the collection.`
           : randomFrom(sacrificeFailureLines),
       );
       emitSoundEvent(unlockedItem ? "gallery_unlock" : "tribute_sent");
@@ -7924,6 +7797,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // display-name-change is now purchased normally like other items to grant a change right.
     // The right is used from the Profile tab via the pencil icon.
 
+    if (
+      item.type === "speech-avatar" &&
+      !isCosmeticAvailableForAddressTerm(item, addressTerm)
+    ) {
+      setAvatarMistressReply("That speech avatar is locked to a different address preference.");
+      return;
+    }
+
     if (item.price <= 0 || ownedCosmeticIds.includes(item.id)) {
       await handleEquipCosmetic(item);
       return;
@@ -7994,6 +7875,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleEquipCosmetic = async (item: CosmeticItem) => {
     if (blockIfTimedOut()) {
+      return;
+    }
+
+    if (
+      item.type === "speech-avatar" &&
+      !isCosmeticAvailableForAddressTerm(item, addressTerm)
+    ) {
+      setAvatarMistressReply(
+        item.audience === "sub"
+          ? "Denial Queen and Edging Coach are for sub address only. Try Denial Goddess or Edging Mistress."
+          : item.audience === "femsub"
+            ? "Denial Goddess and Edging Mistress are for femsub address only. Try Denial Queen or Edging Coach."
+            : "That speech avatar is not available for your address preference.",
+      );
       return;
     }
 
@@ -10432,6 +10327,79 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const handleConfirmAddressTermChange = async () => {
+    if (!pendingAddressTerm || !authUserId) return;
+    setIsSavingAddressTerm(true);
+    try {
+      const response = await fetch("/api/user/address-term", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addressTerm: pendingAddressTerm }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; profile?: Profile };
+      if (!response.ok) {
+        setAvatarMistressReply(payload.error ?? "Failed to update address preference.");
+        return;
+      }
+      if (payload.profile) {
+        applyProfileStats(payload.profile);
+      } else {
+        setAddressTerm(pendingAddressTerm);
+        addressTermRef.current = pendingAddressTerm;
+      }
+      setPetTaskState((current) =>
+        current.map((task) => {
+          const template = getPetTasks(pendingAddressTerm).find((entry) => entry.id === task.id);
+          if (!template) {
+            return task;
+          }
+
+          return {
+            ...task,
+            title: template.title,
+            description: template.description,
+            actionUrl: template.actionUrl ?? task.actionUrl,
+            sentence:
+              task.kind === "perfect-writing"
+                ? getDailyPetPerfectWritingSentence(pendingAddressTerm)
+                : task.kind === "confession-writing"
+                  ? getDailyPetConfessionSentence(pendingAddressTerm)
+                  : task.sentence,
+            voiceSentence:
+              task.id === "pet-voice-proof"
+                ? getDailyPetVoiceSentence(pendingAddressTerm)
+                : task.voiceSentence,
+          };
+        }),
+      );
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === "typing-accuracy"
+            ? { ...task, sentence: getDailyTypingSentence(pendingAddressTerm) }
+            : task,
+        ),
+      );
+      const equippedSpeechId = equippedCosmeticIds["speech-avatar"] ?? DEFAULT_SPEECH_AVATAR_ID;
+      const equippedSpeechItem = getCosmeticItem(equippedSpeechId);
+      if (
+        equippedSpeechItem &&
+        equippedSpeechItem.type === "speech-avatar" &&
+        !isCosmeticAvailableForAddressTerm(equippedSpeechItem, pendingAddressTerm)
+      ) {
+        setEquippedCosmeticIds((current) => ({
+          ...current,
+          "speech-avatar": DEFAULT_SPEECH_AVATAR_ID,
+        }));
+      }
+      setAvatarMistressReply(`I'll call you ${goodAddressPhrase(pendingAddressTerm).toLowerCase()} from now on.`);
+    } catch (err) {
+      setAvatarMistressReply("Failed to update address preference.");
+    } finally {
+      setIsSavingAddressTerm(false);
+      setPendingAddressTerm(null);
+    }
+  };
+
   const profileHeaderStats =
     (activePanel === "pet" || activePanel === "debt")
       ? [
@@ -10958,6 +10926,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "tasks" && (
             <TaskList
+              addressTerm={addressTerm}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               isJackpotBusy={isJackpotBusy}
@@ -11070,7 +11039,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   .filter((id) => id.startsWith("title:"))
                   .map((id) => id.slice("title:".length))}
                 premiumTitle={getPremiumShopTitle()}
-                shopItems={permanentCosmeticItems}
+                shopItems={addressAwarePermanentCosmeticItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
                 onPurchaseTitle={handlePurchaseTitle}
@@ -11098,6 +11067,61 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 titles={titleItems}
                 onEquipTitle={handleEquipTitle}
               />
+
+              <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
+                <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
+                  Address Preference
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-white">How Principessa addresses you</h2>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Free, changeable anytime. Affects praise labels, speech bubbles, typing tasks, pet tasks, and IRL wheel tasks.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {ADDRESS_TERM_VALUES.map((term) => {
+                    const isCurrent = addressTerm === term;
+                    return (
+                      <button
+                        className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                          isCurrent
+                            ? "border-amber-200/40 bg-amber-400/15 text-amber-50"
+                            : "border-white/10 bg-black/25 text-zinc-300 hover:border-white/25"
+                        }`}
+                        disabled={isSavingAddressTerm}
+                        key={term}
+                        onClick={() => setPendingAddressTerm(term)}
+                        type="button"
+                      >
+                        {ADDRESS_TERM_LABELS[term]} {isCurrent ? "(current)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+                {pendingAddressTerm && pendingAddressTerm !== addressTerm && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+                    <p className="text-sm text-zinc-200">
+                      Change address preference to &ldquo;{ADDRESS_TERM_LABELS[pendingAddressTerm]}&rdquo;? Are you sure you want to change this?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-full border border-emerald-200/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-emerald-50 disabled:opacity-50"
+                        disabled={isSavingAddressTerm}
+                        onClick={() => void handleConfirmAddressTermChange()}
+                        type="button"
+                      >
+                        {isSavingAddressTerm ? "Saving..." : "Confirm"}
+                      </button>
+                      <button
+                        className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-zinc-300"
+                        disabled={isSavingAddressTerm}
+                        onClick={() => setPendingAddressTerm(null)}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
 
               <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
                 <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
@@ -11480,7 +11504,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       {typingPraiseVisible && (
         <div className="pointer-events-none fixed inset-x-0 top-20 z-[120] flex justify-center px-4">
           <div className="rounded-full border border-emerald-300/35 bg-emerald-500/15 px-5 py-2 text-sm font-black text-emerald-100 shadow-[0_0_26px_rgba(16,185,129,0.28)] backdrop-blur-sm">
-            Good Boy!
+            {goodAddressPhrase(addressTerm)}!
           </div>
         </div>
       )}

@@ -1,10 +1,12 @@
+import type { AddressTerm } from "@/lib/address-term";
 import { getGmt3DateKey } from "@/lib/time";
 
 export const IRL_TASK_WHEEL_COST = 2000;
 export const IRL_TASK_APPROVAL_AFFECTION_GAIN = 10;
 export const IRL_FREE_FRIDAY_MARKER_REASON = "free_task_friday:irl-task-wheel";
 
-export const irlTaskWheelTasks = [
+// Shared across every address preference - no anatomy assumptions.
+export const commonIrlTasks = [
   {
     title: "Rebrand Yourself for Principessa",
     description: "DM @VMPrincipessa and get your materials. Become a board for Principessa.",
@@ -20,14 +22,6 @@ export const irlTaskWheelTasks = [
   {
     title: "Send 5$ on Throne",
     description: "Send $5 tribute on Throne right now. After sending, write “Thank you for taking my money, Principessa” and send proof.",
-  },
-  {
-    title: "Self Degradation",
-    description: "Record a video while crushing your balls/genitalia 5 times with a fist",
-  },
-  {
-    title: "Crossdress",
-    description: "Wear female underwear or lingerie. If impossible, send $5 on Throne instead.",
   },
   {
     title: "Name Calling",
@@ -66,10 +60,6 @@ export const irlTaskWheelTasks = [
     description: "DM @VMPrincipessa and beg her for drain your coins.",
   },
   {
-    title: "Ballbusting Goon",
-    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
-  },
-  {
     title: "Porn Denial Loop",
     description: "Go to a porn site and open 4 different videos. Edge to each one for exactly 3 minutes without cumming. Send a report of which video made you feel the weakest.",
   },
@@ -87,13 +77,43 @@ export const irlTaskWheelTasks = [
   },
 ];
 
-export const irlTaskWheelSegments = irlTaskWheelTasks;
-
-export const freeFridayIrlTaskWheelSegments = [
+// address_term === "sub" only - assumes male anatomy.
+export const boyIrlTasks = [
   {
     title: "Self Degradation",
     description: "Record a video while crushing your balls/genitalia 5 times with a fist",
   },
+  {
+    title: "Crossdress",
+    description: "Wear female underwear or lingerie. If impossible, send $5 on Throne instead.",
+  },
+  {
+    title: "Ballbusting Goon",
+    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+];
+
+// address_term === "femsub" only - female anatomy / femsub framing.
+export const girlIrlTasks = [
+  {
+    title: "Self Degradation",
+    description:
+      "Record a video while spanking your ass hard 10 times and saying “I’m Principessa’s worthless girl.”",
+  },
+  {
+    title: "Lingerie Kneel",
+    description:
+      "Wear lingerie or cute underwear. Kneel facing the camera and send a clear photo with today’s date. If impossible, send $5 on Throne instead.",
+  },
+  {
+    title: "Findom Goon",
+    description:
+      "Goon to findom / female-submission content only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+];
+
+// Free Task Friday pools - shared/genderless.
+export const commonFreeFridayIrlTasks = [
   {
     title: "Property Marking",
     description: "Write 'Property of Principessa' visibly on your body (chest, thigh, or stomach). Add today’s date. Send clear timestamped proof.",
@@ -101,10 +121,6 @@ export const freeFridayIrlTaskWheelSegments = [
   {
     title: "Kneeling Begging Video",
     description: "Get on your knees, put your hands behind your back, and record a video begging: I'm a worthless paypig for Principessa.",
-  },
-  {
-    title: "Self Degradation",
-    description: "Record a video while crushing your balls/genitalia 5 times with a fist",
   },
   {
     title: "Sock Task",
@@ -115,32 +131,12 @@ export const freeFridayIrlTaskWheelSegments = [
     description: "Write “Loser” or “Paypig” on your hand with a pen. Take a clear photo and send it with today’s date.",
   },
   {
-    title: "Sock Task",
-    description: "Kiss your own sock or shoe and say â€œI am below Principessaâ€™s feet.â€ Record a 10-second video.",
-  },
-  {
-    title: "Ballbusting Goon",
-    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
-  },
-  {
     title: "Porn Denial Loop",
     description: "Go to a porn site and open 4 different videos. Edge to each one for exactly 3 minutes without cumming. Send a report of which video made you feel the weakest.",
   },
   {
-    title: "Ball Slaps",
-    description: "Slap your balls 20 times (not too hard) and send a short video of you doing it while saying “Thank you Principessa”.",
-  },
-  {
-    title: "Ice Play",
-    description: "Hold an ice cube on your balls for 60 seconds and send a video of your reaction.",
-  },
-  {
     title: "Nipple Torture",
     description: "Pinch and twist your nipples for 2 minutes straight. Send a short video showing it.",
-  },
-  {
-    title: "Denial Task",
-    description: "Stroke your cock for 15 minutes but stop every time you get close. Send a video of the final minute of the session.",
   },
   {
     title: "Toy Tease",
@@ -156,8 +152,74 @@ export const freeFridayIrlTaskWheelSegments = [
   },
 ] as const;
 
-export function getIrlTaskWheelSegments(isFreeFridayEvent = false) {
-  return isFreeFridayEvent ? freeFridayIrlTaskWheelSegments : irlTaskWheelSegments;
+// Free Task Friday, address_term === "sub" only.
+export const boyFreeFridayIrlTasks = [
+  {
+    title: "Self Degradation",
+    description: "Record a video while crushing your balls/genitalia 5 times with a fist",
+  },
+  {
+    title: "Ballbusting Goon",
+    description: "Goon to ballbusting videos only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+  {
+    title: "Ball Slaps",
+    description: "Slap your balls 20 times (not too hard) and send a short video of you doing it while saying “Thank you Principessa”.",
+  },
+  {
+    title: "Ice Play",
+    description: "Hold an ice cube on your balls for 60 seconds and send a video of your reaction.",
+  },
+  {
+    title: "Denial Task",
+    description: "Stroke your cock for 15 minutes but stop every time you get close. Send a video of the final minute of the session.",
+  },
+] as const;
+
+// Free Task Friday, address_term === "femsub" only.
+export const girlFreeFridayIrlTasks = [
+  {
+    title: "Self Degradation",
+    description:
+      "Record a video while spanking your ass hard 10 times and saying “I’m Principessa’s worthless girl.”",
+  },
+  {
+    title: "Findom Goon",
+    description:
+      "Goon to findom / female-submission content only. Watch it on X and repost at least 2 of them. You can delete it after approval.",
+  },
+  {
+    title: "Pussy Slaps",
+    description:
+      "Slap your pussy 20 times (not too hard) and send a short video of you doing it while saying “Thank you Principessa”.",
+  },
+  {
+    title: "Ice Play",
+    description:
+      "Hold an ice cube on your clit for 60 seconds and send a video of your reaction.",
+  },
+  {
+    title: "Denial Task",
+    description:
+      "Rub your clit for 15 minutes but stop every time you get close. Send a video of the final minute of the session.",
+  },
+] as const;
+
+export function getIrlTaskWheelSegments(addressTerm: AddressTerm, isFreeFridayEvent = false) {
+  const common = isFreeFridayEvent ? commonFreeFridayIrlTasks : commonIrlTasks;
+  const genderPool = isFreeFridayEvent
+    ? addressTerm === "femsub"
+      ? girlFreeFridayIrlTasks
+      : addressTerm === "sub"
+        ? boyFreeFridayIrlTasks
+        : []
+    : addressTerm === "femsub"
+      ? girlIrlTasks
+      : addressTerm === "sub"
+        ? boyIrlTasks
+        : [];
+
+  return [...common, ...genderPool];
 }
 
 export function isFreeTaskFriday(date: Date | number | string = new Date()) {

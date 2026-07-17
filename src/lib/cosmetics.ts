@@ -1,3 +1,4 @@
+import type { AddressTerm } from "@/lib/address-term";
 import { LEADERSHIP_RANKS } from "@/lib/leadership";
 import {
   footballInspiredRotatingBorders,
@@ -19,6 +20,9 @@ export type CosmeticType =
   | "profile-border"
   | ProfileFrameCosmeticType;
 
+/** Who this cosmetic is intended for. Default "all". */
+export type CosmeticAudience = "all" | "sub" | "femsub";
+
 export type CosmeticItem = {
   id: string;
   name: string;
@@ -34,6 +38,8 @@ export type CosmeticItem = {
   backgroundOverlayPath?: string | null;
   backgroundFallback?: string;
   isArchived?: boolean;
+  /** Speech avatars locked to male/female subs. Omit or "all" for everyone. */
+  audience?: CosmeticAudience;
 };
 
 export type SpendBadgeTierId = "bronze" | "silver" | "gold" | "emerald" | "diamond";
@@ -237,18 +243,38 @@ export const permanentCosmeticItems: CosmeticItem[] = [
   {
     id: "avatar-denialqueen",
     name: "Denial Queen",
-    description: "No release, no mercy, only obedience.",
+    description: "Sub denial. No release, no mercy, only obedience.",
     type: "speech-avatar",
     price: 15000,
     image: "/cosmetics/avatar-denialqueen.png",
+    audience: "sub",
   },
   {
     id: "avatar-edging-coach",
     name: "Edging Coach",
-    description: "Teasing control with strict timing.",
+    description: "Sub edging. Teasing control with strict timing.",
     type: "speech-avatar",
     price: 15000,
     image: "/cosmetics/avatar-edging-coach.png",
+    audience: "sub",
+  },
+  {
+    id: "avatar-denialgoddess",
+    name: "Denial Goddess",
+    description: "Femsub denial. No orgasm, no mercy, only obedience.",
+    type: "speech-avatar",
+    price: 15000,
+    image: "/cosmetics/avatar-denialgoddess.png",
+    audience: "femsub",
+  },
+  {
+    id: "avatar-edging-mistress",
+    name: "Edging Mistress",
+    description: "Femsub edging. Slow, cruel control over every rub.",
+    type: "speech-avatar",
+    price: 15000,
+    image: "/cosmetics/avatar-edging-mistress.png",
+    audience: "femsub",
   },
   {
     id: "username-pink",
@@ -590,6 +616,12 @@ export const titleItems: TitleItem[] = [
     source: "admin",
   },
   {
+    id: "admin-femsub-recognized",
+    name: "Personal Femsub",
+    description: "A manual admin-granted title marking a recognized femsub.",
+    source: "admin",
+  },
+  {
     id: "pet-score-250",
     name: "Collared Devotion",
     description: "Unlocked at 250 Pet Score.",
@@ -694,9 +726,39 @@ export function getCosmeticItem(id: string) {
   return cosmeticItems.find((item) => item.id === id) ?? null;
 }
 
+/** Audience-locked cosmetics are only shown for matching address preference. */
+export function isCosmeticAvailableForAddressTerm(
+  item: CosmeticItem,
+  addressTerm: AddressTerm,
+) {
+  const audience = item.audience ?? "all";
+  if (audience === "all") {
+    return true;
+  }
+  // neutral sees universal cosmetics only (not sub/femsub-locked speech avatars)
+  if (addressTerm === "neutral") {
+    return false;
+  }
+  return audience === addressTerm;
+}
+
+export function isAudienceLockedSpeechAvatar(avatarId: string | null | undefined) {
+  if (!avatarId) {
+    return false;
+  }
+  const audience = getCosmeticItem(avatarId)?.audience ?? "all";
+  return audience === "sub" || audience === "femsub";
+}
+
 export function getTitleItem(id: string) {
   return titleItems.find((item) => item.id === id) ?? null;
 }
+
+// Keys accepted by the admin "/title @username [key]" command.
+export const ADMIN_GRANTABLE_TITLE_IDS: Record<string, string> = {
+  chosen: "admin-principessas-chosen",
+  femsub: "admin-femsub-recognized",
+};
 
 export function getUnlockedPetTitleIds(petScore: number) {
   return titleItems

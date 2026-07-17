@@ -2,6 +2,7 @@ import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/s
 import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { requireAdminProfile } from "@/lib/admin-guard";
+import { ADMIN_GRANTABLE_TITLE_IDS, getTitleItem } from "@/lib/cosmetics";
 import { awardDevotion } from "@/lib/devotion";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 
@@ -58,13 +59,25 @@ export async function POST(request: Request) {
   const drainMatch = command.match(/^\/drain\s+([1-9]\d*)\s+(@[A-Za-z0-9_.-]+)$/);
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
-  const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)$/);
+  const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)(?:\s+([A-Za-z-]+))?$/);
 
   if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch) {
     return Response.json(
       {
         error:
-          "Invalid command. Use: /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, or /title @username",
+          "Invalid command. Use: /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, or /title @username [chosen|femsub]",
+      },
+      { status: 400 },
+    );
+  }
+
+  const titleKey = (titleMatch?.[2] ?? "chosen").toLowerCase();
+  const titleIdToGrant = titleMatch ? ADMIN_GRANTABLE_TITLE_IDS[titleKey] : undefined;
+
+  if (titleMatch && !titleIdToGrant) {
+    return Response.json(
+      {
+        error: `Unknown title "${titleKey}". Use: /title @username [${Object.keys(ADMIN_GRANTABLE_TITLE_IDS).join("|")}]`,
       },
       { status: 400 },
     );
@@ -167,11 +180,11 @@ export async function POST(request: Request) {
     });
   }
 
-  if (titleMatch) {
+  if (titleMatch && titleIdToGrant) {
     const { error: titleError } = await supabase.from("user_titles").upsert(
       {
         user_id: profile.id,
-        title_id: "admin-principessas-chosen",
+        title_id: titleIdToGrant,
         source: "admin",
         equipped: false,
       },
@@ -184,7 +197,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json({
-      message: `Granted Principessa's Chosen title to ${profile.username}.`,
+      message: `Granted ${getTitleItem(titleIdToGrant)?.name ?? titleIdToGrant} title to ${profile.username}.`,
       username: profile.username,
     });
   }

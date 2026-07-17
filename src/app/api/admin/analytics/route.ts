@@ -250,7 +250,7 @@ const taskLabelMap: Record<string, string> = {
   "pet:pet-affection-claim": "Pet Affection Claim",
   "pet:pet-case-opening": "Pet Case Opening",
   "pet:pet-confession-dm": "Confession Repetition",
-  "pet:pet-daily-report": "Small Dick Touching Journal",
+  "pet:pet-daily-report": "Touching Journal",
   "pet:pet-debt-contract": "Debt Contract",
   "pet:pet-evil-wait": "Evil Wait Obediently",
   "pet:pet-false-hope": "Obedience Sequence",

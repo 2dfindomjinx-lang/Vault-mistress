@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
+import { DEFAULT_ADDRESS_TERM, type AddressTerm } from "@/lib/address-term";
 import {
   getIrlTaskWheelSegments,
   IRL_TASK_WHEEL_COST,
@@ -141,6 +142,7 @@ function CooldownButtonContent({ label }: { label: string }) {
 }
 
 type TaskListProps = {
+  addressTerm?: AddressTerm;
   coins: number;
   disabled?: boolean;
   mechanics: MechanicsState;
@@ -189,6 +191,7 @@ type TaskListProps = {
 };
 
 export function TaskList({
+  addressTerm = DEFAULT_ADDRESS_TERM,
   coins,
   disabled = false,
   isJackpotBusy = false,
@@ -472,7 +475,7 @@ export function TaskList({
 
     const isFreeFridayEventActive = isFreeTaskFriday(now);
     const useFreeFridaySpin = isFreeFridayEventActive && isFreeFridaySpinAvailable;
-    const wheelSegments = getIrlTaskWheelSegments(isFreeFridayEventActive);
+    const wheelSegments = getIrlTaskWheelSegments(addressTerm, isFreeFridayEventActive);
     const selectedIndex = Math.floor(Math.random() * wheelSegments.length);
     const segmentDegrees = 360 / wheelSegments.length;
     const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
@@ -641,7 +644,7 @@ export function TaskList({
     (task) => !isHiddenClaimedOneTimeTask(task) && !task.id.startsWith("streak-bonus-"),
   );
   const isFreeFridayEventActive = isFreeTaskFriday(now);
-  const wheelSegments = getIrlTaskWheelSegments(isFreeFridayEventActive);
+  const wheelSegments = getIrlTaskWheelSegments(addressTerm, isFreeFridayEventActive);
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
 
   return (

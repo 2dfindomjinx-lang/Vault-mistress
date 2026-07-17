@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
+import type { AddressTerm } from "@/lib/address-term";
 
 export type Profile = {
   id: string;
@@ -37,6 +38,7 @@ export type Profile = {
   last_login_at?: string | null;
   timeout_until: string | null;
   timeout_reason?: string | null;
+  address_term?: AddressTerm | null;
   created_at?: string;
   updated_at?: string;
 };

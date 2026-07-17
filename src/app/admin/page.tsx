@@ -1464,7 +1464,7 @@ export default function AdminPage() {
                 Command Console
               </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username
+                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub]
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
