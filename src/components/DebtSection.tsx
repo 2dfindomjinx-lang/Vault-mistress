@@ -8,7 +8,6 @@ import {
   THRONE_DEBT_LENGTH_OPTIONS,
   type ThroneDebtContract,
   type ThroneDebtFrequency,
-  type ThroneDebtInstallment,
 } from "@/lib/throne-debt";
 import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
@@ -61,7 +60,17 @@ type DebtContractForm = {
   randomGenerated?: boolean;
   periodType: "weekly" | "monthly";
   petName: string;
+  purchasePledge?: boolean;
   timezone?: string;
+};
+
+type DebtCapacityPreview = {
+  balanceCoins: number;
+  balanceComponent: number;
+  baseTotalLimit: number;
+  purchasePledgeBoost: number;
+  reliablePeriodIncome: number;
+  totalLimit: number;
 };
 
 type DebtSectionProps = {
@@ -133,6 +142,65 @@ function fileToDataUrl(file: File) {
     reader.onload = () => resolve(String(reader.result ?? ""));
     reader.readAsDataURL(file);
   });
+}
+
+function useDebtCapacityPreview(
+  durationValue: string,
+  periodType: "weekly" | "monthly",
+  purchasePledge: boolean,
+) {
+  const [capacity, setCapacity] = useState<DebtCapacityPreview | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const durationPeriods = Math.floor(Number(durationValue));
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      if (!Number.isInteger(durationPeriods) || durationPeriods < 1) {
+        setCapacity(null);
+        setError("");
+        return;
+      }
+
+      void fetch("/api/user/debt-contracts", {
+        body: JSON.stringify({
+          action: "capacity",
+          durationPeriods,
+          periodType,
+          purchasePledge,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        signal: controller.signal,
+      }).then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as {
+          capacity?: DebtCapacityPreview;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.capacity) {
+          throw new Error(payload.error ?? "Debt capacity could not be calculated.");
+        }
+
+        setCapacity(payload.capacity);
+        setError("");
+      }).catch((capacityError) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setCapacity(null);
+        setError(capacityError instanceof Error ? capacityError.message : "Debt capacity could not be calculated.");
+      });
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [durationValue, periodType, purchasePledge]);
+
+  return { capacity, error };
 }
 
 function randomWeightedWeeklyDebtDuration(amount: number) {
@@ -218,6 +286,7 @@ export function DebtSection({
   const [normalDebtAmount, setNormalDebtAmount] = useState("");
   const [normalDebtDuration, setNormalDebtDuration] = useState("");
   const [normalDebtPeriodType, setNormalDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
+  const [normalPurchasePledge, setNormalPurchasePledge] = useState(false);
   const [evilAge, setEvilAge] = useState("");
   const [evilFullName, setEvilFullName] = useState("");
   const [evilTimezone, setEvilTimezone] = useState("UTC+3");
@@ -229,6 +298,7 @@ export function DebtSection({
   const [evilDebtAmount, setEvilDebtAmount] = useState("");
   const [evilDebtDuration, setEvilDebtDuration] = useState("");
   const [evilDebtPeriodType, setEvilDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
+  const [evilPurchasePledge, setEvilPurchasePledge] = useState(false);
   const [showDebtSigningImage, setShowDebtSigningImage] = useState<"normal" | "evil" | null>(null);
 
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
@@ -237,14 +307,12 @@ export function DebtSection({
   const hasOpenDebtContract = Boolean(
     petDebtContract && ["active", "pending"].includes(petDebtContract.status),
   );
-  const contractControlsDisabled = disabled || isTimeoutActive;
   const activeContract = petDebtContract;
   const blockingContractMessage = hasOpenDebtContract
     ? activeDebtContractType === "evil"
       ? "Evil Debt Contract is active or pending. Normal Debt Contract cannot be signed until it ends."
       : "Normal Debt Contract is active or pending. Evil Debt Contract cannot be signed until it ends."
     : null;
-  const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
   const debtPaymentDue = activeContract
     ? new Date(activeContract.next_due_at ?? "").getTime() <= now
     : false;
@@ -263,6 +331,16 @@ export function DebtSection({
     min: Math.ceil(evilBaseDurationLimit.min * EVIL_DEBT_DURATION_MULTIPLIER),
   };
   const evilDebtMinimumPayment = evilDebtPeriodType === "weekly" ? 40000 : 80000;
+  const normalCapacityPreview = useDebtCapacityPreview(
+    normalDebtDuration,
+    normalDebtPeriodType,
+    normalPurchasePledge,
+  );
+  const evilCapacityPreview = useDebtCapacityPreview(
+    evilDebtDuration,
+    evilDebtPeriodType,
+    evilPurchasePledge,
+  );
 
   useEffect(() => () => {
     if (debtSignTimerRef.current !== null) {
@@ -301,6 +379,7 @@ export function DebtSection({
       randomGenerated: true,
       periodType: draft.periodType,
       petName,
+      purchasePledge: normalPurchasePledge,
     });
   }
 
@@ -311,6 +390,7 @@ export function DebtSection({
       durationPeriods: Number(normalDebtDuration),
       periodType: normalDebtPeriodType,
       petName: normalPetName,
+      purchasePledge: normalPurchasePledge,
     });
   }
 
@@ -359,6 +439,7 @@ export function DebtSection({
       imageUrls: evilImageUrls,
       periodType: evilDebtPeriodType,
       petName: "Evil Debt Contract",
+      purchasePledge: evilPurchasePledge,
       timezone: evilTimezone,
     });
   }
@@ -388,6 +469,9 @@ export function DebtSection({
         normalDebtDurationLimit={normalDebtDurationLimit}
         normalDebtMinimumPayment={normalDebtMinimumPayment}
         normalDebtPeriodType={normalDebtPeriodType}
+        normalPurchasePledge={normalPurchasePledge}
+        capacityPreview={normalCapacityPreview.capacity}
+        capacityPreviewError={normalCapacityPreview.error}
         normalDebtAmount={normalDebtAmount}
         normalPetName={normalPetName}
         onDebtAutoPayChange={onDebtAutoPayChange}
@@ -395,6 +479,7 @@ export function DebtSection({
         onNormalDebtDurationChange={setNormalDebtDuration}
         onNormalDebtPeriodTypeChange={setNormalDebtPeriodType}
         onNormalPetNameChange={setNormalPetName}
+        onNormalPurchasePledgeChange={setNormalPurchasePledge}
         onPayDebtPeriod={onPayDebtPeriod}
         onRandomDebtSign={handleRandomDebtSign}
         onSign={handleNormalDebtSign}
@@ -420,6 +505,9 @@ export function DebtSection({
         evilDebtDurationLimit={evilDebtDurationLimit}
         evilDebtMinimumPayment={evilDebtMinimumPayment}
         evilDebtPeriodType={evilDebtPeriodType}
+        evilPurchasePledge={evilPurchasePledge}
+        capacityPreview={evilCapacityPreview.capacity}
+        capacityPreviewError={evilCapacityPreview.error}
         evilFullName={evilFullName}
         evilImageError={evilImageError}
         evilImageUrls={evilImageUrls}
@@ -438,6 +526,7 @@ export function DebtSection({
         onEvilDebtImagesChange={handleEvilDebtImages}
         onEvilDebtPeriodTypeChange={setEvilDebtPeriodType}
         onEvilFullNameChange={setEvilFullName}
+        onEvilPurchasePledgeChange={setEvilPurchasePledge}
         onEvilTimezoneChange={setEvilTimezone}
         onPayDebtPeriod={onPayDebtPeriod}
         onSign={handleEvilDebtSign}
@@ -521,7 +610,11 @@ function ThroneDebtCard({
   };
 
   useEffect(() => {
-    void loadThroneDebts();
+    const timer = window.setTimeout(() => {
+      void loadThroneDebts();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const createThroneDebt = async () => {
@@ -815,18 +908,22 @@ function DebtCard(props: {
   isPetActionPending: (actionId: string) => boolean;
   isTimeoutActive: boolean;
   kind: "normal";
+  capacityPreview: DebtCapacityPreview | null;
+  capacityPreviewError: string;
   normalDebtAmount: string;
   normalDebtDuration: string;
   normalDebtDurationLimit: { label: string; max: number; min: number };
   normalDebtMinimumPayment: number;
   normalDebtPeriodType: "weekly" | "monthly";
   normalPetName: string;
+  normalPurchasePledge: boolean;
   now: number;
   onDebtAutoPayChange: (enabled: boolean) => void;
   onNormalDebtAmountChange: (value: string) => void;
   onNormalDebtDurationChange: (value: string) => void;
   onNormalDebtPeriodTypeChange: (value: "weekly" | "monthly") => void;
   onNormalPetNameChange: (value: string) => void;
+  onNormalPurchasePledgeChange: (value: boolean) => void;
   onPayDebtPeriod: () => void;
   onRandomDebtSign: () => void;
   onSign: () => void;
@@ -835,6 +932,8 @@ function DebtCard(props: {
 }) {
   const {
     active,
+    capacityPreview,
+    capacityPreviewError,
     canManageActiveDebtWhileTimedOut,
     currentKind,
     debtInstallmentNumber,
@@ -853,12 +952,14 @@ function DebtCard(props: {
     normalDebtMinimumPayment,
     normalDebtPeriodType,
     normalPetName,
+    normalPurchasePledge,
     now,
     onDebtAutoPayChange,
     onNormalDebtAmountChange,
     onNormalDebtDurationChange,
     onNormalDebtPeriodTypeChange,
     onNormalPetNameChange,
+    onNormalPurchasePledgeChange,
     onPayDebtPeriod,
     onRandomDebtSign,
     onSign,
@@ -916,7 +1017,7 @@ function DebtCard(props: {
               When enabled, the full installment is collected automatically the moment your balance can cover it.
             </p>
             <p className="mt-2 text-yellow-50/75">
-              If the due time passes without enough coins, the installment becomes missed and the debt timeout stays until you catch up.
+              Missed payments enter a 48-hour grace period and then go to admin review. Debt timeout is never applied automatically.
             </p>
           </div>
           <button
@@ -995,6 +1096,17 @@ function DebtCard(props: {
           <p className="text-xs text-zinc-500">
             Duration must be {normalDebtDurationLimit.min}-{normalDebtDurationLimit.max} {normalDebtDurationLimit.label.toLowerCase()} for {normalDebtPeriodType} contracts.
           </p>
+          <PurchasePledgeCheckbox
+            checked={normalPurchasePledge}
+            disabled={contractCreationDisabled}
+            onChange={onNormalPurchasePledgeChange}
+          />
+          <DebtCapacitySummary
+            amount={normalDebtAmount}
+            capacity={capacityPreview}
+            error={capacityPreviewError}
+            duration={normalDebtDuration}
+          />
           <button
             className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition enabled:hover:border-red-200/50 enabled:hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}
@@ -1039,6 +1151,8 @@ function EvilDebtCard(props: {
   hasMissedInstallment: boolean;
   disabled: boolean;
   blockingContractMessage: string | null;
+  capacityPreview: DebtCapacityPreview | null;
+  capacityPreviewError: string;
   evilAge: string;
   evilConsentPrimary: string;
   evilConsentSecondary: string;
@@ -1048,6 +1162,7 @@ function EvilDebtCard(props: {
   evilDebtDurationLimit: { label: string; max: number; min: number };
   evilDebtMinimumPayment: number;
   evilDebtPeriodType: "weekly" | "monthly";
+  evilPurchasePledge: boolean;
   evilFullName: string;
   evilImageError: string;
   evilImageUrls: string[];
@@ -1067,6 +1182,7 @@ function EvilDebtCard(props: {
   onEvilDebtImagesChange: (files: FileList | null) => Promise<void>;
   onEvilDebtPeriodTypeChange: (value: "weekly" | "monthly") => void;
   onEvilFullNameChange: (value: string) => void;
+  onEvilPurchasePledgeChange: (value: boolean) => void;
   onEvilTimezoneChange: (value: string) => void;
   onPayDebtPeriod: () => void;
   onSign: () => void;
@@ -1082,6 +1198,8 @@ function EvilDebtCard(props: {
     hasMissedInstallment,
     disabled,
     blockingContractMessage,
+    capacityPreview,
+    capacityPreviewError,
     evilAge,
     evilConsentPrimary,
     evilConsentSecondary,
@@ -1091,6 +1209,7 @@ function EvilDebtCard(props: {
     evilDebtDurationLimit,
     evilDebtMinimumPayment,
     evilDebtPeriodType,
+    evilPurchasePledge,
     evilFullName,
     evilImageError,
     evilImageUrls,
@@ -1110,6 +1229,7 @@ function EvilDebtCard(props: {
     onEvilDebtImagesChange,
     onEvilDebtPeriodTypeChange,
     onEvilFullNameChange,
+    onEvilPurchasePledgeChange,
     onEvilTimezoneChange,
     onPayDebtPeriod,
     onSign,
@@ -1173,7 +1293,7 @@ function EvilDebtCard(props: {
                   When enabled, the full installment is collected automatically the moment your balance can cover it.
                 </p>
                 <p className="mt-2 text-yellow-50/75">
-                  If the due time passes without enough coins, the installment becomes missed and the debt timeout stays until you catch up.
+                  Missed payments enter a 48-hour grace period and then go to admin review. Debt timeout is never applied automatically.
                 </p>
               </div>
               <button
@@ -1336,6 +1456,17 @@ function EvilDebtCard(props: {
           <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
             Evil Debt Contract is mutually exclusive with normal Debt Contract. Final signing asks one last confirmation.
           </p>
+          <PurchasePledgeCheckbox
+            checked={evilPurchasePledge}
+            disabled={contractCreationDisabled}
+            onChange={onEvilPurchasePledgeChange}
+          />
+          <DebtCapacitySummary
+            amount={evilDebtAmount}
+            capacity={capacityPreview}
+            error={capacityPreviewError}
+            duration={evilDebtDuration}
+          />
           <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
             <AutoPaymentSwitch
               disabled={contractControlsDisabled || hasOpenDebtContract}
@@ -1354,6 +1485,86 @@ function EvilDebtCard(props: {
         </div>
       )}
     </article>
+  );
+}
+
+function PurchasePledgeCheckbox({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-2xl border border-amber-200/20 bg-amber-500/10 px-3 py-3 text-xs font-bold text-amber-50/90">
+      <input
+        checked={checked}
+        className="mt-0.5 h-4 w-4 accent-amber-500"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>
+        If I cannot cover a scheduled payment, I may purchase coins to complete it. I understand that a missed payment can result in a 7-day timeout only after admin review.
+        <span className="mt-1 block font-medium text-amber-100/65">
+          Optional and unchecked by default. Accepting it increases the affordability limit by 25%.
+        </span>
+      </span>
+    </label>
+  );
+}
+
+function DebtCapacitySummary({
+  amount,
+  capacity,
+  duration,
+  error,
+}: {
+  amount: string;
+  capacity: DebtCapacityPreview | null;
+  duration: string;
+  error: string;
+}) {
+  if (error) {
+    return (
+      <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-100">
+        {error}
+      </p>
+    );
+  }
+
+  if (!capacity) {
+    return (
+      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-zinc-400">
+        Enter a duration to calculate your server-verified affordability limit.
+      </p>
+    );
+  }
+
+  const requestedTotal = Math.max(0, Math.floor(Number(amount))) * Math.max(0, Math.floor(Number(duration)));
+  const overLimit = requestedTotal > capacity.totalLimit;
+
+  return (
+    <div className={`rounded-2xl border px-3 py-3 text-xs ${
+      overLimit
+        ? "border-rose-200/25 bg-rose-500/10 text-rose-50"
+        : "border-emerald-200/20 bg-emerald-500/10 text-emerald-50"
+    }`}>
+      <p className="font-black uppercase tracking-[0.14em]">Affordability check</p>
+      <div className="mt-2 grid gap-1 sm:grid-cols-2">
+        <span>Balance: {capacity.balanceCoins.toLocaleString()}</span>
+        <span>75% balance capacity: {capacity.balanceComponent.toLocaleString()}</span>
+        <span>Reliable period income: {capacity.reliablePeriodIncome.toLocaleString()}</span>
+        <span>Total limit: {capacity.totalLimit.toLocaleString()}</span>
+        <span>Requested total: {requestedTotal.toLocaleString()}</span>
+        <span>Pledge boost: {capacity.purchasePledgeBoost.toLocaleString()}</span>
+      </div>
+      <p className="mt-2 font-bold">
+        {overLimit ? "This contract exceeds your current limit." : "This contract is within your current limit."}
+      </p>
+    </div>
   );
 }
 

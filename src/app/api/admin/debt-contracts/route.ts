@@ -2,11 +2,21 @@ import { getDebtPeriodMs, getFirstDebtDueAtIso, listAdminDebtContracts } from "@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { createUserNotification } from "@/lib/user-notifications";
 
-const DEBT_TRANSACTION_REASONS = [
-  "tribute:debt-contract",
-  "tribute:debt-contract:auto",
-  "tribute:debt-contract:missed",
-] as const;
+const DEBT_TIMEOUT_REASON = "debt_contract_overdue";
+const DEBT_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+
+type AdminDebtAction =
+  | "applyTimeout"
+  | "approveEvil"
+  | "clearTimeout"
+  | "closeNoRefund"
+  | "expireOverdue"
+  | "list"
+  | "remove";
+
+function jsonError(message: string, status = 400) {
+  return Response.json({ error: message }, { status });
+}
 
 export async function POST(request: Request) {
   const admin = await requireAdminProfile();
@@ -15,214 +25,230 @@ export async function POST(request: Request) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const body = (await request.json()) as {
-    action?: "approveEvil" | "expireOverdue" | "list" | "remove";
+  const body = (await request.json().catch(() => null)) as {
+    action?: AdminDebtAction;
     contractId?: string;
-  };
+    reason?: string;
+  } | null;
+  const action = body?.action ?? "list";
+  const now = new Date();
+  const nowIso = now.toISOString();
 
-  if (body.action === "remove") {
-    const contractId = body.contractId?.trim();
+  if (action === "closeNoRefund" || action === "remove") {
+    const contractId = String(body?.contractId ?? "").trim();
+    const reason = String(body?.reason ?? "").trim() || "Closed by admin without refund or penalty.";
 
     if (!contractId) {
-      return Response.json({ error: "Missing debt contract id." }, { status: 400 });
+      return jsonError("Missing debt contract id.");
     }
 
     const { data: contract, error: contractError } = await admin.supabase
       .from("pet_debt_contracts")
-      .select("id, debt_amount, status, user_id")
-      .eq("id", contractId);
-
-    if (contractError) {
-      console.error("Admin debt contract lookup failed", contractError);
-      return Response.json({ error: contractError.message }, { status: 500 });
-    }
-
-    const activeContract = contract?.[0];
-
-    if (!activeContract) {
-      return Response.json({ error: "Debt contract not found." }, { status: 404 });
-    }
-
-    const { data: lastDebtTransaction, error: lastDebtTransactionError } = await admin.supabase
-      .from("coin_transactions")
-      .select("id, amount, balance_after, balance_before, metadata")
-      .eq("user_id", activeContract.user_id)
-      .in("reason", [...DEBT_TRANSACTION_REASONS])
-      .contains("metadata", { contractId: activeContract.id })
-      .order("created_at", { ascending: false })
-      .limit(1)
+      .select("id, user_id, status")
+      .eq("id", contractId)
       .maybeSingle();
 
-    if (lastDebtTransactionError) {
-      console.error("Admin debt refund lookup failed", lastDebtTransactionError);
-      return Response.json({ error: lastDebtTransactionError.message }, { status: 500 });
+    if (contractError || !contract) {
+      return jsonError(contractError?.message ?? "Debt contract not found.", contractError ? 500 : 404);
     }
 
-    let refundTransactionId: string | null = null;
-    let refundedInstallmentAmount = 0;
-    const shouldRefundOnRemove = activeContract.status === "active";
-    let refundProfileRollback:
-      | {
-          coins: number;
-          debt_tribute_pending: number;
-          tribute_total: number;
-          user_id: string;
-        }
-      | null = null;
-
-    if (shouldRefundOnRemove && lastDebtTransaction) {
-      const transactionMetadata =
-        lastDebtTransaction.metadata && typeof lastDebtTransaction.metadata === "object"
-          ? (lastDebtTransaction.metadata as Record<string, unknown>)
-          : {};
-      const spendAmount = Number(transactionMetadata.spendAmount ?? Math.abs(Number(lastDebtTransaction.amount ?? 0)));
-      refundedInstallmentAmount = Math.max(
-        0,
-        Math.min(
-          Number(activeContract.debt_amount ?? 0),
-          Number.isFinite(spendAmount) ? spendAmount : Math.abs(Number(lastDebtTransaction.amount ?? 0)),
-        ),
-      );
-
-      if (refundedInstallmentAmount > 0) {
-        const { data: profile, error: profileError } = await admin.supabase
-          .from("profiles")
-          .select("coins, debt_tribute_pending, tribute_total")
-          .eq("id", activeContract.user_id)
-          .maybeSingle();
-
-        if (profileError || !profile) {
-          console.error("Admin debt refund profile lookup failed", profileError);
-          return Response.json({ error: profileError?.message ?? "Debt refund profile not found." }, { status: 500 });
-        }
-
-        const pendingRefundAmount = Math.min(
-          refundedInstallmentAmount,
-          Math.max(0, Number(profile.debt_tribute_pending ?? 0)),
-        );
-        const tributeRefundAmount = Math.min(
-          refundedInstallmentAmount - pendingRefundAmount,
-          Math.max(0, Number(profile.tribute_total ?? 0)),
-        );
-        const nextCoins = Number(profile.coins ?? 0) + refundedInstallmentAmount;
-        const nextDebtTributePending = Math.max(
-          0,
-          Number(profile.debt_tribute_pending ?? 0) - pendingRefundAmount,
-        );
-        const nextTributeTotal = Math.max(
-          0,
-          Number(profile.tribute_total ?? 0) - tributeRefundAmount,
-        );
-        const refundedAt = new Date().toISOString();
-
-        const { error: profileUpdateError } = await admin.supabase
-          .from("profiles")
-          .update({
-            coins: nextCoins,
-            debt_tribute_pending: nextDebtTributePending,
-            tribute_total: nextTributeTotal,
-            updated_at: refundedAt,
-          })
-          .eq("id", activeContract.user_id)
-          .eq("coins", Number(profile.coins ?? 0))
-          .eq("debt_tribute_pending", Number(profile.debt_tribute_pending ?? 0))
-          .eq("tribute_total", Number(profile.tribute_total ?? 0));
-
-        if (profileUpdateError) {
-          console.error("Admin debt refund profile update failed", profileUpdateError);
-          return Response.json({ error: profileUpdateError.message }, { status: 500 });
-        }
-
-        refundProfileRollback = {
-          coins: Number(profile.coins ?? 0),
-          debt_tribute_pending: Number(profile.debt_tribute_pending ?? 0),
-          tribute_total: Number(profile.tribute_total ?? 0),
-          user_id: activeContract.user_id,
-        };
-
-        const { data: refundTransaction, error: refundTransactionError } = await admin.supabase
-          .from("coin_transactions")
-          .insert({
-            user_id: activeContract.user_id,
-            admin_user_id: admin.adminUser.id,
-            amount: refundedInstallmentAmount,
-            reason: "admin_debt_refund",
-            balance_before: Number(profile.coins ?? 0),
-            balance_after: nextCoins,
-            metadata: {
-              contractId: activeContract.id,
-              kind: "debt_contract_last_installment_refund",
-              refundedDebtTributePendingAmount: pendingRefundAmount,
-              refundedInstallmentAmount,
-              refundedTributeTotalAmount: tributeRefundAmount,
-              refundedTransactionId: lastDebtTransaction.id,
-              refundedTransactionReason: "debt_contract_remove",
-              tributeTotalChanged: tributeRefundAmount > 0,
-              verifiedAdminUserId: admin.adminUser.id,
-            },
-          })
-          .select("id")
-          .single();
-
-        if (refundTransactionError || !refundTransaction) {
-          console.error("Admin debt refund transaction insert failed", refundTransactionError);
-          await admin.supabase
-            .from("profiles")
-            .update({
-              coins: Number(profile.coins ?? 0),
-              debt_tribute_pending: Number(profile.debt_tribute_pending ?? 0),
-              tribute_total: Number(profile.tribute_total ?? 0),
-              updated_at: refundedAt,
-            })
-            .eq("id", activeContract.user_id)
-            .eq("coins", nextCoins)
-            .eq("debt_tribute_pending", nextDebtTributePending)
-            .eq("tribute_total", nextTributeTotal);
-          return Response.json({ error: "Debt refund logging failed." }, { status: 500 });
-        }
-
-        refundTransactionId = refundTransaction.id;
-      }
-    }
-
-    const { error } = await admin.supabase
+    const { error: updateError } = await admin.supabase
       .from("pet_debt_contracts")
-      .delete()
-      .eq("id", contractId);
+      .update({
+        admin_review_required: false,
+        closed_at: nowIso,
+        closed_by_admin_id: admin.adminUser.id,
+        close_reason: reason,
+        current_installment_remaining: 0,
+        overdue_since: null,
+        status: "forgiven",
+        updated_at: nowIso,
+      })
+      .eq("id", contract.id);
 
-    if (error) {
-      console.error("Admin debt contract removal failed", error);
-      if (refundProfileRollback) {
-        await admin.supabase
-          .from("profiles")
-          .update({
-            coins: refundProfileRollback.coins,
-            debt_tribute_pending: refundProfileRollback.debt_tribute_pending,
-            tribute_total: refundProfileRollback.tribute_total,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", refundProfileRollback.user_id);
-      }
-
-      if (refundTransactionId) {
-        await admin.supabase.from("coin_transactions").delete().eq("id", refundTransactionId);
-      }
-
-      return Response.json({ error: error.message }, { status: 500 });
+    if (updateError) {
+      return jsonError(updateError.message, 500);
     }
 
-    return Response.json({
-      contracts: await listAdminDebtContracts(admin.supabase, { projectOverdueMissedPeriods: true }),
-      refundedInstallmentAmount,
-      removalMode: shouldRefundOnRemove ? "refunded_active_contract" : "cleared_finished_record",
+    await admin.supabase
+      .from("evil_debt_contract_images")
+      .delete()
+      .eq("contract_id", contract.id);
+
+    await admin.supabase
+      .from("profiles")
+      .update({
+        timeout_reason: null,
+        timeout_until: null,
+        updated_at: nowIso,
+      })
+      .eq("id", contract.user_id)
+      .eq("timeout_reason", DEBT_TIMEOUT_REASON);
+
+    await admin.supabase.from("debt_admin_actions").insert({
+      action: "close_no_refund",
+      admin_user_id: admin.adminUser.id,
+      contract_id: contract.id,
+      debt_kind: "pet",
+      metadata: {
+        previousStatus: contract.status,
+        refundApplied: false,
+      },
+      reason,
+      user_id: contract.user_id,
+    });
+
+    try {
+      await createUserNotification(admin.supabase, {
+        body: "Your Debt Contract was closed by admin without a refund or penalty.",
+        kind: "debt_closed_by_admin",
+        metadata: { contractId: contract.id, reason },
+        title: "Debt Contract Closed",
+        userId: contract.user_id,
+      });
+    } catch (notificationError) {
+      console.error("Debt closure notification failed", notificationError);
+    }
+  }
+
+  if (action === "applyTimeout") {
+    const contractId = String(body?.contractId ?? "").trim();
+    const reason = String(body?.reason ?? "").trim() || "Purchase pledge was not fulfilled after the grace period.";
+
+    if (!contractId) {
+      return jsonError("Missing debt contract id.");
+    }
+
+    const { data: contract, error: contractError } = await admin.supabase
+      .from("pet_debt_contracts")
+      .select("id, user_id, status, purchase_pledge, admin_review_required, next_due_at, current_installment_remaining")
+      .eq("id", contractId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (contractError || !contract) {
+      return jsonError(contractError?.message ?? "Active debt contract not found.", contractError ? 500 : 404);
+    }
+
+    const dueAtMs = new Date(String(contract.next_due_at ?? "")).getTime();
+    const graceExpired =
+      Number.isFinite(dueAtMs) &&
+      dueAtMs + 48 * 60 * 60 * 1000 <= now.getTime() &&
+      Number(contract.current_installment_remaining ?? 0) > 0;
+
+    if (!contract.purchase_pledge || (!contract.admin_review_required && !graceExpired)) {
+      return jsonError("A 7-day timeout requires both a purchase pledge and an overdue admin-review state.", 409);
+    }
+
+    const { data: profile, error: profileError } = await admin.supabase
+      .from("profiles")
+      .select("timeout_reason, timeout_until")
+      .eq("id", contract.user_id)
+      .single();
+
+    if (profileError || !profile) {
+      return jsonError(profileError?.message ?? "Debt user profile not found.", 500);
+    }
+
+    const existingTimeoutActive = new Date(String(profile.timeout_until ?? 0)).getTime() > now.getTime();
+
+    if (existingTimeoutActive && profile.timeout_reason && profile.timeout_reason !== DEBT_TIMEOUT_REASON) {
+      return jsonError("The user already has a non-debt timeout. Resolve it before applying a debt timeout.", 409);
+    }
+
+    const timeoutUntil = new Date(now.getTime() + DEBT_TIMEOUT_MS).toISOString();
+    const { error: timeoutError } = await admin.supabase
+      .from("profiles")
+      .update({
+        timeout_reason: DEBT_TIMEOUT_REASON,
+        timeout_until: timeoutUntil,
+        updated_at: nowIso,
+      })
+      .eq("id", contract.user_id);
+
+    if (timeoutError) {
+      return jsonError(timeoutError.message, 500);
+    }
+
+    await admin.supabase
+      .from("pet_debt_contracts")
+      .update({
+        admin_review_required: true,
+        overdue_since: contract.next_due_at,
+        updated_at: nowIso,
+      })
+      .eq("id", contract.id);
+
+    await admin.supabase.from("debt_admin_actions").insert({
+      action: "apply_7_day_timeout",
+      admin_user_id: admin.adminUser.id,
+      contract_id: contract.id,
+      debt_kind: "pet",
+      metadata: { timeoutUntil },
+      reason,
+      user_id: contract.user_id,
+    });
+
+    try {
+      await createUserNotification(admin.supabase, {
+        body: `Admin applied a 7-day Debt Timeout after reviewing your missed payment and purchase pledge.`,
+        kind: "debt_timeout_applied",
+        metadata: { contractId: contract.id, timeoutUntil },
+        title: "Debt Timeout Applied",
+        userId: contract.user_id,
+      });
+    } catch (notificationError) {
+      console.error("Debt timeout notification failed", notificationError);
+    }
+  }
+
+  if (action === "clearTimeout") {
+    const contractId = String(body?.contractId ?? "").trim();
+    const reason = String(body?.reason ?? "").trim() || "Debt timeout cleared by admin.";
+
+    if (!contractId) {
+      return jsonError("Missing debt contract id.");
+    }
+
+    const { data: contract, error: contractError } = await admin.supabase
+      .from("pet_debt_contracts")
+      .select("id, user_id")
+      .eq("id", contractId)
+      .maybeSingle();
+
+    if (contractError || !contract) {
+      return jsonError(contractError?.message ?? "Debt contract not found.", contractError ? 500 : 404);
+    }
+
+    const { error: clearError } = await admin.supabase
+      .from("profiles")
+      .update({
+        timeout_reason: null,
+        timeout_until: null,
+        updated_at: nowIso,
+      })
+      .eq("id", contract.user_id)
+      .eq("timeout_reason", DEBT_TIMEOUT_REASON);
+
+    if (clearError) {
+      return jsonError(clearError.message, 500);
+    }
+
+    await admin.supabase.from("debt_admin_actions").insert({
+      action: "clear_debt_timeout",
+      admin_user_id: admin.adminUser.id,
+      contract_id: contract.id,
+      debt_kind: "pet",
+      reason,
+      user_id: contract.user_id,
     });
   }
 
-  if (body.action === "approveEvil") {
-    const contractId = body.contractId?.trim();
+  if (action === "approveEvil") {
+    const contractId = String(body?.contractId ?? "").trim();
 
     if (!contractId) {
-      return Response.json({ error: "Missing debt contract id." }, { status: 400 });
+      return jsonError("Missing debt contract id.");
     }
 
     const { data: contract, error: readError } = await admin.supabase
@@ -233,41 +259,32 @@ export async function POST(request: Request) {
       .eq("status", "pending")
       .maybeSingle();
 
-    if (readError) {
-      console.error("Admin evil debt approval lookup failed", readError);
-      return Response.json({ error: readError.message }, { status: 500 });
+    if (readError || !contract) {
+      return jsonError(readError?.message ?? "Pending Evil Debt Contract not found.", readError ? 500 : 404);
     }
 
-    if (!contract) {
-      return Response.json({ error: "Pending Evil Debt Contract not found." }, { status: 404 });
-    }
-
-    const now = new Date();
     const periodMs = getDebtPeriodMs(contract.period_type as "weekly" | "monthly");
     const { error } = await admin.supabase
       .from("pet_debt_contracts")
       .update({
         ends_at: new Date(now.getTime() + periodMs * Number(contract.duration_periods ?? 0)).toISOString(),
         next_due_at: getFirstDebtDueAtIso(contract.period_type as "weekly" | "monthly", now),
-        started_at: now.toISOString(),
+        started_at: nowIso,
         status: "active",
-        updated_at: now.toISOString(),
+        updated_at: nowIso,
       })
       .eq("id", contract.id)
       .eq("status", "pending");
 
     if (error) {
-      console.error("Admin evil debt approval failed", error);
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
 
     try {
       await createUserNotification(admin.supabase, {
         body: "Your Evil Debt Contract was approved and is now active.",
         kind: "debt_evil_approved",
-        metadata: {
-          contractId: contract.id,
-        },
+        metadata: { contractId: contract.id },
         title: "Evil Debt Approved",
         userId: contract.user_id,
       });
@@ -276,17 +293,15 @@ export async function POST(request: Request) {
     }
   }
 
-  if (body.action === "expireOverdue") {
-    const now = new Date().toISOString();
+  if (action === "expireOverdue") {
     const { error } = await admin.supabase
       .from("pet_debt_contracts")
-      .update({ status: "expired", updated_at: now })
-      .lt("ends_at", now)
+      .update({ status: "expired", updated_at: nowIso })
+      .lt("ends_at", nowIso)
       .eq("status", "active");
 
     if (error) {
-      console.error("Admin debt expiry update failed", error);
-      return Response.json({ error: error.message }, { status: 500 });
+      return jsonError(error.message, 500);
     }
   }
 

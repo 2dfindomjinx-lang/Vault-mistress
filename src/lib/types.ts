@@ -200,6 +200,12 @@ export type PetDebtContract = {
   timezone?: string | null;
   consent_primary?: boolean | null;
   consent_secondary?: boolean | null;
+  purchase_pledge?: boolean;
+  capacity_snapshot?: Record<string, unknown> | null;
+  admin_review_required?: boolean;
+  overdue_since?: string | null;
+  closed_at?: string | null;
+  close_reason?: string | null;
   image_urls?: string[] | null;
   created_at: string;
   updated_at?: string | null;

@@ -100,6 +100,25 @@ type AdminDebtContract = {
   consent_primary?: boolean | null;
   consent_secondary?: boolean | null;
   image_urls?: string[] | null;
+  purchase_pledge?: boolean;
+  capacity_snapshot?: {
+    balanceCoins?: number;
+    balanceComponent?: number;
+    baseTotalLimit?: number;
+    incomeComponent?: number;
+    purchasePledgeBoost?: number;
+    reliablePeriodIncome?: number;
+    requestedTotal?: number;
+    totalLimit?: number;
+  } | null;
+  admin_review_required?: boolean;
+  overdue_since?: string | null;
+  closed_at?: string | null;
+  close_reason?: string | null;
+  current_coins?: number;
+  debt_timeout_active?: boolean;
+  timeout_reason?: string | null;
+  timeout_until?: string | null;
 };
 
 type AdminThroneDebtContract = ThroneDebtContract & {
@@ -763,48 +782,49 @@ export default function AdminPage() {
     }
   };
 
-  const handleRemoveDebtContract = async (contractId: string) => {
+  const handleDebtAdminAction = async (
+    action: "applyTimeout" | "clearTimeout" | "closeNoRefund",
+    contractId: string,
+  ) => {
     if (!isAdmin) {
       return;
     }
 
+    const actionLabel =
+      action === "applyTimeout"
+        ? "apply the 7-day Debt Timeout"
+        : action === "clearTimeout"
+          ? "clear the Debt Timeout"
+          : "close this debt without refund or penalty";
+
+    if (!window.confirm(`Confirm: ${actionLabel}?`)) {
+      return;
+    }
+
+    const reason = window.prompt("Admin reason / audit note") ?? "";
     setIsBusy(true);
     setStatus("");
 
     try {
       const response = await fetch("/api/admin/debt-contracts", {
-        body: JSON.stringify({ action: "remove", contractId }),
+        body: JSON.stringify({ action, contractId, reason }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
       const result = (await response.json()) as {
         contracts?: AdminDebtContract[];
         error?: string;
-        refundedInstallmentAmount?: number;
-        removalMode?: "cleared_finished_record" | "refunded_active_contract";
       };
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Debt removal failed.");
+        throw new Error(result.error ?? "Debt admin action failed.");
       }
 
       setDebtContracts(result.contracts ?? []);
-      setStatus(
-        result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
-          ? `Debt contract removed. Refunded last installment: ${result.refundedInstallmentAmount.toLocaleString()} coins.`
-          : result.removalMode === "cleared_finished_record"
-            ? "Finished debt record removed. No refund was applied."
-            : "Debt contract removed.",
-      );
-      setDefneMessage(
-        result.refundedInstallmentAmount && result.refundedInstallmentAmount > 0
-          ? "Debt removed. The last installment was refunded and the ledger was corrected."
-          : result.removalMode === "cleared_finished_record"
-            ? "Finished debt record removed without changing the ledger."
-            : "Debt removed. The ledger has been corrected.",
-      );
+      setStatus(`Debt admin action completed: ${actionLabel}.`);
+      setDefneMessage("Debt state updated. The action was recorded in the admin audit ledger.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Debt removal failed.");
+      setStatus(error instanceof Error ? error.message : "Debt admin action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -1865,6 +1885,12 @@ export default function AdminPage() {
                                 <p className="mt-1 text-xs text-zinc-500">
                                   Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
                                 </p>
+                                <p className="mt-1 text-xs text-zinc-400">
+                                  Balance {Number(contract.current_coins ?? 0).toLocaleString()} - limit {Number(contract.capacity_snapshot?.totalLimit ?? 0).toLocaleString()} - requested {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-400">
+                                  Purchase pledge: {contract.purchase_pledge ? "Accepted (+25%)" : "Not accepted"} - review: {contract.admin_review_required ? "Required" : "Clear"}
+                                </p>
                               </div>
                               <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
                                 {contract.random_generated && (
@@ -1877,14 +1903,34 @@ export default function AdminPage() {
                                 </span>
                               </div>
                             </div>
-                            <div className="mt-3 flex justify-end">
+                            <div className="mt-3 flex flex-wrap justify-end gap-2">
+                              {contract.purchase_pledge && contract.admin_review_required && !contract.debt_timeout_active ? (
+                                <button
+                                  className="rounded-2xl border border-red-200/25 bg-red-500/15 px-3 py-2 text-xs font-black text-red-100 transition hover:border-red-200/50 disabled:opacity-50"
+                                  disabled={isBusy}
+                                  onClick={() => void handleDebtAdminAction("applyTimeout", contract.id)}
+                                  type="button"
+                                >
+                                  Apply 7-Day Timeout
+                                </button>
+                              ) : null}
+                              {contract.debt_timeout_active ? (
+                                <button
+                                  className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:opacity-50"
+                                  disabled={isBusy}
+                                  onClick={() => void handleDebtAdminAction("clearTimeout", contract.id)}
+                                  type="button"
+                                >
+                                  Clear Debt Timeout
+                                </button>
+                              ) : null}
                               <button
                                 className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
                                 disabled={isBusy}
-                                onClick={() => void handleRemoveDebtContract(contract.id)}
+                                onClick={() => void handleDebtAdminAction("closeNoRefund", contract.id)}
                                 type="button"
                               >
-                                Remove Debt
+                                Close - No Refund
                               </button>
                             </div>
                           </article>
@@ -2206,6 +2252,12 @@ export default function AdminPage() {
                                   <span>Status: {contract.status}</span>
                                   <span>Paid periods: {contract.paid_periods}</span>
                                   <span>Missed periods: {contract.missed_periods}</span>
+                                  <span>Current balance: {Number(contract.current_coins ?? 0).toLocaleString()}</span>
+                                  <span>Affordability limit: {Number(contract.capacity_snapshot?.totalLimit ?? 0).toLocaleString()}</span>
+                                  <span>Requested total: {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()}</span>
+                                  <span>Reliable period income: {Number(contract.capacity_snapshot?.reliablePeriodIncome ?? 0).toLocaleString()}</span>
+                                  <span>Purchase pledge: {contract.purchase_pledge ? "Accepted (+25%)" : "Not accepted"}</span>
+                                  <span>Admin review: {contract.admin_review_required ? "Required" : "Clear"}</span>
                                   <span>
                                     Next due: {Number.isFinite(dueAtMs) ? new Date(dueAtMs).toLocaleString() : "-"}
                                   </span>
@@ -2243,13 +2295,33 @@ export default function AdminPage() {
                                       Approve Evil Debt
                                     </button>
                                   )}
+                                  {contract.purchase_pledge && contract.admin_review_required && !contract.debt_timeout_active ? (
+                                    <button
+                                      className="rounded-2xl border border-red-200/25 bg-red-500/15 px-3 py-2 text-xs font-black text-red-100 transition hover:border-red-200/50 disabled:opacity-50"
+                                      disabled={isBusy}
+                                      onClick={() => void handleDebtAdminAction("applyTimeout", contract.id)}
+                                      type="button"
+                                    >
+                                      Apply 7-Day Timeout
+                                    </button>
+                                  ) : null}
+                                  {contract.debt_timeout_active ? (
+                                    <button
+                                      className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:border-emerald-200/50 disabled:opacity-50"
+                                      disabled={isBusy}
+                                      onClick={() => void handleDebtAdminAction("clearTimeout", contract.id)}
+                                      type="button"
+                                    >
+                                      Clear Debt Timeout
+                                    </button>
+                                  ) : null}
                                   <button
                                     className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
                                     disabled={isBusy}
-                                    onClick={() => void handleRemoveDebtContract(contract.id)}
+                                    onClick={() => void handleDebtAdminAction("closeNoRefund", contract.id)}
                                     type="button"
                                   >
-                                    Remove Evil Debt
+                                    Close - No Refund
                                   </button>
                                 </div>
                               </div>

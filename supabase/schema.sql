@@ -376,6 +376,13 @@ alter table public.pet_debt_contracts
   add column if not exists consent_primary boolean not null default false,
   add column if not exists consent_secondary boolean not null default false,
   add column if not exists image_urls jsonb not null default '[]'::jsonb,
+  add column if not exists purchase_pledge boolean not null default false,
+  add column if not exists capacity_snapshot jsonb not null default '{}'::jsonb,
+  add column if not exists admin_review_required boolean not null default false,
+  add column if not exists overdue_since timestamp with time zone,
+  add column if not exists closed_at timestamp with time zone,
+  add column if not exists close_reason text,
+  add column if not exists closed_by_admin_id uuid references auth.users(id) on delete set null,
   add column if not exists updated_at timestamp with time zone not null default now();
 
 alter table public.pet_debt_contracts

@@ -2877,7 +2877,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         : isThroneDebtTimeoutActive
           ? "Your account is in Throne Debt Timeout because a Throne Debt payment is overdue. To request removal, submit a Throne payment for the redemption amount. This must be manually reviewed and approved."
         : isDebtOverdueTimeoutActive
-          ? "An overdue debt installment is locking the account. This timeout stays active until the installment is fully paid or an admin removes it."
+          ? "An admin applied a 7-day Debt Timeout after reviewing an overdue installment and purchase pledge. Admin can also remove it early."
         : "You are in timeout. Actions are locked until the timer ends. You can send $5 on Throne and DM @VMPrincipessa for manual review to remove it.";
   const petEverUnlocked = Boolean(petUnlockedAt) || affection >= 100;
   const isPetUnlocked = petEverUnlocked;
@@ -8985,6 +8985,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     imageUrls,
     periodType,
     petName,
+    purchasePledge = false,
     randomGenerated = false,
     timezone,
   }: {
@@ -9001,6 +9002,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     imageUrls?: string[];
     periodType: "weekly" | "monthly";
     petName: string;
+    purchasePledge?: boolean;
     randomGenerated?: boolean;
     timezone?: string;
   }) => {
@@ -9118,6 +9120,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           imageUrls,
           periodType,
           petName: cleanPetName,
+          purchasePledge,
           randomGenerated,
           timezone: timezone?.trim(),
         });
@@ -9130,15 +9133,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         setIsDebtAutoPayEnabled(false);
       } catch (error) {
         console.error("Failed to create debt contract", error);
-        const maybeTimeoutUntil = (error as { payload?: { timeoutUntil?: unknown } })?.payload?.timeoutUntil;
-
-        if (typeof maybeTimeoutUntil === "string") {
-          timeoutUntilRef.current = maybeTimeoutUntil;
-          timeoutReasonRef.current = "evil_debt_underage";
-          setTimeoutUntil(maybeTimeoutUntil);
-          setTimeoutReason("evil_debt_underage");
-        }
-
         setAuthError(describeError(error));
         setAvatarMistressReply(describeError(error));
         return false;

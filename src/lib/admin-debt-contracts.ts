@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const MONTH_MS = 30 * DAY_MS;
+const DEBT_GRACE_MS = 48 * 60 * 60 * 1000;
 
 type DebtContractRow = Record<string, unknown> & {
   contract_type: string;
@@ -18,7 +19,10 @@ type DebtContractRow = Record<string, unknown> & {
 };
 
 type DebtContractProfileRow = {
+  coins: number;
   id: string;
+  timeout_reason: string | null;
+  timeout_until: string | null;
   username: string;
 };
 
@@ -61,7 +65,7 @@ export async function listAdminDebtContracts(
 
   const [profilesResult, imagesResult] = await Promise.all([
     userIds.length > 0
-      ? supabase.from("profiles").select("id, username").in("id", userIds)
+      ? supabase.from("profiles").select("id, username, coins, timeout_reason, timeout_until").in("id", userIds)
       : Promise.resolve({ data: [] as DebtContractProfileRow[], error: null }),
     contractIds.length > 0
       ? supabase
@@ -81,7 +85,7 @@ export async function listAdminDebtContracts(
   }
 
   const profileMap = new Map(
-    ((profilesResult.data ?? []) as DebtContractProfileRow[]).map((profile) => [profile.id, profile.username]),
+    ((profilesResult.data ?? []) as DebtContractProfileRow[]).map((profile) => [profile.id, profile]),
   );
   const imageMap = new Map<string, string[]>();
 
@@ -101,23 +105,39 @@ export async function listAdminDebtContracts(
     if (shouldProjectOverdueMissedPeriods && contract.status === "active") {
       const nextDueAtMs = new Date(contract.next_due_at).getTime();
 
-      if (Number.isFinite(nextDueAtMs) && nextDueAtMs < now) {
+      if (Number.isFinite(nextDueAtMs) && nextDueAtMs + DEBT_GRACE_MS < now) {
         const remainingPeriods = Math.max(
           0,
           Number(contract.duration_periods ?? 0) - Number(contract.paid_periods ?? 0),
         );
         projectedMissedPeriods = Math.min(
           remainingPeriods,
-          Math.floor((now - nextDueAtMs) / getDebtPeriodMs(contract.period_type)) + 1,
+          Math.floor((now - (nextDueAtMs + DEBT_GRACE_MS)) / getDebtPeriodMs(contract.period_type)) + 1,
         );
       }
     }
 
+    const nextDueAtMs = new Date(contract.next_due_at).getTime();
+    const projectedAdminReviewRequired =
+      Boolean(contract.admin_review_required) ||
+      (
+        contract.status === "active" &&
+        Number.isFinite(nextDueAtMs) &&
+        nextDueAtMs + DEBT_GRACE_MS <= now
+      );
+
     return {
       ...contract,
+      admin_review_required: projectedAdminReviewRequired,
+      current_coins: profileMap.get(contract.user_id)?.coins ?? 0,
+      debt_timeout_active:
+        profileMap.get(contract.user_id)?.timeout_reason === "debt_contract_overdue" &&
+        new Date(profileMap.get(contract.user_id)?.timeout_until ?? 0).getTime() > now,
       image_urls: imageMap.get(contract.id) ?? [],
       missed_periods: Math.max(baseMissedPeriods, projectedMissedPeriods),
-      username: profileMap.get(contract.user_id) ?? "@unknown",
+      timeout_reason: profileMap.get(contract.user_id)?.timeout_reason ?? null,
+      timeout_until: profileMap.get(contract.user_id)?.timeout_until ?? null,
+      username: profileMap.get(contract.user_id)?.username ?? "@unknown",
     };
   });
 }

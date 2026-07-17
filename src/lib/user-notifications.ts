@@ -8,6 +8,8 @@ export type UserNotificationKind =
   | "principessa_feed_repost"
   | "principessa_feed_dm"
   | "debt_evil_approved"
+  | "debt_closed_by_admin"
+  | "debt_timeout_applied"
   | "irl_task_approved"
   | "irl_task_excused"
   | "irl_task_failed"

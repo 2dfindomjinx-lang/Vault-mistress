@@ -16,8 +16,34 @@ export async function POST(request: Request) {
   if (body.action === "remove") {
     const contractId = body.contractId?.trim();
     if (!contractId) return Response.json({ error: "Missing debt contract id." }, { status: 400 });
-    const { error } = await admin.supabase.from("pet_debt_contracts").delete().eq("id", contractId);
+    const { data: contract, error: contractError } = await admin.supabase
+      .from("pet_debt_contracts")
+      .select("id, user_id")
+      .eq("id", contractId)
+      .maybeSingle();
+    if (contractError || !contract) {
+      return Response.json({ error: contractError?.message ?? "Debt contract not found." }, { status: contractError ? 500 : 404 });
+    }
+    const now = new Date().toISOString();
+    const { error } = await admin.supabase
+      .from("pet_debt_contracts")
+      .update({
+        admin_review_required: false,
+        closed_at: now,
+        close_reason: "Closed from mobile admin without refund or penalty.",
+        current_installment_remaining: 0,
+        overdue_since: null,
+        status: "forgiven",
+        updated_at: now,
+      })
+      .eq("id", contractId);
     if (error) return Response.json({ error: error.message }, { status: 500 });
+    await admin.supabase.from("evil_debt_contract_images").delete().eq("contract_id", contract.id);
+    await admin.supabase
+      .from("profiles")
+      .update({ timeout_reason: null, timeout_until: null, updated_at: now })
+      .eq("id", contract.user_id)
+      .eq("timeout_reason", "debt_contract_overdue");
   }
 
   if (body.action === "approveEvil") {

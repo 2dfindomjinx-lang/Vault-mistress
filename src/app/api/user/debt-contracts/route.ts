@@ -1,4 +1,5 @@
 import { userDebtContractSelect } from "@/lib/debt-contract-select";
+import { calculateDebtCapacity } from "@/lib/debt-capacity";
 import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
@@ -10,11 +11,9 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
-const EVIL_DEBT_UNDERAGE_TIMEOUT_MS = 3650 * DAY_MS;
-const DEBT_OVERDUE_TIMEOUT_MS = 10 * 365 * DAY_MS;
-const DEBT_OVERDUE_TIMEOUT_REASON = "debt_contract_overdue";
+const DEBT_GRACE_MS = 48 * 60 * 60 * 1000;
 const EVIL_DEBT_UNDERAGE_MESSAGE =
-  "This Evil Debt Contract submission triggered a special timeout. If the age entry was a joke or mistake, DM @VMPrincipessa with proof.";
+  "Evil Debt Contract is restricted to users aged 18 or older. No timeout was applied.";
 const EVIL_CONSENT_PRIMARY_TEXT =
   "I confirm that these images belong to me and I am sharing them with my own consent.";
 const EVIL_CONSENT_SECONDARY_TEXT =
@@ -29,12 +28,14 @@ const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
 );
 
 type ContractRow = {
+  admin_review_required: boolean;
   current_installment_remaining: number;
   debt_amount: number;
   duration_periods: number;
   id: string;
   missed_periods: number;
   next_due_at: string;
+  overdue_since: string | null;
   paid_periods: number;
   period_type: "weekly" | "monthly";
   status: string;
@@ -55,6 +56,7 @@ type DebtPaymentPlan = {
   autoPayEnabled: boolean;
   canAutoCollectNow: boolean;
   duePeriods: number;
+  graceExpired: boolean;
   installmentAlreadyMissed: boolean;
   missedPeriods: number;
   overdue: boolean;
@@ -63,7 +65,7 @@ type DebtPaymentPlan = {
 
 type Body =
   | {
-      action?: "sign";
+      action?: "capacity" | "sign";
       consentPrimary?: boolean;
       consentPrimaryText?: string;
       consentSecondary?: boolean;
@@ -77,6 +79,7 @@ type Body =
       imageUrls?: string[];
       periodType?: "weekly" | "monthly";
       petName?: string;
+      purchasePledge?: boolean;
       randomGenerated?: boolean;
       timezone?: string;
     }
@@ -151,10 +154,11 @@ function getDueDebtPaymentPlan(
   }
 
   const overdue = nextDueMs <= now;
+  const graceExpired = overdue && nextDueMs + DEBT_GRACE_MS <= now;
   const installmentAlreadyMissed = hasMissedCurrentInstallment(contract);
   const canAutoCollectNow =
     options.mode === "autoCollect" &&
-    overdue &&
+    graceExpired &&
     options.autoPayEnabled &&
     Math.max(0, options.availableCoins) >= currentInstallmentRemaining;
   const shouldMarkMissed =
@@ -177,6 +181,7 @@ function getDueDebtPaymentPlan(
     autoPayEnabled: options.autoPayEnabled,
     canAutoCollectNow,
     duePeriods: 1,
+    graceExpired,
     installmentAlreadyMissed,
     missedPeriods: shouldMarkMissed ? 1 : 0,
     overdue,
@@ -209,6 +214,32 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as Body | null;
   const supabase = createSupabaseAdminClient();
 
+  if (body?.action === "capacity") {
+    const periodType = body.periodType;
+    const durationPeriods = Math.floor(Number(body.durationPeriods));
+
+    if ((periodType !== "weekly" && periodType !== "monthly") || !Number.isInteger(durationPeriods) || durationPeriods < 1) {
+      return jsonError("Valid debt period and duration are required for capacity calculation.", 422);
+    }
+
+    try {
+      const capacity = await calculateDebtCapacity(supabase, {
+        durationPeriods,
+        periodType,
+        purchasePledge: Boolean(body.purchasePledge),
+        userId,
+      });
+
+      return Response.json({
+        capacity,
+        maxInstallment: Math.floor(capacity.totalLimit / durationPeriods),
+      });
+    } catch (capacityError) {
+      console.error("Debt capacity calculation failed", capacityError);
+      return jsonError(capacityError instanceof Error ? capacityError.message : "Debt capacity calculation failed.", 500);
+    }
+  }
+
   if (body?.action === "sign") {
     const periodType = body.periodType;
     const contractType = body.contractType === "evil" ? "evil" : "normal";
@@ -228,6 +259,7 @@ export async function POST(request: Request) {
     const cleanTimezone = String(body.timezone ?? "").trim();
     const cleanAge = Math.floor(Number(body.age));
     const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter(isValidEvilDebtImage) : [];
+    const purchasePledge = Boolean(body.purchasePledge);
 
     if (periodType !== "weekly" && periodType !== "monthly") {
       return jsonError("Invalid debt period type.");
@@ -247,44 +279,10 @@ export async function POST(request: Request) {
       }
 
       if (cleanAge < 18) {
-        const { data: profileTimeout, error: profileTimeoutError } = await supabase
-          .from("profiles")
-          .select("timeout_until")
-          .eq("id", userId)
-          .maybeSingle();
-
-        if (profileTimeoutError) {
-          console.error("Evil Debt underage timeout profile lookup failed", profileTimeoutError);
-          return jsonError("Evil Debt Contract safety check failed.", 500);
-        }
-
-        const existingTimeoutMs = new Date(String(profileTimeout?.timeout_until ?? 0)).getTime();
-        const timeoutUntil = new Date(
-          Math.max(
-            Date.now() + EVIL_DEBT_UNDERAGE_TIMEOUT_MS,
-            Number.isFinite(existingTimeoutMs) ? existingTimeoutMs : 0,
-          ),
-        ).toISOString();
-
-        const { error: timeoutError } = await supabase
-          .from("profiles")
-          .update({
-            timeout_reason: "evil_debt_underage",
-            timeout_until: timeoutUntil,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId);
-
-        if (timeoutError) {
-          console.error("Evil Debt underage timeout update failed", timeoutError);
-          return jsonError("Evil Debt Contract safety timeout failed.", 500);
-        }
-
         return Response.json(
           {
-            error: "evil_debt_timeout",
+            error: "evil_debt_age_restricted",
             message: EVIL_DEBT_UNDERAGE_MESSAGE,
-            timeoutUntil,
           },
           { status: 403 },
         );
@@ -343,6 +341,34 @@ export async function POST(request: Request) {
       return jsonError(message, 409);
     }
 
+    let capacity;
+
+    try {
+      capacity = await calculateDebtCapacity(supabase, {
+        durationPeriods: cleanDuration,
+        periodType,
+        purchasePledge,
+        userId,
+      });
+    } catch (capacityError) {
+      console.error("Debt capacity calculation failed", capacityError);
+      return jsonError(capacityError instanceof Error ? capacityError.message : "Debt capacity calculation failed.", 500);
+    }
+
+    const requestedTotal = cleanAmount * cleanDuration;
+
+    if (requestedTotal > capacity.totalLimit) {
+      return Response.json(
+        {
+          capacity,
+          error: `Requested total debt exceeds your ${capacity.totalLimit.toLocaleString()} coin affordability limit.`,
+          maxInstallment: Math.floor(capacity.totalLimit / cleanDuration),
+          requestedTotal,
+        },
+        { status: 422 },
+      );
+    }
+
     const nowMs = Date.now();
     const periodMs = getDebtPeriodMs(periodType);
     const startedAt = new Date(nowMs).toISOString();
@@ -354,6 +380,11 @@ export async function POST(request: Request) {
         contract_type: contractType,
         consent_primary: contractType === "evil" ? true : false,
         consent_secondary: contractType === "evil" ? true : false,
+        capacity_snapshot: {
+          ...capacity,
+          requestedInstallment: cleanAmount,
+          requestedTotal,
+        },
         current_installment_remaining: cleanAmount,
         declared_age: contractType === "evil" ? cleanAge : null,
         duration_periods: cleanDuration,
@@ -364,6 +395,7 @@ export async function POST(request: Request) {
         next_due_at: firstDueAt,
         period_type: periodType,
         pet_name: cleanPetName,
+        purchase_pledge: purchasePledge,
         random_generated: Boolean(body.randomGenerated),
         started_at: startedAt,
         status: contractType === "evil" ? "pending" : "active",
@@ -437,37 +469,19 @@ export async function POST(request: Request) {
         Number.isFinite(dueAtMs) &&
         dueAtMs <= nowMs &&
         currentInstallmentRemaining > 0;
+      const graceExpired = overdue && dueAtMs + DEBT_GRACE_MS <= nowMs;
       const installmentAlreadyMissed = hasMissedCurrentInstallment(contract);
-      const shouldMarkMissed = overdue && !installmentAlreadyMissed;
+      const shouldMarkMissed = graceExpired && !installmentAlreadyMissed;
       const nextMissedPeriods = contract.missed_periods + (shouldMarkMissed ? 1 : 0);
-      const shouldKeepDebtTimeout = overdue;
-      const nextTimeoutUntil = shouldKeepDebtTimeout
-        ? new Date(
-            Math.max(
-              nowMs + DEBT_OVERDUE_TIMEOUT_MS,
-              new Date(profile.timeout_until ?? 0).getTime(),
-            ),
-          ).toISOString()
-        : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
-          ? null
-          : profile.timeout_until;
-      const nextTimeoutReason = shouldKeepDebtTimeout
-        ? DEBT_OVERDUE_TIMEOUT_REASON
-        : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
-          ? null
-          : profile.timeout_reason;
-      const shouldUpdateProfile =
-        nextTimeoutUntil !== (profile.timeout_until ?? null) ||
-        nextTimeoutReason !== (profile.timeout_reason ?? null);
-
-      let syncedProfile: Record<string, unknown> = profileData as ProfileRow;
       let syncedContract: Record<string, unknown> = contractData as ContractRow;
 
       if (shouldMarkMissed) {
         const { data: updatedContract, error: updateContractError } = await supabase
           .from("pet_debt_contracts")
           .update({
+            admin_review_required: true,
             missed_periods: nextMissedPeriods,
+            overdue_since: contract.overdue_since ?? contract.next_due_at,
             updated_at: new Date().toISOString(),
           })
           .eq("id", contract.id)
@@ -485,35 +499,12 @@ export async function POST(request: Request) {
         syncedContract = updatedContract;
       }
 
-      if (shouldUpdateProfile) {
-        const { data: updatedProfile, error: updateProfileError } = await supabase
-          .from("profiles")
-          .update({
-            timeout_reason: nextTimeoutReason,
-            timeout_until: nextTimeoutUntil,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", userId)
-          .eq("timeout_reason", profile.timeout_reason)
-          .eq("timeout_until", profile.timeout_until)
-          .select(profileSelect)
-          .maybeSingle();
-
-        if (updateProfileError || !updatedProfile) {
-          return jsonError(
-            updateProfileError?.message ?? "Debt overdue sync profile update failed.",
-            updateProfileError ? 500 : 409,
-          );
-        }
-
-        syncedProfile = updatedProfile;
-      }
-
       return Response.json({
         contract: syncedContract,
+        graceEndsAt: overdue ? new Date(dueAtMs + DEBT_GRACE_MS).toISOString() : null,
         overdue,
-        profile: syncedProfile,
-        reason: shouldMarkMissed ? "missed_installment" : overdue ? "overdue_timeout_active" : "overdue_cleared",
+        profile: profileData,
+        reason: shouldMarkMissed ? "admin_review_required" : graceExpired ? "awaiting_admin_review" : overdue ? "grace_period" : "current",
       });
     }
 
@@ -546,7 +537,6 @@ export async function POST(request: Request) {
         : Math.min(Math.max(0, profile.coins), currentInstallmentRemaining);
     const remainingInstallment = Math.max(0, currentInstallmentRemaining - paidAmount);
     const installmentCompleted = paidAmount > 0 && remainingInstallment === 0;
-    const overdue = plan.overdue;
     const nextPaidPeriods = installmentCompleted ? contract.paid_periods + 1 : contract.paid_periods;
     const contractCompleted = installmentCompleted && nextPaidPeriods >= contract.duration_periods;
     const periodMs = getDebtPeriodMs(contract.period_type);
@@ -567,33 +557,11 @@ export async function POST(request: Request) {
     const deferredTribute = 0;
     const nextTributeTotal = (profile.tribute_total ?? 0) + immediateTribute;
     const nextDebtTributePending = profile.debt_tribute_pending ?? 0;
-    const shouldKeepDebtTimeout =
-      !contractCompleted &&
-      nextInstallmentRemaining > 0 &&
-      (plan.installmentAlreadyMissed || missedThisPayment);
-    const nextTimeoutUntil = shouldKeepDebtTimeout
-      ? new Date(
-          Math.max(
-            nowMs + DEBT_OVERDUE_TIMEOUT_MS,
-            new Date(profile.timeout_until ?? 0).getTime(),
-          ),
-        ).toISOString()
-      : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
-        ? null
-        : profile.timeout_until;
-    const nextTimeoutReason = shouldKeepDebtTimeout
-      ? DEBT_OVERDUE_TIMEOUT_REASON
-      : profile.timeout_reason === DEBT_OVERDUE_TIMEOUT_REASON
-        ? null
-        : profile.timeout_reason;
-
     const { data: updatedProfile, error: updateProfileError } = await supabase
       .from("profiles")
       .update({
         coins: nextCoins,
         debt_tribute_pending: nextDebtTributePending,
-        timeout_reason: nextTimeoutReason,
-        timeout_until: nextTimeoutUntil,
         tribute_total: nextTributeTotal,
         updated_at: collectedAt,
       })
@@ -611,9 +579,11 @@ export async function POST(request: Request) {
     const { data: updatedContract, error: updateContractError } = await supabase
       .from("pet_debt_contracts")
       .update({
+        admin_review_required: !installmentCompleted && contract.admin_review_required,
         current_installment_remaining: nextInstallmentRemaining,
         missed_periods: nextMissedPeriods,
         next_due_at: nextDueAt,
+        overdue_since: installmentCompleted ? null : contract.overdue_since,
         paid_periods: nextPaidPeriods,
         status: contractCompleted ? "completed" : "active",
         updated_at: collectedAt,
@@ -666,8 +636,6 @@ export async function POST(request: Request) {
           .update({
             coins: profile.coins,
             debt_tribute_pending: profile.debt_tribute_pending ?? 0,
-            timeout_reason: profile.timeout_reason,
-            timeout_until: profile.timeout_until,
             tribute_total: profile.tribute_total,
             updated_at: collectedAt,
           })
@@ -683,9 +651,11 @@ export async function POST(request: Request) {
         const { error: rollbackContractError } = await supabase
           .from("pet_debt_contracts")
           .update({
+            admin_review_required: contract.admin_review_required,
             current_installment_remaining: contract.current_installment_remaining,
             missed_periods: contract.missed_periods,
             next_due_at: contract.next_due_at,
+            overdue_since: contract.overdue_since,
             paid_periods: contract.paid_periods,
             status: contract.status,
             updated_at: collectedAt,
@@ -753,8 +723,6 @@ export async function POST(request: Request) {
             .update({
               coins: profile.coins,
               debt_tribute_pending: profile.debt_tribute_pending ?? 0,
-              timeout_reason: profile.timeout_reason,
-              timeout_until: profile.timeout_until,
               tribute_total: profile.tribute_total,
               updated_at: collectedAt,
             })
@@ -770,9 +738,11 @@ export async function POST(request: Request) {
           const { error: rollbackContractError } = await supabase
             .from("pet_debt_contracts")
             .update({
+              admin_review_required: contract.admin_review_required,
               current_installment_remaining: contract.current_installment_remaining,
               missed_periods: contract.missed_periods,
               next_due_at: contract.next_due_at,
+              overdue_since: contract.overdue_since,
               paid_periods: contract.paid_periods,
               status: contract.status,
               updated_at: collectedAt,
