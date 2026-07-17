@@ -68,6 +68,7 @@ type DebtCapacityPreview = {
   balanceCoins: number;
   balanceComponent: number;
   baseTotalLimit: number;
+  evaluatedPeriods: number;
   purchasePledgeBoost: number;
   reliablePeriodIncome: number;
   totalLimit: number;
@@ -1509,7 +1510,7 @@ function PurchasePledgeCheckbox({
       <span>
         If I cannot cover a scheduled payment, I may purchase coins to complete it. I understand that a missed payment can result in a 7-day timeout only after admin review.
         <span className="mt-1 block font-medium text-amber-100/65">
-          Optional and unchecked by default. Accepting it increases the affordability limit by 25%.
+          Optional and unchecked by default. Accepting it doubles the affordability limit (+100%).
         </span>
       </span>
     </label>
@@ -1543,8 +1544,11 @@ function DebtCapacitySummary({
     );
   }
 
-  const requestedTotal = Math.max(0, Math.floor(Number(amount))) * Math.max(0, Math.floor(Number(duration)));
-  const overLimit = requestedTotal > capacity.totalLimit;
+  const installmentAmount = Math.max(0, Math.floor(Number(amount)));
+  const durationPeriods = Math.max(0, Math.floor(Number(duration)));
+  const requestedTotal = installmentAmount * durationPeriods;
+  const reviewedExposure = installmentAmount * capacity.evaluatedPeriods;
+  const overLimit = reviewedExposure > capacity.totalLimit;
 
   return (
     <div className={`rounded-2xl border px-3 py-3 text-xs ${
@@ -1557,12 +1561,16 @@ function DebtCapacitySummary({
         <span>Balance: {capacity.balanceCoins.toLocaleString()}</span>
         <span>75% balance capacity: {capacity.balanceComponent.toLocaleString()}</span>
         <span>Reliable period income: {capacity.reliablePeriodIncome.toLocaleString()}</span>
-        <span>Total limit: {capacity.totalLimit.toLocaleString()}</span>
-        <span>Requested total: {requestedTotal.toLocaleString()}</span>
+        <span>Reviewed periods: {capacity.evaluatedPeriods}</span>
+        <span>Affordability limit: {capacity.totalLimit.toLocaleString()}</span>
+        <span>Reviewed exposure: {reviewedExposure.toLocaleString()}</span>
+        <span>Full contract total: {requestedTotal.toLocaleString()}</span>
         <span>Pledge boost: {capacity.purchasePledgeBoost.toLocaleString()}</span>
       </div>
       <p className="mt-2 font-bold">
-        {overLimit ? "This contract exceeds your current limit." : "This contract is within your current limit."}
+        {overLimit
+          ? "The near-term payment exposure exceeds your current limit."
+          : "The near-term payment exposure is within your current limit."}
       </p>
     </div>
   );

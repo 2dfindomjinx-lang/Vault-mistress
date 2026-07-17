@@ -232,7 +232,7 @@ export async function POST(request: Request) {
 
       return Response.json({
         capacity,
-        maxInstallment: Math.floor(capacity.totalLimit / durationPeriods),
+        maxInstallment: Math.floor(capacity.totalLimit / capacity.evaluatedPeriods),
       });
     } catch (capacityError) {
       console.error("Debt capacity calculation failed", capacityError);
@@ -356,13 +356,15 @@ export async function POST(request: Request) {
     }
 
     const requestedTotal = cleanAmount * cleanDuration;
+    const requestedExposure = cleanAmount * capacity.evaluatedPeriods;
 
-    if (requestedTotal > capacity.totalLimit) {
+    if (requestedExposure > capacity.totalLimit) {
       return Response.json(
         {
           capacity,
-          error: `Requested total debt exceeds your ${capacity.totalLimit.toLocaleString()} coin affordability limit.`,
-          maxInstallment: Math.floor(capacity.totalLimit / cleanDuration),
+          error: `The ${capacity.evaluatedPeriods}-period reviewed exposure exceeds your ${capacity.totalLimit.toLocaleString()} coin affordability limit.`,
+          maxInstallment: Math.floor(capacity.totalLimit / capacity.evaluatedPeriods),
+          requestedExposure,
           requestedTotal,
         },
         { status: 422 },
@@ -383,6 +385,7 @@ export async function POST(request: Request) {
         capacity_snapshot: {
           ...capacity,
           requestedInstallment: cleanAmount,
+          requestedExposure,
           requestedTotal,
         },
         current_installment_remaining: cleanAmount,

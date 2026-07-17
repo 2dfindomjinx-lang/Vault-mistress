@@ -2,8 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const BALANCE_WEIGHT = 0.75;
-const INCOME_WEIGHT = 0.3;
-const PURCHASE_PLEDGE_MULTIPLIER = 1.25;
+const INCOME_WEIGHT = 0.4;
+const PURCHASE_PLEDGE_MULTIPLIER = 2;
 const EXCLUDED_INFLOW_REASONS = new Set([
   "admin_commission",
   "admin_debt_refund",
@@ -24,6 +24,7 @@ export type DebtCapacitySnapshot = {
   baseTotalLimit: number;
   checkedAt: string;
   durationPeriods: number;
+  evaluatedPeriods: number;
   incomeComponent: number;
   periodType: DebtPeriodType;
   purchasePledge: boolean;
@@ -71,6 +72,7 @@ export async function calculateDebtCapacity(
   const durationPeriods = Math.max(1, Math.floor(Number(input.durationPeriods)));
   const bucketDays = input.periodType === "weekly" ? 7 : 30;
   const bucketCount = input.periodType === "weekly" ? 8 : 3;
+  const evaluatedPeriods = Math.min(durationPeriods, bucketCount);
   const transactionWindowDays = bucketDays * bucketCount;
   const checkedAt = new Date();
   const windowStart = new Date(checkedAt.getTime() - transactionWindowDays * DAY_MS).toISOString();
@@ -116,7 +118,7 @@ export async function calculateDebtCapacity(
 
   const reliablePeriodIncome = median(periodInflows);
   const balanceComponent = Math.floor(balanceCoins * BALANCE_WEIGHT);
-  const incomeComponent = Math.floor(reliablePeriodIncome * durationPeriods * INCOME_WEIGHT);
+  const incomeComponent = Math.floor(reliablePeriodIncome * evaluatedPeriods * INCOME_WEIGHT);
   const baseTotalLimit = Math.max(0, balanceComponent + incomeComponent);
   const totalLimit = input.purchasePledge
     ? Math.floor(baseTotalLimit * PURCHASE_PLEDGE_MULTIPLIER)
@@ -128,6 +130,7 @@ export async function calculateDebtCapacity(
     baseTotalLimit,
     checkedAt: checkedAt.toISOString(),
     durationPeriods,
+    evaluatedPeriods,
     incomeComponent,
     periodType: input.periodType,
     purchasePledge: input.purchasePledge,
@@ -137,4 +140,3 @@ export async function calculateDebtCapacity(
     transactionWindowDays,
   };
 }
-

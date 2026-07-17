@@ -105,9 +105,11 @@ type AdminDebtContract = {
     balanceCoins?: number;
     balanceComponent?: number;
     baseTotalLimit?: number;
+    evaluatedPeriods?: number;
     incomeComponent?: number;
     purchasePledgeBoost?: number;
     reliablePeriodIncome?: number;
+    requestedExposure?: number;
     requestedTotal?: number;
     totalLimit?: number;
   } | null;
@@ -1886,10 +1888,10 @@ export default function AdminPage() {
                                   Due {new Date(contract.next_due_at).toLocaleString()} - ends {new Date(contract.ends_at).toLocaleString()}
                                 </p>
                                 <p className="mt-1 text-xs text-zinc-400">
-                                  Balance {Number(contract.current_coins ?? 0).toLocaleString()} - limit {Number(contract.capacity_snapshot?.totalLimit ?? 0).toLocaleString()} - requested {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()}
+                                  Balance {Number(contract.current_coins ?? 0).toLocaleString()} - limit {Number(contract.capacity_snapshot?.totalLimit ?? 0).toLocaleString()} - reviewed exposure {Number(contract.capacity_snapshot?.requestedExposure ?? contract.debt_amount * Math.min(contract.duration_periods, contract.period_type === "weekly" ? 8 : 3)).toLocaleString()}
                                 </p>
                                 <p className="mt-1 text-xs text-zinc-400">
-                                  Purchase pledge: {contract.purchase_pledge ? "Accepted (+25%)" : "Not accepted"} - review: {contract.admin_review_required ? "Required" : "Clear"}
+                                  Full total {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()} - purchase pledge: {contract.purchase_pledge ? "Accepted (+100%)" : "Not accepted"} - review: {contract.admin_review_required ? "Required" : "Clear"}
                                 </p>
                               </div>
                               <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
@@ -2253,10 +2255,12 @@ export default function AdminPage() {
                                   <span>Paid periods: {contract.paid_periods}</span>
                                   <span>Missed periods: {contract.missed_periods}</span>
                                   <span>Current balance: {Number(contract.current_coins ?? 0).toLocaleString()}</span>
+                                  <span>Reviewed periods: {Number(contract.capacity_snapshot?.evaluatedPeriods ?? Math.min(contract.duration_periods, contract.period_type === "weekly" ? 8 : 3))}</span>
                                   <span>Affordability limit: {Number(contract.capacity_snapshot?.totalLimit ?? 0).toLocaleString()}</span>
-                                  <span>Requested total: {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()}</span>
+                                  <span>Reviewed exposure: {Number(contract.capacity_snapshot?.requestedExposure ?? contract.debt_amount * Math.min(contract.duration_periods, contract.period_type === "weekly" ? 8 : 3)).toLocaleString()}</span>
+                                  <span>Full contract total: {Number(contract.capacity_snapshot?.requestedTotal ?? contract.debt_amount * contract.duration_periods).toLocaleString()}</span>
                                   <span>Reliable period income: {Number(contract.capacity_snapshot?.reliablePeriodIncome ?? 0).toLocaleString()}</span>
-                                  <span>Purchase pledge: {contract.purchase_pledge ? "Accepted (+25%)" : "Not accepted"}</span>
+                                  <span>Purchase pledge: {contract.purchase_pledge ? "Accepted (+100%)" : "Not accepted"}</span>
                                   <span>Admin review: {contract.admin_review_required ? "Required" : "Clear"}</span>
                                   <span>
                                     Next due: {Number.isFinite(dueAtMs) ? new Date(dueAtMs).toLocaleString() : "-"}
