@@ -187,10 +187,20 @@ export const permanentCosmeticItems: CosmeticItem[] = [
   {
     id: "avatar-custom-1",
     name: "Cuckold",
-    description: "Spoiled wife who fucks better men while you pay.",
+    description: "Sub cuckold. Spoiled wife who fucks better men while you pay.",
     type: "speech-avatar",
     price: 15000,
     image: "/cosmetics/avatar-cuckold.png",
+    audience: "sub",
+  },
+  {
+    id: "avatar-lesbian-cuckold",
+    name: "Lesbian Cuckold",
+    description: "Femsub cuckold. Spoiled wife who fucks better women while you pay.",
+    type: "speech-avatar",
+    price: 15000,
+    image: "/cosmetics/avatar-cuckold.png",
+    audience: "femsub",
   },
   {
     id: "avatar-custom-2",
@@ -264,7 +274,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub denial. No orgasm, no mercy, only obedience.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-denialgoddess.png",
+    image: "/cosmetics/avatar-denialqueen.png",
     audience: "femsub",
   },
   {
@@ -273,7 +283,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub edging. Slow, cruel control over every rub.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-edging-mistress.png",
+    image: "/cosmetics/avatar-edging-coach.png",
     audience: "femsub",
   },
   {

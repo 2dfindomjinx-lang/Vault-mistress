@@ -7,7 +7,6 @@ import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import {
   ADDRESS_TERM_LABELS,
-  ADDRESS_TERM_VALUES,
   DEFAULT_ADDRESS_TERM,
   goodAddressPhrase,
   normalizeAddressTerm,
@@ -1895,7 +1894,6 @@ export default function Home() {
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [displayNameEditInput, setDisplayNameEditInput] = useState("");
   const [addressTerm, setAddressTerm] = useState<AddressTerm>(DEFAULT_ADDRESS_TERM);
-  const [pendingAddressTerm, setPendingAddressTerm] = useState<AddressTerm | null>(null);
   const [isSavingAddressTerm, setIsSavingAddressTerm] = useState(false);
   const [coins, setCoins] = useState(100);
   const coinsRef = useRef(coins);
@@ -7884,9 +7882,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     ) {
       setAvatarMistressReply(
         item.audience === "sub"
-          ? "Denial Queen and Edging Coach are for sub address only. Try Denial Goddess or Edging Mistress."
+          ? "That speech avatar is for sub address only. Switch preference or pick a femsub persona."
           : item.audience === "femsub"
-            ? "Denial Goddess and Edging Mistress are for femsub address only. Try Denial Queen or Edging Coach."
+            ? "That speech avatar is for femsub address only. Switch preference or pick a sub persona."
             : "That speech avatar is not available for your address preference.",
       );
       return;
@@ -10327,14 +10325,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleConfirmAddressTermChange = async () => {
-    if (!pendingAddressTerm || !authUserId) return;
+  const handleConfirmAddressTermChange = async (term: AddressTerm) => {
+    if (!authUserId || term === addressTerm) return;
     setIsSavingAddressTerm(true);
     try {
       const response = await fetch("/api/user/address-term", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addressTerm: pendingAddressTerm }),
+        body: JSON.stringify({ addressTerm: term }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; profile?: Profile };
       if (!response.ok) {
@@ -10344,12 +10342,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       if (payload.profile) {
         applyProfileStats(payload.profile);
       } else {
-        setAddressTerm(pendingAddressTerm);
-        addressTermRef.current = pendingAddressTerm;
+        setAddressTerm(term);
+        addressTermRef.current = term;
       }
       setPetTaskState((current) =>
         current.map((task) => {
-          const template = getPetTasks(pendingAddressTerm).find((entry) => entry.id === task.id);
+          const template = getPetTasks(term).find((entry) => entry.id === task.id);
           if (!template) {
             return task;
           }
@@ -10361,13 +10359,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             actionUrl: template.actionUrl ?? task.actionUrl,
             sentence:
               task.kind === "perfect-writing"
-                ? getDailyPetPerfectWritingSentence(pendingAddressTerm)
+                ? getDailyPetPerfectWritingSentence(term)
                 : task.kind === "confession-writing"
-                  ? getDailyPetConfessionSentence(pendingAddressTerm)
+                  ? getDailyPetConfessionSentence(term)
                   : task.sentence,
             voiceSentence:
               task.id === "pet-voice-proof"
-                ? getDailyPetVoiceSentence(pendingAddressTerm)
+                ? getDailyPetVoiceSentence(term)
                 : task.voiceSentence,
           };
         }),
@@ -10375,7 +10373,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setTasks((current) =>
         current.map((task) =>
           task.id === "typing-accuracy"
-            ? { ...task, sentence: getDailyTypingSentence(pendingAddressTerm) }
+            ? { ...task, sentence: getDailyTypingSentence(term) }
             : task,
         ),
       );
@@ -10384,20 +10382,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       if (
         equippedSpeechItem &&
         equippedSpeechItem.type === "speech-avatar" &&
-        !isCosmeticAvailableForAddressTerm(equippedSpeechItem, pendingAddressTerm)
+        !isCosmeticAvailableForAddressTerm(equippedSpeechItem, term)
       ) {
         setEquippedCosmeticIds((current) => ({
           ...current,
           "speech-avatar": DEFAULT_SPEECH_AVATAR_ID,
         }));
       }
-      setAvatarMistressReply(`I'll call you ${goodAddressPhrase(pendingAddressTerm).toLowerCase()} from now on.`);
+      setAvatarMistressReply(`I'll call you ${goodAddressPhrase(term).toLowerCase()} from now on.`);
     } catch (err) {
       setAvatarMistressReply("Failed to update address preference.");
     } finally {
       setIsSavingAddressTerm(false);
-      setPendingAddressTerm(null);
     }
+  };
+
+  const handleAddressTermPillClick = (term: AddressTerm) => {
+    if (isSavingAddressTerm || term === addressTerm) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`Change address preference to "${ADDRESS_TERM_LABELS[term]}"? Are you sure you want to change this?`)
+    ) {
+      return;
+    }
+    void handleConfirmAddressTermChange(term);
   };
 
   const profileHeaderStats =
@@ -10684,6 +10692,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             setIsEditingDisplayName(true);
           }}
           onSaveDisplayNameEdit={handleSaveDisplayNameChange}
+          addressTerm={addressTerm}
+          isSavingAddressTerm={isSavingAddressTerm}
+          onChangeAddressTerm={handleAddressTermPillClick}
           onCancelDisplayNameEdit={() => {
             setIsEditingDisplayName(false);
             setDisplayNameEditInput("");
@@ -11067,61 +11078,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 titles={titleItems}
                 onEquipTitle={handleEquipTitle}
               />
-
-              <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
-                <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
-                  Address Preference
-                </p>
-                <h2 className="mt-1 text-2xl font-black text-white">How Principessa addresses you</h2>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">
-                  Free, changeable anytime. Affects praise labels, speech bubbles, typing tasks, pet tasks, and IRL wheel tasks.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {ADDRESS_TERM_VALUES.map((term) => {
-                    const isCurrent = addressTerm === term;
-                    return (
-                      <button
-                        className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                          isCurrent
-                            ? "border-amber-200/40 bg-amber-400/15 text-amber-50"
-                            : "border-white/10 bg-black/25 text-zinc-300 hover:border-white/25"
-                        }`}
-                        disabled={isSavingAddressTerm}
-                        key={term}
-                        onClick={() => setPendingAddressTerm(term)}
-                        type="button"
-                      >
-                        {ADDRESS_TERM_LABELS[term]} {isCurrent ? "(current)" : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-                {pendingAddressTerm && pendingAddressTerm !== addressTerm && (
-                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
-                    <p className="text-sm text-zinc-200">
-                      Change address preference to &ldquo;{ADDRESS_TERM_LABELS[pendingAddressTerm]}&rdquo;? Are you sure you want to change this?
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        className="rounded-full border border-emerald-200/35 bg-emerald-500/15 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-emerald-50 disabled:opacity-50"
-                        disabled={isSavingAddressTerm}
-                        onClick={() => void handleConfirmAddressTermChange()}
-                        type="button"
-                      >
-                        {isSavingAddressTerm ? "Saving..." : "Confirm"}
-                      </button>
-                      <button
-                        className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-zinc-300"
-                        disabled={isSavingAddressTerm}
-                        onClick={() => setPendingAddressTerm(null)}
-                        type="button"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </section>
 
               <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
                 <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">

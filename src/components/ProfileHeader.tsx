@@ -6,6 +6,7 @@ import { CoinAmount } from "@/components/CoinAmount";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { ProfileFrameOrnaments } from "@/components/ProfileFrameOrnaments";
+import { ADDRESS_TERM_LABELS, ADDRESS_TERM_VALUES, type AddressTerm } from "@/lib/address-term";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem, type CosmeticType, type SpendBadge } from "@/lib/cosmetics";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
@@ -41,6 +42,9 @@ type ProfileHeaderProps = {
   onSaveDisplayNameEdit?: () => void;
   onCancelDisplayNameEdit?: () => void;
   onDisplayNameEditInputChange?: (value: string) => void;
+  addressTerm?: AddressTerm;
+  isSavingAddressTerm?: boolean;
+  onChangeAddressTerm?: (term: AddressTerm) => void;
 };
 
 export function ProfileHeader({
@@ -70,6 +74,9 @@ export function ProfileHeader({
   onSaveDisplayNameEdit,
   onCancelDisplayNameEdit,
   onDisplayNameEditInputChange,
+  addressTerm,
+  isSavingAddressTerm = false,
+  onChangeAddressTerm,
 }: ProfileHeaderProps) {
   const avatarBackgroundPresentation = getAvatarBackgroundPresentation(getCosmeticItem(avatarBackgroundItemId ?? equippedCosmeticIds?.["avatar-background"] ?? ""));
 
@@ -139,6 +146,28 @@ export function ProfileHeader({
               )}
               <p className="mt-1 text-xs text-pink-200/35">{displayName?.trim() && !isEditingDisplayName ? username : "Identity held by Principessa"}</p>
               <p className="mt-3 text-[10px] font-black uppercase tracking-[.2em] text-pink-100/65">{currentTitle ?? "No title granted"}</p>
+              {addressTerm && onChangeAddressTerm ? (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {ADDRESS_TERM_VALUES.map((term) => {
+                    const isCurrent = addressTerm === term;
+                    return (
+                      <button
+                        className={`border px-2 py-0.5 text-[9px] font-black uppercase tracking-[.14em] transition ${
+                          isCurrent
+                            ? "border-[#c89a55]/40 bg-[#c89a55]/15 text-[#fff0d2]"
+                            : "border-white/10 text-zinc-500 hover:border-white/25 hover:text-zinc-300"
+                        }`}
+                        disabled={isSavingAddressTerm}
+                        key={term}
+                        onClick={() => onChangeAddressTerm(term)}
+                        type="button"
+                      >
+                        {ADDRESS_TERM_LABELS[term]}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
               {badgeStrip ? <div className="mt-3">{badgeStrip}</div> : null}
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:max-w-[46%] lg:justify-end">
