@@ -246,7 +246,7 @@ export async function POST(request: Request) {
     const cleanAmount = Math.floor(Number(body.debtAmount));
     const cleanDuration = Math.floor(Number(body.durationPeriods));
     const cleanPetName = String(body.petName ?? "").trim();
-    const baseMinimum = periodType === "weekly" ? 20000 : 100000;
+    const baseMinimum = periodType === "weekly" ? 10000 : 50000;
     const minimum = contractType === "evil" ? (periodType === "weekly" ? 40000 : 80000) : baseMinimum;
     const amountStep = contractType === "evil" ? 5000 : periodType === "weekly" ? 5000 : 10000;
     const baseDurationLimit = periodType === "weekly" ? { max: 52, min: 1 } : { max: 24, min: 1 };

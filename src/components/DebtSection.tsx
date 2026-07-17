@@ -19,8 +19,8 @@ const DEBT_DURATION_LIMITS = {
   weekly: { label: "Weeks", max: 52, min: 1 },
 };
 const DEBT_MINIMUM_PAYMENTS = {
-  monthly: 100000,
-  weekly: 20000,
+  monthly: 50000,
+  weekly: 10000,
 };
 const DEBT_RANDOM_AMOUNT_STEPS = {
   monthly: 10000,
