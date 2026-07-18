@@ -106,7 +106,11 @@ export async function GET(request: Request) {
   if (summaryOnly) {
     const after = requestUrl.searchParams.get("after");
     const afterDate = after ? new Date(after) : null;
-    const validAfter = afterDate && !Number.isNaN(afterDate.getTime()) ? afterDate.toISOString() : null;
+    // Use the original client-supplied timestamp (not afterDate.toISOString()) - Postgres
+    // returns microsecond precision but JS Date only holds milliseconds, so round-tripping
+    // through toISOString() truncates it, making the just-read message look "newer" than
+    // the truncated cutoff and re-counting it as unread.
+    const validAfter = afterDate && !Number.isNaN(afterDate.getTime()) ? after : null;
     const [latestResult, unreadResult] = await Promise.all([
       supabase
         .from("live_chat_messages")
