@@ -712,7 +712,7 @@ const FEMSUB_TITLE_NAMES: Record<string, string> = {
   "throne-25000": "Shining Desperate Doll",
   "throne-100000": "Drained Good Girl",
   "admin-principessas-chosen": "Principessa's Broken Girl",
-  "admin-femsub-recognized": "Personal Femsub",
+  "admin-femsub-recognized": "Principessa's Favourite Femsub",
   "pet-score-250": "Collared Girl",
   "pet-score-500": "Owned Little Girl",
   "pet-score-1000": "Perfect Good Girl",

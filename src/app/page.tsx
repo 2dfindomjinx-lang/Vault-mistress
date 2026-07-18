@@ -2430,6 +2430,19 @@ export default function Home() {
       })),
     [shrineStatus?.revealedMemories],
   );
+  const shrineBonusGalleryItems: GalleryItem[] = useMemo(
+    () =>
+      (shrineStatus?.bonus?.unlockedImages ?? []).map((memory) => ({
+        id: `shrine-bonus:${memory.fileName}`,
+        image: memory.path,
+        isShrineMemory: true,
+        rarity: "Shrine" as const,
+        tag: "Bonus Shrine Gallery",
+        title: memory.title,
+        unlocked: true,
+      })),
+    [shrineStatus?.bonus?.unlockedImages],
+  );
   const addressAwareSecretGalleryItem = useMemo<GalleryItem>(
     () =>
       addressTerm === "femsub"
@@ -2465,6 +2478,7 @@ export default function Home() {
             addressAwareSecretGalleryItem,
             ...unlockedSacrificeGalleryItems,
             ...shrineGalleryItems,
+            ...shrineBonusGalleryItems,
           ]
         : [
             ...visibleGalleryItems,
@@ -2473,6 +2487,7 @@ export default function Home() {
     [
       addressAwareSecretGalleryItem,
       affection,
+      shrineBonusGalleryItems,
       shrineGalleryItems,
       unlockedSacrificeGalleryItems,
     ],
@@ -2487,10 +2502,10 @@ export default function Home() {
   );
   const unseenShrineMemoryIds = useMemo(
     () =>
-      shrineGalleryItems
+      [...shrineGalleryItems, ...shrineBonusGalleryItems]
         .map((item) => item.id)
         .filter((itemId) => !seenShrineMemoryIds.includes(itemId)),
-    [seenShrineMemoryIds, shrineGalleryItems],
+    [seenShrineMemoryIds, shrineBonusGalleryItems, shrineGalleryItems],
   );
   const displayMechanics = useMemo(
     () => ({
