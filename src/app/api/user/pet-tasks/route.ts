@@ -173,6 +173,11 @@ export async function POST(request: Request) {
         status,
         task_id: taskId,
         user_id: authData.user.id,
+        // (user_id, task_id) is unique, so this row is reused across resubmissions.
+        // Refresh created_at on every new "pending" submission so the admin review
+        // queue shows when the task was actually submitted, not the row's original
+        // insertion date from days/weeks ago.
+        ...(status === "pending" ? { created_at: new Date().toISOString() } : {}),
       },
       { onConflict: "user_id,task_id" },
     )

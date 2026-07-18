@@ -85,7 +85,38 @@ export type ShrineStatus = {
   topWorshippers: ShrineWorshipper[];
   unlockedImageCount: number;
   unlockedImagePaths: string[];
+  // Separate sub/femsub bonus gallery unlocked at Worship Level thresholds.
+  // Undefined for address_term === "neutral" (no bonus gallery for that preference).
+  bonus?: ShrineBonusStatus;
 };
+
+// Worship Level interval between bonus gallery unlocks (level 5, 10, 15, ...).
+export const SHRINE_BONUS_LEVEL_STEP = 5;
+
+export type ShrineBonusStatus = {
+  images: ShrineMemoryRecord[];
+  unlockedImages: ShrineMemoryRecord[];
+  unlockedCount: number;
+  nextUnlockLevel: number | null;
+  levelsUntilNextUnlock: number | null;
+};
+
+export function buildShrineBonusStatus(level: number, images: ShrineMemoryRecord[]): ShrineBonusStatus {
+  const safeLevel = Math.max(0, Math.floor(level));
+  const unlockedCount = Math.min(images.length, Math.floor(safeLevel / SHRINE_BONUS_LEVEL_STEP));
+  const unlockedImages = images.slice(0, unlockedCount);
+  const hasMore = unlockedCount < images.length;
+  const nextUnlockLevel = hasMore ? (unlockedCount + 1) * SHRINE_BONUS_LEVEL_STEP : null;
+  const levelsUntilNextUnlock = nextUnlockLevel === null ? null : Math.max(0, nextUnlockLevel - safeLevel);
+
+  return {
+    images,
+    unlockedImages,
+    unlockedCount,
+    nextUnlockLevel,
+    levelsUntilNextUnlock,
+  };
+}
 
 export function isShrinePurchaseAmount(value: number): value is ShrinePurchaseAmount {
   return SHRINE_PURCHASE_OPTIONS.some((option) => option.amount === value);

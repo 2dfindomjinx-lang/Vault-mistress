@@ -1,5 +1,6 @@
 import Image from "next/image";
 import {
+  SHRINE_BONUS_LEVEL_STEP,
   SHRINE_IMAGE_UNLOCK_COST,
   SHRINE_LEVEL_COIN_INTERVAL,
   SHRINE_PURCHASE_OPTIONS,
@@ -113,6 +114,7 @@ export function TributePanel({
           </div>
 
           <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.55fr)]">
+            <div className="grid gap-4">
             <div className="court-grid court-grid--shop grid items-start gap-3 md:grid-cols-3">
               {SHRINE_PURCHASE_OPTIONS.map((option) => (
                 <button
@@ -149,6 +151,53 @@ export function TributePanel({
                   </div>
                 </button>
               ))}
+            </div>
+
+            {shrine?.bonus ? (
+              <div className="mt-4 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">
+                    Bonus Shrine Gallery
+                  </p>
+                  {shrine.bonus.nextUnlockLevel !== null ? (
+                    <span className="rounded-full border border-pink-200/15 bg-pink-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-pink-50">
+                      Level {shrine.bonus.nextUnlockLevel} to unlock next
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-50">
+                      All bonus images unlocked
+                    </span>
+                  )}
+                </div>
+
+                {shrine.bonus.images.length > 0 ? (
+                  <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                    {shrine.bonus.images.map((image, index) => {
+                      const isUnlocked = index < shrine.bonus!.unlockedCount;
+
+                      return (
+                        <div
+                          className="relative aspect-square overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
+                          key={image.fileName}
+                        >
+                          {isUnlocked ? (
+                            <Image alt={image.title} className="object-cover" fill sizes="140px" src={image.path} />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-lg text-pink-100/30">
+                              🔒
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">
+                    No bonus images placed yet. New ones unlock every {SHRINE_BONUS_LEVEL_STEP} Worship Levels.
+                  </p>
+                )}
+              </div>
+            ) : null}
             </div>
 
             <div className="grid gap-4">

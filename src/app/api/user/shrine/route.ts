@@ -1,12 +1,15 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
+  buildShrineBonusStatus,
   buildShrineStatus,
   getShrineDevotionReward,
   isShrinePurchaseAmount,
   resolveShrineMemories,
+  type ShrineBonusStatus,
 } from "@/lib/shrine";
 import {
   createSupabaseAdminClient,
@@ -26,6 +29,7 @@ type CoinTransactionRow = {
 };
 
 type ProfileRow = {
+  address_term?: string | null;
   affection: number;
   coins: number;
   id: string;
@@ -37,14 +41,16 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-async function getShrineImageFileNames() {
-  const shrineDir = path.join(process.cwd(), "public", "shrine");
+async function getShrineImageFileNames(subdir?: string) {
+  const shrineDir = subdir
+    ? path.join(process.cwd(), "public", "shrine", subdir)
+    : path.join(process.cwd(), "public", "shrine");
 
   try {
     const entries = await readdir(shrineDir, { withFileTypes: true });
 
     return entries
-      .filter((entry) => entry.isFile() && /\.(avif|gif|jpe?g|png|webp)$/i.test(entry.name))
+      .filter((entry) => entry.isFile() && /\.(avif|gif|jfif|jpe?g|png|webp)$/i.test(entry.name))
       .map((entry) => entry.name);
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException | null;
@@ -55,6 +61,29 @@ async function getShrineImageFileNames() {
 
     return [] as string[];
   }
+}
+
+// address_term === "neutral" has no bonus gallery (no gender-specific assumption).
+function getShrineBonusSubdir(addressTerm: string) {
+  if (addressTerm === "sub") return "sub";
+  if (addressTerm === "femsub") return "femsub";
+  return null;
+}
+
+async function getShrineBonusStatus(addressTerm: string, level: number): Promise<ShrineBonusStatus | undefined> {
+  const subdir = getShrineBonusSubdir(addressTerm);
+
+  if (!subdir) {
+    return undefined;
+  }
+
+  const fileNames = await getShrineImageFileNames(subdir);
+  const images = resolveShrineMemories(fileNames).map((memory) => ({
+    ...memory,
+    path: `/shrine/${subdir}/${memory.fileName}`,
+  }));
+
+  return buildShrineBonusStatus(level, images);
 }
 
 function getShrineSpendTotal(rows: CoinTransactionRow[]) {
@@ -156,15 +185,17 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [{ data: transactions, error: transactionError }, imageFileNames, topWorshippers] = await Promise.all([
-    supabase
-      .from("coin_transactions")
-      .select("amount, metadata")
-      .eq("user_id", authResult.userId)
-      .eq("reason", "tribute:shrine"),
-    getShrineImageFileNames(),
-    getTopShrineWorshippers(supabase),
-  ]);
+  const [{ data: transactions, error: transactionError }, imageFileNames, topWorshippers, { data: profileRow }] =
+    await Promise.all([
+      supabase
+        .from("coin_transactions")
+        .select("amount, metadata")
+        .eq("user_id", authResult.userId)
+        .eq("reason", "tribute:shrine"),
+      getShrineImageFileNames(),
+      getTopShrineWorshippers(supabase),
+      supabase.from("profiles").select("address_term").eq("id", authResult.userId).maybeSingle(),
+    ]);
 
   if (transactionError) {
     console.error("[shrine] spend history lookup failed", transactionError);
@@ -175,11 +206,14 @@ export async function GET() {
     getShrineSpendTotal((transactions ?? []) as CoinTransactionRow[]),
     resolveShrineMemories(imageFileNames),
   );
+  const addressTerm = normalizeAddressTerm(profileRow?.address_term);
+  const bonus = await getShrineBonusStatus(addressTerm, shrine.level);
 
   return Response.json({
     shrine: {
       ...shrine,
       topWorshippers,
+      bonus,
     },
   });
 }
@@ -271,9 +305,12 @@ export async function POST(request: Request) {
   }
 
   const nextShrineSpent = previousShrineSpent + amount;
+  const addressTerm = normalizeAddressTerm(currentProfile.address_term);
+  const nextShrineStatus = buildShrineStatus(nextShrineSpent, shrineMemories);
   let shrineStatus = {
-    ...buildShrineStatus(nextShrineSpent, shrineMemories),
+    ...nextShrineStatus,
     topWorshippers,
+    bonus: await getShrineBonusStatus(addressTerm, nextShrineStatus.level),
   };
   const previousUnlockedCount = buildShrineStatus(previousShrineSpent, shrineMemories).unlockedImageCount;
 
