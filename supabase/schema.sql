@@ -269,6 +269,7 @@ create table if not exists public.principessa_posts (
 create table if not exists public.principessa_post_images (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.principessa_posts(id) on delete cascade,
+  parent_comment_id uuid references public.principessa_post_comments(id) on delete cascade,
   image_url text not null,
   storage_path text not null,
   sort_order integer not null default 0 check (sort_order >= 0),
@@ -284,6 +285,9 @@ create table if not exists public.principessa_post_comments (
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );
+
+alter table public.principessa_post_comments
+  add column if not exists parent_comment_id uuid references public.principessa_post_comments(id) on delete cascade;
 
 create table if not exists public.principessa_post_likes (
   post_id uuid not null references public.principessa_posts(id) on delete cascade,
@@ -649,6 +653,12 @@ create trigger force_admin_leaderboard_hide_trigger
 drop trigger if exists block_client_user_tasks_mutations_trigger on public.user_tasks;
 create trigger block_client_user_tasks_mutations_trigger
   before insert or update or delete on public.user_tasks
+  for each row
+  execute function public.block_client_owned_table_mutations();
+
+drop trigger if exists block_client_user_pet_tasks_mutations_trigger on public.user_pet_tasks;
+create trigger block_client_user_pet_tasks_mutations_trigger
+  before insert or update or delete on public.user_pet_tasks
   for each row
   execute function public.block_client_owned_table_mutations();
 
@@ -1112,6 +1122,10 @@ as $$
 declare
   next_xp integer;
 begin
+  if not public.is_privileged_db_context() then
+    raise exception 'add_user_xp can only be called by backend services';
+  end if;
+
   if coalesce(xp_delta, 0) <= 0 then
     return;
   end if;
@@ -1403,6 +1417,10 @@ as $$
 declare
   awarded_count integer := 0;
 begin
+  if not public.is_privileged_db_context() then
+    raise exception 'apply_user_level_season_bonus can only be called by backend services';
+  end if;
+
   if p_year is null or p_month is null or p_month < 1 or p_month > 12 then
     raise exception 'Invalid season bonus period.';
   end if;
@@ -1565,6 +1583,10 @@ declare
   requirement integer;
   event_id uuid;
 begin
+  if not public.is_privileged_db_context() and auth.uid() is distinct from p_user_id then
+    raise exception 'Level Drain can only be performed for the signed-in user.';
+  end if;
+
   perform public.ensure_global_principessa_current_month();
 
   select * into profile_row
@@ -1695,6 +1717,10 @@ declare
   next_right_count integer;
   next_right_expirations jsonb;
 begin
+  if not public.is_privileged_db_context() and auth.uid() is distinct from p_user_id then
+    raise exception 'Rights actions can only be performed for the signed-in user.';
+  end if;
+
   select * into profile_row
   from public.profiles
   where id = p_user_id
@@ -1816,6 +1842,17 @@ begin
   raise exception 'Invalid rights action.';
 end;
 $$;
+
+-- State-changing helpers are backend-only. Their SECURITY DEFINER bodies may
+-- be reached by triggers and server routes, never directly from the client.
+revoke all on function public.add_user_xp(uuid, integer) from public, anon, authenticated;
+revoke all on function public.apply_user_level_season_bonus(integer, integer) from public, anon, authenticated;
+revoke all on function public.perform_level_drain(uuid) from public, anon, authenticated;
+revoke all on function public.perform_rights_action(uuid, text) from public, anon, authenticated;
+grant execute on function public.add_user_xp(uuid, integer) to service_role;
+grant execute on function public.apply_user_level_season_bonus(integer, integer) to service_role;
+grant execute on function public.perform_level_drain(uuid) to service_role;
+grant execute on function public.perform_rights_action(uuid, text) to service_role;
 
 drop policy if exists "Users can read own pet gallery" on public.user_pet_gallery;
 create policy "Users can read own pet gallery"
@@ -2144,6 +2181,7 @@ create table if not exists public.puzzle_attempts (
   solve_seconds integer,
   move_count integer not null default 0,
   used_hints boolean not null default false,
+  hint_count integer not null default 0,
   shuffle_seed text not null,
   progress_state jsonb,
   progress_saved_at timestamp with time zone,
@@ -2161,6 +2199,9 @@ alter table public.puzzle_attempts
 
 alter table public.puzzle_attempts
   add column if not exists progress_saved_at timestamp with time zone;
+
+alter table public.puzzle_attempts
+  add column if not exists hint_count integer not null default 0;
 
 create table if not exists public.puzzle_completions (
   id uuid primary key default gen_random_uuid(),
@@ -2551,6 +2592,10 @@ create index if not exists principessa_post_images_post_id_idx
 
 create index if not exists principessa_post_comments_post_id_idx
   on public.principessa_post_comments(post_id, created_at);
+
+create index if not exists principessa_post_comments_parent_idx
+  on public.principessa_post_comments(parent_comment_id, created_at)
+  where parent_comment_id is not null;
 
 create index if not exists principessa_post_comments_user_created_idx
   on public.principessa_post_comments(user_id, created_at desc);

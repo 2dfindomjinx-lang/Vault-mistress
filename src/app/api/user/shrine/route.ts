@@ -131,18 +131,17 @@ async function getTopShrineWorshippers(supabase: ReturnType<typeof createSupabas
     );
   });
 
-  const topEntries = Array.from(totals.entries())
-    .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]))
-    .slice(0, 5);
+  const rankedEntries = Array.from(totals.entries())
+    .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]));
 
-  if (topEntries.length === 0) {
+  if (rankedEntries.length === 0) {
     return [];
   }
 
   const { data: profiles, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, display_name")
-    .in("id", topEntries.map(([userId]) => userId));
+    .select("id, username, display_name, hide_from_leaderboard, is_admin")
+    .in("id", rankedEntries.map(([userId]) => userId));
 
   if (profileError) {
     console.warn("[shrine] top worshipper profile lookup failed", profileError);
@@ -150,16 +149,22 @@ async function getTopShrineWorshippers(supabase: ReturnType<typeof createSupabas
 
   const profileMap = new Map((profiles ?? []).map((profile) => [profile.id as string, profile]));
 
-  return topEntries.map(([userId, totalSpent]) => {
-    const profile = profileMap.get(userId);
+  return rankedEntries
+    .filter(([userId]) => {
+      const profile = profileMap.get(userId) as { hide_from_leaderboard?: boolean | null; is_admin?: boolean | null } | undefined;
+      return Boolean(profile) && !profile?.hide_from_leaderboard && !profile?.is_admin;
+    })
+    .slice(0, 3)
+    .map(([userId, totalSpent]) => {
+      const profile = profileMap.get(userId) as { display_name?: string | null; username?: string | null } | undefined;
 
-    return {
-      displayName: typeof profile?.display_name === "string" ? profile.display_name : null,
-      totalSpent,
-      userId,
-      username: typeof profile?.username === "string" ? profile.username : "Unknown",
-    };
-  });
+      return {
+        displayName: typeof profile?.display_name === "string" ? profile.display_name : null,
+        totalSpent,
+        userId,
+        username: typeof profile?.username === "string" ? profile.username : "Unknown",
+      };
+    });
 }
 
 async function getAuthedUserId() {

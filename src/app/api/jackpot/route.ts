@@ -729,7 +729,8 @@ export async function buildJackpotState(
       .from("loyalty_jackpot_contributions")
       .select("user_id, username, amount, created_at")
       .eq("jackpot_id", jackpot.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(12);
     const { data: contributionRows, error: contributionError } = await withTimeout(
       contribPromise.then((r) => r),
       VAULT_CHECK_TIMEOUT_MS,
@@ -767,11 +768,14 @@ export async function buildJackpotState(
       !previousWinnerIds.includes(userId);
   }
 
-  const currentWinners = await getJackpotWinnersFromTransactions(supabase, jackpot.id);
-  const winnerProfileIds = jackpot.winner_user_id ? [jackpot.winner_user_id] : [];
-  const { data: winnerProfiles } = await supabase.rpc("get_public_profile_snippets", {
-    p_user_ids: winnerProfileIds,
-  });
+  const shouldLoadWinnerHistory = phase === "winner" || Boolean(jackpot.winner_selected_at);
+  const currentWinners = shouldLoadWinnerHistory
+    ? await getJackpotWinnersFromTransactions(supabase, jackpot.id)
+    : [];
+  const winnerProfileIds = shouldLoadWinnerHistory && jackpot.winner_user_id ? [jackpot.winner_user_id] : [];
+  const { data: winnerProfiles } = winnerProfileIds.length > 0
+    ? await supabase.rpc("get_public_profile_snippets", { p_user_ids: winnerProfileIds })
+    : { data: [] };
   const winnerProfileMap = new Map(
     ((winnerProfiles ?? []) as ProfileSnippetRow[]).map((profile) => [profile.id, profile]),
   );
@@ -791,13 +795,15 @@ export async function buildJackpotState(
           }]
         : [];
 
-  const { data: previousJackpots, error: previousWinnerError } = await supabase
-    .from("loyalty_jackpots")
-    .select("id, winner_user_id, winner_username, winner_amount, winner_selected_at")
-    .not("winner_user_id", "is", null)
-    .neq("cycle_key", jackpot.cycle_key)
-    .order("starts_at", { ascending: false })
-    .limit(1);
+  const { data: previousJackpots, error: previousWinnerError } = shouldLoadWinnerHistory
+    ? await supabase
+      .from("loyalty_jackpots")
+      .select("id, winner_user_id, winner_username, winner_amount, winner_selected_at")
+      .not("winner_user_id", "is", null)
+      .neq("cycle_key", jackpot.cycle_key)
+      .order("starts_at", { ascending: false })
+      .limit(1)
+    : { data: [], error: null };
 
   if (previousWinnerError) {
     console.error("Previous jackpot winner display lookup failed", previousWinnerError);

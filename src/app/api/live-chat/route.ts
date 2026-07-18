@@ -10,6 +10,8 @@ import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
 const CHAT_HIGHLIGHT_COST = 2000;
 const CHAT_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MS = 8000;
+const CHAT_RETENTION_LIMIT = 30;
+const CHAT_RETENTION_MS = 72 * 60 * 60 * 1000;
 
 type ChatBody = {
   action?: "send" | "delete" | "mute";
@@ -97,14 +99,20 @@ export async function GET() {
   if (authResult.error) return authResult.error;
 
   const supabase = createSupabaseAdminClient();
+  const retentionCutoff = new Date(Date.now() - CHAT_RETENTION_MS).toISOString();
+  const { error: retentionCleanupError } = await supabase
+    .from("live_chat_messages")
+    .delete()
+    .lt("created_at", retentionCutoff);
+  if (retentionCleanupError) console.warn("[live-chat] age retention cleanup failed", retentionCleanupError);
   const [profileResult, messagesResult, muteResult] = await Promise.all([
     supabase.from("profiles").select(profileSelect).eq("id", authResult.userId!).single(),
     supabase
       .from("live_chat_messages")
       .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
-      .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .gte("created_at", retentionCutoff)
       .order("created_at", { ascending: false })
-      .limit(75),
+      .limit(CHAT_RETENTION_LIMIT),
     supabase.from("live_chat_mutes").select("*").eq("user_id", authResult.userId!).maybeSingle(),
   ]);
 
@@ -289,6 +297,22 @@ export async function POST(request: Request) {
   }
 
   const [hydratedMessage] = await hydrateMessages(supabase, [createdMessage as LiveChatMessageRow]);
+  const { data: expiredRows, error: expiredRowsError } = await supabase
+    .from("live_chat_messages")
+    .select("id")
+    .order("created_at", { ascending: false })
+    .range(CHAT_RETENTION_LIMIT, CHAT_RETENTION_LIMIT + 499);
+
+  if (expiredRowsError) {
+    console.warn("[live-chat] retention lookup failed", expiredRowsError);
+  } else {
+    const expiredIds = (expiredRows ?? []).map((row) => row.id as string).filter(Boolean);
+    if (expiredIds.length > 0) {
+      const { error: retentionError } = await supabase.from("live_chat_messages").delete().in("id", expiredIds);
+      if (retentionError) console.warn("[live-chat] retention cleanup failed", retentionError);
+    }
+  }
+
   if (!currentProfile.is_admin) {
     await sendAdminMobileChatPushOnce({
       body: `${currentProfile.display_name?.trim() || `@${currentProfile.username}`}: ${message}`,

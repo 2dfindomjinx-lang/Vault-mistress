@@ -118,7 +118,7 @@ export function TributePanel({
             <div className="court-grid court-grid--shop grid items-start gap-3 md:grid-cols-3">
               {SHRINE_PURCHASE_OPTIONS.map((option) => (
                 <button
-                  className="court-grid-card court-grid-card--gold group self-start overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.24),rgba(88,28,135,0.12),rgba(0,0,0,0.52))] text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="court-grid-card court-grid-card--gold group flex h-full flex-col self-stretch overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.24),rgba(88,28,135,0.12),rgba(0,0,0,0.52))] text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={disabled || shrinePending || coins < option.amount}
                   key={option.amount}
                   onClick={() => onShrinePurchase?.(option.amount)}
@@ -130,11 +130,11 @@ export function TributePanel({
                       Offer
                     </span>
                   </div>
-                  <div className="p-4">
+                  <div className="flex flex-1 flex-col p-4">
                     <p className="text-2xl font-black leading-none text-white">{option.amount.toLocaleString()}</p>
                     <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">coins offered</p>
                     <p className="mt-3 min-h-10 text-xs leading-5 text-zinc-300">{option.description}</p>
-                    <div className="mt-3 grid grid-cols-3 gap-1.5 border-t border-white/[0.06] pt-3 text-center">
+                    <div className="mt-auto grid grid-cols-3 gap-1.5 border-t border-white/[0.06] pt-3 text-center">
                       <span className="rounded-lg bg-amber-300/[0.06] px-1.5 py-2">
                         <strong className="block text-xs text-amber-50">+{option.devotionReward}</strong>
                         <span className="mt-0.5 block text-[8px] font-black uppercase tracking-[0.12em] text-amber-100/50">Devotion</span>
@@ -154,7 +154,7 @@ export function TributePanel({
             </div>
 
             {shrine?.bonus ? (
-              <div className="mt-4 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4">
+              <div className="mt-7 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">
                     Bonus Shrine Gallery
@@ -171,13 +171,13 @@ export function TributePanel({
                 </div>
 
                 {shrine.bonus.images.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     {shrine.bonus.images.map((image, index) => {
                       const isUnlocked = index < shrine.bonus!.unlockedCount;
 
                       return (
                         <div
-                          className="relative aspect-square overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
+                          className="relative aspect-[3/4] overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
                           key={image.fileName}
                         >
                           {isUnlocked ? (
@@ -272,7 +272,7 @@ export function TributePanel({
             </div>
               <div className="rounded-[1.35rem] border border-amber-200/15 bg-black/30 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
-                  Top 5 Worshippers
+                  Top 3 Worshippers
                 </p>
                 <div className="mt-3 grid gap-2">
                   {(shrine?.topWorshippers ?? []).length > 0 ? (

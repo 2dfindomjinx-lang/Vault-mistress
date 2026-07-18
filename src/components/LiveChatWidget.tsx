@@ -56,9 +56,12 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [mutedText, setMutedText] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const lastReadAtRef = useRef<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const loadMessages = async () => {
+  const loadMessages = async (markRead = false) => {
     try {
       const response = await fetch("/api/live-chat", { cache: "no-store" });
       const payload = (await response.json()) as LiveChatResponse & { error?: string };
@@ -67,7 +70,23 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
         throw new Error(payload.error ?? "Live Chat could not be loaded.");
       }
 
-      setMessages(payload.messages ?? []);
+      const nextMessages = payload.messages ?? [];
+      const newestCreatedAt = nextMessages[nextMessages.length - 1]?.created_at ?? null;
+      const storedLastReadAt = lastReadAtRef.current ?? window.localStorage.getItem("vault-live-chat-last-read-at");
+      const shouldEstablishBaseline = !hasLoadedRef.current && !storedLastReadAt;
+
+      if (markRead || shouldEstablishBaseline) {
+        setUnreadCount(0);
+        if (newestCreatedAt) {
+          lastReadAtRef.current = newestCreatedAt;
+          window.localStorage.setItem("vault-live-chat-last-read-at", newestCreatedAt);
+        }
+      } else if (storedLastReadAt) {
+        setUnreadCount(nextMessages.filter((message) => new Date(message.created_at).getTime() > new Date(storedLastReadAt).getTime()).length);
+      }
+
+      hasLoadedRef.current = true;
+      setMessages(nextMessages);
       setIsAdmin(Boolean(payload.currentUser?.isAdmin));
       setMutedText(payload.currentUser?.mutedUntil ? "Muted" : payload.currentUser?.mutedReason ? "Muted" : "");
     } catch (loadError) {
@@ -76,14 +95,10 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const initialTimer = window.setTimeout(() => void loadMessages(), 0);
+    const initialTimer = window.setTimeout(() => void loadMessages(isOpen), 0);
     const timer = window.setInterval(() => {
-      void loadMessages();
-    }, 15000);
+      void loadMessages(isOpen);
+    }, 30000);
 
     return () => { window.clearTimeout(initialTimer); window.clearInterval(timer); };
   }, [isOpen]);
@@ -124,7 +139,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
         throw new Error(payload.error ?? "Message could not be sent.");
       }
 
-      setMessages((current) => [...current, payload.message!].slice(-100));
+      setMessages((current) => [...current, payload.message!].slice(-30));
       setDraft("");
       setHighlighted(false);
 
@@ -270,6 +285,11 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
           ^
         </span>
         Live Chat
+        {!isOpen && unreadCount > 0 ? (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-fuchsia-600">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        ) : null}
       </button>
     </div>
   );

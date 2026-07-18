@@ -16,6 +16,7 @@ type AdminNotificationCounts = {
   evilDebtPending: number;
   irlPending: number;
   petPending: number;
+  socialApprovals: number;
 };
 
 type NotificationBellProps = {
@@ -57,6 +58,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
     evilDebtPending: 0,
     irlPending: 0,
     petPending: 0,
+    socialApprovals: 0,
   });
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -70,6 +72,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
         evilDebtPending: 0,
         irlPending: 0,
         petPending: 0,
+        socialApprovals: 0,
       });
       return;
     }
@@ -120,6 +123,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
           evilDebtPending: adminPayload.counts?.evilDebtPending ?? 0,
           irlPending: adminPayload.counts?.irlPending ?? 0,
           petPending: adminPayload.counts?.petPending ?? 0,
+          socialApprovals: adminPayload.counts?.socialApprovals ?? 0,
         });
       } else {
         setAdminNotifications([]);
@@ -128,6 +132,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
           evilDebtPending: 0,
           irlPending: 0,
           petPending: 0,
+          socialApprovals: 0,
         });
       }
     } catch (error) {
@@ -182,7 +187,8 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
   const totalAdminCount =
     adminCounts.irlPending +
     adminCounts.petPending +
-    adminCounts.evilDebtPending;
+    adminCounts.evilDebtPending +
+    adminCounts.socialApprovals;
   const totalCount = totalAdminCount + userUnreadCount;
 
   const handleUserAction = useCallback(

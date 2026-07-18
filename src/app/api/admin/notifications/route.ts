@@ -17,7 +17,7 @@ export async function POST() {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const [irl, pet, evilDebtPending] = await Promise.all([
+  const [irl, pet, evilDebtPending, socialApprovals] = await Promise.all([
     admin.supabase
       .from("user_irl_tasks")
       .select("id", { count: "exact", head: true })
@@ -31,9 +31,13 @@ export async function POST() {
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .eq("contract_type", "evil"),
+    admin.supabase
+      .from("principessa_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
   ]);
 
-  const errors = [irl.error, pet.error, evilDebtPending.error].filter(Boolean);
+  const errors = [irl.error, pet.error, evilDebtPending.error, socialApprovals.error].filter(Boolean);
 
   if (errors.length > 0) {
     console.error("Admin notification count failed", errors);
@@ -45,9 +49,17 @@ export async function POST() {
     evilDebtPending: evilDebtPending.count ?? 0,
     irlPending: irl.count ?? 0,
     petPending: pet.count ?? 0,
+    socialApprovals: socialApprovals.count ?? 0,
   };
 
   const notifications: AdminNotificationItem[] = [
+    {
+      count: counts.socialApprovals,
+      description: `${counts.socialApprovals} Principessa Social post${counts.socialApprovals === 1 ? " is" : "s are"} waiting for approval.`,
+      id: "principessa-social-approvals",
+      title: "Social Post Approvals",
+      tone: "sky" as const,
+    },
     {
       count: counts.irlPending,
       description: `${counts.irlPending} assigned IRL task${counts.irlPending === 1 ? "" : "s"} need review.`,
@@ -71,7 +83,7 @@ export async function POST() {
     },
   ].filter((item) => item.count > 0);
 
-  const count = counts.irlPending + counts.petPending + counts.evilDebtPending;
+  const count = counts.irlPending + counts.petPending + counts.evilDebtPending + counts.socialApprovals;
 
   return Response.json({
     count,

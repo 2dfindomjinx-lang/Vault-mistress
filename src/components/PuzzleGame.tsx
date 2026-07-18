@@ -22,6 +22,7 @@ type PuzzleAttempt = {
   difficulty: PuzzleDifficulty;
   grid_cols: number;
   grid_rows: number;
+  hint_count?: number | null;
   id: string;
   move_count?: number | null;
   piece_count: number;
@@ -182,7 +183,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   onComplete,
   onMove,
   onProgressSave,
-  previewSecondsLeft,
+  hintRequestId,
 }: {
   attempt: PuzzleAttempt;
   imageUrl: string;
@@ -191,7 +192,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   onComplete: (moves: number) => void;
   onMove: (moves: number) => void;
   onProgressSave: (progressState: PuzzleProgressState, moves: number) => void;
-  previewSecondsLeft: number;
+  hintRequestId: number;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [layout, setLayout] = useState<PuzzleLayout | null>(null);
@@ -202,6 +203,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   const [snapPieceId, setSnapPieceId] = useState<number | null>(null);
   const [isSolved, setIsSolved] = useState(false);
   const completedRef = useRef(false);
+  const handledHintRequestRef = useRef(0);
 
   const jigsawShapes = useMemo(() => {
     const shapes = new Map<string, string>();
@@ -380,6 +382,35 @@ const PuzzleBoard = memo(function PuzzleBoard({
   }, [applyProgress, attempt.id, buildPieces, initialMoveCount, layout, onMove]);
 
   const placedCount = pieces.filter((piece) => piece.placed).length;
+
+  useEffect(() => {
+    if (!hintRequestId || hintRequestId === handledHintRequestRef.current || !layout) return;
+    handledHintRequestRef.current = hintRequestId;
+
+    setPieces((currentPieces) => {
+      const unplacedPieces = currentPieces.filter((piece) => !piece.placed);
+      const piece = unplacedPieces[hintRequestId % Math.max(1, unplacedPieces.length)];
+      if (!piece) return currentPieces;
+
+      const nextPieces = currentPieces.map((currentPiece) => (
+        currentPiece.id === piece.id
+          ? { ...currentPiece, currentX: currentPiece.correctX, currentY: currentPiece.correctY, placed: true }
+          : currentPiece
+      ));
+      setSnapPieceId(piece.id);
+      window.setTimeout(() => setSnapPieceId((current) => (current === piece.id ? null : current)), 360);
+
+      if (!completedRef.current && nextPieces.every((nextPiece) => nextPiece.placed)) {
+        completedRef.current = true;
+        setIsSolved(true);
+        onComplete(moveCount);
+      } else {
+        onProgressSave(createProgressState(nextPieces, moveCount, layout), moveCount);
+      }
+
+      return nextPieces;
+    });
+  }, [createProgressState, hintRequestId, layout, moveCount, onComplete, onProgressSave]);
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>, piece: PuzzlePieceState) => {
     if (piece.placed || layout?.compact) {
@@ -619,33 +650,6 @@ const PuzzleBoard = memo(function PuzzleBoard({
                 </div>
               </div>
             ) : null}
-            {!isSolved && previewSecondsLeft > 0 ? (
-              <div
-                className="absolute select-none overflow-hidden rounded-[1rem] border border-sky-100/45 bg-cover bg-center bg-no-repeat shadow-[0_0_44px_rgba(125,211,252,0.30)]"
-                onContextMenu={(event) => event.preventDefault()}
-                onDragStart={(event) => event.preventDefault()}
-                style={{
-                  backgroundImage: `url(${imageUrl})`,
-                  backgroundSize: "100% 100%",
-                  height: layout.boardHeight,
-                  left: layout.boardX,
-                  top: layout.boardY,
-                  width: layout.boardWidth,
-                  zIndex: 70,
-                }}
-              >
-                <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(0,0,0,0.18)_0px,rgba(0,0,0,0.18)_1px,transparent_1px,transparent_5px)]" />
-                <div className="absolute -left-20 top-1/2 flex w-[145%] -translate-y-1/2 -rotate-12 flex-wrap justify-center gap-x-10 gap-y-5 text-center text-[0.68rem] font-black uppercase tracking-[0.28em] text-white/34 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
-                  {Array.from({ length: 24 }, (_, index) => (
-                    <span key={`active-preview-watermark-${index}`}>Vault Mistress Hint / View Only</span>
-                  ))}
-                </div>
-                <div className="absolute right-3 top-3 rounded-full border border-black/40 bg-black/70 px-3 py-1 text-xs font-black text-white">
-                  Hint {previewSecondsLeft}s
-                </div>
-                <div aria-hidden="true" className="absolute inset-0 cursor-default" />
-              </div>
-            ) : null}
             <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full border border-sky-100/15 bg-black/45 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-sky-50/75">
               Assembly Board / {placedCount}/{attempt.piece_count} placed
             </div>
@@ -712,7 +716,13 @@ const PuzzleBoard = memo(function PuzzleBoard({
   );
 });
 
-const PUZZLE_PREVIEW_COIN_COST = 500;
+const PUZZLE_HINT_COIN_COST = 500;
+
+function getFreeHintCount(pieceCount: number) {
+  if (pieceCount <= 150) return 1;
+  if (pieceCount <= 300) return 2;
+  return 3;
+}
 
 export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleGameProps) {
   const [images, setImages] = useState<PuzzleImagePoolItem[]>([]);
@@ -725,9 +735,9 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [moves, setMoves] = useState(0);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
-  const [isPreviewBusy, setIsPreviewBusy] = useState(false);
-  const [previewUntil, setPreviewUntil] = useState<number | null>(null);
-  const [previewSecondsLeft, setPreviewSecondsLeft] = useState(0);
+  const [isHintBusy, setIsHintBusy] = useState(false);
+  const [hintCount, setHintCount] = useState(0);
+  const [hintRequestId, setHintRequestId] = useState(0);
   const [completedAttemptId, setCompletedAttemptId] = useState<string | null>(null);
   const [dailyKey, setDailyKey] = useState("");
   const [nextDailyResetAt, setNextDailyResetAt] = useState<string | null>(null);
@@ -758,6 +768,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         const restoredMoves = Number(payload.activeAttempt.progress_state?.moves ?? payload.activeAttempt.move_count ?? 0);
         setAttempt(payload.activeAttempt);
         setMoves(restoredMoves);
+        setHintCount(Math.max(0, Number(payload.activeAttempt.hint_count ?? 0)));
         setCompletedAttemptId(null);
         startedAtRef.current = Date.now();
       }
@@ -769,26 +780,6 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   useEffect(() => {
     void loadPuzzleData();
   }, []);
-
-  useEffect(() => {
-    if (!previewUntil) {
-      setPreviewSecondsLeft(0);
-      return;
-    }
-
-    const syncPreviewTimer = () => {
-      const secondsLeft = Math.max(0, Math.ceil((previewUntil - Date.now()) / 1000));
-      setPreviewSecondsLeft(secondsLeft);
-      if (secondsLeft <= 0) {
-        setPreviewUntil(null);
-      }
-    };
-
-    syncPreviewTimer();
-    const timer = window.setInterval(syncPreviewTimer, 250);
-
-    return () => window.clearInterval(timer);
-  }, [previewUntil]);
 
   const completionMap = useMemo(() => {
     const map = new Map<string, PuzzleCompletion>();
@@ -832,7 +823,8 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       setActiveImage(selectedImage);
       setMoves(0);
       setCompletedAttemptId(null);
-      setPreviewUntil(null);
+      setHintCount(0);
+      setHintRequestId(0);
       startedAtRef.current = Date.now();
 
       if (payload.profile) {
@@ -845,18 +837,18 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
     }
   };
 
-  const previewPuzzle = async () => {
-    if (!attempt || isPreviewBusy) {
+  const requestHint = async () => {
+    if (!attempt || isHintBusy) {
       return;
     }
 
-    setIsPreviewBusy(true);
+    setIsHintBusy(true);
     setError("");
 
     try {
       const response = await fetch("/api/user/puzzle", {
         body: JSON.stringify({
-          action: "preview",
+          action: "hint",
           attemptId: attempt.id,
         }),
         headers: { "Content-Type": "application/json" },
@@ -864,23 +856,48 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       });
       const payload = (await response.json()) as {
         error?: string;
-        previewSeconds?: number;
+        hintNumber?: number;
         profile?: Profile;
       };
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Puzzle preview could not start.");
+        throw new Error(payload.error ?? "Puzzle hint could not be used.");
       }
 
-      setPreviewUntil(Date.now() + Math.max(1, payload.previewSeconds ?? 10) * 1000);
+      setHintCount(Math.max(1, Number(payload.hintNumber ?? hintCount + 1)));
+      setHintRequestId((current) => current + 1);
 
       if (payload.profile) {
         onProfileUpdate?.(payload.profile);
       }
-    } catch (previewError) {
-      setError(previewError instanceof Error ? previewError.message : "Puzzle preview could not start.");
+    } catch (hintError) {
+      setError(hintError instanceof Error ? hintError.message : "Puzzle hint could not be used.");
     } finally {
-      setIsPreviewBusy(false);
+      setIsHintBusy(false);
+    }
+  };
+
+  const abandonPuzzle = async () => {
+    if (!attempt || isBusy || !window.confirm("Abandon this puzzle? Your entry coins will not be refunded.")) return;
+    setIsBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/user/puzzle", {
+        body: JSON.stringify({ action: "abandon", attemptId: attempt.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Puzzle could not be abandoned.");
+      setAttempt(null);
+      setActiveImage(null);
+      setHintCount(0);
+      setHintRequestId(0);
+      await loadPuzzleData();
+    } catch (abandonError) {
+      setError(abandonError instanceof Error ? abandonError.message : "Puzzle could not be abandoned.");
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -938,6 +955,8 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
 
       setAttempt(null);
       setActiveImage(null);
+      setHintCount(0);
+      setHintRequestId(0);
       await loadPuzzleData();
     } catch (completeError) {
       setCompletedAttemptId(null);
@@ -1086,11 +1105,21 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{moves} moves</span>
               <button
                 className="rounded-full border border-sky-200/25 bg-sky-300/10 px-3 py-2 transition hover:border-sky-100/55 hover:bg-sky-300/16 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={disabled || isPreviewBusy || previewSecondsLeft > 0 || coins < PUZZLE_PREVIEW_COIN_COST}
-                onClick={() => void previewPuzzle()}
+                disabled={disabled || isHintBusy || (hintCount >= getFreeHintCount(attempt.piece_count) && coins < PUZZLE_HINT_COIN_COST)}
+                onClick={() => void requestHint()}
                 type="button"
               >
-                Hint 10s / <CoinAmount amount={PUZZLE_PREVIEW_COIN_COST} className="font-black text-white" iconSize={13} label="" />
+                {hintCount < getFreeHintCount(attempt.piece_count)
+                  ? `Place a Piece / Free (${getFreeHintCount(attempt.piece_count) - hintCount} left)`
+                  : <><span>Place a Piece / </span><CoinAmount amount={PUZZLE_HINT_COIN_COST} className="font-black text-white" iconSize={13} label="" /></>}
+              </button>
+              <button
+                className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-rose-100 transition hover:border-rose-100/55 hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={disabled || isBusy}
+                onClick={() => void abandonPuzzle()}
+                type="button"
+              >
+                Abandon / No refund
               </button>
             </div>
           </div>
@@ -1107,7 +1136,7 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
             onComplete={(nextMoves) => void completePuzzle(nextMoves)}
             onMove={setMoves}
             onProgressSave={(progressState, nextMoves) => void savePuzzleProgress(progressState, nextMoves)}
-            previewSecondsLeft={previewSecondsLeft}
+            hintRequestId={hintRequestId}
           />
         </section>
       ) : null}

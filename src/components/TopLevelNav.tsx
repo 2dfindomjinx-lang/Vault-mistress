@@ -15,7 +15,7 @@ export function TopLevelNav({ active }: { active: "feed" | "main" }) {
             {active === "main" ? <span className="absolute inset-x-4 bottom-0 h-px bg-[#e6ba73] shadow-[0_0_9px_#e6ba73]" /> : null}
           </Link>
           <Link className={`relative flex items-center justify-center px-2 text-[8px] font-black uppercase tracking-[.12em] transition max-[480px]:flex-1 sm:px-6 sm:text-[9px] sm:tracking-[.22em] ${active === "feed" ? "text-[#ffe8bd]" : "text-zinc-700 hover:text-zinc-300"}`} href="/principessa-feed">
-            Velvet Network
+            Principessa Social
             {active === "feed" ? <span className="absolute inset-x-4 bottom-0 h-px bg-pink-400 shadow-[0_0_9px_#ec4899]" /> : null}
           </Link>
         </div>

@@ -19,7 +19,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 
 type PuzzleBody = {
-  action?: "start" | "complete" | "preview" | "save-progress";
+  action?: "abandon" | "complete" | "hint" | "start" | "save-progress";
   aspect?: string;
   attemptId?: string;
   difficulty?: string;
@@ -40,8 +40,7 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-const PUZZLE_PREVIEW_COIN_COST = 500;
-const PUZZLE_PREVIEW_SECONDS = 10;
+const PUZZLE_HINT_COIN_COST = 500;
 let puzzleImageFileNamesPromise: Promise<string[]> | null = null;
 
 async function getAuthedUserId() {
@@ -95,6 +94,12 @@ function isPuzzleProgressState(value: unknown) {
 
   const state = value as { pieces?: unknown };
   return Array.isArray(state.pieces) && state.pieces.length <= 700;
+}
+
+function getFreeHintCount(pieceCount: number) {
+  if (pieceCount <= 150) return 1;
+  if (pieceCount <= 300) return 2;
+  return 3;
 }
 
 export async function GET() {
@@ -254,9 +259,30 @@ export async function POST(request: Request) {
     return Response.json({ attempt: { ...attempt, completed_at: completedAt, move_count: moveCount, solve_seconds: solveSeconds, status: "completed" } });
   }
 
-  if (body?.action === "preview") {
+  if (body?.action === "abandon") {
     if (!body.attemptId) {
-      return jsonError("Invalid puzzle preview payload.", 422);
+      return jsonError("Invalid puzzle abandon payload.", 422);
+    }
+
+    const { data: attempt, error } = await supabase
+      .from("puzzle_attempts")
+      .update({ completed_at: new Date().toISOString(), status: "abandoned" })
+      .eq("id", body.attemptId)
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .select("id")
+      .maybeSingle();
+
+    if (error || !attempt) {
+      return jsonError(error?.message ?? "Active puzzle attempt not found.", error ? 500 : 404);
+    }
+
+    return Response.json({ ok: true });
+  }
+
+  if (body?.action === "hint") {
+    if (!body.attemptId) {
+      return jsonError("Invalid puzzle hint payload.", 422);
     }
 
     const [attemptResult, profileResult] = await Promise.all([
@@ -278,13 +304,15 @@ export async function POST(request: Request) {
       return jsonError(profileResult.error?.message ?? "Profile not found.", 404);
     }
 
+    const attempt = attemptResult.data;
+    const usedHintCount = Math.max(0, Math.floor(Number(attempt.hint_count ?? 0)));
+    const freeHintCount = getFreeHintCount(Number(attempt.piece_count ?? 0));
+    const coinCost = usedHintCount < freeHintCount ? 0 : PUZZLE_HINT_COIN_COST;
     const profile = profileResult.data as ProfileRow;
-    if ((profile.coins ?? 0) < PUZZLE_PREVIEW_COIN_COST) {
-      return jsonError("Not enough coins to preview that puzzle.", 402);
-    }
+    if ((profile.coins ?? 0) < coinCost) return jsonError("Not enough coins for a puzzle hint.", 402);
 
     const now = new Date().toISOString();
-    const nextCoins = profile.coins - PUZZLE_PREVIEW_COIN_COST;
+    const nextCoins = profile.coins - coinCost;
     const { data: updatedProfile, error: profileUpdateError } = await supabase
       .from("profiles")
       .update({ coins: nextCoins, updated_at: now })
@@ -297,39 +325,40 @@ export async function POST(request: Request) {
       return jsonError(profileUpdateError?.message ?? "Puzzle preview was stale.", profileUpdateError ? 500 : 409);
     }
 
-    const { error: transactionError } = await supabase
-      .from("coin_transactions")
-      .insert({
-        amount: -PUZZLE_PREVIEW_COIN_COST,
-        balance_after: nextCoins,
-        balance_before: profile.coins,
-        metadata: {
-          attemptId: attemptResult.data.id,
-          difficulty: attemptResult.data.difficulty,
-          pieceCount: attemptResult.data.piece_count,
-          previewSeconds: PUZZLE_PREVIEW_SECONDS,
-          sourceImageId: attemptResult.data.source_image_id,
-          sourceType: attemptResult.data.source_type,
-          spendAmount: PUZZLE_PREVIEW_COIN_COST,
-        },
-        reason: "spend:puzzle-preview",
-        user_id: userId,
-      });
+    if (coinCost > 0) {
+      const { error: transactionError } = await supabase
+        .from("coin_transactions")
+        .insert({
+          amount: -coinCost,
+          balance_after: nextCoins,
+          balance_before: profile.coins,
+          metadata: {
+            attemptId: attempt.id,
+            difficulty: attempt.difficulty,
+            pieceCount: attempt.piece_count,
+            spendAmount: coinCost,
+          },
+          reason: "spend:puzzle-hint",
+          user_id: userId,
+        });
 
-    if (transactionError) {
-      await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", userId).eq("coins", nextCoins);
-      return jsonError("Puzzle preview spending could not be logged.", 500);
+      if (transactionError) {
+        await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", userId).eq("coins", nextCoins);
+        return jsonError("Puzzle hint spending could not be logged.", 500);
+      }
     }
 
-    await supabase
+    const { error: hintUpdateError } = await supabase
       .from("puzzle_attempts")
-      .update({ used_hints: true })
-      .eq("id", attemptResult.data.id)
+      .update({ hint_count: usedHintCount + 1, used_hints: true })
+      .eq("id", attempt.id)
       .eq("status", "active");
+    if (hintUpdateError) return jsonError(hintUpdateError.message, 500);
 
     return Response.json({
-      previewSeconds: PUZZLE_PREVIEW_SECONDS,
-      profile: updatedProfile,
+      freeHintsRemaining: Math.max(0, freeHintCount - usedHintCount - 1),
+      hintNumber: usedHintCount + 1,
+      profile: coinCost > 0 ? updatedProfile : profile,
     });
   }
 

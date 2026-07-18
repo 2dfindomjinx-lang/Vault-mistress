@@ -204,66 +204,45 @@ function useDebtCapacityPreview(
   return { capacity, error };
 }
 
-function randomWeightedWeeklyDebtDuration(amount: number) {
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS.weekly;
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS.weekly;
-  const amountRange = amountLimit.max - amountLimit.min;
-  const lowAmountBias =
-    amountRange > 0 ? Math.max(0, (amountLimit.max - amount) / amountRange) : 0;
-  const durationOptions = Array.from(
-    { length: durationLimit.max - durationLimit.min + 1 },
-    (_, index) => durationLimit.min + index,
-  );
-  const weightedOptions = durationOptions.map((duration) => {
-    const durationRange = durationLimit.max - durationLimit.min;
-    const highDurationBias =
-      durationRange > 0 ? (duration - durationLimit.min) / durationRange : 0;
-
-    return {
-      duration,
-      weight: 1 + lowAmountBias * highDurationBias * 5,
-    };
-  });
-  const totalWeight = weightedOptions.reduce((sum, option) => sum + option.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const option of weightedOptions) {
-    roll -= option.weight;
-
-    if (roll <= 0) {
-      return option.duration;
-    }
-  }
-
-  return durationLimit.max;
-}
-
-function randomDebtPeriodType(): "weekly" | "monthly" {
-  return Math.random() < 0.5 ? "weekly" : "monthly";
-}
-
-function getRandomDebtDraft(): {
+async function getAffordableRandomDebtDraft(purchasePledge: boolean): Promise<{
   amount: number;
   duration: number;
   periodType: "weekly" | "monthly";
-} {
-  const periodType = randomDebtPeriodType();
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
-  const amountStep = DEBT_RANDOM_AMOUNT_STEPS[periodType];
-  const minimumMultiplier = amountLimit.min / amountStep;
-  const maximumMultiplier = amountLimit.max / amountStep;
-  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * amountStep;
-  const duration =
-    periodType === "weekly"
-      ? randomWeightedWeeklyDebtDuration(installmentAmount)
-      : randomInteger(durationLimit.min, durationLimit.max);
+} | null> {
+  const periodTypes: Array<"weekly" | "monthly"> = Math.random() < 0.5
+    ? ["weekly", "monthly"]
+    : ["monthly", "weekly"];
 
-  return {
-    amount: installmentAmount,
-    duration,
-    periodType,
-  };
+  for (const periodType of periodTypes) {
+    const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
+    const duration = randomInteger(durationLimit.min, durationLimit.max);
+    const response = await fetch("/api/user/debt-contracts", {
+      body: JSON.stringify({ action: "capacity", durationPeriods: duration, periodType, purchasePledge }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json().catch(() => ({}))) as { capacity?: DebtCapacityPreview };
+    const capacity = payload.capacity;
+
+    if (!response.ok || !capacity) continue;
+
+    const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
+    const amountStep = DEBT_RANDOM_AMOUNT_STEPS[periodType];
+    const affordableMaximum = Math.min(
+      amountLimit.max,
+      Math.floor(capacity.totalLimit / capacity.evaluatedPeriods / amountStep) * amountStep,
+    );
+
+    if (affordableMaximum < amountLimit.min) continue;
+
+    return {
+      amount: randomInteger(amountLimit.min / amountStep, affordableMaximum / amountStep) * amountStep,
+      duration,
+      periodType,
+    };
+  }
+
+  return null;
 }
 
 export function DebtSection({
@@ -366,7 +345,12 @@ export function DebtSection({
   }
 
   async function handleRandomDebtSign() {
-    const draft = getRandomDebtDraft();
+    const draft = await getAffordableRandomDebtDraft(normalPurchasePledge);
+
+    if (!draft) {
+      window.alert("Your current affordability limit is below the minimum for a random debt contract.");
+      return;
+    }
     const petName = randomPetName();
 
     setNormalPetName(petName);

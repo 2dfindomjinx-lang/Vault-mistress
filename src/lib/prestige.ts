@@ -120,6 +120,8 @@ export type CoinTransactionLite = {
   user_id?: string | null;
 };
 
+export const COMMUNITY_GOAL_ADMIN_CONTRIBUTION_MULTIPLIER = 0.2;
+
 const prestigeBadgeDefinitions: PrestigeBadgeDefinition[] = [
   {
     id: "summer-supporter-2026",
@@ -176,10 +178,10 @@ export const SEASONAL_BADGES: SeasonalBadgeDefinition[] = [
 export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
   {
     id: "summer-community-goal-2026",
-    title: "Spend 3,000,000 Coins",
+    title: "Spend 2,500,000 Coins",
     startsAt: "2026-06-28T16:39:58+03:00",
     endsAt: "2026-09-01T00:00:00+03:00",
-    targetCoins: 3_000_000,
+    targetCoins: 2_500_000,
     rewardBadgeId: "community-goal-summer-2026",
     rewardCrateType: "premium_case",
     rewardFreeOpens: 3,
@@ -541,6 +543,7 @@ export function buildCommunityGoalStatus(
   goal: CommunityGoalDefinition,
   transactions: CoinTransactionLite[],
   currentUserId?: string | null,
+  adminUserIds: ReadonlySet<string> = new Set(),
 ): CommunityGoalStatus {
   const badge = PRESTIGE_BADGE_MAP.get(goal.rewardBadgeId)!;
   const startsAtMs = new Date(goal.startsAt).getTime();
@@ -553,23 +556,36 @@ export function buildCommunityGoalStatus(
     const createdAtMs = new Date(transaction.created_at).getTime();
     return createdAtMs >= startsAtMs && createdAtMs < endsAtMs;
   });
-  const progressCoins = relevantTransactions.reduce(
-    (sum, transaction) => sum + getCommunityGoalContributionAmount(transaction),
+  const rawContributionsByUser = new Map<string, number>();
+  relevantTransactions.forEach((transaction) => {
+    if (!transaction.user_id) return;
+    const amount = getCommunityGoalContributionAmount(transaction);
+    if (amount <= 0) return;
+    rawContributionsByUser.set(
+      transaction.user_id,
+      (rawContributionsByUser.get(transaction.user_id) ?? 0) + amount,
+    );
+  });
+  const contributionsByUser = new Map(
+    Array.from(rawContributionsByUser, ([userId, amount]) => [
+      userId,
+      adminUserIds.has(userId)
+        ? Math.floor(amount * COMMUNITY_GOAL_ADMIN_CONTRIBUTION_MULTIPLIER)
+        : amount,
+    ]),
+  );
+  const progressCoins = Array.from(contributionsByUser.values()).reduce(
+    (sum, amount) => sum + amount,
     0,
   );
   const participantIds = new Set(
-    relevantTransactions
-      .filter((transaction) => getCommunityGoalContributionAmount(transaction) > 0)
-      .map((transaction) => transaction.user_id)
-      .filter((userId): userId is string => Boolean(userId)),
+    Array.from(contributionsByUser)
+      .filter(([userId, amount]) => !adminUserIds.has(userId) && amount > 0)
+      .map(([userId]) => userId),
   );
 
   return {
-    currentUserContributionCoins: currentUserId
-      ? relevantTransactions
-        .filter((transaction) => transaction.user_id === currentUserId)
-        .reduce((sum, transaction) => sum + getCommunityGoalContributionAmount(transaction), 0)
-      : 0,
+    currentUserContributionCoins: currentUserId ? contributionsByUser.get(currentUserId) ?? 0 : 0,
     currentUserParticipating: currentUserId ? participantIds.has(currentUserId) : false,
     endsAt: goal.endsAt,
     id: goal.id,

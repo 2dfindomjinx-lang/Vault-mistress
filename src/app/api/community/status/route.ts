@@ -21,6 +21,11 @@ type MinimalProfileRow = {
   loyalty_streak: number | null;
 };
 
+type GoalProfileRow = {
+  id: string;
+  is_admin: boolean | null;
+};
+
 type CommunityMetrics = {
   currentUserContributionCoins: number;
   currentUserParticipating: boolean;
@@ -191,7 +196,19 @@ async function loadLegacyMetrics(
     : { data: [], error: null };
   if (hiddenResult.error) throw hiddenResult.error;
   const hiddenUserIds = new Set((hiddenResult.data ?? []).map((row) => row.id));
-  const goalStatus = buildCommunityGoalStatus(currentGoal, goalTransactions, userId);
+  const goalUserIds = Array.from(
+    new Set(goalTransactions.map((row) => row.user_id).filter((id): id is string => Boolean(id))),
+  );
+  const goalProfilesResult = goalUserIds.length
+    ? await supabase.from("profiles").select("id, is_admin").in("id", goalUserIds)
+    : { data: [], error: null };
+  if (goalProfilesResult.error) throw goalProfilesResult.error;
+  const goalAdminUserIds = new Set(
+    ((goalProfilesResult.data ?? []) as GoalProfileRow[])
+      .filter((profile) => profile.is_admin)
+      .map((profile) => profile.id),
+  );
+  const goalStatus = buildCommunityGoalStatus(currentGoal, goalTransactions, userId, goalAdminUserIds);
   const todaySupport = getTopVisibleEntry(supporterToday, hiddenUserIds);
   const weekSupport = getTopVisibleEntry(supporterWeek, hiddenUserIds);
   const monthSupport = getTopVisibleEntry(supporterMonth, hiddenUserIds);

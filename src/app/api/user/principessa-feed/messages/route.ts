@@ -12,10 +12,7 @@ async function requireUser() {
 }
 
 async function listMessages(supabase: ReturnType<typeof createSupabaseAdminClient>, userId: string) {
-  const { data, error } = await supabase.from("principessa_direct_messages")
-    .select("id, sender_id, recipient_id, body, read_at, sender_deleted_at, recipient_deleted_at, created_at")
-    .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-    .order("created_at", { ascending: true }).limit(500);
+  const { data, error } = await supabase.from("principessa_direct_messages").select("id, sender_id, recipient_id, body, read_at, sender_deleted_at, recipient_deleted_at, created_at").or(`sender_id.eq.${userId},recipient_id.eq.${userId}`).order("created_at", { ascending: true }).limit(500);
   if (error) throw error;
   const rows = (data ?? []).filter((message) => message.sender_id === userId ? !message.sender_deleted_at : !message.recipient_deleted_at);
   const otherIds = Array.from(new Set(rows.map((message) => message.sender_id === userId ? message.recipient_id : message.sender_id)));
@@ -24,15 +21,7 @@ async function listMessages(supabase: ReturnType<typeof createSupabaseAdminClien
   if (unreadIds.length > 0) await supabase.from("principessa_direct_messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds).eq("recipient_id", userId);
   return rows.map((message) => {
     const otherId = message.sender_id === userId ? message.recipient_id : message.sender_id;
-    return {
-      body: message.body,
-      createdAt: message.created_at,
-      id: message.id,
-      mine: message.sender_id === userId,
-      other: profiles.get(otherId) ?? null,
-      otherId,
-      readAt: message.read_at,
-    };
+    return { body: message.body, createdAt: message.created_at, id: message.id, mine: message.sender_id === userId, other: profiles.get(otherId) ?? null, otherId, readAt: message.read_at };
   });
 }
 
@@ -54,8 +43,10 @@ export async function POST(request: Request) {
   if (recipientError || !recipient) return Response.json({ error: recipientError?.message ?? "Recipient not found." }, { status: recipientError ? 500 : 404 });
   const { error } = await auth.supabase.from("principessa_direct_messages").insert({ body: messageBody, recipient_id: recipientId, sender_id: auth.user.id });
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  const { data: sender } = await auth.supabase.from("profiles").select("display_name, username").eq("id", auth.user.id).maybeSingle();
+  const senderName = sender?.display_name?.trim() || `@${String(sender?.username ?? "unknown").replace(/^@/, "")}`;
   await createUserNotification(auth.supabase, {
-    body: "You received a new private message in Principessa Feed.", kind: "principessa_feed_dm",
+    body: `${senderName} sent you a private message in Principessa Social.`, kind: "principessa_feed_dm",
     metadata: { senderId: auth.user.id, source: "principessa_feed" }, title: "New Direct Message", userId: recipientId,
   }).catch((notificationError) => console.error("DM notification failed", notificationError));
   return Response.json({ messages: await listMessages(auth.supabase, auth.user.id) }, { status: 201 });

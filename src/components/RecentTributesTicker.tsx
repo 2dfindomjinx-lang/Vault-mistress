@@ -242,7 +242,7 @@ export function RecentTributesTicker({
             })),
           )
           .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
-          .slice(0, 12);
+          .slice(0, 6);
 
         if (mounted) {
           setRecentCaseOpenings(flattened);
@@ -354,17 +354,17 @@ export function RecentTributesTicker({
             {recentCaseOpeningsError}
           </p>
         ) : recentCaseOpenings.length > 0 ? (
-          <div className="mt-3 flex max-w-full gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {recentCaseOpenings.map((opening) => (
               <article
-                className={`group relative h-[228px] w-[168px] shrink-0 [perspective:1000px] sm:w-[182px] ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`group relative h-[210px] min-w-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
               >
                 <div className="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] group-focus-visible:[transform:rotateY(180deg)]">
                   <div className={`absolute inset-0 flex flex-col gap-2 overflow-hidden rounded-2xl border p-2 ${getRarityGlowClass(opening.itemRarity)} [backface-visibility:hidden]`}>
-                    <div className="flex h-[132px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
+                    <div className="flex h-[116px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
                       {opening.itemImageUrl ? (
                         // Static crate item images are local and can be rendered with a plain img for simplicity.
                         // eslint-disable-next-line @next/next/no-img-element

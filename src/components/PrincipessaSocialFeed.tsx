@@ -39,9 +39,31 @@ async function fetchPosts(channel: Channel, signal?: AbortSignal) {
 }
 
 function MentionText({ text }: { text: string }) {
-  return <>{text.split(/(@[a-zA-Z0-9_.-]+)/g).map((part, index) => part.startsWith("@")
-    ? <span className="font-black text-pink-300" key={`${part}-${index}`}>{part}</span>
-    : part)}</>;
+  const [usersByUsername, setUsersByUsername] = useState<Record<string, MentionUser>>({});
+  const usernames = useMemo(() => Array.from(new Set(Array.from(text.matchAll(/@([a-zA-Z0-9_.-]{1,40})/g), (match) => match[1].toLowerCase()))), [text]);
+
+  useEffect(() => {
+    if (usernames.length === 0) return;
+    const controller = new AbortController();
+    Promise.all(usernames.map(async (username) => {
+      const response = await fetch(`/api/user/principessa-feed/users?q=${encodeURIComponent(username)}`, { signal: controller.signal });
+      const result = await readJsonResponse<{ users?: MentionUser[] }>(response);
+      return result.users?.find((user) => user.username.toLowerCase() === username) ?? null;
+    })).then((users) => {
+      if (!controller.signal.aborted) {
+        setUsersByUsername(Object.fromEntries(users.filter((user): user is MentionUser => Boolean(user)).map((user) => [user.username.toLowerCase(), user])));
+      }
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [usernames]);
+
+  return <>{text.split(/(@[a-zA-Z0-9_.-]+)/g).map((part, index) => {
+    if (!part.startsWith("@")) return part;
+    const user = usersByUsername[part.slice(1).toLowerCase()];
+    return user
+      ? <Link className="font-black text-pink-300 hover:text-pink-100 hover:underline" href={`/principessa-feed/profile/${encodeURIComponent(user.id)}`} key={`${part}-${index}`}>{part}</Link>
+      : <span className="font-black text-pink-300" key={`${part}-${index}`}>{part}</span>;
+  })}</>;
 }
 
 function MentionTextarea({ className, maxLength, onChange, placeholder, value }: {
@@ -410,18 +432,19 @@ const FeedPostCard = memo(function FeedPostCard({
   isAdmin: boolean;
   isLoggedIn: boolean;
   onAdminChanged: (posts: PrincipessaFeedPost[]) => void;
-  onComment: (postId: string, body: string) => Promise<boolean>;
+  onComment: (postId: string, body: string, parentCommentId?: string) => Promise<boolean>;
   onHighlight: (postId: string) => void;
   onToggle: (postId: string, action: "like" | "repost") => void;
   post: PrincipessaFeedPost;
 }) {
   const [draft, setDraft] = useState("");
+  const [replyTo, setReplyTo] = useState<PrincipessaFeedPost["comments"][number] | null>(null);
 
   const submitComment = async () => {
     const body = draft.trim();
     if (!body) return;
-    if (await onComment(post.id, body)) {
-      setDraft("");
+    if (await onComment(post.id, body, replyTo?.id)) {
+      setDraft(""); setReplyTo(null);
     }
   };
 
@@ -431,8 +454,8 @@ const FeedPostCard = memo(function FeedPostCard({
       {isLoggedIn && post.author.userId && !post.ownedByViewer ? <div className="ml-14 mt-3"><Link className="inline-flex items-center gap-2 rounded-full border border-pink-300/15 px-3 py-1.5 text-[10px] font-black text-pink-200 transition hover:bg-pink-500/10" href={`/principessa-feed/messages?to=${encodeURIComponent(post.author.userId)}`}>✉ Message</Link></div> : null}
       <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={onHighlight} onToggle={onToggle} post={post} />
       {isAdmin ? <PostAdminActions onChanged={onAdminChanged} post={post} /> : null}
-      {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div key={item.id}><div className="flex justify-between gap-2"><DisplayNameWithUsername displayName={item.author.displayName} primaryClassName="text-xs font-black text-zinc-300" secondaryClassName="text-[10px] text-zinc-600" secondaryStyle={item.author.usernameStyle} username={item.author.username} /><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p></div>)}</div> : null}
-      {isLoggedIn ? <div className="ml-14 mt-4 flex gap-2"><input className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm outline-none focus:border-pink-400/40" maxLength={500} onChange={(event) => setDraft(event.target.value)} placeholder="Post your reply" value={draft} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={commentBusy || !draft.trim()} onClick={() => void submitComment()} type="button">Reply</button></div> : null}
+      {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div className={item.parentCommentId ? "ml-4 border-l border-pink-300/15 pl-3" : ""} key={item.id}><div className="flex justify-between gap-2"><FeedAuthorName author={item.author} primaryClassName="text-xs font-black text-zinc-300" /><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p>{isLoggedIn ? <button className="mt-2 text-[10px] font-black uppercase tracking-wider text-zinc-600 hover:text-pink-300" onClick={() => { setReplyTo(item); setDraft(`@${item.author.username.replace(/^@/, "")} `); }} type="button">Reply</button> : null}</div>)}</div> : null}
+      {isLoggedIn ? <div className="ml-14 mt-4"><div className="flex gap-2"><input className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm outline-none focus:border-pink-400/40" maxLength={500} onChange={(event) => setDraft(event.target.value)} placeholder={replyTo ? `Reply to @${replyTo.author.username.replace(/^@/, "")}` : "Post your reply"} value={draft} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={commentBusy || !draft.trim()} onClick={() => void submitComment()} type="button">Reply</button></div>{replyTo ? <button className="mt-2 text-[10px] font-black uppercase tracking-wider text-zinc-600 hover:text-zinc-300" onClick={() => { setReplyTo(null); setDraft(""); }} type="button">Cancel reply to @{replyTo.author.username.replace(/^@/, "")}</button> : null}</div> : null}
     </article>
   );
 });
@@ -512,6 +535,19 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
 
   useEffect(() => {
     if (!isLoggedIn && (view !== "profile" || !initialProfileUserId)) return;
+    const profileCacheKey = currentUserId ? `principessa-social-profile:${currentUserId}` : "";
+    if (view !== "profile" && isOwnProfile && profileCacheKey) {
+      try {
+        const cachedProfile = window.sessionStorage.getItem(profileCacheKey);
+        if (cachedProfile) {
+          setProfile(JSON.parse(cachedProfile) as FeedProfile);
+          setProfileLoading(false);
+          return;
+        }
+      } catch {
+        // A malformed cache should never prevent the Social feed from loading.
+      }
+    }
     const controller = new AbortController();
     const profileUrl = view === "profile" && !isOwnProfile
       ? `/api/principessa-feed/profile?userId=${encodeURIComponent(initialProfileUserId)}`
@@ -519,14 +555,18 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
     fetch(profileUrl, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const result = (await response.json()) as { posts?: PrincipessaFeedPost[]; profile?: FeedProfile };
-        if (response.ok) { setProfile(result.profile ?? null); if (view === "profile") setProfilePosts(result.posts ?? []); }
+        if (response.ok) {
+          setProfile(result.profile ?? null);
+          if (profileCacheKey && isOwnProfile && result.profile) window.sessionStorage.setItem(profileCacheKey, JSON.stringify(result.profile));
+          if (view === "profile") setProfilePosts(result.posts ?? []);
+        }
       })
       .catch(() => undefined)
       .finally(() => {
         setProfileLoading(false);
       });
     return () => controller.abort();
-  }, [initialProfileUserId, isLoggedIn, isOwnProfile, view]);
+  }, [currentUserId, initialProfileUserId, isLoggedIn, isOwnProfile, view]);
 
   const saveProfile = async () => {
     if (!avatarFile && !headerFile) return;
@@ -538,7 +578,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
       const response = await fetch("/api/user/principessa-feed/profile", { body: form, method: "POST" });
       const result = (await response.json()) as { error?: string; posts?: PrincipessaFeedPost[]; profile?: FeedProfile };
       if (!response.ok) throw new Error(result.error ?? "Profile could not be saved.");
-      setProfile(result.profile ?? null); setProfilePosts(result.posts ?? []); setAvatarFile(null); setHeaderFile(null); setNotice("Feed appearance updated.");
+      setProfile(result.profile ?? null); if (currentUserId && result.profile) window.sessionStorage.setItem(`principessa-social-profile:${currentUserId}`, JSON.stringify(result.profile)); setProfilePosts(result.posts ?? []); setAvatarFile(null); setHeaderFile(null); setNotice("Feed appearance updated.");
     } catch (saveError) { setError(saveError instanceof Error ? saveError.message : "Profile could not be saved."); }
     finally { setProfileSaving(false); }
   };
@@ -574,17 +614,17 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
     } catch (pinError) { setError(pinError instanceof Error ? pinError.message : "Pin update failed."); }
   };
 
-  const comment = useCallback(async (postId: string, body: string) => {
+  const comment = useCallback(async (postId: string, body: string, parentCommentId?: string) => {
     const normalizedBody = body.trim();
     if (!normalizedBody) return false;
     setCommentBusy(postId);
     try {
-      const response = await fetch("/api/user/principessa-feed/comments", { body: JSON.stringify({ body: normalizedBody, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
-      const result = (await response.json()) as { comment?: { body: string; createdAt: string; id: string }; error?: string };
+      const response = await fetch("/api/user/principessa-feed/comments", { body: JSON.stringify({ body: normalizedBody, parentCommentId, postId }), headers: { "Content-Type": "application/json" }, method: "POST" });
+      const result = (await response.json()) as { comment?: { body: string; createdAt: string; id: string; parentCommentId: string | null }; error?: string };
       if (!response.ok) throw new Error(result.error);
       if (result.comment && profile) {
         const appendedComment: PrincipessaFeedPost["comments"][number] = {
-          author: { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username },
+          author: { avatarUrl: profile.avatarUrl, displayName: profile.displayName, userId: currentUserId, username: profile.username },
           ...result.comment,
         };
         const append = (items: PrincipessaFeedPost[]) => items.map((post) => post.id === postId
@@ -660,7 +700,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   const viewCopy: Record<PrincipessaFeedView, { subtitle: string; title: string }> = {
     achievements: { subtitle: "Choose what enters the feed", title: "Share Achievement" },
     approvals: { subtitle: "Admin-only submission review", title: "Post Approvals" },
-    home: { subtitle: "Inside Principessa’s court", title: "The Velvet Network" },
+    home: { subtitle: "Inside Principessa’s court", title: "Principessa Social" },
     messages: { subtitle: "Private conversations", title: "Direct Messages" },
     notifications: { subtitle: "Mentions, replies and activity", title: "Notifications" },
     profile: { subtitle: "Your posts and private identity", title: "My Feed Profile" },
@@ -670,7 +710,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   return (
     <div className="relative mx-auto grid min-h-[calc(100vh-56px)] max-w-[1480px] grid-cols-1 bg-[#070406] lg:grid-cols-[264px_minmax(0,760px)_280px]">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_84%_4%,rgba(190,24,93,.16),transparent_28%),linear-gradient(120deg,#060305,#0b0508_58%,#050304)]" />
-      <aside className="hidden border-r border-[#c89a55]/15 bg-[#080406] lg:block"><div className="sticky top-[76px]"><div className="relative h-40 overflow-hidden border-b border-[#c89a55]/15 bg-[url('/principessa-ui/principessa-gaze.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-t from-[#080406] via-transparent to-black/15" /><p className="absolute bottom-4 left-5 text-[9px] font-black uppercase tracking-[.32em] text-[#e1bb78]">The Velvet Network</p></div><div className="p-5"><div className="flex items-center gap-3"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty />{profile ? <DisplayNameWithUsername className="min-w-0" displayName={profile.displayName} primaryClassName="truncate font-serif text-lg text-[#ffe5b8]" secondaryClassName="truncate text-[10px] text-zinc-700" username={profile.username} /> : <h1 className="font-serif text-lg text-[#ffe5b8]">{isLoggedIn ? "Opening identity..." : "Guest audience"}</h1>}</div><nav className="mt-6 grid gap-1"><Link className={`border-l px-4 py-3 font-serif transition ${view === "home" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed">The Feed</Link>{isLoggedIn ? <Link className={`border-l px-4 py-3 font-serif transition ${view === "profile" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed/profile">My Archive</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#c89a55]/20 pl-4 font-serif text-sm italic leading-6 text-zinc-700">Every word enters her network. Not every word earns her attention.</p></div></div></aside>
+      <aside className="hidden border-r border-[#c89a55]/15 bg-[#080406] lg:block"><div className="sticky top-[76px]"><div className="relative h-40 overflow-hidden border-b border-[#c89a55]/15 bg-[url('/principessa-ui/principessa-gaze.jpeg')] bg-cover bg-center"><div className="absolute inset-0 bg-gradient-to-t from-[#080406] via-transparent to-black/15" /><p className="absolute bottom-4 left-5 text-[9px] font-black uppercase tracking-[.32em] text-[#e1bb78]">Principessa Social</p></div><div className="p-5"><Link className="flex items-center gap-3 transition hover:brightness-125" href="/principessa-feed/profile"><FeedAvatar author={profile ? { avatarUrl: profile.avatarUrl, displayName: profile.displayName, username: profile.username } : undefined} empty />{profile ? <DisplayNameWithUsername className="min-w-0" displayName={profile.displayName} primaryClassName="truncate font-serif text-lg text-[#ffe5b8]" secondaryClassName="truncate text-[10px] text-zinc-700" username={profile.username} /> : <h1 className="font-serif text-lg text-[#ffe5b8]">{isLoggedIn ? "Opening identity..." : "Guest audience"}</h1>}</Link><nav className="mt-6 grid gap-1"><Link className={`border-l px-4 py-3 font-serif transition ${view === "home" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed">The Feed</Link>{isLoggedIn ? <Link className={`border-l px-4 py-3 font-serif transition ${view === "profile" ? "border-[#e6ba73] bg-pink-900/15 text-[#ffe5b8]" : "border-transparent text-zinc-600 hover:text-zinc-300"}`} href="/principessa-feed/profile">Profile</Link> : null}</nav><PrincipessaFeedSocialPanels activeView={view} isAdmin={isAdmin} isLoggedIn={isLoggedIn} /><p className="mt-8 border-l border-[#c89a55]/20 pl-4 font-serif text-sm italic leading-6 text-zinc-700">Every word enters her social feed. Not every word earns her attention.</p></div></div></aside>
 
       <section className="min-w-0 border-r border-[#c89a55]/12 bg-[#0a0608]/95 shadow-[0_0_55px_rgba(0,0,0,.48)]">
         <header className="sticky top-[56px] z-40 border-b border-[#c89a55]/15 bg-[#0a0608]/96"><div className="flex items-center justify-between gap-3 px-4 py-3"><div className="min-w-0"><p className="text-[8px] font-black uppercase tracking-[.24em] text-[#c89a55]/45 sm:tracking-[.3em]">Velvet dispatch</p><h1 className="mt-1 truncate font-serif text-lg text-[#ffe5b8] sm:text-xl">{viewCopy[view].title}</h1><p className="truncate text-[8px] uppercase tracking-[0.12em] text-pink-300/35 sm:text-[9px] sm:tracking-[0.18em]">{viewCopy[view].subtitle}</p></div><div className="w-36 max-w-[42%] sm:w-44"><PrincipessaFeedNotifications active={view === "notifications"} isLoggedIn={isLoggedIn} poll={view !== "notifications"} /></div></div>{view === "home" ? <div className="grid grid-cols-2 border-t border-[#c89a55]/10">{(["principessa", "sub"] as const).map((item) => <button className={`relative py-3 font-serif text-sm transition ${channel === item ? "text-[#ffe5b8]" : "text-zinc-700 hover:text-zinc-400"}`} key={item} onClick={() => switchChannel(item)} type="button">{item === "sub" ? <><span className="sm:hidden">Subs</span><span className="hidden sm:inline">The Court&apos;s Subs</span></> : "Principessa"}{channel === item ? <span className="absolute inset-x-1/3 bottom-0 h-px bg-[#e6ba73] shadow-[0_0_9px_#e6ba73]" /> : null}</button>)}</div> : null}</header>

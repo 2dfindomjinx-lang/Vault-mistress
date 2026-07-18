@@ -92,11 +92,13 @@ as $$
       and coalesce(profile.is_admin, false) = false
     group by event.user_id
   ),
-  goal_rows as (
+  raw_goal_rows as (
     select
       tx.user_id,
+      coalesce(profile.is_admin, false) as is_admin,
       abs(tx.amount)::bigint as amount
     from public.coin_transactions as tx
+    join public.profiles as profile on profile.id = tx.user_id
     where tx.created_at >= p_goal_start
       and tx.created_at < p_goal_end
       -- Keep the database aggregate aligned with isCommunityGoalContribution.
@@ -119,6 +121,17 @@ as $$
         ))
         or (tx.amount > 0 and tx.reason in ('tribute:support', 'tribute:sacrifice', 'tribute:coin-offer'))
       )
+  ),
+  goal_rows as (
+    select
+      user_id,
+      is_admin,
+      case
+        when is_admin then floor(sum(amount) * 0.20)::bigint
+        else sum(amount)::bigint
+      end as amount
+    from raw_goal_rows
+    group by user_id, is_admin
   )
   select jsonb_build_object(
     'supporterTodayUserId', (select user_id from support_totals order by today desc, user_id asc limit 1),
@@ -148,9 +161,9 @@ as $$
       limit 1
     ), 0),
     'goalProgressCoins', coalesce((select sum(amount) from goal_rows), 0),
-    'goalParticipantCount', (select count(distinct user_id) from goal_rows where amount > 0),
+    'goalParticipantCount', (select count(*) from goal_rows where amount > 0 and is_admin = false),
     'currentUserContributionCoins', coalesce((select sum(amount) from goal_rows where user_id = p_user_id), 0),
-    'currentUserParticipating', exists(select 1 from goal_rows where user_id = p_user_id and amount > 0)
+    'currentUserParticipating', exists(select 1 from goal_rows where user_id = p_user_id and amount > 0 and is_admin = false)
   );
 $$;
 
@@ -174,9 +187,10 @@ declare
   crate_awards integer := 0;
   progress_coins bigint := 0;
 begin
-  with goal_rows as (
-    select tx.user_id, abs(tx.amount)::bigint as amount
+  with raw_goal_rows as (
+    select tx.user_id, coalesce(profile.is_admin, false) as is_admin, abs(tx.amount)::bigint as amount
     from public.coin_transactions tx
+    join public.profiles as profile on profile.id = tx.user_id
     where tx.created_at >= p_goal_start
       and tx.created_at < p_goal_end
       and (
@@ -194,6 +208,13 @@ begin
         ))
         or (tx.amount > 0 and tx.reason in ('tribute:support', 'tribute:sacrifice', 'tribute:coin-offer'))
       )
+  ), goal_rows as (
+    select
+      user_id,
+      is_admin,
+      case when is_admin then floor(sum(amount) * 0.20)::bigint else sum(amount)::bigint end as amount
+    from raw_goal_rows
+    group by user_id, is_admin
   )
   select coalesce(sum(amount), 0) into progress_coins from goal_rows;
 
@@ -201,9 +222,10 @@ begin
     return jsonb_build_object('completed', false, 'progressCoins', progress_coins, 'badgeAwards', 0, 'crateAwards', 0);
   end if;
 
-  with participants as (
-    select distinct tx.user_id
+  with raw_goal_rows as (
+    select tx.user_id, coalesce(profile.is_admin, false) as is_admin, abs(tx.amount)::bigint as amount
     from public.coin_transactions tx
+    join public.profiles as profile on profile.id = tx.user_id
     where tx.created_at >= p_goal_start
       and tx.created_at < p_goal_end
       and (
@@ -221,6 +243,17 @@ begin
         ))
         or (tx.amount > 0 and tx.reason in ('tribute:support', 'tribute:sacrifice', 'tribute:coin-offer'))
       )
+  ), goal_rows as (
+    select
+      user_id,
+      is_admin,
+      case when is_admin then floor(sum(amount) * 0.20)::bigint else sum(amount)::bigint end as amount
+    from raw_goal_rows
+    group by user_id, is_admin
+  ), participants as (
+    select user_id
+    from goal_rows
+    where is_admin = false and amount > 0
   ), inserted_badges as (
     insert into public.user_prestige_badges (user_id, badge_id, source, metadata)
     select user_id, p_badge_id, 'community_goal', jsonb_build_object('goalId', p_goal_id)
@@ -234,8 +267,10 @@ begin
     with participants as (
       select distinct badge.user_id
       from public.user_prestige_badges badge
+      join public.profiles as profile on profile.id = badge.user_id
       where badge.badge_id = p_badge_id
         and badge.source = 'community_goal'
+        and coalesce(profile.is_admin, false) = false
     ), inserted_grants as (
       insert into public.user_crate_open_grants (
         user_id, crate_type, goal_id, source, total_opens, remaining_opens

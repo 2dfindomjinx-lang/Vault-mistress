@@ -31,6 +31,7 @@ type CommentRow = {
   body: string;
   created_at: string;
   id: string;
+  parent_comment_id: string | null;
   post_id: string;
   user_id: string;
 };
@@ -68,12 +69,14 @@ export type PrincipessaFeedPost = {
     author: {
       avatarUrl: string | null;
       displayName: string | null;
+      userId?: string | null;
       username: string;
       usernameStyle?: { color?: string; textShadow?: string };
     };
     body: string;
     createdAt: string;
     id: string;
+    parentCommentId: string | null;
   }>;
   createdAt: string;
   channel: "principessa" | "sub";
@@ -179,7 +182,7 @@ export async function listPrincipessaFeedPosts(
       .order("sort_order", { ascending: true }),
     supabase
       .from("principessa_post_comments")
-      .select("id, post_id, user_id, body, created_at")
+      .select("id, post_id, user_id, body, created_at, parent_comment_id")
       .in("post_id", postIds)
       .order("created_at", { ascending: true })
       .limit(1000),
@@ -246,6 +249,7 @@ export async function listPrincipessaFeedPosts(
       body: comment.body,
       createdAt: comment.created_at,
       id: comment.id,
+      parentCommentId: comment.parent_comment_id,
     })),
     createdAt: post.created_at,
     confessionMode: post.confession_mode,

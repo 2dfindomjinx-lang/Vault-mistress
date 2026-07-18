@@ -51,7 +51,7 @@ export function PrincipessaFeedSearchPage({ isLoggedIn }: { isLoggedIn: boolean 
         <input autoFocus className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-600" onChange={(event) => { const next = event.target.value; setQuery(next); if (next.trim().length < 2) { setAccounts([]); setPosts([]); setLoading(false); } }} placeholder="Search people, posts and confessions" value={query} />
       </label>
     </div>
-    {!hasQuery ? <div className="px-6 py-16 text-center"><p className="font-serif text-2xl text-[#ffe4b5]">Search the Velvet Network</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">Find accounts by display name or username, and search through published posts.</p></div> : null}
+    {!hasQuery ? <div className="px-6 py-16 text-center"><p className="font-serif text-2xl text-[#ffe4b5]">Search Principessa Social</p><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">Find accounts by display name or username, and search through published posts.</p></div> : null}
     {loading ? <p className="p-10 text-center text-sm text-zinc-600">Searching...</p> : null}
     {hasQuery && !loading ? <>
       <section className="border-b border-white/10">
