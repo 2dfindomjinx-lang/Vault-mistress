@@ -3,6 +3,7 @@ import {
   normalizeDevotionPeriod,
   type DevotionLeaderboardEntry,
 } from "@/lib/devotion";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { getCosmeticItem, getTitleItem, getSpendBadge } from "@/lib/cosmetics";
 import { getLeadershipRank } from "@/lib/leadership";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total",
+        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total, address_term",
       )
       .in("id", userIds),
     supabase
@@ -134,6 +135,7 @@ export async function GET(request: Request) {
     (profileResult.data ?? []).map((profile) => [
       String(profile.id),
       {
+        addressTerm: normalizeAddressTerm(profile.address_term),
         badgeImagePath: (() => {
           const badge = getSpendBadge(Number(profile.lifetime_spent_coins ?? 0));
           return badge.isEarned ? badge.imagePath : null;
@@ -160,6 +162,7 @@ export async function GET(request: Request) {
     const fallbackTitleName = getLeadershipRank(profile.tributeTotal).currentRank.title;
 
     return {
+      addressTerm: profile.addressTerm,
       badgeImagePath: profile.badgeImagePath,
       backgroundItemId: backgroundByUserId.get(String(row.user_id)) ?? null,
       devotion: period === "all_time" ? profile.totalDevotion : Number(row.devotion ?? 0),

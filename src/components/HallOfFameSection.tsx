@@ -2,7 +2,7 @@ import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
-import type { AddressTerm } from "@/lib/address-term";
+import { DEFAULT_ADDRESS_TERM } from "@/lib/address-term";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem, getTitleNameForAddressTerm } from "@/lib/cosmetics";
 import type { HallOfFameCardData } from "@/lib/prestige";
@@ -10,7 +10,6 @@ import { normalizeEquipment } from "@/lib/avatar-slots";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type HallOfFameSectionProps = {
-  addressTerm: AddressTerm;
   cards: HallOfFameCardData[];
   isLoading?: boolean;
   onSelectUser: (userId: string) => void;
@@ -28,7 +27,6 @@ function getFramePresentation(card: HallOfFameCardData) {
 }
 
 export function HallOfFameSection({
-  addressTerm,
   cards,
   isLoading = false,
   onSelectUser,
@@ -122,7 +120,7 @@ export function HallOfFameSection({
                       <p className="truncate text-xs text-amber-50/55">{winner.username}</p>
                     ) : null}
                     <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-100/70">
-                      {getTitleNameForAddressTerm(winner?.titleName, addressTerm) ??
+                      {getTitleNameForAddressTerm(winner?.titleName, winner?.addressTerm ?? DEFAULT_ADDRESS_TERM) ??
                         "Awaiting first honor"}
                     </p>
                   </div>

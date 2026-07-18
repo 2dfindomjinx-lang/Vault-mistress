@@ -36,20 +36,25 @@ create policy "Anon can read jackpot contributions"
   to anon
   using (true);
 
+-- Return type is changing (new address_term column), so the old signature must be
+-- dropped first - CREATE OR REPLACE FUNCTION cannot change an existing RETURNS TABLE shape.
+drop function if exists public.get_public_leaderboard(integer);
+
 create or replace function public.get_public_leaderboard(p_limit integer default 3)
 returns table (
   id uuid,
   username text,
   display_name text,
   tribute_total integer,
-  created_at timestamptz
+  created_at timestamptz,
+  address_term text
 )
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.username, p.display_name, p.tribute_total, p.created_at
+  select p.id, p.username, p.display_name, p.tribute_total, p.created_at, p.address_term
   from public.profiles p
   where p.hide_from_leaderboard = false
     and coalesce(p.is_admin, false) = false

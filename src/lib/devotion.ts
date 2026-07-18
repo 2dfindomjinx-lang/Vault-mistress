@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AddressTerm } from "@/lib/address-term";
 
 export type DevotionPeriod = "weekly" | "monthly" | "all_time";
 
@@ -22,6 +23,7 @@ export type DevotionLeaderboardEntry = {
   frameItemId: string | null;
   frameVariant: DevotionFrameVariant;
   titleName: string | null;
+  addressTerm: AddressTerm;
 };
 
 export type DevotionLeaderboardResponse = {

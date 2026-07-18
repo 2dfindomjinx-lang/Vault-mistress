@@ -1,3 +1,5 @@
+import type { AddressTerm } from "@/lib/address-term";
+
 export const LEADERSHIP_RANKS = [
   { min: 0, title: "Worthless Worm" },
   { min: 1000, title: "Useless Loser" },
@@ -15,6 +17,7 @@ export type LeadershipEntry = {
   display_name?: string | null;
   tributeTotal: number;
   rankTitle: string;
+  addressTerm: AddressTerm;
   usernameStyle?: {
     color?: string;
     textShadow?: string;

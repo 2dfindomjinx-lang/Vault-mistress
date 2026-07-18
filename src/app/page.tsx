@@ -11080,7 +11080,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {activePanel === "home" && (
             <div className="flex min-w-0 flex-col gap-6">
               <HallOfFameSection
-                addressTerm={addressTerm}
                 cards={hallOfFameCards}
                 isLoading={communityStatusLoading}
                 onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
@@ -11294,7 +11293,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "devotion" && (
             <DevotionLeaderboard
-              addressTerm={addressTerm}
               data={devotionLeaderboardData}
               error={devotionError}
               isLoading={devotionLoading}
@@ -11676,7 +11674,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         </section>
       </AppShell>
       <PublicProfileModal
-        addressTerm={addressTerm}
         data={selectedCommunityProfile}
         error={selectedCommunityProfileError}
         isLoading={selectedCommunityProfileLoading}

@@ -1,4 +1,5 @@
 import { getLeadershipRank } from "@/lib/leadership";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { getDisplayNameOrUsernamePlain } from "@/lib/display-name";
 import {
   createPublicSupabaseClient,
@@ -34,6 +35,7 @@ export async function GET() {
     display_name?: string | null;
     tribute_total: number;
     created_at: string;
+    address_term?: string | null;
   }>;
   const userIds = leaders.map((profile) => String(profile.id)).filter(Boolean);
 
@@ -107,6 +109,7 @@ export async function GET() {
         const tributeTotal = Number(profile.tribute_total ?? 0);
 
         return {
+          addressTerm: normalizeAddressTerm(profile.address_term),
           createdAt: String(profile.created_at ?? ""),
           id: String(profile.id),
           rankTitle: getLeadershipRank(tributeTotal).currentRank.title,
@@ -126,6 +129,7 @@ export async function GET() {
       })
       .slice(0, 5)
       .map((leader) => ({
+        addressTerm: leader.addressTerm,
         rankTitle: leader.rankTitle,
         tributeTotal: leader.tributeTotal,
         username: leader.username,

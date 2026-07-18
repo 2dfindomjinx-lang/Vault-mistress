@@ -121,7 +121,7 @@ export function StatsPanel({
                         />
                       </div>
                       <p className="text-xs text-zinc-400">
-                        {getTitleNameForAddressTerm(leader.rankTitle, addressTerm)}
+                        {getTitleNameForAddressTerm(leader.rankTitle, leader.addressTerm)}
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-black text-pink-100">

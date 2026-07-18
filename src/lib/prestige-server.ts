@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeAddressTerm } from "@/lib/address-term";
 import { getCosmeticItem, getSpendBadge, getTitleItem } from "@/lib/cosmetics";
 import { getDevotionFrameVariant } from "@/lib/devotion";
 import { getLeadershipRank } from "@/lib/leadership";
@@ -14,6 +15,7 @@ import {
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 type ProfilePresentationRow = {
+  address_term?: string | null;
   equipped_avatar_slots: Record<string, string> | null;
   has_uncensored_avatar: boolean | null;
   id: string;
@@ -165,7 +167,7 @@ export async function loadCommunityProfiles(
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, loyalty_streak, total_devotion, tribute_total",
+        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, loyalty_streak, total_devotion, tribute_total, address_term",
       )
       .in("id", ids),
     supabase
@@ -254,6 +256,7 @@ export async function loadCommunityProfiles(
       return [
         profile.id,
         {
+          addressTerm: normalizeAddressTerm(profile.address_term),
           badgeImagePath: spendBadge.isEarned ? spendBadge.imagePath : null,
           badges: badgesByUserId.get(profile.id) ?? [],
           backgroundItemId: backgroundByUserId.get(profile.id) ?? null,

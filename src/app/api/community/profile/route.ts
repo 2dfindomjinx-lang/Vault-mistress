@@ -64,6 +64,7 @@ export async function GET(request: Request) {
   return Response.json({
     badges: profile.badges,
     profile: {
+      addressTerm: profile.addressTerm,
       badgeImagePath: profile.badgeImagePath,
       badges: profile.badges,
       backgroundItemId: profile.backgroundItemId,

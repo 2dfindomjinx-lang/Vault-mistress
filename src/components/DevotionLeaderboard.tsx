@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
-import type { AddressTerm } from "@/lib/address-term";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem, getTitleNameForAddressTerm } from "@/lib/cosmetics";
 import {
@@ -13,7 +12,6 @@ import { normalizeEquipment } from "@/lib/avatar-slots";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type DevotionLeaderboardProps = {
-  addressTerm: AddressTerm;
   data: DevotionLeaderboardResponse;
   error?: string;
   isLoading?: boolean;
@@ -46,11 +44,9 @@ function formatCountdown(ms: number) {
 }
 
 function LeaderboardRow({
-  addressTerm,
   entry,
   highlight = false,
 }: {
-  addressTerm: AddressTerm;
   entry: DevotionLeaderboardEntry;
   highlight?: boolean;
 }) {
@@ -59,7 +55,7 @@ function LeaderboardRow({
     getCosmeticItem(entry.backgroundItemId ?? ""),
   );
   const mainName = entry.displayName?.trim() || entry.username;
-  const titleName = getTitleNameForAddressTerm(entry.titleName, addressTerm);
+  const titleName = getTitleNameForAddressTerm(entry.titleName, entry.addressTerm);
 
   return (
     <div
@@ -132,7 +128,6 @@ function LeaderboardRow({
 }
 
 export function DevotionLeaderboard({
-  addressTerm,
   data,
   error,
   isLoading = false,
@@ -195,7 +190,6 @@ export function DevotionLeaderboard({
         ) : data.leaders.length > 0 ? (
           data.leaders.map((entry) => (
             <LeaderboardRow
-              addressTerm={addressTerm}
               entry={entry}
               key={`${entry.userId}:${entry.rank}`}
             />
@@ -209,7 +203,7 @@ export function DevotionLeaderboard({
 
       {data.currentUserEntry ? (
         <div className="mt-5 border-t border-dashed border-white/12 pt-5">
-          <LeaderboardRow addressTerm={addressTerm} entry={data.currentUserEntry} highlight />
+          <LeaderboardRow entry={data.currentUserEntry} highlight />
         </div>
       ) : null}
     </section>

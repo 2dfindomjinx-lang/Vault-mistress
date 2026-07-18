@@ -1,3 +1,4 @@
+import type { AddressTerm } from "@/lib/address-term";
 import {
   getCosmeticItem,
   rotatingCosmeticItems,
@@ -22,6 +23,7 @@ export type UserPrestigeBadge = PrestigeBadgeDefinition & {
 };
 
 export type CommunityProfileSnippet = {
+  addressTerm: AddressTerm;
   badgeImagePath: string | null;
   badges: UserPrestigeBadge[];
   backgroundItemId: string | null;
