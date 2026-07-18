@@ -141,6 +141,7 @@ create table if not exists public.user_tasks (
   claimed_at timestamp with time zone,
   reward_coins integer default 0,
   metadata jsonb not null default '{}'::jsonb,
+  equipped boolean not null default true,
   created_at timestamp with time zone default now(),
   unique(user_id, task_id)
 );

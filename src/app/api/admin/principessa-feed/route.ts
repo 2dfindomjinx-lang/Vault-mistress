@@ -63,7 +63,7 @@ async function uploadImages(
     const storagePath = `${postId}/${String(index + 1).padStart(2, "0")}-${crypto.randomUUID()}.${extension}`;
     const bytes = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await admin.supabase.storage.from(BUCKET).upload(storagePath, bytes, {
-      cacheControl: "3600",
+      cacheControl: "21600",
       contentType: file.type,
       upsert: false,
     });

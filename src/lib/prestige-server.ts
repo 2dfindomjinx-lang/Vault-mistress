@@ -40,6 +40,7 @@ type EquippedTitleRow = {
 
 type UserPrestigeBadgeRow = {
   badge_id: string;
+  equipped: boolean | null;
   earned_at: string;
   user_id: string;
 };
@@ -56,7 +57,7 @@ export async function loadUserPrestigeBadges(
 ) {
   const { data, error } = await supabase
     .from("user_prestige_badges")
-    .select("badge_id, earned_at")
+    .select("badge_id, earned_at, equipped")
     .eq("user_id", userId)
     .order("earned_at", { ascending: true });
 
@@ -64,8 +65,8 @@ export async function loadUserPrestigeBadges(
     throw error;
   }
 
-  return ((data ?? []) as Array<{ badge_id: string; earned_at: string }>)
-    .map((row) => inflateUserPrestigeBadge(row.badge_id, row.earned_at))
+  return ((data ?? []) as Array<{ badge_id: string; earned_at: string; equipped: boolean | null }>)
+    .map((row) => inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped !== false))
     .filter((badge): badge is UserPrestigeBadge => Boolean(badge));
 }
 
@@ -99,7 +100,7 @@ export async function syncCurrentUserPrestige(
   const communityGoalCompleted = goalProgressCoins >= goalStatus.targetCoins;
   const badgeIds = new Set(seasonBadgeIds);
 
-  if (communityGoalCompleted && currentUserParticipating) {
+  if (communityGoalCompleted && currentUserParticipating && goalStatus.rewardBadge) {
     badgeIds.add(goalStatus.rewardBadge.id);
   }
 
@@ -111,7 +112,7 @@ export async function syncCurrentUserPrestige(
         Array.from(badgeIds).map((badgeId) => ({
           badge_id: badgeId,
           earned_at: now,
-          source: badgeId === goalStatus.rewardBadge.id ? "community_goal" : "seasonal_support",
+          source: badgeId === goalStatus.rewardBadge?.id ? "community_goal" : "seasonal_support",
           user_id: userId,
         })),
         { onConflict: "user_id,badge_id", ignoreDuplicates: true },
@@ -179,7 +180,7 @@ export async function loadCommunityProfiles(
       .eq("equipped", true),
     supabase
       .from("user_prestige_badges")
-      .select("user_id, badge_id, earned_at")
+      .select("user_id, badge_id, earned_at, equipped")
       .in("user_id", ids)
       .order("earned_at", { ascending: true }),
   ]);
@@ -236,9 +237,9 @@ export async function loadCommunityProfiles(
 
   ((badgeResult.data ?? []) as UserPrestigeBadgeRow[]).forEach((row) => {
     const current = badgesByUserId.get(row.user_id) ?? [];
-    const inflated = inflateUserPrestigeBadge(row.badge_id, row.earned_at);
+    const inflated = inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped !== false);
 
-    if (inflated) {
+    if (inflated?.equipped) {
       current.push(inflated);
       badgesByUserId.set(row.user_id, current);
     }

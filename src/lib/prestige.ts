@@ -18,6 +18,7 @@ export type PrestigeBadgeDefinition = {
 
 export type UserPrestigeBadge = PrestigeBadgeDefinition & {
   earnedAt: string;
+  equipped: boolean;
 };
 
 export type CommunityProfileSnippet = {
@@ -56,7 +57,7 @@ export type CommunityGoalStatus = {
   participantCount: number;
   progressCoins: number;
   progressPercent: number;
-  rewardBadge: PrestigeBadgeDefinition;
+  rewardBadge?: PrestigeBadgeDefinition;
   rewardDescription: string;
   rewardTitle: string;
   rewardCrateType?: string;
@@ -94,7 +95,7 @@ type CommunityGoalDefinition = {
   endsAt: string;
   id: string;
   includedReasons: string[];
-  rewardBadgeId: string;
+  rewardBadgeId?: string;
   rewardCrateType?: string;
   rewardDescription: string;
   rewardFreeOpens?: number;
@@ -177,16 +178,15 @@ export const SEASONAL_BADGES: SeasonalBadgeDefinition[] = [
 
 export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
   {
-    id: "summer-community-goal-2026",
+    id: "summer-community-goal-ii-2026",
     title: "Spend 2,500,000 Coins",
-    startsAt: "2026-06-28T16:39:58+03:00",
+    startsAt: "2026-07-18T19:35:45+03:00",
     endsAt: "2026-09-01T00:00:00+03:00",
     targetCoins: 2_500_000,
-    rewardBadgeId: "community-goal-summer-2026",
-    rewardCrateType: "premium_case",
+    rewardCrateType: "principessa_case",
     rewardFreeOpens: 3,
-    rewardTitle: "3x Premium Case Keys",
-    rewardDescription: "Every participant receives 3 free Premium Case opens when the community finishes the objective.",
+    rewardTitle: "3x Principessa Case Keys",
+    rewardDescription: "Every participant receives 3 free Principessa Case opens when the community finishes the objective.",
     includedReasons: [
       "crate:open",
       "cosmetic:display_name_change",
@@ -269,7 +269,7 @@ export function getPrestigeBadgeDefinition(badgeId: string) {
   return PRESTIGE_BADGE_MAP.get(badgeId) ?? null;
 }
 
-export function inflateUserPrestigeBadge(badgeId: string, earnedAt: string): UserPrestigeBadge | null {
+export function inflateUserPrestigeBadge(badgeId: string, earnedAt: string, equipped = true): UserPrestigeBadge | null {
   const definition = getPrestigeBadgeDefinition(badgeId);
 
   if (!definition) {
@@ -279,6 +279,7 @@ export function inflateUserPrestigeBadge(badgeId: string, earnedAt: string): Use
   return {
     ...definition,
     earnedAt,
+    equipped,
   };
 }
 
@@ -545,7 +546,7 @@ export function buildCommunityGoalStatus(
   currentUserId?: string | null,
   adminUserIds: ReadonlySet<string> = new Set(),
 ): CommunityGoalStatus {
-  const badge = PRESTIGE_BADGE_MAP.get(goal.rewardBadgeId)!;
+  const badge = goal.rewardBadgeId ? PRESTIGE_BADGE_MAP.get(goal.rewardBadgeId) : undefined;
   const startsAtMs = new Date(goal.startsAt).getTime();
   const endsAtMs = new Date(goal.endsAt).getTime();
   const relevantTransactions = transactions.filter((transaction) => {

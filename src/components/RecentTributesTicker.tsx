@@ -354,10 +354,10 @@ export function RecentTributesTicker({
             {recentCaseOpeningsError}
           </p>
         ) : recentCaseOpenings.length > 0 ? (
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentCaseOpenings.map((opening) => (
               <article
-                className={`group relative h-[210px] min-w-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}

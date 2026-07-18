@@ -18,10 +18,11 @@ async function listMessages(supabase: ReturnType<typeof createSupabaseAdminClien
   const otherIds = Array.from(new Set(rows.map((message) => message.sender_id === userId ? message.recipient_id : message.sender_id)));
   const profiles = await loadCommunityProfiles(supabase, otherIds);
   const unreadIds = rows.filter((message) => message.recipient_id === userId && !message.read_at).map((message) => message.id);
-  if (unreadIds.length > 0) await supabase.from("principessa_direct_messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds).eq("recipient_id", userId);
+  const readAt = new Date().toISOString();
+  if (unreadIds.length > 0) await supabase.from("principessa_direct_messages").update({ read_at: readAt }).in("id", unreadIds).eq("recipient_id", userId);
   return rows.map((message) => {
     const otherId = message.sender_id === userId ? message.recipient_id : message.sender_id;
-    return { body: message.body, createdAt: message.created_at, id: message.id, mine: message.sender_id === userId, other: profiles.get(otherId) ?? null, otherId, readAt: message.read_at };
+    return { body: message.body, createdAt: message.created_at, id: message.id, mine: message.sender_id === userId, other: profiles.get(otherId) ?? null, otherId, readAt: message.read_at ?? (message.recipient_id === userId && unreadIds.includes(message.id) ? readAt : null) };
   });
 }
 

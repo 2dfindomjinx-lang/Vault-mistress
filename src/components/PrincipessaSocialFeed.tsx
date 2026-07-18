@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PrincipessaFeedPost } from "@/lib/principessa-feed";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { PrincipessaFeedNotifications, PrincipessaFeedNotificationsPage } from "@/components/PrincipessaFeedNotifications";
@@ -13,6 +13,37 @@ type MentionUser = { displayName: string; id: string; username: string };
 
 const IMAGE_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
 const MAX_FUNCTION_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+async function optimizeFeedImageUpload(file: File) {
+  // Keep animated GIFs untouched. For still images, the feed only needs a
+  // high-quality display rendition, so cap dimensions before storage upload.
+  if (file.type === "image/gif" || !IMAGE_TYPES.has(file.type)) return file;
+
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = sourceUrl;
+    await image.decode();
+    const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+    if (largestSide <= 1600 && file.type === "image/webp" && file.size <= 900 * 1024) return file;
+
+    const scale = Math.min(1, 1600 / largestSide);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+    return blob && blob.size < file.size
+      ? new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "feed-image"}.webp`, { type: "image/webp" })
+      : file;
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -210,10 +241,12 @@ function ImageCropEditor({ file, onApply, onCancel, target }: { file: File; onAp
       image.src = sourceUrl;
       await image.decode();
       const canvas = document.createElement("canvas");
-      canvas.width = target === "avatar" ? 1024 : 1800;
-      canvas.height = target === "avatar" ? 1024 : 600;
+      // These are display assets, not originals. Smaller WebP crops keep
+      // profiles crisp while avoiding repeatedly serving multi-megabyte files.
+      canvas.width = target === "avatar" ? 512 : 1440;
+      canvas.height = target === "avatar" ? 512 : 480;
       drawCrop(canvas, image, zoom, x, y);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.92));
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
       if (!blob) throw new Error("The cropped image could not be created.");
       onApply(new File([blob], `${target}-${Date.now()}.webp`, { type: "image/webp" }));
     } finally { setBusy(false); }
@@ -263,7 +296,7 @@ function AdminComposer({ onPublished }: { onPublished: (posts: PrincipessaFeedPo
       <input className="w-full bg-transparent text-lg font-black outline-none placeholder:text-zinc-700" maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" value={title} />
       <MentionTextarea className="mt-3 min-h-28 w-full resize-none bg-transparent text-lg leading-7 outline-none placeholder:text-zinc-700" maxLength={4000} onChange={setDescription} placeholder="What is happening? Type @ to tag someone." value={description} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-        <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">Add up to 8 images (4 MB total)<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" multiple onChange={(event) => { const next = [...files, ...Array.from(event.target.files ?? [])].slice(0, 8); if (next.reduce((total, file) => total + file.size, 0) > MAX_FUNCTION_UPLOAD_BYTES) setError("The selected images are too large to upload together. Keep the total below 4 MB."); else { setFiles(next); setError(""); } event.target.value = ""; }} type="file" /></label>
+        <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">Add up to 8 images (4 MB total)<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []); event.target.value = ""; void Promise.all(selected.map(optimizeFeedImageUpload)).then((optimized) => { const next = [...files, ...optimized].slice(0, 8); if (next.reduce((total, file) => total + file.size, 0) > MAX_FUNCTION_UPLOAD_BYTES) setError("The selected images are too large to upload together. Keep the total below 4 MB."); else { setFiles(next); setError(""); } }); }} type="file" /></label>
         <div className="flex gap-2">
           <button className="rounded-full px-4 py-2 text-xs font-black text-zinc-400" onClick={() => { setTitle(""); setDescription(""); setFiles([]); setError(""); }} type="button">Clear</button>
           <button className="rounded-full bg-pink-500 px-5 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void submit()} type="button">{busy ? "Publishing..." : "Publish"}</button>
@@ -299,12 +332,12 @@ function SubComposer({ onSubmitted }: { onSubmitted: (message: string) => void }
     } finally { setBusy(false); }
   };
 
-  const chooseImage = (file?: File) => {
+  const chooseImage = async (file?: File) => {
     if (!file) return;
     if (!IMAGE_TYPES.has(file.type) || file.size > 4 * 1024 * 1024) {
       setError("Choose one JPG, PNG, WEBP or GIF image up to 4MB."); return;
     }
-    setImage(file); setError("");
+    setImage(await optimizeFeedImageUpload(file)); setError("");
   };
 
   return (
@@ -317,7 +350,7 @@ function SubComposer({ onSubmitted }: { onSubmitted: (message: string) => void }
           <div className="flex items-center gap-3"><input className="min-w-0 flex-1 bg-transparent font-black outline-none placeholder:text-zinc-700" maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Short title" value={title} /><span className={title.length > 70 ? "text-xs text-amber-300" : "text-xs text-zinc-700"}>{title.length}/80</span></div>
           <MentionTextarea className="mt-2 min-h-24 w-full resize-none bg-transparent text-lg leading-7 outline-none placeholder:text-zinc-700" maxLength={500} onChange={setDescription} placeholder="Share with the community... Type @ to tag someone." value={description} />
           <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-            <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">{image ? "Change image" : "Add one image (optional)"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; chooseImage(file); }} type="file" /></label>
+            <label className="cursor-pointer rounded-full px-3 py-2 text-xs font-black text-pink-400 hover:bg-pink-500/10">{image ? "Change image" : "Add one image (optional)"}<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; void chooseImage(file); }} type="file" /></label>
             <div className="flex items-center gap-3"><span className={description.length > 460 ? "text-xs text-amber-300" : "text-xs text-zinc-600"}>{description.length}/500</span><button className="rounded-full bg-pink-500 px-5 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void submit()} type="button">{busy ? "Sending..." : "Send for approval"}</button></div>
           </div>
           <SelectedImagePreviews files={image ? [image] : []} onRemove={() => setImage(null)} />
@@ -373,7 +406,7 @@ function PostAdminActions({ onChanged, post }: { onChanged: (posts: PrincipessaF
   return (
     <div className="mb-2 ml-14">
       <div className="flex gap-3 text-xs font-black"><button className="text-zinc-500 hover:text-pink-400" disabled={busy} onClick={() => setEditing(!editing)} type="button">{editing ? "Cancel" : "Edit"}</button><button className={post.pinned ? "text-[#f4c06a]" : "text-zinc-500 hover:text-[#f4c06a]"} disabled={busy} onClick={() => void togglePin()} type="button">{post.pinned ? "Unpin" : "Pin to profile"}</button><button className="text-zinc-500 hover:text-red-400" disabled={busy} onClick={() => void remove()} type="button">Delete</button></div>
-      {editing ? <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/40 p-3"><input className="rounded-lg bg-white/5 px-3 py-2 outline-none" maxLength={120} onChange={(e) => setTitle(e.target.value)} value={title} /><textarea className="min-h-24 rounded-lg bg-white/5 px-3 py-2 outline-none" maxLength={4000} onChange={(e) => setDescription(e.target.value)} value={description} /><label className="cursor-pointer text-xs text-pink-400">Replace all images (optional)<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" multiple onChange={(e) => setReplacement(Array.from(e.target.files ?? []).slice(0, 8))} type="file" /></label><SelectedImagePreviews files={replacement} onRemove={(index) => setReplacement((current) => current.filter((_, fileIndex) => fileIndex !== index))} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void save()} type="button">{busy ? "Saving..." : "Save changes"}</button></div> : null}
+      {editing ? <div className="mt-3 grid gap-2 rounded-xl border border-white/10 bg-black/40 p-3"><input className="rounded-lg bg-white/5 px-3 py-2 outline-none" maxLength={120} onChange={(e) => setTitle(e.target.value)} value={title} /><textarea className="min-h-24 rounded-lg bg-white/5 px-3 py-2 outline-none" maxLength={4000} onChange={(e) => setDescription(e.target.value)} value={description} /><label className="cursor-pointer text-xs text-pink-400">Replace all images (optional)<input accept="image/gif,image/jpeg,image/png,image/webp" className="sr-only" multiple onChange={(event) => { const selected = Array.from(event.target.files ?? []).slice(0, 8); event.target.value = ""; void Promise.all(selected.map(optimizeFeedImageUpload)).then(setReplacement); }} type="file" /></label><SelectedImagePreviews files={replacement} onRemove={(index) => setReplacement((current) => current.filter((_, fileIndex) => fileIndex !== index))} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={busy || title.trim().length < 2 || !description.trim()} onClick={() => void save()} type="button">{busy ? "Saving..." : "Save changes"}</button></div> : null}
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </div>
   );
@@ -454,7 +487,7 @@ const FeedPostCard = memo(function FeedPostCard({
       {isLoggedIn && post.author.userId && !post.ownedByViewer ? <div className="ml-14 mt-3"><Link className="inline-flex items-center gap-2 rounded-full border border-pink-300/15 px-3 py-1.5 text-[10px] font-black text-pink-200 transition hover:bg-pink-500/10" href={`/principessa-feed/messages?to=${encodeURIComponent(post.author.userId)}`}>✉ Message</Link></div> : null}
       <PostInteractions busy={interactionBusy} isLoggedIn={isLoggedIn} onHighlight={onHighlight} onToggle={onToggle} post={post} />
       {isAdmin ? <PostAdminActions onChanged={onAdminChanged} post={post} /> : null}
-      {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div className={item.parentCommentId ? "ml-4 border-l border-pink-300/15 pl-3" : ""} key={item.id}><div className="flex justify-between gap-2"><FeedAuthorName author={item.author} primaryClassName="text-xs font-black text-zinc-300" /><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p>{isLoggedIn ? <button className="mt-2 text-[10px] font-black uppercase tracking-wider text-zinc-600 hover:text-pink-300" onClick={() => { setReplyTo(item); setDraft(`@${item.author.username.replace(/^@/, "")} `); }} type="button">Reply</button> : null}</div>)}</div> : null}
+      {post.comments.length > 0 ? <div className="ml-14 mt-3 grid gap-3 border-l border-white/10 pl-3">{post.comments.map((item) => <div className={item.parentCommentId ? "ml-4 border-l border-pink-300/15 pl-3" : ""} key={item.id}><div className="flex justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><FeedAuthorAvatar author={item.author} /><FeedAuthorName author={item.author} primaryClassName="text-xs font-black text-zinc-300" /></div><span className="text-[10px] text-zinc-700">{formatDate(item.createdAt)}</span></div><p className="mt-1 text-sm text-zinc-400"><MentionText text={item.body} /></p>{isLoggedIn ? <button className="mt-2 text-[10px] font-black uppercase tracking-wider text-zinc-600 hover:text-pink-300" onClick={() => { setReplyTo(item); setDraft(`@${item.author.username.replace(/^@/, "")} `); }} type="button">Reply</button> : null}</div>)}</div> : null}
       {isLoggedIn ? <div className="ml-14 mt-4"><div className="flex gap-2"><input className="min-w-0 flex-1 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm outline-none focus:border-pink-400/40" maxLength={500} onChange={(event) => setDraft(event.target.value)} placeholder={replyTo ? `Reply to @${replyTo.author.username.replace(/^@/, "")}` : "Post your reply"} value={draft} /><button className="rounded-full bg-pink-500 px-4 py-2 text-xs font-black disabled:opacity-40" disabled={commentBusy || !draft.trim()} onClick={() => void submitComment()} type="button">Reply</button></div>{replyTo ? <button className="mt-2 text-[10px] font-black uppercase tracking-wider text-zinc-600 hover:text-zinc-300" onClick={() => { setReplyTo(null); setDraft(""); }} type="button">Cancel reply to @{replyTo.author.username.replace(/^@/, "")}</button> : null}</div> : null}
     </article>
   );
@@ -483,6 +516,19 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   const avatarPreviewUrl = useFilePreview(avatarFile);
   const headerPreviewUrl = useFilePreview(headerFile);
   const isOwnProfile = !initialProfileUserId || initialProfileUserId === currentUserId;
+
+  useLayoutEffect(() => {
+    if (!isOwnProfile || !currentUserId) return;
+    try {
+      const cachedProfile = window.sessionStorage.getItem(`principessa-social-profile:${currentUserId}`);
+      if (cachedProfile) {
+        setProfile(JSON.parse(cachedProfile) as FeedProfile);
+        setProfileLoading(false);
+      }
+    } catch {
+      // Cache is optional; a missing or malformed value falls back to the API.
+    }
+  }, [currentUserId, isOwnProfile]);
 
   const switchChannel = (nextChannel: Channel) => {
     if (nextChannel === channel) return;

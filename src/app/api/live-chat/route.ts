@@ -90,7 +90,7 @@ async function hydrateMessages(
   }));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -100,6 +100,39 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const retentionCutoff = new Date(Date.now() - CHAT_RETENTION_MS).toISOString();
+  const requestUrl = new URL(request.url);
+  const summaryOnly = requestUrl.searchParams.get("summary") === "1";
+
+  if (summaryOnly) {
+    const after = requestUrl.searchParams.get("after");
+    const afterDate = after ? new Date(after) : null;
+    const validAfter = afterDate && !Number.isNaN(afterDate.getTime()) ? afterDate.toISOString() : null;
+    const [latestResult, unreadResult] = await Promise.all([
+      supabase
+        .from("live_chat_messages")
+        .select("created_at")
+        .gte("created_at", retentionCutoff)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      validAfter
+        ? supabase
+          .from("live_chat_messages")
+          .select("id", { count: "exact", head: true })
+          .gt("created_at", validAfter)
+        : Promise.resolve({ count: 0, error: null }),
+    ]);
+
+    if (latestResult.error || unreadResult.error) {
+      return jsonError(latestResult.error?.message ?? unreadResult.error?.message ?? "Live Chat could not be loaded.", 500);
+    }
+
+    return Response.json({
+      newestCreatedAt: latestResult.data?.created_at ?? null,
+      unreadCount: validAfter ? unreadResult.count ?? 0 : 0,
+    }, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   const { error: retentionCleanupError } = await supabase
     .from("live_chat_messages")
     .delete()

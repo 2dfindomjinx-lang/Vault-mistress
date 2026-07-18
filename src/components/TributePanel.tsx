@@ -171,13 +171,13 @@ export function TributePanel({
                 </div>
 
                 {shrine.bonus.images.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                     {shrine.bonus.images.map((image, index) => {
                       const isUnlocked = index < shrine.bonus!.unlockedCount;
 
                       return (
                         <div
-                          className="relative aspect-[3/4] overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
+                          className="relative aspect-[4/5] overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
                           key={image.fileName}
                         >
                           {isUnlocked ? (

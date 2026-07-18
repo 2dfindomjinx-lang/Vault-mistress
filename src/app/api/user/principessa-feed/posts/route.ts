@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     const extension = MIME_EXTENSIONS[image.type];
     const storagePath = `subs/${postId}/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, Buffer.from(await image.arrayBuffer()), {
-      cacheControl: "3600", contentType: image.type, upsert: false,
+      cacheControl: "21600", contentType: image.type, upsert: false,
     });
     if (uploadError) {
       await supabase.from("principessa_posts").delete().eq("id", postId);

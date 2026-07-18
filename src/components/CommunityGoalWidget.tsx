@@ -1,7 +1,12 @@
-import type { CommunityGoalStatus } from "@/lib/prestige";
+"use client";
+
+import { useState } from "react";
+import { getBadgeToneClasses, type CommunityGoalStatus, type UserPrestigeBadge } from "@/lib/prestige";
 
 type CommunityGoalWidgetProps = {
+  badges?: UserPrestigeBadge[];
   goal: CommunityGoalStatus;
+  onBadgesChange?: () => void;
 };
 
 function formatCountdown(targetIso: string) {
@@ -18,7 +23,26 @@ function formatCountdown(targetIso: string) {
   return `${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m`;
 }
 
-export function CommunityGoalWidget({ goal }: CommunityGoalWidgetProps) {
+export function CommunityGoalWidget({ badges = [], goal, onBadgesChange }: CommunityGoalWidgetProps) {
+  const [badgeBusyId, setBadgeBusyId] = useState<string | null>(null);
+
+  const toggleBadge = async (badge: UserPrestigeBadge) => {
+    setBadgeBusyId(badge.id);
+    try {
+      const response = await fetch("/api/user/prestige-badges", {
+        body: JSON.stringify({ badgeId: badge.id, equipped: !badge.equipped }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Badge update failed.");
+      onBadgesChange?.();
+    } catch (error) {
+      console.error("Prestige badge update failed", error);
+    } finally {
+      setBadgeBusyId(null);
+    }
+  };
+
   return (
     <section className="court-feature-panel rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(145deg,rgba(2,22,18,0.9),rgba(6,78,59,0.48),rgba(0,0,0,0.62))] p-5 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -63,6 +87,27 @@ export function CommunityGoalWidget({ goal }: CommunityGoalWidgetProps) {
           </p>
         </div>
       </div>
+
+      {badges.length > 0 ? (
+        <div className="mt-4 rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Profile Badges</p>
+          <p className="mt-1 text-sm text-emerald-50/72">Choose which earned badges appear on your profile.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {badges.map((badge) => (
+              <button
+                className={`rounded-full border px-3 py-1.5 text-xs font-black tracking-[0.12em] transition disabled:cursor-wait disabled:opacity-50 ${getBadgeToneClasses(badge.tone)} ${badge.equipped ? "" : "opacity-45 grayscale"}`}
+                disabled={badgeBusyId === badge.id}
+                key={badge.id}
+                onClick={() => void toggleBadge(badge)}
+                title={badge.description}
+                type="button"
+              >
+                {badge.label} · {badge.equipped ? "Equipped" : "Unequipped"}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

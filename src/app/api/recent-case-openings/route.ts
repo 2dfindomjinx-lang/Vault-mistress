@@ -53,6 +53,12 @@ type CaseOpener = {
   }>;
 };
 
+// The homepage displays six opening cards. Fetching a small buffer lets us
+// skip malformed/legacy rows without turning the ticker into a 500-row API
+// payload on every visit.
+const CASE_OPENING_QUERY_LIMIT = 40;
+const CASE_OPENING_RESPONSE_LIMIT = 6;
+
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
     const configErrors = getSupabaseAdminConfigErrors();
@@ -70,16 +76,16 @@ export async function GET() {
     .select("id, user_id, crate_type, item_id, opened_at")
     .gte("opened_at", since)
     .order("opened_at", { ascending: false })
-    .limit(500);
+    .limit(CASE_OPENING_QUERY_LIMIT);
 
   if (openingError) {
     console.error("Recent case openings lookup failed", openingError);
     return Response.json({ error: openingError.message }, { status: 500 });
   }
 
-  const rows = ((openingRows ?? []) as CaseOpeningRow[]).filter((row) => {
-    return Object.prototype.hasOwnProperty.call(CRATE_TYPES, row.crate_type) && Boolean(row.item_id);
-  });
+  const rows = ((openingRows ?? []) as CaseOpeningRow[])
+    .filter((row) => Object.prototype.hasOwnProperty.call(CRATE_TYPES, row.crate_type) && Boolean(row.item_id))
+    .slice(0, CASE_OPENING_RESPONSE_LIMIT);
   const groupedRows = new Map<string, CaseOpeningRow[]>();
   for (const row of rows) {
     const current = groupedRows.get(row.user_id) ?? [];
@@ -123,7 +129,7 @@ export async function GET() {
 
         return sum + (getCrateItemSellValue(itemId) ?? 0);
       }, 0);
-      const recentOpenings = userRows.slice(0, 5).map((row) => {
+      const recentOpenings = userRows.map((row) => {
         const itemDef = row.item_id ? SAMPLE_CRATE_ITEMS[row.item_id] : null;
         const crateDef = CRATE_TYPES[row.crate_type];
         const itemImageUrl = row.item_id ? getCrateItemImageUrl(row.item_id, itemDef?.image_url ?? null) : null;

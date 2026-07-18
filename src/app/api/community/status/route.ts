@@ -273,7 +273,7 @@ export async function GET() {
     const metrics = await loadCommunityMetrics(supabase, authData.user.id, nowMs);
     if (metrics.goalProgressCoins >= currentGoal.targetCoins) {
       const { error: rewardError } = await supabase.rpc("grant_community_goal_rewards", {
-        p_badge_id: currentGoal.rewardBadgeId,
+        p_badge_id: currentGoal.rewardBadgeId ?? null,
         p_crate_type: currentGoal.rewardCrateType ?? null,
         p_free_opens: currentGoal.rewardFreeOpens ?? 0,
         p_goal_end: currentGoal.endsAt,

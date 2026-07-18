@@ -10740,7 +10740,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       </div>
     ) : null;
   const profileBadgeStrip =
-    currentUserPrestigeBadges.length > 0 ? <PrestigeBadgeList badges={currentUserPrestigeBadges} /> : null;
+    currentUserPrestigeBadges.some((badge) => badge.equipped)
+      ? <PrestigeBadgeList badges={currentUserPrestigeBadges.filter((badge) => badge.equipped)} />
+      : null;
   const displayNameEditValidation = validateDisplayName(displayNameEditInput, {
     allowExactPrincipessa: isAdminUser,
   });
@@ -11112,7 +11114,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 </div>
 
                 <div className="flex min-w-0 flex-col gap-6">
-                  {communityGoal ? <CommunityGoalWidget goal={communityGoal} /> : null}
+                  {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
                   <StatsPanel
                     addressTerm={addressTerm}
                     equippedTitleName={equippedTitle?.name}

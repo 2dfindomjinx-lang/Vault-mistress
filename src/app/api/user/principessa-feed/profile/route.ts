@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       const { error: uploadError } = await auth.supabase.storage.from(BUCKET).upload(
         path,
         Buffer.from(await file.arrayBuffer()),
-        { cacheControl: "3600", contentType: file.type, upsert: false },
+        { cacheControl: "21600", contentType: file.type, upsert: false },
       );
       if (uploadError) throw uploadError;
       uploadedPaths.push(path);

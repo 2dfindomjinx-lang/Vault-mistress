@@ -46,7 +46,7 @@ export function HallOfFameSection({
         </p>
       </div>
 
-      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading && cards.length === 0 ? (
           <div className="rounded-[1.8rem] border border-white/10 bg-black/25 px-4 py-10 text-sm text-amber-50/75 md:col-span-2 2xl:col-span-4">
             Loading community honors...

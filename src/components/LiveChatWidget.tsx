@@ -30,6 +30,11 @@ type LiveChatResponse = {
   messages?: LiveChatMessage[];
 };
 
+type LiveChatSummaryResponse = {
+  newestCreatedAt?: string | null;
+  unreadCount?: number;
+};
+
 type LiveChatWidgetProps = {
   onCoinsChange?: (coins: number) => void;
 };
@@ -94,11 +99,35 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
     }
   };
 
+  const loadSummary = async () => {
+    try {
+      const storedLastReadAt = lastReadAtRef.current ?? window.localStorage.getItem("vault-live-chat-last-read-at");
+      const params = new URLSearchParams({ summary: "1" });
+      if (storedLastReadAt) params.set("after", storedLastReadAt);
+      const response = await fetch(`/api/live-chat?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as LiveChatSummaryResponse & { error?: string };
+
+      if (!response.ok) throw new Error(payload.error ?? "Live Chat could not be loaded.");
+
+      if (!storedLastReadAt && payload.newestCreatedAt) {
+        lastReadAtRef.current = payload.newestCreatedAt;
+        window.localStorage.setItem("vault-live-chat-last-read-at", payload.newestCreatedAt);
+        setUnreadCount(0);
+      } else {
+        setUnreadCount(payload.unreadCount ?? 0);
+      }
+      hasLoadedRef.current = true;
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
+    }
+  };
+
   useEffect(() => {
-    const initialTimer = window.setTimeout(() => void loadMessages(isOpen), 0);
+    const load = isOpen ? () => loadMessages(true) : loadSummary;
+    const initialTimer = window.setTimeout(() => void load(), 0);
     const timer = window.setInterval(() => {
-      void loadMessages(isOpen);
-    }, 30000);
+      void load();
+    }, isOpen ? 30000 : 120000);
 
     return () => { window.clearTimeout(initialTimer); window.clearInterval(timer); };
   }, [isOpen]);
