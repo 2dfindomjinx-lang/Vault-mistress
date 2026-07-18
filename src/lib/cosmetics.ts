@@ -627,7 +627,7 @@ export const titleItems: TitleItem[] = [
   },
   {
     id: "admin-femsub-recognized",
-    name: "Personal Femsub",
+    name: "Principessa's Favourite Femsub",
     description: "A manual admin-granted title marking a recognized femsub.",
     source: "admin",
   },
@@ -699,6 +699,55 @@ export const titleItems: TitleItem[] = [
   },
 ];
 
+const FEMSUB_TITLE_NAMES: Record<string, string> = {
+  "leadership-0": "Worthless Little Girl",
+  "leadership-1000": "Useless Good Girl",
+  "leadership-2500": "Broke Bimbo",
+  "leadership-5000": "Desperate Doll",
+  "leadership-7500": "Pathetic Paygirl",
+  "leadership-10000": "Elite Femsub",
+  "leadership-12000": "Principessa's Owned Girl",
+  "premium-vault-royalty": "Principessa's Dripping Toy",
+  "throne-10000": "Soft Denied Girl",
+  "throne-25000": "Shining Desperate Doll",
+  "throne-100000": "Drained Good Girl",
+  "admin-principessas-chosen": "Principessa's Broken Girl",
+  "admin-femsub-recognized": "Personal Femsub",
+  "pet-score-250": "Collared Girl",
+  "pet-score-500": "Owned Little Girl",
+  "pet-score-1000": "Perfect Good Girl",
+  "crate-legendary": "Exalted Golden Girl",
+  "inventory-50000": "Valuable Rising Girl",
+  "inventory-100000": "Elite Cherished Girl",
+  "inventory-250000": "Luxury Owned Girl",
+  "inventory-1000000": "Millionaire Milked Girl",
+  "inventory-all-legendaries": "The Ultimate Owned Girl",
+};
+
+export function adaptTitleItemForAddressTerm(
+  title: TitleItem,
+  addressTerm: AddressTerm,
+): TitleItem {
+  const name = addressTerm === "femsub" ? FEMSUB_TITLE_NAMES[title.id] : undefined;
+  return name && name !== title.name ? { ...title, name } : title;
+}
+
+export function getTitleItemsForAddressTerm(addressTerm: AddressTerm) {
+  return titleItems.map((title) => adaptTitleItemForAddressTerm(title, addressTerm));
+}
+
+export function getTitleNameForAddressTerm(
+  titleName: string | null | undefined,
+  addressTerm: AddressTerm,
+) {
+  if (!titleName || addressTerm !== "femsub") {
+    return titleName;
+  }
+
+  const title = titleItems.find((item) => item.name === titleName);
+  return title ? FEMSUB_TITLE_NAMES[title.id] ?? titleName : titleName;
+}
+
 export const spendBadgeTiers: SpendBadgeTier[] = [
   {
     id: "bronze",
@@ -745,10 +794,6 @@ export function isCosmeticAvailableForAddressTerm(
   if (audience === "all") {
     return true;
   }
-  // neutral sees universal cosmetics only (not sub/femsub-locked speech avatars)
-  if (addressTerm === "neutral") {
-    return false;
-  }
   return audience === addressTerm;
 }
 
@@ -760,8 +805,9 @@ export function isAudienceLockedSpeechAvatar(avatarId: string | null | undefined
   return audience === "sub" || audience === "femsub";
 }
 
-export function getTitleItem(id: string) {
-  return titleItems.find((item) => item.id === id) ?? null;
+export function getTitleItem(id: string, addressTerm?: AddressTerm) {
+  const title = titleItems.find((item) => item.id === id) ?? null;
+  return title && addressTerm ? adaptTitleItemForAddressTerm(title, addressTerm) : title;
 }
 
 // Keys accepted by the admin "/title @username [key]" command.

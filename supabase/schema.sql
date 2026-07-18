@@ -625,6 +625,27 @@ create trigger protect_profile_admin_fields_trigger
   for each row
   execute function public.protect_profile_admin_fields();
 
+-- Admin accounts are operational accounts, never public leaderboard entries.
+create or replace function public.force_admin_leaderboard_hide()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if coalesce(new.is_admin, false) then
+    new.hide_from_leaderboard := true;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists force_admin_leaderboard_hide_trigger on public.profiles;
+create trigger force_admin_leaderboard_hide_trigger
+  before insert or update on public.profiles
+  for each row
+  execute function public.force_admin_leaderboard_hide();
+
 drop trigger if exists block_client_user_tasks_mutations_trigger on public.user_tasks;
 create trigger block_client_user_tasks_mutations_trigger
   before insert or update or delete on public.user_tasks
@@ -741,6 +762,7 @@ begin
     'spend:timeout-clear',
     'crate:open',
     'tribute:coin-offer',
+    'tribute:shrine',
     'tribute:sacrifice',
     'tribute:support',
     'tribute:debt-contract',
@@ -838,6 +860,7 @@ set
             'spend:timeout-clear',
             'crate:open',
             'tribute:coin-offer',
+            'tribute:shrine',
             'tribute:sacrifice',
             'tribute:support',
             'tribute:debt-contract',
@@ -864,6 +887,7 @@ where exists (
       'spend:timeout-clear',
       'crate:open',
       'tribute:coin-offer',
+      'tribute:shrine',
       'tribute:sacrifice',
       'tribute:support',
       'tribute:debt-contract',
@@ -1861,6 +1885,7 @@ as $$
       and event.user_id = profile.id
       and event.created_at >= bounds.starts_at
     where coalesce(profile.hide_from_leaderboard, false) = false
+      and coalesce(profile.is_admin, false) = false
     group by profile.id, profile.updated_at, profile.total_devotion, bounds.period_key, bounds.starts_at
   ),
   ranked as (

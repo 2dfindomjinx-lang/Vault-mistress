@@ -2,6 +2,11 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import {
+  addressTermWord,
+  DEFAULT_ADDRESS_TERM,
+  type AddressTerm,
+} from "@/lib/address-term";
 
 type CharacterEvolutionStage = {
   id: string;
@@ -11,12 +16,14 @@ type CharacterEvolutionStage = {
 };
 
 type CharacterCardProps = {
+  addressTerm?: AddressTerm;
   dailyMessage: string;
   evolutionStage: CharacterEvolutionStage;
   stageRevealToken?: number;
 };
 
 export function CharacterCard({
+  addressTerm = DEFAULT_ADDRESS_TERM,
   dailyMessage,
   evolutionStage,
   stageRevealToken = 0,
@@ -99,7 +106,9 @@ export function CharacterCard({
             Vault Status
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Earn it slowly like a good boy, choose carefully, and bleed your fantasy coins to raise my affection or unlock my NSFW/SFW 				gallery cards. Don’t keep me waiting.
+            Earn it slowly like a good {addressTermWord(addressTerm)}, choose carefully, and bleed
+            your fantasy coins to raise my affection or unlock my NSFW/SFW gallery cards. Don&apos;t
+            keep me waiting.
           </p>
         </div>
       </div>

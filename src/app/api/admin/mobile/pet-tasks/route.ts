@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   const coinRewardAmount = isThroneTask ? 0 : PET_TASK_COIN_REWARD;
   const nextCoins = previousCoins + coinRewardAmount;
   const directThronePayoutCoins = previousCoins + throneTotalCoinAmount;
-  const nextPetScore = Math.min(1000, Number(profile.pet_score ?? 0) + petScoreDelta);
+  const nextPetScore = Number(profile.pet_score ?? 0) + petScoreDelta;
   const requiresThronePendingApproval =
     isThroneTask &&
     (

@@ -47,6 +47,7 @@ export function GalleryGrid({
   const hasShrine = items.some((item) => item.rarity === "Shrine");
   const [filter, setFilter] = useState<GalleryFilter>("All");
   const [view, setView] = useState<GalleryView>("vault");
+  const [failedImagePaths, setFailedImagePaths] = useState<string[]>([]);
   const vaultUnlockedCount = items.filter((item) => item.unlocked).length;
   const petUnlockedCount = petItems.filter(
     (item) => petUnlockedItemIds.includes(item.id) || petScore >= item.unlockCost,
@@ -167,6 +168,10 @@ export function GalleryGrid({
 
       <div className="court-grid court-grid--collection mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
         {filteredItems.map((item) => {
+          const resolvedImage =
+            failedImagePaths.includes(item.image) && item.fallbackImage
+              ? item.fallbackImage
+              : item.image;
           const isCommon = item.rarity === "Common";
           const isSecret = item.rarity === "Secret";
           const isSacrifice = item.rarity === "Sacrifice";
@@ -210,9 +215,16 @@ export function GalleryGrid({
                     item.unlocked ? "" : "scale-105 blur-md grayscale"
                   } ${isSecret || isSacrifice || isShrineMemory ? "saturate-150 contrast-125" : ""}`}
                   fill
+                  onError={() => {
+                    if (item.fallbackImage) {
+                      setFailedImagePaths((current) =>
+                        current.includes(item.image) ? current : [...current, item.image],
+                      );
+                    }
+                  }}
                   unoptimized
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                  src={item.image}
+                  src={resolvedImage}
                 />
                 {isNew ? (
                   <div className="absolute right-3 top-3 z-10 rounded-full border border-amber-200/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100 shadow-[0_0_16px_rgba(251,191,36,0.35)]">
@@ -286,7 +298,7 @@ export function GalleryGrid({
                   <a
                     className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-pink-200/20 bg-pink-500/10 px-3 py-3 text-xs font-bold text-pink-50 transition hover:border-pink-300/50 hover:bg-pink-500/20 sm:rounded-2xl sm:px-4 sm:text-sm"
                     download
-                    href={item.image}
+                    href={resolvedImage}
                   >
                     Download Image
                   </a>
@@ -313,6 +325,10 @@ export function GalleryGrid({
           <div className="court-grid court-grid--collection mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
             {petItems.map((item, index) => {
               const unlocked = petUnlockedItemIds.includes(item.id) || petScore >= item.unlockCost;
+              const resolvedImage =
+                failedImagePaths.includes(item.image) && item.fallbackImage
+                  ? item.fallbackImage
+                  : item.image;
 
               return (
                 <article
@@ -324,8 +340,15 @@ export function GalleryGrid({
                       alt={unlocked ? item.title : "Locked Pet Gallery memory"}
                       className={`object-cover transition duration-500 ${unlocked ? "" : "scale-105 blur-md grayscale opacity-45"}`}
                       fill
+                      onError={() => {
+                        if (item.fallbackImage) {
+                          setFailedImagePaths((current) =>
+                            current.includes(item.image) ? current : [...current, item.image],
+                          );
+                        }
+                      }}
                       sizes="(min-width: 1280px) 20vw, (min-width: 640px) 33vw, 50vw"
-                      src={item.image}
+                      src={resolvedImage}
                       unoptimized
                     />
                     <span className="absolute left-2.5 top-2.5 rounded-full border border-rose-100/20 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-rose-50">
@@ -345,7 +368,7 @@ export function GalleryGrid({
                       <a
                         className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-rose-200/20 bg-rose-500/10 px-3 py-2.5 text-xs font-bold text-rose-50 transition hover:border-rose-200/45 hover:bg-rose-500/20"
                         download
-                        href={item.image}
+                        href={resolvedImage}
                       >
                         Download Image
                       </a>

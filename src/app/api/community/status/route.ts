@@ -137,6 +137,7 @@ async function loadLegacyMetrics(
       .from("profiles")
       .select("id, loyalty_streak")
       .eq("hide_from_leaderboard", false)
+      .eq("is_admin", false)
       .order("loyalty_streak", { ascending: false })
       .limit(10),
   ]);
@@ -186,7 +187,7 @@ async function loadLegacyMetrics(
     ...devotionMonth.keys(),
   ]));
   const hiddenResult = candidateIds.length
-    ? await supabase.from("profiles").select("id").in("id", candidateIds).eq("hide_from_leaderboard", true)
+    ? await supabase.from("profiles").select("id").in("id", candidateIds).or("hide_from_leaderboard.eq.true,is_admin.eq.true")
     : { data: [], error: null };
   if (hiddenResult.error) throw hiddenResult.error;
   const hiddenUserIds = new Set((hiddenResult.data ?? []).map((row) => row.id));

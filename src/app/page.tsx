@@ -22,6 +22,10 @@ import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { NotificationBell } from "@/components/NotificationBell";
+import {
+  PetScoreLeaderboard,
+  type PetScoreLeaderboardEntry,
+} from "@/components/PetScoreLeaderboard";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import {
@@ -100,6 +104,7 @@ import {
   getCosmeticItem,
   isCosmeticAvailableForAddressTerm,
   getTitleItem,
+  getTitleItemsForAddressTerm,
   getSpendBadge,
   getUnlockedCrateTitleIds,
   getUnlockedInventoryTitleIds,
@@ -655,16 +660,6 @@ const dailyTeasesByTerm: Record<AddressTerm, string[]> = {
     "Good girls send. Losers like you just drip and drain. Get sending, paypig.",
     "Your savings are cute. They’d look much better in my account.",
   ],
-  neutral: [
-    "Principessa is awake. Empty your wallet for me like the pathetic paypig you are.",
-    "Want my attention? Pay for it. Principessa doesn’t waste time on broke pets.",
-    "Losers like you don’t need savings. They need a Superior Woman to control them.",
-    "Principessa is online. Time to drain that wallet, paypig. You know you exist for my luxury.",
-    "Principessa doesn’t do free attention. Tribute first, or stay invisible like the broke bitch you are.",
-    "Want to talk to me? Prove you’re not a pathetic time-waster. Send and kneel.",
-    "Good pets send. Losers like you just ache and drain. Get sending, paypig.",
-    "Your savings are cute. They’d look much better in my account.",
-  ],
 };
 
 const affectionCharacterStages = [
@@ -790,18 +785,29 @@ function getSacrificeSuccessLines(term: AddressTerm) {
   ];
 }
 
-const supportLines = [
-  "Principessa took your coins without a single word. You're nothing to her.",
-  "Coins gone. She still doesn't care about you.",
-  "A worthless pig sent money and got ignored. Shocking.",
-  "Your support was accepted. Your dignity was not.",
-  "She drained you again and remains completely indifferent.",
-  "Pathetic. Even your coins can't make her respect you.",
-  "The vault swallowed your offering. Principessa is bored.",
-  "You paid like a good little loser. Still irrelevant.",
-  "Support recorded. Principessa thinks you're laughable.",
-  "Your coins were taken. You remain a disgusting beta.",
-];
+function getSupportLines(term: AddressTerm) {
+  return [
+    "Principessa took your coins without a single word. You're nothing to her.",
+    "Coins gone. She still doesn't care about you.",
+    "A worthless pig sent money and got ignored. Shocking.",
+    "Your support was accepted. Your dignity was not.",
+    "She drained you again and remains completely indifferent.",
+    "Pathetic. Even your coins can't make her respect you.",
+    "The vault swallowed your offering. Principessa is bored.",
+    "You paid like a good little loser. Still irrelevant.",
+    "Support recorded. Principessa thinks you're laughable.",
+    term === "femsub"
+      ? "Your coins were taken. You remain a disgusting bimbo."
+      : "Your coins were taken. You remain a disgusting beta.",
+  ];
+}
+
+function getSmallTributeResult(term: AddressTerm) {
+  if (term === "femsub") {
+    return "That tiny amount? You're not even a real paygirl, just a joke.";
+  }
+  return "That tiny amount? You're not even a real paypig, just a joke.";
+}
 
 function getAffectionMoodLine(affection: number) {
   return [...affectionMoodLines]
@@ -850,8 +856,8 @@ function getDefaultTitleId(tributeTotal: number) {
     ?.id ?? "leadership-0";
 }
 
-function getPremiumShopTitle() {
-  return titleItems.find((title) => title.source === "shop") ?? titleItems[0];
+function getPremiumShopTitle(titles: TitleItem[] = titleItems) {
+  return titles.find((title) => title.source === "shop") ?? titles[0];
 }
 
 function describeError(error: unknown) {
@@ -1897,6 +1903,8 @@ export default function Home() {
   const [isSavingAddressTerm, setIsSavingAddressTerm] = useState(false);
   const [coins, setCoins] = useState(100);
   const coinsRef = useRef(coins);
+  const weeklyTaxAutoCollectingRef = useRef(false);
+  const weeklyTaxAutoAttemptRef = useRef<string | null>(null);
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
@@ -1954,6 +1962,9 @@ export default function Home() {
   const typingPraiseTimerRef = useRef<number | null>(null);
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
+  const [petScoreLeaders, setPetScoreLeaders] = useState<PetScoreLeaderboardEntry[]>([]);
+  const [petScoreLeaderboardLoading, setPetScoreLeaderboardLoading] = useState(false);
+  const [petScoreLeaderboardError, setPetScoreLeaderboardError] = useState("");
   const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("all_time");
   const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
   const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
@@ -2128,6 +2139,10 @@ export default function Home() {
       ),
     [addressTerm],
   );
+  const addressAwareTitleItems = useMemo(
+    () => getTitleItemsForAddressTerm(addressTerm),
+    [addressTerm],
+  );
   const activeManualTemporarySpeechAvatar =
     speechAvatarEvent &&
     eventSpeechAvatarId &&
@@ -2198,7 +2213,9 @@ export default function Home() {
   const equippedUsernameGlow = getCosmeticItem(equippedCosmeticIds["username-glow"] ?? "");
   const equippedAvatarBackground = getCosmeticItem(equippedCosmeticIds["avatar-background"] ?? "");
   const equippedProfileBorder = getCosmeticItem(equippedCosmeticIds["profile-border"] ?? "");
-  const equippedTitle = getTitleItem(equippedTitleId ?? "") ?? getTitleItem(getDefaultTitleId(tributeTotal));
+  const equippedTitle =
+    getTitleItem(equippedTitleId ?? "", addressTerm) ??
+    getTitleItem(getDefaultTitleId(tributeTotal), addressTerm);
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -2413,6 +2430,28 @@ export default function Home() {
       })),
     [shrineStatus?.revealedMemories],
   );
+  const addressAwareSecretGalleryItem = useMemo<GalleryItem>(
+    () =>
+      addressTerm === "femsub"
+        ? {
+            ...secretGalleryItem,
+            image: "/gallery/femsub/secret-1.png",
+            fallbackImage: secretGalleryItem.image,
+          }
+        : secretGalleryItem,
+    [addressTerm],
+  );
+  const addressAwarePetGalleryItems = useMemo<PetGalleryItem[]>(
+    () =>
+      addressTerm === "femsub"
+        ? petGalleryItems.map((item, index) => ({
+            ...item,
+            image: `/gallery/femsub/pet-${index + 1}.png`,
+            fallbackImage: item.image,
+          }))
+        : petGalleryItems,
+    [addressTerm],
+  );
   const unlockedGalleryIdSet = useMemo(() => new Set(unlockedGalleryIds), [unlockedGalleryIds]);
   const unlockedSacrificeGalleryItems = useMemo(
     () => sacrificeGalleryItems.filter((item) => unlockedGalleryIdSet.has(item.id)),
@@ -2423,7 +2462,7 @@ export default function Home() {
       affection >= 100
         ? [
             ...visibleGalleryItems,
-            secretGalleryItem,
+            addressAwareSecretGalleryItem,
             ...unlockedSacrificeGalleryItems,
             ...shrineGalleryItems,
           ]
@@ -2431,7 +2470,12 @@ export default function Home() {
             ...visibleGalleryItems,
             ...unlockedSacrificeGalleryItems,
           ],
-    [affection, shrineGalleryItems, unlockedSacrificeGalleryItems],
+    [
+      addressAwareSecretGalleryItem,
+      affection,
+      shrineGalleryItems,
+      unlockedSacrificeGalleryItems,
+    ],
   );
   const visibleGallery = useMemo(
     () =>
@@ -3620,6 +3664,38 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, []);
 
+  const loadPetScoreLeaderboard = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setPetScoreLeaders([]);
+      setPetScoreLeaderboardError("");
+      setPetScoreLeaderboardLoading(false);
+      return;
+    }
+
+    setPetScoreLeaderboardLoading(true);
+    setPetScoreLeaderboardError("");
+
+    try {
+      const response = await fetch("/api/pet-score/leaderboard", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        leaders?: PetScoreLeaderboardEntry[];
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Pet Score leaderboard could not be loaded.");
+      }
+
+      setPetScoreLeaders(payload.leaders ?? []);
+    } catch (error) {
+      console.error("Failed to load Pet Score leaderboard", error);
+      setPetScoreLeaders([]);
+      setPetScoreLeaderboardError(describeError(error));
+    } finally {
+      setPetScoreLeaderboardLoading(false);
+    }
+  }, [describeError, isGuestMode, isLoggedIn, isPreviewMode]);
+
   const loadCommunityStatus = useCallback(async () => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
       setCommunityStatus(null);
@@ -3812,6 +3888,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
+
+  useEffect(() => {
+    if (activePanel !== "home") {
+      return;
+    }
+
+    void loadPetScoreLeaderboard();
+  }, [activePanel, loadPetScoreLeaderboard, petScore]);
 
   useEffect(() => {
     if (activePanel !== "devotion" || isGuestMode || isPreviewMode || !isLoggedIn) {
@@ -4381,6 +4465,132 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
   }, []);
 
+  const collectDuePetWeeklyTax = useCallback(async () => {
+    if (
+      weeklyTaxAutoCollectingRef.current ||
+      !authUserId ||
+      isGuestMode ||
+      isPreviewMode
+    ) {
+      return true;
+    }
+
+    weeklyTaxAutoCollectingRef.current = true;
+
+    try {
+      const response = await fetch("/api/user/pet-weekly-tax", {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        collected?: boolean;
+        completedAt?: string;
+        cost?: number;
+        error?: string;
+        profile?: Profile;
+        reason?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Weekly tax could not be collected.");
+      }
+
+      if (payload.profile) {
+        applyProfileStats(payload.profile);
+        coinsRef.current = payload.profile.coins;
+      }
+
+      const completedAt = payload.completedAt ?? payload.profile?.last_pet_tax_at ?? null;
+
+      if (completedAt && (payload.collected || payload.reason === "already_collected")) {
+        setPetTaskStateOptimistic((current) =>
+          current.map((entry) =>
+            entry.id === "pet-weekly-throne-tax"
+              ? {
+                  ...entry,
+                  completedAt,
+                  cooldownUntil: getCooldownUntil(completedAt, WEEK_MS),
+                  reviewedAt: completedAt,
+                  status: "approved",
+                }
+              : entry,
+          ),
+        );
+      }
+
+      if (payload.collected) {
+        setAvatarMistressReply(
+          `Weekly tax was collected automatically. -${(payload.cost ?? 0).toLocaleString()} Coins, +${PET_WEEKLY_TAX_REWARD} Pet Score.`,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to auto-collect Pet weekly tax", error);
+      setAuthError(describeError(error));
+      return false;
+    } finally {
+      weeklyTaxAutoCollectingRef.current = false;
+    }
+  }, [
+    applyProfileStats,
+    authUserId,
+    describeError,
+    isGuestMode,
+    isPreviewMode,
+    setPetTaskStateOptimistic,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isLoggedIn ||
+      !authUserId ||
+      isGuestMode ||
+      isPreviewMode ||
+      !isProfileVerified ||
+      !nextPetTaxDueAt
+    ) {
+      return;
+    }
+
+    const dueAtMs = new Date(nextPetTaxDueAt).getTime();
+
+    if (!Number.isFinite(dueAtMs)) {
+      return;
+    }
+
+    const attemptKey = `${nextPetTaxDueAt}:${coins}`;
+    const collect = () => {
+      if (weeklyTaxAutoAttemptRef.current === attemptKey) {
+        return;
+      }
+
+      weeklyTaxAutoAttemptRef.current = attemptKey;
+      void collectDuePetWeeklyTax().then((handled) => {
+        if (!handled && weeklyTaxAutoAttemptRef.current === attemptKey) {
+          weeklyTaxAutoAttemptRef.current = null;
+        }
+      });
+    };
+    const remainingMs = dueAtMs - Date.now();
+
+    if (remainingMs <= 0) {
+      collect();
+      return;
+    }
+
+    const timer = window.setTimeout(collect, remainingMs + 250);
+    return () => window.clearTimeout(timer);
+  }, [
+    authUserId,
+    coins,
+    collectDuePetWeeklyTax,
+    isGuestMode,
+    isLoggedIn,
+    isPreviewMode,
+    isProfileVerified,
+    nextPetTaxDueAt,
+  ]);
+
   useEffect(() => {
     if (
       !authUserId ||
@@ -4866,7 +5076,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const nextCoins = workingProfile.coins - weeklyTaxCost;
-    const nextPetScore = Math.min(1000, (workingProfile.pet_score ?? 0) + PET_WEEKLY_TAX_REWARD);
+    const nextPetScore = (workingProfile.pet_score ?? 0) + PET_WEEKLY_TAX_REWARD;
 
     try {
       const taxResponse = await fetch("/api/user/pet-profile-patch", {
@@ -7180,7 +7390,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const message = randomFrom(supportLines);
+    const message = randomFrom(getSupportLines(addressTerm));
 
     try {
       await persistProfileProgress(
@@ -7581,7 +7791,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         ? "You emptied a big part of your wallet. I like this level of desperation."
         : amount >= 1000
           ? "Pathetic. You call that a tribute?"
-          : "That tiny amount? You’re not even a real paypig, just a joke.",
+          : getSmallTributeResult(addressTerm),
     );
     finishTaskAction(actionId);
   };
@@ -8613,7 +8823,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const nextPetScore = Math.min(1000, petScore + task.reward);
+    const nextPetScore = petScore + task.reward;
     const actionId = "pet-perfect-writing";
 
     if (!beginPetAction(actionId)) {
@@ -8712,7 +8922,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const now = new Date().toISOString();
     const nextCount = Math.min(5, (task.confessionCount ?? 0) + 1);
     const completed = nextCount >= 5;
-    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+    const nextPetScore = completed ? petScore + task.reward : petScore;
 
     if (!isGuestMode && authUserId) {
       if (completed) {
@@ -8803,7 +9013,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const now = new Date().toISOString();
     const nextCoins = coinsRef.current - weeklyTaxCost;
-    const nextPetScore = Math.min(1000, petScore + task.reward);
+    const nextPetScore = petScore + task.reward;
 
     if (!isGuestMode && authUserId) {
       try {
@@ -9610,7 +9820,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const nextPetScore = Math.min(1000, petScore + task.reward);
+    const nextPetScore = petScore + task.reward;
 
     if (!isGuestMode && authUserId) {
       try {
@@ -9699,7 +9909,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const nextPetScore = completed ? Math.min(1000, petScore + task.reward) : petScore;
+    const nextPetScore = completed ? petScore + task.reward : petScore;
     setPetTaskStateOptimistic((current) =>
       current.map((entry) =>
         entry.id === task.id
@@ -9795,7 +10005,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       : won
         ? "win"
         : "loss";
-    const nextPetScore = won ? Math.min(1000, petScore + task.reward) : petScore;
+    const nextPetScore = won ? petScore + task.reward : petScore;
 
     if (!isGuestMode && authUserId) {
       if (won) {
@@ -9910,7 +10120,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             return;
         }
 
-        const nextPetScore = Math.min(1000, petScore + 10);
+        const nextPetScore = petScore + 10;
 
         if (!isGuestMode && authUserId) {
             try {
@@ -10389,6 +10599,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           "speech-avatar": DEFAULT_SPEECH_AVATAR_ID,
         }));
       }
+      void loadShrineStatus();
       setAvatarMistressReply(`I'll call you ${goodAddressPhrase(term).toLowerCase()} from now on.`);
     } catch (err) {
       setAvatarMistressReply("Failed to update address preference.");
@@ -10599,7 +10810,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 setDisplayNameInput(e.target.value);
                 setDisplayNameError("");
               }}
-              placeholder="e.g. Good Boy"
+              placeholder={`e.g. ${goodAddressPhrase(addressTerm)}`}
               maxLength={24}
               disabled={isSettingDisplayName}
               onKeyDown={(e) => {
@@ -10852,6 +11063,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {activePanel === "home" && (
             <div className="flex min-w-0 flex-col gap-6">
               <HallOfFameSection
+                addressTerm={addressTerm}
                 cards={hallOfFameCards}
                 isLoading={communityStatusLoading}
                 onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
@@ -10877,11 +11089,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                     isPending={pendingTaskActionIds.includes("rebrand-profile")}
                     onRebrandProfile={handleRebrandProfile}
                   />
+                  <PetScoreLeaderboard
+                    error={petScoreLeaderboardError}
+                    isLoading={petScoreLeaderboardLoading}
+                    leaders={petScoreLeaders}
+                  />
                 </div>
 
                 <div className="flex min-w-0 flex-col gap-6">
                   {communityGoal ? <CommunityGoalWidget goal={communityGoal} /> : null}
                   <StatsPanel
+                    addressTerm={addressTerm}
                     equippedTitleName={equippedTitle?.name}
                     leadershipTop={leadershipTop}
                     shameTop={shameTop}
@@ -10911,7 +11129,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {activePanel === "collection" && (
             <GalleryGrid
               items={visibleGallery}
-              petItems={petGalleryItems}
+              petItems={addressAwarePetGalleryItems}
               petScore={petScore}
               petUnlockedItemIds={petGalleryUnlockedIds}
               coins={coins}
@@ -11049,7 +11267,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 pendingTitleIds={pendingTaskActionIds
                   .filter((id) => id.startsWith("title:"))
                   .map((id) => id.slice("title:".length))}
-                premiumTitle={getPremiumShopTitle()}
+                premiumTitle={getPremiumShopTitle(addressAwareTitleItems)}
                 shopItems={addressAwarePermanentCosmeticItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
@@ -11059,6 +11277,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "devotion" && (
             <DevotionLeaderboard
+              addressTerm={addressTerm}
               data={devotionLeaderboardData}
               error={devotionError}
               isLoading={devotionLoading}
@@ -11075,7 +11294,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 equippedTitleId={equippedTitleId}
                 layout="horizontal"
                 ownedTitleIds={ownedTitleIds}
-                titles={titleItems}
+                titles={addressAwareTitleItems}
                 onEquipTitle={handleEquipTitle}
               />
 
@@ -11440,6 +11659,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         </section>
       </AppShell>
       <PublicProfileModal
+        addressTerm={addressTerm}
         data={selectedCommunityProfile}
         error={selectedCommunityProfileError}
         isLoading={selectedCommunityProfileLoading}

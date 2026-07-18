@@ -1,6 +1,6 @@
-export type AddressTerm = "sub" | "femsub" | "neutral";
+export type AddressTerm = "sub" | "femsub";
 
-export const ADDRESS_TERM_VALUES: AddressTerm[] = ["sub", "femsub", "neutral"];
+export const ADDRESS_TERM_VALUES: AddressTerm[] = ["sub", "femsub"];
 
 export const DEFAULT_ADDRESS_TERM: AddressTerm = "sub";
 
@@ -8,7 +8,6 @@ export const DEFAULT_ADDRESS_TERM: AddressTerm = "sub";
 export const ADDRESS_TERM_LABELS: Record<AddressTerm, string> = {
   sub: "Sub",
   femsub: "Femsub",
-  neutral: "Neutral",
 };
 
 /**
@@ -22,9 +21,6 @@ export function normalizeAddressTerm(value: unknown): AddressTerm {
   if (value === "femsub" || value === "girl") {
     return "femsub";
   }
-  if (value === "neutral") {
-    return "neutral";
-  }
   return DEFAULT_ADDRESS_TERM;
 }
 
@@ -32,11 +28,10 @@ export function isAddressTerm(value: unknown): value is AddressTerm {
   return typeof value === "string" && (ADDRESS_TERM_VALUES as string[]).includes(value);
 }
 
-/** Spoken praise word in short UI copy ("Good boy" / "Good girl" / "Good pet"). */
+/** Spoken praise word in short UI copy ("Good boy" / "Good girl"). */
 const ADDRESS_TERM_WORD: Record<AddressTerm, string> = {
   sub: "boy",
   femsub: "girl",
-  neutral: "pet",
 };
 
 export function addressTermWord(term: AddressTerm | null | undefined) {
@@ -47,12 +42,24 @@ export function goodAddressPhrase(term: AddressTerm | null | undefined) {
   return `Good ${addressTermWord(term)}`;
 }
 
-/** Messages that only make sense for male anatomy - drop for femsub/neutral pools. */
+/** Messages that only make sense for male anatomy - drop for femsub pools. */
 const MALE_ANATOMY_ONLY_RE =
   /\b(balls?|ballbust(?:ing)?|testicles?|cock\s*ring|chastity\s*cage|tiny\s+dick\s+energy)\b/i;
 
 export function isMaleAnatomyOnlyMessage(message: string) {
   return MALE_ANATOMY_ONLY_RE.test(message);
+}
+
+/**
+ * Male terms that still address the user after safe rewrites have run.
+ * Do not match broad words such as "man", "him", or "his": persona copy can
+ * intentionally use those for a third party (for example a boss or bull).
+ */
+const FEMSUB_USER_DIRECTED_MALE_RE =
+  /\b(?:boyfriend|husband|hubby)\b|\b(?:my|your)\s+(?:[a-z'’-]+\s+){0,3}boy\b|\b(?:good|bad|sweet|favorite|amazing|best|little|pretty|pathetic|worthless|useless|clumsy|desperate|weak|loyal|boring|lucky)\s+boys?\b|\byou(?:'re|’re|\s+are)\s+(?:not\s+)?(?:a\s+)?(?:real\s+)?man\b/i;
+
+export function isFemsubUserDirectedMaleMessage(message: string) {
+  return FEMSUB_USER_DIRECTED_MALE_RE.test(message);
 }
 
 /** Case-preserving phrase rewrite: keeps the matched text's capitalization shape. */
@@ -73,13 +80,55 @@ const FEMSUB_SPEECH_REPLACEMENTS: Array<[string, string]> = [
   ["Who's my good boy", "Who's my good girl"],
   ["I love ruining boys", "I love ruining girls"],
   ["breaking good boys", "breaking good girls"],
+  ["you're not a man", "you're not a woman"],
+  ["you’re not a man", "you’re not a woman"],
+  ["you're not a real man", "you're not a real woman"],
+  ["you’re not a real man", "you’re not a real woman"],
   ["Losers with small dicks", "Losers with needy pussies"],
   ["tiny useless dick", "needy dripping pussy"],
   ["tiny useless cock", "needy dripping pussy"],
   ["That pathetic cock", "That dripping pussy"],
   ["Your dick is useless", "Your pussy is useless"],
   ["leaking paypig whose tiny cock", "leaking paypig whose dripping pussy"],
+  ["my amazing boyfriend", "my amazing girlfriend"],
+  ["the best boyfriend", "the best girlfriend"],
+  ["best boyfriend", "best girlfriend"],
+  ["boyfriend", "girlfriend"],
+  ["husband", "wife"],
+  ["hubby", "wifey"],
+  ["beta", "bimbo"],
+  ["my sweet boy", "my sweet girl"],
+  ["my favorite boy", "my favorite girl"],
+  ["my amazing boy", "my amazing girl"],
+  ["my best boy", "my best girl"],
+  ["my pretty boy", "my pretty girl"],
+  ["my little boy", "my little girl"],
   ["my good boy", "my good girl"],
+  ["your sweet boy", "your sweet girl"],
+  ["your favorite boy", "your favorite girl"],
+  ["your good boy", "your good girl"],
+  ["favorite boy", "favorite girl"],
+  ["sweetest boy", "sweetest girl"],
+  ["sweet boy", "sweet girl"],
+  ["amazing boy", "amazing girl"],
+  ["best boy", "best girl"],
+  ["lucky boy", "lucky girl"],
+  ["pretty boys", "pretty girls"],
+  ["bad boys", "bad girls"],
+  ["weak boys", "weak girls"],
+  ["boring boys", "boring girls"],
+  ["other boys", "other girls"],
+  ["better boys", "better girls"],
+  ["better boy", "better girl"],
+  ["clumsy boy", "clumsy girl"],
+  ["desperate boy", "desperate girl"],
+  ["worthless boy", "worthless girl"],
+  ["useless boy", "useless girl"],
+  ["pathetic boy", "pathetic girl"],
+  ["loyal boy", "loyal girl"],
+  ["boy who", "girl who"],
+  ["boys who", "girls who"],
+  ["boy in the world", "girl in the world"],
   ["a good boy", "a good girl"],
   ["the good boy", "the good girl"],
   ["good boys", "good girls"],
@@ -95,43 +144,16 @@ const FEMSUB_SPEECH_REPLACEMENTS: Array<[string, string]> = [
   ["Your dick", "Your pussy"],
   ["your dick", "your pussy"],
   ["my dick", "my pussy"],
+  ["pay his owner", "pay her owner"],
+  ["keeps his maid", "keeps her maid"],
+  ["disappoint his maid", "disappoint her maid"],
+  ["giving everything to his Goth Mommy", "giving everything to her Goth Mommy"],
   ["useless dick", "useless wet cunt"],
   ["useless cock", "useless wet cunt"],
   ["stroke it", "touch it"],
   ["stroke", "rub"],
   ["cock", "pussy"],
   ["dick", "pussy"],
-];
-
-const NEUTRAL_SPEECH_REPLACEMENTS: Array<[string, string]> = [
-  ["Who's my good boy", "Who's my good pet"],
-  ["I love ruining boys", "I love ruining pets"],
-  ["breaking good boys", "breaking good pets"],
-  ["Losers with small dicks", "Losers with useless bodies"],
-  ["tiny useless dick", "needy denied body"],
-  ["tiny useless cock", "needy denied body"],
-  ["That pathetic cock", "That pathetic body"],
-  ["Your dick is useless", "Your body is useless"],
-  ["my good boy", "my good pet"],
-  ["a good boy", "a good pet"],
-  ["the good boy", "the good pet"],
-  ["good boys", "good pets"],
-  ["good boy", "good pet"],
-  ["boys like you", "pets like you"],
-  ["Pathetic boys", "Pathetic pets"],
-  ["pathetic boys", "pathetic pets"],
-  ["ruining boys", "ruining pets"],
-  ["small dicks", "needy bodies"],
-  ["small dick", "needy body"],
-  ["tiny dick", "needy body"],
-  ["tiny cock", "needy body"],
-  ["Your dick", "Your body"],
-  ["your dick", "your body"],
-  ["my dick", "my body"],
-  ["useless dick", "useless body"],
-  ["useless cock", "useless body"],
-  ["cock", "body"],
-  ["dick", "body"],
 ];
 
 function applyPhraseRewrites(message: string, pairs: Array<[string, string]>) {
@@ -152,11 +174,7 @@ export function genderizeSpeechBubbleMessage(
     return message;
   }
 
-  if (resolved === "femsub") {
-    return applyPhraseRewrites(message, FEMSUB_SPEECH_REPLACEMENTS);
-  }
-
-  return applyPhraseRewrites(message, NEUTRAL_SPEECH_REPLACEMENTS);
+  return applyPhraseRewrites(message, FEMSUB_SPEECH_REPLACEMENTS);
 }
 
 export function adaptSpeechBubbleMessages(
@@ -172,5 +190,6 @@ export function adaptSpeechBubbleMessages(
 
   return source
     .filter((message) => !isMaleAnatomyOnlyMessage(message))
-    .map((message) => genderizeSpeechBubbleMessage(message, resolved));
+    .map((message) => genderizeSpeechBubbleMessage(message, resolved))
+    .filter((message) => !isFemsubUserDirectedMaleMessage(message));
 }

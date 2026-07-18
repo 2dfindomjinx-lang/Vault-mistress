@@ -316,8 +316,12 @@ export function TributePanel({
           Get Coins / Tribute on Throne
         </a>
         <p className="mt-4 text-sm leading-6 text-pink-50">
-          After supporting on Throne, DM @VMPrincipessa with your app username
-          to receive coins manually. 1 USD = 1000 coins.
+          You can leave the Throne gift message empty. If you write anything,
+          use your exact app @username, not your Display Name.
+        </p>
+        <p className="mt-2 text-sm leading-6 text-pink-50">
+          After supporting, DM @VMPrincipessa with the same @username to receive
+          coins manually. 1 USD = 1000 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           Coins are fantasy points and are manually granted as supporter

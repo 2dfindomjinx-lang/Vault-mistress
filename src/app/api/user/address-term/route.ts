@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   // Accept only current keys; reject legacy boy/girl so clients migrate to sub/femsub.
   if (!isAddressTerm(body?.addressTerm)) {
-    return jsonError("Invalid address term. Use sub, femsub, or neutral.", 400);
+    return jsonError("Invalid address term. Use sub or femsub.", 400);
   }
 
   const addressTerm = normalizeAddressTerm(body.addressTerm);

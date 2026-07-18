@@ -6,9 +6,12 @@ import {
   type LeadershipEntry,
   type ShameEntry,
 } from "@/lib/leadership";
+import type { AddressTerm } from "@/lib/address-term";
+import { getTitleItem, getTitleNameForAddressTerm } from "@/lib/cosmetics";
 import type { CSSProperties } from "react";
 
 type StatsPanelProps = {
+  addressTerm: AddressTerm;
   stats: {
     coins: number;
     affection: number;
@@ -32,6 +35,7 @@ type StatsPanelProps = {
 };
 
 export function StatsPanel({
+  addressTerm,
   equippedTitleName,
   leadershipTop,
   shameTop,
@@ -42,6 +46,13 @@ export function StatsPanel({
   usernameStyle,
 }: StatsPanelProps) {
   const leadership = getLeadershipRank(stats.tributeTotal);
+  const currentRankTitle =
+    getTitleItem(`leadership-${leadership.currentRank.min}`, addressTerm)?.name ??
+    leadership.currentRank.title;
+  const nextRankTitle = leadership.nextRank
+    ? getTitleItem(`leadership-${leadership.nextRank.min}`, addressTerm)?.name ??
+      leadership.nextRank.title
+    : null;
 
   return (
     <section className="court-grid court-grid--collection grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -50,7 +61,7 @@ export function StatsPanel({
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-fuchsia-200/70">Leadership</p>
             <p className="mt-2 text-2xl font-black text-white sm:text-3xl" style={statValueStyle}>
-              {equippedTitleName ?? leadership.currentRank.title}
+              {equippedTitleName ?? currentRankTitle}
             </p>
           </div>
           <p
@@ -68,7 +79,7 @@ export function StatsPanel({
         </div>
         <p className="mt-2 text-xs text-zinc-400">
           {leadership.nextRank
-            ? `${leadership.remaining.toLocaleString()} more Tribute Total to reach ${leadership.nextRank.title}.`
+            ? `${leadership.remaining.toLocaleString()} more Tribute Total to reach ${nextRankTitle}.`
             : "Maximum leadership rank reached."}
         </p>
       </div>
@@ -109,7 +120,9 @@ export function StatsPanel({
                           username={leader.rawUsername ?? leader.username}
                         />
                       </div>
-                      <p className="text-xs text-zinc-400">{leader.rankTitle}</p>
+                      <p className="text-xs text-zinc-400">
+                        {getTitleNameForAddressTerm(leader.rankTitle, addressTerm)}
+                      </p>
                     </div>
                     <p className="shrink-0 text-sm font-black text-pink-100">
                       <CoinAmount amount={leader.tributeTotal} iconSize={16} label="" />

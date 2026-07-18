@@ -1354,7 +1354,7 @@ export function PetSection({
                 <h3 className="mt-1 text-2xl font-black text-white">{rank.current.title}</h3>
               </div>
               <p className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-xs font-black text-rose-50">
-                {petScore}/1000
+                {petScore.toLocaleString()} Pet Score
               </p>
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/70">
@@ -1366,7 +1366,7 @@ export function PetSection({
             <p className="mt-2 text-xs text-zinc-400">
               {rank.next
                 ? `${Math.max(0, rank.next.min - petScore)} Pet Score to reach ${rank.next.title}.`
-                : "Maximum Pet rank reached."}
+                : "The top Pet rank is secured. Keep building your score."}
             </p>
           </div>
 

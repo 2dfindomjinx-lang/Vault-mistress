@@ -41,7 +41,7 @@ export const SHRINE_PURCHASE_OPTIONS = [
 export const SHRINE_IMAGE_UNLOCK_COST = 10000;
 export const SHRINE_LEVEL_COIN_INTERVAL = 5000;
 
-export const SHRINE_MEMORY_LIBRARY: ShrineMemoryDefinition[] = [
+export const SUB_SHRINE_MEMORY_LIBRARY: ShrineMemoryDefinition[] = [
   { fileName: "shrine_1.jpg", path: "/shrine/shrine_1.jpg", title: "Throne of Tribute" },
   { fileName: "shrine_2.jpg", path: "/shrine/shrine_2.jpg", title: "Executive Drain" },
   { fileName: "shrine_3.jpg", path: "/shrine/shrine_3.jpg", title: "Bunny Tax Collector" },
@@ -69,6 +69,13 @@ export const SHRINE_MEMORY_LIBRARY: ShrineMemoryDefinition[] = [
   { fileName: "shrine_25.jpg", path: "/shrine/shrine_25.jpg", title: "Completely Submisive Pet" },
 ];
 
+// Add optional authored titles here as the main femsub pool is populated.
+// Files without an entry still receive a readable title from their filename.
+export const FEMSUB_SHRINE_MEMORY_LIBRARY: ShrineMemoryDefinition[] = [];
+
+// Backward-compatible alias for the original main Shrine pool.
+export const SHRINE_MEMORY_LIBRARY = SUB_SHRINE_MEMORY_LIBRARY;
+
 export type ShrinePurchaseAmount = (typeof SHRINE_PURCHASE_OPTIONS)[number]["amount"];
 
 export type ShrineStatus = {
@@ -86,7 +93,6 @@ export type ShrineStatus = {
   unlockedImageCount: number;
   unlockedImagePaths: string[];
   // Separate sub/femsub bonus gallery unlocked at Worship Level thresholds.
-  // Undefined for address_term === "neutral" (no bonus gallery for that preference).
   bonus?: ShrineBonusStatus;
 };
 
@@ -139,9 +145,19 @@ function toTitleCaseFromFileName(fileName: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function resolveShrineMemories(fileNames: string[]) {
+export function resolveShrineMemories(
+  fileNames: string[],
+  {
+    library = SHRINE_MEMORY_LIBRARY,
+    publicPath = "/shrine",
+  }: {
+    library?: ShrineMemoryDefinition[];
+    publicPath?: string;
+  } = {},
+) {
+  const normalizedPublicPath = publicPath.replace(/\/+$/, "");
   const configuredMap = new Map(
-    SHRINE_MEMORY_LIBRARY.map((memory) => [memory.fileName.toLowerCase(), memory]),
+    library.map((memory) => [memory.fileName.toLowerCase(), memory]),
   );
 
   return [...fileNames]
@@ -150,12 +166,15 @@ export function resolveShrineMemories(fileNames: string[]) {
       const configured = configuredMap.get(fileName.toLowerCase());
 
       if (configured) {
-        return configured;
+        return {
+          ...configured,
+          path: `${normalizedPublicPath}/${configured.fileName}`,
+        };
       }
 
       return {
         fileName,
-        path: `/shrine/${fileName}`,
+        path: `${normalizedPublicPath}/${fileName}`,
         title: toTitleCaseFromFileName(fileName),
       };
     });

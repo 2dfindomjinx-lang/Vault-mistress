@@ -35,6 +35,7 @@ type ProfileRow = {
   id: string;
   username: string;
   coins: number;
+  is_admin: boolean | null;
   loyalty_streak: number | null;
   last_loyalty_at?: string | null;
 };
@@ -230,6 +231,7 @@ async function getEligibleCount(
   let query = supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
+    .eq("is_admin", false)
     .gte("loyalty_streak", 3)
     .gte("last_loyalty_at", activeSince);
 
@@ -265,7 +267,8 @@ async function getRandomEligibleProfile(
   const activeSince = new Date(Date.now() - STREAK_EXPIRY_MS).toISOString();
   let query = supabase
     .from("profiles")
-    .select("id, username, coins, loyalty_streak, last_loyalty_at")
+    .select("id, username, coins, is_admin, loyalty_streak, last_loyalty_at")
+    .eq("is_admin", false)
     .gte("loyalty_streak", 3)
     .gte("last_loyalty_at", activeSince)
     .order("id", { ascending: true })
@@ -750,7 +753,7 @@ export async function buildJackpotState(
   if (userId) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("loyalty_streak, last_loyalty_at")
+      .select("is_admin, loyalty_streak, last_loyalty_at")
       .eq("id", userId)
       .maybeSingle();
 
@@ -759,6 +762,7 @@ export async function buildJackpotState(
     }
 
     userEligible =
+      !Boolean(profile?.is_admin) &&
       hasActiveLoyaltyStreak(profile?.loyalty_streak ?? 0, profile?.last_loyalty_at ?? null) &&
       !previousWinnerIds.includes(userId);
   }
@@ -962,7 +966,7 @@ export async function POST(request: Request) {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, username, coins")
+      .select("id, username, coins, is_admin")
       .eq("id", userId)
       .maybeSingle();
 
@@ -973,6 +977,10 @@ export async function POST(request: Request) {
 
     if (!profile) {
       return jsonError("Profile not found.", 404);
+    }
+
+    if (profile.is_admin) {
+      return jsonError("Admin accounts cannot participate in the jackpot.", 403);
     }
 
     const currentCoins = Number(profile.coins ?? 0);

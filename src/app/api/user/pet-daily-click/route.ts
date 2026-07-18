@@ -221,7 +221,7 @@ export async function POST(request: Request) {
     requirement: current.requirement,
   };
   const nextCoins = profile.coins + rewardableClicks;
-  const nextPetScore = Math.min(1000, (profile.pet_score ?? 0) + petScoreReward);
+  const nextPetScore = (profile.pet_score ?? 0) + petScoreReward;
   let transactionId: string | null = null;
 
   const { data: updatedProfile, error: profileUpdateError } = await supabase

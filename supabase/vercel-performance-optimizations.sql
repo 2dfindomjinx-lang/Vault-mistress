@@ -58,6 +58,7 @@ as $$
     join public.profiles as profile on profile.id = tx.user_id
     where tx.created_at >= p_month_start
       and coalesce(profile.hide_from_leaderboard, false) = false
+      and coalesce(profile.is_admin, false) = false
       and (
         tx.reason in ('throne_tribute', 'tribute:coin-offer', 'tribute:sacrifice', 'tribute:support')
         or (
@@ -88,6 +89,7 @@ as $$
     join public.profiles as profile on profile.id = event.user_id
     where event.created_at >= p_month_start
       and coalesce(profile.hide_from_leaderboard, false) = false
+      and coalesce(profile.is_admin, false) = false
     group by event.user_id
   ),
   goal_rows as (
@@ -133,6 +135,7 @@ as $$
       select profile.id
       from public.profiles as profile
       where coalesce(profile.hide_from_leaderboard, false) = false
+        and coalesce(profile.is_admin, false) = false
       order by coalesce(profile.loyalty_streak, 0) desc, profile.id asc
       limit 1
     ),
@@ -140,6 +143,7 @@ as $$
       select profile.loyalty_streak
       from public.profiles as profile
       where coalesce(profile.hide_from_leaderboard, false) = false
+        and coalesce(profile.is_admin, false) = false
       order by coalesce(profile.loyalty_streak, 0) desc, profile.id asc
       limit 1
     ), 0),

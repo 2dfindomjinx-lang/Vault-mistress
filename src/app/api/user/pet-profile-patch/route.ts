@@ -115,7 +115,7 @@ function validatePatch(
   const coinDelta = nextCoins - current.coins;
   const petScoreDelta = nextPetScore - current.pet_score;
   const tributeDelta = nextTributeTotal - current.tribute_total;
-  const rewardPetScoreDelta = Math.max(0, Math.min(10, 1000 - current.pet_score));
+  const rewardPetScoreDelta = 10;
 
   if (
     !Number.isInteger(nextCoins) ||
@@ -126,8 +126,7 @@ function validatePatch(
     nextAffection > 100 ||
     nextOwnerLikeness < 0 ||
     nextOwnerLikeness > 100 ||
-    nextPetScore < 0 ||
-    nextPetScore > 1000
+    nextPetScore < 0
   ) {
     return "Invalid Pet profile values.";
   }
@@ -180,10 +179,7 @@ function validatePatch(
   if (reason === "spend:pet-weekly-tax") {
     const spendAmount = numberFromMetadata(metadata, "spendAmount");
     const rewardCoins = numberFromMetadata(metadata, "rewardCoins");
-    const weeklyTaxPetScoreDelta = Math.max(
-      0,
-      Math.min(PET_WEEKLY_TAX_REWARD, 1000 - current.pet_score),
-    );
+    const weeklyTaxPetScoreDelta = PET_WEEKLY_TAX_REWARD;
 
     if (
       !spendAmount ||

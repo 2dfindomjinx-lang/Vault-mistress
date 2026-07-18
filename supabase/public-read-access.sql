@@ -52,6 +52,7 @@ as $$
   select p.id, p.username, p.display_name, p.tribute_total, p.created_at
   from public.profiles p
   where p.hide_from_leaderboard = false
+    and coalesce(p.is_admin, false) = false
   order by p.tribute_total desc, p.created_at asc
   limit greatest(1, least(coalesce(p_limit, 3), 10));
 $$;
@@ -71,6 +72,8 @@ as $$
   select p.id, p.username, p.display_name, p.shame_count
   from public.profiles p
   where p.shame_count > 0
+    and coalesce(p.hide_from_leaderboard, false) = false
+    and coalesce(p.is_admin, false) = false
   order by p.shame_count desc, p.created_at asc
   limit greatest(1, least(coalesce(p_limit, 3), 10));
 $$;
@@ -130,8 +133,11 @@ as $$
     sum(ct.amount)::bigint as amount,
     max(ct.created_at) as latest_created_at
   from public.coin_transactions ct
+  join public.profiles p on p.id = ct.user_id
   where ct.amount > 0
     and public.is_public_throne_tribute_transaction(ct.reason, ct.metadata)
+    and coalesce(p.hide_from_leaderboard, false) = false
+    and coalesce(p.is_admin, false) = false
   group by ct.user_id
   order by sum(ct.amount) desc, max(ct.created_at) desc
   limit greatest(1, least(coalesce(p_limit, 3), 10));
@@ -186,6 +192,7 @@ as $$
   from public.profiles p
   where p.loyalty_streak >= 3
     and p.last_loyalty_at >= (now() - interval '48 hours')
+    and coalesce(p.is_admin, false) = false
     and not (p.id = any(coalesce(p_excluded_user_ids, array[]::uuid[])));
 $$;
 
@@ -296,8 +303,9 @@ as $$
     on ci.item_id = uci.item_id
    and ci.enabled = true
   join public.profiles p
-    on p.id = uci.user_id
+   on p.id = uci.user_id
    and p.hide_from_leaderboard = false
+   and coalesce(p.is_admin, false) = false
   group by uci.user_id
   order by value desc
   limit greatest(1, least(coalesce(p_limit, 3), 10));

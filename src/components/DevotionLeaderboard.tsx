@@ -1,8 +1,9 @@
 import Image from "next/image";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
+import type { AddressTerm } from "@/lib/address-term";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
-import { getCosmeticItem } from "@/lib/cosmetics";
+import { getCosmeticItem, getTitleNameForAddressTerm } from "@/lib/cosmetics";
 import {
   type DevotionLeaderboardEntry,
   type DevotionLeaderboardResponse,
@@ -12,6 +13,7 @@ import { normalizeEquipment } from "@/lib/avatar-slots";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type DevotionLeaderboardProps = {
+  addressTerm: AddressTerm;
   data: DevotionLeaderboardResponse;
   error?: string;
   isLoading?: boolean;
@@ -43,12 +45,21 @@ function formatCountdown(ms: number) {
     .padStart(2, "0")}`;
 }
 
-function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboardEntry; highlight?: boolean }) {
+function LeaderboardRow({
+  addressTerm,
+  entry,
+  highlight = false,
+}: {
+  addressTerm: AddressTerm;
+  entry: DevotionLeaderboardEntry;
+  highlight?: boolean;
+}) {
   const framePresentation = getAvatarFramePresentation(entry);
   const background = getAvatarBackgroundPresentation(
     getCosmeticItem(entry.backgroundItemId ?? ""),
   );
   const mainName = entry.displayName?.trim() || entry.username;
+  const titleName = getTitleNameForAddressTerm(entry.titleName, addressTerm);
 
   return (
     <div
@@ -105,9 +116,9 @@ function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboa
             {entry.username}
           </p>
         ) : null}
-        {entry.titleName ? (
-          <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-100/75" title={entry.titleName}>
-            {entry.titleName}
+        {titleName ? (
+          <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-100/75" title={titleName}>
+            {titleName}
           </p>
         ) : null}
       </div>
@@ -121,6 +132,7 @@ function LeaderboardRow({ entry, highlight = false }: { entry: DevotionLeaderboa
 }
 
 export function DevotionLeaderboard({
+  addressTerm,
   data,
   error,
   isLoading = false,
@@ -181,7 +193,13 @@ export function DevotionLeaderboard({
             {error}
           </div>
         ) : data.leaders.length > 0 ? (
-          data.leaders.map((entry) => <LeaderboardRow entry={entry} key={`${entry.userId}:${entry.rank}`} />)
+          data.leaders.map((entry) => (
+            <LeaderboardRow
+              addressTerm={addressTerm}
+              entry={entry}
+              key={`${entry.userId}:${entry.rank}`}
+            />
+          ))
         ) : (
           <div className="rounded-[1.5rem] border border-white/10 bg-black/25 px-4 py-10 text-center text-sm text-pink-100/70">
             No devotion has been recorded for this period yet.
@@ -191,7 +209,7 @@ export function DevotionLeaderboard({
 
       {data.currentUserEntry ? (
         <div className="mt-5 border-t border-dashed border-white/12 pt-5">
-          <LeaderboardRow entry={data.currentUserEntry} highlight />
+          <LeaderboardRow addressTerm={addressTerm} entry={data.currentUserEntry} highlight />
         </div>
       ) : null}
     </section>

@@ -10,6 +10,7 @@ export type GalleryItem = {
   moodRequired?: number;
   tag: GalleryTag;
   image: string;
+  fallbackImage?: string;
   unlocked: boolean;
   isShrineMemory?: boolean;
 };
@@ -215,6 +216,7 @@ export type PetGalleryItem = {
   id: string;
   title: string;
   image: string;
+  fallbackImage?: string;
   unlockCost: number;
 };
 

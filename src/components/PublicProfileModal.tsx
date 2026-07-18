@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
-import { getCosmeticItem } from "@/lib/cosmetics";
+import type { AddressTerm } from "@/lib/address-term";
+import { getCosmeticItem, getTitleNameForAddressTerm } from "@/lib/cosmetics";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 import type { PublicCommunityProfile } from "@/lib/prestige";
 
 type PublicProfileModalProps = {
+  addressTerm: AddressTerm;
   data: PublicCommunityProfile | null;
   error?: string;
   isOpen: boolean;
@@ -16,6 +18,7 @@ type PublicProfileModalProps = {
 };
 
 export function PublicProfileModal({
+  addressTerm,
   data,
   error,
   isOpen,
@@ -81,7 +84,7 @@ export function PublicProfileModal({
               avatarBorderPresentation={profileBorderPresentation}
               avatarSrc=""
               coins={0}
-              currentTitle={profile.titleName ?? undefined}
+              currentTitle={getTitleNameForAddressTerm(profile.titleName, addressTerm) ?? undefined}
               displayName={profile.displayName}
               equippedAvatarSlots={profile.equippedAvatarSlots ?? {}}
               hasUncensoredAvatar={profile.hasUncensoredAvatar}

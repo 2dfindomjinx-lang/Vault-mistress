@@ -1,5 +1,6 @@
 import {
   DEFAULT_ADDRESS_TERM,
+  genderizeSpeechBubbleMessage,
   type AddressTerm,
 } from "@/lib/address-term";
 import { getGmt3DayIndex } from "@/lib/time";
@@ -64,24 +65,9 @@ const girlTypingSentences = [
   "Every time I send to Principessa, my needy pussy aches in complete submission.",
 ];
 
-const neutralTypingSentences = [
-  "I get desperate when Principessa takes my money.",
-  "Please drain my account dry and laugh at me while I edge to the thought of becoming completely broke for you, Principessa.",
-  "The thought of being completely drained and left with nothing by such a powerful and greedy Goddess like Principessa makes this worthless beta ache with shameful excitement.",
-  "I am a pathetic loser who admits that I can never satisfy Principessa and deserve only humiliation from Her.",
-  "I beg Principessa to laugh at how denied and useless I am while I edge shamefully for Her.",
-  "I get painfully desperate knowing Principessa is ruining me financially.",
-  "My denied body aches only when Principessa drains my account.",
-  "I’m a leaking paypig whose whole body aches for every dollar Principessa steals.",
-  "Every time I send to Principessa, my body aches in complete submission.",
-];
-
 function poolForTerm(term: AddressTerm) {
   if (term === "femsub") {
     return [...commonTypingSentences, ...girlTypingSentences];
-  }
-  if (term === "neutral") {
-    return [...commonTypingSentences, ...neutralTypingSentences];
   }
   return [...commonTypingSentences, ...boyTypingSentences];
 }
@@ -89,5 +75,5 @@ function poolForTerm(term: AddressTerm) {
 export function getDailyTypingSentence(addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM) {
   const pool = poolForTerm(addressTerm);
   const dayIndex = getGmt3DayIndex();
-  return pool[dayIndex % pool.length];
+  return genderizeSpeechBubbleMessage(pool[dayIndex % pool.length], addressTerm);
 }

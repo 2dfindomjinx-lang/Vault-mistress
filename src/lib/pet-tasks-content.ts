@@ -15,9 +15,6 @@ const BOY_X_POST_URL =
 const GIRL_X_POST_URL =
   "https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20needy%20pussy%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97";
 
-const NEUTRAL_X_POST_URL =
-  "https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20body%20and%20wallet%20are%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97";
-
 type GenderedTaskCopy = {
   title?: string;
   description?: string;
@@ -35,17 +32,11 @@ const DAILY_REPORT_COPY: Record<AddressTerm, GenderedTaskCopy> = {
     description:
       "Report in full detail how many times you touched and played with your needy pussy today. Include the exact number of sessions, how long each one lasted, and the times they occurred.",
   },
-  neutral: {
-    title: "Denied Body Touching Journal",
-    description:
-      "Report in full detail how many times you touched and edged yourself today. Include the exact number of sessions, how long each one lasted, and the times they occurred.",
-  },
 };
 
 const X_POST_COPY: Record<AddressTerm, GenderedTaskCopy> = {
   sub: { actionUrl: BOY_X_POST_URL },
   femsub: { actionUrl: GIRL_X_POST_URL },
-  neutral: { actionUrl: NEUTRAL_X_POST_URL },
 };
 
 function basePetTasks(): PetTaskItem[] {
@@ -202,18 +193,6 @@ const girlPerfectWritingSentencePool = [
   "I am grateful to serve Principessa as her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
 ];
 
-const neutralPerfectWritingSentencePool = [
-  "I am grateful to serve as Principessa's obedient Pet and I will prove it with perfect discipline.",
-  "I am a pathetic and weak pet who is truly grateful to serve Principessa as Her obedient and denied little bitch, and I will prove my worthless devotion with perfect discipline, daily humiliation and total submission every single day.",
-  "I am deeply grateful to serve as Principessa’s pathetic paypig and obedient pet. My pleasure and my dignity belong to Her completely, and I will prove my devotion with strict discipline, endless edging and constant shame.",
-  "I am grateful and honored to serve as Principessa’s obedient, locked and denied pet. I exist only for Her amusement and control, and I will prove it every day with perfect discipline, honesty and humiliating obedience.",
-  "I am a desperate, leaking paypig who is truly grateful to serve Principessa as Her personal obedient pet, and I will prove my pathetic submission with perfect discipline, daily reports and total financial and sexual control.",
-  "I am grateful to be allowed to serve as Principessa’s weak and inferior pet. My body is useless without Her permission, and I will prove my loyalty with perfect discipline, constant denial and shameful obedience.",
-  "I am truly grateful to serve Principessa as her devoted and humiliated pet. I accept my place beneath Her and I will prove my complete submission with perfect discipline, daily confessions and endless worship.",
-  "I am a pathetic loser who is grateful to serve as Principessa’s obedient pet. I will prove my devotion every single day with strict discipline, total honesty and by giving up all control to her.",
-  "I am grateful to serve Principessa as her owned, controlled and regularly humiliated pet, and I will prove my worthless existence with perfect discipline, aching denial and unconditional obedience.",
-];
-
 const boyConfessionSentencePool = [
   "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
   "Principessa owns my small dick, my mind, my money, and my dignity.",
@@ -238,20 +217,6 @@ const girlConfessionSentencePool = [
   "My pathetic Pet score and my dripping needy pussy belong entirely to Principessa.",
   "I will not rush. I will edge and suffer properly like a good denied pet.",
   "Principessa’s pet waits, drips, reports, and begs for more humiliation.",
-  "Excuses are for weak losers. I prove my devotion with discipline and shame.",
-  "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
-];
-
-const neutralConfessionSentencePool = [
-  "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
-  "Principessa owns my body, my mind, my money, and my dignity.",
-  "I crawl back to the vault because I’m too weak to resist Principessa’s control.",
-  "I’m grateful to be trained and humiliated as Principessa’s obedient paypig.",
-  "Principessa’s approval is everything. I will degrade myself daily to earn it.",
-  "I accept my place: locked, denied, and used for Principessa’s amusement.",
-  "My pathetic Pet score and my denied body belong entirely to Principessa.",
-  "I will not rush. I will edge and suffer properly like a good denied pet.",
-  "Principessa’s pet waits, aches, reports, and begs for more humiliation.",
   "Excuses are for weak losers. I prove my devotion with discipline and shame.",
   "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
 ];
@@ -285,18 +250,12 @@ export function getDailyPetPerfectWritingSentence(addressTerm: AddressTerm = DEF
   if (addressTerm === "femsub") {
     return pickFromPool(girlPerfectWritingSentencePool);
   }
-  if (addressTerm === "neutral") {
-    return pickFromPool(neutralPerfectWritingSentencePool);
-  }
   return pickFromPool(boyPerfectWritingSentencePool);
 }
 
 export function getDailyPetConfessionSentence(addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM) {
   if (addressTerm === "femsub") {
     return pickFromPool(girlConfessionSentencePool);
-  }
-  if (addressTerm === "neutral") {
-    return pickFromPool(neutralConfessionSentencePool);
   }
   return pickFromPool(boyConfessionSentencePool);
 }
