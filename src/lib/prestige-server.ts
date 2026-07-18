@@ -66,7 +66,7 @@ export async function loadUserPrestigeBadges(
   }
 
   return ((data ?? []) as Array<{ badge_id: string; earned_at: string; equipped: boolean | null }>)
-    .map((row) => inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped !== false))
+    .map((row) => inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped === true))
     .filter((badge): badge is UserPrestigeBadge => Boolean(badge));
 }
 
@@ -237,7 +237,7 @@ export async function loadCommunityProfiles(
 
   ((badgeResult.data ?? []) as UserPrestigeBadgeRow[]).forEach((row) => {
     const current = badgesByUserId.get(row.user_id) ?? [];
-    const inflated = inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped !== false);
+    const inflated = inflateUserPrestigeBadge(row.badge_id, row.earned_at, row.equipped === true);
 
     if (inflated?.equipped) {
       current.push(inflated);

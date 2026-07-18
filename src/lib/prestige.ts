@@ -145,13 +145,6 @@ const prestigeBadgeDefinitions: PrestigeBadgeDefinition[] = [
     description: "Supported the site during the Winter 2026 season.",
     tone: "cyan",
   },
-  {
-    id: "community-goal-summer-2026",
-    label: "Vault Patron 2026",
-    shortLabel: "Vault Patron",
-    description: "Participated in the Summer 2026 community coin-spend objective.",
-    tone: "emerald",
-  },
 ];
 
 export const PRESTIGE_BADGE_MAP = new Map(
@@ -269,7 +262,7 @@ export function getPrestigeBadgeDefinition(badgeId: string) {
   return PRESTIGE_BADGE_MAP.get(badgeId) ?? null;
 }
 
-export function inflateUserPrestigeBadge(badgeId: string, earnedAt: string, equipped = true): UserPrestigeBadge | null {
+export function inflateUserPrestigeBadge(badgeId: string, earnedAt: string, equipped = false): UserPrestigeBadge | null {
   const definition = getPrestigeBadgeDefinition(badgeId);
 
   if (!definition) {

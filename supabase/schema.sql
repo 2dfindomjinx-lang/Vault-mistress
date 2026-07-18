@@ -214,6 +214,7 @@ create table if not exists public.user_prestige_badges (
   badge_id text not null,
   source text not null default 'seasonal_support',
   metadata jsonb not null default '{}'::jsonb,
+  equipped boolean not null default false,
   earned_at timestamp with time zone not null default now(),
   created_at timestamp with time zone not null default now(),
   unique(user_id, badge_id)
