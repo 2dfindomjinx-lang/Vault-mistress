@@ -23,14 +23,15 @@ function getFirebaseMessaging() {
   return getMessaging();
 }
 
-export async function sendWallpaperLiveMessagePush(input: {
+async function sendWallpaperPush(input: {
   activationId: string | null;
-  messageVersion: string;
+  type: "wallpaper_live_message" | "wallpaper_sync";
+  version: string;
 }) {
   try {
     const messaging = getFirebaseMessaging();
     if (!messaging) {
-      console.warn("Firebase Admin env is not configured; Live Message will use polling fallback.");
+      console.warn("Firebase Admin env is not configured; wallpaper sync will use polling fallback.");
       return;
     }
 
@@ -55,8 +56,8 @@ export async function sendWallpaperLiveMessagePush(input: {
       const result = await messaging.sendEachForMulticast({
         fids: batch,
         data: {
-          type: "wallpaper_live_message",
-          messageVersion: input.messageVersion,
+          type: input.type,
+          version: input.version,
         },
         android: {
           priority: "high",
@@ -79,6 +80,28 @@ export async function sendWallpaperLiveMessagePush(input: {
       }
     }
   } catch (error) {
-    console.error("Wallpaper Live Message push failed; polling fallback remains active.", error);
+    console.error("Wallpaper push failed; polling fallback remains active.", error);
   }
+}
+
+export async function sendWallpaperLiveMessagePush(input: {
+  activationId: string | null;
+  messageVersion: string;
+}) {
+  return sendWallpaperPush({
+    activationId: input.activationId,
+    type: "wallpaper_live_message",
+    version: input.messageVersion,
+  });
+}
+
+export async function sendWallpaperSyncPush(input: {
+  activationId: string | null;
+  wallpaperVersion: string;
+}) {
+  return sendWallpaperPush({
+    activationId: input.activationId,
+    type: "wallpaper_sync",
+    version: input.wallpaperVersion,
+  });
 }

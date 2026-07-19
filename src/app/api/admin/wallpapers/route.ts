@@ -1,7 +1,10 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { PRINCIPESSA_WALLPAPER_APP_KEY } from "@/lib/app-licenses";
 import { prepareWallpaperUpload } from "@/lib/r2-wallpapers";
-import { sendWallpaperLiveMessagePush } from "@/lib/wallpaper-push";
+import {
+  sendWallpaperLiveMessagePush,
+  sendWallpaperSyncPush,
+} from "@/lib/wallpaper-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
@@ -146,6 +149,10 @@ export async function POST(request: Request) {
         p_created_by: admin.adminUser.id,
       });
       if (error) throw error;
+      await sendWallpaperSyncPush({
+        activationId,
+        wallpaperVersion: version,
+      });
 
       return Response.json({
         ok: true,
@@ -172,15 +179,20 @@ export async function POST(request: Request) {
         return Response.json({ error: "Stored wallpaper was not found." }, { status: 404 });
       }
 
+      const wallpaperVersion = randomUUID();
       const { error } = await admin.supabase.rpc("assign_wallpaper", {
         p_app_key: PRINCIPESSA_WALLPAPER_APP_KEY,
         p_activation_id: activationId,
         p_object_key: stored.object_key,
         p_wallpaper_url: stored.wallpaper_url,
-        p_version: randomUUID(),
+        p_version: wallpaperVersion,
         p_created_by: admin.adminUser.id,
       });
       if (error) throw error;
+      await sendWallpaperSyncPush({
+        activationId,
+        wallpaperVersion,
+      });
 
       return Response.json({
         ok: true,
