@@ -27,6 +27,8 @@ type EventRow = {
   created_at: string;
 };
 
+type AppKey = "principessas-discipline" | "principessa-wallpaper-control";
+
 export default function AppLicensesPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -36,11 +38,14 @@ export default function AppLicensesPage() {
   const [notes, setNotes] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [resetTarget, setResetTarget] = useState<LicenseRow | null>(null);
+  const [appKey, setAppKey] = useState<AppKey>("principessas-discipline");
 
-  const loadLicenses = async () => {
+  const loadLicenses = async (requestedAppKey: AppKey = appKey) => {
     setIsBusy(true);
     try {
-      const response = await fetch("/api/admin/app-licenses", { cache: "no-store" });
+      const response = await fetch(`/api/admin/app-licenses?appKey=${encodeURIComponent(requestedAppKey)}`, {
+        cache: "no-store",
+      });
       const result = (await response.json()) as {
         error?: string;
         licenses?: LicenseRow[];
@@ -72,7 +77,7 @@ export default function AppLicensesPage() {
           return;
         }
         setIsAdmin(true);
-        await loadLicenses();
+        await loadLicenses("principessas-discipline");
       } catch (error) {
         if (alive) {
           setStatus(error instanceof Error ? error.message : "Admin session failed.");
@@ -98,7 +103,7 @@ export default function AppLicensesPage() {
       const response = await fetch("/api/admin/app-licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, appKey }),
       });
       const result = (await response.json()) as {
         error?: string;
@@ -147,7 +152,11 @@ export default function AppLicensesPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">Activation Codes</p>
-            <h1 className="text-3xl font-black">Principessa&apos;s Discipline Licenses</h1>
+            <h1 className="text-3xl font-black">
+              {appKey === "principessas-discipline"
+                ? "Principessa's Discipline Licenses"
+                : "Wallpaper Control Licenses"}
+            </h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Generate a code, see who used it, and reset or revoke it when needed.
             </p>
@@ -155,6 +164,39 @@ export default function AppLicensesPage() {
           <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white" href="/admin">
             Back to admin
           </Link>
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {([
+            ["principessas-discipline", "Discipline"],
+            ["principessa-wallpaper-control", "Wallpaper Control"],
+          ] as const).map(([key, label]) => (
+            <button
+              className={`rounded-full border px-4 py-2 text-sm font-black ${
+                appKey === key
+                  ? "border-pink-300/40 bg-pink-500/15 text-white"
+                  : "border-white/10 bg-white/[0.04] text-zinc-400"
+              }`}
+              disabled={isBusy}
+              key={key}
+              onClick={() => {
+                setAppKey(key);
+                setStatus("");
+                void loadLicenses(key);
+              }}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+          {appKey === "principessa-wallpaper-control" && (
+            <Link
+              className="rounded-full border border-emerald-200/20 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-100"
+              href="/admin/wallpapers"
+            >
+              Manage wallpapers
+            </Link>
+          )}
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">

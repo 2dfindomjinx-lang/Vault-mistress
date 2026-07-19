@@ -6,54 +6,20 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
 import { getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
+import { normalizeAddressTerm, type AddressTerm } from "@/lib/address-term";
 
 const TASK_ID = "pet-daily-click";
 const PET_SCORE_REWARD = 10;
 const MAX_DAILY_COIN_REWARD = 200;
-const CLICK_IMAGE_POOL = [
-  "/pet/daily-click/click-01.png",
-  "/pet/daily-click/click-02.png",
-  "/pet/daily-click/click-03.png",
-  "/pet/daily-click/click-04.png",
-  "/pet/daily-click/click-05.png",
-  "/pet/daily-click/click-06.png",
-  "/pet/daily-click/click-07.png",
-  "/pet/daily-click/click-08.png",
-  "/pet/daily-click/click-09.png",
-  "/pet/daily-click/click-10.png",
-  "/pet/daily-click/click-11.png",
-  "/pet/daily-click/click-12.png",
-  "/pet/daily-click/click-13.png",
-  "/pet/daily-click/click-14.png",
-  "/pet/daily-click/click-15.png",
-  "/pet/daily-click/click-16.png",
-  "/pet/daily-click/click-17.png",
-  "/pet/daily-click/click-18.png",
-  "/pet/daily-click/click-19.png",
-  "/pet/daily-click/click-20.png",
-  "/pet/daily-click/click-21.png",
-  "/pet/daily-click/click-22.png",
-  "/pet/daily-click/click-23.png",
-  "/pet/daily-click/click-24.png",
-  "/pet/daily-click/click-25.png",
-  "/pet/daily-click/click-26.png",
-  "/pet/daily-click/click-27.png",
-  "/pet/daily-click/click-28.png",
-  "/pet/daily-click/click-29.png",
-  "/pet/daily-click/click-30.png",
-  "/pet/daily-click/click-31.png",
-  "/pet/daily-click/click-32.png",
-  "/pet/daily-click/click-33.png",
-  "/pet/daily-click/click-34.png",
-  "/pet/daily-click/click-35.png",
-  "/pet/daily-click/click-36.png",
-  "/pet/daily-click/click-37.png",
-  "/pet/daily-click/click-38.png",
-  "/pet/daily-click/click-39.png",
-  "/pet/daily-click/click-40.png",
-  "/pet/daily-click/click-41.png",
-  "/pet/daily-click/click-42.png",
-];
+const DAILY_CLICK_IMAGE_COUNT = 42;
+const SUB_CLICK_IMAGE_POOL = Array.from(
+  { length: DAILY_CLICK_IMAGE_COUNT },
+  (_, index) => `/pet/daily-click/click-${String(index + 1).padStart(2, "0")}.png`,
+);
+const FEMSUB_CLICK_IMAGE_POOL = Array.from(
+  { length: DAILY_CLICK_IMAGE_COUNT },
+  (_, index) => `/pet/daily-click-femsub/click-${String(index + 1).padStart(2, "0")}.png`,
+);
 
 type TaskRow = {
   completed_at: string | null;
@@ -65,6 +31,7 @@ type TaskRow = {
 };
 
 type ProfileRow = {
+  address_term: string | null;
   coins: number;
   id: string;
   pet_score: number | null;
@@ -106,12 +73,13 @@ function randomInteger(minimum: number, maximum: number) {
   return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
 }
 
-function getDailyImage() {
-  const imageIndex = getGmt3DayIndex() % CLICK_IMAGE_POOL.length;
-  return CLICK_IMAGE_POOL[imageIndex] ?? CLICK_IMAGE_POOL[0];
+function getDailyImage(addressTerm: AddressTerm) {
+  const pool = addressTerm === "femsub" ? FEMSUB_CLICK_IMAGE_POOL : SUB_CLICK_IMAGE_POOL;
+  const imageIndex = getGmt3DayIndex() % pool.length;
+  return pool[imageIndex] ?? pool[0];
 }
 
-function normalizeTask(row: TaskRow | null, dateKey: string) {
+function normalizeTask(row: TaskRow | null, dateKey: string, addressTerm: AddressTerm) {
   const metadata = row?.metadata ?? {};
   const rowDate = getMetadataString(metadata, "date");
   const sameDay = rowDate === dateKey;
@@ -127,7 +95,7 @@ function normalizeTask(row: TaskRow | null, dateKey: string) {
     completed,
     metadata: {
       date: dateKey,
-      image: getDailyImage(),
+      image: getDailyImage(addressTerm),
       progress,
       requirement,
     },
@@ -152,7 +120,7 @@ export async function POST(request: Request) {
   const requestedClicks = Math.max(1, Math.min(100, Math.floor(body?.clicks ?? 1)));
   const supabase = createSupabaseAdminClient();
   const [profileResult, taskResult] = await Promise.all([
-    supabase.from("profiles").select("id, coins, pet_score").eq("id", authData.user.id).single(),
+    supabase.from("profiles").select("id, coins, pet_score, address_term").eq("id", authData.user.id).single(),
     supabase
       .from("user_pet_tasks")
       .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
@@ -180,7 +148,8 @@ export async function POST(request: Request) {
   const profile = profileResult.data as ProfileRow;
   const existingTask = (taskResult.data as TaskRow | null) ?? null;
   const today = getGmt3DateKey();
-  const current = normalizeTask(existingTask, today);
+  const addressTerm = normalizeAddressTerm(profile.address_term);
+  const current = normalizeTask(existingTask, today, addressTerm);
 
   const existingTaskDate = getMetadataString(existingTask?.metadata, "date");
 
@@ -216,7 +185,7 @@ export async function POST(request: Request) {
   const petScoreReward = completed ? PET_SCORE_REWARD : 0;
   const metadata = {
     date: today,
-    image: getDailyImage(),
+    image: getDailyImage(addressTerm),
     progress: nextProgress,
     requirement: current.requirement,
   };

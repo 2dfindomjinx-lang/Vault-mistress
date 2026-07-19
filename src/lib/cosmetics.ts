@@ -203,6 +203,15 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     audience: "femsub",
   },
   {
+    id: "avatar-lezdom-mistress",
+    name: "Lezdom Mistress",
+    description: "Femsub lezdom. Foot worship, soles, and expensive obedience.",
+    type: "speech-avatar",
+    price: 15000,
+    image: "/cosmetics/avatar-lezdom-mistress.png",
+    audience: "femsub",
+  },
+  {
     id: "avatar-custom-2",
     name: "Keyholder",
     description: "Your pleasure is locked. Your wallet is not.",

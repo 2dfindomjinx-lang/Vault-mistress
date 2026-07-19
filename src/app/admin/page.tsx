@@ -1421,6 +1421,12 @@ export default function AdminPage() {
                 >
                   Activation Codes
                 </Link>
+                <Link
+                  className="rounded-md border border-sky-200/20 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-100 transition hover:border-sky-300/50 hover:text-white"
+                  href="/admin/wallpapers"
+                >
+                  Wallpapers
+                </Link>
               </div>
         </div>
 
@@ -2831,4 +2837,3 @@ export default function AdminPage() {
     </main>
   );
 }
-

@@ -10,10 +10,10 @@ export const PET_TASK_REWARD = 10;
 export const PET_WEEKLY_TAX_REWARD = 20;
 
 const BOY_X_POST_URL =
-  "https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20small%20dick%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97";
+  "https://x.com/intent/tweet?text=%40VMPrincipessa%20owns%20your%20mind%2C%20your%20body%20and%20your%20wallet.%0A%0ANo%20escape.%20Just%20endless%20techdom%20control%2C%20daily%20obedience%20and%20total%20surrender.%0A%0AYou%20don%E2%80%99t%20need%20permission%20to%20leak%20%E2%80%94%20you%20need%20permission%20to%20exist.%0A%0AReady%20to%20be%20properly%20owned%3F%0A%0ATap%20here%20%E2%86%92%20https%3A//vault-mistress.vercel.app%0A%0AWeak.%20Addicted.%20Hers.%20%F0%9F%92%B8%F0%9F%94%97";
 
 const GIRL_X_POST_URL =
-  "https://x.com/intent/tweet?text=I%20belong%20to%20@VMPrincipessa.%20My%20needy%20pussy%20is%20completely%20hers.%20Every%20night%20I%E2%80%99m%20forced%20to%20fill%20my%20mandatory%20humiliation%20report%20like%20the%20pathetic%20pet%20I%20am.%0A%0ACraving%20the%20same%20shame%20and%20control%3F%0A%0AClick%20Here%20%E2%9C%85%0Ahttps%3A%2F%2Fvault-mistress.vercel.app%0A%0AWeak.%20Leaking.%20Addicted.%20%F0%9F%92%B8%F0%9F%94%97";
+  "https://x.com/intent/tweet?text=%40VMPrincipessa%20owns%20your%20mind%2C%20your%20body%20and%20your%20wallet.%0A%0ANo%20escape.%20Just%20endless%20techdom%20control%2C%20daily%20obedience%20and%20total%20surrender.%0A%0AYou%20don%E2%80%99t%20need%20permission%20to%20leak%20%E2%80%94%20you%20need%20permission%20to%20exist.%0A%0AReady%20to%20be%20properly%20owned%3F%0A%0ATap%20here%20%E2%86%92%20https%3A//vault-mistress.vercel.app%0A%0AWeak.%20Addicted.%20Hers.%20%F0%9F%92%B8%F0%9F%94%97";
 
 type GenderedTaskCopy = {
   title?: string;
@@ -30,7 +30,7 @@ const DAILY_REPORT_COPY: Record<AddressTerm, GenderedTaskCopy> = {
   femsub: {
     title: "Needy Pussy Touching Journal",
     description:
-      "Report in full detail how many times you touched and played with your needy pussy today. Include the exact number of sessions, how long each one lasted, and the times they occurred.",
+      "Report in full detail how many times you touched and played with your needy pussy today. Include the exact number of sessions, how long each one lasted, how wet you got, and the times they occurred.",
   },
 };
 

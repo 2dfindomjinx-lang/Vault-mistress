@@ -1,66 +1,38 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
+import { PRINCIPESSA_WALLPAPER_APP_KEY } from "@/lib/app-licenses";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const WALLPAPER_BASE_URL = "https://vault-mistress.vercel.app/wallpapers/pool";
-const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-const MAX_POOL_SIZE = 200;
-
-function wallpaperFileName(index: number) {
-  return `${String(index).padStart(3, "0")}.jpg`;
-}
-
-function getAvailableWallpapers() {
-  const poolDir = path.join(process.cwd(), "public", "wallpapers", "pool");
-  const available: string[] = [];
-
-  for (let index = 1; index <= MAX_POOL_SIZE; index += 1) {
-    const fileName = wallpaperFileName(index);
-    if (existsSync(path.join(poolDir, fileName))) {
-      available.push(fileName);
-    }
-  }
-
-  return available;
-}
-
+// Compatibility endpoint for old APKs. New APKs use the authenticated,
+// device-aware /api/wallpaper-control/active endpoint.
 export async function GET() {
-  const availableWallpapers = getAvailableWallpapers();
-  const nowMs = Date.now();
-  const windowNumber = Math.floor(nowMs / THREE_HOURS_MS);
-  const windowStartMs = windowNumber * THREE_HOURS_MS;
-  const nextWindowStartMs = windowStartMs + THREE_HOURS_MS;
-  const updatedAt = new Date(windowStartMs).toISOString();
-  const nextUpdateAt = new Date(nextWindowStartMs).toISOString();
-  const secondsUntilNextWindow = Math.max(1, Math.ceil((nextWindowStartMs - nowMs) / 1000));
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("wallpaper_assignments")
+    .select("wallpaper_url, version, created_at")
+    .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+    .eq("scope", "global")
+    .eq("active", true)
+    .maybeSingle();
 
-  if (availableWallpapers.length === 0) {
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+  if (!data) {
     return Response.json(
-      {
-        wallpaperUrl: null,
-        version: `window-${windowNumber}-none`,
-        updatedAt,
-        nextUpdateAt,
-      },
-      { status: 404 },
+      { wallpaperUrl: null, version: "manual-none", updatedAt: null, nextUpdateAt: null },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  const selectedFileName = availableWallpapers[windowNumber % availableWallpapers.length];
-
   return Response.json(
     {
-      wallpaperUrl: `${WALLPAPER_BASE_URL}/${selectedFileName}`,
-      version: `window-${windowNumber}-${selectedFileName}`,
-      updatedAt,
-      nextUpdateAt,
+      wallpaperUrl: data.wallpaper_url,
+      version: data.version,
+      updatedAt: data.created_at,
+      nextUpdateAt: null,
     },
-    {
-      headers: {
-        "Cache-Control": `public, s-maxage=${secondsUntilNextWindow}, stale-while-revalidate=60`,
-      },
-    },
+    { headers: { "Cache-Control": "no-store" } },
   );
 }

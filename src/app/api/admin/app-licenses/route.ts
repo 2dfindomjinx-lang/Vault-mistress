@@ -1,6 +1,8 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import {
   PRINCIPESSA_DISCIPLINE_APP_KEY,
+  PRINCIPESSA_WALLPAPER_APP_KEY,
+  isSupportedAppLicenseKey,
   insertAppLicense,
   listAppLicenseEvents,
   listAppLicenses,
@@ -15,19 +17,31 @@ type Body = {
   action?: "generate" | "revoke" | "reset" | "list";
   licenseId?: string;
   notes?: string;
+  appKey?: string;
 };
 
-export async function GET() {
+function requestedAppKey(value: string | null | undefined) {
+  const appKey = value?.trim() || PRINCIPESSA_DISCIPLINE_APP_KEY;
+  return isSupportedAppLicenseKey(appKey) ? appKey : null;
+}
+
+export async function GET(request: Request) {
   const admin = await requireAdminProfile();
 
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
+  const appKey = requestedAppKey(new URL(request.url).searchParams.get("appKey"));
+  if (!appKey) {
+    return Response.json({ error: "Unknown app key." }, { status: 400 });
+  }
+
   try {
     return Response.json({
-      licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
-      events: await listAppLicenseEvents(PRINCIPESSA_DISCIPLINE_APP_KEY),
+      appKey,
+      licenses: await listAppLicenses(appKey),
+      events: await listAppLicenseEvents(appKey),
     });
   } catch (error) {
     return Response.json(
@@ -45,23 +59,27 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as Body;
+  const appKey = requestedAppKey(body.appKey);
+  if (!appKey) {
+    return Response.json({ error: "Unknown app key." }, { status: 400 });
+  }
 
   try {
     if (body.action === "list") {
       return Response.json({
-        licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
-        events: await listAppLicenseEvents(PRINCIPESSA_DISCIPLINE_APP_KEY),
+        licenses: await listAppLicenses(appKey),
+        events: await listAppLicenseEvents(appKey),
       });
     }
 
     if (body.action === "generate") {
       await insertAppLicense({
-        appKey: PRINCIPESSA_DISCIPLINE_APP_KEY,
+        appKey,
         notes: body.notes,
       });
       return Response.json({
-        licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
-        events: await listAppLicenseEvents(PRINCIPESSA_DISCIPLINE_APP_KEY),
+        licenses: await listAppLicenses(appKey),
+        events: await listAppLicenseEvents(appKey),
       });
     }
 
@@ -69,10 +87,10 @@ export async function POST(request: Request) {
       if (!body.licenseId?.trim()) {
         return Response.json({ error: "Missing license id." }, { status: 400 });
       }
-      await revokeAppLicense(body.licenseId.trim());
+      await revokeAppLicense(body.licenseId.trim(), appKey);
       return Response.json({
-        licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
-        events: await listAppLicenseEvents(PRINCIPESSA_DISCIPLINE_APP_KEY),
+        licenses: await listAppLicenses(appKey),
+        events: await listAppLicenseEvents(appKey),
       });
     }
 
@@ -80,10 +98,10 @@ export async function POST(request: Request) {
       if (!body.licenseId?.trim()) {
         return Response.json({ error: "Missing license id." }, { status: 400 });
       }
-      await resetAppLicense(body.licenseId.trim());
+      await resetAppLicense(body.licenseId.trim(), appKey);
       return Response.json({
-        licenses: await listAppLicenses(PRINCIPESSA_DISCIPLINE_APP_KEY),
-        events: await listAppLicenseEvents(PRINCIPESSA_DISCIPLINE_APP_KEY),
+        licenses: await listAppLicenses(appKey),
+        events: await listAppLicenseEvents(appKey),
       });
     }
 

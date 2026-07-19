@@ -1,7 +1,13 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSign, randomBytes } from "node:crypto";
+import { createPublicKey, createSign, createVerify, randomBytes } from "node:crypto";
 
 export const PRINCIPESSA_DISCIPLINE_APP_KEY = "principessas-discipline";
+export const PRINCIPESSA_WALLPAPER_APP_KEY = "principessa-wallpaper-control";
+export const SUPPORTED_APP_LICENSE_KEYS = [
+  PRINCIPESSA_DISCIPLINE_APP_KEY,
+  PRINCIPESSA_WALLPAPER_APP_KEY,
+] as const;
+export type SupportedAppLicenseKey = (typeof SUPPORTED_APP_LICENSE_KEYS)[number];
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const DEFAULT_ACTIVATION_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCLaQTKq5VY+1d7
@@ -75,6 +81,10 @@ export function normalizeLicenseCode(code: string) {
 
 export function normalizeOwnerName(name: string) {
   return name.trim();
+}
+
+export function isSupportedAppLicenseKey(value: string): value is SupportedAppLicenseKey {
+  return SUPPORTED_APP_LICENSE_KEYS.includes(value as SupportedAppLicenseKey);
 }
 
 export function buildDeviceLabel(manufacturer?: string | null, model?: string | null) {
@@ -177,6 +187,7 @@ export async function insertAppLicense(input: {
 
 export async function bindAppLicense(input: {
   activationId: string;
+  appKey: string;
   installationId: string;
   ownerName: string;
   androidId?: string | null;
@@ -187,6 +198,7 @@ export async function bindAppLicense(input: {
   const { data: collision, error: collisionError } = await supabase
     .from("app_activation_codes")
     .select("id")
+    .eq("app_key", input.appKey)
     .eq("owner_name", normalizedOwnerName)
     .neq("id", input.activationId)
     .maybeSingle();
@@ -279,7 +291,7 @@ export async function touchAppLicenseValidation(input: {
   }
 }
 
-export async function revokeAppLicense(licenseId: string) {
+export async function revokeAppLicense(licenseId: string, appKey: string) {
   const supabase = createSupabaseAdminClient();
   const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
@@ -287,6 +299,7 @@ export async function revokeAppLicense(licenseId: string) {
       "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
     )
     .eq("id", licenseId)
+    .eq("app_key", appKey)
     .single();
 
   if (fetchError) {
@@ -322,12 +335,13 @@ export async function revokeAppLicense(licenseId: string) {
   return existing as AppLicenseRow;
 }
 
-export async function resetAppLicense(licenseId: string) {
+export async function resetAppLicense(licenseId: string, appKey: string) {
   const supabase = createSupabaseAdminClient();
   const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
     .select("id, app_key, activation_code, owner_name, reset_count")
     .eq("id", licenseId)
+    .eq("app_key", appKey)
     .single();
 
   if (fetchError) {
@@ -349,6 +363,7 @@ export async function resetAppLicense(licenseId: string) {
       updated_at: now,
     })
     .eq("id", licenseId)
+    .eq("app_key", appKey)
     .select(
       "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
     )
@@ -378,6 +393,36 @@ export function createSignedLicenseToken(payload: SignedLicensePayload) {
   signer.end();
   const signaturePart = signer.sign(privateKey, "base64url");
   return `${payloadPart}.${signaturePart}`;
+}
+
+export function verifySignedLicenseToken(token: string): SignedLicensePayload | null {
+  const [payloadPart, signaturePart, extraPart] = token.split(".");
+  if (!payloadPart || !signaturePart || extraPart) return null;
+
+  try {
+    const privateKey = process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
+    const verifier = createVerify("RSA-SHA256");
+    verifier.update(payloadPart);
+    verifier.end();
+    if (!verifier.verify(createPublicKey(privateKey), signaturePart, "base64url")) {
+      return null;
+    }
+
+    const payload = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8")) as Partial<SignedLicensePayload>;
+    if (
+      typeof payload.appKey !== "string" ||
+      typeof payload.activationCode !== "string" ||
+      typeof payload.installationId !== "string" ||
+      typeof payload.ownerName !== "string" ||
+      typeof payload.issuedAtMillis !== "number"
+    ) {
+      return null;
+    }
+
+    return payload as SignedLicensePayload;
+  } catch {
+    return null;
+  }
 }
 
 export async function logAppLicenseEvent(input: {

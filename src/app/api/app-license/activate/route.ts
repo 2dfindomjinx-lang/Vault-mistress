@@ -7,6 +7,7 @@ import {
   logAppLicenseEvent,
   normalizeLicenseCode,
   normalizeOwnerName,
+  isSupportedAppLicenseKey,
   rebindAppLicenseForKnownDevice,
   touchAppLicenseValidation,
 } from "@/lib/app-licenses";
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   const ownerName = normalizeOwnerName(body.ownerName ?? "");
   const deviceLabel = buildDeviceLabel(body.deviceManufacturer, body.deviceModel);
 
-  if (appKey !== PRINCIPESSA_DISCIPLINE_APP_KEY) {
+  if (!isSupportedAppLicenseKey(appKey)) {
     return Response.json({ error: "Unknown app key." }, { status: 400 });
   }
 
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     if (!license.bound_installation_id) {
       await bindAppLicense({
         activationId: license.id,
+        appKey,
         installationId,
         ownerName,
         androidId: body.androidId,
