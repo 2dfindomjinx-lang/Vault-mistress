@@ -1,22 +1,30 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { PRINCIPESSA_WALLPAPER_APP_KEY } from "@/lib/app-licenses";
 import { prepareWallpaperUpload } from "@/lib/r2-wallpapers";
+import { sendWallpaperLiveMessagePush } from "@/lib/wallpaper-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type Body = {
-  action?: "prepare-upload" | "assign";
+  action?: "prepare-upload" | "assign" | "send-message" | "clear-message";
   activationId?: string | null;
   contentType?: string;
+  message?: string;
   objectKey?: string;
   version?: string;
   wallpaperUrl?: string;
 };
 
 async function loadWallpaperAdminState(supabase: SupabaseClient) {
-  const [{ data: devices, error: devicesError }, { data: assignments, error: assignmentsError }] = await Promise.all([
+  const [
+    { data: devices, error: devicesError },
+    { data: assignments, error: assignmentsError },
+    { data: messages, error: messagesError },
+    { data: events, error: eventsError },
+  ] = await Promise.all([
     supabase
       .from("app_activation_codes")
       .select(
@@ -31,12 +39,45 @@ async function loadWallpaperAdminState(supabase: SupabaseClient) {
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
       .eq("active", true)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("wallpaper_live_messages")
+      .select("id, activation_id, scope, message, version, created_at")
+      .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+      .eq("active", true)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("wallpaper_device_events")
+      .select("id, activation_id, event_type, changed_scopes, system_wallpaper_id, lock_wallpaper_id, created_at")
+      .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (devicesError) throw devicesError;
   if (assignmentsError) throw assignmentsError;
+  if (messagesError) throw messagesError;
+  if (eventsError) throw eventsError;
 
-  return { devices: devices ?? [], assignments: assignments ?? [] };
+  return {
+    devices: devices ?? [],
+    assignments: assignments ?? [],
+    messages: messages ?? [],
+    events: events ?? [],
+  };
+}
+
+async function validateTarget(supabase: SupabaseClient, activationId: string | null) {
+  if (!activationId) return;
+  const { data: target, error } = await supabase
+    .from("app_activation_codes")
+    .select("id")
+    .eq("id", activationId)
+    .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+    .eq("status", "active")
+    .not("bound_installation_id", "is", null)
+    .maybeSingle();
+  if (error) throw error;
+  if (!target) throw new Error("Wallpaper target device was not found.");
 }
 
 export async function GET() {
@@ -79,18 +120,7 @@ export async function POST(request: Request) {
       }
 
       if (activationId) {
-        const { data: target, error: targetError } = await admin.supabase
-          .from("app_activation_codes")
-          .select("id")
-          .eq("id", activationId)
-          .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
-          .eq("status", "active")
-          .not("bound_installation_id", "is", null)
-          .maybeSingle();
-        if (targetError) throw targetError;
-        if (!target) {
-          return Response.json({ error: "Wallpaper target device was not found." }, { status: 404 });
-        }
+        await validateTarget(admin.supabase, activationId);
       }
 
       const { error } = await admin.supabase.rpc("assign_wallpaper", {
@@ -102,6 +132,72 @@ export async function POST(request: Request) {
         p_created_by: admin.adminUser.id,
       });
       if (error) throw error;
+
+      return Response.json({
+        ok: true,
+        ...(await loadWallpaperAdminState(admin.supabase)),
+      });
+    }
+
+    if (body.action === "send-message") {
+      const activationId = body.activationId?.trim() || null;
+      const message = body.message?.trim() ?? "";
+      if (!message || message.length > 240) {
+        return Response.json({ error: "Live message must contain 1 to 240 characters." }, { status: 400 });
+      }
+      await validateTarget(admin.supabase, activationId);
+
+      let deactivate = admin.supabase
+        .from("wallpaper_live_messages")
+        .update({ active: false })
+        .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+        .eq("active", true);
+      deactivate = activationId
+        ? deactivate.eq("activation_id", activationId)
+        : deactivate.eq("scope", "global");
+      const { error: deactivateError } = await deactivate;
+      if (deactivateError) throw deactivateError;
+
+      const messageVersion = randomUUID();
+      const { error: insertError } = await admin.supabase
+        .from("wallpaper_live_messages")
+        .insert({
+          app_key: PRINCIPESSA_WALLPAPER_APP_KEY,
+          activation_id: activationId,
+          scope: activationId ? "device" : "global",
+          message,
+          version: messageVersion,
+          active: true,
+          created_by: admin.adminUser.id,
+        });
+      if (insertError) throw insertError;
+      await sendWallpaperLiveMessagePush({
+        activationId,
+        messageVersion,
+      });
+
+      return Response.json({
+        ok: true,
+        ...(await loadWallpaperAdminState(admin.supabase)),
+      });
+    }
+
+    if (body.action === "clear-message") {
+      const activationId = body.activationId?.trim() || null;
+      let clear = admin.supabase
+        .from("wallpaper_live_messages")
+        .update({ active: false })
+        .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+        .eq("active", true);
+      clear = activationId
+        ? clear.eq("activation_id", activationId)
+        : clear.eq("scope", "global");
+      const { error } = await clear;
+      if (error) throw error;
+      await sendWallpaperLiveMessagePush({
+        activationId,
+        messageVersion: `cleared-${randomUUID()}`,
+      });
 
       return Response.json({
         ok: true,

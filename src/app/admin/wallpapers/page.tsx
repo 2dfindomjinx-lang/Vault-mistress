@@ -20,9 +20,30 @@ type Assignment = {
   created_at: string;
 };
 
+type LiveMessage = {
+  id: string;
+  activation_id: string | null;
+  scope: "global" | "device";
+  message: string;
+  version: string;
+  created_at: string;
+};
+
+type WallpaperEvent = {
+  id: string;
+  activation_id: string;
+  event_type: "wallpaper_changed";
+  changed_scopes: string[];
+  system_wallpaper_id: number | null;
+  lock_wallpaper_id: number | null;
+  created_at: string;
+};
+
 type AdminState = {
   devices?: Device[];
   assignments?: Assignment[];
+  messages?: LiveMessage[];
+  events?: WallpaperEvent[];
   error?: string;
 };
 
@@ -37,8 +58,11 @@ type PreparedUpload = {
 export default function WallpaperAdminPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [messages, setMessages] = useState<LiveMessage[]>([]);
+  const [events, setEvents] = useState<WallpaperEvent[]>([]);
   const [target, setTarget] = useState("global");
   const [file, setFile] = useState<File | null>(null);
+  const [liveMessage, setLiveMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isBusy, setIsBusy] = useState(true);
 
@@ -47,28 +71,44 @@ export default function WallpaperAdminPage() {
     [assignments],
   );
   const globalAssignment = assignments.find((item) => item.scope === "global") ?? null;
+  const messageByDevice = useMemo(
+    () => new Map(messages.filter((item) => item.activation_id).map((item) => [item.activation_id, item])),
+    [messages],
+  );
+  const globalMessage = messages.find((item) => item.scope === "global") ?? null;
+  const deviceById = useMemo(() => new Map(devices.map((device) => [device.id, device])), [devices]);
 
   const applyState = (result: AdminState) => {
     setDevices(result.devices ?? []);
     setAssignments(result.assignments ?? []);
-  };
-
-  const load = async () => {
-    setIsBusy(true);
-    try {
-      const response = await fetch("/api/admin/wallpapers", { cache: "no-store" });
-      const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Wallpaper admin state failed.");
-      applyState(result);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Wallpaper admin state failed.");
-    } finally {
-      setIsBusy(false);
-    }
+    setMessages(result.messages ?? []);
+    setEvents(result.events ?? []);
   };
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    fetch("/api/admin/wallpapers", { cache: "no-store" })
+      .then(async (response) => {
+        const result = (await response.json()) as AdminState;
+        if (!response.ok) throw new Error(result.error ?? "Wallpaper admin state failed.");
+        if (!cancelled) {
+          setDevices(result.devices ?? []);
+          setAssignments(result.assignments ?? []);
+          setMessages(result.messages ?? []);
+          setEvents(result.events ?? []);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setStatus(error instanceof Error ? error.message : "Wallpaper admin state failed.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const uploadAndAssign = async () => {
@@ -122,6 +162,40 @@ export default function WallpaperAdminPage() {
       setStatus(target === "global" ? "Wallpaper assigned to everyone." : "Wallpaper assigned to the selected device.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Wallpaper upload failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const updateLiveMessage = async (action: "send-message" | "clear-message") => {
+    if (action === "send-message" && !liveMessage.trim()) {
+      setStatus("Write a live message first.");
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus(action === "send-message" ? "Sending live message..." : "Clearing live message...");
+    try {
+      const response = await fetch("/api/admin/wallpapers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          activationId: target === "global" ? null : target,
+          message: liveMessage,
+        }),
+      });
+      const result = (await response.json()) as AdminState;
+      if (!response.ok) throw new Error(result.error ?? "Live message action failed.");
+      applyState(result);
+      if (action === "send-message") setLiveMessage("");
+      setStatus(
+        action === "send-message"
+          ? "Live message pushed. Active devices should show it immediately; polling remains as fallback."
+          : "Live message cleared.",
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Live message action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -186,6 +260,44 @@ export default function WallpaperAdminPage() {
           </button>
         </div>
 
+        <div className="mt-6 grid gap-4 rounded-[1.5rem] border border-sky-200/20 bg-sky-500/[0.04] p-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100">Live message</p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Send text to the selected device or everyone. It replaces the text in the ongoing notification.
+            </p>
+          </div>
+          <textarea
+            className="min-h-24 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none"
+            disabled={isBusy}
+            maxLength={240}
+            onChange={(event) => setLiveMessage(event.target.value)}
+            placeholder="Message shown in the persistent notification..."
+            value={liveMessage}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-zinc-500">{liveMessage.length}/240</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-black text-zinc-200 disabled:opacity-50"
+                disabled={isBusy}
+                onClick={() => void updateLiveMessage("clear-message")}
+                type="button"
+              >
+                Clear active message
+              </button>
+              <button
+                className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-4 py-2 text-sm font-black text-sky-100 disabled:opacity-50"
+                disabled={isBusy || !liveMessage.trim()}
+                onClick={() => void updateLiveMessage("send-message")}
+                type="button"
+              >
+                Send live message
+              </button>
+            </div>
+          </div>
+        </div>
+
         {status && (
           <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
             {status}
@@ -193,11 +305,12 @@ export default function WallpaperAdminPage() {
         )}
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <AssignmentCard label="Everyone" assignment={globalAssignment} />
+          <AssignmentCard label="Everyone" assignment={globalAssignment} liveMessage={globalMessage} />
           {devices.map((device) => (
             <AssignmentCard
               assignment={assignmentByDevice.get(device.id) ?? null}
               key={device.id}
+              liveMessage={messageByDevice.get(device.id) ?? globalMessage}
               label={`${device.owner_name || device.activation_code} · ${device.bound_device_label || "Unknown device"}`}
               subtitle={
                 device.last_validated_at
@@ -207,6 +320,40 @@ export default function WallpaperAdminPage() {
             />
           ))}
         </div>
+
+        <div className="mt-8">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-100">Recent wallpaper changes</p>
+            <span className="text-xs text-zinc-500">Latest 100 reports</span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {events.length > 0 ? (
+              events.map((event) => {
+                const device = deviceById.get(event.activation_id);
+                return (
+                  <article className="rounded-2xl border border-rose-200/15 bg-rose-500/[0.04] p-4" key={event.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-black text-white">
+                        {device?.owner_name || device?.activation_code || "Unknown device"}
+                      </p>
+                      <time className="text-xs text-zinc-500">{new Date(event.created_at).toLocaleString()}</time>
+                    </div>
+                    <p className="mt-2 text-sm text-rose-100">
+                      Wallpaper changed: {event.changed_scopes.join(", ")}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      system #{event.system_wallpaper_id ?? "unknown"} · lock #{event.lock_wallpaper_id ?? "unknown"}
+                    </p>
+                  </article>
+                );
+              })
+            ) : (
+              <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-zinc-400">
+                No wallpaper changes reported yet.
+              </p>
+            )}
+          </div>
+        </div>
       </section>
     </main>
   );
@@ -215,10 +362,12 @@ export default function WallpaperAdminPage() {
 function AssignmentCard({
   assignment,
   label,
+  liveMessage,
   subtitle,
 }: {
   assignment: Assignment | null;
   label: string;
+  liveMessage: LiveMessage | null;
   subtitle?: string;
 }) {
   return (
@@ -232,6 +381,11 @@ function AssignmentCard({
       <div className="p-4">
         <p className="font-black text-white">{label}</p>
         {subtitle && <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>}
+        {liveMessage && (
+          <p className="mt-3 rounded-xl border border-sky-200/15 bg-sky-500/[0.06] px-3 py-2 text-sm text-sky-100">
+            {liveMessage.message}
+          </p>
+        )}
         <p className="mt-2 text-xs text-zinc-400">
           {assignment ? `Assigned ${new Date(assignment.created_at).toLocaleString()}` : "Uses the global wallpaper when available."}
         </p>

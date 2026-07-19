@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdminClient();
   const { data: license, error: licenseError } = await supabase
     .from("app_activation_codes")
-    .select("id, status, bound_installation_id, owner_name")
+    .select("id, status, bound_installation_id, owner_name, last_validated_at")
     .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
     .eq("activation_code", normalizeLicenseCode(payload.activationCode))
     .maybeSingle();
@@ -67,12 +67,45 @@ export async function GET(request: Request) {
     scope = "global";
   }
 
-  await supabase
-    .from("app_activation_codes")
-    .update({ last_validated_at: new Date().toISOString() })
-    .eq("id", license.id);
+  const { data: deviceMessage, error: deviceMessageError } = await supabase
+    .from("wallpaper_live_messages")
+    .select("message, version, created_at")
+    .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+    .eq("activation_id", license.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (deviceMessageError) {
+    return Response.json({ error: deviceMessageError.message }, { status: 500 });
+  }
 
-  if (!assignment) {
+  let liveMessage = deviceMessage;
+  let liveMessageScope: "device" | "global" = "device";
+  if (!liveMessage) {
+    const { data: globalMessage, error: globalMessageError } = await supabase
+      .from("wallpaper_live_messages")
+      .select("message, version, created_at")
+      .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+      .eq("scope", "global")
+      .eq("active", true)
+      .maybeSingle();
+    if (globalMessageError) {
+      return Response.json({ error: globalMessageError.message }, { status: 500 });
+    }
+    liveMessage = globalMessage;
+    liveMessageScope = "global";
+  }
+
+  const lastValidatedAt = license.last_validated_at
+    ? new Date(license.last_validated_at).getTime()
+    : 0;
+  if (!Number.isFinite(lastValidatedAt) || Date.now() - lastValidatedAt >= 5 * 60 * 1000) {
+    await supabase
+      .from("app_activation_codes")
+      .update({ last_validated_at: new Date().toISOString() })
+      .eq("id", license.id);
+  }
+
+  if (!assignment && !liveMessage) {
     return new Response(null, {
       status: 204,
       headers: { "Cache-Control": "private, no-store" },
@@ -81,10 +114,14 @@ export async function GET(request: Request) {
 
   return Response.json(
     {
-      wallpaperUrl: assignment.wallpaper_url,
-      version: assignment.version,
-      assignedAt: assignment.created_at,
-      scope,
+      wallpaperUrl: assignment?.wallpaper_url ?? null,
+      version: assignment?.version ?? null,
+      assignedAt: assignment?.created_at ?? null,
+      scope: assignment ? scope : null,
+      liveMessage: liveMessage?.message ?? null,
+      liveMessageVersion: liveMessage?.version ?? null,
+      liveMessageAt: liveMessage?.created_at ?? null,
+      liveMessageScope: liveMessage ? liveMessageScope : null,
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );
