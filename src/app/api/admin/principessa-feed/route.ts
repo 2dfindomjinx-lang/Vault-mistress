@@ -1,6 +1,9 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
-import { notifyPrincipessaFeedMentions } from "@/lib/principessa-feed-notifications";
+import {
+  notifyPrincipessaFeedMentions,
+  notifyPrincipessaPostPublishedToSubs,
+} from "@/lib/principessa-feed-notifications";
 
 const BUCKET = "principessa-feed";
 const MAX_IMAGES = 8;
@@ -145,6 +148,11 @@ async function createPost(request: Request) {
     postTitle: title,
     text: `${title}\n${description}`,
   }).catch((error) => console.error("Principessa feed mention notification failed", error));
+  await notifyPrincipessaPostPublishedToSubs(admin.supabase, {
+    actorId: admin.adminUser.id,
+    postId,
+    postTitle: title,
+  }).catch((error) => console.error("Principessa feed new post notification failed", error));
 
   return Response.json({
     posts: await listPrincipessaFeedPosts(admin.supabase, { viewerId: admin.adminUser.id, viewerIsAdmin: true }),

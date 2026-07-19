@@ -161,9 +161,17 @@ export default function AppLicensesPage() {
               Generate a code, see who used it, and reset or revoke it when needed.
             </p>
           </div>
-          <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white" href="/admin">
-            Back to admin
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white" href="/admin">
+              Admin Console
+            </Link>
+            <Link className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/40 hover:text-white" href="/admin/analytics">
+              Analytics
+            </Link>
+            <Link className="rounded-full border border-sky-200/20 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/40 hover:text-white" href="/admin/wallpapers">
+              Wallpapers
+            </Link>
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">

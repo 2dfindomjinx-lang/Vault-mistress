@@ -20,6 +20,14 @@ type Assignment = {
   created_at: string;
 };
 
+type WallpaperAsset = {
+  id: string;
+  object_key: string;
+  wallpaper_url: string;
+  version: string;
+  created_at: string;
+};
+
 type LiveMessage = {
   id: string;
   activation_id: string | null;
@@ -44,6 +52,7 @@ type AdminState = {
   assignments?: Assignment[];
   messages?: LiveMessage[];
   events?: WallpaperEvent[];
+  library?: WallpaperAsset[];
   error?: string;
 };
 
@@ -55,34 +64,64 @@ type PreparedUpload = {
   error?: string;
 };
 
+const dateTime = (value: string) =>
+  new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+
+const shortCode = (value: string) =>
+  value.length > 9 ? `${value.slice(0, 4)}…${value.slice(-4)}` : value;
+
 export default function WallpaperAdminPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [messages, setMessages] = useState<LiveMessage[]>([]);
   const [events, setEvents] = useState<WallpaperEvent[]>([]);
+  const [library, setLibrary] = useState<WallpaperAsset[]>([]);
   const [target, setTarget] = useState("global");
   const [file, setFile] = useState<File | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isBusy, setIsBusy] = useState(true);
 
-  const assignmentByDevice = useMemo(
-    () => new Map(assignments.filter((item) => item.activation_id).map((item) => [item.activation_id, item])),
-    [assignments],
-  );
+  const selectedDevice = devices.find((device) => device.id === target) ?? null;
   const globalAssignment = assignments.find((item) => item.scope === "global") ?? null;
-  const messageByDevice = useMemo(
-    () => new Map(messages.filter((item) => item.activation_id).map((item) => [item.activation_id, item])),
-    [messages],
-  );
+  const directAssignment =
+    target === "global"
+      ? globalAssignment
+      : assignments.find((item) => item.activation_id === target) ?? null;
+  const effectiveAssignment = directAssignment ?? globalAssignment;
   const globalMessage = messages.find((item) => item.scope === "global") ?? null;
-  const deviceById = useMemo(() => new Map(devices.map((device) => [device.id, device])), [devices]);
+  const directMessage =
+    target === "global"
+      ? globalMessage
+      : messages.find((item) => item.activation_id === target) ?? null;
+  const effectiveMessage = directMessage ?? globalMessage;
+  const deviceById = useMemo(
+    () => new Map(devices.map((device) => [device.id, device])),
+    [devices],
+  );
+  const visibleEvents =
+    target === "global"
+      ? events
+      : events.filter((event) => event.activation_id === target);
+
+  const targetTitle =
+    target === "global"
+      ? "Tüm cihazlar"
+      : selectedDevice?.owner_name || selectedDevice?.bound_device_label || "Seçili cihaz";
+  const targetDescription =
+    target === "global"
+      ? `${devices.length} bağlı cihaz için varsayılan ayarlar`
+      : `${selectedDevice?.bound_device_label || "Bilinmeyen cihaz"} · ${selectedDevice?.activation_code || ""}`;
 
   const applyState = (result: AdminState) => {
     setDevices(result.devices ?? []);
     setAssignments(result.assignments ?? []);
     setMessages(result.messages ?? []);
     setEvents(result.events ?? []);
+    setLibrary(result.library ?? []);
   };
 
   useEffect(() => {
@@ -90,17 +129,18 @@ export default function WallpaperAdminPage() {
     fetch("/api/admin/wallpapers", { cache: "no-store" })
       .then(async (response) => {
         const result = (await response.json()) as AdminState;
-        if (!response.ok) throw new Error(result.error ?? "Wallpaper admin state failed.");
+        if (!response.ok) throw new Error(result.error ?? "Panel verileri alınamadı.");
         if (!cancelled) {
           setDevices(result.devices ?? []);
           setAssignments(result.assignments ?? []);
           setMessages(result.messages ?? []);
           setEvents(result.events ?? []);
+          setLibrary(result.library ?? []);
         }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setStatus(error instanceof Error ? error.message : "Wallpaper admin state failed.");
+          setStatus(error instanceof Error ? error.message : "Panel verileri alınamadı.");
         }
       })
       .finally(() => {
@@ -111,14 +151,30 @@ export default function WallpaperAdminPage() {
     };
   }, []);
 
+  const refresh = async () => {
+    setIsBusy(true);
+    setStatus("Veriler yenileniyor…");
+    try {
+      const response = await fetch("/api/admin/wallpapers", { cache: "no-store" });
+      const result = (await response.json()) as AdminState;
+      if (!response.ok) throw new Error(result.error ?? "Panel verileri alınamadı.");
+      applyState(result);
+      setStatus("Panel güncellendi.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Panel verileri alınamadı.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const uploadAndAssign = async () => {
     if (!file) {
-      setStatus("Choose a wallpaper image first.");
+      setStatus("Önce bir görsel seç.");
       return;
     }
 
     setIsBusy(true);
-    setStatus("Preparing secure R2 upload...");
+    setStatus("Yükleme hazırlanıyor…");
     try {
       const prepareResponse = await fetch("/api/admin/wallpapers", {
         method: "POST",
@@ -126,21 +182,19 @@ export default function WallpaperAdminPage() {
         body: JSON.stringify({ action: "prepare-upload", contentType: file.type }),
       });
       const prepared = (await prepareResponse.json()) as PreparedUpload;
-      if (!prepareResponse.ok) throw new Error(prepared.error ?? "R2 upload preparation failed.");
+      if (!prepareResponse.ok) throw new Error(prepared.error ?? "Yükleme hazırlanamadı.");
 
-      setStatus("Uploading wallpaper directly to R2...");
+      setStatus("Görsel R2'ye yükleniyor…");
       const uploadResponse = await fetch(prepared.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
       });
       if (!uploadResponse.ok) {
-        throw new Error(
-          `R2 upload returned HTTP ${uploadResponse.status}. Check the bucket CORS rule for the Vault domain.`,
-        );
+        throw new Error(`R2 yüklemesi HTTP ${uploadResponse.status} hatası verdi.`);
       }
 
-      setStatus("Saving wallpaper assignment...");
+      setStatus("Duvar kâğıdı uygulanıyor…");
       const assignResponse = await fetch("/api/admin/wallpapers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,15 +207,39 @@ export default function WallpaperAdminPage() {
         }),
       });
       const assigned = (await assignResponse.json()) as AdminState;
-      if (!assignResponse.ok) throw new Error(assigned.error ?? "Wallpaper assignment failed.");
+      if (!assignResponse.ok) throw new Error(assigned.error ?? "Duvar kâğıdı uygulanamadı.");
 
       applyState(assigned);
       setFile(null);
       const input = document.getElementById("wallpaper-file") as HTMLInputElement | null;
       if (input) input.value = "";
-      setStatus(target === "global" ? "Wallpaper assigned to everyone." : "Wallpaper assigned to the selected device.");
+      setStatus(`${targetTitle} için yeni duvar kâğıdı uygulandı.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Wallpaper upload failed.");
+      setStatus(error instanceof Error ? error.message : "Duvar kâğıdı yüklenemedi.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const reuseWallpaper = async (asset: WallpaperAsset) => {
+    setIsBusy(true);
+    setStatus("Kütüphanedeki görsel uygulanıyor…");
+    try {
+      const response = await fetch("/api/admin/wallpapers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reuse",
+          activationId: target === "global" ? null : target,
+          assignmentId: asset.id,
+        }),
+      });
+      const result = (await response.json()) as AdminState;
+      if (!response.ok) throw new Error(result.error ?? "Görsel yeniden uygulanamadı.");
+      applyState(result);
+      setStatus(`${targetTitle} için kütüphanedeki görsel uygulandı.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Görsel yeniden uygulanamadı.");
     } finally {
       setIsBusy(false);
     }
@@ -169,12 +247,12 @@ export default function WallpaperAdminPage() {
 
   const updateLiveMessage = async (action: "send-message" | "clear-message") => {
     if (action === "send-message" && !liveMessage.trim()) {
-      setStatus("Write a live message first.");
+      setStatus("Önce bir mesaj yaz.");
       return;
     }
 
     setIsBusy(true);
-    setStatus(action === "send-message" ? "Sending live message..." : "Clearing live message...");
+    setStatus(action === "send-message" ? "Mesaj gönderiliyor…" : "Mesaj kaldırılıyor…");
     try {
       const response = await fetch("/api/admin/wallpapers", {
         method: "POST",
@@ -186,210 +264,357 @@ export default function WallpaperAdminPage() {
         }),
       });
       const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Live message action failed.");
+      if (!response.ok) throw new Error(result.error ?? "Mesaj işlemi başarısız oldu.");
       applyState(result);
       if (action === "send-message") setLiveMessage("");
-      setStatus(
-        action === "send-message"
-          ? "Live message pushed. Active devices should show it immediately; polling remains as fallback."
-          : "Live message cleared.",
-      );
+      setStatus(action === "send-message" ? "Canlı mesaj gönderildi." : "Canlı mesaj kaldırıldı.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Live message action failed.");
+      setStatus(error instanceof Error ? error.message : "Mesaj işlemi başarısız oldu.");
     } finally {
       setIsBusy(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
-      <section className="mx-auto max-w-6xl rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">Wallpaper Control</p>
-            <h1 className="text-3xl font-black">Manual assignments</h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Upload once to R2, then assign the image to every activated device or one specific device.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link className="rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-200" href="/admin/app-licenses">
-              Activation codes
-            </Link>
-            <Link className="rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-200" href="/admin">
-              Back to admin
-            </Link>
-          </div>
-        </div>
+    <main className="min-h-screen bg-[#09090b] text-zinc-100">
+      <div className="lg:grid lg:min-h-screen lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="border-b border-white/[0.07] bg-[#0d0d10] lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
+          <div className="flex h-full flex-col">
+            <div className="border-b border-white/[0.07] px-5 py-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-400">
+                Principessa
+              </p>
+              <h1 className="mt-1 text-lg font-semibold tracking-tight">Wallpaper Control</h1>
+            </div>
 
-        <div className="mt-6 grid gap-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 md:grid-cols-2">
-          <label className="grid gap-2 text-sm text-zinc-300">
-            Target
-            <select
-              className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-white"
-              disabled={isBusy}
-              onChange={(event) => setTarget(event.target.value)}
-              value={target}
-            >
-              <option value="global">Everyone (global)</option>
-              {devices.map((device) => (
-                <option key={device.id} value={device.id}>
-                  {device.owner_name || device.activation_code} — {device.bound_device_label || "Unknown device"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm text-zinc-300">
-            Wallpaper image
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white"
-              disabled={isBusy}
-              id="wallpaper-file"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              type="file"
-            />
-          </label>
-          <button
-            className="rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-4 py-3 text-sm font-black text-emerald-100 disabled:opacity-50 md:col-span-2"
-            disabled={isBusy || !file}
-            onClick={() => void uploadAndAssign()}
-            type="button"
-          >
-            Upload and apply wallpaper
-          </button>
-        </div>
+            <nav className="min-h-0 flex-1 p-3 lg:overflow-y-auto" aria-label="Cihazlar">
+              <p className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
+                Cihazlar
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
+                <TargetButton
+                  active={target === "global"}
+                  label="Tüm cihazlar"
+                  meta={`${devices.length} bağlı cihaz`}
+                  onClick={() => setTarget("global")}
+                />
+                {devices.map((device) => (
+                  <TargetButton
+                    active={target === device.id}
+                    key={device.id}
+                    label={device.owner_name || device.bound_device_label || "İsimsiz cihaz"}
+                    meta={device.bound_device_label || shortCode(device.activation_code)}
+                    onClick={() => setTarget(device.id)}
+                  />
+                ))}
+              </div>
+            </nav>
 
-        <div className="mt-6 grid gap-4 rounded-[1.5rem] border border-sky-200/20 bg-sky-500/[0.04] p-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-sky-100">Live message</p>
-            <p className="mt-2 text-sm text-zinc-400">
-              Send text to the selected device or everyone. It replaces the text in the ongoing notification.
-            </p>
-          </div>
-          <textarea
-            className="min-h-24 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none"
-            disabled={isBusy}
-            maxLength={240}
-            onChange={(event) => setLiveMessage(event.target.value)}
-            placeholder="Message shown in the persistent notification..."
-            value={liveMessage}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-zinc-500">{liveMessage.length}/240</span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-black text-zinc-200 disabled:opacity-50"
-                disabled={isBusy}
-                onClick={() => void updateLiveMessage("clear-message")}
-                type="button"
-              >
-                Clear active message
-              </button>
-              <button
-                className="rounded-2xl border border-sky-200/20 bg-sky-500/10 px-4 py-2 text-sm font-black text-sky-100 disabled:opacity-50"
-                disabled={isBusy || !liveMessage.trim()}
-                onClick={() => void updateLiveMessage("send-message")}
-                type="button"
-              >
-                Send live message
-              </button>
+            <div className="hidden border-t border-white/[0.07] p-3 lg:grid lg:gap-1">
+              <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/admin">
+                Admin Console
+              </Link>
+              <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/admin/analytics">
+                Analytics
+              </Link>
+              <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/admin/app-licenses">
+                Aktivasyon kodları
+              </Link>
             </div>
           </div>
-        </div>
+        </aside>
 
-        {status && (
-          <p className="mt-4 rounded-2xl border border-pink-200/15 bg-white/[0.04] px-4 py-3 text-sm text-pink-50">
-            {status}
-          </p>
-        )}
+        <section className="min-w-0">
+          <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between gap-4 border-b border-white/[0.07] bg-[#09090b]/90 px-4 py-4 backdrop-blur-xl sm:px-7">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.7)]" />
+                <h2 className="truncate text-base font-semibold sm:text-lg">{targetTitle}</h2>
+              </div>
+              <p className="mt-1 truncate text-xs text-zinc-500">{targetDescription}</p>
+            </div>
+            <button
+              className="shrink-0 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-white/[0.07] disabled:opacity-50"
+              disabled={isBusy}
+              onClick={() => void refresh()}
+              type="button"
+            >
+              Yenile
+            </button>
+          </header>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <AssignmentCard label="Everyone" assignment={globalAssignment} liveMessage={globalMessage} />
-          {devices.map((device) => (
-            <AssignmentCard
-              assignment={assignmentByDevice.get(device.id) ?? null}
-              key={device.id}
-              liveMessage={messageByDevice.get(device.id) ?? globalMessage}
-              label={`${device.owner_name || device.activation_code} · ${device.bound_device_label || "Unknown device"}`}
-              subtitle={
-                device.last_validated_at
-                  ? `Last seen ${new Date(device.last_validated_at).toLocaleString()}`
-                  : "Not synced yet"
-              }
-            />
-          ))}
-        </div>
-
-        <div className="mt-8">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-100">Recent wallpaper changes</p>
-            <span className="text-xs text-zinc-500">Latest 100 reports</span>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {events.length > 0 ? (
-              events.map((event) => {
-                const device = deviceById.get(event.activation_id);
-                return (
-                  <article className="rounded-2xl border border-rose-200/15 bg-rose-500/[0.04] p-4" key={event.id}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-black text-white">
-                        {device?.owner_name || device?.activation_code || "Unknown device"}
-                      </p>
-                      <time className="text-xs text-zinc-500">{new Date(event.created_at).toLocaleString()}</time>
-                    </div>
-                    <p className="mt-2 text-sm text-rose-100">
-                      Wallpaper changed: {event.changed_scopes.join(", ")}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      system #{event.system_wallpaper_id ?? "unknown"} · lock #{event.lock_wallpaper_id ?? "unknown"}
-                    </p>
-                  </article>
-                );
-              })
-            ) : (
-              <p className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-zinc-400">
-                No wallpaper changes reported yet.
-              </p>
+          <div className="mx-auto max-w-[92rem] p-4 sm:p-7">
+            {status && (
+              <div className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-pink-400/15 bg-pink-400/[0.06] px-4 py-3 text-sm text-pink-100">
+                <span>{status}</span>
+                <button className="text-pink-300/60 hover:text-pink-200" onClick={() => setStatus("")} type="button" aria-label="Bildirimi kapat">
+                  ×
+                </button>
+              </div>
             )}
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,.65fr)]">
+              <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111114]">
+                <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+                  <div>
+                    <p className="text-sm font-semibold">Aktif duvar kâğıdı</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {!directAssignment && target !== "global" && effectiveAssignment
+                        ? "Global duvar kâğıdı kullanılıyor"
+                        : "Bu hedefe doğrudan atanmış"}
+                    </p>
+                  </div>
+                  {effectiveAssignment && (
+                    <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                      Aktif
+                    </span>
+                  )}
+                </div>
+                {effectiveAssignment ? (
+                  <div className="relative aspect-[16/7] min-h-64 overflow-hidden bg-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      alt="Aktif duvar kâğıdı"
+                      className="h-full w-full object-cover"
+                      src={effectiveAssignment.wallpaper_url}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-5 pb-4 pt-16">
+                      <p className="text-xs text-zinc-300">
+                        {dateTime(effectiveAssignment.created_at)} tarihinde atandı
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex aspect-[16/7] min-h-64 items-center justify-center bg-white/[0.015] px-6 text-center text-sm text-zinc-600">
+                    Bu hedef için henüz bir duvar kâğıdı yok.
+                  </div>
+                )}
+              </article>
+
+              <div className="grid gap-5">
+                <article className="rounded-2xl border border-white/[0.08] bg-[#111114] p-5">
+                  <p className="text-sm font-semibold">Yeni görsel yükle</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    JPG, PNG veya WebP seç. Görsel {targetTitle} için uygulanır.
+                  </p>
+                  <label
+                    className="mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 text-center transition hover:border-pink-400/30 hover:bg-pink-400/[0.03]"
+                    htmlFor="wallpaper-file"
+                  >
+                    <span className="text-sm font-medium text-zinc-300">
+                      {file ? file.name : "Görsel seç"}
+                    </span>
+                    <span className="mt-1 text-xs text-zinc-600">
+                      {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "Dosyayı buradan seçebilirsin"}
+                    </span>
+                  </label>
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={isBusy}
+                    id="wallpaper-file"
+                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                    type="file"
+                  />
+                  <button
+                    className="mt-3 w-full rounded-xl bg-pink-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={isBusy || !file}
+                    onClick={() => void uploadAndAssign()}
+                    type="button"
+                  >
+                    Yükle ve uygula
+                  </button>
+                </article>
+
+                <article className="rounded-2xl border border-white/[0.08] bg-[#111114] p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold">Canlı mesaj</p>
+                      <p className="mt-1 text-xs text-zinc-500">Sabit bildirimde anında gösterilir.</p>
+                    </div>
+                    {effectiveMessage && (
+                      <span className="rounded-full bg-sky-400/10 px-2 py-1 text-[10px] font-semibold text-sky-300">
+                        Yayında
+                      </span>
+                    )}
+                  </div>
+                  {effectiveMessage && (
+                    <div className="mt-4 rounded-xl border border-sky-400/10 bg-sky-400/[0.05] px-3 py-2.5 text-xs leading-5 text-sky-100">
+                      {effectiveMessage.message}
+                      {!directMessage && target !== "global" && (
+                        <span className="mt-1 block text-[10px] uppercase tracking-wider text-sky-400/50">
+                          Global mesaj
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <textarea
+                    className="mt-4 min-h-20 w-full resize-none rounded-xl border border-white/[0.09] bg-black/25 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-700 focus:border-pink-400/40"
+                    disabled={isBusy}
+                    maxLength={240}
+                    onChange={(event) => setLiveMessage(event.target.value)}
+                    placeholder="Mesajını yaz…"
+                    value={liveMessage}
+                  />
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <span className="text-[10px] text-zinc-600">{liveMessage.length}/240</span>
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 transition hover:bg-white/[0.04] hover:text-zinc-200 disabled:opacity-40"
+                        disabled={isBusy || !directMessage}
+                        onClick={() => void updateLiveMessage("clear-message")}
+                        type="button"
+                      >
+                        Kaldır
+                      </button>
+                      <button
+                        className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-40"
+                        disabled={isBusy || !liveMessage.trim()}
+                        onClick={() => void updateLiveMessage("send-message")}
+                        type="button"
+                      >
+                        Gönder
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <section className="mt-5 rounded-2xl border border-white/[0.08] bg-[#111114]">
+              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Görsel kütüphanesi</h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Daha önce yüklenen R2 görsellerini tekrar yüklemeden kullan.
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-600">{library.length} görsel</span>
+              </div>
+              {library.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
+                  {library.map((asset) => {
+                    const isActive = effectiveAssignment?.wallpaper_url === asset.wallpaper_url;
+                    return (
+                      <article
+                        className="group overflow-hidden rounded-xl border border-white/[0.07] bg-black/20"
+                        key={asset.object_key}
+                      >
+                        <div className="relative aspect-[4/5] overflow-hidden bg-black">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            alt=""
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                            loading="lazy"
+                            src={asset.wallpaper_url}
+                          />
+                          {isActive && (
+                            <span className="absolute left-2 top-2 rounded-full bg-emerald-400 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-950">
+                              Aktif
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-2.5">
+                          <p className="truncate text-[10px] text-zinc-600">{dateTime(asset.created_at)}</p>
+                          <button
+                            className="mt-2 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-2 py-2 text-xs font-medium text-zinc-300 transition hover:border-pink-400/25 hover:bg-pink-400/[0.08] hover:text-pink-100 disabled:opacity-35"
+                            disabled={isBusy || isActive}
+                            onClick={() => void reuseWallpaper(asset)}
+                            type="button"
+                          >
+                            {isActive ? "Kullanılıyor" : "Bu görseli kullan"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="px-5 py-10 text-center text-sm text-zinc-600">
+                  İlk görselini yüklediğinde burada görünecek.
+                </p>
+              )}
+            </section>
+
+            <section className="mt-5 rounded-2xl border border-white/[0.08] bg-[#111114]">
+              <div className="flex items-end justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Son hareketler</h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {target === "global" ? "Tüm cihazların" : "Seçili cihazın"} duvar kâğıdı değişiklikleri
+                  </p>
+                </div>
+                <span className="text-xs text-zinc-600">{visibleEvents.length} kayıt</span>
+              </div>
+              <div className="divide-y divide-white/[0.06] px-5">
+                {visibleEvents.length > 0 ? (
+                  visibleEvents.slice(0, 20).map((event) => {
+                    const device = deviceById.get(event.activation_id);
+                    return (
+                      <article className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between" key={event.id}>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-200">
+                            {device?.owner_name || device?.bound_device_label || "Bilinmeyen cihaz"}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {event.changed_scopes.join(" ve ")} duvar kâğıdı değiştirildi
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-left sm:text-right">
+                          <time className="text-xs text-zinc-600">{dateTime(event.created_at)}</time>
+                          <p className="mt-1 text-[10px] text-zinc-700">
+                            Sistem #{event.system_wallpaper_id ?? "?"} · Kilit #{event.lock_wallpaper_id ?? "?"}
+                          </p>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="py-10 text-center text-sm text-zinc-600">Henüz raporlanan bir değişiklik yok.</p>
+                )}
+              </div>
+            </section>
+
+            <div className="mt-5 flex gap-4 px-1 text-xs text-zinc-600 lg:hidden">
+              <Link className="hover:text-zinc-300" href="/admin">Admin paneli</Link>
+              <Link className="hover:text-zinc-300" href="/admin/analytics">Analytics</Link>
+              <Link className="hover:text-zinc-300" href="/admin/app-licenses">Aktivasyon kodları</Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }
 
-function AssignmentCard({
-  assignment,
+function TargetButton({
+  active,
   label,
-  liveMessage,
-  subtitle,
+  meta,
+  onClick,
 }: {
-  assignment: Assignment | null;
+  active: boolean;
   label: string;
-  liveMessage: LiveMessage | null;
-  subtitle?: string;
+  meta: string;
+  onClick: () => void;
 }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-white/10 bg-black/35">
-      {assignment ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt="" className="h-48 w-full object-cover" src={assignment.wallpaper_url} />
-      ) : (
-        <div className="flex h-48 items-center justify-center bg-white/[0.03] text-sm text-zinc-600">No direct assignment</div>
-      )}
-      <div className="p-4">
-        <p className="font-black text-white">{label}</p>
-        {subtitle && <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>}
-        {liveMessage && (
-          <p className="mt-3 rounded-xl border border-sky-200/15 bg-sky-500/[0.06] px-3 py-2 text-sm text-sky-100">
-            {liveMessage.message}
-          </p>
-        )}
-        <p className="mt-2 text-xs text-zinc-400">
-          {assignment ? `Assigned ${new Date(assignment.created_at).toLocaleString()}` : "Uses the global wallpaper when available."}
-        </p>
-      </div>
-    </article>
+    <button
+      className={`min-w-48 rounded-xl border px-3 py-3 text-left transition lg:min-w-0 ${
+        active
+          ? "border-pink-400/20 bg-pink-400/[0.09]"
+          : "border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span className="flex items-center gap-2">
+        <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-pink-400" : "bg-emerald-400"}`} />
+        <span className={`truncate text-sm font-medium ${active ? "text-pink-100" : "text-zinc-300"}`}>
+          {label}
+        </span>
+      </span>
+      <span className="mt-1 block truncate pl-3.5 text-[10px] text-zinc-600">{meta}</span>
+    </button>
   );
 }

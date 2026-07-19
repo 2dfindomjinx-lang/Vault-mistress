@@ -4,6 +4,7 @@ export type UserNotificationKind =
   | "principessa_feed_admin_like"
   | "principessa_feed_like"
   | "principessa_feed_mention"
+  | "principessa_feed_new_post"
   | "principessa_feed_reply"
   | "principessa_feed_repost"
   | "principessa_feed_dm"

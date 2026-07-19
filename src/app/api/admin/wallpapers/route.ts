@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type Body = {
-  action?: "prepare-upload" | "assign" | "send-message" | "clear-message";
+  action?: "prepare-upload" | "assign" | "reuse" | "send-message" | "clear-message";
   activationId?: string | null;
+  assignmentId?: string;
   contentType?: string;
   message?: string;
   objectKey?: string;
@@ -24,6 +25,7 @@ async function loadWallpaperAdminState(supabase: SupabaseClient) {
     { data: assignments, error: assignmentsError },
     { data: messages, error: messagesError },
     { data: events, error: eventsError },
+    { data: history, error: historyError },
   ] = await Promise.all([
     supabase
       .from("app_activation_codes")
@@ -51,18 +53,30 @@ async function loadWallpaperAdminState(supabase: SupabaseClient) {
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("wallpaper_assignments")
+      .select("id, object_key, wallpaper_url, version, created_at")
+      .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
 
   if (devicesError) throw devicesError;
   if (assignmentsError) throw assignmentsError;
   if (messagesError) throw messagesError;
   if (eventsError) throw eventsError;
+  if (historyError) throw historyError;
+
+  const library = Array.from(
+    new Map((history ?? []).map((item) => [item.object_key, item])).values(),
+  );
 
   return {
     devices: devices ?? [],
     assignments: assignments ?? [],
     messages: messages ?? [],
     events: events ?? [],
+    library,
   };
 }
 
@@ -129,6 +143,41 @@ export async function POST(request: Request) {
         p_object_key: objectKey,
         p_wallpaper_url: wallpaperUrl,
         p_version: version,
+        p_created_by: admin.adminUser.id,
+      });
+      if (error) throw error;
+
+      return Response.json({
+        ok: true,
+        ...(await loadWallpaperAdminState(admin.supabase)),
+      });
+    }
+
+    if (body.action === "reuse") {
+      const activationId = body.activationId?.trim() || null;
+      const assignmentId = body.assignmentId?.trim() ?? "";
+      if (!assignmentId) {
+        return Response.json({ error: "Choose a wallpaper from the library." }, { status: 400 });
+      }
+      await validateTarget(admin.supabase, activationId);
+
+      const { data: stored, error: storedError } = await admin.supabase
+        .from("wallpaper_assignments")
+        .select("object_key, wallpaper_url")
+        .eq("id", assignmentId)
+        .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+        .maybeSingle();
+      if (storedError) throw storedError;
+      if (!stored) {
+        return Response.json({ error: "Stored wallpaper was not found." }, { status: 404 });
+      }
+
+      const { error } = await admin.supabase.rpc("assign_wallpaper", {
+        p_app_key: PRINCIPESSA_WALLPAPER_APP_KEY,
+        p_activation_id: activationId,
+        p_object_key: stored.object_key,
+        p_wallpaper_url: stored.wallpaper_url,
+        p_version: randomUUID(),
         p_created_by: admin.adminUser.id,
       });
       if (error) throw error;
