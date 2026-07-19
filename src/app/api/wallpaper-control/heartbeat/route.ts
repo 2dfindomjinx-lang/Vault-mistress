@@ -38,11 +38,27 @@ export async function POST(request: Request) {
     return Response.json({ error: "Wallpaper activation is no longer valid." }, { status: 403 });
   }
 
+  const body = (await request.json().catch(() => ({}))) as { favoriteKink?: unknown };
+  const hasFavoriteKink = Object.prototype.hasOwnProperty.call(body, "favoriteKink");
+  const favoriteKink =
+    typeof body.favoriteKink === "string" ? body.favoriteKink.trim() : body.favoriteKink;
+  const allowedFavoriteKinks = new Set(["BNWO", "Censored", "Femdom", "All"]);
+  if (
+    hasFavoriteKink &&
+    favoriteKink !== null &&
+    (typeof favoriteKink !== "string" || !allowedFavoriteKinks.has(favoriteKink))
+  ) {
+    return Response.json({ error: "Invalid favorite kink preference." }, { status: 400 });
+  }
+
   const now = new Date().toISOString();
   const [{ error: activationError }, { error: registrationError }] = await Promise.all([
     supabase
       .from("app_activation_codes")
-      .update({ last_validated_at: now })
+      .update({
+        last_validated_at: now,
+        ...(hasFavoriteKink ? { favorite_kink: favoriteKink } : {}),
+      })
       .eq("id", license.id),
     supabase
       .from("wallpaper_device_push_registrations")

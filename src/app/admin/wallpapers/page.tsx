@@ -11,6 +11,7 @@ type Device = {
   bound_device_label: string | null;
   bound_at: string | null;
   last_validated_at: string | null;
+  favorite_kink: "BNWO" | "Censored" | "Femdom" | "All" | null;
 };
 
 type Assignment = {
@@ -144,7 +145,7 @@ export default function WallpaperAdminPage() {
   const targetDescription =
     target === "global"
       ? `${visibleDeviceCount} görünür · ${devices.length} toplam bağlı cihaz`
-      : `${selectedDevice?.bound_device_label || "Bilinmeyen cihaz"} · ${selectedDevice?.activation_code || ""}`;
+      : `${selectedDevice?.bound_device_label || "Bilinmeyen cihaz"} · ${selectedDevice?.activation_code || ""} · Favori kink: ${selectedDevice?.favorite_kink || "Seçilmedi"}`;
 
   const applyState = (result: AdminState) => {
     setDevices(result.devices ?? []);
@@ -347,7 +348,7 @@ export default function WallpaperAdminPage() {
                       active={target === device.id}
                       key={device.id}
                       label={device.owner_name || device.bound_device_label || "İsimsiz cihaz"}
-                      meta={`${device.bound_device_label || shortCode(device.activation_code)} · ${presence.label}`}
+                      meta={`${device.bound_device_label || shortCode(device.activation_code)} · ${presence.label}${device.favorite_kink ? ` · ${device.favorite_kink}` : ""}`}
                       onClick={() => setTarget(device.id)}
                     />
                   );

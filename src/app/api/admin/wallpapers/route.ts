@@ -33,7 +33,7 @@ async function loadWallpaperAdminState(supabase: SupabaseClient) {
     supabase
       .from("app_activation_codes")
       .select(
-        "id, activation_code, status, owner_name, bound_installation_id, bound_device_label, bound_at, last_validated_at",
+        "id, activation_code, status, owner_name, bound_installation_id, bound_device_label, bound_at, last_validated_at, favorite_kink",
       )
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
       .not("bound_installation_id", "is", null)
