@@ -72,6 +72,7 @@ export async function GET(request: Request) {
     .select("message, version, created_at")
     .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
     .eq("activation_id", license.id)
+    .eq("sender_role", "admin")
     .eq("active", true)
     .maybeSingle();
   if (deviceMessageError) {
@@ -86,6 +87,7 @@ export async function GET(request: Request) {
       .select("message, version, created_at")
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
       .eq("scope", "global")
+      .eq("sender_role", "admin")
       .eq("active", true)
       .maybeSingle();
     if (globalMessageError) {
@@ -93,6 +95,17 @@ export async function GET(request: Request) {
     }
     liveMessage = globalMessage;
     liveMessageScope = "global";
+  }
+
+  const { data: chatMessages, error: chatMessagesError } = await supabase
+    .from("wallpaper_live_messages")
+    .select("id, activation_id, scope, message, version, sender_role, created_at")
+    .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+    .or(`activation_id.eq.${license.id},scope.eq.global`)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (chatMessagesError) {
+    return Response.json({ error: chatMessagesError.message }, { status: 500 });
   }
 
   const lastValidatedAt = license.last_validated_at
@@ -105,7 +118,7 @@ export async function GET(request: Request) {
       .eq("id", license.id);
   }
 
-  if (!assignment && !liveMessage) {
+  if (!assignment && !liveMessage && !chatMessages?.length) {
     return new Response(null, {
       status: 204,
       headers: { "Cache-Control": "private, no-store" },
@@ -122,6 +135,7 @@ export async function GET(request: Request) {
       liveMessageVersion: liveMessage?.version ?? null,
       liveMessageAt: liveMessage?.created_at ?? null,
       liveMessageScope: liveMessage ? liveMessageScope : null,
+      chatMessages: chatMessages ?? [],
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

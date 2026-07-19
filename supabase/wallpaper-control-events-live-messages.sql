@@ -21,6 +21,7 @@ create table if not exists public.wallpaper_live_messages (
   scope text not null check (scope in ('global', 'device')),
   message text not null check (char_length(message) between 1 and 240),
   version text not null,
+  sender_role text not null default 'admin' check (sender_role in ('admin', 'sub')),
   active boolean not null default true,
   created_by uuid,
   created_at timestamptz not null default now(),
@@ -40,6 +41,9 @@ create unique index if not exists wallpaper_live_messages_one_active_device_idx
 
 create index if not exists wallpaper_live_messages_created_idx
   on public.wallpaper_live_messages(app_key, created_at desc);
+
+create index if not exists wallpaper_live_messages_conversation_idx
+  on public.wallpaper_live_messages(app_key, activation_id, created_at desc);
 
 alter table public.wallpaper_live_messages enable row level security;
 

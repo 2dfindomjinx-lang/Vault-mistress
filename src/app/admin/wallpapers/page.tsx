@@ -6,8 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 type Device = {
   id: string;
   activation_code: string;
+  status: string;
   owner_name: string | null;
   bound_device_label: string | null;
+  bound_at: string | null;
   last_validated_at: string | null;
 };
 
@@ -34,6 +36,8 @@ type LiveMessage = {
   scope: "global" | "device";
   message: string;
   version: string;
+  sender_role: "admin" | "sub";
+  active: boolean;
   created_at: string;
 };
 
@@ -73,6 +77,25 @@ const dateTime = (value: string) =>
 const shortCode = (value: string) =>
   value.length > 9 ? `${value.slice(0, 4)}…${value.slice(-4)}` : value;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const devicePresence = (device: Device) => {
+  const seenAt = device.last_validated_at ?? device.bound_at;
+  const ageDays = seenAt
+    ? Math.max(0, (Date.now() - new Date(seenAt).getTime()) / DAY_MS)
+    : 0;
+  if (ageDays >= 14) {
+    return { hidden: true, label: "Muhtemelen kaldırıldı" };
+  }
+  if (ageDays >= 7) {
+    return { hidden: true, label: "Uzun süredir görülmedi" };
+  }
+  if (ageDays >= 3) {
+    return { hidden: false, label: "Pasif" };
+  }
+  return { hidden: false, label: "Aktif" };
+};
+
 export default function WallpaperAdminPage() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -84,20 +107,27 @@ export default function WallpaperAdminPage() {
   const [liveMessage, setLiveMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isBusy, setIsBusy] = useState(true);
+  const [showHiddenDevices, setShowHiddenDevices] = useState(false);
 
   const selectedDevice = devices.find((device) => device.id === target) ?? null;
+  const hiddenDeviceCount = devices.filter((device) => devicePresence(device).hidden).length;
+  const listedDevices = devices.filter(
+    (device) => showHiddenDevices || !devicePresence(device).hidden,
+  );
+  const visibleDeviceCount = devices.length - hiddenDeviceCount;
   const globalAssignment = assignments.find((item) => item.scope === "global") ?? null;
   const directAssignment =
     target === "global"
       ? globalAssignment
       : assignments.find((item) => item.activation_id === target) ?? null;
   const effectiveAssignment = directAssignment ?? globalAssignment;
-  const globalMessage = messages.find((item) => item.scope === "global") ?? null;
-  const directMessage =
-    target === "global"
-      ? globalMessage
-      : messages.find((item) => item.activation_id === target) ?? null;
-  const effectiveMessage = directMessage ?? globalMessage;
+  const visibleMessages = messages
+    .filter((item) =>
+      target === "global"
+        ? item.scope === "global"
+        : item.scope === "global" || item.activation_id === target,
+    )
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   const deviceById = useMemo(
     () => new Map(devices.map((device) => [device.id, device])),
     [devices],
@@ -113,7 +143,7 @@ export default function WallpaperAdminPage() {
       : selectedDevice?.owner_name || selectedDevice?.bound_device_label || "Seçili cihaz";
   const targetDescription =
     target === "global"
-      ? `${devices.length} bağlı cihaz için varsayılan ayarlar`
+      ? `${visibleDeviceCount} görünür · ${devices.length} toplam bağlı cihaz`
       : `${selectedDevice?.bound_device_label || "Bilinmeyen cihaz"} · ${selectedDevice?.activation_code || ""}`;
 
   const applyState = (result: AdminState) => {
@@ -149,6 +179,18 @@ export default function WallpaperAdminPage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetch("/api/admin/wallpapers", { cache: "no-store" })
+        .then(async (response) => {
+          const result = (await response.json()) as AdminState;
+          if (response.ok) applyState(result);
+        })
+        .catch(() => undefined);
+    }, 10_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const refresh = async () => {
@@ -295,19 +337,33 @@ export default function WallpaperAdminPage() {
                 <TargetButton
                   active={target === "global"}
                   label="Tüm cihazlar"
-                  meta={`${devices.length} bağlı cihaz`}
+                  meta={`${visibleDeviceCount} görünür cihaz`}
                   onClick={() => setTarget("global")}
                 />
-                {devices.map((device) => (
-                  <TargetButton
-                    active={target === device.id}
-                    key={device.id}
-                    label={device.owner_name || device.bound_device_label || "İsimsiz cihaz"}
-                    meta={device.bound_device_label || shortCode(device.activation_code)}
-                    onClick={() => setTarget(device.id)}
-                  />
-                ))}
+                {listedDevices.map((device) => {
+                  const presence = devicePresence(device);
+                  return (
+                    <TargetButton
+                      active={target === device.id}
+                      key={device.id}
+                      label={device.owner_name || device.bound_device_label || "İsimsiz cihaz"}
+                      meta={`${device.bound_device_label || shortCode(device.activation_code)} · ${presence.label}`}
+                      onClick={() => setTarget(device.id)}
+                    />
+                  );
+                })}
               </div>
+              {hiddenDeviceCount > 0 && (
+                <button
+                  className="mt-3 w-full rounded-xl border border-white/[0.06] px-3 py-2 text-left text-xs text-zinc-500 transition hover:bg-white/[0.03] hover:text-zinc-300"
+                  onClick={() => setShowHiddenDevices((current) => !current)}
+                  type="button"
+                >
+                  {showHiddenDevices
+                    ? "Gizlenen cihazları kapat"
+                    : `Gizlenen cihazları göster (${hiddenDeviceCount})`}
+                </button>
+              )}
             </nav>
 
             <div className="hidden border-t border-white/[0.07] p-3 lg:grid lg:gap-1">
@@ -429,23 +485,45 @@ export default function WallpaperAdminPage() {
                 <article className="rounded-2xl border border-white/[0.08] bg-[#111114] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-semibold">Canlı mesaj</p>
-                      <p className="mt-1 text-xs text-zinc-500">Sabit bildirimde anında gösterilir.</p>
+                      <p className="text-sm font-semibold">Live Chat</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Mesaj geçmişi saklanır; sub seçili cihazdan cevap verebilir.
+                      </p>
                     </div>
-                    {effectiveMessage && (
-                      <span className="rounded-full bg-sky-400/10 px-2 py-1 text-[10px] font-semibold text-sky-300">
-                        Yayında
-                      </span>
+                    <span className="rounded-full bg-sky-400/10 px-2 py-1 text-[10px] font-semibold text-sky-300">
+                      {visibleMessages.length} mesaj
+                    </span>
+                  </div>
+                  <div className="mt-4 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-white/[0.07] bg-black/20 p-3">
+                    {visibleMessages.length > 0 ? (
+                      visibleMessages.slice(-100).map((item) => (
+                        <div
+                          className={`flex ${item.sender_role === "admin" ? "justify-end" : "justify-start"}`}
+                          key={item.id}
+                        >
+                          <div
+                            className={`max-w-[88%] rounded-2xl px-3 py-2 ${
+                              item.sender_role === "admin"
+                                ? "rounded-br-md bg-pink-500/20 text-pink-50"
+                                : "rounded-bl-md bg-white/[0.07] text-zinc-100"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
+                              <span>{item.sender_role === "admin" ? "Principessa" : "Sub"}</span>
+                              {item.scope === "global" && <span>Global</span>}
+                            </div>
+                            <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-5">{item.message}</p>
+                            <time className="mt-1 block text-[9px] text-zinc-600">{dateTime(item.created_at)}</time>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-8 text-center text-xs text-zinc-600">Henüz mesaj yok.</p>
                     )}
                   </div>
-                  {effectiveMessage && (
-                    <div className="mt-4 rounded-xl border border-sky-400/10 bg-sky-400/[0.05] px-3 py-2.5 text-xs leading-5 text-sky-100">
-                      {effectiveMessage.message}
-                      {!directMessage && target !== "global" && (
-                        <span className="mt-1 block text-[10px] uppercase tracking-wider text-sky-400/50">
-                          Global mesaj
-                        </span>
-                      )}
+                  {target === "global" && (
+                    <div className="mt-3 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-3 py-2 text-[10px] leading-4 text-amber-200/70">
+                      Global mesaj tüm cihazlara gider. Sub cevaplarını görmek için soldan cihaz seç.
                     </div>
                   )}
                   <textarea
@@ -453,29 +531,19 @@ export default function WallpaperAdminPage() {
                     disabled={isBusy}
                     maxLength={240}
                     onChange={(event) => setLiveMessage(event.target.value)}
-                    placeholder="Mesajını yaz…"
+                    placeholder={target === "global" ? "Tüm cihazlara mesaj yaz…" : "Sub'a cevap yaz…"}
                     value={liveMessage}
                   />
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <span className="text-[10px] text-zinc-600">{liveMessage.length}/240</span>
-                    <div className="flex gap-2">
-                      <button
-                        className="rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 transition hover:bg-white/[0.04] hover:text-zinc-200 disabled:opacity-40"
-                        disabled={isBusy || !directMessage}
-                        onClick={() => void updateLiveMessage("clear-message")}
-                        type="button"
-                      >
-                        Kaldır
-                      </button>
-                      <button
-                        className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-40"
-                        disabled={isBusy || !liveMessage.trim()}
-                        onClick={() => void updateLiveMessage("send-message")}
-                        type="button"
-                      >
-                        Gönder
-                      </button>
-                    </div>
+                    <button
+                      className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-40"
+                      disabled={isBusy || !liveMessage.trim()}
+                      onClick={() => void updateLiveMessage("send-message")}
+                      type="button"
+                    >
+                      Gönder
+                    </button>
                   </div>
                 </article>
               </div>

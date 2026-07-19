@@ -46,10 +46,10 @@ async function loadWallpaperAdminState(supabase: SupabaseClient) {
       .order("created_at", { ascending: false }),
     supabase
       .from("wallpaper_live_messages")
-      .select("id, activation_id, scope, message, version, created_at")
+      .select("id, activation_id, scope, message, version, sender_role, active, created_at")
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
-      .eq("active", true)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .limit(500),
     supabase
       .from("wallpaper_device_events")
       .select("id, activation_id, event_type, changed_scopes, system_wallpaper_id, lock_wallpaper_id, created_at")
@@ -228,6 +228,7 @@ export async function POST(request: Request) {
           scope: activationId ? "device" : "global",
           message,
           version: messageVersion,
+          sender_role: "admin",
           active: true,
           created_by: admin.adminUser.id,
         });
