@@ -48,7 +48,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Bar",
     description: "A polished bar backdrop for a louder late-night profile mood.",
     price: 10000,
-    backgroundPath: "/avatar/background/bar.png",
+    backgroundPath: "/avatar/background/bar.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -56,7 +56,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Beach",
     description: "A bright beach scene that makes the profile feel lighter and more open.",
     price: 10000,
-    backgroundPath: "/avatar/background/beach.png",
+    backgroundPath: "/avatar/background/beach.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -64,7 +64,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Bedroom",
     description: "A private bedroom backdrop with a softer, more intimate room feel.",
     price: 10000,
-    backgroundPath: "/avatar/background/bedroom.png",
+    backgroundPath: "/avatar/background/bedroom.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -72,7 +72,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Cherry Park",
     description: "A cherry-blossom park backdrop with softer outdoor color.",
     price: 10000,
-    backgroundPath: "/avatar/background/cherry_park.png",
+    backgroundPath: "/avatar/background/cherry_park.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -80,7 +80,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Dressing Room",
     description: "A dressing room backdrop that leans more stylish and performative.",
     price: 10000,
-    backgroundPath: "/avatar/background/dressing_room.png",
+    backgroundPath: "/avatar/background/dressing_room.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -88,7 +88,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Kitchen",
     description: "A domestic kitchen backdrop for a more grounded everyday scene.",
     price: 10000,
-    backgroundPath: "/avatar/background/kitchen.png",
+    backgroundPath: "/avatar/background/kitchen.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -96,7 +96,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Living Room",
     description: "A lounge-style living room backdrop with a calmer home setting.",
     price: 10000,
-    backgroundPath: "/avatar/background/living_room.png",
+    backgroundPath: "/avatar/background/living_room.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -104,7 +104,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Park",
     description: "A green park backdrop that keeps the frame feeling airy and open.",
     price: 10000,
-    backgroundPath: "/avatar/background/park.png",
+    backgroundPath: "/avatar/background/park.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -112,7 +112,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Rainy Street",
     description: "A rain-soaked street backdrop with colder atmosphere and mood.",
     price: 10000,
-    backgroundPath: "/avatar/background/rainy_street.png",
+    backgroundPath: "/avatar/background/rainy_street.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -120,7 +120,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Rooftop",
     description: "A rooftop backdrop that gives the profile a higher, cleaner city feel.",
     price: 10000,
-    backgroundPath: "/avatar/background/rooftop.png",
+    backgroundPath: "/avatar/background/rooftop.webp",
     backgroundOverlayPath: null,
   }),
   backgroundItem({
@@ -128,7 +128,7 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     name: "Seaside Sidewalk",
     description: "A seaside walkway backdrop with brighter coast-side depth.",
     price: 10000,
-    backgroundPath: "/avatar/background/seaside_sidewalk.png",
+    backgroundPath: "/avatar/background/seaside_sidewalk.webp",
     backgroundOverlayPath: null,
   }),
 ];

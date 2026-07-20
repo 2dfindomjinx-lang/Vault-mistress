@@ -332,7 +332,7 @@ export function TributePanel({
             alt="Bonus coin reward tiers"
             className="h-auto w-full"
             height={1024}
-            src="/bonus-coin-rewards.jpg"
+            src="/bonus-coin-rewards.webp"
             width={1536}
           />
         </div>

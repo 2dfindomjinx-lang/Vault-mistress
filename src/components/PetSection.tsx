@@ -22,7 +22,7 @@ const PET_RANKS = [
 ];
 
 const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
-const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.png";
+const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.webp";
 const DEBT_DURATION_LIMITS = {
   monthly: { label: "Months", max: 24, min: 1 },
   weekly: { label: "Weeks", max: 52, min: 1 },
@@ -293,7 +293,7 @@ type RandomWebsiteState = {
 
 const PET_RANK_REWARDS = PET_RANKS.map((rank, index) => ({
   ...rank,
-  image: `/pet-ranks/rank-${index + 1}.png`,
+  image: `/pet-ranks/rank-${index + 1}.webp`,
 }));
 
 function getPetRank(score: number) {
@@ -1318,7 +1318,7 @@ export function PetSection({
               className="object-cover object-top opacity-82"
               fill
               sizes="(min-width: 1024px) 42vw, 100vw"
-              src="/evil-principessa.png"
+              src="/evil-principessa.webp"
               unoptimized
             />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02),rgba(0,0,0,0.82))]" />
@@ -1811,7 +1811,7 @@ export function PetSection({
                             className="object-cover"
                             fill
                             sizes="360px"
-                            src="/pet-wait-reveal.png"
+                            src="/pet-wait-reveal.webp"
                             unoptimized
                           />
                           {evilTeaseBoxes.map((box, index) => {
@@ -2230,7 +2230,7 @@ export function PetSection({
                 <div
                   className="mt-3 min-h-28 rounded-2xl border border-red-200/15 bg-black/35 bg-contain bg-center bg-no-repeat"
                   style={{
-                    backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.png")`,
+                    backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.webp")`,
                   }}
                 />
                 <div className="mt-3 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">

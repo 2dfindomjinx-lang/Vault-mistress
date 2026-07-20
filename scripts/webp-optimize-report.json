@@ -1,0 +1,2858 @@
+{
+  "examinedRaster": 569,
+  "converted": 562,
+  "keptNoSavings": 0,
+  "preSkipped": [
+    "icon.png",
+    "icons/coin.png"
+  ],
+  "errors": [
+    {
+      "rel": "pet/rights/right-1.png",
+      "status": "error",
+      "reason": "EBUSY: resource busy or locked, unlink 'C:\\Users\\Mert\\Documents\\Codex\\2026-05-26\\create-a-next-js-typescript-tailwindcss\\public\\pet\\rights\\right-1.png'",
+      "originalSize": 129070
+    },
+    {
+      "rel": "pet/rights/right-2.png",
+      "status": "error",
+      "reason": "EBUSY: resource busy or locked, unlink 'C:\\Users\\Mert\\Documents\\Codex\\2026-05-26\\create-a-next-js-typescript-tailwindcss\\public\\pet\\rights\\right-2.png'",
+      "originalSize": 130567
+    },
+    {
+      "rel": "pet/rights/right-3.png",
+      "status": "error",
+      "reason": "EBUSY: resource busy or locked, unlink 'C:\\Users\\Mert\\Documents\\Codex\\2026-05-26\\create-a-next-js-typescript-tailwindcss\\public\\pet\\rights\\right-3.png'",
+      "originalSize": 126585
+    },
+    {
+      "rel": "pet/rights/right-4.png",
+      "status": "error",
+      "reason": "EBUSY: resource busy or locked, unlink 'C:\\Users\\Mert\\Documents\\Codex\\2026-05-26\\create-a-next-js-typescript-tailwindcss\\public\\pet\\rights\\right-4.png'",
+      "originalSize": 124203
+    },
+    {
+      "rel": "pet/rights/right-5.png",
+      "status": "error",
+      "reason": "EBUSY: resource busy or locked, unlink 'C:\\Users\\Mert\\Documents\\Codex\\2026-05-26\\create-a-next-js-typescript-tailwindcss\\public\\pet\\rights\\right-5.png'",
+      "originalSize": 124934
+    }
+  ],
+  "bytesBeforeConverted": 346263262,
+  "bytesAfterConverted": 57791338,
+  "savedBytes": 288471924,
+  "savedPercent": "83.3",
+  "convertedList": [
+    {
+      "rel": "avatar/background/bar.png",
+      "from": 1048234,
+      "to": 61592
+    },
+    {
+      "rel": "avatar/background/beach.png",
+      "from": 1573498,
+      "to": 184468
+    },
+    {
+      "rel": "avatar/background/bedroom.png",
+      "from": 1036973,
+      "to": 58398
+    },
+    {
+      "rel": "avatar/background/cherry_park.png",
+      "from": 1619142,
+      "to": 184968
+    },
+    {
+      "rel": "avatar/background/dressing_room.png",
+      "from": 1276417,
+      "to": 115172
+    },
+    {
+      "rel": "avatar/background/kitchen.png",
+      "from": 932478,
+      "to": 42922
+    },
+    {
+      "rel": "avatar/background/living_room.png",
+      "from": 1236391,
+      "to": 98696
+    },
+    {
+      "rel": "avatar/background/park.png",
+      "from": 1784586,
+      "to": 266354
+    },
+    {
+      "rel": "avatar/background/rainy_street.png",
+      "from": 1319447,
+      "to": 136536
+    },
+    {
+      "rel": "avatar/background/rooftop.png",
+      "from": 1231670,
+      "to": 92276
+    },
+    {
+      "rel": "avatar/background/seaside_sidewalk.png",
+      "from": 1468384,
+      "to": 167734
+    },
+    {
+      "rel": "avatar/base/base-model-bottom-censored.png",
+      "from": 415791,
+      "to": 58534
+    },
+    {
+      "rel": "avatar/base/base-model-full-censored.png",
+      "from": 393744,
+      "to": 62668
+    },
+    {
+      "rel": "avatar/base/base-model-top-censored.png",
+      "from": 389668,
+      "to": 58986
+    },
+    {
+      "rel": "avatar/base/base-model.png",
+      "from": 412152,
+      "to": 54630
+    },
+    {
+      "rel": "avatar/blindfold/classic-blindfold.png",
+      "from": 28347,
+      "to": 6168
+    },
+    {
+      "rel": "avatar/blindfold/pink-blindfold.png",
+      "from": 30110,
+      "to": 7076
+    },
+    {
+      "rel": "avatar/bottoms/boxer.png",
+      "from": 350676,
+      "to": 12170
+    },
+    {
+      "rel": "avatar/bottoms/classic-skirt.png",
+      "from": 99534,
+      "to": 14242
+    },
+    {
+      "rel": "avatar/bottoms/classic-thong.png",
+      "from": 33070,
+      "to": 7876
+    },
+    {
+      "rel": "avatar/bottoms/cute-miniskirt.png",
+      "from": 143903,
+      "to": 11672
+    },
+    {
+      "rel": "avatar/bottoms/cute-panties.png",
+      "from": 457341,
+      "to": 13546
+    },
+    {
+      "rel": "avatar/bottoms/gorgeous-panties.png",
+      "from": 85230,
+      "to": 10854
+    },
+    {
+      "rel": "avatar/bottoms/gorgeous-thong.png",
+      "from": 91500,
+      "to": 11732
+    },
+    {
+      "rel": "avatar/bottoms/latex-skirt.png",
+      "from": 109342,
+      "to": 14534
+    },
+    {
+      "rel": "avatar/bottoms/pink-thong.png",
+      "from": 427600,
+      "to": 9896
+    },
+    {
+      "rel": "avatar/bottoms/shiny-panties.png",
+      "from": 46520,
+      "to": 10796
+    },
+    {
+      "rel": "avatar/bottoms/shiny-skirt.png",
+      "from": 171658,
+      "to": 21430
+    },
+    {
+      "rel": "avatar/bottoms/shiny-thong.png",
+      "from": 56264,
+      "to": 13796
+    },
+    {
+      "rel": "avatar/collar/classic-collar.png",
+      "from": 17868,
+      "to": 4572
+    },
+    {
+      "rel": "avatar/collar/pink-collar.png",
+      "from": 21112,
+      "to": 4728
+    },
+    {
+      "rel": "avatar/ears/classic-ears.png",
+      "from": 59428,
+      "to": 9494
+    },
+    {
+      "rel": "avatar/ears/pink-ears.png",
+      "from": 47361,
+      "to": 10096
+    },
+    {
+      "rel": "avatar/fullbody/classic-bunnysuit.png",
+      "from": 124615,
+      "to": 17556
+    },
+    {
+      "rel": "avatar/fullbody/classic-corset.png",
+      "from": 200827,
+      "to": 26042
+    },
+    {
+      "rel": "avatar/fullbody/classic-maid-outfit.png",
+      "from": 332791,
+      "to": 43646
+    },
+    {
+      "rel": "avatar/fullbody/classic.png",
+      "from": 371816,
+      "to": 44550
+    },
+    {
+      "rel": "avatar/fullbody/fishnet-leotard.png",
+      "from": 169845,
+      "to": 26398
+    },
+    {
+      "rel": "avatar/fullbody/gorgeous-bunnysuit.png",
+      "from": 182928,
+      "to": 25390
+    },
+    {
+      "rel": "avatar/fullbody/gorgeous-corset.png",
+      "from": 282935,
+      "to": 38382
+    },
+    {
+      "rel": "avatar/fullbody/gorgeous-sheer-bikini.png",
+      "from": 222924,
+      "to": 31042
+    },
+    {
+      "rel": "avatar/fullbody/latex-maid-outfit.png",
+      "from": 420201,
+      "to": 51878
+    },
+    {
+      "rel": "avatar/fullbody/pink-bunnysuit.png",
+      "from": 133304,
+      "to": 17458
+    },
+    {
+      "rel": "avatar/fullbody/pink-corset.png",
+      "from": 284357,
+      "to": 40244
+    },
+    {
+      "rel": "avatar/fullbody/pink-maid-outfit.png",
+      "from": 308080,
+      "to": 37868
+    },
+    {
+      "rel": "avatar/fullbody/pink-sheer-bikini.png",
+      "from": 271315,
+      "to": 34756
+    },
+    {
+      "rel": "avatar/fullbody/shiny-bunnysuit.png",
+      "from": 173291,
+      "to": 24868
+    },
+    {
+      "rel": "avatar/fullbody/shiny-corset.png",
+      "from": 370945,
+      "to": 55948
+    },
+    {
+      "rel": "avatar/fullbody/shiny-maid-outfit.png",
+      "from": 364471,
+      "to": 52622
+    },
+    {
+      "rel": "avatar/hands/classic-pawmitts.png",
+      "from": 51345,
+      "to": 10044
+    },
+    {
+      "rel": "avatar/hands/gorgeous-pawmitts.png",
+      "from": 75942,
+      "to": 16664
+    },
+    {
+      "rel": "avatar/hands/shiny_pawmitts.png",
+      "from": 91744,
+      "to": 17448
+    },
+    {
+      "rel": "avatar/hands/white-pawmitts.png",
+      "from": 75058,
+      "to": 11880
+    },
+    {
+      "rel": "avatar/mouth/ballgag.png",
+      "from": 20381,
+      "to": 5630
+    },
+    {
+      "rel": "avatar/shoes/classic-highheels.png",
+      "from": 56774,
+      "to": 13864
+    },
+    {
+      "rel": "avatar/shoes/gorgeous-highheels.png",
+      "from": 62877,
+      "to": 13610
+    },
+    {
+      "rel": "avatar/shoes/shiny-highheels.png",
+      "from": 70024,
+      "to": 18264
+    },
+    {
+      "rel": "avatar/shoes/sneakers.png",
+      "from": 78188,
+      "to": 14410
+    },
+    {
+      "rel": "avatar/thighhighs/classic-thighhighs.png",
+      "from": 166174,
+      "to": 25326
+    },
+    {
+      "rel": "avatar/thighhighs/cute-thighhighs.png",
+      "from": 215817,
+      "to": 30472
+    },
+    {
+      "rel": "avatar/thighhighs/fishnet-stockings.png",
+      "from": 255985,
+      "to": 40738
+    },
+    {
+      "rel": "avatar/thighhighs/gorgeous-thighhighs.png",
+      "from": 192851,
+      "to": 28226
+    },
+    {
+      "rel": "avatar/thighhighs/latex-thighhighs.png",
+      "from": 193151,
+      "to": 27848
+    },
+    {
+      "rel": "avatar/thighhighs/shiny-thighhighs.png",
+      "from": 247647,
+      "to": 24860
+    },
+    {
+      "rel": "avatar/tops/cat-croptop.png",
+      "from": 151044,
+      "to": 19690
+    },
+    {
+      "rel": "avatar/tops/classic-bra.png",
+      "from": 65230,
+      "to": 13324
+    },
+    {
+      "rel": "avatar/tops/fishnet-croptop.png",
+      "from": 286008,
+      "to": 47204
+    },
+    {
+      "rel": "avatar/tops/gorgeous-bra.png",
+      "from": 114044,
+      "to": 16804
+    },
+    {
+      "rel": "avatar/tops/pink-bra.png",
+      "from": 442794,
+      "to": 14512
+    },
+    {
+      "rel": "avatar/tops/shiny-bra.png",
+      "from": 137883,
+      "to": 24920
+    },
+    {
+      "rel": "badges/bronze.png",
+      "from": 284226,
+      "to": 47972
+    },
+    {
+      "rel": "badges/diamond.png",
+      "from": 289129,
+      "to": 46468
+    },
+    {
+      "rel": "badges/emerald.png",
+      "from": 248047,
+      "to": 47484
+    },
+    {
+      "rel": "badges/gold.png",
+      "from": 265113,
+      "to": 52158
+    },
+    {
+      "rel": "badges/silver.png",
+      "from": 300088,
+      "to": 45514
+    },
+    {
+      "rel": "bonus-coin-rewards.jpg",
+      "from": 260655,
+      "to": 171716
+    },
+    {
+      "rel": "character-icon.png",
+      "from": 33298,
+      "to": 24174
+    },
+    {
+      "rel": "character-stage-100.png",
+      "from": 159846,
+      "to": 76014
+    },
+    {
+      "rel": "character-stage-25.png",
+      "from": 1393955,
+      "to": 204974
+    },
+    {
+      "rel": "character-stage-50.png",
+      "from": 213460,
+      "to": 116708
+    },
+    {
+      "rel": "character-stage-75.png",
+      "from": 1308812,
+      "to": 188488
+    },
+    {
+      "rel": "character.png",
+      "from": 1569913,
+      "to": 262596
+    },
+    {
+      "rel": "cosmetics/avatar-arrogant.png",
+      "from": 245332,
+      "to": 26906
+    },
+    {
+      "rel": "cosmetics/avatar-blackmail.png",
+      "from": 270043,
+      "to": 35884
+    },
+    {
+      "rel": "cosmetics/avatar-bully.png",
+      "from": 273708,
+      "to": 26302
+    },
+    {
+      "rel": "cosmetics/avatar-catgirl.png",
+      "from": 238930,
+      "to": 27094
+    },
+    {
+      "rel": "cosmetics/avatar-cuckold.png",
+      "from": 287854,
+      "to": 34692
+    },
+    {
+      "rel": "cosmetics/avatar-debtcollector.png",
+      "from": 308289,
+      "to": 47010
+    },
+    {
+      "rel": "cosmetics/avatar-denialqueen.png",
+      "from": 279591,
+      "to": 26414
+    },
+    {
+      "rel": "cosmetics/avatar-edging-coach.png",
+      "from": 1620144,
+      "to": 35854
+    },
+    {
+      "rel": "cosmetics/avatar-egirl.png",
+      "from": 321361,
+      "to": 49574
+    },
+    {
+      "rel": "cosmetics/avatar-goth.png",
+      "from": 258754,
+      "to": 31944
+    },
+    {
+      "rel": "cosmetics/avatar-himedere.png",
+      "from": 329510,
+      "to": 54964
+    },
+    {
+      "rel": "cosmetics/avatar-hypnotist.png",
+      "from": 299887,
+      "to": 42960
+    },
+    {
+      "rel": "cosmetics/avatar-keyholder.png",
+      "from": 276247,
+      "to": 29710
+    },
+    {
+      "rel": "cosmetics/avatar-lezdom-mistress.png",
+      "from": 246726,
+      "to": 26508
+    },
+    {
+      "rel": "cosmetics/avatar-lovely.png",
+      "from": 251695,
+      "to": 29688
+    },
+    {
+      "rel": "cosmetics/avatar-maid.png",
+      "from": 252112,
+      "to": 29694
+    },
+    {
+      "rel": "cosmetics/avatar-petowner.png",
+      "from": 274047,
+      "to": 34318
+    },
+    {
+      "rel": "cosmetics/avatar-strictteacher.png",
+      "from": 292123,
+      "to": 41986
+    },
+    {
+      "rel": "cosmetics/avatar-succubus.png",
+      "from": 281037,
+      "to": 27174
+    },
+    {
+      "rel": "cosmetics/avatar-tsundere.png",
+      "from": 252894,
+      "to": 29602
+    },
+    {
+      "rel": "cosmetics/avatar-yandere.png",
+      "from": 276375,
+      "to": 34970
+    },
+    {
+      "rel": "crate-icons/blessing-case.png",
+      "from": 230383,
+      "to": 34536
+    },
+    {
+      "rel": "crate-icons/premium-case.png",
+      "from": 251606,
+      "to": 43980
+    },
+    {
+      "rel": "crate-icons/principessa-case.png",
+      "from": 268307,
+      "to": 57810
+    },
+    {
+      "rel": "crate-items/ballgag.png",
+      "from": 110891,
+      "to": 17434
+    },
+    {
+      "rel": "crate-items/black-dildo.png",
+      "from": 117333,
+      "to": 15384
+    },
+    {
+      "rel": "crate-items/boxer.png",
+      "from": 95269,
+      "to": 11526
+    },
+    {
+      "rel": "crate-items/cat-croptop.png",
+      "from": 221581,
+      "to": 31246
+    },
+    {
+      "rel": "crate-items/classic-anal-beads.png",
+      "from": 45535,
+      "to": 8018
+    },
+    {
+      "rel": "crate-items/classic-blindfold.png",
+      "from": 75479,
+      "to": 11542
+    },
+    {
+      "rel": "crate-items/classic-bra.png",
+      "from": 71160,
+      "to": 12396
+    },
+    {
+      "rel": "crate-items/classic-bunnysuit.png",
+      "from": 102805,
+      "to": 12894
+    },
+    {
+      "rel": "crate-items/classic-buttplug.png",
+      "from": 68069,
+      "to": 9092
+    },
+    {
+      "rel": "crate-items/classic-collar.png",
+      "from": 110003,
+      "to": 14600
+    },
+    {
+      "rel": "crate-items/classic-corset.png",
+      "from": 160295,
+      "to": 26514
+    },
+    {
+      "rel": "crate-items/classic-dildo.png",
+      "from": 84902,
+      "to": 8916
+    },
+    {
+      "rel": "crate-items/classic-ears.png",
+      "from": 74775,
+      "to": 13328
+    },
+    {
+      "rel": "crate-items/classic-highheels.png",
+      "from": 120034,
+      "to": 15556
+    },
+    {
+      "rel": "crate-items/classic-maid-outfit.png",
+      "from": 147751,
+      "to": 20026
+    },
+    {
+      "rel": "crate-items/classic-pawmitts.png",
+      "from": 85347,
+      "to": 11670
+    },
+    {
+      "rel": "crate-items/classic-skirt.png",
+      "from": 79144,
+      "to": 11760
+    },
+    {
+      "rel": "crate-items/classic-tail.png",
+      "from": 70500,
+      "to": 11246
+    },
+    {
+      "rel": "crate-items/classic-thighhighs.png",
+      "from": 91918,
+      "to": 12812
+    },
+    {
+      "rel": "crate-items/classic-thong.png",
+      "from": 36703,
+      "to": 7190
+    },
+    {
+      "rel": "crate-items/classic.png",
+      "from": 189407,
+      "to": 30682
+    },
+    {
+      "rel": "crate-items/cute-miniskirt.png",
+      "from": 94515,
+      "to": 11698
+    },
+    {
+      "rel": "crate-items/cute-panties.png",
+      "from": 102916,
+      "to": 14664
+    },
+    {
+      "rel": "crate-items/cute-thighhighs.png",
+      "from": 126164,
+      "to": 17800
+    },
+    {
+      "rel": "crate-items/fishnet-croptop.png",
+      "from": 221791,
+      "to": 39544
+    },
+    {
+      "rel": "crate-items/fishnet-leotard.png",
+      "from": 179055,
+      "to": 26276
+    },
+    {
+      "rel": "crate-items/fishnet-stockings.png",
+      "from": 150281,
+      "to": 22844
+    },
+    {
+      "rel": "crate-items/good-boy-tag.png",
+      "from": 88735,
+      "to": 12452
+    },
+    {
+      "rel": "crate-items/gorgeous-bra.png",
+      "from": 112980,
+      "to": 19306
+    },
+    {
+      "rel": "crate-items/gorgeous-bunnysuit.png",
+      "from": 131511,
+      "to": 16808
+    },
+    {
+      "rel": "crate-items/gorgeous-buttplug.png",
+      "from": 128165,
+      "to": 20818
+    },
+    {
+      "rel": "crate-items/gorgeous-corset.png",
+      "from": 175213,
+      "to": 27806
+    },
+    {
+      "rel": "crate-items/gorgeous-highheels.png",
+      "from": 147777,
+      "to": 19544
+    },
+    {
+      "rel": "crate-items/gorgeous-panties.png",
+      "from": 93742,
+      "to": 14962
+    },
+    {
+      "rel": "crate-items/gorgeous-pawmitts.png",
+      "from": 158868,
+      "to": 21102
+    },
+    {
+      "rel": "crate-items/gorgeous-sheer-bikini.png",
+      "from": 138806,
+      "to": 19162
+    },
+    {
+      "rel": "crate-items/gorgeous-thighhighs.png",
+      "from": 112878,
+      "to": 15852
+    },
+    {
+      "rel": "crate-items/gorgeous-thong.png",
+      "from": 100536,
+      "to": 15906
+    },
+    {
+      "rel": "crate-items/latex-maid-outfit.png",
+      "from": 161699,
+      "to": 24408
+    },
+    {
+      "rel": "crate-items/latex-skirt.png",
+      "from": 87399,
+      "to": 11738
+    },
+    {
+      "rel": "crate-items/latex-thighhighs.png",
+      "from": 109897,
+      "to": 15624
+    },
+    {
+      "rel": "crate-items/owned-tag.png",
+      "from": 100111,
+      "to": 13546
+    },
+    {
+      "rel": "crate-items/pet-tag.png",
+      "from": 49673,
+      "to": 7036
+    },
+    {
+      "rel": "crate-items/pink-blindfold.png",
+      "from": 108226,
+      "to": 16048
+    },
+    {
+      "rel": "crate-items/pink-bra.png",
+      "from": 98879,
+      "to": 18106
+    },
+    {
+      "rel": "crate-items/pink-bunnysuit.png",
+      "from": 116184,
+      "to": 14504
+    },
+    {
+      "rel": "crate-items/pink-collar.png",
+      "from": 100556,
+      "to": 14540
+    },
+    {
+      "rel": "crate-items/pink-corset.png",
+      "from": 186069,
+      "to": 34422
+    },
+    {
+      "rel": "crate-items/pink-ears.png",
+      "from": 101307,
+      "to": 17794
+    },
+    {
+      "rel": "crate-items/pink-maid-outfit.png",
+      "from": 181681,
+      "to": 22406
+    },
+    {
+      "rel": "crate-items/pink-sheer-bikini.png",
+      "from": 136061,
+      "to": 20700
+    },
+    {
+      "rel": "crate-items/pink-small-vibrator.png",
+      "from": 51535,
+      "to": 9098
+    },
+    {
+      "rel": "crate-items/pink-tail.png",
+      "from": 125466,
+      "to": 17876
+    },
+    {
+      "rel": "crate-items/pink-thong.png",
+      "from": 74327,
+      "to": 12644
+    },
+    {
+      "rel": "crate-items/principessas-pet.png",
+      "from": 119881,
+      "to": 19982
+    },
+    {
+      "rel": "crate-items/rabbit-small-vibrator.png",
+      "from": 86064,
+      "to": 14472
+    },
+    {
+      "rel": "crate-items/remote-control-vibrator.png",
+      "from": 85777,
+      "to": 13256
+    },
+    {
+      "rel": "crate-items/shiny-bra.png",
+      "from": 152080,
+      "to": 30990
+    },
+    {
+      "rel": "crate-items/shiny-bunnysuit.png",
+      "from": 132791,
+      "to": 16540
+    },
+    {
+      "rel": "crate-items/shiny-corset.png",
+      "from": 181404,
+      "to": 33728
+    },
+    {
+      "rel": "crate-items/shiny-highheels.png",
+      "from": 154928,
+      "to": 26146
+    },
+    {
+      "rel": "crate-items/shiny-maid-outfit.png",
+      "from": 230134,
+      "to": 29898
+    },
+    {
+      "rel": "crate-items/shiny-panties.png",
+      "from": 96897,
+      "to": 17682
+    },
+    {
+      "rel": "crate-items/shiny-skirt.png",
+      "from": 130721,
+      "to": 15854
+    },
+    {
+      "rel": "crate-items/shiny-thighhighs.png",
+      "from": 144840,
+      "to": 21324
+    },
+    {
+      "rel": "crate-items/shiny-thong.png",
+      "from": 137415,
+      "to": 23474
+    },
+    {
+      "rel": "crate-items/shiny_pawmitts.png",
+      "from": 172264,
+      "to": 25062
+    },
+    {
+      "rel": "crate-items/sneakers.png",
+      "from": 130057,
+      "to": 31636
+    },
+    {
+      "rel": "crate-items/ultra-vibrator.png",
+      "from": 72054,
+      "to": 13514
+    },
+    {
+      "rel": "crate-items/vibrator.png",
+      "from": 53366,
+      "to": 7968
+    },
+    {
+      "rel": "crate-items/white-pawmitts.png",
+      "from": 145359,
+      "to": 20000
+    },
+    {
+      "rel": "default-tribute-avatar.png",
+      "from": 1711929,
+      "to": 113044
+    },
+    {
+      "rel": "evil-principessa.png",
+      "from": 163200,
+      "to": 45604
+    },
+    {
+      "rel": "gallery/common-1.png",
+      "from": 228450,
+      "to": 120924
+    },
+    {
+      "rel": "gallery/common-2.png",
+      "from": 1724800,
+      "to": 286746
+    },
+    {
+      "rel": "gallery/common-3.png",
+      "from": 1256568,
+      "to": 212280
+    },
+    {
+      "rel": "gallery/common-4.png",
+      "from": 1255437,
+      "to": 184358
+    },
+    {
+      "rel": "gallery/divine-1.png",
+      "from": 994176,
+      "to": 144274
+    },
+    {
+      "rel": "gallery/divine-2.png",
+      "from": 1240398,
+      "to": 181996
+    },
+    {
+      "rel": "gallery/divine-3.png",
+      "from": 1657051,
+      "to": 269426
+    },
+    {
+      "rel": "gallery/divine-4.png",
+      "from": 1173320,
+      "to": 159352
+    },
+    {
+      "rel": "gallery/femsub/pet-1.png",
+      "from": 1126514,
+      "to": 180816
+    },
+    {
+      "rel": "gallery/femsub/pet-10.png",
+      "from": 217983,
+      "to": 119860
+    },
+    {
+      "rel": "gallery/femsub/pet-11.png",
+      "from": 200687,
+      "to": 102526
+    },
+    {
+      "rel": "gallery/femsub/pet-12.png",
+      "from": 147075,
+      "to": 70808
+    },
+    {
+      "rel": "gallery/femsub/pet-13.png",
+      "from": 152986,
+      "to": 76832
+    },
+    {
+      "rel": "gallery/femsub/pet-14.png",
+      "from": 161861,
+      "to": 77372
+    },
+    {
+      "rel": "gallery/femsub/pet-15.png",
+      "from": 140219,
+      "to": 64152
+    },
+    {
+      "rel": "gallery/femsub/pet-16.png",
+      "from": 133498,
+      "to": 61244
+    },
+    {
+      "rel": "gallery/femsub/pet-17.png",
+      "from": 172689,
+      "to": 79296
+    },
+    {
+      "rel": "gallery/femsub/pet-18.png",
+      "from": 227964,
+      "to": 120650
+    },
+    {
+      "rel": "gallery/femsub/pet-19.png",
+      "from": 7407945,
+      "to": 442122
+    },
+    {
+      "rel": "gallery/femsub/pet-2.png",
+      "from": 1038757,
+      "to": 136956
+    },
+    {
+      "rel": "gallery/femsub/pet-20.png",
+      "from": 178522,
+      "to": 46500
+    },
+    {
+      "rel": "gallery/femsub/pet-21.png",
+      "from": 421070,
+      "to": 72594
+    },
+    {
+      "rel": "gallery/femsub/pet-22.png",
+      "from": 1275712,
+      "to": 201076
+    },
+    {
+      "rel": "gallery/femsub/pet-23.png",
+      "from": 926853,
+      "to": 138590
+    },
+    {
+      "rel": "gallery/femsub/pet-24.png",
+      "from": 1255480,
+      "to": 168208
+    },
+    {
+      "rel": "gallery/femsub/pet-25.png",
+      "from": 1208899,
+      "to": 174154
+    },
+    {
+      "rel": "gallery/femsub/pet-26.png",
+      "from": 1409359,
+      "to": 214216
+    },
+    {
+      "rel": "gallery/femsub/pet-27.png",
+      "from": 1470842,
+      "to": 237878
+    },
+    {
+      "rel": "gallery/femsub/pet-28.png",
+      "from": 349616,
+      "to": 139420
+    },
+    {
+      "rel": "gallery/femsub/pet-29.png",
+      "from": 918866,
+      "to": 135060
+    },
+    {
+      "rel": "gallery/femsub/pet-3.png",
+      "from": 1643059,
+      "to": 264742
+    },
+    {
+      "rel": "gallery/femsub/pet-30.png",
+      "from": 536318,
+      "to": 123708
+    },
+    {
+      "rel": "gallery/femsub/pet-4.png",
+      "from": 1281592,
+      "to": 101146
+    },
+    {
+      "rel": "gallery/femsub/pet-5.png",
+      "from": 179461,
+      "to": 92148
+    },
+    {
+      "rel": "gallery/femsub/pet-6.png",
+      "from": 235554,
+      "to": 122826
+    },
+    {
+      "rel": "gallery/femsub/pet-7.png",
+      "from": 186292,
+      "to": 97002
+    },
+    {
+      "rel": "gallery/femsub/pet-8.png",
+      "from": 216744,
+      "to": 114658
+    },
+    {
+      "rel": "gallery/femsub/pet-9.png",
+      "from": 352903,
+      "to": 138128
+    },
+    {
+      "rel": "gallery/femsub/secret-1.png",
+      "from": 337407,
+      "to": 132908
+    },
+    {
+      "rel": "gallery/pet-1.png",
+      "from": 1126514,
+      "to": 180816
+    },
+    {
+      "rel": "gallery/pet-10.png",
+      "from": 217983,
+      "to": 119860
+    },
+    {
+      "rel": "gallery/pet-11.png",
+      "from": 209169,
+      "to": 111452
+    },
+    {
+      "rel": "gallery/pet-12.png",
+      "from": 147075,
+      "to": 70808
+    },
+    {
+      "rel": "gallery/pet-13.png",
+      "from": 152986,
+      "to": 76832
+    },
+    {
+      "rel": "gallery/pet-14.png",
+      "from": 161861,
+      "to": 77372
+    },
+    {
+      "rel": "gallery/pet-15.png",
+      "from": 140219,
+      "to": 64152
+    },
+    {
+      "rel": "gallery/pet-16.png",
+      "from": 133498,
+      "to": 61244
+    },
+    {
+      "rel": "gallery/pet-17.png",
+      "from": 172689,
+      "to": 79296
+    },
+    {
+      "rel": "gallery/pet-18.png",
+      "from": 227964,
+      "to": 120650
+    },
+    {
+      "rel": "gallery/pet-19.png",
+      "from": 146473,
+      "to": 68430
+    },
+    {
+      "rel": "gallery/pet-2.png",
+      "from": 1038757,
+      "to": 136956
+    },
+    {
+      "rel": "gallery/pet-20.png",
+      "from": 198722,
+      "to": 105448
+    },
+    {
+      "rel": "gallery/pet-21.png",
+      "from": 148661,
+      "to": 68842
+    },
+    {
+      "rel": "gallery/pet-22.png",
+      "from": 1275712,
+      "to": 201076
+    },
+    {
+      "rel": "gallery/pet-23.png",
+      "from": 926853,
+      "to": 138590
+    },
+    {
+      "rel": "gallery/pet-24.png",
+      "from": 1255480,
+      "to": 168208
+    },
+    {
+      "rel": "gallery/pet-25.png",
+      "from": 1208899,
+      "to": 174154
+    },
+    {
+      "rel": "gallery/pet-26.png",
+      "from": 1409359,
+      "to": 214216
+    },
+    {
+      "rel": "gallery/pet-27.png",
+      "from": 1470842,
+      "to": 237878
+    },
+    {
+      "rel": "gallery/pet-28.png",
+      "from": 1378643,
+      "to": 198924
+    },
+    {
+      "rel": "gallery/pet-29.png",
+      "from": 918866,
+      "to": 135060
+    },
+    {
+      "rel": "gallery/pet-3.png",
+      "from": 1643059,
+      "to": 264742
+    },
+    {
+      "rel": "gallery/pet-30.png",
+      "from": 1056389,
+      "to": 159030
+    },
+    {
+      "rel": "gallery/pet-4.png",
+      "from": 1166203,
+      "to": 165120
+    },
+    {
+      "rel": "gallery/pet-5.png",
+      "from": 1227726,
+      "to": 174554
+    },
+    {
+      "rel": "gallery/pet-6.png",
+      "from": 1104569,
+      "to": 166682
+    },
+    {
+      "rel": "gallery/pet-7.png",
+      "from": 1350270,
+      "to": 210444
+    },
+    {
+      "rel": "gallery/pet-8.png",
+      "from": 1185920,
+      "to": 164506
+    },
+    {
+      "rel": "gallery/pet-9.png",
+      "from": 1377597,
+      "to": 218964
+    },
+    {
+      "rel": "gallery/rare-1.png",
+      "from": 1042892,
+      "to": 154240
+    },
+    {
+      "rel": "gallery/rare-2.png",
+      "from": 1576759,
+      "to": 245626
+    },
+    {
+      "rel": "gallery/rare-3.png",
+      "from": 1471809,
+      "to": 246516
+    },
+    {
+      "rel": "gallery/rare-4.png",
+      "from": 1358828,
+      "to": 210752
+    },
+    {
+      "rel": "gallery/sacrifice-1.png",
+      "from": 1500923,
+      "to": 231438
+    },
+    {
+      "rel": "gallery/sacrifice-10.png",
+      "from": 1104569,
+      "to": 166682
+    },
+    {
+      "rel": "gallery/sacrifice-2.png",
+      "from": 1593246,
+      "to": 241524
+    },
+    {
+      "rel": "gallery/sacrifice-3.png",
+      "from": 1277063,
+      "to": 180412
+    },
+    {
+      "rel": "gallery/sacrifice-4.png",
+      "from": 1210456,
+      "to": 193888
+    },
+    {
+      "rel": "gallery/sacrifice-5.png",
+      "from": 928536,
+      "to": 141074
+    },
+    {
+      "rel": "gallery/sacrifice-6.png",
+      "from": 1074509,
+      "to": 161304
+    },
+    {
+      "rel": "gallery/sacrifice-7.png",
+      "from": 1396359,
+      "to": 216070
+    },
+    {
+      "rel": "gallery/sacrifice-8.png",
+      "from": 1126514,
+      "to": 180816
+    },
+    {
+      "rel": "gallery/sacrifice-9.png",
+      "from": 1146199,
+      "to": 155340
+    },
+    {
+      "rel": "gallery/secret-1.png",
+      "from": 323188,
+      "to": 119620
+    },
+    {
+      "rel": "pet/daily-click/click-01.png",
+      "from": 1268961,
+      "to": 179030
+    },
+    {
+      "rel": "pet/daily-click/click-02.png",
+      "from": 1359374,
+      "to": 211642
+    },
+    {
+      "rel": "pet/daily-click/click-03.png",
+      "from": 1112255,
+      "to": 149008
+    },
+    {
+      "rel": "pet/daily-click/click-04.png",
+      "from": 1264072,
+      "to": 173190
+    },
+    {
+      "rel": "pet/daily-click/click-05.png",
+      "from": 1052664,
+      "to": 138996
+    },
+    {
+      "rel": "pet/daily-click/click-06.png",
+      "from": 1521469,
+      "to": 238078
+    },
+    {
+      "rel": "pet/daily-click/click-07.png",
+      "from": 1274750,
+      "to": 173328
+    },
+    {
+      "rel": "pet/daily-click/click-08.png",
+      "from": 1445385,
+      "to": 231374
+    },
+    {
+      "rel": "pet/daily-click/click-09.png",
+      "from": 1050479,
+      "to": 153622
+    },
+    {
+      "rel": "pet/daily-click/click-10.png",
+      "from": 1299174,
+      "to": 197158
+    },
+    {
+      "rel": "pet/daily-click/click-11.png",
+      "from": 1625644,
+      "to": 267406
+    },
+    {
+      "rel": "pet/daily-click/click-12.png",
+      "from": 1382241,
+      "to": 218238
+    },
+    {
+      "rel": "pet/daily-click/click-13.png",
+      "from": 1506535,
+      "to": 241024
+    },
+    {
+      "rel": "pet/daily-click/click-14.png",
+      "from": 1349296,
+      "to": 202996
+    },
+    {
+      "rel": "pet/daily-click/click-15.png",
+      "from": 1056992,
+      "to": 148482
+    },
+    {
+      "rel": "pet/daily-click/click-16.png",
+      "from": 1396359,
+      "to": 216070
+    },
+    {
+      "rel": "pet/daily-click/click-17.png",
+      "from": 1534850,
+      "to": 235154
+    },
+    {
+      "rel": "pet/daily-click/click-18.png",
+      "from": 1235230,
+      "to": 182788
+    },
+    {
+      "rel": "pet/daily-click/click-19.png",
+      "from": 1113159,
+      "to": 158912
+    },
+    {
+      "rel": "pet/daily-click/click-20.png",
+      "from": 1101185,
+      "to": 149612
+    },
+    {
+      "rel": "pet/daily-click/click-21.png",
+      "from": 1416969,
+      "to": 216398
+    },
+    {
+      "rel": "pet/daily-click/click-22.png",
+      "from": 1257904,
+      "to": 170008
+    },
+    {
+      "rel": "pet/daily-click/click-23.png",
+      "from": 1348492,
+      "to": 199420
+    },
+    {
+      "rel": "pet/daily-click/click-24.png",
+      "from": 1166203,
+      "to": 165120
+    },
+    {
+      "rel": "pet/daily-click/click-25.png",
+      "from": 1342394,
+      "to": 214022
+    },
+    {
+      "rel": "pet/daily-click/click-26.png",
+      "from": 1543731,
+      "to": 229182
+    },
+    {
+      "rel": "pet/daily-click/click-27.png",
+      "from": 1051630,
+      "to": 140822
+    },
+    {
+      "rel": "pet/daily-click/click-28.png",
+      "from": 1407223,
+      "to": 235986
+    },
+    {
+      "rel": "pet/daily-click/click-29.png",
+      "from": 1389723,
+      "to": 212354
+    },
+    {
+      "rel": "pet/daily-click/click-30.png",
+      "from": 1398229,
+      "to": 217482
+    },
+    {
+      "rel": "pet/daily-click/click-31.png",
+      "from": 808693,
+      "to": 119290
+    },
+    {
+      "rel": "pet/daily-click/click-32.png",
+      "from": 1306504,
+      "to": 197618
+    },
+    {
+      "rel": "pet/daily-click/click-33.png",
+      "from": 1353936,
+      "to": 210334
+    },
+    {
+      "rel": "pet/daily-click/click-34.png",
+      "from": 782802,
+      "to": 118978
+    },
+    {
+      "rel": "pet/daily-click/click-35.png",
+      "from": 1618568,
+      "to": 262762
+    },
+    {
+      "rel": "pet/daily-click/click-36.png",
+      "from": 1833230,
+      "to": 309400
+    },
+    {
+      "rel": "pet/daily-click/click-37.png",
+      "from": 920297,
+      "to": 140228
+    },
+    {
+      "rel": "pet/daily-click/click-38.png",
+      "from": 1287537,
+      "to": 191238
+    },
+    {
+      "rel": "pet/daily-click/click-39.png",
+      "from": 1266767,
+      "to": 204902
+    },
+    {
+      "rel": "pet/daily-click/click-40.png",
+      "from": 1194289,
+      "to": 182240
+    },
+    {
+      "rel": "pet/daily-click/click-41.png",
+      "from": 870778,
+      "to": 127764
+    },
+    {
+      "rel": "pet/daily-click/click-42.png",
+      "from": 1512852,
+      "to": 220920
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-01.jpg",
+      "from": 217937,
+      "to": 71498
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-02.jpg",
+      "from": 220115,
+      "to": 73164
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-03.jpg",
+      "from": 228472,
+      "to": 74136
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-04.jpg",
+      "from": 268715,
+      "to": 95168
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-05.jpg",
+      "from": 393288,
+      "to": 78184
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-06.jpg",
+      "from": 143625,
+      "to": 62478
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-07.png",
+      "from": 1274750,
+      "to": 173328
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-08.jpg",
+      "from": 187561,
+      "to": 92578
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-09.png",
+      "from": 1050479,
+      "to": 153622
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-10.jpg",
+      "from": 202103,
+      "to": 106890
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-11.jpg",
+      "from": 208090,
+      "to": 110006
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-12.jpg",
+      "from": 144380,
+      "to": 74604
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-13.jpg",
+      "from": 143429,
+      "to": 71718
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-14.png",
+      "from": 1349296,
+      "to": 202996
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-15.png",
+      "from": 1056992,
+      "to": 148482
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-16.png",
+      "from": 1396359,
+      "to": 216070
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-17.jpg",
+      "from": 205620,
+      "to": 111254
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-18.jpg",
+      "from": 122184,
+      "to": 54940
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-19.jpg",
+      "from": 192650,
+      "to": 95352
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-20.jpg",
+      "from": 215196,
+      "to": 111782
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-21.png",
+      "from": 1416969,
+      "to": 216398
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-22.jpg",
+      "from": 202797,
+      "to": 105610
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-23.jpg",
+      "from": 225112,
+      "to": 117312
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-24.jpg",
+      "from": 135500,
+      "to": 53916
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-25.jpg",
+      "from": 149915,
+      "to": 70934
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-26.jpg",
+      "from": 214606,
+      "to": 109494
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-27.png",
+      "from": 1051630,
+      "to": 140822
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-28.png",
+      "from": 1407223,
+      "to": 235986
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-29.png",
+      "from": 1389723,
+      "to": 212354
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-30.png",
+      "from": 1398229,
+      "to": 217482
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-31.png",
+      "from": 808693,
+      "to": 119290
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-32.png",
+      "from": 1306504,
+      "to": 197618
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-33.png",
+      "from": 1353936,
+      "to": 210334
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-34.png",
+      "from": 782802,
+      "to": 118978
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-35.png",
+      "from": 1618568,
+      "to": 262762
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-36.png",
+      "from": 1833230,
+      "to": 309400
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-37.png",
+      "from": 920297,
+      "to": 140228
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-38.jpg",
+      "from": 199915,
+      "to": 108944
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-39.png",
+      "from": 1266767,
+      "to": 204902
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-40.png",
+      "from": 515752,
+      "to": 113924
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-41.png",
+      "from": 870778,
+      "to": 127764
+    },
+    {
+      "rel": "pet/daily-click-femsub/click-42.jpg",
+      "from": 269770,
+      "to": 93178
+    },
+    {
+      "rel": "pet/level-drain-principessa.png",
+      "from": 2602516,
+      "to": 340470
+    },
+    {
+      "rel": "pet/rights/right-0.png",
+      "from": 362227,
+      "to": 47956
+    },
+    {
+      "rel": "pet-ranks/rank-1.png",
+      "from": 1671546,
+      "to": 158638
+    },
+    {
+      "rel": "pet-ranks/rank-2.png",
+      "from": 1595728,
+      "to": 168760
+    },
+    {
+      "rel": "pet-ranks/rank-3.png",
+      "from": 1594062,
+      "to": 174938
+    },
+    {
+      "rel": "pet-ranks/rank-4.png",
+      "from": 1597106,
+      "to": 176866
+    },
+    {
+      "rel": "pet-ranks/rank-5.png",
+      "from": 1582073,
+      "to": 170014
+    },
+    {
+      "rel": "pet-ranks/rank-6.png",
+      "from": 1584296,
+      "to": 168710
+    },
+    {
+      "rel": "pet-wait-reveal.png",
+      "from": 1433339,
+      "to": 212550
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_1.jpg",
+      "from": 194186,
+      "to": 100662
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_10.jpg",
+      "from": 1104569,
+      "to": 166682
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_11.jpg",
+      "from": 1052464,
+      "to": 136790
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_12.jpg",
+      "from": 1430193,
+      "to": 230760
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_13.jpg",
+      "from": 1004980,
+      "to": 141524
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_14.jpg",
+      "from": 1279178,
+      "to": 202440
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_15.jpg",
+      "from": 1339564,
+      "to": 200832
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_16.jpg",
+      "from": 489936,
+      "to": 267972
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_17.jpg",
+      "from": 132925,
+      "to": 61830
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_18.jpg",
+      "from": 193606,
+      "to": 106326
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_19.jpg",
+      "from": 190417,
+      "to": 99992
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_2.jpg",
+      "from": 145099,
+      "to": 68374
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_20.jpg",
+      "from": 174777,
+      "to": 88262
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_21.jpg",
+      "from": 140510,
+      "to": 62560
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_22.jpg",
+      "from": 376196,
+      "to": 190170
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_23.jpg",
+      "from": 119506,
+      "to": 48694
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_24.jpg",
+      "from": 161796,
+      "to": 80404
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_25.jpg",
+      "from": 160273,
+      "to": 79092
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_26.jpg",
+      "from": 164505,
+      "to": 85356
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_27.jpg",
+      "from": 159582,
+      "to": 76332
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_28.jpg",
+      "from": 142744,
+      "to": 64932
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_29.jpg",
+      "from": 209169,
+      "to": 111452
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_3.jpg",
+      "from": 147210,
+      "to": 68816
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_30.jpg",
+      "from": 146473,
+      "to": 68430
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_31.jpg",
+      "from": 198722,
+      "to": 105448
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_32.jpg",
+      "from": 179074,
+      "to": 90424
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_33.jpg",
+      "from": 173523,
+      "to": 85944
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_34.jpg",
+      "from": 157022,
+      "to": 74188
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_35.jpg",
+      "from": 165574,
+      "to": 83036
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_36.jpeg",
+      "from": 186415,
+      "to": 94466
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_37.jpg",
+      "from": 154526,
+      "to": 71268
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_38.jpg",
+      "from": 118713,
+      "to": 60262
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_39.jpg",
+      "from": 171528,
+      "to": 91792
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_4.jpg",
+      "from": 189428,
+      "to": 95116
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_40.jpg",
+      "from": 217224,
+      "to": 114120
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_41.jpg",
+      "from": 229016,
+      "to": 130286
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_42.jpg",
+      "from": 1086074,
+      "to": 104430
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_43.jpg",
+      "from": 217892,
+      "to": 116446
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_44.jpg",
+      "from": 139487,
+      "to": 67590
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_45.jpg",
+      "from": 140897,
+      "to": 69126
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_46.jpg",
+      "from": 173817,
+      "to": 87190
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_47.jpg",
+      "from": 220311,
+      "to": 73986
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_48.jpg",
+      "from": 229676,
+      "to": 77032
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_49.jpg",
+      "from": 251751,
+      "to": 89950
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_5.jpg",
+      "from": 181536,
+      "to": 91438
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_50.jpg",
+      "from": 256926,
+      "to": 96156
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_51.jpg",
+      "from": 894766,
+      "to": 129214
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_52.jpg",
+      "from": 928474,
+      "to": 116580
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_53.jpg",
+      "from": 242169,
+      "to": 82268
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_54.jpg",
+      "from": 244663,
+      "to": 131156
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_55.jpg",
+      "from": 204310,
+      "to": 111050
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_56.jpg",
+      "from": 1265955,
+      "to": 228374
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_57.jpg",
+      "from": 598159,
+      "to": 66428
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_58.jpg",
+      "from": 106452,
+      "to": 47594
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_59.jpg",
+      "from": 896219,
+      "to": 80360
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_6.jpg",
+      "from": 167264,
+      "to": 81208
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_60.jpg",
+      "from": 759363,
+      "to": 82446
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_61.jpg",
+      "from": 193912,
+      "to": 111650
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_62.jpg",
+      "from": 742391,
+      "to": 57322
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_63.jpg",
+      "from": 171845,
+      "to": 85674
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_64.jpg",
+      "from": 255670,
+      "to": 141184
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_65.jpg",
+      "from": 574692,
+      "to": 64430
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_66.jpg",
+      "from": 327354,
+      "to": 129772
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_67.jpg",
+      "from": 547228,
+      "to": 41656
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_68.jpg",
+      "from": 409245,
+      "to": 37922
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_69.jpg",
+      "from": 1157506,
+      "to": 87416
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_7.jpg",
+      "from": 240448,
+      "to": 77600
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_70.jpg",
+      "from": 1952754,
+      "to": 157506
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_71.jpg",
+      "from": 205103,
+      "to": 107024
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_72.jpg",
+      "from": 1492567,
+      "to": 106902
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_73.jpg",
+      "from": 1320622,
+      "to": 141202
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_74.jpg",
+      "from": 717761,
+      "to": 73054
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_75.jpg",
+      "from": 1065956,
+      "to": 98792
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_76.jpg",
+      "from": 1744671,
+      "to": 157680
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_77.jpg",
+      "from": 910317,
+      "to": 95080
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_8.jpg",
+      "from": 1277063,
+      "to": 180412
+    },
+    {
+      "rel": "principessa-discipline/overlay-pool/overlay_9.jpg",
+      "from": 1228988,
+      "to": 164338
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-case-present.png",
+      "from": 805153,
+      "to": 93938
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-debt-contract.png",
+      "from": 1501464,
+      "to": 148812
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-devotion-ledger.png",
+      "from": 1948387,
+      "to": 205104
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-gallery-frame.png",
+      "from": 950408,
+      "to": 139766
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-home-command.png",
+      "from": 602666,
+      "to": 69194
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-ledger-reach.png",
+      "from": 994227,
+      "to": 102592
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-panel-sit.png",
+      "from": 379332,
+      "to": 47838
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-pet-collar.png",
+      "from": 1326290,
+      "to": 136158
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-profile-dossier.png",
+      "from": 1014771,
+      "to": 104026
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-puzzle-pieces.png",
+      "from": 1274108,
+      "to": 130012
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-shop-bags.png",
+      "from": 806364,
+      "to": 93500
+    },
+    {
+      "rel": "principessa-ui/generated/principessa-shrine-offering.png",
+      "from": 691033,
+      "to": 89932
+    },
+    {
+      "rel": "principessa-ui/principessa-court-model.png",
+      "from": 464567,
+      "to": 61136
+    },
+    {
+      "rel": "principessa-ui/principessa-gaze.jpeg",
+      "from": 290633,
+      "to": 192412
+    },
+    {
+      "rel": "puzzle/armpit.jpg",
+      "from": 145099,
+      "to": 68374
+    },
+    {
+      "rel": "puzzle/a_treat_you_dont_deserve.jpg",
+      "from": 1157506,
+      "to": 87416
+    },
+    {
+      "rel": "puzzle/ball_busting.jpg",
+      "from": 146473,
+      "to": 68430
+    },
+    {
+      "rel": "puzzle/betasafe_01.jpg",
+      "from": 220311,
+      "to": 73986
+    },
+    {
+      "rel": "puzzle/blacked_02.jpg",
+      "from": 1377597,
+      "to": 218964
+    },
+    {
+      "rel": "puzzle/blacked_03.jpg",
+      "from": 772571,
+      "to": 284152
+    },
+    {
+      "rel": "puzzle/blacked_04.jpg",
+      "from": 1315300,
+      "to": 201864
+    },
+    {
+      "rel": "puzzle/blacked_blowjob.jpg",
+      "from": 1279178,
+      "to": 202440
+    },
+    {
+      "rel": "puzzle/brainmelt.jpg",
+      "from": 1349296,
+      "to": 202996
+    },
+    {
+      "rel": "puzzle/cant_see.jpg",
+      "from": 928474,
+      "to": 116580
+    },
+    {
+      "rel": "puzzle/feet_01.jpg",
+      "from": 140897,
+      "to": 69126
+    },
+    {
+      "rel": "puzzle/feet_02.jpg",
+      "from": 173817,
+      "to": 87190
+    },
+    {
+      "rel": "puzzle/footjob.jpg",
+      "from": 742391,
+      "to": 57322
+    },
+    {
+      "rel": "puzzle/get_on_ur_knees.jpg",
+      "from": 252007,
+      "to": 81800
+    },
+    {
+      "rel": "puzzle/get_on_your_knees.jpg",
+      "from": 231101,
+      "to": 82638
+    },
+    {
+      "rel": "puzzle/go_whiteboi.jpg",
+      "from": 193912,
+      "to": 111650
+    },
+    {
+      "rel": "puzzle/gym_goddess.jpg",
+      "from": 717761,
+      "to": 73054
+    },
+    {
+      "rel": "puzzle/leashed_pet.jpg",
+      "from": 1065956,
+      "to": 98792
+    },
+    {
+      "rel": "puzzle/lick_here.jpg",
+      "from": 663495,
+      "to": 238206
+    },
+    {
+      "rel": "puzzle/lick_them.jpg",
+      "from": 229676,
+      "to": 77032
+    },
+    {
+      "rel": "puzzle/litte_treat.jpg",
+      "from": 171845,
+      "to": 85674
+    },
+    {
+      "rel": "puzzle/livestock.jpg",
+      "from": 574692,
+      "to": 64430
+    },
+    {
+      "rel": "puzzle/no_sex_for_you.jpg",
+      "from": 1744671,
+      "to": 157680
+    },
+    {
+      "rel": "puzzle/no_skin_for_you.jpg",
+      "from": 894766,
+      "to": 129214
+    },
+    {
+      "rel": "puzzle/opps.jpg",
+      "from": 1265955,
+      "to": 228374
+    },
+    {
+      "rel": "puzzle/owned_by_principessa.jpg",
+      "from": 823840,
+      "to": 288514
+    },
+    {
+      "rel": "puzzle/pet_discipline.jpeg",
+      "from": 186415,
+      "to": 94466
+    },
+    {
+      "rel": "puzzle/pet_showcase.jpg",
+      "from": 409245,
+      "to": 37922
+    },
+    {
+      "rel": "puzzle/plap_plap_plap.jpg",
+      "from": 1492567,
+      "to": 106902
+    },
+    {
+      "rel": "puzzle/put_this_on.jpg",
+      "from": 327354,
+      "to": 129772
+    },
+    {
+      "rel": "puzzle/riding_you.jpg",
+      "from": 181536,
+      "to": 91438
+    },
+    {
+      "rel": "puzzle/send_for_my_feet.jpg",
+      "from": 1320622,
+      "to": 141202
+    },
+    {
+      "rel": "puzzle/serve_me_sissy.jpg",
+      "from": 307347,
+      "to": 108746
+    },
+    {
+      "rel": "puzzle/sissy_bitch.jpg",
+      "from": 759363,
+      "to": 82446
+    },
+    {
+      "rel": "puzzle/too_hot_here.jpg",
+      "from": 1086074,
+      "to": 104430
+    },
+    {
+      "rel": "puzzle/treat_from_goddess.jpg",
+      "from": 198722,
+      "to": 105448
+    },
+    {
+      "rel": "puzzle/walking_my_bitch.jpg",
+      "from": 229016,
+      "to": 130286
+    },
+    {
+      "rel": "rebrand/avatar.png",
+      "from": 1892570,
+      "to": 158882
+    },
+    {
+      "rel": "rebrand/header.png",
+      "from": 229189,
+      "to": 77242
+    },
+    {
+      "rel": "shrine/femsub/femsub_1.jpg",
+      "from": 239846,
+      "to": 59370
+    },
+    {
+      "rel": "shrine/femsub/femsub_10.jpg",
+      "from": 443208,
+      "to": 98974
+    },
+    {
+      "rel": "shrine/femsub/femsub_2.jpg",
+      "from": 190426,
+      "to": 93792
+    },
+    {
+      "rel": "shrine/femsub/femsub_3.jpg",
+      "from": 182399,
+      "to": 95644
+    },
+    {
+      "rel": "shrine/femsub/femsub_4.jpg",
+      "from": 192434,
+      "to": 100728
+    },
+    {
+      "rel": "shrine/femsub/femsub_5.jpg",
+      "from": 174910,
+      "to": 88802
+    },
+    {
+      "rel": "shrine/femsub/femsub_6.jpg",
+      "from": 145228,
+      "to": 68852
+    },
+    {
+      "rel": "shrine/femsub/femsub_7.jpg",
+      "from": 249795,
+      "to": 81880
+    },
+    {
+      "rel": "shrine/femsub/femsub_8.png",
+      "from": 1332590,
+      "to": 101776
+    },
+    {
+      "rel": "shrine/femsub/femsub_9.jpg",
+      "from": 1056389,
+      "to": 159030
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_1.jpg",
+      "from": 289353,
+      "to": 108136
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_10.jpg",
+      "from": 76036,
+      "to": 33008
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_11.jpg",
+      "from": 145099,
+      "to": 68374
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_12.jpg",
+      "from": 373188,
+      "to": 151900
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_13.jpg",
+      "from": 408668,
+      "to": 171458
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_14.jpg",
+      "from": 118713,
+      "to": 60262
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_15.jpg",
+      "from": 305503,
+      "to": 192632
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_16.jpg",
+      "from": 325173,
+      "to": 120944
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_17.jpg",
+      "from": 1004980,
+      "to": 141524
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_18.jpg",
+      "from": 418834,
+      "to": 179470
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_19.jpg",
+      "from": 1378643,
+      "to": 198924
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_2.jpg",
+      "from": 171528,
+      "to": 91792
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_20.jpg",
+      "from": 400836,
+      "to": 177158
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_21.png",
+      "from": 3290564,
+      "to": 319756
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_22.jpg",
+      "from": 357200,
+      "to": 149128
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_23.png",
+      "from": 2756582,
+      "to": 198248
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_24.jpg",
+      "from": 428669,
+      "to": 183046
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_25.jpg",
+      "from": 143046,
+      "to": 65744
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_3.jpg",
+      "from": 180772,
+      "to": 93184
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_4.jpg",
+      "from": 140510,
+      "to": 62560
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_5.jpg",
+      "from": 142744,
+      "to": 64932
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_6.jpg",
+      "from": 240448,
+      "to": 77600
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_7.jpg",
+      "from": 147210,
+      "to": 68816
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_8.jpg",
+      "from": 190785,
+      "to": 96796
+    },
+    {
+      "rel": "shrine/main/femsub/shrine_9.jpg",
+      "from": 135874,
+      "to": 70572
+    },
+    {
+      "rel": "shrine/shrine_1.jpg",
+      "from": 289353,
+      "to": 108136
+    },
+    {
+      "rel": "shrine/shrine_10.jpg",
+      "from": 76036,
+      "to": 33008
+    },
+    {
+      "rel": "shrine/shrine_11.jpg",
+      "from": 145099,
+      "to": 68374
+    },
+    {
+      "rel": "shrine/shrine_12.jpg",
+      "from": 165574,
+      "to": 83036
+    },
+    {
+      "rel": "shrine/shrine_13.jpg",
+      "from": 173523,
+      "to": 85944
+    },
+    {
+      "rel": "shrine/shrine_14.jpg",
+      "from": 118713,
+      "to": 60262
+    },
+    {
+      "rel": "shrine/shrine_15.jpg",
+      "from": 181536,
+      "to": 91438
+    },
+    {
+      "rel": "shrine/shrine_16.jpg",
+      "from": 179074,
+      "to": 90424
+    },
+    {
+      "rel": "shrine/shrine_17.jpg",
+      "from": 1004980,
+      "to": 141524
+    },
+    {
+      "rel": "shrine/shrine_18.jpg",
+      "from": 167264,
+      "to": 81208
+    },
+    {
+      "rel": "shrine/shrine_19.jpg",
+      "from": 1279178,
+      "to": 202440
+    },
+    {
+      "rel": "shrine/shrine_2.jpg",
+      "from": 171528,
+      "to": 91792
+    },
+    {
+      "rel": "shrine/shrine_20.jpg",
+      "from": 119506,
+      "to": 48694
+    },
+    {
+      "rel": "shrine/shrine_21.jpg",
+      "from": 174777,
+      "to": 88262
+    },
+    {
+      "rel": "shrine/shrine_22.jpg",
+      "from": 190417,
+      "to": 99992
+    },
+    {
+      "rel": "shrine/shrine_23.jpg",
+      "from": 217224,
+      "to": 114120
+    },
+    {
+      "rel": "shrine/shrine_24.jpg",
+      "from": 146473,
+      "to": 68430
+    },
+    {
+      "rel": "shrine/shrine_25.jpg",
+      "from": 229016,
+      "to": 130286
+    },
+    {
+      "rel": "shrine/shrine_3.jpg",
+      "from": 180772,
+      "to": 93184
+    },
+    {
+      "rel": "shrine/shrine_4.jpg",
+      "from": 140510,
+      "to": 62560
+    },
+    {
+      "rel": "shrine/shrine_5.jpg",
+      "from": 142744,
+      "to": 64932
+    },
+    {
+      "rel": "shrine/shrine_6.jpg",
+      "from": 240448,
+      "to": 77600
+    },
+    {
+      "rel": "shrine/shrine_7.jpg",
+      "from": 147210,
+      "to": 68816
+    },
+    {
+      "rel": "shrine/shrine_8.jpg",
+      "from": 190785,
+      "to": 96796
+    },
+    {
+      "rel": "shrine/shrine_9.jpg",
+      "from": 135874,
+      "to": 70572
+    },
+    {
+      "rel": "shrine/sub/sub_1.jpg",
+      "from": 311330,
+      "to": 64172
+    },
+    {
+      "rel": "shrine/sub/sub_10.jpeg",
+      "from": 163438,
+      "to": 68466
+    },
+    {
+      "rel": "shrine/sub/sub_2.jpg",
+      "from": 148246,
+      "to": 69870
+    },
+    {
+      "rel": "shrine/sub/sub_3.jpg",
+      "from": 146855,
+      "to": 74668
+    },
+    {
+      "rel": "shrine/sub/sub_4.jpg",
+      "from": 217163,
+      "to": 116180
+    },
+    {
+      "rel": "shrine/sub/sub_5.jpg",
+      "from": 198027,
+      "to": 104474
+    },
+    {
+      "rel": "shrine/sub/sub_6.jpeg",
+      "from": 417720,
+      "to": 85696
+    },
+    {
+      "rel": "shrine/sub/sub_7.png",
+      "from": 1304593,
+      "to": 63880
+    },
+    {
+      "rel": "shrine/sub/sub_8.png",
+      "from": 367568,
+      "to": 35880
+    },
+    {
+      "rel": "shrine/sub/sub_9.jpeg",
+      "from": 154929,
+      "to": 65858
+    },
+    {
+      "rel": "tasks/daily-motion/motion-0.png",
+      "from": 2495652,
+      "to": 250348
+    },
+    {
+      "rel": "tasks/daily-motion/motion-25.png",
+      "from": 2776379,
+      "to": 217506
+    },
+    {
+      "rel": "tasks/daily-motion/motion-50.png",
+      "from": 2804995,
+      "to": 225546
+    },
+    {
+      "rel": "tasks/daily-motion/motion-75.png",
+      "from": 3220121,
+      "to": 212294
+    },
+    {
+      "rel": "tasks/daily-motion/motion-99.png",
+      "from": 2377947,
+      "to": 217348
+    },
+    {
+      "rel": "tasks/daily-motion/motion-complete.png",
+      "from": 2208598,
+      "to": 259542
+    }
+  ],
+  "keptList": []
+}

@@ -1,6 +1,7 @@
 import { maybeSendAdminCoinSecurityPush } from "@/lib/admin-coin-security-alerts";
 import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { ADMIN_GRANTABLE_TITLE_IDS, getTitleItem } from "@/lib/cosmetics";
+import { CRATE_TYPES } from "@/lib/crates";
 import { awardDevotion } from "@/lib/devotion";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
@@ -44,10 +45,11 @@ export async function POST(request: Request) {
   const timeoutMatch = command.match(/^\/timeout\s+(@[A-Za-z0-9_.-]+)\s+([1-9]\d*)$/);
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
   const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)(?:\s+([A-Za-z-]+))?$/);
+  const keyMatch = command.match(/^\/key\s+(@[A-Za-z0-9_.-]+)\s+([A-Za-z_]+)\s+([1-9]\d*)$/);
 
-  if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch) {
+  if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch && !keyMatch) {
     return Response.json(
-      { error: "Use /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, or /title @username [chosen|femsub]" },
+      { error: "Use /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, /title @username [chosen|femsub], or /key @username case_name amount" },
       { status: 400 },
     );
   }
@@ -62,6 +64,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const crateTypeKey = (keyMatch?.[2] ?? "").toLowerCase();
+  const crateTypeToGrant = keyMatch && crateTypeKey in CRATE_TYPES ? crateTypeKey : undefined;
+  const keyAmount = keyMatch ? Number(keyMatch[3]) : undefined;
+
+  if (keyMatch && !crateTypeToGrant) {
+    return Response.json(
+      { error: `Unknown case "${crateTypeKey}". Use: /key @username [${Object.keys(CRATE_TYPES).join("|")}] amount` },
+      { status: 400 },
+    );
+  }
+
   const username = (
     giveMatch?.[2] ??
     addMatch?.[2] ??
@@ -69,6 +82,7 @@ export async function POST(request: Request) {
     timeoutMatch?.[1] ??
     timeoutRemoveMatch?.[1] ??
     titleMatch?.[1] ??
+    keyMatch?.[1] ??
     ""
   ).toLowerCase();
   const { data: profile, error: profileError } = await admin.supabase
@@ -137,6 +151,21 @@ export async function POST(request: Request) {
     );
     if (error) return Response.json({ error: error.message }, { status: 500 });
     return Response.json({ message: `Granted ${getTitleItem(titleIdToGrant)?.name ?? titleIdToGrant} title to ${profile.username}.` });
+  }
+
+  if (keyMatch && crateTypeToGrant && keyAmount) {
+    const { error } = await admin.supabase.from("user_crate_open_grants").insert({
+      user_id: profile.id,
+      crate_type: crateTypeToGrant,
+      goal_id: `admin-key-grant:${Date.now()}`,
+      source: "admin",
+      total_opens: keyAmount,
+      remaining_opens: keyAmount,
+    });
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({
+      message: `Granted ${keyAmount} ${CRATE_TYPES[crateTypeToGrant]?.name ?? crateTypeToGrant} open${keyAmount === 1 ? "" : "s"} to ${profile.username}.`,
+    });
   }
 
   const amount = Number(giveMatch?.[1] ?? addMatch?.[1] ?? drainMatch?.[1]);

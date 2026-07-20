@@ -1,1 +1,1 @@
-export const DEFAULT_TRIBUTE_AVATAR_SRC = "/default-tribute-avatar.png";
+export const DEFAULT_TRIBUTE_AVATAR_SRC = "/default-tribute-avatar.webp";

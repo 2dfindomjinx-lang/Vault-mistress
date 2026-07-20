@@ -101,28 +101,28 @@ type TopInventoryUser = {
 };
 
 const galleryCatalog = [
-  { id: "common-velvet-arrival", title: "Dollar Rain", image: "/gallery/common-1.png" },
-  { id: "common-midnight-maid", title: "Leather Eclipse", image: "/gallery/common-2.png" },
-  { id: "common-executive-glare", title: "Golden Lust", image: "/gallery/common-3.png" },
-  { id: "common-rose-vault", title: "Silk & Vintage", image: "/gallery/common-4.png" },
-  { id: "rare-loyal-glimpse", title: "Crimson Veil", image: "/gallery/rare-1.png" },
-  { id: "rare-private-smile", title: "Campus Craving", image: "/gallery/rare-2.png" },
-  { id: "rare-purple-obsession", title: "Gym Goddess", image: "/gallery/rare-3.png" },
-  { id: "rare-golden-approval", title: "Midnight Kitten", image: "/gallery/rare-4.png" },
-  { id: "divine-throne-room", title: "Sinful V", image: "/gallery/divine-1.png" },
-  { id: "divine-goddess-mood", title: "Leopard Fever", image: "/gallery/divine-2.png" },
-  { id: "divine-final-favor", title: "Naughty Present", image: "/gallery/divine-3.png" },
-  { id: "divine-velvet-throne", title: "Witch's Desire", image: "/gallery/divine-4.png" },
-  { id: "secret-defnes-final-favor", title: "Principessa's Final Favor", image: "/gallery/secret-1.png" },
+  { id: "common-velvet-arrival", title: "Dollar Rain", image: "/gallery/common-1.webp" },
+  { id: "common-midnight-maid", title: "Leather Eclipse", image: "/gallery/common-2.webp" },
+  { id: "common-executive-glare", title: "Golden Lust", image: "/gallery/common-3.webp" },
+  { id: "common-rose-vault", title: "Silk & Vintage", image: "/gallery/common-4.webp" },
+  { id: "rare-loyal-glimpse", title: "Crimson Veil", image: "/gallery/rare-1.webp" },
+  { id: "rare-private-smile", title: "Campus Craving", image: "/gallery/rare-2.webp" },
+  { id: "rare-purple-obsession", title: "Gym Goddess", image: "/gallery/rare-3.webp" },
+  { id: "rare-golden-approval", title: "Midnight Kitten", image: "/gallery/rare-4.webp" },
+  { id: "divine-throne-room", title: "Sinful V", image: "/gallery/divine-1.webp" },
+  { id: "divine-goddess-mood", title: "Leopard Fever", image: "/gallery/divine-2.webp" },
+  { id: "divine-final-favor", title: "Naughty Present", image: "/gallery/divine-3.webp" },
+  { id: "divine-velvet-throne", title: "Witch's Desire", image: "/gallery/divine-4.webp" },
+  { id: "secret-defnes-final-favor", title: "Principessa's Final Favor", image: "/gallery/secret-1.webp" },
   ...Array.from({ length: 10 }, (_, index) => ({
     id: `sacrifice-${index + 1}`,
     title: `Sacrifice Offering ${index + 1}`,
-    image: `/gallery/sacrifice-${index + 1}.png`,
+    image: `/gallery/sacrifice-${index + 1}.webp`,
   })),
   ...Array.from({ length: 30 }, (_, index) => ({
     id: `pet:pet-gallery-${index + 1}`,
     title: `Pet Vault ${index + 1}`,
-    image: `/gallery/pet-${index + 1}.png`,
+    image: `/gallery/pet-${index + 1}.webp`,
   })),
 ];
 

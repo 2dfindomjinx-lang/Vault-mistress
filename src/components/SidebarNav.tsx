@@ -50,7 +50,7 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
       <div className="relative hidden h-full flex-col lg:flex">
         <header className="relative min-h-[150px] overflow-hidden border-b border-[#c89a55]/15 px-6 pb-4 pt-5">
           <div className="absolute -right-11 -top-12 h-52 w-52 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
-            <Image alt="Principessa watching over the court" className="object-cover object-center" fill priority sizes="208px" src="/principessa-ui/principessa-gaze.jpeg" />
+            <Image alt="Principessa watching over the court" className="object-cover object-center" fill priority sizes="208px" src="/principessa-ui/principessa-gaze.webp" />
           </div>
           <div className="relative z-10">
             <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#d7ad69]/65">Private domain</p>

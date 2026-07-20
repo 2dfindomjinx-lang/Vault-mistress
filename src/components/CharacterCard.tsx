@@ -32,7 +32,7 @@ export function CharacterCard({
   const [showStageReveal, setShowStageReveal] = useState(false);
   const previousStageRef = useRef(evolutionStage);
   const imageSrc = failedStageIds.includes(evolutionStage.id)
-    ? "/character.png"
+    ? "/character.webp"
     : evolutionStage.image;
 
   useEffect(() => {

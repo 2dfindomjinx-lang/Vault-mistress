@@ -14,11 +14,11 @@ const MAX_DAILY_COIN_REWARD = 200;
 const DAILY_CLICK_IMAGE_COUNT = 42;
 const SUB_CLICK_IMAGE_POOL = Array.from(
   { length: DAILY_CLICK_IMAGE_COUNT },
-  (_, index) => `/pet/daily-click/click-${String(index + 1).padStart(2, "0")}.png`,
+  (_, index) => `/pet/daily-click/click-${String(index + 1).padStart(2, "0")}.webp`,
 );
 const FEMSUB_CLICK_IMAGE_POOL = Array.from(
   { length: DAILY_CLICK_IMAGE_COUNT },
-  (_, index) => `/pet/daily-click-femsub/click-${String(index + 1).padStart(2, "0")}.png`,
+  (_, index) => `/pet/daily-click-femsub/click-${String(index + 1).padStart(2, "0")}.webp`,
 );
 
 type TaskRow = {

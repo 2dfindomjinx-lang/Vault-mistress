@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { WallpaperCropTool } from "@/components/admin/WallpaperCropTool";
+import { cropWallpaperImage } from "@/lib/wallpaper-crop";
 
 type Device = {
   id: string;
@@ -105,6 +107,8 @@ export default function WallpaperAdminPage() {
   const [library, setLibrary] = useState<WallpaperAsset[]>([]);
   const [target, setTarget] = useState("global");
   const [file, setFile] = useState<File | null>(null);
+  const [cropPanX, setCropPanX] = useState(0.5);
+  const [cropPanY, setCropPanY] = useState(0.5);
   const [liveMessage, setLiveMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isBusy, setIsBusy] = useState(true);
@@ -217,12 +221,15 @@ export default function WallpaperAdminPage() {
     }
 
     setIsBusy(true);
-    setStatus("Yükleme hazırlanıyor…");
+    setStatus("Görsel kırpılıyor…");
     try {
+      const croppedBlob = await cropWallpaperImage(file, cropPanX, cropPanY);
+
+      setStatus("Yükleme hazırlanıyor…");
       const prepareResponse = await fetch("/api/admin/wallpapers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "prepare-upload", contentType: file.type }),
+        body: JSON.stringify({ action: "prepare-upload", contentType: croppedBlob.type }),
       });
       const prepared = (await prepareResponse.json()) as PreparedUpload;
       if (!prepareResponse.ok) throw new Error(prepared.error ?? "Yükleme hazırlanamadı.");
@@ -230,8 +237,8 @@ export default function WallpaperAdminPage() {
       setStatus("Görsel R2'ye yükleniyor…");
       const uploadResponse = await fetch(prepared.uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": croppedBlob.type },
+        body: croppedBlob,
       });
       if (!uploadResponse.ok) {
         throw new Error(`R2 yüklemesi HTTP ${uploadResponse.status} hatası verdi.`);
@@ -254,6 +261,8 @@ export default function WallpaperAdminPage() {
 
       applyState(assigned);
       setFile(null);
+      setCropPanX(0.5);
+      setCropPanY(0.5);
       const input = document.getElementById("wallpaper-file") as HTMLInputElement | null;
       if (input) input.value = "";
       setStatus(`${targetTitle} için yeni duvar kâğıdı uygulandı.`);
@@ -452,7 +461,7 @@ export default function WallpaperAdminPage() {
                 <article className="rounded-2xl border border-white/[0.08] bg-[#111114] p-5">
                   <p className="text-sm font-semibold">Yeni görsel yükle</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    JPG, PNG veya WebP seç. Görsel {targetTitle} için uygulanır.
+                    JPG, PNG veya WebP seç (kare görseller de olur). Görsel {targetTitle} için uygulanır.
                   </p>
                   <label
                     className="mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 text-center transition hover:border-pink-400/30 hover:bg-pink-400/[0.03]"
@@ -470,9 +479,26 @@ export default function WallpaperAdminPage() {
                     className="sr-only"
                     disabled={isBusy}
                     id="wallpaper-file"
-                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                    onChange={(event) => {
+                      setFile(event.target.files?.[0] ?? null);
+                      setCropPanX(0.5);
+                      setCropPanY(0.5);
+                    }}
                     type="file"
                   />
+                  {file && (
+                    <div className="mt-4 flex justify-center rounded-xl border border-white/[0.07] bg-black/20 p-3">
+                      <WallpaperCropTool
+                        file={file}
+                        onPanChange={(nextPanX, nextPanY) => {
+                          setCropPanX(nextPanX);
+                          setCropPanY(nextPanY);
+                        }}
+                        panX={cropPanX}
+                        panY={cropPanY}
+                      />
+                    </div>
+                  )}
                   <button
                     className="mt-3 w-full rounded-xl bg-pink-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={isBusy || !file}

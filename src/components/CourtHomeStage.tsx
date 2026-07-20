@@ -48,7 +48,7 @@ export function CourtHomeStage({ affection, coins, dailyMessage, displayName, on
 
       <div className="pointer-events-none absolute -right-9 top-12 z-10 h-48 w-28 opacity-55 [mask-image:linear-gradient(to_bottom,black_55%,transparent)] sm:-bottom-24 sm:-right-7 sm:top-auto sm:h-[92%] sm:w-[58%] sm:min-w-[23rem] sm:opacity-100 sm:[mask-image:none] lg:-bottom-28 lg:right-[3%] lg:h-[108%] lg:w-[42%]">
         <div className="absolute bottom-[8%] left-[12%] right-[6%] hidden h-28 rounded-[50%] bg-black/80 blur-2xl sm:block" />
-        <Image alt="Principessa standing with her arms crossed over the command console" className="object-contain object-top sm:object-bottom" fill preload quality={82} sizes="(min-width: 1024px) 42vw, (min-width: 640px) 58vw, 112px" src="/principessa-ui/generated/principessa-home-command.png" />
+        <Image alt="Principessa standing with her arms crossed over the command console" className="object-contain object-top sm:object-bottom" fill preload quality={82} sizes="(min-width: 1024px) 42vw, (min-width: 640px) 58vw, 112px" src="/principessa-ui/generated/principessa-home-command.webp" />
       </div>
 
       <div className="pointer-events-none absolute bottom-[7.5rem] right-[2%] z-0 hidden h-36 w-[45%] border border-[#c89a55]/18 bg-[linear-gradient(180deg,rgba(75,13,38,.78),rgba(12,5,8,.96))] shadow-[0_-25px_50px_rgba(0,0,0,.35)] lg:block">

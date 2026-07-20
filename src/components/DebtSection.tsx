@@ -13,7 +13,7 @@ import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
-const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.png";
+const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.webp";
 const DEBT_DURATION_LIMITS = {
   monthly: { label: "Months", max: 24, min: 1 },
   weekly: { label: "Weeks", max: 52, min: 1 },

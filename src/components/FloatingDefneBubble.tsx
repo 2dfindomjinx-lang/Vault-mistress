@@ -25,7 +25,7 @@ function sanitizeBubbleMessage(message: string) {
 }
 
 export function FloatingDefneBubble({
-  avatarSrc = "/character-icon.png",
+  avatarSrc = "/character-icon.webp",
   globalPrincipessaLevel = 1,
   message,
   messageId,

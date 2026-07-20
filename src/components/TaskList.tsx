@@ -22,15 +22,15 @@ const CLICKABLE_COOLDOWN_BUTTON_CLASS =
   "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-70";
 const MOVEMENT_STAGE_IMAGES = [
-  { min: 99, src: "/tasks/daily-motion/motion-99.png" },
-  { min: 75, src: "/tasks/daily-motion/motion-75.png" },
-  { min: 50, src: "/tasks/daily-motion/motion-50.png" },
-  { min: 25, src: "/tasks/daily-motion/motion-25.png" },
-  { min: 0, src: "/tasks/daily-motion/motion-0.png" },
+  { min: 99, src: "/tasks/daily-motion/motion-99.webp" },
+  { min: 75, src: "/tasks/daily-motion/motion-75.webp" },
+  { min: 50, src: "/tasks/daily-motion/motion-50.webp" },
+  { min: 25, src: "/tasks/daily-motion/motion-25.webp" },
+  { min: 0, src: "/tasks/daily-motion/motion-0.webp" },
 ];
-const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.png";
+const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.webp";
 const MOVEMENT_STROKE_DISTANCE_PX = 80;
-const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.png?v=2";
+const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.webp?v=2";
 const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
 const CASE_OPEN_REEL_ITEM_WIDTH = 88;
 const CASE_OPEN_REEL_ITEM_GAP = 10;

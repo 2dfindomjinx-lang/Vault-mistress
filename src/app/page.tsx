@@ -233,7 +233,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Common",
     unlockCost: 500,
     tag: "Pole Dancer",
-    image: "/gallery/common-1.png",
+    image: "/gallery/common-1.webp",
     unlocked: false,
   },
   {
@@ -242,7 +242,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Common",
     unlockCost: 500,
     tag: "Rebel",
-    image: "/gallery/common-2.png",
+    image: "/gallery/common-2.webp",
     unlocked: false,
   },
   {
@@ -251,7 +251,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Common",
     unlockCost: 500,
     tag: "Gorgeous",
-    image: "/gallery/common-3.png",
+    image: "/gallery/common-3.webp",
     unlocked: false,
   },
   {
@@ -260,7 +260,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Common",
     unlockCost: 500,
     tag: "Pantyhose",
-    image: "/gallery/common-4.png",
+    image: "/gallery/common-4.webp",
     unlocked: false,
   },
   {
@@ -269,7 +269,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Rare",
     moodRequired: 20,
     tag: "Tease",
-    image: "/gallery/rare-1.png",
+    image: "/gallery/rare-1.webp",
     unlocked: false,
   },
   {
@@ -278,7 +278,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Rare",
     moodRequired: 25,
     tag: "Tsundere",
-    image: "/gallery/rare-2.png",
+    image: "/gallery/rare-2.webp",
     unlocked: false,
   },
   {
@@ -287,7 +287,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Rare",
     moodRequired: 40,
     tag: "Goddess",
-    image: "/gallery/rare-3.png",
+    image: "/gallery/rare-3.webp",
     unlocked: false,
   },
   {
@@ -296,7 +296,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Rare",
     moodRequired: 50,
     tag: "Neko",
-    image: "/gallery/rare-4.png",
+    image: "/gallery/rare-4.webp",
     unlocked: false,
   },
   {
@@ -305,7 +305,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Divine",
     moodRequired: 60,
     tag: "Shy Kitten",
-    image: "/gallery/divine-1.png",
+    image: "/gallery/divine-1.webp",
     unlocked: false,
   },
   {
@@ -314,7 +314,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Divine",
     moodRequired: 70,
     tag: "Pouting",
-    image: "/gallery/divine-2.png",
+    image: "/gallery/divine-2.webp",
     unlocked: false,
   },
   {
@@ -323,7 +323,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Divine",
     moodRequired: 80,
     tag: "Gift",
-    image: "/gallery/divine-3.png",
+    image: "/gallery/divine-3.webp",
     unlocked: false,
   },
   {
@@ -332,7 +332,7 @@ const visibleGalleryItems: GalleryItem[] = [
     rarity: "Divine",
     moodRequired: 90,
     tag: "Naughty",
-    image: "/gallery/divine-4.png",
+    image: "/gallery/divine-4.webp",
     unlocked: false,
   },
 ];
@@ -343,7 +343,7 @@ const secretGalleryItem: GalleryItem = {
   rarity: "Secret",
   moodRequired: 100,
   tag: "Luxury",
-  image: "/gallery/secret-1.png",
+  image: "/gallery/secret-1.webp",
   unlocked: false,
 };
 
@@ -352,7 +352,7 @@ const sacrificeGalleryItems: GalleryItem[] = Array.from({ length: 10 }, (_, inde
   title: `Sacrifice Offering ${index + 1}`,
   rarity: "Sacrifice",
   tag: "Sacrifice Collection",
-  image: `/gallery/sacrifice-${index + 1}.png`,
+  image: `/gallery/sacrifice-${index + 1}.webp`,
   unlocked: false,
 }));
 const SHRINE_MEMORY_SEEN_STORAGE_KEY = "vault-mistress:shrine-memory-seen:v1";
@@ -541,7 +541,7 @@ const EVIL_DEBT_TIMEZONE_OPTIONS = new Set(
 const petGalleryItems: PetGalleryItem[] = Array.from({ length: 30 }, (_, index) => ({
   id: `pet-gallery-${index + 1}`,
   title: `Pet Vault ${index + 1}`,
-  image: `/gallery/pet-${index + 1}.png`,
+  image: `/gallery/pet-${index + 1}.webp`,
   unlockCost: Math.ceil(((index + 1) * 1000) / 30),
 }));
 
@@ -665,31 +665,31 @@ const dailyTeasesByTerm: Record<AddressTerm, string[]> = {
 const affectionCharacterStages = [
   {
     id: "velvet-gate",
-    image: "/character.png",
+    image: "/character.webp",
     label: "No Attention",
     min: 0,
   },
   {
     id: "rare-attention",
-    image: "/character-stage-25.png",
+    image: "/character-stage-25.webp",
     label: "Rare Attention",
     min: 25,
   },
   {
     id: "gilded-approval",
-    image: "/character-stage-50.png",
+    image: "/character-stage-50.webp",
     label: "Gilded Approval",
     min: 50,
   },
   {
     id: "royal-claim",
-    image: "/character-stage-75.png",
+    image: "/character-stage-75.webp",
     label: "Royal Claim",
     min: 75,
   },
   {
     id: "perfect-devotion",
-    image: "/character-stage-100.png",
+    image: "/character-stage-100.webp",
     label: "Perfect Devotion",
     min: 100,
   },
@@ -2448,7 +2448,7 @@ export default function Home() {
       addressTerm === "femsub"
         ? {
             ...secretGalleryItem,
-            image: "/gallery/femsub/secret-1.png",
+            image: "/gallery/femsub/secret-1.webp",
             fallbackImage: secretGalleryItem.image,
           }
         : secretGalleryItem,
@@ -2459,7 +2459,7 @@ export default function Home() {
       addressTerm === "femsub"
         ? petGalleryItems.map((item, index) => ({
             ...item,
-            image: `/gallery/femsub/pet-${index + 1}.png`,
+            image: `/gallery/femsub/pet-${index + 1}.webp`,
             fallbackImage: item.image,
           }))
         : petGalleryItems,
@@ -11684,7 +11684,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         }}
       />
       <FloatingDefneBubble
-        avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.png"}
+        avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.webp"}
         globalPrincipessaLevel={globalPrincipessa.level}
         message={mistressReply}
         messageId={bubbleMessageId}

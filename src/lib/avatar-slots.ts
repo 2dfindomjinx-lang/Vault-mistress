@@ -15,7 +15,7 @@ export type AvatarSlot =
 
 export const ITEM_SLOT_MAP: Partial<Record<string, AvatarSlot>> = {};
 
-// Populate slot mappings for all crate items that should render as visual layers on top of base-model.png.
+// Populate slot mappings for all crate items that should render as visual layers on top of base-model.webp.
 // This powers the Profile → Avatar Wardrobe customization.
 const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   // Ears
@@ -109,10 +109,10 @@ export type RenderedAvatarLayer = {
   src: string;
 };
 
-export const BASE_AVATAR_MODEL_PATH = "/avatar/base/base-model.png";
-export const BASE_MODEL_FULL_CENSORED = "/avatar/base/base-model-full-censored.png";
-export const BASE_MODEL_BOTTOM_CENSORED = "/avatar/base/base-model-bottom-censored.png";
-export const BASE_MODEL_TOP_CENSORED = "/avatar/base/base-model-top-censored.png";
+export const BASE_AVATAR_MODEL_PATH = "/avatar/base/base-model.webp";
+export const BASE_MODEL_FULL_CENSORED = "/avatar/base/base-model-full-censored.webp";
+export const BASE_MODEL_BOTTOM_CENSORED = "/avatar/base/base-model-bottom-censored.webp";
+export const BASE_MODEL_TOP_CENSORED = "/avatar/base/base-model-top-censored.webp";
 export const UNCENSORED_AVATAR_COST = 10000;
 
 export const AVATAR_IMAGE_WIDTH = 512;
@@ -197,7 +197,7 @@ export function resolveAvatarLayer(itemId: string): string | null {
     return null;
   }
 
-  return `/avatar/${SLOT_FOLDER_MAP[slot]}/${itemId}.png`;
+  return `/avatar/${SLOT_FOLDER_MAP[slot]}/${itemId}.webp`;
 }
 
 export function normalizeEquipment(equipped: EquippedAvatarSlots): EquippedAvatarSlots {

@@ -86,7 +86,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "The default speech bubble avatar.",
     type: "speech-avatar",
     price: 0,
-    image: "/character-icon.png",
+    image: "/character-icon.webp",
   },
   {
     id: RANDOM_SPEECH_AVATAR_ID,
@@ -94,7 +94,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Uses a random speech bubble persona each time.",
     type: "speech-avatar",
     price: 50000,
-    image: "/character-icon.png",
+    image: "/character-icon.webp",
   },
   {
     id: "avatar-catgirl",
@@ -102,7 +102,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Playful, sharp, and smug.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-catgirl.png",
+    image: "/cosmetics/avatar-catgirl.webp",
   },
   {
     id: "avatar-goth",
@@ -110,7 +110,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Darker, colder, and more expensive.",
     type: "speech-avatar",
     price: 7500,
-    image: "/cosmetics/avatar-goth.png",
+    image: "/cosmetics/avatar-goth.webp",
   },
   {
     id: "avatar-tsundere",
@@ -118,7 +118,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Dismissive, then barely pleased.",
     type: "speech-avatar",
     price: 5000,
-    image: "/cosmetics/avatar-tsundere.png",
+    image: "/cosmetics/avatar-tsundere.webp",
   },
   {
     id: "avatar-yandere",
@@ -126,7 +126,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Possessive, intense, and locked on.",
     type: "speech-avatar",
     price: 5000,
-    image: "/cosmetics/avatar-yandere.png",
+    image: "/cosmetics/avatar-yandere.webp",
   },
   {
     id: "avatar-lovely",
@@ -134,7 +134,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "A softer presentation.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-lovely.png",
+    image: "/cosmetics/avatar-lovely.webp",
   },
   {
     id: "avatar-arrogant",
@@ -142,7 +142,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Superior, polished, and impossible to ignore.",
     type: "speech-avatar",
     price: 2500,
-    image: "/cosmetics/avatar-arrogant.png",
+    image: "/cosmetics/avatar-arrogant.webp",
   },
   {
     id: "avatar-maid",
@@ -150,7 +150,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Polished service with strict expectations.",
     type: "speech-avatar",
     price: 5000,
-    image: "/cosmetics/avatar-maid.png",
+    image: "/cosmetics/avatar-maid.webp",
   },
   {
     id: "avatar-debtcollector",
@@ -158,7 +158,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Ledger-focused, cold, and exacting.",
     type: "speech-avatar",
     price: 5000,
-    image: "/cosmetics/avatar-debtcollector.png",
+    image: "/cosmetics/avatar-debtcollector.webp",
   },
   {
     id: "avatar-egirl",
@@ -166,7 +166,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Online, teasing, and notification-ready.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-egirl.png",
+    image: "/cosmetics/avatar-egirl.webp",
   },
   {
     id: "avatar-himedere",
@@ -174,7 +174,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Royal, demanding, and impossible to please.",
     type: "speech-avatar",
     price: 10000,
-    image: "/cosmetics/avatar-himedere.png",
+    image: "/cosmetics/avatar-himedere.webp",
   },
   {
     id: "avatar-strictteacher",
@@ -182,7 +182,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Disciplined lessons with expensive standards.",
     type: "speech-avatar",
     price: 5000,
-    image: "/cosmetics/avatar-strictteacher.png",
+    image: "/cosmetics/avatar-strictteacher.webp",
   },
   {
     id: "avatar-custom-1",
@@ -190,7 +190,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Sub cuckold. Spoiled wife who fucks better men while you pay.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-cuckold.png",
+    image: "/cosmetics/avatar-cuckold.webp",
     audience: "sub",
   },
   {
@@ -199,7 +199,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub cuckold. Spoiled wife who fucks better women while you pay.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-cuckold.png",
+    image: "/cosmetics/avatar-cuckold.webp",
     audience: "femsub",
   },
   {
@@ -208,7 +208,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub lezdom. Foot worship, soles, and expensive obedience.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-lezdom-mistress.png",
+    image: "/cosmetics/avatar-lezdom-mistress.webp",
     audience: "femsub",
   },
   {
@@ -217,7 +217,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Your pleasure is locked. Your wallet is not.",
     type: "speech-avatar",
     price: 10000,
-    image: "/cosmetics/avatar-keyholder.png",
+    image: "/cosmetics/avatar-keyholder.webp",
   },
   {
     id: "avatar-hypnotist",
@@ -225,7 +225,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Pixel trance, mind control, and financial surrender.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-hypnotist.png",
+    image: "/cosmetics/avatar-hypnotist.webp",
   },
   {
     id: "avatar-succubus",
@@ -233,7 +233,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Hungry, seductive, and ruinously expensive.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-succubus.png",
+    image: "/cosmetics/avatar-succubus.webp",
   },
   {
     id: "avatar-bully",
@@ -241,7 +241,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Cruel, bratty, and impossible to ignore.",
     type: "speech-avatar",
     price: 7500,
-    image: "/cosmetics/avatar-bully.png",
+    image: "/cosmetics/avatar-bully.webp",
   },
   {
     id: "avatar-petowner",
@@ -249,7 +249,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Strict owner energy for obedient pets.",
     type: "speech-avatar",
     price: 10000,
-    image: "/cosmetics/avatar-petowner.png",
+    image: "/cosmetics/avatar-petowner.webp",
   },
   {
     id: "avatar-blackmail",
@@ -257,7 +257,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Exposure pressure with a cruel smile.",
     type: "speech-avatar",
     price: 20000,
-    image: "/cosmetics/avatar-blackmail.png",
+    image: "/cosmetics/avatar-blackmail.webp",
   },
   {
     id: "avatar-denialqueen",
@@ -265,7 +265,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Sub denial. No release, no mercy, only obedience.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-denialqueen.png",
+    image: "/cosmetics/avatar-denialqueen.webp",
     audience: "sub",
   },
   {
@@ -274,7 +274,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Sub edging. Teasing control with strict timing.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-edging-coach.png",
+    image: "/cosmetics/avatar-edging-coach.webp",
     audience: "sub",
   },
   {
@@ -283,7 +283,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub denial. No orgasm, no mercy, only obedience.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-denialqueen.png",
+    image: "/cosmetics/avatar-denialqueen.webp",
     audience: "femsub",
   },
   {
@@ -292,7 +292,7 @@ export const permanentCosmeticItems: CosmeticItem[] = [
     description: "Femsub edging. Slow, cruel control over every rub.",
     type: "speech-avatar",
     price: 15000,
-    image: "/cosmetics/avatar-edging-coach.png",
+    image: "/cosmetics/avatar-edging-coach.webp",
     audience: "femsub",
   },
   {
@@ -762,31 +762,31 @@ export const spendBadgeTiers: SpendBadgeTier[] = [
     id: "bronze",
     label: "Bronze Badge",
     minSpentCoins: 10_000,
-    imagePath: "/badges/bronze.png",
+    imagePath: "/badges/bronze.webp",
   },
   {
     id: "silver",
     label: "Silver Badge",
     minSpentCoins: 50_000,
-    imagePath: "/badges/silver.png",
+    imagePath: "/badges/silver.webp",
   },
   {
     id: "gold",
     label: "Gold Badge",
     minSpentCoins: 150_000,
-    imagePath: "/badges/gold.png",
+    imagePath: "/badges/gold.webp",
   },
   {
     id: "emerald",
     label: "Emerald Badge",
     minSpentCoins: 500_000,
-    imagePath: "/badges/emerald.png",
+    imagePath: "/badges/emerald.webp",
   },
   {
     id: "diamond",
     label: "Diamond Badge",
     minSpentCoins: 1_000_000,
-    imagePath: "/badges/diamond.png",
+    imagePath: "/badges/diamond.webp",
   },
 ];
 

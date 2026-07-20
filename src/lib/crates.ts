@@ -723,23 +723,23 @@ export function getRarityColor(rarity: CrateRarity): string {
 
 /**
  * Otomatik image_url üretici.
- * Eğer item tanımında image_url verilmemişse, /crate-items/{item_id}.png olarak otomatik oluşturur.
+ * Eğer item tanımında image_url verilmemişse, /crate-items/{item_id}.webp olarak otomatik oluşturur.
  */
 export function getCrateItemImageUrl(itemId: string, provided?: string | null): string | null {
   if (provided) return provided;
-  return `/crate-items/${itemId}.png`;
+  return `/crate-items/${itemId}.webp`;
 }
 
 /**
  * Principessa Case (or future crates) icon.
- * Defaults to /crate-icons/{crateType-kebab}.png
- * e.g. "principessa_case" → "/crate-icons/principessa-case.png"
+ * Defaults to /crate-icons/{crateType-kebab}.webp
+ * e.g. "principessa_case" → "/crate-icons/principessa-case.webp"
  * You can override per-crate by putting icon_url in the CRATE_TYPES entry.
  */
 export function getCrateIconUrl(crateType: string, provided?: string | null): string | null {
   if (provided) return provided;
   const fileName = crateType.replace(/_/g, "-");
-  return `/crate-icons/${fileName}.png`;
+  return `/crate-icons/${fileName}.webp`;
 }
 
 export function getCrateItemSellValue(itemId: string): number | null {

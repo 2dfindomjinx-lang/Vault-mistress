@@ -1,6 +1,6 @@
 export const rebrandProfile = {
-  avatarPath: "/rebrand/avatar.png",
-  bannerPath: "/rebrand/header.png",
+  avatarPath: "/rebrand/avatar.webp",
+  bannerPath: "/rebrand/header.webp",
   bio: "2D Findom pup of @VMPrincipessa. Her devoted digital pig and wallet. I serve, tribute and worship her completely. throne.com/principessa2dfd",
   displayName: "Principessa's Slut",
   location: "Under Principessa's Heels",

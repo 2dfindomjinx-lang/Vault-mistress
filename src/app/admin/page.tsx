@@ -6,6 +6,35 @@ import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
 
+type ConsoleArgKind = "value" | "caseType" | "titleKey";
+
+const CONSOLE_CASE_TYPE_VALUES = ["principessa_case", "blessing_case", "premium_case"];
+const CONSOLE_TITLE_KEY_VALUES = ["chosen", "femsub"];
+
+const CONSOLE_COMMANDS: Array<{ name: string; usage: string; args: ConsoleArgKind[] }> = [
+  { name: "/give", usage: "/give amount @username", args: ["value", "value"] },
+  { name: "/add", usage: "/add amount @username (Companion approval required)", args: ["value", "value"] },
+  { name: "/drain", usage: "/drain amount @username", args: ["value", "value"] },
+  { name: "/timeout", usage: "/timeout @username minutes", args: ["value", "value"] },
+  { name: "/timeout remove", usage: "/timeout remove @username", args: ["value"] },
+  { name: "/title", usage: "/title @username [chosen|femsub]", args: ["value", "titleKey"] },
+  { name: "/key", usage: "/key @username [principessa_case|blessing_case|premium_case] amount", args: ["value", "caseType", "value"] },
+];
+
+function getMatchedConsoleCommand(input: string) {
+  const candidates = CONSOLE_COMMANDS.filter(
+    (entry) => input === entry.name || input.startsWith(`${entry.name} `),
+  );
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates.reduce((longest, entry) => (entry.name.length > longest.name.length ? entry : longest));
+}
+
+type ConsoleSuggestion = { kind: "command" | "argument"; value: string; hint?: string };
+
 type AdminIrlTask = {
   id: string;
   user_id: string;
@@ -259,6 +288,8 @@ export default function AdminPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [command, setCommand] = useState("/");
+  const [commandSuggestionIndex, setCommandSuggestionIndex] = useState(0);
+  const [commandSuggestionsDismissed, setCommandSuggestionsDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTabKey>("console");
   const [debtSubTab, setDebtSubTab] = useState<"normal" | "evil" | "throne">("normal");
   const [irlTasks, setIrlTasks] = useState<AdminIrlTask[]>([]);
@@ -1011,6 +1042,8 @@ export default function AdminPage() {
               ? "Coins drained. The loss has been recorded."
             : trimmedCommand.startsWith("/title")
               ? "Prestige title granted."
+            : trimmedCommand.startsWith("/key")
+              ? "Case keys granted."
             : "Coins added. Try not to waste my generosity.",
       );
 
@@ -1031,6 +1064,53 @@ export default function AdminPage() {
     } finally {
       setIsBusy(false);
     }
+  };
+
+  const matchedConsoleCommand = getMatchedConsoleCommand(command);
+  const isTypingCommandName = !matchedConsoleCommand || !command.startsWith(`${matchedConsoleCommand.name} `);
+
+  const commandSuggestions: ConsoleSuggestion[] = isTypingCommandName
+    ? command.startsWith("/")
+      ? CONSOLE_COMMANDS.filter(
+          (entry) => entry.name.length > command.length && entry.name.toLowerCase().startsWith(command.toLowerCase()),
+        ).map((entry) => ({ kind: "command", value: entry.name, hint: entry.usage }))
+      : []
+    : (() => {
+        const rest = command.slice(matchedConsoleCommand.name.length + 1);
+        const tokens = rest.split(/\s+/);
+        const argIndex = tokens.length - 1;
+        const currentPartial = (tokens[argIndex] ?? "").toLowerCase();
+        const argKind = matchedConsoleCommand.args[argIndex];
+        const valuePool =
+          argKind === "caseType" ? CONSOLE_CASE_TYPE_VALUES : argKind === "titleKey" ? CONSOLE_TITLE_KEY_VALUES : [];
+
+        return valuePool
+          .filter((value) => value.length > currentPartial.length && value.startsWith(currentPartial))
+          .map((value) => ({ kind: "argument" as const, value }));
+      })();
+
+  const showCommandSuggestions = !commandSuggestionsDismissed && commandSuggestions.length > 0;
+  const activeCommandSuggestionIndex = Math.min(commandSuggestionIndex, Math.max(0, commandSuggestions.length - 1));
+
+  const applyCommandSuggestion = (suggestion: ConsoleSuggestion) => {
+    if (suggestion.kind === "command") {
+      setCommand(`${suggestion.value} `);
+      setCommandSuggestionIndex(0);
+      setCommandSuggestionsDismissed(true);
+      return;
+    }
+
+    if (!matchedConsoleCommand) {
+      return;
+    }
+
+    const prefix = `${matchedConsoleCommand.name} `;
+    const rest = command.slice(prefix.length);
+    const tokens = rest.split(/\s+/);
+    tokens[tokens.length - 1] = suggestion.value;
+    setCommand(`${prefix}${tokens.join(" ")} `);
+    setCommandSuggestionIndex(0);
+    setCommandSuggestionsDismissed(true);
   };
 
   const handleIrlTaskReview = async (
@@ -1470,15 +1550,43 @@ export default function AdminPage() {
                 Command Console
               </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub]
+                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub], /key @username [principessa_case|blessing_case|premium_case] amount
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
-                <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
+                <label className="relative flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
                   <span className="text-fuchsia-300">&gt;</span>
                   <input
                     className="min-w-0 flex-1 bg-transparent text-pink-50 outline-none placeholder:text-zinc-600"
-                    onChange={(event) => setCommand(event.target.value)}
+                    onChange={(event) => {
+                      setCommand(event.target.value);
+                      setCommandSuggestionIndex(0);
+                      setCommandSuggestionsDismissed(false);
+                    }}
                     onKeyDown={(event) => {
+                      if (event.key === "Tab" && showCommandSuggestions) {
+                        event.preventDefault();
+                        applyCommandSuggestion(commandSuggestions[activeCommandSuggestionIndex]);
+                        return;
+                      }
+
+                      if (event.key === "ArrowDown" && showCommandSuggestions) {
+                        event.preventDefault();
+                        setCommandSuggestionIndex((index) => (index + 1) % commandSuggestions.length);
+                        return;
+                      }
+
+                      if (event.key === "ArrowUp" && showCommandSuggestions) {
+                        event.preventDefault();
+                        setCommandSuggestionIndex((index) => (index - 1 + commandSuggestions.length) % commandSuggestions.length);
+                        return;
+                      }
+
+                      if (event.key === "Escape" && showCommandSuggestions) {
+                        event.preventDefault();
+                        setCommandSuggestionsDismissed(true);
+                        return;
+                      }
+
                       if (event.key === "Enter") {
                         void handleRunCommand();
                       }
@@ -1486,6 +1594,33 @@ export default function AdminPage() {
                     placeholder="/"
                     value={command}
                   />
+                  {showCommandSuggestions ? (
+                    <ul className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0510] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+                      {commandSuggestions.map((suggestion, index) => (
+                        <li key={`${suggestion.kind}:${suggestion.value}`}>
+                          <button
+                            className={`flex w-full flex-col gap-0.5 px-4 py-2 text-left font-mono text-xs transition ${
+                              index === activeCommandSuggestionIndex
+                                ? "bg-fuchsia-500/20 text-pink-50"
+                                : "text-zinc-400 hover:bg-white/5"
+                            }`}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              applyCommandSuggestion(suggestion);
+                            }}
+                            onMouseEnter={() => setCommandSuggestionIndex(index)}
+                            type="button"
+                          >
+                            <span className="font-black text-fuchsia-200">{suggestion.value}</span>
+                            {suggestion.hint ? <span className="text-[10px] text-zinc-500">{suggestion.hint}</span> : null}
+                          </button>
+                        </li>
+                      ))}
+                      <li className="px-4 py-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
+                        Tab to complete - ↑↓ to select
+                      </li>
+                    </ul>
+                  ) : null}
                 </label>
                 <button
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"

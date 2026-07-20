@@ -406,7 +406,7 @@ export function CratesPanel({
             item_id: d.item_id,
             name: s.name,
             description: s.description || "",
-            image_url: s.image_url || `/crate-items/${d.item_id}.png`,
+            image_url: s.image_url || `/crate-items/${d.item_id}.webp`,
             rarity: s.rarity,
             sell_value: s.sell_value || 0,
             variant: d.variant || "normal",
@@ -1260,7 +1260,7 @@ export function CratesPanel({
                       className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
                     >
                       <img
-                        src={item.image_url || `/crate-items/${item.item_id}.png`}
+                        src={item.image_url || `/crate-items/${item.item_id}.webp`}
                         alt={item.name}
                         className="w-full h-full object-contain"
                         onError={(e) => {
@@ -1293,7 +1293,7 @@ export function CratesPanel({
                         className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
                       >
                         <img
-                          src={item.image_url || `/crate-items/${item.item_id}.png`}
+                          src={item.image_url || `/crate-items/${item.item_id}.webp`}
                           alt={item.name}
                           className="w-full h-full object-contain"
                           onError={(e) => {
