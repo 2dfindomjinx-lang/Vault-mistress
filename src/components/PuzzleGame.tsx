@@ -204,6 +204,7 @@ const PuzzleBoard = memo(function PuzzleBoard({
   const [isSolved, setIsSolved] = useState(false);
   const completedRef = useRef(false);
   const handledHintRequestRef = useRef(0);
+  const initializedAttemptIdRef = useRef<typeof attempt.id | null>(null);
 
   const jigsawShapes = useMemo(() => {
     const shapes = new Map<string, string>();
@@ -371,6 +372,16 @@ const PuzzleBoard = memo(function PuzzleBoard({
   }, [applyProgress, buildPieces, calculateLayout]);
 
   useEffect(() => {
+    // Only (re)initialize when a genuinely new attempt loads. This effect used
+    // to depend on initialMoveCount, which this component itself bumps on every
+    // placement via onMove -> parent setMoves -> new initialMoveCount prop -
+    // causing a full reset (discarding placed pieces, including hint placements)
+    // after every single move.
+    if (initializedAttemptIdRef.current === attempt.id) {
+      return;
+    }
+    initializedAttemptIdRef.current = attempt.id;
+
     completedRef.current = false;
     setMoveCount(initialMoveCount);
     onMove(initialMoveCount);

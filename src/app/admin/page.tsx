@@ -1070,7 +1070,7 @@ export default function AdminPage() {
   const isTypingCommandName = !matchedConsoleCommand || !command.startsWith(`${matchedConsoleCommand.name} `);
 
   const commandSuggestions: ConsoleSuggestion[] = isTypingCommandName
-    ? command.startsWith("/")
+    ? command.length > 1 && command.startsWith("/")
       ? CONSOLE_COMMANDS.filter(
           (entry) => entry.name.length > command.length && entry.name.toLowerCase().startsWith(command.toLowerCase()),
         ).map((entry) => ({ kind: "command", value: entry.name, hint: entry.usage }))

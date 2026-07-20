@@ -420,7 +420,7 @@ export default function WallpaperAdminPage() {
             )}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,.65fr)]">
-              <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111114]">
+              <article className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111114]">
                 <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
                   <div>
                     <p className="text-sm font-semibold">Aktif duvar kâğıdı</p>
@@ -437,7 +437,7 @@ export default function WallpaperAdminPage() {
                   )}
                 </div>
                 {effectiveAssignment ? (
-                  <div className="relative aspect-[16/7] min-h-64 overflow-hidden bg-black">
+                  <div className="relative min-h-64 flex-1 overflow-hidden bg-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt="Aktif duvar kâğıdı"
@@ -451,7 +451,7 @@ export default function WallpaperAdminPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex aspect-[16/7] min-h-64 items-center justify-center bg-white/[0.015] px-6 text-center text-sm text-zinc-600">
+                  <div className="flex min-h-64 flex-1 items-center justify-center bg-white/[0.015] px-6 text-center text-sm text-zinc-600">
                     Bu hedef için henüz bir duvar kâğıdı yok.
                   </div>
                 )}
