@@ -61,6 +61,33 @@ async function loadMessages(
   return data ?? [];
 }
 
+const WELCOME_MESSAGE =
+  "Welcome. I'll be watching how well you obey the wallpaper I choose for you. Speak whenever you like.";
+
+async function ensureConversationStarted(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  activationId: string,
+  messages: Awaited<ReturnType<typeof loadMessages>>,
+) {
+  if (messages.some((message) => message.sender_role === "admin")) {
+    return messages;
+  }
+
+  const { error } = await supabase.from("wallpaper_live_messages").insert({
+    app_key: PRINCIPESSA_WALLPAPER_APP_KEY,
+    activation_id: activationId,
+    scope: "device",
+    message: WELCOME_MESSAGE,
+    version: randomUUID(),
+    sender_role: "admin",
+    active: false,
+    created_by: null,
+  });
+  if (error) throw error;
+
+  return loadMessages(supabase, activationId);
+}
+
 export async function GET(request: Request) {
   const auth = await requireWallpaperLicense(request);
   if ("error" in auth) {
@@ -68,8 +95,13 @@ export async function GET(request: Request) {
   }
 
   try {
+    const messages = await ensureConversationStarted(
+      auth.supabase,
+      auth.license.id,
+      await loadMessages(auth.supabase, auth.license.id),
+    );
     return Response.json(
-      { messages: await loadMessages(auth.supabase, auth.license.id) },
+      { messages },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
