@@ -188,8 +188,20 @@ export function CratesPanel({
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const stripRef = useRef<HTMLDivElement>(null);
+  // React can re-render during an open when coins/inventory update. Keep the
+  // current transform outside render state so such a re-render never snaps the
+  // strip back to its starting position mid-spin.
+  const horizontalReelTransformRef = useRef(`translate3d(${CENTER_COMPENSATION}px, 0, 0)`);
   const reelPanelRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const setHorizontalReelTransform = (x: number) => {
+    const transform = `translate3d(${x}px, 0, 0)`;
+    horizontalReelTransformRef.current = transform;
+    if (stripRef.current) {
+      stripRef.current.style.transform = transform;
+    }
+  };
 
   // Real-looking item pool for the spinning reel visuals.
   // This lets us show actual item icons (from /crate-items/) during the slide instead of letters.
@@ -406,7 +418,7 @@ export function CratesPanel({
             item_id: d.item_id,
             name: s.name,
             description: s.description || "",
-            image_url: s.image_url || `/crate-items/${d.item_id}.webp`,
+            image_url: getCrateItemImageUrl(d.item_id, s.image_url ?? null),
             rarity: s.rarity,
             sell_value: s.sell_value || 0,
             variant: d.variant || "normal",
@@ -491,6 +503,10 @@ export function CratesPanel({
         setMultiSpinSequences([]);
         const sequence = buildSpinSequence(visualPool, results[0], crate.crate_type);
         setSpinSequence(sequence);
+        // The strip only exists after the sequence has rendered. Starting the
+        // rAF loop earlier makes some opens appear static because every frame
+        // runs before stripRef is attached.
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         await runCrateAnimation(fakeReel, results[0], sequence, false);
       }
 
@@ -590,7 +606,7 @@ export function CratesPanel({
           });
         } else if (stripRef.current) {
           const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
-          stripRef.current.style.transform = `translateX(${x}px)`;
+          setHorizontalReelTransform(x);
         }
 
         // Very light state for mobile single-view sampling (throttled) - skip for vertical multi
@@ -620,7 +636,7 @@ export function CratesPanel({
             });
           } else if (stripRef.current) {
             const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
-            stripRef.current.style.transform = `translateX(${exactX}px)`;
+            setHorizontalReelTransform(exactX);
           }
 
           // Ensure mobile shows the winner (skip for vertical)
@@ -651,7 +667,7 @@ export function CratesPanel({
           }
         });
       } else if (stripRef.current) {
-        stripRef.current.style.transform = `translateX(${CENTER_COMPENSATION}px)`;
+        setHorizontalReelTransform(CENTER_COMPENSATION);
       }
 
       requestAnimationFrame(animate);
@@ -789,6 +805,7 @@ export function CratesPanel({
     setReelItems([]);
     setSpinSequence([]);
     setReelProgress(0);
+    horizontalReelTransformRef.current = `translate3d(${CENTER_COMPENSATION}px, 0, 0)`;
     setLastOpenedCrateType(null);
     setLastOpenedBatchCost(0);
     setIsVerticalMode(false);
@@ -849,7 +866,7 @@ export function CratesPanel({
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
       <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
-          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -1245,10 +1262,8 @@ export function CratesPanel({
                 ref={stripRef}
                 className="absolute top-8 flex h-[112px] gap-2 items-center will-change-transform"
                 style={
-                  isOpening 
-                    ? { transform: `translateX(${CENTER_COMPENSATION}px)` } 
-                    : { transform: `translateX(${ -(WINNER_SLOT * FULL_SLOT) + CENTER_COMPENSATION }px)` }
-                }  // in result phase we explicitly set the exact final transform (same as animation's final settle) so the stopped reel stays perfectly centered under the marker, no shift to the side
+                  { transform: horizontalReelTransformRef.current }
+                }  // Keep the live rAF transform across parent re-renders; this prevents visual jumps while the API result updates coins/inventory.
               >
                 {spinSequence.map((item, idx) => {
                   // Square card + actual item icon (png) inside.
@@ -1260,7 +1275,7 @@ export function CratesPanel({
                       className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
                     >
                       <img
-                        src={item.image_url || `/crate-items/${item.item_id}.webp`}
+                        src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
                         alt={item.name}
                         className="w-full h-full object-contain"
                         onError={(e) => {
@@ -1293,7 +1308,7 @@ export function CratesPanel({
                         className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
                       >
                         <img
-                          src={item.image_url || `/crate-items/${item.item_id}.webp`}
+                          src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
                           alt={item.name}
                           className="w-full h-full object-contain"
                           onError={(e) => {

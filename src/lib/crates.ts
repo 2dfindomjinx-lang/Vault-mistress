@@ -982,6 +982,12 @@ export function getRarityColor(rarity: CrateRarity): string {
  * Eğer item tanımında image_url verilmemişse, /crate-items/{item_id}.webp olarak otomatik oluşturur.
  */
 export function getCrateItemImageUrl(itemId: string, provided?: string | null): string | null {
+  // Full Set collectible portraits are intentionally transparent PNG icons.
+  // Prefer the local icon over legacy database rows that still point to a
+  // previous .webp thumbnail.
+  if (SAMPLE_CRATE_ITEMS[itemId]?.collection === "cosplay") {
+    return `/crate-items/${itemId}.png`;
+  }
   if (provided) return provided;
   return `/crate-items/${itemId}.webp`;
 }
