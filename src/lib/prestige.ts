@@ -29,6 +29,7 @@ export type CommunityProfileSnippet = {
   backgroundItemId: string | null;
   displayName: string | null;
   equippedAvatarSlots: Record<string, string> | null;
+  equippedFullSetId: string | null;
   frameColor: string | null;
   frameItemId: string | null;
   frameVariant: "rainbow" | "runner" | null;

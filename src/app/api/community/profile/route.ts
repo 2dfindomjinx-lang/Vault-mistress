@@ -70,6 +70,7 @@ export async function GET(request: Request) {
       backgroundItemId: profile.backgroundItemId,
       displayName: profile.displayName,
       equippedAvatarSlots: profile.equippedAvatarSlots,
+      equippedFullSetId: profile.equippedFullSetId,
       frameColor: profile.frameColor,
       frameItemId: profile.frameItemId,
       frameVariant: profile.frameVariant,

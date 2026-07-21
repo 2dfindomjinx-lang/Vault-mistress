@@ -29,6 +29,7 @@ type ProfileFrameOrnamentsProps = {
 type PrincipessaShowcasePreviewProps = {
   className?: string;
   equippedAvatarSlots?: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
   equippedCosmeticIds?: EquippedCosmeticIds;
   hasUncensoredAvatar?: boolean;
   previewItem?: CosmeticItem | null;
@@ -1408,6 +1409,7 @@ export function ProfileFrameOrnaments({
 export function PrincipessaShowcasePreview({
   className,
   equippedAvatarSlots = {},
+  equippedFullSetId = null,
   equippedCosmeticIds = {},
   hasUncensoredAvatar = false,
   previewItem = null,
@@ -1442,6 +1444,7 @@ export function PrincipessaShowcasePreview({
         backgroundStyle={background.backgroundStyle}
         className="absolute inset-0"
         equipped={equippedAvatarSlots}
+        equippedFullSetId={equippedFullSetId}
         hasUncensored={hasUncensoredAvatar}
         imageClassName="object-contain object-bottom"
       />

@@ -90,6 +90,7 @@ import {
   equipAvatarItem,
   getItemAvatarSlot,
   isAvatarEquippableItem,
+  isFullSetItem,
   normalizeEquipment,
   unequipAvatarSlot,
   SLOT_LABELS,
@@ -2004,6 +2005,7 @@ export default function Home() {
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
+  const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
   const [hasUncensoredAvatar, setHasUncensoredAvatar] = useState(false);
   const [isAvatarActionPending, setIsAvatarActionPending] = useState(false);
   const committedEquippedRef = useRef<EquippedAvatarSlots>({});
@@ -2051,7 +2053,7 @@ export default function Home() {
     };
   }, []);
 
-  const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | null>(null);
+  const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | "fullSet" | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
@@ -4165,6 +4167,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
+    setEquippedFullSetId(profile.equipped_full_set_id ?? null);
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
     setAddressTerm(nextAddressTerm);
     addressTermRef.current = nextAddressTerm;
@@ -4473,6 +4476,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setEquippedAvatarSlots(slots);
     committedEquippedRef.current = slots;
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
+    setEquippedFullSetId(profile.equipped_full_set_id ?? null);
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
     setAddressTerm(nextAddressTerm);
     addressTermRef.current = nextAddressTerm;
@@ -10281,6 +10285,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return groups;
   }, [equippableInventoryItems]);
 
+  const fullSetInventoryItems = useMemo(
+    () => crateInventory.filter((item) => item.quantity > 0 && isFullSetItem(item.item_id)),
+    [crateInventory],
+  );
+
   const getRarityPillClasses = (rarity: string) => {
     const r = (rarity || "").toLowerCase();
     switch (r) {
@@ -10902,6 +10911,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
           equippedAvatarSlots={equippedAvatarSlots}
+          equippedFullSetId={equippedFullSetId}
           equippedCosmeticIds={effectiveEquippedCosmeticIds}
           hasUncensoredAvatar={hasUncensoredAvatar}
           spendBadge={spendBadge}
@@ -11259,6 +11269,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 endsAt={nextRotatingShopRefresh}
                 equippedAvatarSlots={equippedAvatarSlots}
+                equippedFullSetId={equippedFullSetId}
                 equippedCosmeticIds={effectiveEquippedCosmeticIds}
                 hasUncensoredAvatar={hasUncensoredAvatar}
                 items={visibleRotatingShopItems}
@@ -11338,6 +11349,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
                             className="absolute inset-0"
                             equipped={isAvatarActionPending ? committedEquippedRef.current : equippedAvatarSlots}
+                            equippedFullSetId={equippedFullSetId}
                             hasUncensored={hasUncensoredAvatar}
                             imageClassName="object-contain object-center"
                           />
@@ -11346,6 +11358,70 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
                       {/* Slim vertical equipped rail */}
                       <div className="xl:w-52 w-full flex-shrink-0 xl:flex-col flex flex-row flex-wrap gap-1.5 text-xs xl:border-l xl:pl-2 xl:border-t-0 border-t xl:pt-0 pt-2 border-white/10">
+                        {(() => {
+                          const isFullSetFiltered = wardrobeCategoryFilter === "fullSet";
+
+                          if (!equippedFullSetId) {
+                            return (
+                              <div
+                                className={`flex items-center gap-1.5 px-1 py-0.5 rounded opacity-30 cursor-pointer hover:opacity-50 ${isFullSetFiltered ? 'opacity-60 bg-pink-500/5 ring-1 ring-pink-300/40' : ''}`}
+                                key="fullSet"
+                                onClick={() => setWardrobeCategoryFilter(isFullSetFiltered ? null : "fullSet")}
+                              >
+                                <div className="w-5 h-5 rounded-sm bg-white/10" />
+                                <span className="truncate">Full Set</span>
+                              </div>
+                            );
+                          }
+
+                          const equippedFullSetName = inventoryItemNameById.get(equippedFullSetId) ?? equippedFullSetId;
+                          const equippedFullSetIcon = resolveAvatarItemIconPath(equippedFullSetId);
+
+                          return (
+                            <div
+                              className={`flex items-center gap-1.5 px-1 py-0.5 rounded border cursor-pointer transition text-[10px] ${isFullSetFiltered ? 'border-pink-300 bg-pink-500/10 ring-1 ring-pink-300/40' : 'border-white/10 hover:border-white/30'}`}
+                              key="fullSet"
+                              onClick={() => setWardrobeCategoryFilter(isFullSetFiltered ? null : "fullSet")}
+                            >
+                              {equippedFullSetIcon ? (
+                                <div className="relative w-5 h-5 shrink-0">
+                                  <Image alt="" className="object-contain" fill src={equippedFullSetIcon} unoptimized />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 border rounded" />
+                              )}
+                              <span className="flex-1 truncate">{equippedFullSetName}</span>
+                              <button
+                                aria-label="Unequip"
+                                className="text-pink-400 hover:text-red-400 px-0.5"
+                                disabled={isAvatarActionPending}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (isAvatarActionPending) return;
+                                  setIsAvatarActionPending(true);
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ action: "unequip-full-set" }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      setEquippedFullSetId(data.equippedFullSetId ?? null);
+                                      void loadCratesData();
+                                    }
+                                  } catch (err) {
+                                    console.error("Full Set unequip error", err);
+                                  } finally {
+                                    setIsAvatarActionPending(false);
+                                  }
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })()}
                         {AVATAR_SLOT_ORDER.map((slot) => {
                           const equippedItemId = equippedAvatarSlots[slot];
                           const isFiltered = wardrobeCategoryFilter === slot;
@@ -11479,12 +11555,100 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                         </button>
                       )}
                     </p>
-                    {Object.keys(equippableByCategory).length === 0 ? (
+                    {Object.keys(equippableByCategory).length === 0 && fullSetInventoryItems.length === 0 ? (
                       <div className="mt-4 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-zinc-400">
                         No equippable crate items yet.
                       </div>
                     ) : (
                       <div className="mt-1 h-[440px] overflow-y-auto pr-2 space-y-4">
+                        {(!wardrobeCategoryFilter || wardrobeCategoryFilter === "fullSet") && fullSetInventoryItems.length > 0 && (
+                          <div key="fullSet">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                                Full Set
+                              </p>
+                              <span className="text-[10px] text-zinc-500">{fullSetInventoryItems.length} items</span>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {fullSetInventoryItems.map((item) => {
+                                const isEquipped = equippedFullSetId === item.item_id;
+
+                                return (
+                                  <button
+                                    className={`rounded-[1.1rem] border px-3 py-2 text-left ${getRarityCardClasses(item.rarity, isEquipped)}`}
+                                    key={`${item.item_id}:${item.variant}`}
+                                    disabled={isAvatarActionPending}
+                                    onClick={async () => {
+                                      if (isAvatarActionPending) return;
+                                      setIsAvatarActionPending(true);
+                                      try {
+                                        const res = await fetch("/api/user/wardrobe", {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify(
+                                            isEquipped
+                                              ? { action: "unequip-full-set" }
+                                              : { action: "equip-full-set", itemId: item.item_id },
+                                          ),
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) {
+                                          console.error("Full Set action failed", data);
+                                          return;
+                                        }
+                                        setEquippedFullSetId(data.equippedFullSetId ?? null);
+                                        if (data.equipped) {
+                                          setEquippedAvatarSlots(data.equipped);
+                                          committedEquippedRef.current = data.equipped;
+                                        }
+                                        void loadCratesData();
+                                      } catch (e) {
+                                        console.error("Full Set equip error", e);
+                                      } finally {
+                                        setIsAvatarActionPending(false);
+                                      }
+                                    }}
+                                    type="button"
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          {(() => {
+                                            const iconSrc = resolveAvatarItemIconPath(item.item_id) || item.image_url || null;
+                                            return iconSrc ? (
+                                              <div className="relative w-5 h-5 flex-shrink-0">
+                                                <Image alt={item.name} className="object-contain" fill src={iconSrc} unoptimized />
+                                              </div>
+                                            ) : null;
+                                          })()}
+                                          <p className="truncate text-sm font-black text-white">
+                                            {item.name}
+                                          </p>
+                                        </div>
+                                        <p className="mt-0.5 text-[10px] uppercase tracking-[0.16em] text-fuchsia-200/70">
+                                          {isEquipped ? "Equipped (tap to remove)" : "Full Set"}
+                                        </p>
+                                      </div>
+                                      <div className="flex shrink-0 flex-col items-end gap-1">
+                                        <span
+                                          className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${getRarityPillClasses(item.rarity)}`}
+                                        >
+                                          {item.rarity}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <span className="rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-200">
+                                            x{item.quantity}
+                                          </span>
+                                          {isEquipped && <span className="text-pink-300">✓</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                         {AVATAR_SLOT_ORDER.map((slot) => {
                           if (wardrobeCategoryFilter && slot !== wardrobeCategoryFilter) return null;
                           const items = equippableByCategory[slot] || [];
@@ -11529,6 +11693,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                             setEquippedAvatarSlots(data.equipped);
                                             committedEquippedRef.current = data.equipped;
                                             void loadCratesData();
+                                          }
+                                          if (action === "equip") {
+                                            setEquippedFullSetId(data.equippedFullSetId ?? null);
                                           }
                                         } catch (e) {
                                           console.error("Wardrobe equip error", e);
@@ -11593,6 +11760,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   currentTitle={equippedTitle?.name}
                   displayName={effectiveDisplayName}
                   equippedAvatarSlots={equippedAvatarSlots}
+                  equippedFullSetId={equippedFullSetId}
                   equippedCosmeticIds={effectiveEquippedCosmeticIds}
                   hasUncensoredAvatar={hasUncensoredAvatar}
                   ownedItems={ownedProfileHeaderRotatingCosmetics}

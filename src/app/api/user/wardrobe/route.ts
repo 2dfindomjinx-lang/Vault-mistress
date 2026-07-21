@@ -9,13 +9,14 @@ import {
   normalizeEquipment,
   equipAvatarItem,
   unequipAvatarSlot,
+  isFullSetItem,
   type EquippedAvatarSlots,
   type AvatarSlot,
 } from "@/lib/avatar-slots";
 import { profileSelect } from "@/lib/server-game-rules";
 
 type Body = {
-  action?: "equip" | "unequip" | "unlock-uncensored";
+  action?: "equip" | "unequip" | "unlock-uncensored" | "equip-full-set" | "unequip-full-set";
   itemId?: string;
   slot?: AvatarSlot;
 };
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
   // Load current profile for equipped and coins
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, coins, equipped_avatar_slots, has_uncensored_avatar")
+    .select("id, coins, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar")
     .eq("id", userId)
     .single();
 
@@ -114,6 +115,7 @@ export async function POST(request: Request) {
 
   const currentSlots: EquippedAvatarSlots = (profile.equipped_avatar_slots as any) || {};
   const currentUncensored = !!profile.has_uncensored_avatar;
+  const currentFullSetId: string | null = (profile.equipped_full_set_id as string | null) ?? null;
 
   if (action === "equip") {
     const itemId = body?.itemId;
@@ -152,6 +154,12 @@ export async function POST(request: Request) {
       if (!previousItemIds.has(itemId)) {
         await adjustInventoryQuantity(supabase, userId, itemId, "normal", -1);
       }
+
+      // Full Set and wardrobe slots are mutually exclusive - equipping a
+      // regular slot item drops out of Full Set mode back to the base model.
+      if (currentFullSetId) {
+        await adjustInventoryQuantity(supabase, userId, currentFullSetId, "normal", 1);
+      }
     } catch (inventoryErr) {
       console.error("[wardrobe] inventory reserve update failed", inventoryErr);
       return jsonError("Failed to update inventory reserve.", 500);
@@ -159,14 +167,14 @@ export async function POST(request: Request) {
 
     const { error: updateErr } = await supabase
       .from("profiles")
-      .update({ equipped_avatar_slots: next, updated_at: now })
+      .update({ equipped_avatar_slots: next, equipped_full_set_id: null, updated_at: now })
       .eq("id", userId);
 
     if (updateErr) {
       return jsonError("Failed to equip.", 500);
     }
 
-    return Response.json({ equipped: next });
+    return Response.json({ equipped: next, equippedFullSetId: null });
   }
 
   if (action === "unequip") {
@@ -194,6 +202,76 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ equipped: next });
+  }
+
+  if (action === "equip-full-set") {
+    const itemId = body?.itemId;
+    if (!itemId) return jsonError("itemId required.", 400);
+    if (!isFullSetItem(itemId)) return jsonError("Item is not a Full Set.", 400);
+
+    if (itemId !== currentFullSetId) {
+      const { data: inv } = await supabase
+        .from("user_crate_inventory")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("item_id", itemId)
+        .maybeSingle();
+
+      if (!inv || (inv.quantity ?? 0) < 1) {
+        return jsonError("You do not own this item.", 403);
+      }
+
+      try {
+        if (currentFullSetId) {
+          await adjustInventoryQuantity(supabase, userId, currentFullSetId, "normal", 1);
+        }
+        await adjustInventoryQuantity(supabase, userId, itemId, "normal", -1);
+
+        // Full Set replaces the base model + every layer entirely - unequip
+        // and restore any currently equipped wardrobe slot items.
+        for (const equippedItemId of Object.values(currentSlots)) {
+          if (typeof equippedItemId === "string" && equippedItemId !== "classic") {
+            await adjustInventoryQuantity(supabase, userId, equippedItemId, "normal", 1);
+          }
+        }
+      } catch (inventoryErr) {
+        console.error("[wardrobe] full-set inventory reserve update failed", inventoryErr);
+        return jsonError("Failed to update inventory reserve.", 500);
+      }
+    }
+
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({ equipped_full_set_id: itemId, equipped_avatar_slots: {}, updated_at: now })
+      .eq("id", userId);
+
+    if (updateErr) {
+      return jsonError("Failed to equip.", 500);
+    }
+
+    return Response.json({ equippedFullSetId: itemId, equipped: {} });
+  }
+
+  if (action === "unequip-full-set") {
+    if (currentFullSetId) {
+      try {
+        await adjustInventoryQuantity(supabase, userId, currentFullSetId, "normal", 1);
+      } catch (inventoryErr) {
+        console.error("[wardrobe] full-set inventory restore failed", inventoryErr);
+        return jsonError("Failed to restore inventory.", 500);
+      }
+    }
+
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({ equipped_full_set_id: null, updated_at: now })
+      .eq("id", userId);
+
+    if (updateErr) {
+      return jsonError("Failed to unequip.", 500);
+    }
+
+    return Response.json({ equippedFullSetId: null });
   }
 
   if (action === "unlock-uncensored") {

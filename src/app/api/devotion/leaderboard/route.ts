@@ -69,7 +69,7 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total, address_term",
+        "id, username, display_name, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total, address_term",
       )
       .in("id", userIds),
     supabase
@@ -142,6 +142,7 @@ export async function GET(request: Request) {
         })(),
         displayName: profile.display_name ?? null,
         equippedAvatarSlots: (profile.equipped_avatar_slots as Record<string, string> | null) ?? null,
+        equippedFullSetId: (profile.equipped_full_set_id as string | null) ?? null,
         hasUncensoredAvatar: Boolean(profile.has_uncensored_avatar),
         totalDevotion: Number(profile.total_devotion ?? 0),
         tributeTotal: Number(profile.tribute_total ?? 0),
@@ -168,6 +169,7 @@ export async function GET(request: Request) {
       devotion: period === "all_time" ? profile.totalDevotion : Number(row.devotion ?? 0),
       displayName: profile.displayName,
       equippedAvatarSlots: profile.equippedAvatarSlots,
+      equippedFullSetId: profile.equippedFullSetId,
       frameColor: border?.color ?? null,
       frameItemId: borderItemId,
       frameVariant: getDevotionFrameVariant(borderItemId),

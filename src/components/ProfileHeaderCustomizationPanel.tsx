@@ -10,6 +10,7 @@ type ProfileHeaderCustomizationPanelProps = {
   currentTitle?: string;
   displayName?: string | null;
   equippedAvatarSlots: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
   equippedCosmeticIds: Partial<Record<CosmeticType, string>>;
   hasUncensoredAvatar?: boolean;
   ownedItems: CosmeticItem[];
@@ -86,6 +87,7 @@ export function ProfileHeaderCustomizationPanel({
   currentTitle,
   displayName,
   equippedAvatarSlots,
+  equippedFullSetId = null,
   equippedCosmeticIds,
   hasUncensoredAvatar = false,
   ownedItems,
@@ -198,6 +200,7 @@ export function ProfileHeaderCustomizationPanel({
                 <PrincipessaShowcasePreview
                   className="w-[7.25rem]"
                   equippedAvatarSlots={equippedAvatarSlots}
+                  equippedFullSetId={equippedFullSetId}
                   equippedCosmeticIds={equippedCosmeticIds}
                   hasUncensoredAvatar={hasUncensoredAvatar}
                   previewItem={previewItem}

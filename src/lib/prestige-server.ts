@@ -17,6 +17,7 @@ import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/l
 type ProfilePresentationRow = {
   address_term?: string | null;
   equipped_avatar_slots: Record<string, string> | null;
+  equipped_full_set_id?: string | null;
   has_uncensored_avatar: boolean | null;
   id: string;
   loyalty_streak: number | null;
@@ -167,7 +168,7 @@ export async function loadCommunityProfiles(
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, has_uncensored_avatar, lifetime_spent_coins, loyalty_streak, total_devotion, tribute_total, address_term",
+        "id, username, display_name, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, lifetime_spent_coins, loyalty_streak, total_devotion, tribute_total, address_term",
       )
       .in("id", ids),
     supabase
@@ -262,6 +263,7 @@ export async function loadCommunityProfiles(
           backgroundItemId: backgroundByUserId.get(profile.id) ?? null,
           displayName: profile.display_name ?? null,
           equippedAvatarSlots: profile.equipped_avatar_slots ?? null,
+          equippedFullSetId: profile.equipped_full_set_id ?? null,
           frameColor: border?.color ?? null,
           frameItemId: border?.itemId ?? null,
           frameVariant: getDevotionFrameVariant(border?.itemId ?? null),

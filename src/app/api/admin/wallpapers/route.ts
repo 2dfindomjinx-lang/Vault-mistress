@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type Body = {
-  action?: "prepare-upload" | "assign" | "reuse" | "send-message" | "clear-message";
+  action?: "prepare-upload" | "assign" | "reuse" | "reset-to-default" | "send-message" | "clear-message";
   activationId?: string | null;
   assignmentId?: string;
   contentType?: string;
@@ -192,6 +192,42 @@ export async function POST(request: Request) {
       await sendWallpaperSyncPush({
         activationId,
         wallpaperVersion,
+      });
+
+      return Response.json({
+        ok: true,
+        ...(await loadWallpaperAdminState(admin.supabase)),
+      });
+    }
+
+    if (body.action === "reset-to-default") {
+      const activationId = body.activationId?.trim() || null;
+      if (!activationId) {
+        return Response.json({ error: "Select a device first - global has no default to reset to." }, { status: 400 });
+      }
+      await validateTarget(admin.supabase, activationId);
+
+      const { error } = await admin.supabase
+        .from("wallpaper_assignments")
+        .update({ active: false })
+        .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+        .eq("activation_id", activationId)
+        .eq("scope", "device")
+        .eq("active", true);
+      if (error) throw error;
+
+      const { data: globalAssignment, error: globalError } = await admin.supabase
+        .from("wallpaper_assignments")
+        .select("version")
+        .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
+        .eq("scope", "global")
+        .eq("active", true)
+        .maybeSingle();
+      if (globalError) throw globalError;
+
+      await sendWallpaperSyncPush({
+        activationId,
+        wallpaperVersion: globalAssignment?.version ?? `no-wallpaper-${randomUUID()}`,
       });
 
       return Response.json({

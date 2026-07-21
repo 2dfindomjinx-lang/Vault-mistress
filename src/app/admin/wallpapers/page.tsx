@@ -297,6 +297,30 @@ export default function WallpaperAdminPage() {
     }
   };
 
+  const resetToDefaultWallpaper = async () => {
+    if (target === "global") {
+      return;
+    }
+
+    setIsBusy(true);
+    setStatus("Varsayılan duvar kâğıdına döndürülüyor…");
+    try {
+      const response = await fetch("/api/admin/wallpapers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset-to-default", activationId: target }),
+      });
+      const result = (await response.json()) as AdminState;
+      if (!response.ok) throw new Error(result.error ?? "Varsayılana döndürülemedi.");
+      applyState(result);
+      setStatus(`${targetTitle} artık varsayılan (global) duvar kâğıdını kullanıyor.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Varsayılana döndürülemedi.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const updateLiveMessage = async (action: "send-message" | "clear-message") => {
     if (action === "send-message" && !liveMessage.trim()) {
       setStatus("Önce bir mesaj yaz.");
@@ -430,11 +454,23 @@ export default function WallpaperAdminPage() {
                         : "Bu hedefe doğrudan atanmış"}
                     </p>
                   </div>
-                  {effectiveAssignment && (
-                    <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-                      Aktif
-                    </span>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {target !== "global" && directAssignment && (
+                      <button
+                        className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-pink-400/25 hover:bg-pink-400/[0.08] hover:text-pink-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={isBusy}
+                        onClick={() => void resetToDefaultWallpaper()}
+                        type="button"
+                      >
+                        Varsayılana döndür
+                      </button>
+                    )}
+                    {effectiveAssignment && (
+                      <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                        Aktif
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {effectiveAssignment ? (
                   <div className="relative min-h-64 flex-1 overflow-hidden bg-black">

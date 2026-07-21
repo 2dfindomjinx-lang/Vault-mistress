@@ -12,6 +12,7 @@ export type DevotionLeaderboardEntry = {
   username: string;
   displayName: string | null;
   equippedAvatarSlots: Record<string, string> | null;
+  equippedFullSetId: string | null;
   hasUncensoredAvatar: boolean;
   usernameStyle?: {
     color?: string;

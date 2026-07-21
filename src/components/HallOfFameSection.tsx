@@ -102,6 +102,7 @@ export function HallOfFameSection({
                         backgroundStyle={background.backgroundStyle}
                         className="absolute inset-0"
                         equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})}
+                        equippedFullSetId={winner.equippedFullSetId}
                         hasUncensored={winner.hasUncensoredAvatar}
                         imageClassName="object-contain object-center"
                       />

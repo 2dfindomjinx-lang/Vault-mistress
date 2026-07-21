@@ -94,6 +94,32 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["rabbit-small-vibrator", "toy"],
   ["black-dildo", "toy"],
   ["classic-anal-beads", "toy"],
+  // --- New wardrobe batch (2026-07) ---
+  // Tops
+  ["black_strappy_harness_top", "top"],
+  ["black_v_neck_crop_top", "top"],
+  ["fireworks_crop_top", "top"],
+  ["leather_jacket", "top"],
+  ["pink_off_shoulder_sweater", "top"],
+  ["purple_crop_sweater", "top"],
+  ["red_off_shoulder_crop_top", "top"],
+  ["red_satin_halter_bra", "top"],
+  ["white_off_shoulder_crop_top", "top"],
+  ["white_tie_front_shirt", "top"],
+  // Bottoms
+  ["black_dolphin_shorts", "bottom"],
+  ["blue_tartan_pleated_skirt", "bottom"],
+  ["denim_shorts", "bottom"],
+  ["pink_dolphin_shorts", "bottom"],
+  ["red_tartan_pleated_skirt", "bottom"],
+  ["silver_vinyl_shorts", "bottom"],
+  ["white_distressed_denim_shorts", "bottom"],
+  // Thighhighs
+  ["black_bow_thighhighs", "thighhighs"],
+  ["knee_high_socks", "thighhighs"],
+  ["white_thighhighs", "thighhighs"],
+  // Collar
+  ["red_collar", "collar"],
 ];
 
 AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
@@ -272,6 +298,31 @@ export function getRenderedAvatarLayers(
 
     return [{ itemId, slot, src }];
   });
+}
+
+// "Full Set" items are single pre-rendered whole-character illustrations that
+// replace the base model + every layer entirely. They are intentionally kept
+// out of AvatarSlot/AVATAR_SLOT_ORDER - equipping one means "render only this
+// image", not "layer this on top of the base model" (unlike the "fullBody"
+// slot above, which is really just a top+bottom-replacing outfit).
+// Add item ids here as full-set art gets produced.
+export const FULL_SET_ITEM_IDS: string[] = [
+  "2b_cosplay",
+  "ada_wong_cosplay",
+  "astolfo_cosplay",
+  "chunli_cosplay",
+  "jinx_cosplay",
+  "lara_croft_cosplay",
+  "ryuko_matoi_cosplay",
+  "tifa_lockhart_cosplay",
+];
+
+export function isFullSetItem(itemId: string): boolean {
+  return FULL_SET_ITEM_IDS.includes(itemId);
+}
+
+export function resolveFullSetImagePath(itemId: string): string {
+  return `/avatar/fullset/${itemId}.webp`;
 }
 
 export function getAvatarBaseModelPath(

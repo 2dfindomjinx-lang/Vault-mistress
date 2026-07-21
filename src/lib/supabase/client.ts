@@ -10,6 +10,7 @@ export type Profile = {
   display_name?: string | null;
   avatar_url?: string | null;
   equipped_avatar_slots?: Record<string, string> | null;
+  equipped_full_set_id?: string | null;
   has_uncensored_avatar?: boolean;
   // email is intentionally not populated for regular client usage (security).
   // It may exist in the DB but must never be returned to non-admin clients.

@@ -199,6 +199,53 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "ultra-vibrator", weight: 7 },
     ],
   },
+
+  cosplay_case: {
+    name: "Cosplay Case",
+    description: "An exclusive case of full-body cosplay illustrations.",
+    cost: 5000,
+    enabled: true,
+    drops: [
+      // Common %58
+	  { item_id: "red_collar", weight: 1600 },
+      { item_id: "knee_high_socks", weight: 1500 },
+	  { item_id: "denim_shorts", weight: 1400 },
+      { item_id: "white_thighhighs", weight: 1300 },
+
+      // Uncommon %20
+	  { item_id: "fireworks_crop_top", weight: 500 },
+	  { item_id: "leather_jacket", weight: 450 },
+	  { item_id: "black_bow_thighhighs", weight: 400 },
+      { item_id: "purple_crop_sweater", weight: 350 },
+	  { item_id: "pink_off_shoulder_sweater", weight: 300 },
+
+      // Rare %12
+      { item_id: "white_off_shoulder_crop_top", weight: 215 },
+      { item_id: "blue_tartan_pleated_skirt", weight: 200 },
+      { item_id: "red_tartan_pleated_skirt", weight: 190 },
+      { item_id: "white_distressed_denim_shorts", weight: 175 },
+	  { item_id: "red_off_shoulder_crop_top", weight: 150 },
+	  { item_id: "black_v_neck_crop_top", weight: 145 },
+	  { item_id: "white_tie_front_shirt", weight: 125 },
+
+      // Epic %8
+	  { item_id: "black_dolphin_shorts", weight: 215 },
+	  { item_id: "pink_dolphin_shorts", weight: 180 },
+      { item_id: "red_satin_halter_bra", weight: 150 },
+      { item_id: "silver_vinyl_shorts", weight: 130 },
+	  { item_id: "black_strappy_harness_top", weight: 125 },
+
+      // Legendary - %2
+      { item_id: "ada_wong_cosplay", weight: 40 },
+	  { item_id: "tifa_lockhart_cosplay", weight: 34 },
+      { item_id: "lara_croft_cosplay", weight: 30 },
+	  { item_id: "astolfo_cosplay", weight: 26 },
+	  { item_id: "chunli_cosplay", weight: 22 },
+	  { item_id: "2b_cosplay", weight: 18 },
+	  { item_id: "jinx_cosplay", weight: 16 },
+      { item_id: "ryuko_matoi_cosplay", weight: 14 },
+    ],
+  },
 };
 
 // Sample item catalog (in real V1 you would INSERT these into crate_items table)
@@ -710,6 +757,215 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "legendary",
     collection: "shiny",
     sell_value: 30000,
+  },
+
+  // --- New wardrobe batch (2026-07) - now in Cosplay Case, rarity randomly assigned ---
+  "leather_jacket": {
+    name: "Leather Jacket",
+    description: "A classic black leather jacket.",
+    rarity: "uncommon",
+    collection: "cosplay-wardrobe",
+    sell_value: 1800,
+  },
+  "denim_shorts": {
+    name: "Denim Shorts",
+    description: "Classic denim shorts.",
+    rarity: "common",
+    collection: "cosplay-wardrobe",
+    sell_value: 400,
+  },
+  "knee_high_socks": {
+    name: "Knee-High Socks",
+    description: "Simple knee-high socks.",
+    rarity: "common",
+    collection: "cosplay-wardrobe",
+    sell_value: 300,
+  },
+  "white_thighhighs": {
+    name: "White Thighhighs",
+    description: "Plain white thighhighs.",
+    rarity: "common",
+    collection: "cosplay-wardrobe",
+    sell_value: 500,
+  },
+  "red_collar": {
+    name: "Red Collar",
+    description: "A simple red collar.",
+    rarity: "common",
+    collection: "cosplay-wardrobe",
+    sell_value: 200,
+  },
+  "white_tie_front_shirt": {
+    name: "White Tie-Front Shirt",
+    description: "A white shirt tied at the front.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4800,
+  },
+  "black_v_neck_crop_top": {
+    name: "Black V-Neck Crop Top",
+    description: "A fitted black V-neck crop top.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4500,
+  },
+  "purple_crop_sweater": {
+    name: "Purple Crop Sweater",
+    description: "A cropped purple knit sweater.",
+    rarity: "uncommon",
+    collection: "cosplay-wardrobe",
+    sell_value: 2500,
+  },
+  "black_dolphin_shorts": {
+    name: "Black Dolphin Shorts",
+    description: "Black high-cut dolphin shorts.",
+    rarity: "epic",
+    collection: "cosplay-wardrobe",
+    sell_value: 10000,
+  },
+  "silver_vinyl_shorts": {
+    name: "Silver Vinyl Shorts",
+    description: "Glossy silver vinyl shorts.",
+    rarity: "epic",
+    collection: "cosplay-wardrobe",
+    sell_value: 13000,
+  },
+  "black_bow_thighhighs": {
+    name: "Black Bow Thighhighs",
+    description: "Black thighhighs with a bow accent.",
+    rarity: "uncommon",
+    collection: "cosplay-wardrobe",
+    sell_value: 2200,
+  },
+  "fireworks_crop_top": {
+    name: "Fireworks Crop Top",
+    description: "A crop top with a fireworks print.",
+    rarity: "uncommon",
+    collection: "cosplay-wardrobe",
+    sell_value: 1700,
+  },
+  "pink_off_shoulder_sweater": {
+    name: "Pink Off-Shoulder Sweater",
+    description: "A cozy pink off-shoulder sweater.",
+    rarity: "uncommon",
+    collection: "cosplay-wardrobe",
+    sell_value: 2700,
+  },
+  "blue_tartan_pleated_skirt": {
+    name: "Blue Tartan Pleated Skirt",
+    description: "A pleated blue tartan skirt.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4200,
+  },
+  "red_tartan_pleated_skirt": {
+    name: "Red Tartan Pleated Skirt",
+    description: "A pleated red tartan skirt.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4200,
+  },
+  "white_distressed_denim_shorts": {
+    name: "White Distressed Denim Shorts",
+    description: "Distressed white denim shorts.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4400,
+  },
+  "black_strappy_harness_top": {
+    name: "Black Strappy Harness Top",
+    description: "A strappy black harness top.",
+    rarity: "epic",
+    collection: "cosplay-wardrobe",
+    sell_value: 14000,
+  },
+  "red_off_shoulder_crop_top": {
+    name: "Red Off-Shoulder Crop Top",
+    description: "A red off-shoulder crop top.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4600,
+  },
+  "red_satin_halter_bra": {
+    name: "Red Satin Halter Bra",
+    description: "A satin red halter bra.",
+    rarity: "epic",
+    collection: "cosplay-wardrobe",
+    sell_value: 12000,
+  },
+  "white_off_shoulder_crop_top": {
+    name: "White Off-Shoulder Crop Top",
+    description: "A white off-shoulder crop top.",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    sell_value: 4000,
+  },
+  "pink_dolphin_shorts": {
+    name: "Pink Dolphin Shorts",
+    description: "Pink high-cut dolphin shorts.",
+    rarity: "epic",
+    collection: "cosplay-wardrobe",
+    sell_value: 11000,
+  },
+
+  // Cosplay Case - Full Set items (see FULL_SET_ITEM_IDS in avatar-slots.ts).
+  // Equipping one replaces the base model + every layer with a single
+  // pre-rendered illustration instead of adding a wardrobe layer.
+  "2b_cosplay": {
+    name: "2B Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 50000,
+  },
+  "ada_wong_cosplay": {
+    name: "Ada Wong Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 35000,
+  },
+  "astolfo_cosplay": {
+    name: "Astolfo Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 42500,
+  },
+  "chunli_cosplay": {
+    name: "Chun-Li Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 45000,
+  },
+  "jinx_cosplay": {
+    name: "Jinx Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 55000,
+  },
+  "lara_croft_cosplay": {
+    name: "Lara Croft Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 40000,
+  },
+  "ryuko_matoi_cosplay": {
+    name: "Ryuko Matoi Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 60000,
+  },
+  "tifa_lockhart_cosplay": {
+    name: "Tifa Lockhart Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 37500,
   },
 };
 

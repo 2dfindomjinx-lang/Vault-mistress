@@ -81,6 +81,7 @@ function LeaderboardRow({
             backgroundStyle={background.backgroundStyle}
             className="absolute inset-0"
             equipped={normalizeEquipment(entry.equippedAvatarSlots ?? {})}
+            equippedFullSetId={entry.equippedFullSetId}
             hasUncensored={entry.hasUncensoredAvatar}
             imageClassName="object-contain object-center"
           />

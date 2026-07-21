@@ -84,6 +84,7 @@ export function PublicProfileModal({
               currentTitle={getTitleNameForAddressTerm(profile.titleName, profile.addressTerm) ?? undefined}
               displayName={profile.displayName}
               equippedAvatarSlots={profile.equippedAvatarSlots ?? {}}
+              equippedFullSetId={profile.equippedFullSetId}
               hasUncensoredAvatar={profile.hasUncensoredAvatar}
               pageLabel="Community Profile"
               badgeStrip={<PrestigeBadgeList badges={profile.badges} />}

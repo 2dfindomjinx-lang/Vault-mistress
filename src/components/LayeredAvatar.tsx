@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { CSSProperties } from "react";
 import {
   getAvatarBaseModelPath,
+  resolveFullSetImagePath,
   type EquippedAvatarSlots,
   getRenderedAvatarLayers,
 } from "@/lib/avatar-slots";
@@ -10,6 +11,7 @@ type LayeredAvatarProps = {
   alt: string;
   className?: string;
   equipped: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
   hasUncensored?: boolean;
   imageClassName?: string;
   backgroundPath?: string | null;
@@ -22,6 +24,7 @@ export function LayeredAvatar({
   alt,
   className,
   equipped,
+  equippedFullSetId = null,
   hasUncensored = false,
   imageClassName = "object-contain object-center",
   backgroundPath = null,
@@ -59,25 +62,40 @@ export function LayeredAvatar({
           unoptimized
         />
       ) : null}
-      <Image
-        alt={alt}
-        className={imageClassName}
-        fill
-        priority={priority}
-        src={baseSrc}
-        unoptimized
-      />
-      {layers.map((layer) => (
+      {equippedFullSetId ? (
+        // Full Set: a single pre-rendered illustration replaces the base model
+        // and every layer entirely - nothing else below this renders.
         <Image
-          alt=""
-          aria-hidden="true"
+          alt={alt}
           className={imageClassName}
           fill
-          key={`${layer.slot}:${layer.itemId}`}
-          src={layer.src}
+          priority={priority}
+          src={resolveFullSetImagePath(equippedFullSetId)}
           unoptimized
         />
-      ))}
+      ) : (
+        <>
+          <Image
+            alt={alt}
+            className={imageClassName}
+            fill
+            priority={priority}
+            src={baseSrc}
+            unoptimized
+          />
+          {layers.map((layer) => (
+            <Image
+              alt=""
+              aria-hidden="true"
+              className={imageClassName}
+              fill
+              key={`${layer.slot}:${layer.itemId}`}
+              src={layer.src}
+              unoptimized
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

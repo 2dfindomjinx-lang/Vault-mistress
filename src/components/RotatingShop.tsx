@@ -22,6 +22,7 @@ type RotatingShopProps = {
   disabled?: boolean;
   endsAt: string;
   equippedAvatarSlots?: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
   equippedCosmeticIds: Partial<Record<CosmeticItem["type"], string>>;
   hasUncensoredAvatar?: boolean;
   items: CosmeticItem[];
@@ -236,6 +237,7 @@ export function RotatingShop({
   disabled = false,
   endsAt,
   equippedAvatarSlots = {},
+  equippedFullSetId = null,
   equippedCosmeticIds,
   hasUncensoredAvatar = false,
   items,
@@ -494,6 +496,7 @@ export function RotatingShop({
             <PrincipessaShowcasePreview
               className="w-[5.75rem] shrink-0 lg:w-[5.4rem]"
               equippedAvatarSlots={equippedAvatarSlots}
+              equippedFullSetId={equippedFullSetId}
               equippedCosmeticIds={previewCosmeticIds}
               hasUncensoredAvatar={hasUncensoredAvatar}
               previewItem={item}
