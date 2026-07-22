@@ -213,6 +213,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
   cosplay_case: {
     name: "Obedience Case",
     description: "A reward reserved for those who know how to obey.",
+    icon_url: "/crate-icons/cosplay_case.webp",
     cost: 5000,
     enabled: true,
     drops: [
@@ -262,6 +263,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
   cat_case: {
     name: "Kitten Case",
     description: "A playful case mixing cat-themed wardrobe pieces, glam accessories, and a shot at rare statement pieces.",
+    icon_url: "/crate-icons/cat_case.webp",
     cost: 3000,
     enabled: true,
     drops: [
@@ -306,6 +308,7 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
   cosplay_pure_case: {
     name: "Cosplay Case",
     description: "Every open guarantees a full-body cosplay illustration. No fillers, no fluff.",
+    icon_url: "/crate-icons/cosplay_pure_case.webp",
     cost: 65000,
     enabled: true,
     drops: [
