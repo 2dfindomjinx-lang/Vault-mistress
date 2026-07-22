@@ -553,14 +553,26 @@ export async function POST(request: Request) {
     const nextCoins = currentCoins - AVATAR_PRESET_SLOT_UNLOCK_COST;
     const nextUnlockedSlots = currentUnlockedPresetSlots + 1;
 
-    const { error: coinErr } = await supabase
+    const { data: updatedRow, error: coinErr } = await supabase
       .from("profiles")
       .update({ coins: nextCoins, unlocked_avatar_preset_slots: nextUnlockedSlots, updated_at: now })
       .eq("id", userId)
-      .eq("coins", currentCoins);
+      .eq("coins", currentCoins)
+      .select("id")
+      .maybeSingle();
 
     if (coinErr) {
       return jsonError("Unlock failed (balance changed).", 409);
+    }
+
+    if (!updatedRow) {
+      // Without .select() above, an update that matches ZERO rows (stale
+      // currentCoins read, concurrent request, etc.) returns no error at
+      // all - the request would look successful (sound + UI update) while
+      // nothing was actually charged or persisted, and a refresh would
+      // silently revert it. Treat "no row came back" as the same failure
+      // as a real error.
+      return jsonError("Unlock failed (balance changed) - please try again.", 409);
     }
 
     const { error: txErr } = await supabase.from("coin_transactions").insert({

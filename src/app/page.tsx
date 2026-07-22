@@ -445,7 +445,7 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
 }
 
 const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -1975,6 +1975,11 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // the first time we notice it's empty, instead of requiring a manual Save.
   useEffect(() => {
     if (avatarPresetBackfillAttemptedRef.current) return;
+    // Never infer an empty preset from the initial client state. On reload or a
+    // tab return, the profile request has not supplied avatar_presets yet; a
+    // premature backfill would overwrite the stored preset with that transient
+    // look.
+    if (!hasHydratedInitialProfile || !isProfileVerified) return;
     if (!isLoggedIn || isGuestMode || isPreviewMode) return;
     if (avatarPresets[0] !== null) return;
 
@@ -1997,7 +2002,16 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
         console.error("Preset 1 backfill error", err);
       }
     })();
-  }, [avatarPresets, equippedAvatarSlots, equippedFullSetId, isLoggedIn, isGuestMode, isPreviewMode]);
+  }, [
+    avatarPresets,
+    equippedAvatarSlots,
+    equippedFullSetId,
+    hasHydratedInitialProfile,
+    isLoggedIn,
+    isGuestMode,
+    isPreviewMode,
+    isProfileVerified,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
