@@ -13,6 +13,35 @@ export type DashboardPage =
   | "tribute"
   | "profile";
 
+// Maps each dashboard panel to its own real URL (so refreshing / sharing a
+// link lands back on the same panel instead of always resetting to home).
+export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
+  home: "/",
+  tribute: "/tribute",
+  tasks: "/tasks",
+  pet: "/pet",
+  debt: "/debt",
+  devotion: "/devotion",
+  shop: "/shop",
+  crates: "/cases",
+  puzzle: "/puzzle",
+  collection: "/collection",
+  profile: "/profile",
+};
+
+const PATH_TO_PANEL: Partial<Record<string, DashboardPage>> = Object.fromEntries(
+  (Object.entries(DASHBOARD_PANEL_PATHS) as Array<[DashboardPage, string]>).map(([page, path]) => [path, page]),
+);
+
+export function getPanelForPath(pathname: string | null | undefined): DashboardPage {
+  if (!pathname) return "home";
+  return PATH_TO_PANEL[pathname] ?? "home";
+}
+
+export function getPathForPanel(page: DashboardPage): string {
+  return DASHBOARD_PANEL_PATHS[page] ?? "/";
+}
+
 export type SidebarNavItem = {
   key: DashboardPage;
   label: string;

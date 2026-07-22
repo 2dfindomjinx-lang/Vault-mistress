@@ -462,8 +462,21 @@ export async function POST(request: Request) {
       return jsonError("No preset saved in this slot.", 400);
     }
 
-    const isOwned = async (itemId: string) => {
-      if (itemId === "classic") return true;
+    // Computed BEFORE the ownership checks below: an item currently equipped
+    // by the OUTGOING look is about to be released back to inventory by this
+    // very switch, so it must count as "available" even though its stored
+    // quantity is still reserved (0) at this instant. Without this, saving
+    // the same item into two different presets meant the second preset could
+    // never be applied while the first one was active - the ownership check
+    // would see the item's reserved quantity and reject it.
+    const previousItemIds = new Set<string>();
+    Object.values(currentSlots).forEach((value) => {
+      if (typeof value === "string") previousItemIds.add(value);
+    });
+    if (currentFullSetId) previousItemIds.add(currentFullSetId);
+
+    const isAvailable = async (itemId: string) => {
+      if (itemId === "classic" || previousItemIds.has(itemId)) return true;
       const { data: inv } = await supabase
         .from("user_crate_inventory")
         .select("quantity")
@@ -476,24 +489,18 @@ export async function POST(request: Request) {
     let targetFullSetId: string | null = null;
     let targetSlots: EquippedAvatarSlots = {};
 
-    if (preset.equippedFullSetId && (await isOwned(preset.equippedFullSetId))) {
+    if (preset.equippedFullSetId && (await isAvailable(preset.equippedFullSetId))) {
       targetFullSetId = preset.equippedFullSetId;
     } else {
       const rawSlots = preset.equippedAvatarSlots || {};
       const validated: EquippedAvatarSlots = {};
       for (const [slot, itemId] of Object.entries(rawSlots)) {
-        if (typeof itemId === "string" && (await isOwned(itemId))) {
+        if (typeof itemId === "string" && (await isAvailable(itemId))) {
           (validated as any)[slot] = itemId;
         }
       }
       targetSlots = normalizeEquipment(validated);
     }
-
-    const previousItemIds = new Set<string>();
-    Object.values(currentSlots).forEach((value) => {
-      if (typeof value === "string") previousItemIds.add(value);
-    });
-    if (currentFullSetId) previousItemIds.add(currentFullSetId);
 
     const nextItemIds = new Set<string>();
     Object.values(targetSlots).forEach((value) => {

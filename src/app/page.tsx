@@ -36,7 +36,7 @@ import {
 import { StatsPanel } from "@/components/StatsPanel";
 import { ProfileTaskCard } from "@/components/TitleCollection";
 import { TopLevelNav } from "@/components/TopLevelNav";
-import type { DashboardPage, SidebarNavItem } from "@/components/SidebarNav";
+import { getPanelForPath, getPathForPanel, type DashboardPage, type SidebarNavItem } from "@/components/SidebarNav";
 
 function VaultPanelLoading() {
   return <div aria-live="polite" className="fixed inset-0 z-40 flex items-center justify-center bg-[#06030a]/82 px-6 backdrop-blur-md lg:left-[280px]" role="status">
@@ -1742,7 +1742,7 @@ function getGalleryMechanicState(unlockedIds: string[]) {
   };
 }
 
-export default function Home() {
+export default function Home({ initialPanel = "home" }: { initialPanel?: DashboardPage } = {}) {
   const speechBubbleModuleRef = useRef<typeof import("@/lib/speech-bubble-messages") | null>(null);
   const addressTermRef = useRef<AddressTerm>(DEFAULT_ADDRESS_TERM);
   const getSpeechBubbleMessageForText = useCallback((avatarId: string | null | undefined, fallbackMessage: string) =>
@@ -1953,8 +1953,8 @@ export default function Home() {
   const [isAvatarActionPending, setIsAvatarActionPending] = useState(false);
   const [avatarPresets, setAvatarPresets] = useState<AvatarPreset[]>([null, null, null]);
   const [unlockedAvatarPresetSlots, setUnlockedAvatarPresetSlots] = useState(1);
-  const [avatarPresetNameDrafts, setAvatarPresetNameDrafts] = useState<Record<number, string>>({});
   const [isAvatarPresetActionPending, setIsAvatarPresetActionPending] = useState(false);
+  const [activeAvatarPresetIndex, setActiveAvatarPresetIndex] = useState<number | null>(null);
   const [committedEquippedSlots, setCommittedEquippedSlots] = useState<EquippedAvatarSlots>({});
   const avatarPresetBackfillAttemptedRef = useRef(false);
 
@@ -2036,7 +2036,7 @@ export default function Home() {
     };
   }, []);
 
-  const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | "fullSet" | null>(null);
+  const [wardrobeCategoryFilter, setWardrobeCategoryFilter] = useState<AvatarSlot | "fullSet" | "background" | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [adminSessionRefreshNonce, setAdminSessionRefreshNonce] = useState(0);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
@@ -2052,7 +2052,38 @@ export default function Home() {
     sacrificeComplete: false,
     allGalleryComplete: false,
   });
-  const [activePanel, setActivePanel] = useState<DashboardPage>("home");
+  // Each panel has its own real URL (see DASHBOARD_PANEL_PATHS in
+  // SidebarNav.tsx) so refreshing or sharing a link (e.g. /cases) lands back
+  // on that panel instead of always resetting to home. `initialPanel` comes
+  // from which thin route file rendered this component (src/app/cases/page.tsx
+  // etc. all render this same Home component with their own panel prop), so
+  // the very first render already matches the URL with no client-only
+  // guessing (no hydration mismatch).
+  //
+  // Switching panels afterwards uses history.pushState directly instead of
+  // next/navigation's router - going through the real Next.js router would
+  // navigate to a different page.tsx route and remount this entire
+  // component (and every piece of state in it: auth, coins, profile, the
+  // works), since these are genuinely separate routes in the app directory.
+  // pushState only changes the address bar; React state here is untouched.
+  const [activePanel, setActivePanelState] = useState<DashboardPage>(initialPanel);
+  const setActivePanel = useCallback((page: DashboardPage) => {
+    setActivePanelState(page);
+    if (typeof window !== "undefined") {
+      const path = getPathForPanel(page);
+      if (window.location.pathname !== path) {
+        window.history.pushState(null, "", path);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActivePanelState(getPanelForPath(window.location.pathname));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
@@ -7658,7 +7689,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setActivePanel("profile");
     setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
     resetViewportScroll();
-  }, [resetViewportScroll, seedRichLocalTestData, setAvatarMistressReply]);
+  }, [resetViewportScroll, seedRichLocalTestData, setActivePanel, setAvatarMistressReply]);
 
   const handleLogout = async () => {
     if (!isGuestMode) {
@@ -11336,9 +11367,148 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 </p>
                 <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
                   <div className="court-feature-card flex min-w-0 flex-col rounded-[1.5rem] border border-white/10 bg-black/35 p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
-                      Avatar Preview
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                        Avatar Preview
+                      </p>
+
+                      {/* Saved Looks - minimal preset selector: click a number to
+                          apply it (or unlock/save if locked/empty); the save icon
+                          overwrites whichever slot is currently active. */}
+                      <div className="flex items-center gap-1">
+                        {[0, 1, 2].map((index) => {
+                          const isLocked = index >= unlockedAvatarPresetSlots;
+                          const preset = avatarPresets[index];
+                          const isActive = activeAvatarPresetIndex === index;
+                          const label = isLocked
+                            ? `Slot ${index + 1} - locked, ${AVATAR_PRESET_SLOT_UNLOCK_COST.toLocaleString()} coins to unlock`
+                            : preset
+                              ? `Apply "${preset.name}"`
+                              : `Select empty slot ${index + 1} (press the save icon to store your current look here)`;
+
+                          return (
+                            <button
+                              className={`flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-black transition disabled:opacity-40 ${
+                                isLocked
+                                  ? "border-white/10 bg-black/30 text-zinc-500"
+                                  : isActive
+                                    ? "border-amber-200/60 bg-amber-400/20 text-amber-100"
+                                    : preset
+                                      ? "border-white/20 bg-black/25 text-zinc-200 hover:border-white/40"
+                                      : "border-dashed border-white/20 bg-black/20 text-zinc-500 hover:border-white/40"
+                              }`}
+                              disabled={isAvatarPresetActionPending}
+                              key={`mini-preset-${index}`}
+                              onClick={async () => {
+                                if (isAvatarPresetActionPending) return;
+                                setIsAvatarPresetActionPending(true);
+
+                                if (isLocked) {
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ action: "unlock-avatar-preset-slot" }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      if (typeof data.unlockedAvatarPresetSlots === "number") {
+                                        setUnlockedAvatarPresetSlots(data.unlockedAvatarPresetSlots);
+                                      }
+                                      if (typeof data.coins === "number") setCoins(data.coins);
+                                      emitSoundEvent("cosmetic_purchased");
+                                      setAvatarMistressReply("Preset slot unlocked.");
+                                    } else {
+                                      setAvatarMistressReply(data.error || "Unlock failed.");
+                                    }
+                                  } catch (err) {
+                                    console.error("Preset slot unlock error", err);
+                                    setAvatarMistressReply("Unlock failed.");
+                                  } finally {
+                                    setIsAvatarPresetActionPending(false);
+                                  }
+                                  return;
+                                }
+
+                                if (!preset) {
+                                  // Empty slot: just select it as the active target - this
+                                  // never writes anything by itself. Only the save icon
+                                  // actually stores the current look, so a stray click here
+                                  // can never silently overwrite/create a preset.
+                                  setActiveAvatarPresetIndex(index);
+                                  setAvatarMistressReply(`Slot ${index + 1} selected - press the save icon to store your current look here.`);
+                                  setIsAvatarPresetActionPending(false);
+                                  return;
+                                }
+
+                                try {
+                                  const res = await fetch("/api/user/wardrobe", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ action: "apply-avatar-preset", presetIndex: index }),
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok) {
+                                    setEquippedAvatarSlots(data.equipped ?? {});
+                                    setCommittedEquippedSlots(data.equipped ?? {});
+                                    setEquippedFullSetId(data.equippedFullSetId ?? null);
+                                    setActiveAvatarPresetIndex(index);
+                                    void loadCratesData();
+                                    setAvatarMistressReply("Preset applied.");
+                                  } else {
+                                    setAvatarMistressReply(data.error || "Failed to apply preset.");
+                                  }
+                                } catch (err) {
+                                  console.error("Preset apply error", err);
+                                  setAvatarMistressReply("Failed to apply preset.");
+                                } finally {
+                                  setIsAvatarPresetActionPending(false);
+                                }
+                              }}
+                              title={label}
+                              type="button"
+                            >
+                              {index + 1}
+                            </button>
+                          );
+                        })}
+                        <button
+                          className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300/30 bg-emerald-500/10 text-[10px] text-emerald-200 disabled:opacity-30"
+                          disabled={activeAvatarPresetIndex === null || isAvatarPresetActionPending}
+                          onClick={async () => {
+                            if (activeAvatarPresetIndex === null || isAvatarPresetActionPending) return;
+                            setIsAvatarPresetActionPending(true);
+                            try {
+                              const res = await fetch("/api/user/wardrobe", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  action: "save-avatar-preset",
+                                  presetIndex: activeAvatarPresetIndex,
+                                  presetName: avatarPresets[activeAvatarPresetIndex]?.name ?? `Preset ${activeAvatarPresetIndex + 1}`,
+                                }),
+                              });
+                              const data = await res.json();
+                              if (res.ok && data.avatarPresets) {
+                                setAvatarPresets(data.avatarPresets);
+                                setAvatarMistressReply("Look saved.");
+                              } else {
+                                setAvatarMistressReply(data.error || "Failed to save preset.");
+                              }
+                            } catch (err) {
+                              console.error("Preset overwrite error", err);
+                              setAvatarMistressReply("Failed to save preset.");
+                            } finally {
+                              setIsAvatarPresetActionPending(false);
+                            }
+                          }}
+                          title="Save current look into the active slot"
+                          type="button"
+                        >
+                          💾
+                        </button>
+                      </div>
+                    </div>
 
                     <div className="flex flex-col xl:flex-row gap-2 mt-1 flex-1 min-h-0">
                       {/* Avatar */}
@@ -11499,6 +11669,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                         {Object.keys(equippedAvatarSlots).length === 0 && (
                           <span className="text-zinc-500">None</span>
                         )}
+                        {(() => {
+                          const isBackgroundFiltered = wardrobeCategoryFilter === "background";
+                          const equippedBackgroundName =
+                            equippedAvatarBackground?.name ?? "No Background";
+
+                          return (
+                            <div
+                              className={`flex items-center gap-1.5 px-1 py-0.5 rounded border cursor-pointer transition text-[10px] ${isBackgroundFiltered ? "border-pink-300 bg-pink-500/10 ring-1 ring-pink-300/40" : "border-white/10 hover:border-white/30"}`}
+                              onClick={() =>
+                                setWardrobeCategoryFilter(isBackgroundFiltered ? null : "background")
+                              }
+                            >
+                              <div
+                                className="h-5 w-5 shrink-0 rounded-sm bg-black/40 bg-cover bg-center"
+                                style={
+                                  avatarBackgroundPresentation.backgroundPath
+                                    ? { backgroundImage: `url(${avatarBackgroundPresentation.backgroundPath})` }
+                                    : avatarBackgroundPresentation.backgroundStyle
+                                }
+                              />
+                              <span className="truncate">{equippedBackgroundName}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -11543,220 +11737,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                       )}
                     </div>
 
-                    {/* Avatar Presets - up to 3 saved looks for instant switching */}
-                    <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/25 p-2 text-[10px]">
-                      <p className="mb-1.5 font-black uppercase tracking-widest text-zinc-300">Saved Looks</p>
-                      <div className="flex flex-col gap-1.5">
-                        {[0, 1, 2].map((index) => {
-                          const isLocked = index >= unlockedAvatarPresetSlots;
-                          const preset = avatarPresets[index];
-                          const draftName = avatarPresetNameDrafts[index] ?? preset?.name ?? "";
-
-                          if (isLocked) {
-                            return (
-                              <div
-                                className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/20 px-2 py-1"
-                                key={`avatar-preset-${index}`}
-                              >
-                                <span className="text-zinc-500">Slot {index + 1} · Locked</span>
-                                <button
-                                  className="shrink-0 rounded border border-pink-300/40 bg-pink-500/10 px-2 py-0.5 font-black text-pink-200 disabled:opacity-50"
-                                  disabled={
-                                    coins < AVATAR_PRESET_SLOT_UNLOCK_COST ||
-                                    isTimeoutActive ||
-                                    isPreviewRestricted ||
-                                    isAvatarPresetActionPending
-                                  }
-                                  onClick={async () => {
-                                    if (isAvatarPresetActionPending) return;
-                                    setIsAvatarPresetActionPending(true);
-                                    try {
-                                      const res = await fetch("/api/user/wardrobe", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ action: "unlock-avatar-preset-slot" }),
-                                      });
-                                      const data = await res.json();
-                                      if (res.ok) {
-                                        if (typeof data.unlockedAvatarPresetSlots === "number") {
-                                          setUnlockedAvatarPresetSlots(data.unlockedAvatarPresetSlots);
-                                        }
-                                        if (typeof data.coins === "number") setCoins(data.coins);
-                                        emitSoundEvent("cosmetic_purchased");
-                                        setAvatarMistressReply("Preset slot unlocked.");
-                                      } else {
-                                        setAvatarMistressReply(data.error || "Unlock failed.");
-                                      }
-                                    } catch (err) {
-                                      console.error("Preset slot unlock error", err);
-                                      setAvatarMistressReply("Unlock failed.");
-                                    } finally {
-                                      setIsAvatarPresetActionPending(false);
-                                    }
-                                  }}
-                                  type="button"
-                                >
-                                  10k coins
-                                </button>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div
-                              className="flex items-center gap-1.5 rounded border border-white/10 bg-black/20 px-2 py-1"
-                              key={`avatar-preset-${index}`}
-                            >
-                              <input
-                                className="min-w-0 flex-1 truncate bg-transparent text-[10px] font-black text-white outline-none placeholder:text-zinc-500"
-                                disabled={isAvatarPresetActionPending}
-                                maxLength={40}
-                                onBlur={async (e) => {
-                                  const nextName = e.target.value.trim();
-                                  setAvatarPresetNameDrafts((current) => {
-                                    const next = { ...current };
-                                    delete next[index];
-                                    return next;
-                                  });
-                                  if (!preset || !nextName || nextName === preset.name) return;
-                                  try {
-                                    const res = await fetch("/api/user/wardrobe", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        action: "rename-avatar-preset",
-                                        presetIndex: index,
-                                        presetName: nextName,
-                                      }),
-                                    });
-                                    const data = await res.json();
-                                    if (res.ok && data.avatarPresets) setAvatarPresets(data.avatarPresets);
-                                  } catch (err) {
-                                    console.error("Preset rename error", err);
-                                  }
-                                }}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  setAvatarPresetNameDrafts((current) => ({ ...current, [index]: value }));
-                                }}
-                                placeholder={`Preset ${index + 1}`}
-                                value={draftName}
-                              />
-                              <button
-                                className="shrink-0 rounded border border-white/15 bg-black/25 px-1.5 py-0.5 font-black text-zinc-300 disabled:opacity-40"
-                                disabled={!preset || isAvatarPresetActionPending}
-                                onClick={async () => {
-                                  if (!preset || isAvatarPresetActionPending) return;
-                                  setIsAvatarPresetActionPending(true);
-                                  try {
-                                    const res = await fetch("/api/user/wardrobe", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ action: "apply-avatar-preset", presetIndex: index }),
-                                    });
-                                    const data = await res.json();
-                                    if (res.ok) {
-                                      setEquippedAvatarSlots(data.equipped ?? {});
-                                      setCommittedEquippedSlots(data.equipped ?? {});
-                                      setEquippedFullSetId(data.equippedFullSetId ?? null);
-                                      void loadCratesData();
-                                      setAvatarMistressReply("Preset applied.");
-                                    } else {
-                                      setAvatarMistressReply(data.error || "Failed to apply preset.");
-                                    }
-                                  } catch (err) {
-                                    console.error("Preset apply error", err);
-                                    setAvatarMistressReply("Failed to apply preset.");
-                                  } finally {
-                                    setIsAvatarPresetActionPending(false);
-                                  }
-                                }}
-                                type="button"
-                              >
-                                Apply
-                              </button>
-                              <button
-                                className="shrink-0 rounded border border-emerald-300/30 bg-emerald-500/10 px-1.5 py-0.5 font-black text-emerald-200 disabled:opacity-40"
-                                disabled={isAvatarPresetActionPending}
-                                onClick={async () => {
-                                  if (isAvatarPresetActionPending) return;
-                                  setIsAvatarPresetActionPending(true);
-                                  try {
-                                    const res = await fetch("/api/user/wardrobe", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        action: "save-avatar-preset",
-                                        presetIndex: index,
-                                        presetName: draftName,
-                                      }),
-                                    });
-                                    const data = await res.json();
-                                    if (res.ok && data.avatarPresets) {
-                                      setAvatarPresets(data.avatarPresets);
-                                      setAvatarMistressReply("Look saved.");
-                                    } else {
-                                      setAvatarMistressReply(data.error || "Failed to save preset.");
-                                    }
-                                  } catch (err) {
-                                    console.error("Preset save error", err);
-                                    setAvatarMistressReply("Failed to save preset.");
-                                  } finally {
-                                    setIsAvatarPresetActionPending(false);
-                                  }
-                                }}
-                                type="button"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Avatar Background - equip/unequip a profile background scene */}
-                    <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/25 p-2 text-[10px]">
-                      <p className="mb-1.5 font-black uppercase tracking-widest text-zinc-300">Background</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {ownedAvatarBackgroundItems.map((item) => {
-                          const isEquipped =
-                            (equippedCosmeticIds["avatar-background"] ?? "avatar-background-none") === item.id;
-                          const isPending = pendingTaskActionIds.includes(`cosmetic:${item.id}`);
-
-                          return (
-                            <button
-                              className={`flex flex-col items-center gap-1 rounded border px-1 py-1.5 text-center transition disabled:opacity-50 ${
-                                isEquipped
-                                  ? "border-amber-200/45 bg-amber-400/10"
-                                  : "border-white/10 bg-black/20 hover:border-white/25"
-                              }`}
-                              disabled={isPending || isTimeoutActive || isPreviewRestricted}
-                              key={item.id}
-                              onClick={() => {
-                                if (isEquipped || isPending) return;
-                                void handleEquipCosmetic(item);
-                              }}
-                              type="button"
-                            >
-                              <div
-                                className="h-8 w-full rounded bg-black/40 bg-cover bg-center"
-                                style={
-                                  item.backgroundPath
-                                    ? { backgroundImage: `url(${item.backgroundPath})` }
-                                    : item.backgroundFallback
-                                      ? { background: item.backgroundFallback }
-                                      : undefined
-                                }
-                              />
-                              <span className="w-full truncate text-[9px] font-black text-zinc-300">
-                                {item.name}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
                   </div>
 
                   <div className="court-feature-card min-w-0 rounded-[1.5rem] border border-white/5 bg-black/30 p-4">
@@ -11772,7 +11752,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                         </button>
                       )}
                     </p>
-                    {Object.keys(equippableByCategory).length === 0 && fullSetInventoryItems.length === 0 ? (
+                    {Object.keys(equippableByCategory).length === 0 && fullSetInventoryItems.length === 0 && ownedAvatarBackgroundItems.length === 0 ? (
                       <div className="mt-4 rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-zinc-400">
                         No equippable crate items yet.
                       </div>
@@ -11860,6 +11840,55 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                         </div>
                                       </div>
                                     </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {(!wardrobeCategoryFilter || wardrobeCategoryFilter === "background") && (
+                          <div key="background">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                                Background
+                              </p>
+                              <span className="text-[10px] text-zinc-500">{ownedAvatarBackgroundItems.length} items</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                              {ownedAvatarBackgroundItems.map((item) => {
+                                const isEquipped =
+                                  (equippedCosmeticIds["avatar-background"] ?? "avatar-background-none") === item.id;
+                                const isPending = pendingTaskActionIds.includes(`cosmetic:${item.id}`);
+
+                                return (
+                                  <button
+                                    className={`flex flex-col items-center gap-1 rounded-[1.1rem] border px-2 py-2 text-center transition disabled:opacity-50 ${
+                                      isEquipped
+                                        ? "border-amber-200/45 bg-amber-400/10"
+                                        : "border-white/10 bg-black/20 hover:border-white/25"
+                                    }`}
+                                    disabled={isPending || isTimeoutActive || isPreviewRestricted}
+                                    key={item.id}
+                                    onClick={() => {
+                                      if (isEquipped || isPending) return;
+                                      void handleEquipCosmetic(item);
+                                    }}
+                                    type="button"
+                                  >
+                                    <div
+                                      className="h-10 w-full rounded bg-black/40 bg-cover bg-center"
+                                      style={
+                                        item.backgroundPath
+                                          ? { backgroundImage: `url(${item.backgroundPath})` }
+                                          : item.backgroundFallback
+                                            ? { background: item.backgroundFallback }
+                                            : undefined
+                                      }
+                                    />
+                                    <span className="w-full truncate text-[9px] font-black text-zinc-300">
+                                      {item.name}
+                                    </span>
+                                    {isEquipped && <span className="text-[9px] text-pink-300">✓ Equipped</span>}
                                   </button>
                                 );
                               })}
