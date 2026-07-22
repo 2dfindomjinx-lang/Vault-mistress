@@ -11401,9 +11401,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                               key={`mini-preset-${index}`}
                               onClick={async () => {
                                 if (isAvatarPresetActionPending) return;
-                                setIsAvatarPresetActionPending(true);
 
                                 if (isLocked) {
+                                  if (
+                                    !window.confirm(
+                                      `Unlock preset slot ${index + 1} for ${AVATAR_PRESET_SLOT_UNLOCK_COST.toLocaleString()} coins? This will be spent immediately.`,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  setIsAvatarPresetActionPending(true);
                                   try {
                                     const res = await fetch("/api/user/wardrobe", {
                                       method: "POST",
@@ -11441,6 +11448,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                   return;
                                 }
 
+                                setIsAvatarPresetActionPending(true);
                                 try {
                                   const res = await fetch("/api/user/wardrobe", {
                                     method: "POST",
@@ -11846,55 +11854,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             </div>
                           </div>
                         )}
-                        {(!wardrobeCategoryFilter || wardrobeCategoryFilter === "background") && (
-                          <div key="background">
-                            <div className="mb-2 flex items-center justify-between">
-                              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
-                                Background
-                              </p>
-                              <span className="text-[10px] text-zinc-500">{ownedAvatarBackgroundItems.length} items</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                              {ownedAvatarBackgroundItems.map((item) => {
-                                const isEquipped =
-                                  (equippedCosmeticIds["avatar-background"] ?? "avatar-background-none") === item.id;
-                                const isPending = pendingTaskActionIds.includes(`cosmetic:${item.id}`);
-
-                                return (
-                                  <button
-                                    className={`flex flex-col items-center gap-1 rounded-[1.1rem] border px-2 py-2 text-center transition disabled:opacity-50 ${
-                                      isEquipped
-                                        ? "border-amber-200/45 bg-amber-400/10"
-                                        : "border-white/10 bg-black/20 hover:border-white/25"
-                                    }`}
-                                    disabled={isPending || isTimeoutActive || isPreviewRestricted}
-                                    key={item.id}
-                                    onClick={() => {
-                                      if (isEquipped || isPending) return;
-                                      void handleEquipCosmetic(item);
-                                    }}
-                                    type="button"
-                                  >
-                                    <div
-                                      className="h-10 w-full rounded bg-black/40 bg-cover bg-center"
-                                      style={
-                                        item.backgroundPath
-                                          ? { backgroundImage: `url(${item.backgroundPath})` }
-                                          : item.backgroundFallback
-                                            ? { background: item.backgroundFallback }
-                                            : undefined
-                                      }
-                                    />
-                                    <span className="w-full truncate text-[9px] font-black text-zinc-300">
-                                      {item.name}
-                                    </span>
-                                    {isEquipped && <span className="text-[9px] text-pink-300">✓ Equipped</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
                         {AVATAR_SLOT_ORDER.map((slot) => {
                           if (wardrobeCategoryFilter && slot !== wardrobeCategoryFilter) return null;
                           const items = equippableByCategory[slot] || [];
@@ -11997,6 +11956,55 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             </div>
                           );
                         })}
+                        {(!wardrobeCategoryFilter || wardrobeCategoryFilter === "background") && (
+                          <div key="background">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
+                                Background
+                              </p>
+                              <span className="text-[10px] text-zinc-500">{ownedAvatarBackgroundItems.length} items</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                              {ownedAvatarBackgroundItems.map((item) => {
+                                const isEquipped =
+                                  (equippedCosmeticIds["avatar-background"] ?? "avatar-background-none") === item.id;
+                                const isPending = pendingTaskActionIds.includes(`cosmetic:${item.id}`);
+
+                                return (
+                                  <button
+                                    className={`flex flex-col items-center gap-1 rounded-[1.1rem] border px-2 py-2 text-center transition disabled:opacity-50 ${
+                                      isEquipped
+                                        ? "border-amber-200/45 bg-amber-400/10"
+                                        : "border-white/10 bg-black/20 hover:border-white/25"
+                                    }`}
+                                    disabled={isPending || isTimeoutActive || isPreviewRestricted}
+                                    key={item.id}
+                                    onClick={() => {
+                                      if (isEquipped || isPending) return;
+                                      void handleEquipCosmetic(item);
+                                    }}
+                                    type="button"
+                                  >
+                                    <div
+                                      className="h-10 w-full rounded bg-black/40 bg-cover bg-center"
+                                      style={
+                                        item.backgroundPath
+                                          ? { backgroundImage: `url(${item.backgroundPath})` }
+                                          : item.backgroundFallback
+                                            ? { background: item.backgroundFallback }
+                                            : undefined
+                                      }
+                                    />
+                                    <span className="w-full truncate text-[9px] font-black text-zinc-300">
+                                      {item.name}
+                                    </span>
+                                    {isEquipped && <span className="text-[9px] text-pink-300">✓ Equipped</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
