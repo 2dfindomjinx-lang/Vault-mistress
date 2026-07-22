@@ -8,6 +8,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -213,6 +214,13 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Body | null;
   const supabase = createSupabaseAdminClient();
+
+  if (body?.action !== "capacity") {
+    const rateLimit = await checkRateLimit(supabase, `debt-contract:${userId}`, 20, 60);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+  }
 
   if (body?.action === "capacity") {
     const periodType = body.periodType;

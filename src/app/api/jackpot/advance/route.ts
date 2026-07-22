@@ -12,10 +12,12 @@ import {
   buildJackpotState,
 } from "@/app/api/jackpot/route";
 import { JACKPOT_BASE_POOL } from "@/lib/jackpot";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 type AdminContext = Awaited<ReturnType<typeof requireAdmin>>;
 
+// Cron or a verified trusted-admin session only - this drives winner
+// selection/payout, so any regular authenticated user accepted here would
+// let a non-admin trigger an admin/cron-only economic operation.
 async function authorizeAdvance(request: Request): Promise<AdminContext> {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization") ?? "";
@@ -32,16 +34,6 @@ async function authorizeAdvance(request: Request): Promise<AdminContext> {
     return {
       adminProfile: null,
       adminUser: { id: "cron" },
-      supabase: createSupabaseAdminClient(),
-    } as unknown as AdminContext;
-  }
-
-  const authSupabase = await createSupabaseServerClient();
-  const { data, error } = await authSupabase.auth.getUser();
-  if (!error && data.user && isSupabaseAdminConfigured) {
-    return {
-      adminProfile: null,
-      adminUser: { id: data.user.id },
       supabase: createSupabaseAdminClient(),
     } as unknown as AdminContext;
   }

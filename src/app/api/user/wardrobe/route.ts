@@ -10,15 +10,30 @@ import {
   equipAvatarItem,
   unequipAvatarSlot,
   isFullSetItem,
+  MAX_AVATAR_PRESET_SLOTS,
+  AVATAR_PRESET_SLOT_UNLOCK_COST,
   type EquippedAvatarSlots,
   type AvatarSlot,
+  type AvatarPreset,
 } from "@/lib/avatar-slots";
 import { profileSelect } from "@/lib/server-game-rules";
 
 type Body = {
-  action?: "equip" | "unequip" | "unlock-uncensored" | "equip-full-set" | "unequip-full-set";
+  action?:
+    | "equip"
+    | "unequip"
+    | "unlock-uncensored"
+    | "equip-full-set"
+    | "unequip-full-set"
+    | "set-equipped"
+    | "save-avatar-preset"
+    | "apply-avatar-preset"
+    | "rename-avatar-preset"
+    | "unlock-avatar-preset-slot";
   itemId?: string;
   slot?: AvatarSlot;
+  presetIndex?: number;
+  presetName?: string;
 };
 
 function jsonError(message: string, status = 400) {
@@ -26,6 +41,14 @@ function jsonError(message: string, status = 400) {
 }
 
 const UNCENSORED_COST = 10000;
+
+function normalizePresets(raw: unknown): AvatarPreset[] {
+  const presets: AvatarPreset[] = Array.isArray(raw) ? [...raw] : [];
+  while (presets.length < MAX_AVATAR_PRESET_SLOTS) {
+    presets.push(null);
+  }
+  return presets.slice(0, MAX_AVATAR_PRESET_SLOTS);
+}
 
 async function adjustInventoryQuantity(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
@@ -105,7 +128,9 @@ export async function POST(request: Request) {
   // Load current profile for equipped and coins
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, coins, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar")
+    .select(
+      "id, coins, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots",
+    )
     .eq("id", userId)
     .single();
 
@@ -349,6 +374,208 @@ export async function POST(request: Request) {
       return jsonError("Failed to sync equipped.", 500);
     }
     return Response.json({ equipped: normalized });
+  }
+
+  const currentPresets = normalizePresets(profile.avatar_presets);
+  const currentUnlockedPresetSlots = Math.max(
+    1,
+    Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1)),
+  );
+
+  if (action === "save-avatar-preset") {
+    const presetIndex = body?.presetIndex;
+    if (typeof presetIndex !== "number" || presetIndex < 0 || presetIndex >= MAX_AVATAR_PRESET_SLOTS) {
+      return jsonError("Invalid preset slot.", 400);
+    }
+    if (presetIndex >= currentUnlockedPresetSlots) {
+      return jsonError("This preset slot is locked.", 403);
+    }
+
+    const existing = currentPresets[presetIndex];
+    const rawName = typeof body?.presetName === "string" ? body.presetName.trim() : "";
+    const name = (rawName || existing?.name || `Preset ${presetIndex + 1}`).slice(0, 40);
+
+    const nextPresets = [...currentPresets];
+    nextPresets[presetIndex] = {
+      name,
+      equippedAvatarSlots: currentSlots,
+      equippedFullSetId: currentFullSetId,
+    };
+
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({ avatar_presets: nextPresets, updated_at: now })
+      .eq("id", userId);
+
+    if (updateErr) {
+      return jsonError("Failed to save preset.", 500);
+    }
+
+    return Response.json({ avatarPresets: nextPresets });
+  }
+
+  if (action === "rename-avatar-preset") {
+    const presetIndex = body?.presetIndex;
+    if (typeof presetIndex !== "number" || presetIndex < 0 || presetIndex >= MAX_AVATAR_PRESET_SLOTS) {
+      return jsonError("Invalid preset slot.", 400);
+    }
+    if (presetIndex >= currentUnlockedPresetSlots) {
+      return jsonError("This preset slot is locked.", 403);
+    }
+
+    const existing = currentPresets[presetIndex];
+    if (!existing) {
+      return jsonError("No preset saved in this slot.", 400);
+    }
+
+    const rawName = typeof body?.presetName === "string" ? body.presetName.trim() : "";
+    if (!rawName) {
+      return jsonError("Preset name required.", 400);
+    }
+
+    const nextPresets = [...currentPresets];
+    nextPresets[presetIndex] = { ...existing, name: rawName.slice(0, 40) };
+
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({ avatar_presets: nextPresets, updated_at: now })
+      .eq("id", userId);
+
+    if (updateErr) {
+      return jsonError("Failed to rename preset.", 500);
+    }
+
+    return Response.json({ avatarPresets: nextPresets });
+  }
+
+  if (action === "apply-avatar-preset") {
+    const presetIndex = body?.presetIndex;
+    if (typeof presetIndex !== "number" || presetIndex < 0 || presetIndex >= MAX_AVATAR_PRESET_SLOTS) {
+      return jsonError("Invalid preset slot.", 400);
+    }
+    if (presetIndex >= currentUnlockedPresetSlots) {
+      return jsonError("This preset slot is locked.", 403);
+    }
+
+    const preset = currentPresets[presetIndex];
+    if (!preset) {
+      return jsonError("No preset saved in this slot.", 400);
+    }
+
+    const isOwned = async (itemId: string) => {
+      if (itemId === "classic") return true;
+      const { data: inv } = await supabase
+        .from("user_crate_inventory")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("item_id", itemId)
+        .maybeSingle();
+      return !!inv && (inv.quantity ?? 0) > 0;
+    };
+
+    let targetFullSetId: string | null = null;
+    let targetSlots: EquippedAvatarSlots = {};
+
+    if (preset.equippedFullSetId && (await isOwned(preset.equippedFullSetId))) {
+      targetFullSetId = preset.equippedFullSetId;
+    } else {
+      const rawSlots = preset.equippedAvatarSlots || {};
+      const validated: EquippedAvatarSlots = {};
+      for (const [slot, itemId] of Object.entries(rawSlots)) {
+        if (typeof itemId === "string" && (await isOwned(itemId))) {
+          (validated as any)[slot] = itemId;
+        }
+      }
+      targetSlots = normalizeEquipment(validated);
+    }
+
+    const previousItemIds = new Set<string>();
+    Object.values(currentSlots).forEach((value) => {
+      if (typeof value === "string") previousItemIds.add(value);
+    });
+    if (currentFullSetId) previousItemIds.add(currentFullSetId);
+
+    const nextItemIds = new Set<string>();
+    Object.values(targetSlots).forEach((value) => {
+      if (typeof value === "string") nextItemIds.add(value);
+    });
+    if (targetFullSetId) nextItemIds.add(targetFullSetId);
+
+    try {
+      for (const removedItemId of previousItemIds) {
+        if (!nextItemIds.has(removedItemId)) {
+          await adjustInventoryQuantity(supabase, userId, removedItemId, "normal", 1);
+        }
+      }
+      for (const addedItemId of nextItemIds) {
+        if (!previousItemIds.has(addedItemId)) {
+          await adjustInventoryQuantity(supabase, userId, addedItemId, "normal", -1);
+        }
+      }
+    } catch (inventoryErr) {
+      console.error("[wardrobe] preset apply inventory update failed", inventoryErr);
+      return jsonError("Failed to update inventory reserve.", 500);
+    }
+
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({
+        equipped_avatar_slots: targetSlots,
+        equipped_full_set_id: targetFullSetId,
+        updated_at: now,
+      })
+      .eq("id", userId);
+
+    if (updateErr) {
+      return jsonError("Failed to apply preset.", 500);
+    }
+
+    return Response.json({ equipped: targetSlots, equippedFullSetId: targetFullSetId });
+  }
+
+  if (action === "unlock-avatar-preset-slot") {
+    if (currentUnlockedPresetSlots >= MAX_AVATAR_PRESET_SLOTS) {
+      return Response.json({ unlockedAvatarPresetSlots: currentUnlockedPresetSlots });
+    }
+
+    const currentCoins = Number(profile.coins ?? 0);
+    if (currentCoins < AVATAR_PRESET_SLOT_UNLOCK_COST) {
+      return jsonError("Not enough coins.", 402);
+    }
+
+    const nextCoins = currentCoins - AVATAR_PRESET_SLOT_UNLOCK_COST;
+    const nextUnlockedSlots = currentUnlockedPresetSlots + 1;
+
+    const { error: coinErr } = await supabase
+      .from("profiles")
+      .update({ coins: nextCoins, unlocked_avatar_preset_slots: nextUnlockedSlots, updated_at: now })
+      .eq("id", userId)
+      .eq("coins", currentCoins);
+
+    if (coinErr) {
+      return jsonError("Unlock failed (balance changed).", 409);
+    }
+
+    const { error: txErr } = await supabase.from("coin_transactions").insert({
+      user_id: userId,
+      amount: -AVATAR_PRESET_SLOT_UNLOCK_COST,
+      balance_before: currentCoins,
+      balance_after: nextCoins,
+      reason: "spend:avatar-preset-slot",
+      metadata: { spendAmount: AVATAR_PRESET_SLOT_UNLOCK_COST, slotIndex: currentUnlockedPresetSlots },
+    });
+
+    if (txErr) {
+      console.error("[wardrobe] preset slot unlock ledger insert failed", txErr);
+      await supabase
+        .from("profiles")
+        .update({ coins: currentCoins, unlocked_avatar_preset_slots: currentUnlockedPresetSlots, updated_at: now })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+      return jsonError("Unlock logging failed.", 500);
+    }
+
+    return Response.json({ unlockedAvatarPresetSlots: nextUnlockedSlots, coins: nextCoins });
   }
 
   return jsonError("Unknown action.", 400);

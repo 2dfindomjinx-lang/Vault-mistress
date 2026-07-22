@@ -80,6 +80,11 @@ export async function GET(request: Request) {
     retention = data;
   }
 
+  if (!dryRun) {
+    const { error: pruneError } = await supabase.rpc("prune_rate_limit_buckets");
+    if (pruneError) console.warn("Rate limit bucket prune failed", pruneError);
+  }
+
   const { data: deletionRows, error: deletionError } = await supabase.rpc("get_inactive_user_deletion_batch", { p_limit: dryRun ? 100 : 50 });
   if (deletionError) return Response.json({ error: deletionError.message, retention }, { status: 500 });
 

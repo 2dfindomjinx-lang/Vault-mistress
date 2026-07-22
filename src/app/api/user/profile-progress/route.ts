@@ -21,6 +21,7 @@ import {
   getMetadataString,
 } from "@/lib/server-task-actions";
 import { getNextGmt3Reset } from "@/lib/time";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 type ProfilePatchBody = {
   metadata?: Record<string, unknown>;
@@ -145,6 +146,12 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+
+  const rateLimit = await checkRateLimit(supabase, `profile-progress:${authData.user.id}`, 60, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
+
   const { data: currentProfileData, error: currentError } = await supabase
     .from("profiles")
     .select("id, coins, affection, tribute_total")

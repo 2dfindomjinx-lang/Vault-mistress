@@ -5,6 +5,7 @@ import { CRATE_TYPES } from "@/lib/crates";
 import { awardDevotion } from "@/lib/devotion";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +37,11 @@ function getGiveDevotionAmount(baseAmount: number) {
 export async function POST(request: Request) {
   const admin = await requireMobileAdmin(request);
   if ("error" in admin) return Response.json({ error: admin.error }, { status: admin.status });
+
+  const rateLimit = await checkRateLimit(admin.supabase, `admin-mobile-give:${admin.adminUser.id}`, 30, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
+  }
 
   const body = (await request.json().catch(() => null)) as { command?: string } | null;
   const command = body?.command?.trim() ?? "";

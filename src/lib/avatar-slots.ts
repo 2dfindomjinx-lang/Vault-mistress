@@ -129,6 +129,15 @@ AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
 
 export type EquippedAvatarSlots = Partial<Record<AvatarSlot, string>>;
 
+export type AvatarPreset = {
+  name: string;
+  equippedAvatarSlots: EquippedAvatarSlots;
+  equippedFullSetId: string | null;
+} | null;
+
+export const MAX_AVATAR_PRESET_SLOTS = 3;
+export const AVATAR_PRESET_SLOT_UNLOCK_COST = 10000;
+
 export type RenderedAvatarLayer = {
   itemId: string;
   slot: Exclude<AvatarSlot, "toy">;

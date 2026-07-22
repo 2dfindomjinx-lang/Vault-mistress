@@ -135,47 +135,10 @@ export function ProfileHeaderCustomizationPanel({
   return (
     <div className="court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(150deg,rgba(10,5,15,0.92),rgba(35,10,32,0.45),rgba(0,0,0,0.92))] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
       <div className="border-b border-white/10 px-4 py-3 sm:px-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-100/60">
-              Profile Header Customization
-            </p>
-            <h3 className="mt-1 text-lg font-black text-white">Header cosmetics</h3>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-1 lg:max-w-[62%]">
-            <button
-              className={`shrink-0 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition ${
-                categoryFilter === null
-                  ? "border-pink-200/40 bg-pink-500/16 text-pink-50"
-                  : "border-white/10 bg-black/25 text-zinc-300 hover:border-white/25"
-              }`}
-              onClick={() => setCategoryFilter(null)}
-              type="button"
-            >
-              All {ownedItems.length}
-            </button>
-            {typeOrder.map((type) => {
-              const count = (ownedItemsByType.get(type) ?? []).length;
-              const isActive = categoryFilter === type;
-
-              return (
-                <button
-                  className={`shrink-0 rounded-full border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition ${
-                    isActive
-                      ? "border-pink-200/40 bg-pink-500/16 text-pink-50"
-                      : "border-white/10 bg-black/25 text-zinc-300 hover:border-white/25"
-                  }`}
-                  key={`header-filter-${type}`}
-                  onClick={() => setCategoryFilter((current) => (current === type ? null : type))}
-                  type="button"
-                >
-                  {getHeaderTypeLabel(type)} {count}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-100/60">
+          Profile Header Customization
+        </p>
+        <h3 className="mt-1 text-lg font-black text-white">Header cosmetics</h3>
       </div>
 
       {ownedItems.length === 0 ? (
@@ -236,31 +199,52 @@ export function ProfileHeaderCustomizationPanel({
                   const itemId = previewCosmeticIds[type];
                   const item = itemId ? itemById.get(itemId) ?? getCosmeticItem(itemId) ?? null : null;
                   const count = (ownedItemsByType.get(type) ?? []).length;
+                  const isEquipped = Boolean(equippedCosmeticIds[type]);
+                  const isPending = pendingActionIds.includes(`cosmetic:unequip:${type}`);
 
                   return (
-                    <button
-                      className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 text-left transition ${
+                    <div
+                      className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 transition ${
                         categoryFilter === type
                           ? "border-pink-200/35 bg-pink-500/12"
                           : "border-white/10 bg-black/20 hover:border-white/25"
                       }`}
                       key={`header-summary-${type}`}
-                      onClick={() => setCategoryFilter((current) => (current === type ? null : type))}
-                      type="button"
                     >
-                      {renderMiniPreview(item, true)}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[11px] font-black uppercase tracking-[0.1em] text-white/85">
-                          {getHeaderTypeLabel(type)}
-                        </p>
-                        <p className="truncate text-[11px] text-zinc-500">
-                          {item ? item.name : count > 0 ? "Owned, not equipped" : "None owned"}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-zinc-300">
-                        {count}
-                      </span>
-                    </button>
+                      <button
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        onClick={() => setCategoryFilter((current) => (current === type ? null : type))}
+                        type="button"
+                      >
+                        {renderMiniPreview(item, true)}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[11px] font-black uppercase tracking-[0.1em] text-white/85">
+                            {getHeaderTypeLabel(type)}
+                          </p>
+                          <p className="truncate text-[11px] text-zinc-500">
+                            {item ? item.name : count > 0 ? "Owned, not equipped" : "None owned"}
+                          </p>
+                        </div>
+                      </button>
+                      {isEquipped ? (
+                        <button
+                          className="shrink-0 rounded-full border border-white/15 bg-black/30 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-zinc-300 transition hover:border-red-300/40 hover:bg-red-500/14 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={isPending}
+                          onClick={() => {
+                            if (isPending) return;
+                            void onUnequipType(type);
+                          }}
+                          title={`Unequip ${getHeaderTypeLabel(type)}`}
+                          type="button"
+                        >
+                          {isPending ? "..." : "Unequip"}
+                        </button>
+                      ) : (
+                        <span className="shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-zinc-300">
+                          {count}
+                        </span>
+                      )}
+                    </div>
                   );
                 })}
               </div>

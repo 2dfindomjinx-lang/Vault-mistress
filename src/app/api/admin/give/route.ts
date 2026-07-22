@@ -6,6 +6,7 @@ import { ADMIN_GRANTABLE_TITLE_IDS, getTitleItem } from "@/lib/cosmetics";
 import { CRATE_TYPES } from "@/lib/crates";
 import { awardDevotion } from "@/lib/devotion";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function getGiveBonusPercent(giveAmount: number) {
   if (giveAmount >= 100000) {
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
 
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
+  }
+
+  const rateLimit = await checkRateLimit(admin.supabase, `admin-give:${admin.adminUser.id}`, 30, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
   const command = body.command?.trim() ?? "";

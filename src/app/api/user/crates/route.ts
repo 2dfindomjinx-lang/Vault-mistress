@@ -20,6 +20,7 @@ import {
 } from "@/lib/crate-events";
 import { getGmt3DayBounds } from "@/lib/time";
 import type { EventEffect } from "@/lib/events";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const MAX_CRATE_BATCH_OPEN = 5;
 
@@ -676,6 +677,11 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
 
   if (action === "open") {
+    const rateLimit = await checkRateLimit(supabase, `crate-open:${userId}`, 30, 60);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const crateType = body?.crateType;
     const crateDef = CRATE_TYPES[crateType ?? ""];
 

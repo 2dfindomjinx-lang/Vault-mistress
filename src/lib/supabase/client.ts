@@ -12,6 +12,8 @@ export type Profile = {
   equipped_avatar_slots?: Record<string, string> | null;
   equipped_full_set_id?: string | null;
   has_uncensored_avatar?: boolean;
+  avatar_presets?: import("@/lib/avatar-slots").AvatarPreset[] | null;
+  unlocked_avatar_preset_slots?: number;
   // email is intentionally not populated for regular client usage (security).
   // It may exist in the DB but must never be returned to non-admin clients.
   coins: number;

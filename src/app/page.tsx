@@ -87,15 +87,16 @@ function preloadDashboardPanel(page: DashboardPage) {
 import {
   AVATAR_SLOT_ORDER,
   resolveAvatarItemIconPath,
-  equipAvatarItem,
   getItemAvatarSlot,
   isAvatarEquippableItem,
   isFullSetItem,
   normalizeEquipment,
-  unequipAvatarSlot,
   SLOT_LABELS,
+  MAX_AVATAR_PRESET_SLOTS,
+  AVATAR_PRESET_SLOT_UNLOCK_COST,
   type AvatarSlot,
   type EquippedAvatarSlots,
+  type AvatarPreset,
 } from "@/lib/avatar-slots";
 import {
   getAvatarBackgroundPresentation,
@@ -111,7 +112,6 @@ import {
   getUnlockedInventoryTitleIds,
   getUnlockedPetTitleIds,
   permanentCosmeticItems,
-  rotatingCosmeticItems,
   titleItems,
   type CosmeticItem,
   type CosmeticType,
@@ -161,6 +161,7 @@ import {
   SAMPLE_CRATE_ITEMS,
   RARITY_ORDER,
   getCrateIconUrl,
+  type CrateRarity,
 } from "@/lib/crates";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
@@ -168,7 +169,6 @@ import {
   HIGH_LOW_BET_ALLOWANCE,
   HIGH_LOW_PROFIT_LIMIT,
   HIGH_LOW_REPLAY_COOLDOWN_MS,
-  HIGH_LOW_REVEAL_DELAY_MS,
   getHighLowBetAllowance,
   getHighLowTieFee,
   isHighLowLocked,
@@ -179,10 +179,8 @@ import {
 import { getUserLevelProgress } from "@/lib/levels";
 import {
   formatPetThroneAmount,
-  getPetThroneReceiveAmount,
   getPetThroneRewardBreakdown,
   PET_THRONE_TASK_ID,
-  PET_THRONE_URL,
 } from "@/lib/pet-throne";
 import {
   getDailyPetConfessionSentence,
@@ -190,14 +188,12 @@ import {
   getDailyPetVoiceSentence,
   getPetTasks,
   petTasks as defaultPetTasks,
-  PET_TASK_REWARD as PET_TASK_CONTENT_REWARD,
   PET_WEEKLY_TAX_REWARD as PET_TASK_CONTENT_WEEKLY_TAX_REWARD,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
-  getGmt3DayBounds,
   getGmt3DateKey,
   getGmt3DayIndex,
   getMsUntilNextGmt3HalfDayReset,
@@ -455,7 +451,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_MIN_COST = 2500;
 const PET_WEEKLY_TAX_MAX_COST = 10000;
-const PET_TASK_REWARD = PET_TASK_CONTENT_REWARD;
 const PET_TASK_COIN_REWARD = 200;
 const PET_REVIEW_TASK_COIN_REWARD = 250;
 const PET_WEEKLY_TAX_REWARD = PET_TASK_CONTENT_WEEKLY_TAX_REWARD;
@@ -488,7 +483,6 @@ const SAFE_REWARD = 125;
 const BEG_REWARD = 50;
 const SACRIFICE_COST = 500;
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
-const SACRIFICE_UNLOCK_CHANCE = 0.35;
 const SUPPORT_COST = 2500;
 const TIMEOUT_RISK_CHANCE = 0.2;
 const JACKPOT_IDLE_REFRESH_MS = 15 * 60 * 1000;
@@ -965,53 +959,6 @@ function getWaitTaskState(
   return "ready";
 }
 
-function buildHighLowPetTask(task: PetTaskItem, highLowRow: UserTaskRow | null) {
-  const highLowCooldownUntil = getCooldownUntil(highLowRow?.claimed_at ?? null, HIGH_LOW_REPLAY_COOLDOWN_MS);
-  const windowStartedAt =
-    getTaskMetadataString(highLowRow?.metadata, "higherLowerWindowStartedAt") ??
-    highLowRow?.claimed_at ??
-    null;
-  const windowActive = Boolean(getDailyGmt3CooldownUntil(windowStartedAt));
-  const highLowResetAt = windowActive ? getDailyGmt3CooldownUntil(windowStartedAt) : null;
-  const dailyProfit = windowActive
-    ? getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyProfit", 0)
-    : 0;
-  const dailyWins = windowActive ? getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyWins", 0) : 0;
-  const dailyBetTotal = windowActive
-    ? getTaskMetadataNumber(
-        highLowRow?.metadata,
-        "higherLowerDailyBetTotal",
-        getTaskMetadataNumber(highLowRow?.metadata, "higherLowerDailyWinningExposure", 0),
-      )
-    : 0;
-
-  return {
-    ...task,
-    completed: Boolean(highLowRow?.completed_at),
-    claimed: Boolean(highLowCooldownUntil),
-    cooldownUntil: highLowCooldownUntil,
-    currentNumber:
-      getTaskMetadataNumber(highLowRow?.metadata, "highLowCurrentNumber", Number.NaN) ??
-      getTaskMetadataNumber(highLowRow?.metadata, "currentNumber", Number.NaN) ??
-      undefined,
-    highLowNextNumber:
-      getTaskMetadataNumber(highLowRow?.metadata, "highLowNextNumber", Number.NaN) ??
-      getTaskMetadataNumber(highLowRow?.metadata, "nextNumber", Number.NaN) ??
-      undefined,
-    highLowDailyDate: windowActive ? getDailyKey() : null,
-    highLowDailyBetTotal: dailyBetTotal,
-    highLowDailyLocked: isHighLowLocked(dailyBetTotal, dailyProfit),
-    highLowDailyProfit: dailyProfit,
-    highLowDailyWins: dailyWins,
-    highLowBetAllowance: getHighLowBetAllowance(dailyBetTotal),
-    highLowResetAt,
-    highLowRoundAvailableAt:
-      getTaskMetadataString(highLowRow?.metadata, "highLowRoundAvailableAt") ??
-      getTaskMetadataString(highLowRow?.metadata, "nextBaseRevealAt") ??
-      null,
-  };
-}
-
 function buildPetTasksFromRows(
   rows: UserPetTaskRow[],
   lastPetTaxAt?: string | null,
@@ -1395,10 +1342,6 @@ function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = 1200
       window.clearTimeout(timeoutId);
     }
   });
-}
-
-function getDebtPeriodMs(periodType: PetDebtContract["period_type"]) {
-  return periodType === "weekly" ? WEEK_MS : 30 * DAY_MS;
 }
 
 function getDebtCurrentInstallmentRemaining(contract: Pick<PetDebtContract, "current_installment_remaining" | "debt_amount">) {
@@ -1881,7 +1824,7 @@ export default function Home() {
   }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode]);
   const [username, setUsername] = useState("@littledevotee");
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [showDisplayNameSetup, setShowDisplayNameSetup] = useState(false);
+  const [, setShowDisplayNameSetup] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [displayNameError, setDisplayNameError] = useState("");
   const [isSettingDisplayName, setIsSettingDisplayName] = useState(false);
@@ -2008,13 +1951,53 @@ export default function Home() {
   const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
   const [hasUncensoredAvatar, setHasUncensoredAvatar] = useState(false);
   const [isAvatarActionPending, setIsAvatarActionPending] = useState(false);
-  const committedEquippedRef = useRef<EquippedAvatarSlots>({});
+  const [avatarPresets, setAvatarPresets] = useState<AvatarPreset[]>([null, null, null]);
+  const [unlockedAvatarPresetSlots, setUnlockedAvatarPresetSlots] = useState(1);
+  const [avatarPresetNameDrafts, setAvatarPresetNameDrafts] = useState<Record<number, string>>({});
+  const [isAvatarPresetActionPending, setIsAvatarPresetActionPending] = useState(false);
+  const [committedEquippedSlots, setCommittedEquippedSlots] = useState<EquippedAvatarSlots>({});
+  const avatarPresetBackfillAttemptedRef = useRef(false);
 
   useEffect(() => {
+    // Mirrors equippedAvatarSlots into "last committed" state whenever no equip/unequip
+    // request is in flight, so the avatar preview doesn't flicker to an intermediate
+    // state while a wardrobe request is pending. This is a genuine cross-render "last
+    // known good value" that can't be derived with useMemo (it must survive across the
+    // render where isAvatarActionPending flips true). Safe no-op when already equal.
     if (!isAvatarActionPending) {
-      committedEquippedRef.current = equippedAvatarSlots;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional lagging-value sync, not a derivable value
+      setCommittedEquippedSlots(equippedAvatarSlots);
     }
   }, [equippedAvatarSlots, isAvatarActionPending]);
+
+  // Existing avatar customization from before the presets feature existed
+  // should be perceived as "Preset 1" - back it up into slot 0 automatically
+  // the first time we notice it's empty, instead of requiring a manual Save.
+  useEffect(() => {
+    if (avatarPresetBackfillAttemptedRef.current) return;
+    if (!isLoggedIn || isGuestMode || isPreviewMode) return;
+    if (avatarPresets[0] !== null) return;
+
+    const hasEquippedLook = Object.keys(equippedAvatarSlots).length > 0 || Boolean(equippedFullSetId);
+    if (!hasEquippedLook) return;
+
+    avatarPresetBackfillAttemptedRef.current = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/user/wardrobe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "save-avatar-preset", presetIndex: 0, presetName: "Preset 1" }),
+        });
+        const data = await res.json();
+        if (res.ok && data.avatarPresets) {
+          setAvatarPresets(data.avatarPresets);
+        }
+      } catch (err) {
+        console.error("Preset 1 backfill error", err);
+      }
+    })();
+  }, [avatarPresets, equippedAvatarSlots, equippedFullSetId, isLoggedIn, isGuestMode, isPreviewMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2061,7 +2044,7 @@ export default function Home() {
     masterVolume: 0.7,
     uiEnabled: true,
   });
-  const [affectionStageRevealToken, setAffectionStageRevealToken] = useState(0);
+  const [, setAffectionStageRevealToken] = useState(0);
   const [mechanics, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
@@ -2197,17 +2180,21 @@ export default function Home() {
 
     return persistedSpeechAvatarId;
   }, [
-    activeManualTemporarySpeechAvatar?.avatarId,
+    activeManualTemporarySpeechAvatar,
     autoEventSpeechAvatarId,
     persistedSpeechAvatarId,
     randomSpeechAvatarCandidates,
   ]);
   useEffect(() => {
+    // Keeps randomSpeechAvatarId valid when the candidate pool changes (e.g. cosmetics
+    // unlocked/lost). randomSpeechAvatarId is also driven by Math.random() selection
+    // elsewhere, so it's genuine state, not a derivable value.
     if (
       persistedSpeechAvatarId === RANDOM_SPEECH_AVATAR_ID &&
       randomSpeechAvatarCandidates.length > 0 &&
       !randomSpeechAvatarCandidates.includes(randomSpeechAvatarId)
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- corrective sync guard, not a derivable value
       setRandomSpeechAvatarId(randomSpeechAvatarCandidates[0]);
     }
   }, [persistedSpeechAvatarId, randomSpeechAvatarCandidates, randomSpeechAvatarId]);
@@ -2226,6 +2213,13 @@ export default function Home() {
   const avatarBackgroundPresentation = getAvatarBackgroundPresentation(
     equippedAvatarBackground,
   );
+  const ownedAvatarBackgroundItems = useMemo(
+    () =>
+      cosmeticItems.filter(
+        (item) => item.type === "avatar-background" && (item.price <= 0 || ownedCosmeticIds.includes(item.id)),
+      ),
+    [ownedCosmeticIds],
+  );
   const profileBorderPresentation = getProfileBorderFramePresentation(equippedProfileBorder);
   const userLevelProgress = getUserLevelProgress(userXp);
   const globalPrincipessaRequirement = getGlobalPrincipessaXpRequirement(globalPrincipessa.level);
@@ -2243,7 +2237,7 @@ export default function Home() {
       const avatarId = resolveSpeechAvatarIdForMessage();
       setSpeechBubbleReply(getSpeechBubbleMessageForText(avatarId, message));
     },
-    [resolveSpeechAvatarIdForMessage, setSpeechBubbleReply],
+    [getSpeechBubbleMessageForText, resolveSpeechAvatarIdForMessage, setSpeechBubbleReply],
   );
   const showTypingPraise = useCallback(() => {
     if (typingPraiseTimerRef.current !== null) {
@@ -2310,7 +2304,8 @@ export default function Home() {
         ),
       );
     }
-  }, [equippedSpeechAvatar?.id, latestGlobalLevelUpId, setSpeechBubbleReply]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveSpeechAvatarIdForMessage is unstable (depends on live speech-avatar state); adding it here would change loadGlobalPrincipessa's identity often and reset the 5-minute polling interval effect that depends on it, causing extra /api/global-principessa calls
+  }, [equippedSpeechAvatar?.id, getSpeechBubbleResponseMessage, latestGlobalLevelUpId, setSpeechBubbleReply]);
   const applySoundSettings = useCallback(
     (settings: Partial<SoundSettings>) => {
       const nextSettings = {
@@ -2370,6 +2365,7 @@ export default function Home() {
     try {
       const stored = window.localStorage.getItem(SHRINE_MEMORY_SEEN_STORAGE_KEY);
       if (!stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the localStorage read below; safe early-exit pattern
         setSeenShrineMemoryIds([]);
         return;
       }
@@ -2914,6 +2910,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    // Corrective sync: drops equipped items the user no longer owns, then best-effort
+    // persists the cleaned slots to the server below. Restructuring this away from
+    // setState-in-effect would require moving the ownership-based cleanup into every
+    // place equippedAvatarSlots or crateInventory can change; too risky to touch here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- corrective sync against inventory, guarded by equality check above
     setEquippedAvatarSlots(cleaned);
 
     // Best effort sync to server (authoritative on mutations)
@@ -3154,6 +3155,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setAvatarMistressReply is unstable (depends on live speech-avatar state); adding it would re-run this fetch-active-events effect on every speech-avatar change
   }, [getReadableSpeechAvatarName]);
 
   useEffect(() => {
@@ -3273,11 +3275,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return () => {
       window.clearTimeout(idleTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- resolveSpeechAvatarIdForMessage is unstable (live speech-avatar state); adding it would reset this idle-line timer on unrelated speech-avatar changes instead of only when the bubble is actually hidden
   }, [
     bubbleHiddenTick,
     equippedSpeechAvatar?.id,
     fullyHiddenBubbleMessage,
     fullyHiddenBubbleMessageId,
+    getSpeechBubbleMessagePool,
     isLoggedIn,
     mistressReply,
     petEverUnlocked,
@@ -3311,13 +3315,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // item in inventory (including all avatar-layer items).
     if (isPreviewMode || isGuestMode) {
       const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
-        .filter(([, def]) => (def as any).enabled !== false)
+        .filter(([, def]) => def.enabled !== false)
         .map(([crate_type, def]) => ({
           crate_type,
           name: def.name,
           description: def.description,
           cost: def.cost,
-          icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
+          icon_url: getCrateIconUrl(crate_type, def.icon_url ?? null) ?? undefined,
         }))
         .sort((a, b) => a.cost - b.cost);
 
@@ -3711,7 +3715,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setPetScoreLeaderboardLoading(false);
     }
-  }, [describeError, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadCommunityStatus = useCallback(async () => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
@@ -3743,7 +3747,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setCommunityStatusLoading(false);
     }
-  }, [describeError, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadShrineStatus = useCallback(async () => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
@@ -3794,7 +3798,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setSelectedCommunityProfileLoading(false);
     }
-  }, [describeError]);
+  }, []);
 
   const loadDevotionLeaderboard = useCallback(async (requestedPeriod?: DevotionPeriod) => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
@@ -3830,7 +3834,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setDevotionLoading(false);
     }
-  }, [describeError, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadJackpot = useCallback(async () => {
     if (isGuestMode || isPreviewMode) {
@@ -3903,6 +3907,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    // Fetch-on-panel-activation; the setState happens inside loadDevotionLeaderboard
+    // itself (a useCallback), not directly here. Restructuring this data load risks
+    // breaking real leaderboard fetch timing in production.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-when-panel-active data load, not a derivable value
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
 
@@ -3911,6 +3919,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-when-panel-active data load, not a derivable value
     void loadPetScoreLeaderboard();
   }, [activePanel, loadPetScoreLeaderboard, petScore]);
 
@@ -3935,6 +3944,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   useEffect(() => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setCommunityStatus(null);
       return;
     }
@@ -3957,6 +3967,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   useEffect(() => {
     if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setShrineStatus(null);
       return;
     }
@@ -3966,6 +3977,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   useEffect(() => {
     if (!selectedCommunityProfileId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setSelectedCommunityProfile(null);
       setSelectedCommunityProfileError("");
       setSelectedCommunityProfileLoading(false);
@@ -3999,7 +4011,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.removeEventListener("focus", refreshRecentTributes);
       window.removeEventListener("storage", refreshRecentTributes);
     };
-  }, [isLoggedIn, loadRecentTributes]);
+  }, [isGuestMode, isLoggedIn, isPreviewMode, loadCratesData, loadRecentTributes]);
 
   useEffect(() => {
     if (!isLoggedIn || isGuestMode || isPreviewMode || activePanel !== "tasks") {
@@ -4073,6 +4085,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately narrowed to jackpot?.phase/phaseEndsAt (used to compute refresh delay); the full jackpot object changes far more often (e.g. live amount ticks) and would reset this refresh-timer effect on every tick
   }, [activePanel, isGuestMode, isLoggedIn, isPreviewMode, jackpot?.phase, jackpot?.phaseEndsAt, loadJackpot]);
 
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
@@ -4134,6 +4147,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-auth-ready data load, not a derivable value
     void refreshDisplayName();
   }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode, refreshDisplayName]);
 
@@ -4165,9 +4179,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
-    committedEquippedRef.current = slots;
+    setCommittedEquippedSlots(slots);
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
     setEquippedFullSetId(profile.equipped_full_set_id ?? null);
+    const rawPresets = Array.isArray(profile.avatar_presets) ? profile.avatar_presets : [];
+    setAvatarPresets([0, 1, 2].map((index) => rawPresets[index] ?? null));
+    setUnlockedAvatarPresetSlots(
+      Math.max(1, Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1))),
+    );
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
     setAddressTerm(nextAddressTerm);
     addressTermRef.current = nextAddressTerm;
@@ -4441,6 +4460,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     void loadLeadershipTop();
     void loadShameTop();
   }, [
+    crateInventory,
     loadLeadershipTop,
     loadShameTop,
     refreshDisplayName,
@@ -4474,15 +4494,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTimeoutReason(profile.timeout_reason ?? null);
     const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
-    committedEquippedRef.current = slots;
+    setCommittedEquippedSlots(slots);
     setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
     setEquippedFullSetId(profile.equipped_full_set_id ?? null);
+    const rawPresets = Array.isArray(profile.avatar_presets) ? profile.avatar_presets : [];
+    setAvatarPresets([0, 1, 2].map((index) => rawPresets[index] ?? null));
+    setUnlockedAvatarPresetSlots(
+      Math.max(1, Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1))),
+    );
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
     setAddressTerm(nextAddressTerm);
     addressTermRef.current = nextAddressTerm;
     setIsLoggedIn(true);
     // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
-  }, []);
+  }, [refreshDisplayName]);
 
   const collectDuePetWeeklyTax = useCallback(async () => {
     if (
@@ -4550,10 +4575,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       weeklyTaxAutoCollectingRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setAvatarMistressReply is a useCallback whose own deps (speech-avatar state) change often; adding it here would reset the weekly-tax auto-collect timer scheduling effect that depends on this callback's identity
   }, [
     applyProfileStats,
     authUserId,
-    describeError,
     isGuestMode,
     isPreviewMode,
     setPetTaskStateOptimistic,
@@ -4724,6 +4749,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     isPreviewMode,
     loadLeadershipTop,
     petDebtContract,
+    setAvatarMistressReply,
     unlockProgressionTitles,
   ]);
 
@@ -4971,6 +4997,28 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return createdProfile;
   }, []);
 
+  const persistPetTask = useCallback(async (task: {
+    completed_at?: string | null;
+    metadata?: Record<string, unknown>;
+    reviewed_at?: string | null;
+    reward_score: number;
+    status: string;
+    task_id: string;
+  }) => {
+    const response = await fetch("/api/user/pet-tasks", {
+      body: JSON.stringify(task),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json()) as { error?: string; task?: UserPetTaskRow };
+
+    if (!response.ok || !payload.task) {
+      throw createApiError("/api/user/pet-tasks", response, payload);
+    }
+
+    return payload.task;
+  }, []);
+
   const applyPetMaintenance = useCallback(async (profile: Profile) => {
     if (isGuestMode) {
       return profile;
@@ -5148,7 +5196,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     return workingProfile;
-  }, [isGuestMode]);
+  }, [isGuestMode, persistPetTask]);
 
   const loadProfile = useCallback(async (user: User) => {
     console.info("[auth-init] profile fetch started", {
@@ -5454,28 +5502,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     username,
   ]);
 
-  const persistPetTask = useCallback(async (task: {
-    completed_at?: string | null;
-    metadata?: Record<string, unknown>;
-    reviewed_at?: string | null;
-    reward_score: number;
-    status: string;
-    task_id: string;
-  }) => {
-    const response = await fetch("/api/user/pet-tasks", {
-      body: JSON.stringify(task),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    const payload = (await response.json()) as { error?: string; task?: UserPetTaskRow };
-
-    if (!response.ok || !payload.task) {
-      throw createApiError("/api/user/pet-tasks", response, payload);
-    }
-
-    return payload.task;
-  }, []);
-
   const persistPetGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     const response = await fetch("/api/user/pet-gallery-unlocks", {
       body: JSON.stringify({ itemIds }),
@@ -5525,45 +5551,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     return result;
   }, [applyProfileStats, loadLeadershipTop, tributeTotal, unlockProgressionTitles]);
-
-  const persistTimeoutUntil = useCallback(async (nextTimeoutUntil: string | null) => {
-    if (isGuestMode) {
-      timeoutUntilRef.current = nextTimeoutUntil;
-      setTimeoutUntil(nextTimeoutUntil);
-      return {
-        id: authUserId ?? LOCAL_GUEST_USER_ID,
-        username,
-        coins,
-        affection,
-        tribute_total: tributeTotal,
-        total_devotion: totalDevotion,
-        shame_count: 0,
-        is_admin: false,
-        loyalty_streak: loyaltyStreak,
-        last_loyalty_at: lastLoyaltyAt,
-        timeout_until: nextTimeoutUntil,
-      } as Profile;
-    }
-
-    if (!nextTimeoutUntil) {
-      throw new Error("User timeout endpoint does not support clearing timeout.");
-    }
-
-    const response = await fetch("/api/user/timeout", {
-      body: JSON.stringify({ timeoutUntil: nextTimeoutUntil }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    const result = (await response.json()) as { error?: string; profile?: Profile };
-
-    if (!response.ok || !result.profile) {
-      console.error("Failed to persist timeout", result.error);
-      throw createApiError("/api/user/timeout", response, result);
-    }
-
-    applyProfileStats(result.profile);
-    return result.profile;
-  }, [affection, applyProfileStats, authUserId, coins, isGuestMode, lastLoyaltyAt, loyaltyStreak, totalDevotion, tributeTotal, username]);
 
   const handleTimeoutClear = useCallback(async () => {
     if (isPreviewRestricted) {
@@ -5634,8 +5621,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     applyProfileStats,
     authUserId,
     coinsRef,
-    describeError,
-    emitSoundEvent,
     isGuestMode,
     isPreviewRestricted,
     isTimeoutActive,
@@ -6243,7 +6228,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.clearTimeout(highLowRefreshTimerRef.current);
     }
 
-  }, [getEventCooldownMs]);
+  }, []);
 
   const handleHighLowPlay = async (
     guess: "higher" | "lower",
@@ -6879,9 +6864,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         : null;
 
       if (payload.hitTimeout) {
-        const baseMs = activeTimeoutUntil
-          ? Math.max(new Date(activeTimeoutUntil).getTime(), nowMs)
-          : nowMs;
         timeoutUntilRef.current = nextTimeoutUntil;
         setTimeoutUntil(nextTimeoutUntil);
         setCurrentTime(Date.now());
@@ -7324,25 +7306,53 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date().toISOString();
-    const won = randomChance(SACRIFICE_UNLOCK_CHANCE);
-    const unlockedItem = won ? randomFrom(remainingItems) : null;
-    const nextCoins = coinsRef.current - SACRIFICE_COST;
-    const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
-    const lastResult = unlockedItem
-      ? `Unlocked ${unlockedItem.title}.`
-      : "The offering burned away.";
 
     try {
-      await persistProfileProgress(
-        { coins: nextCoins, affection, tribute_total: nextTributeTotal },
-        "tribute:sacrifice",
-        {
-          prestigeSource: "sacrifice",
-          spendAmount: SACRIFICE_COST,
-        },
-      );
+      // The coin charge, the 35% roll, and the resulting unlock all happen
+      // server-side in one atomic transaction - the client never reports its
+      // own roll outcome (that used to be trust-the-client and was
+      // trivially exploitable).
+      const response = await fetch("/api/user/gallery-unlocks", {
+        body: JSON.stringify({ action: "sacrifice" }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        won?: boolean;
+        itemId?: string | null;
+        coins?: number;
+        completed?: boolean;
+      };
+
+      if (!response.ok) {
+        throw createApiError("/api/user/gallery-unlocks", response, payload);
+      }
+
+      if (payload.completed) {
+        setMechanics((current) => ({ ...current, sacrificeComplete: true }));
+        setAvatarMistressReply("The Sacrifice Collection is already complete.");
+        return;
+      }
+
+      const won = Boolean(payload.won);
+      const unlockedItem = won && payload.itemId
+        ? remainingItems.find((item) => item.id === payload.itemId) ?? null
+        : null;
+      const lastResult = unlockedItem
+        ? `Unlocked ${unlockedItem.title}.`
+        : "The offering burned away.";
+
+      if (typeof payload.coins === "number") {
+        setCoins(payload.coins);
+      }
+      const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
+      setTributeTotal(nextTributeTotal);
+      unlockProgressionTitles(nextTributeTotal);
+      void loadLeadershipTop();
+      void loadCommunityStatus();
+
       if (unlockedItem) {
-        await persistGalleryUnlocks([unlockedItem.id]);
         setUnlockedGalleryIds((current) =>
           current.includes(unlockedItem.id) ? current : [...current, unlockedItem.id],
         );
@@ -7571,20 +7581,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     setOwnerLikeness(100);
     setEquippedAvatarSlots({ fullBody: "classic" });
-    committedEquippedRef.current = { fullBody: "classic" };
+    setCommittedEquippedSlots({ fullBody: "classic" });
     setHasUncensoredAvatar(false);
     setOwnedCosmeticIds([DEFAULT_SPEECH_AVATAR_ID]);
     setEquippedCosmeticIds({ "speech-avatar": DEFAULT_SPEECH_AVATAR_ID });
 
     // Seed rich crates + full inventory immediately for avatar testing
     const seededCrates: CrateDefinition[] = Object.entries(CRATE_TYPES)
-      .filter(([, def]) => (def as any).enabled !== false)
+      .filter(([, def]) => def.enabled !== false)
       .map(([crate_type, def]) => ({
         crate_type,
         name: def.name,
         description: def.description,
         cost: def.cost,
-        icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null) ?? undefined,
+        icon_url: getCrateIconUrl(crate_type, def.icon_url ?? null) ?? undefined,
       }))
       .sort((a, b) => a.cost - b.cost);
     const seededInventory: CrateInventoryItem[] = Object.entries(SAMPLE_CRATE_ITEMS).map(
@@ -7605,15 +7615,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCrateFreeOpensUsedToday({});
     setCrateOpenCredits({});
     setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
-  }, [
-    CRATE_TYPES,
-    LOCAL_GUEST_USER_ID,
-    SAMPLE_CRATE_ITEMS,
-    getCrateIconUrl,
-    readDebtAutoPayEnabled,
-    sacrificeGalleryItems,
-    setAuthError,
-  ]);
+  }, [setAuthError]);
 
   const handleEnterPreviewMode = useCallback(() => {
     seedRichLocalTestData();
@@ -10238,11 +10240,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const hasDisplayNameChangeRight = ownedCosmeticIds.includes("display-name-change");
   const ownedProfileHeaderRotatingCosmetics = useMemo(() => {
-    const rotatingHeaderItems = rotatingCosmeticItems.filter((item) =>
+    const headerItems = cosmeticItems.filter((item) =>
       PROFILE_HEADER_COSMETIC_TYPE_ORDER.includes(item.type),
     );
 
-    return rotatingHeaderItems.filter((item) => ownedCosmeticIds.includes(item.id));
+    return headerItems.filter((item) => ownedCosmeticIds.includes(item.id));
   }, [ownedCosmeticIds]);
   const profileHeaderCosmeticsByType = useMemo(() => {
     const grouped = new Map<CosmeticType, CosmeticItem[]>();
@@ -10277,8 +10279,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     Object.keys(groups).forEach((slot) => {
       const arr = groups[slot as AvatarSlot]!;
       arr.sort((a, b) => {
-        const ia = RARITY_ORDER.indexOf((a.rarity || "").toLowerCase() as any);
-        const ib = RARITY_ORDER.indexOf((b.rarity || "").toLowerCase() as any);
+        const ia = RARITY_ORDER.indexOf((a.rarity || "").toLowerCase() as CrateRarity);
+        const ib = RARITY_ORDER.indexOf((b.rarity || "").toLowerCase() as CrateRarity);
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
     });
@@ -10552,7 +10554,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setIsEditingDisplayName(false);
       setDisplayNameEditInput("");
       setAvatarMistressReply("Display name updated using your change right.");
-    } catch (err) {
+    } catch {
       setDisplayNameError("Failed to update display name.");
     } finally {
       setIsSettingDisplayName(false);
@@ -10625,7 +10627,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
       void loadShrineStatus();
       setAvatarMistressReply(`I'll call you ${goodAddressPhrase(term).toLowerCase()} from now on.`);
-    } catch (err) {
+    } catch {
       setAvatarMistressReply("Failed to update address preference.");
     } finally {
       setIsSavingAddressTerm(false);
@@ -11348,7 +11350,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             backgroundPath={avatarBackgroundPresentation.backgroundPath}
                             backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
                             className="absolute inset-0"
-                            equipped={isAvatarActionPending ? committedEquippedRef.current : equippedAvatarSlots}
+                            equipped={isAvatarActionPending ? committedEquippedSlots : equippedAvatarSlots}
                             equippedFullSetId={equippedFullSetId}
                             hasUncensored={hasUncensoredAvatar}
                             imageClassName="object-contain object-center"
@@ -11477,7 +11479,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     const data = await res.json();
                                     if (res.ok && data.equipped) {
                                       setEquippedAvatarSlots(data.equipped);
-                                      committedEquippedRef.current = data.equipped;
+                                      setCommittedEquippedSlots(data.equipped);
                                       void loadCratesData();
                                     }
                                   } catch (err) {
@@ -11529,7 +11531,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                 } else {
                                   setAvatarMistressReply(data.error || "Unlock failed.");
                                 }
-                              } catch (e) {
+                              } catch {
                                 setAvatarMistressReply("Unlock failed.");
                               }
                             }}
@@ -11539,6 +11541,221 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                           </button>
                         </div>
                       )}
+                    </div>
+
+                    {/* Avatar Presets - up to 3 saved looks for instant switching */}
+                    <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/25 p-2 text-[10px]">
+                      <p className="mb-1.5 font-black uppercase tracking-widest text-zinc-300">Saved Looks</p>
+                      <div className="flex flex-col gap-1.5">
+                        {[0, 1, 2].map((index) => {
+                          const isLocked = index >= unlockedAvatarPresetSlots;
+                          const preset = avatarPresets[index];
+                          const draftName = avatarPresetNameDrafts[index] ?? preset?.name ?? "";
+
+                          if (isLocked) {
+                            return (
+                              <div
+                                className="flex items-center justify-between gap-2 rounded border border-white/10 bg-black/20 px-2 py-1"
+                                key={`avatar-preset-${index}`}
+                              >
+                                <span className="text-zinc-500">Slot {index + 1} · Locked</span>
+                                <button
+                                  className="shrink-0 rounded border border-pink-300/40 bg-pink-500/10 px-2 py-0.5 font-black text-pink-200 disabled:opacity-50"
+                                  disabled={
+                                    coins < AVATAR_PRESET_SLOT_UNLOCK_COST ||
+                                    isTimeoutActive ||
+                                    isPreviewRestricted ||
+                                    isAvatarPresetActionPending
+                                  }
+                                  onClick={async () => {
+                                    if (isAvatarPresetActionPending) return;
+                                    setIsAvatarPresetActionPending(true);
+                                    try {
+                                      const res = await fetch("/api/user/wardrobe", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ action: "unlock-avatar-preset-slot" }),
+                                      });
+                                      const data = await res.json();
+                                      if (res.ok) {
+                                        if (typeof data.unlockedAvatarPresetSlots === "number") {
+                                          setUnlockedAvatarPresetSlots(data.unlockedAvatarPresetSlots);
+                                        }
+                                        if (typeof data.coins === "number") setCoins(data.coins);
+                                        emitSoundEvent("cosmetic_purchased");
+                                        setAvatarMistressReply("Preset slot unlocked.");
+                                      } else {
+                                        setAvatarMistressReply(data.error || "Unlock failed.");
+                                      }
+                                    } catch (err) {
+                                      console.error("Preset slot unlock error", err);
+                                      setAvatarMistressReply("Unlock failed.");
+                                    } finally {
+                                      setIsAvatarPresetActionPending(false);
+                                    }
+                                  }}
+                                  type="button"
+                                >
+                                  10k coins
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              className="flex items-center gap-1.5 rounded border border-white/10 bg-black/20 px-2 py-1"
+                              key={`avatar-preset-${index}`}
+                            >
+                              <input
+                                className="min-w-0 flex-1 truncate bg-transparent text-[10px] font-black text-white outline-none placeholder:text-zinc-500"
+                                disabled={isAvatarPresetActionPending}
+                                maxLength={40}
+                                onBlur={async (e) => {
+                                  const nextName = e.target.value.trim();
+                                  setAvatarPresetNameDrafts((current) => {
+                                    const next = { ...current };
+                                    delete next[index];
+                                    return next;
+                                  });
+                                  if (!preset || !nextName || nextName === preset.name) return;
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        action: "rename-avatar-preset",
+                                        presetIndex: index,
+                                        presetName: nextName,
+                                      }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok && data.avatarPresets) setAvatarPresets(data.avatarPresets);
+                                  } catch (err) {
+                                    console.error("Preset rename error", err);
+                                  }
+                                }}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  setAvatarPresetNameDrafts((current) => ({ ...current, [index]: value }));
+                                }}
+                                placeholder={`Preset ${index + 1}`}
+                                value={draftName}
+                              />
+                              <button
+                                className="shrink-0 rounded border border-white/15 bg-black/25 px-1.5 py-0.5 font-black text-zinc-300 disabled:opacity-40"
+                                disabled={!preset || isAvatarPresetActionPending}
+                                onClick={async () => {
+                                  if (!preset || isAvatarPresetActionPending) return;
+                                  setIsAvatarPresetActionPending(true);
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ action: "apply-avatar-preset", presetIndex: index }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      setEquippedAvatarSlots(data.equipped ?? {});
+                                      setCommittedEquippedSlots(data.equipped ?? {});
+                                      setEquippedFullSetId(data.equippedFullSetId ?? null);
+                                      void loadCratesData();
+                                      setAvatarMistressReply("Preset applied.");
+                                    } else {
+                                      setAvatarMistressReply(data.error || "Failed to apply preset.");
+                                    }
+                                  } catch (err) {
+                                    console.error("Preset apply error", err);
+                                    setAvatarMistressReply("Failed to apply preset.");
+                                  } finally {
+                                    setIsAvatarPresetActionPending(false);
+                                  }
+                                }}
+                                type="button"
+                              >
+                                Apply
+                              </button>
+                              <button
+                                className="shrink-0 rounded border border-emerald-300/30 bg-emerald-500/10 px-1.5 py-0.5 font-black text-emerald-200 disabled:opacity-40"
+                                disabled={isAvatarPresetActionPending}
+                                onClick={async () => {
+                                  if (isAvatarPresetActionPending) return;
+                                  setIsAvatarPresetActionPending(true);
+                                  try {
+                                    const res = await fetch("/api/user/wardrobe", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        action: "save-avatar-preset",
+                                        presetIndex: index,
+                                        presetName: draftName,
+                                      }),
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok && data.avatarPresets) {
+                                      setAvatarPresets(data.avatarPresets);
+                                      setAvatarMistressReply("Look saved.");
+                                    } else {
+                                      setAvatarMistressReply(data.error || "Failed to save preset.");
+                                    }
+                                  } catch (err) {
+                                    console.error("Preset save error", err);
+                                    setAvatarMistressReply("Failed to save preset.");
+                                  } finally {
+                                    setIsAvatarPresetActionPending(false);
+                                  }
+                                }}
+                                type="button"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Avatar Background - equip/unequip a profile background scene */}
+                    <div className="mt-3 rounded-[1.1rem] border border-white/10 bg-black/25 p-2 text-[10px]">
+                      <p className="mb-1.5 font-black uppercase tracking-widest text-zinc-300">Background</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {ownedAvatarBackgroundItems.map((item) => {
+                          const isEquipped =
+                            (equippedCosmeticIds["avatar-background"] ?? "avatar-background-none") === item.id;
+                          const isPending = pendingTaskActionIds.includes(`cosmetic:${item.id}`);
+
+                          return (
+                            <button
+                              className={`flex flex-col items-center gap-1 rounded border px-1 py-1.5 text-center transition disabled:opacity-50 ${
+                                isEquipped
+                                  ? "border-amber-200/45 bg-amber-400/10"
+                                  : "border-white/10 bg-black/20 hover:border-white/25"
+                              }`}
+                              disabled={isPending || isTimeoutActive || isPreviewRestricted}
+                              key={item.id}
+                              onClick={() => {
+                                if (isEquipped || isPending) return;
+                                void handleEquipCosmetic(item);
+                              }}
+                              type="button"
+                            >
+                              <div
+                                className="h-8 w-full rounded bg-black/40 bg-cover bg-center"
+                                style={
+                                  item.backgroundPath
+                                    ? { backgroundImage: `url(${item.backgroundPath})` }
+                                    : item.backgroundFallback
+                                      ? { background: item.backgroundFallback }
+                                      : undefined
+                                }
+                              />
+                              <span className="w-full truncate text-[9px] font-black text-zinc-300">
+                                {item.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
@@ -11599,7 +11816,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                         setEquippedFullSetId(data.equippedFullSetId ?? null);
                                         if (data.equipped) {
                                           setEquippedAvatarSlots(data.equipped);
-                                          committedEquippedRef.current = data.equipped;
+                                          setCommittedEquippedSlots(data.equipped);
                                         }
                                         void loadCratesData();
                                       } catch (e) {
@@ -11674,7 +11891,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                       onClick={async () => {
                                         if (isAvatarActionPending) return;
                                         const action = isEquipped ? "unequip" : "equip";
-                                        const body: any = isEquipped
+                                        const body: { action: "unequip"; slot: AvatarSlot } | { action: "equip"; itemId: string } = isEquipped
                                           ? { action: "unequip", slot }
                                           : { action: "equip", itemId: item.item_id };
                                         setIsAvatarActionPending(true);
@@ -11691,7 +11908,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                           }
                                           if (data.equipped) {
                                             setEquippedAvatarSlots(data.equipped);
-                                            committedEquippedRef.current = data.equipped;
+                                            setCommittedEquippedSlots(data.equipped);
                                             void loadCratesData();
                                           }
                                           if (action === "equip") {

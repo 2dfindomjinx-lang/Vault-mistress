@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
@@ -1331,9 +1331,6 @@ export default function AdminPage() {
 
   const pendingIrlTaskCount = irlTasks.filter((task) => task.status === "pending").length;
   const pendingPetTaskCount = petTasks.filter((task) => task.status === "pending").length;
-  const pendingEvilDebtCount = debtContracts.filter(
-    (contract) => contract.contract_type === "evil" && contract.status === "pending",
-  ).length;
   const pendingThroneDebtCount = throneDebtContracts.filter((contract) =>
     contract.status === "pending_review" ||
     contract.status === "timeout" ||
@@ -2603,7 +2600,7 @@ export default function AdminPage() {
               <div className="mt-4 grid gap-3">
                 {announcements.length > 0 ? (
                   announcements.map((announcement) => {
-                    const isExpired = new Date(announcement.ends_at).getTime() <= Date.now();
+                    const isExpired = new Date(announcement.ends_at).getTime() <= adminNow;
 
                     return (
                       <article className="rounded-2xl border border-white/10 bg-black/35 p-3" key={announcement.id}>

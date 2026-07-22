@@ -153,10 +153,23 @@ async function loadLegacyMetrics(
   // PostgREST caps an unpaged select (normally at 1,000 rows). The original
   // compatibility path therefore froze once the goal window crossed that
   // limit and silently discarded newer transactions. Keep this fallback
-  // correct until the aggregate RPC is installed in production.
+  // correct until the aggregate RPC is installed in production. Bounded to
+  // MAX_GOAL_PAGES as a defense-in-depth cap so a missing RPC can never turn
+  // this into a fully unbounded scan of coin_transactions.
   const goalTransactions: CoinTransactionLite[] = [];
   const goalPageSize = 1_000;
+  const MAX_GOAL_PAGES = 50; // 50,000 rows - far above any realistic single-goal-window volume
+  let goalPageCount = 0;
   for (let offset = 0; ; offset += goalPageSize) {
+    if (goalPageCount >= MAX_GOAL_PAGES) {
+      console.error(
+        "[community/status] legacy fallback goal-transaction scan hit MAX_GOAL_PAGES cap - " +
+          "get_community_status_aggregates RPC is likely missing in production; deploy supabase/vercel-performance-optimizations.sql",
+      );
+      break;
+    }
+    goalPageCount += 1;
+
     const goalPage = await supabase
       .from("coin_transactions")
       .select("id, user_id, amount, created_at, metadata, reason")
@@ -254,6 +267,11 @@ async function loadCommunityMetrics(supabase: SupabaseClient, userId: string, no
 
   if (error && error.code !== "PGRST202" && error.code !== "42883") {
     console.warn("Community aggregate RPC unavailable; using compatibility query path", error.message);
+  } else if (error) {
+    console.warn(
+      "[community/status] get_community_status_aggregates RPC is missing - falling back to the " +
+        "unbounded-scan-capped legacy path. Deploy supabase/vercel-performance-optimizations.sql to fix.",
+    );
   }
   return loadLegacyMetrics(supabase, userId, nowMs);
 }

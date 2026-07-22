@@ -15,6 +15,7 @@ import {
 } from "@/lib/supabase/public";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type JackpotRow = {
@@ -960,6 +961,12 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
+
+    const rateLimit = await checkRateLimit(supabase, `jackpot-contribute:${userId}`, 10, 60);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     const { cycle, jackpot } = await getCurrentJackpot(supabase);
 
     if (!jackpot) {
@@ -970,141 +977,52 @@ export async function POST(request: Request) {
       return jsonError("Jackpot contributions are closed for this cycle.", 400);
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, username, coins, is_admin")
-      .eq("id", userId)
-      .maybeSingle();
+    // The coin deduction, the contribution row, and the ledger entry all
+    // happen inside one Postgres transaction (contribute_to_jackpot_atomic) -
+    // a failure anywhere in that function rolls back everything it did,
+    // and a committed coin deduction is therefore never possible without
+    // its matching contribution + ledger record.
+    const { data: rpcResult, error: rpcError } = await supabase.rpc("contribute_to_jackpot_atomic", {
+      p_user_id: userId,
+      p_jackpot_id: jackpot.id,
+      p_cycle_key: jackpot.cycle_key,
+      p_amount: amount,
+    });
 
-    if (profileError) {
-      console.error("Jackpot contributor profile lookup failed", profileError);
-      throw profileError;
+    if (rpcError) {
+      console.error("Jackpot contribution RPC failed", rpcError);
+      return jsonError("Jackpot contribution failed.", 500);
     }
 
-    if (!profile) {
+    const outcome = rpcResult as
+      | { error: "profile_not_found" | "admin_not_allowed" | "insufficient_funds" | "invalid_amount"; coins?: number; required?: number }
+      | { coins: number };
+
+    if ("error" in outcome) {
+      if (outcome.error === "insufficient_funds") {
+        return jsonError("Not enough Principessa Coins.", 400);
+      }
+      if (outcome.error === "admin_not_allowed") {
+        return jsonError("Admin accounts cannot participate in the jackpot.", 403);
+      }
+      if (outcome.error === "invalid_amount") {
+        return jsonError("Invalid contribution amount.", 400);
+      }
       return jsonError("Profile not found.", 404);
-    }
-
-    if (profile.is_admin) {
-      return jsonError("Admin accounts cannot participate in the jackpot.", 403);
-    }
-
-    const currentCoins = Number(profile.coins ?? 0);
-
-    if (currentCoins < amount) {
-      return jsonError("Not enough Principessa Coins.", 400);
-    }
-
-    const nextCoins = currentCoins - amount;
-    const now = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ coins: nextCoins, updated_at: now })
-      .eq("id", userId);
-
-    if (updateError) {
-      console.error("Jackpot contribution coin update failed", updateError);
-      throw updateError;
-    }
-
-    const { data: contribution, error: contributionError } = await supabase
-      .from("loyalty_jackpot_contributions")
-      .insert({
-        jackpot_id: jackpot.id,
-        user_id: userId,
-        username: profile.username,
-        amount,
-      })
-      .select("id")
-      .single();
-
-    if (contributionError) {
-      console.error("Jackpot contribution insert failed", contributionError);
-      throw contributionError;
-    }
-
-    const { data: contributionTransaction, error: transactionError } = await supabase
-      .from("coin_transactions")
-      .insert({
-        user_id: userId,
-        amount: -amount,
-        reason: "jackpot_contribution",
-        balance_before: currentCoins,
-        balance_after: nextCoins,
-        metadata: {
-          jackpotId: jackpot.id,
-          cycleKey: jackpot.cycle_key,
-          tributeTotalChanged: false,
-        },
-      })
-      .select("id")
-      .single();
-
-    if (transactionError) {
-      console.error("Jackpot contribution transaction failed", transactionError);
-      if (contribution?.id) {
-        const { error: contributionCleanupError } = await supabase
-          .from("loyalty_jackpot_contributions")
-          .delete()
-          .eq("id", contribution.id);
-
-        if (contributionCleanupError) {
-          console.error("Jackpot contribution cleanup failed", contributionCleanupError);
-        }
-      }
-
-      const { error: profileRollbackError } = await supabase
-        .from("profiles")
-        .update({ coins: currentCoins, updated_at: new Date().toISOString() })
-        .eq("id", userId)
-        .eq("coins", nextCoins);
-
-      if (profileRollbackError) {
-        console.error("Jackpot contribution profile rollback failed", profileRollbackError);
-      }
-
-      return jsonError("Jackpot contribution logging failed.", 500);
     }
 
     try {
       const state = await buildJackpotState(supabase, jackpot, userId);
 
-      return Response.json({ coins: nextCoins, jackpot: state });
+      return Response.json({ coins: outcome.coins, jackpot: state });
     } catch (error) {
-      console.error("Jackpot POST failed", error);
-      if (contribution?.id) {
-        const { error: contributionCleanupError } = await supabase
-          .from("loyalty_jackpot_contributions")
-          .delete()
-          .eq("id", contribution.id);
-
-        if (contributionCleanupError) {
-          console.error("Jackpot contribution cleanup after state failure failed", contributionCleanupError);
-        }
-      }
-
-      if (contributionTransaction?.id) {
-        const { error: txCleanupError } = await supabase
-          .from("coin_transactions")
-          .delete()
-          .eq("id", contributionTransaction.id);
-
-        if (txCleanupError) {
-          console.error("Jackpot contribution transaction cleanup after state failure failed", txCleanupError);
-        }
-      }
-
-      const { error: profileRollbackError } = await supabase
-        .from("profiles")
-        .update({ coins: currentCoins, updated_at: new Date().toISOString() })
-        .eq("id", userId)
-        .eq("coins", nextCoins);
-
-      if (profileRollbackError) {
-        console.error("Jackpot contribution profile rollback after state failure failed", profileRollbackError);
-      }
-
-      return jsonError(error instanceof Error ? error.message : "Jackpot contribution failed.");
+      // The contribution itself already committed atomically and durably in
+      // the RPC above - a failure building the response here is a read-side
+      // problem only, so the contribution correctly stands (nothing to roll
+      // back: coins, the contribution row, and the ledger entry are already
+      // consistent with each other).
+      console.error("Jackpot POST failed while building response state", error);
+      return Response.json({ coins: outcome.coins, jackpot: null });
     }
   } catch (error) {
     console.error("Jackpot POST failed before completion", error);

@@ -6,6 +6,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const CHAT_HIGHLIGHT_COST = 2000;
 const CHAT_MAX_LENGTH = 250;
@@ -137,13 +138,14 @@ export async function GET(request: Request) {
     }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
-  const { error: retentionCleanupError } = await supabase
-    .from("live_chat_messages")
-    .delete()
-    .lt("created_at", retentionCutoff);
-  if (retentionCleanupError) console.warn("[live-chat] age retention cleanup failed", retentionCleanupError);
+  // Age-based retention now runs exclusively via the run_data_retention() cron
+  // (supabase/retention-maintenance.sql, 7-day cutoff) instead of on every
+  // poll here - this route was previously running a DELETE against
+  // live_chat_messages on every GET (every 30s per open chat widget), and
+  // the query below already filters to `retentionCutoff` regardless of
+  // whether stale rows still physically exist in the table.
   const [profileResult, messagesResult, muteResult] = await Promise.all([
-    supabase.from("profiles").select(profileSelect).eq("id", authResult.userId!).single(),
+    supabase.from("profiles").select("id, is_admin").eq("id", authResult.userId!).single(),
     supabase
       .from("live_chat_messages")
       .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
@@ -233,6 +235,11 @@ export async function POST(request: Request) {
 
   if (body?.action !== "send") {
     return jsonError("Invalid chat action.", 422);
+  }
+
+  const rateLimit = await checkRateLimit(supabase, `live-chat-send:${userId}`, 15, 60);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
   const message = sanitizeMessage(body.message);

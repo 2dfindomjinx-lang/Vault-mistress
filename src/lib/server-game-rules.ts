@@ -2,7 +2,7 @@ import { cosmeticItems, titleItems } from "@/lib/cosmetics";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 
 export const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, coins, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 export const visibleGalleryCosts = new Map<string, number>([
   ["common-velvet-arrival", 300],
@@ -10,6 +10,38 @@ export const visibleGalleryCosts = new Map<string, number>([
   ["common-executive-glare", 300],
   ["common-rose-vault", 300],
 ]);
+
+// Server-authoritative mirror of the client's `moodUnlocks` (src/app/page.tsx)
+// affection thresholds - these gallery items are free but gated by affection,
+// not coins. Keep in sync with the client list.
+export const galleryMoodRequirements = new Map<string, number>([
+  ["rare-loyal-glimpse", 20],
+  ["rare-private-smile", 25],
+  ["rare-purple-obsession", 40],
+  ["rare-golden-approval", 50],
+  ["divine-throne-room", 60],
+  ["divine-goddess-mood", 70],
+  ["divine-final-favor", 80],
+  ["divine-velvet-throne", 90],
+  ["secret-defnes-final-favor", 100],
+]);
+
+// Server-authoritative mirror of the client's `sacrificeGalleryItems` ids
+// (src/app/page.tsx). The coin charge and the 35% roll both happen
+// server-side in the `roll_sacrifice_unlock` RPC - the client never reports
+// the roll outcome to the server.
+export const SACRIFICE_ITEM_IDS = Array.from({ length: 10 }, (_, index) => `sacrifice-${index + 1}`);
+export const SACRIFICE_COST = 500;
+export const SACRIFICE_UNLOCK_CHANCE = 0.35;
+
+// Server-authoritative mirror of the client's `petGalleryItems` (src/app/page.tsx):
+// free, pet_score-threshold gated. Keep the formula in sync with the client.
+export const petGalleryScoreRequirements = new Map<string, number>(
+  Array.from({ length: 30 }, (_, index) => [
+    `pet-gallery-${index + 1}`,
+    Math.ceil(((index + 1) * 1000) / 30),
+  ]),
+);
 
 export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 
