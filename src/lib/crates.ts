@@ -75,34 +75,40 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "classic-bra", weight: 450 },
 	  { item_id: "ballgag", weight: 450 },
 
-      // Uncommon %25
-	  { item_id: "owned-tag", weight: 430 },
-	  { item_id: "pink-collar", weight: 380 },
-      { item_id: "pink-ears", weight: 330 },
-	  { item_id: "pink-blindfold", weight: 290 },
-      { item_id: "cute-panties", weight: 250 },
-	  { item_id: "classic-buttplug", weight: 220 },
-	  { item_id: "pink-bra", weight: 190 },
-      { item_id: "classic-highheels", weight: 160 },
-      { item_id: "classic-skirt", weight: 140 },
-      { item_id: "classic-thighhighs", weight: 110 },
+      // Uncommon %25 (rebalanced 2026-07 to fold in cute/pink additions)
+	  { item_id: "cute_choker", weight: 342 },
+	  { item_id: "owned-tag", weight: 302 },
+	  { item_id: "cute_sneakers", weight: 302 },
+	  { item_id: "pink-collar", weight: 266 },
+      { item_id: "pink-ears", weight: 241 },
+	  { item_id: "pink-blindfold", weight: 216 },
+      { item_id: "cute-panties", weight: 191 },
+	  { item_id: "classic-buttplug", weight: 154 },
+	  { item_id: "cute_short_shorts", weight: 154 },
+	  { item_id: "pink-bra", weight: 117 },
+      { item_id: "classic-highheels", weight: 92 },
+      { item_id: "classic-skirt", weight: 67 },
+      { item_id: "classic-thighhighs", weight: 28 },
+      { item_id: "pink_thighhighs", weight: 28 },
 
-      // Rare %17
-	  { item_id: "good-boy-tag", weight: 430 },
-	  { item_id: "pink-tail", weight: 360 },
-      { item_id: "latex-thighhighs", weight: 300 },
-	  { item_id: "latex-skirt", weight: 210 },
-	  { item_id: "cute-miniskirt", weight: 250 },
-	  { item_id: "cute-thighhighs", weight: 150 },
-	  
+      // Rare %17 (rebalanced 2026-07 to fold in cute_bra)
+	  { item_id: "cute-thighhighs", weight: 350 },
+	  { item_id: "good-boy-tag", weight: 314 },
+	  { item_id: "pink-tail", weight: 279 },
+      { item_id: "latex-thighhighs", weight: 243 },
+	  { item_id: "latex-skirt", weight: 189 },
+	  { item_id: "cute_bra", weight: 189 },
+	  { item_id: "cute-miniskirt", weight: 136 },
 
-      // Epic %12.5
-	  { item_id: "gorgeous-pawmitts", weight: 330 },
-	  { item_id: "gorgeous-highheels", weight: 270 },
-	  { item_id: "gorgeous-panties", weight: 220 },
-      { item_id: "gorgeous-bra", weight: 180 },
-      { item_id: "gorgeous-thighhighs", weight: 150 },
-	  { item_id: "gorgeous-buttplug", weight: 100 },
+      // Epic %12.5 (rebalanced 2026-07 to fold in pink additions; latex moved to Premium Case)
+	  { item_id: "gorgeous-pawmitts", weight: 230 },
+	  { item_id: "gorgeous-highheels", weight: 198 },
+	  { item_id: "pink_highheels", weight: 198 },
+	  { item_id: "gorgeous-panties", weight: 156 },
+      { item_id: "pink_panties", weight: 156 },
+      { item_id: "gorgeous-bra", weight: 125 },
+      { item_id: "gorgeous-thighhighs", weight: 104 },
+	  { item_id: "gorgeous-buttplug", weight: 83 },
 
       // Legendary %0.5
 	  { item_id: "shiny-highheels", weight: 20 },
@@ -163,14 +169,16 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "classic-corset", weight: 650 },
       { item_id: "classic-maid-outfit", weight: 350 },
 		
-	  // Uncommon %28
-	  { item_id: "classic-anal-beads", weight: 700 },
-	  { item_id: "classic-thong", weight: 600 },
-	  { item_id: "pink-corset", weight: 500 },
-	  { item_id: "classic-bunnysuit", weight: 400 },
-	  { item_id: "pink-maid-outfit", weight: 300 },
-	  { item_id: "pink-small-vibrator", weight: 200 },
-	  { item_id: "classic-dildo", weight: 100 },
+	  // Uncommon %28 (rebalanced 2026-07 to fold in fishnet/latex additions)
+	  { item_id: "fishnet_choker", weight: 430 },
+	  { item_id: "classic-anal-beads", weight: 400 },
+	  { item_id: "classic-thong", weight: 371 },
+	  { item_id: "latex_tape", weight: 341 },
+	  { item_id: "pink-corset", weight: 311 },
+	  { item_id: "classic-bunnysuit", weight: 281 },
+	  { item_id: "pink-maid-outfit", weight: 252 },
+	  { item_id: "pink-small-vibrator", weight: 222 },
+	  { item_id: "classic-dildo", weight: 192 },
 	  
 	  //Rare %20
 	  { item_id: "pink-thong", weight: 420 },
@@ -182,13 +190,15 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "remote-control-vibrator", weight: 140 },
 	  { item_id: "black-dildo", weight: 90 },
 	  
-	  // Epic %15
-	  { item_id: "gorgeous-thong", weight: 450 },
-	  { item_id: "gorgeous-sheer-bikini", weight: 350 },
-	  { item_id: "gorgeous-bunnysuit", weight: 260 },
-	  { item_id: "gorgeous-corset", weight: 200 },
-	  { item_id: "fishnet-leotard", weight: 150 },
-	  { item_id: "rabbit-small-vibrator", weight: 90 },
+	  // Epic %15 (rebalanced 2026-07 to fold in latex additions moved from Principessa Case)
+	  { item_id: "gorgeous-thong", weight: 254 },
+	  { item_id: "latex_panties", weight: 254 },
+	  { item_id: "latex_bra", weight: 253 },
+	  { item_id: "gorgeous-sheer-bikini", weight: 201 },
+	  { item_id: "gorgeous-bunnysuit", weight: 174 },
+	  { item_id: "gorgeous-corset", weight: 148 },
+	  { item_id: "fishnet-leotard", weight: 121 },
+	  { item_id: "rabbit-small-vibrator", weight: 95 },
 	  
       // Legendary %3
 	  { item_id: "shiny-thong", weight: 120 },
@@ -201,8 +211,8 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
   },
 
   cosplay_case: {
-    name: "Cosplay Case",
-    description: "An exclusive case of full-body cosplay illustrations.",
+    name: "Obedience Case",
+    description: "A reward reserved for those who know how to obey.",
     cost: 5000,
     enabled: true,
     drops: [
@@ -244,6 +254,76 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
 	  { item_id: "2b_cosplay", weight: 18 },
 	  { item_id: "jinx_cosplay", weight: 16 },
       { item_id: "ryuko_matoi_cosplay", weight: 14 },
+    ],
+  },
+
+  // Name still TBD — items assigned. Weights follow the same convention as
+  // the other cases: within a rarity tier, higher sell_value = lower weight.
+  cat_case: {
+    name: "Kitten Case",
+    description: "A playful case mixing cat-themed wardrobe pieces, glam accessories, and a shot at rare statement pieces.",
+    cost: 3000,
+    enabled: true,
+    drops: [
+      // Common 45%
+      { item_id: "classic_gloves", weight: 1260 },
+      { item_id: "red_lips", weight: 1040 },
+      { item_id: "pink_lips", weight: 860 },
+      { item_id: "ruined_makeup", weight: 720 },
+      { item_id: "red_office_skirt", weight: 620 },
+
+      // Uncommon 28%
+      { item_id: "cat_ears", weight: 620 },
+      { item_id: "cat_collar", weight: 500 },
+      { item_id: "pink_gloves", weight: 450 },
+      { item_id: "black_lips", weight: 390 },
+	  { item_id: "cute_gloves", weight: 340 },
+      { item_id: "cat_croptop", weight: 280 },
+      { item_id: "pink_camisole", weight: 220 },
+
+      // Rare 16%
+      { item_id: "cat_thighhighs", weight: 560 },
+	  { item_id: "latex_gloves", weight: 430 },
+	  { item_id: "cute_dress", weight: 340 },
+      { item_id: "cat_short_shorts", weight: 270 },
+
+      // Epic 9%
+      { item_id: "cat_sneakers", weight: 360 },
+      { item_id: "cat_panties", weight: 270 },
+      { item_id: "fishnet_panties", weight: 180 },
+	  { item_id: "cat-bra", weight: 90 },
+
+      // Legendary 2%
+      { item_id: "dominatrix_boots", weight: 125 },
+	  { item_id: "red_fishnet_shorts", weight: 50 },
+      { item_id: "red_fishnet_croptop", weight: 25 },
+    ],
+  },
+
+  // Guaranteed cosplay drop — every open lands on a full-body cosplay
+  // illustration, priced close to (but under) the single most expensive
+  // cosplay item's sell_value (ryuko_matoi_cosplay, 60000).
+  cosplay_pure_case: {
+    name: "Cosplay Case",
+    description: "Every open guarantees a full-body cosplay illustration. No fillers, no fluff.",
+    cost: 65000,
+    enabled: true,
+    drops: [
+      { item_id: "ada_wong_cosplay", weight: 1 },
+      { item_id: "tifa_lockhart_cosplay", weight: 1 },
+      { item_id: "lara_croft_cosplay", weight: 1 },
+      { item_id: "astolfo_cosplay", weight: 1 },
+      { item_id: "chunli_cosplay", weight: 1 },
+      { item_id: "asuka_cosplay", weight: 1 },
+      { item_id: "asuna_cosplay", weight: 1 },
+      { item_id: "misa_amane_cosplay", weight: 1 },
+      { item_id: "frieren_cosplay", weight: 1 },
+      { item_id: "megumin_cosplay", weight: 1 },
+      { item_id: "mona_cosplay", weight: 1 },
+      { item_id: "2b_cosplay", weight: 1 },
+      { item_id: "raiden_shogun_cosplay", weight: 1 },
+      { item_id: "jinx_cosplay", weight: 1 },
+      { item_id: "ryuko_matoi_cosplay", weight: 1 },
     ],
   },
 };
@@ -932,12 +1012,33 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "cosplay",
     sell_value: 42500,
   },
+  "asuka_cosplay": {
+    name: "Asuka Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 40000,
+  },
+  "asuna_cosplay": {
+    name: "Asuna Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 35000,
+  },
   "chunli_cosplay": {
     name: "Chun-Li Cosplay",
     description: "A fully rendered cosplay set.",
     rarity: "legendary",
     collection: "cosplay",
     sell_value: 45000,
+  },
+  "frieren_cosplay": {
+    name: "Frieren Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 35000,
   },
   "jinx_cosplay": {
     name: "Jinx Cosplay",
@@ -953,6 +1054,34 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     collection: "cosplay",
     sell_value: 40000,
   },
+  "megumin_cosplay": {
+    name: "Megumin Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 35000,
+  },
+  "misa_amane_cosplay": {
+    name: "Misa Amane Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 55000,
+  },
+  "mona_cosplay": {
+    name: "Mona Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 45000,
+  },
+  "raiden_shogun_cosplay": {
+    name: "Raiden Shogun Cosplay",
+    description: "A fully rendered cosplay set.",
+    rarity: "legendary",
+    collection: "cosplay",
+    sell_value: 50000,
+  },
   "ryuko_matoi_cosplay": {
     name: "Ryuko Matoi Cosplay",
     description: "A fully rendered cosplay set.",
@@ -966,6 +1095,250 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "legendary",
     collection: "cosplay",
     sell_value: 37500,
+  },
+
+  // --- New wardrobe batch (2026-07, round 2) - rarity/sell_value are
+  // placeholders, to be finalized separately. ---
+  "ruined_makeup": {
+    name: "Ruined Makeup",
+    description: "Streaked mascara and tears. Proof you couldn't hold it together.",
+    rarity: "common",
+    collection: "makeup",
+    sell_value: 325,
+  },
+  "black_lips": {
+    name: "Black Lips",
+    description: "Bold black lipstick. Striking and a little dangerous.",
+    rarity: "uncommon",
+    collection: "makeup",
+    sell_value: 1550,
+  },
+  "red_lips": {
+    name: "Red Lips",
+    description: "Classic red lipstick. Impossible to ignore.",
+    rarity: "common",
+    collection: "makeup",
+    sell_value: 275,
+  },
+  "cat_panties": {
+    name: "Cat Panties",
+    description: "Playful panties with a cat print. Meow.",
+    rarity: "epic",
+    collection: "cat",
+    sell_value: 7000,
+  },
+  "cat-bra": {
+    name: "Cat Bra",
+    description: "A bra with a playful cat motif.",
+    rarity: "epic",
+    collection: "cat",
+    sell_value: 9000,
+  },
+  "cute_short_shorts": {
+    name: "Cute Short Shorts",
+    description: "Snug little shorts that leave nothing to guess.",
+    rarity: "uncommon",
+    collection: "cute",
+    sell_value: 600,
+  },
+  "cute_choker": {
+    name: "Cute Choker",
+    description: "A delicate choker with a little charm. Sweet and simple.",
+    rarity: "common",
+    collection: "cute",
+    sell_value: 250,
+  },
+  "cute_dress": {
+    name: "Cute Dress",
+    description: "A soft, girly dress. Innocent on the outside.",
+    rarity: "rare",
+    collection: "cute",
+    sell_value: 3000,
+  },
+  "cute_bra": {
+    name: "Cute Bra",
+    description: "A soft pastel bra with delicate trim.",
+    rarity: "rare",
+    collection: "cute",
+    sell_value: 1500,
+  },
+  "cute_sneakers": {
+    name: "Cute Sneakers",
+    description: "Pastel sneakers with a playful bow.",
+    rarity: "uncommon",
+    collection: "cute",
+    sell_value: 500,
+  },
+  "fishnet_panties": {
+    name: "Fishnet Panties",
+    description: "Open-weave fishnet panties. Barely there.",
+    rarity: "epic",
+    collection: "fishnet",
+    sell_value: 8000,
+  },
+  "red_fishnet_shorts": {
+    name: "Red Fishnet Shorts",
+    description: "Fishnet shorts with a bold red trim.",
+    rarity: "legendary",
+    collection: "fishnet",
+    sell_value: 20000,
+  },
+  "red_fishnet_croptop": {
+    name: "Red Fishnet Croptop",
+    description: "Fishnet crop top with a fiery red trim.",
+    rarity: "legendary",
+    collection: "fishnet",
+    sell_value: 30000,
+  },
+  "latex_panties": {
+    name: "Latex Panties",
+    description: "Skin-tight latex panties. Shiny and unforgiving.",
+    rarity: "epic",
+    collection: "latex",
+    sell_value: 3800,
+  },
+  "latex_gloves": {
+    name: "Latex Gloves",
+    description: "Glossy latex gloves that grip tight.",
+    rarity: "rare",
+    collection: "latex",
+    sell_value: 2850,
+  },
+  "latex_bra": {
+    name: "Latex Bra",
+    description: "A tight latex bra, glossy and severe.",
+    rarity: "epic",
+    collection: "latex",
+    sell_value: 3800,
+  },
+  "dominatrix_boots": {
+    name: "Dominatrix Boots",
+    description: "Tall latex boots built for command.",
+    rarity: "legendary",
+    collection: "latex",
+    sell_value: 15000,
+  },
+  "red_office_skirt": {
+    name: "Red Office Skirt",
+    description: "A tight red pencil skirt. Dress code: obedience.",
+    rarity: "common",
+    collection: "office",
+    sell_value: 350,
+  },
+  "classic_gloves": {
+    name: "Classic Gloves",
+    description: "Simple fitted gloves. A basic finishing touch.",
+    rarity: "common",
+    collection: "classic",
+    sell_value: 250,
+  },
+  "pink_gloves": {
+    name: "Pink Gloves",
+    description: "Soft pink gloves for delicate hands.",
+    rarity: "uncommon",
+    collection: "pink",
+    sell_value: 1500,
+  },
+  "pink_highheels": {
+    name: "Pink High Heels",
+    description: "Bright pink heels. Loud and confident.",
+    rarity: "epic",
+    collection: "pink",
+    sell_value: 3200,
+  },
+
+  // --- New wardrobe batch (2026-07, round 3) - rarity/sell_value are
+  // placeholders, to be finalized separately. ---
+  "cat_ears": {
+    name: "Cat Ears",
+    description: "Perky cat ears. Purr on command.",
+    rarity: "uncommon",
+    collection: "cat",
+    sell_value: 1300,
+  },
+  "cat_collar": {
+    name: "Cat Collar",
+    description: "A collar with a little bell. Everyone hears you coming.",
+    rarity: "uncommon",
+    collection: "cat",
+    sell_value: 1450,
+  },
+  "cat_croptop": {
+    name: "Cat Camisole",
+    description: "A slinky camisole with a playful cat motif.",
+    rarity: "uncommon",
+    collection: "cat",
+    sell_value: 1650,
+  },
+  "cat_short_shorts": {
+    name: "Cat Short Shorts",
+    description: "Tiny shorts with a cat-print trim.",
+    rarity: "rare",
+    collection: "cat",
+    sell_value: 3100,
+  },
+  "cat_thighhighs": {
+    name: "Cat Thighhighs",
+    description: "Thighhighs with a paw-print pattern.",
+    rarity: "rare",
+    collection: "cat",
+    sell_value: 2700,
+  },
+  "cat_sneakers": {
+    name: "Cat Sneakers",
+    description: "Sneakers with a cute cat design.",
+    rarity: "epic",
+    collection: "cat",
+    sell_value: 6000,
+  },
+  "pink_panties": {
+    name: "Pink Panties",
+    description: "Simple pink panties. Soft and unassuming.",
+    rarity: "epic",
+    collection: "pink",
+    sell_value: 3400,
+  },
+  "pink_camisole": {
+    name: "Pink Camisole",
+    description: "A silky pink camisole. Delicate and revealing.",
+    rarity: "uncommon",
+    collection: "pink",
+    sell_value: 1700,
+  },
+  "pink_thighhighs": {
+    name: "Pink Thighhighs",
+    description: "Soft pink thighhighs to match the rest of the set.",
+    rarity: "uncommon",
+    collection: "pink",
+    sell_value: 650,
+  },
+  "pink_lips": {
+    name: "Pink Lips",
+    description: "Soft pink lipstick. Sweet and inviting.",
+    rarity: "common",
+    collection: "pink",
+    sell_value: 300,
+  },
+  "cute_gloves": {
+    name: "Cute Gloves",
+    description: "Soft pastel gloves with a delicate trim.",
+    rarity: "uncommon",
+    collection: "cute",
+    sell_value: 1600,
+  },
+  "fishnet_choker": {
+    name: "Fishnet Choker",
+    description: "An open-weave fishnet choker. Barely there.",
+    rarity: "uncommon",
+    collection: "fishnet",
+    sell_value: 500,
+  },
+  "latex_tape": {
+    name: "Latex Tape",
+    description: "Glossy latex tape sealed tight over the mouth.",
+    rarity: "uncommon",
+    collection: "latex",
+    sell_value: 1000,
   },
 };
 

@@ -866,7 +866,7 @@ export function CratesPanel({
       {/* Static cases area */}
       { ! (isOpening || wonItems.length > 0) && (
       <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
-          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}

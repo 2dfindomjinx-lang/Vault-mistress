@@ -120,6 +120,44 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["white_thighhighs", "thighhighs"],
   // Collar
   ["red_collar", "collar"],
+
+  // --- New wardrobe batch (2026-07, round 2) ---
+  ["ruined_makeup", "blindfold"],
+  ["black_lips", "mouth"],
+  ["red_lips", "mouth"],
+  ["cat_panties", "bottom"],
+  ["cute_short_shorts", "bottom"],
+  ["fishnet_panties", "bottom"],
+  ["red_fishnet_shorts", "bottom"],
+  ["latex_panties", "bottom"],
+  ["red_office_skirt", "bottom"],
+  ["cute_choker", "collar"],
+  ["cute_dress", "fullBody"],
+  ["classic_gloves", "hands"],
+  ["latex_gloves", "hands"],
+  ["pink_gloves", "hands"],
+  ["cute_sneakers", "shoes"],
+  ["dominatrix_boots", "shoes"],
+  ["pink_highheels", "shoes"],
+  ["cat-bra", "top"],
+  ["cute_bra", "top"],
+  ["latex_bra", "top"],
+  ["red_fishnet_croptop", "top"],
+
+  // --- New wardrobe batch (2026-07, round 3) ---
+  ["cat_ears", "ears"],
+  ["cat_collar", "collar"],
+  ["fishnet_choker", "collar"],
+  ["latex_tape", "mouth"],
+  ["pink_lips", "mouth"],
+  ["cute_gloves", "hands"],
+  ["cat_short_shorts", "bottom"],
+  ["pink_panties", "bottom"],
+  ["cat_thighhighs", "thighhighs"],
+  ["pink_thighhighs", "thighhighs"],
+  ["cat_sneakers", "shoes"],
+  ["cat_croptop", "top"],
+  ["pink_camisole", "top"],
 ];
 
 AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
@@ -225,6 +263,13 @@ export function resolveAvatarItemIconPath(itemId: string): string | null {
   return getCrateItemImageUrl(itemId, item.image_url ?? null);
 }
 
+// Layer assets are .webp by convention; entries here override the filename
+// for items whose art file doesn't literally match their item id (e.g. a
+// hyphen/underscore mismatch).
+const AVATAR_LAYER_FILE_OVERRIDES: Partial<Record<string, string>> = {
+  "fishnet-croptop": "fishnet_croptop.webp",
+};
+
 export function resolveAvatarLayer(itemId: string): string | null {
   const slot = getItemAvatarSlot(itemId);
 
@@ -232,7 +277,8 @@ export function resolveAvatarLayer(itemId: string): string | null {
     return null;
   }
 
-  return `/avatar/${SLOT_FOLDER_MAP[slot]}/${itemId}.webp`;
+  const fileName = AVATAR_LAYER_FILE_OVERRIDES[itemId] ?? `${itemId}.webp`;
+  return `/avatar/${SLOT_FOLDER_MAP[slot]}/${fileName}`;
 }
 
 export function normalizeEquipment(equipped: EquippedAvatarSlots): EquippedAvatarSlots {
@@ -319,9 +365,16 @@ export const FULL_SET_ITEM_IDS: string[] = [
   "2b_cosplay",
   "ada_wong_cosplay",
   "astolfo_cosplay",
+  "asuka_cosplay",
+  "asuna_cosplay",
   "chunli_cosplay",
+  "frieren_cosplay",
   "jinx_cosplay",
   "lara_croft_cosplay",
+  "megumin_cosplay",
+  "misa_amane_cosplay",
+  "mona_cosplay",
+  "raiden_shogun_cosplay",
   "ryuko_matoi_cosplay",
   "tifa_lockhart_cosplay",
 ];
