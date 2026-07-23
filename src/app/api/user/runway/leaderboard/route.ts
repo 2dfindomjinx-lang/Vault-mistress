@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 type LeaderboardRow = {
   rank: number;
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
   }
 
   const userId = authData.user.id;
+  const isAdminViewer = isTrustedAdminUserId(userId);
   const supabase = createSupabaseAdminClient();
 
   const url = new URL(request.url);
@@ -39,7 +41,9 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.rpc("get_runway_leaderboard", {
     p_section: section,
     p_limit: 20,
-    p_viewer_id: userId,
+    // The leaderboard RPC's optional viewer record is singular. Admins may
+    // own multiple active runway entries, so omit that optional row for them.
+    p_viewer_id: isAdminViewer ? null : userId,
   });
 
   if (error) {

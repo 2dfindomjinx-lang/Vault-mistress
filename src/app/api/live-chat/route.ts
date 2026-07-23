@@ -6,6 +6,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const CHAT_HIGHLIGHT_COST = 2000;
@@ -29,7 +30,6 @@ type ProfileRow = {
   coins: number;
   display_name?: string | null;
   id: string;
-  is_admin?: boolean | null;
   username: string;
 };
 
@@ -144,8 +144,7 @@ export async function GET(request: Request) {
   // live_chat_messages on every GET (every 30s per open chat widget), and
   // the query below already filters to `retentionCutoff` regardless of
   // whether stale rows still physically exist in the table.
-  const [profileResult, messagesResult, muteResult] = await Promise.all([
-    supabase.from("profiles").select("id, is_admin").eq("id", authResult.userId!).single(),
+  const [messagesResult, muteResult] = await Promise.all([
     supabase
       .from("live_chat_messages")
       .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
@@ -159,7 +158,6 @@ export async function GET(request: Request) {
     return jsonError(messagesResult.error.message, 500);
   }
 
-  const profile = profileResult.data as ProfileRow | null;
   const mute = muteResult.data as { muted_until?: string | null; reason?: string | null } | null;
   const mutedUntilMs = mute?.muted_until ? new Date(mute.muted_until).getTime() : null;
   const isMuted = mutedUntilMs === null ? Boolean(mute) : mutedUntilMs > Date.now();
@@ -170,7 +168,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     currentUser: {
-      isAdmin: Boolean(profile?.is_admin),
+      // Never trust a mutable profile flag for moderation capabilities.
+      isAdmin: isTrustedAdminUserId(authResult.userId),
       mutedReason: isMuted ? mute?.reason ?? "" : "",
       mutedUntil: isMuted ? mute?.muted_until ?? null : null,
     },
@@ -189,6 +188,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as ChatBody | null;
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId!;
+  const isAdmin = isTrustedAdminUserId(userId);
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(profileSelect)
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
   const currentProfile = profile as ProfileRow;
 
   if (body?.action === "delete") {
-    if (!currentProfile.is_admin || !body.messageId) {
+    if (!isAdmin || !body.messageId) {
       return jsonError("Admin access required.", 403);
     }
 
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
   }
 
   if (body?.action === "mute") {
-    if (!currentProfile.is_admin || !body.userId) {
+    if (!isAdmin || !body.userId) {
       return jsonError("Admin access required.", 403);
     }
 
@@ -357,7 +357,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!currentProfile.is_admin) {
+  if (!isAdmin) {
     await sendAdminMobileChatPushOnce({
       body: `${currentProfile.display_name?.trim() || `@${currentProfile.username}`}: ${message}`,
       title: "New Live Chat message",

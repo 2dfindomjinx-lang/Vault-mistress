@@ -4,6 +4,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -21,6 +22,7 @@ export async function GET() {
   }
 
   const userId = authData.user.id;
+  const canAddMultipleAvatars = isTrustedAdminUserId(userId);
   const supabase = createSupabaseAdminClient();
 
   const { data: avatar, error: avatarError } = await supabase
@@ -46,7 +48,9 @@ export async function GET() {
   const { data: leaderboardData, error: leaderboardError } = await supabase.rpc("get_runway_leaderboard", {
     p_section: "top",
     p_limit: 1,
-    p_viewer_id: userId,
+    // An admin can have several active entries, while the legacy RPC returns
+    // one viewer row. The editor remains usable without a single rank badge.
+    p_viewer_id: canAddMultipleAvatars ? null : userId,
   });
 
   if (leaderboardError) {
@@ -60,6 +64,7 @@ export async function GET() {
   const nextEligibleAt = new Date(activatedAtMs + 7 * 24 * 60 * 60 * 1000).toISOString();
 
   return Response.json({
+    canAddMultipleAvatars,
     avatar: {
       id: avatar.id,
       equippedAvatarSlots: avatar.equipped_avatar_slots ?? {},
@@ -74,7 +79,7 @@ export async function GET() {
       activatedAt: avatar.activated_at,
       rank,
       nextEligibleAt,
-      canResubmit: Date.now() >= activatedAtMs + 7 * 24 * 60 * 60 * 1000,
+      canResubmit: canAddMultipleAvatars || Date.now() >= activatedAtMs + 7 * 24 * 60 * 60 * 1000,
     },
   });
 }

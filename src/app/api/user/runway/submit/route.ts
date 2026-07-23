@@ -11,6 +11,7 @@ import {
   type EquippedAvatarSlots,
 } from "@/lib/avatar-slots";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
 
 type Body = {
   equippedAvatarSlots?: Record<string, unknown>;
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   }
 
   const userId = authData.user.id;
+  const allowMultipleActiveAvatars = isTrustedAdminUserId(userId);
   const supabase = createSupabaseAdminClient();
 
   const rateLimit = await checkRateLimit(supabase, `runway-submit:${userId}`, 5, 60);
@@ -112,6 +114,7 @@ export async function POST(request: Request) {
     p_equipped_full_set_id: fullSetId,
     p_has_uncensored: Boolean(profile.has_uncensored_avatar),
     p_idempotency_key: idempotencyKey,
+    p_allow_multiple_active: allowMultipleActiveAvatars,
   });
 
   if (error) {

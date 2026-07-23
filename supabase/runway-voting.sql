@@ -43,7 +43,7 @@ create table if not exists public.voting_avatars (
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists idx_voting_avatars_one_active_per_owner
+create index if not exists idx_voting_avatars_one_active_per_owner
   on public.voting_avatars (owner_user_id) where is_active = true;
 create index if not exists idx_voting_avatars_active_points
   on public.voting_avatars (is_active, total_points desc);
@@ -130,16 +130,16 @@ create policy "Users can read own votes given"
 -- ---------------------------------------------------------------------------
 -- submit_voting_avatar: replace the caller's Voting Avatar with a new,
 -- already-validated snapshot (ownership/slot/full-set validation happens in
--- the calling API route - this function trusts its own DB only). One active
--- row per owner (hard-enforced by the partial unique index above); 7-day
--- cooldown between submissions is a plain SQL literal (single source of
--- truth - no TS constant duplicates it).
+-- the calling API route - this function trusts its own DB only). The route
+-- passes p_allow_multiple_active only after checking ADMIN_USER_IDS; regular
+-- users retain one active row and the 7-day cooldown.
 create or replace function public.submit_voting_avatar(
   p_user_id uuid,
   p_equipped_avatar_slots jsonb,
   p_equipped_full_set_id text,
   p_has_uncensored boolean,
-  p_idempotency_key text
+  p_idempotency_key text,
+  p_allow_multiple_active boolean default false
 )
 returns jsonb
 language plpgsql
@@ -163,7 +163,8 @@ begin
   v_request_hash := encode(digest(jsonb_build_object(
     'slots', coalesce(p_equipped_avatar_slots, '{}'::jsonb),
     'fullSet', p_equipped_full_set_id,
-    'uncensored', coalesce(p_has_uncensored, false)
+    'uncensored', coalesce(p_has_uncensored, false),
+    'allowMultipleActive', coalesce(p_allow_multiple_active, false)
   )::text, 'sha256'), 'hex');
 
   begin
@@ -190,15 +191,19 @@ begin
   order by activated_at desc
   limit 1;
 
-  if v_last_activated_at is not null and now() < v_last_activated_at + interval '7 days' then
+  if not coalesce(p_allow_multiple_active, false)
+    and v_last_activated_at is not null
+    and now() < v_last_activated_at + interval '7 days' then
     v_result := jsonb_build_object(
       'error', 'cooldown_active',
       'next_eligible_at', v_last_activated_at + interval '7 days'
     );
   else
-    update public.voting_avatars
-    set is_active = false, deactivated_at = now(), updated_at = now()
-    where owner_user_id = p_user_id and is_active = true;
+    if not coalesce(p_allow_multiple_active, false) then
+      update public.voting_avatars
+      set is_active = false, deactivated_at = now(), updated_at = now()
+      where owner_user_id = p_user_id and is_active = true;
+    end if;
 
     insert into public.voting_avatars (
       owner_user_id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar
@@ -222,8 +227,8 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_voting_avatar(uuid, jsonb, text, boolean, text) from public, anon, authenticated;
-grant execute on function public.submit_voting_avatar(uuid, jsonb, text, boolean, text) to service_role;
+revoke all on function public.submit_voting_avatar(uuid, jsonb, text, boolean, text, boolean) from public, anon, authenticated;
+grant execute on function public.submit_voting_avatar(uuid, jsonb, text, boolean, text, boolean) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- get_runway_candidate: issue (or re-issue) a one-time candidate token for
@@ -614,7 +619,10 @@ begin
       (select jsonb_build_object(
         'rank', rnk, 'avatarId', id, 'ownerUserId', owner_user_id,
         'totalPoints', total_points, 'ratingCount', rating_count, 'createdAt', created_at
-      ) from ranked where p_viewer_id is not null and owner_user_id = p_viewer_id)
+      ) from ranked
+        where p_viewer_id is not null and owner_user_id = p_viewer_id
+        order by rnk
+        limit 1)
     into v_leaders, v_viewer;
 
   elsif v_section = 'highest_rated' then

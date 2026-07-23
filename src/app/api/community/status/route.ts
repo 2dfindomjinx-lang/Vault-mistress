@@ -14,7 +14,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { syncTrustedAdminRegistry } from "@/lib/trusted-admin-registry";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type MinimalProfileRow = {
@@ -276,26 +276,6 @@ async function loadCommunityMetrics(supabase: SupabaseClient, userId: string, no
   return loadLegacyMetrics(supabase, userId, nowMs);
 }
 
-async function synchronizeTrustedAdminProfile(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-  userId: string,
-) {
-  // Admin access is deliberately controlled by ADMIN_USER_IDS. The database
-  // aggregate/RPC uses profiles.is_admin, so keep that server-owned flag in
-  // sync before any Community Goal calculation or reward grant runs.
-  if (!isTrustedAdminUserId(userId)) return;
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_admin: true })
-    .eq("id", userId)
-    .or("is_admin.eq.false,is_admin.is.null");
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -309,7 +289,7 @@ export async function GET() {
     const supabase = createSupabaseAdminClient();
     const nowMs = Date.now();
     const currentGoal = getCurrentCommunityGoal(nowMs);
-    await synchronizeTrustedAdminProfile(supabase, authData.user.id);
+    await syncTrustedAdminRegistry(supabase);
     const metrics = await loadCommunityMetrics(supabase, authData.user.id, nowMs);
     if (metrics.goalProgressCoins >= currentGoal.targetCoins) {
       const { error: rewardError } = await supabase.rpc("grant_community_goal_rewards", {

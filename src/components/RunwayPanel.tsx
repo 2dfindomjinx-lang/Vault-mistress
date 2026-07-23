@@ -72,6 +72,7 @@ function newIdempotencyKey() {
 
 export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, liveEquippedFullSetId }: RunwayPanelProps) {
   const [myAvatar, setMyAvatar] = useState<MyAvatar | null>(null);
+  const [canAddMultipleAvatars, setCanAddMultipleAvatars] = useState(false);
   const [loadingMe, setLoadingMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -91,6 +92,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
       const res = await fetch("/api/user/runway/me");
       const data = await res.json().catch(() => null);
       setMyAvatar(data?.avatar ?? null);
+      setCanAddMultipleAvatars(data?.canAddMultipleAvatars === true);
     } catch (err) {
       console.error("Runway me fetch error", err);
     } finally {
@@ -224,7 +226,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
     }
   }, [voting, candidate, loadCandidate]);
 
-  const canSubmit = myAvatar ? myAvatar.canResubmit : true;
+  const canSubmit = canAddMultipleAvatars || (myAvatar ? myAvatar.canResubmit : true);
 
   return (
     <div className="space-y-6">
@@ -252,6 +254,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
             canSubmit={!disabled && canSubmit}
             submitting={submitting}
             nextEligibleAt={myAvatar?.nextEligibleAt ?? null}
+            canAddMultipleAvatars={canAddMultipleAvatars}
             onSubmit={handleSubmit}
           />
         </div>

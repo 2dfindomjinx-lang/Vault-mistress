@@ -25,6 +25,7 @@ type RunwayAvatarEditorProps = {
   canSubmit: boolean;
   submitting: boolean;
   nextEligibleAt: string | null;
+  canAddMultipleAvatars: boolean;
   onSubmit: (draft: { equippedAvatarSlots: EquippedAvatarSlots; equippedFullSetId: string | null }) => void;
 };
 
@@ -35,6 +36,7 @@ export function RunwayAvatarEditor({
   canSubmit,
   submitting,
   nextEligibleAt,
+  canAddMultipleAvatars,
   onSubmit,
 }: RunwayAvatarEditorProps) {
   const [draftSlots, setDraftSlots] = useState<EquippedAvatarSlots>({});
@@ -93,17 +95,17 @@ export function RunwayAvatarEditor({
   };
 
   const hasAnyDraft = draftFullSetId !== null || Object.keys(draftSlots).length > 0;
-  const cooldownActive = !canSubmit && Boolean(nextEligibleAt);
+  const cooldownActive = !canSubmit && Boolean(nextEligibleAt) && !canAddMultipleAvatars;
 
   return (
-    <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
-      <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">Voting Avatar Editor</p>
-      <p className="mt-1 text-xs text-zinc-400">
-        Build a look for the pool from items you own. This never changes your live profile avatar.
-      </p>
+    <div className="rounded-[1.25rem] border border-white/10 bg-black/30 p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/80">Voting Avatar Editor</p>
+        <p className="text-[11px] text-zinc-500">Doesn&apos;t change your live avatar.</p>
+      </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[200px_1fr]">
-        <div className="relative mx-auto h-[300px] w-[100px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40 lg:mx-0">
+      <div className="mt-3 grid gap-3 sm:grid-cols-[72px_1fr]">
+        <div className="relative mx-auto h-[210px] w-[72px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:mx-0">
           <LayeredAvatar
             alt="Voting avatar draft preview"
             equipped={draftSlots}
@@ -117,7 +119,7 @@ export function RunwayAvatarEditor({
             <button
               type="button"
               onClick={copyCurrentLook}
-              className="rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold hover:bg-white/10"
+              className="rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] font-semibold hover:bg-white/10"
             >
               Copy my current look
             </button>
@@ -125,14 +127,14 @@ export function RunwayAvatarEditor({
               type="button"
               onClick={clearDraft}
               disabled={!hasAnyDraft}
-              className="rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold hover:bg-white/10 disabled:opacity-40"
+              className="rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] font-semibold hover:bg-white/10 disabled:opacity-40"
             >
               Reset draft
             </button>
           </div>
 
           {fullSetItems.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-3">
               <div className="mb-1.5 flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">Full Set</p>
                 {draftFullSetId && (
@@ -145,7 +147,7 @@ export function RunwayAvatarEditor({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7">
                 {fullSetItems.map((item) => {
                   const isEquipped = draftFullSetId === item.item_id;
                   const icon = resolveAvatarItemIconPath(item.item_id);
@@ -167,7 +169,7 @@ export function RunwayAvatarEditor({
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1">
             <button
               type="button"
               onClick={() => setCategoryFilter(null)}
@@ -187,7 +189,7 @@ export function RunwayAvatarEditor({
             ))}
           </div>
 
-          <div className="mt-3 max-h-[360px] space-y-4 overflow-y-auto pr-1">
+          <div className="mt-2 max-h-[260px] space-y-3 overflow-y-auto pr-1">
             {AVATAR_SLOT_ORDER.filter((slot) => (categoryFilter === null || categoryFilter === slot) && (itemsBySlot[slot]?.length ?? 0) > 0).map((slot) => (
               <div key={slot}>
                 <div className="mb-1.5 flex items-center justify-between">
@@ -202,7 +204,7 @@ export function RunwayAvatarEditor({
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7">
                   {itemsBySlot[slot]!.map((item) => {
                     const isEquipped = draftSlots[slot] === item.item_id;
                     const icon = resolveAvatarItemIconPath(item.item_id);
@@ -228,7 +230,7 @@ export function RunwayAvatarEditor({
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-3 flex items-center justify-between gap-3">
             {cooldownActive ? (
               <p className="text-xs text-amber-300">
                 You can resubmit on {new Date(nextEligibleAt as string).toLocaleString()}.
@@ -242,7 +244,7 @@ export function RunwayAvatarEditor({
               onClick={() => onSubmit({ equippedAvatarSlots: draftSlots, equippedFullSetId: draftFullSetId })}
               className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition disabled:opacity-40"
             >
-              {submitting ? "Submitting..." : "Submit to Voting Pool"}
+              {submitting ? "Submitting..." : canAddMultipleAvatars ? "Add to Voting Pool" : "Submit to Voting Pool"}
             </button>
           </div>
         </div>
