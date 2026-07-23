@@ -96,6 +96,7 @@ export function RunwayAvatarEditor({
 
   const hasAnyDraft = draftFullSetId !== null || Object.keys(draftSlots).length > 0;
   const cooldownActive = !canSubmit && Boolean(nextEligibleAt) && !canAddMultipleAvatars;
+  const visibleSlots = AVATAR_SLOT_ORDER.filter((slot) => (itemsBySlot[slot]?.length ?? 0) > 0);
 
   return (
     <div className="rounded-[1.25rem] border border-white/10 bg-black/30 p-3">
@@ -104,17 +105,39 @@ export function RunwayAvatarEditor({
         <p className="text-[11px] text-zinc-500">Doesn&apos;t change your live avatar.</p>
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-[72px_1fr]">
-        <div className="relative mx-auto h-[210px] w-[72px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:mx-0">
+      <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-[128px_minmax(0,1fr)]">
+        <div className="relative mx-auto h-[270px] w-[128px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 sm:mx-0">
           <LayeredAvatar
             alt="Voting avatar draft preview"
             equipped={draftSlots}
             equippedFullSetId={draftFullSetId}
             hasUncensored={false}
+            imageClassName="object-contain object-center"
           />
+          <div className="absolute inset-x-1 bottom-1 space-y-0.5 rounded-md border border-white/10 bg-black/75 p-1">
+            {fullSetItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === "fullSet" ? null : "fullSet")}
+                className={`block w-full truncate rounded px-1 py-0.5 text-left text-[9px] transition ${categoryFilter === "fullSet" ? "bg-pink-500/20 text-pink-100" : "text-zinc-400 hover:bg-white/10"}`}
+              >
+                {draftFullSetId ? fullSetItems.find((item) => item.item_id === draftFullSetId)?.name ?? "Full Set" : "Full Set"}
+              </button>
+            )}
+            {visibleSlots.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === slot ? null : slot)}
+                className={`block w-full truncate rounded px-1 py-0.5 text-left text-[9px] transition ${categoryFilter === slot ? "bg-pink-500/20 text-pink-100" : "text-zinc-400 hover:bg-white/10"}`}
+              >
+                {draftSlots[slot] ? itemsBySlot[slot]?.find((item) => item.item_id === draftSlots[slot])?.name ?? SLOT_LABELS[slot] : SLOT_LABELS[slot]}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 rounded-xl border border-white/10 bg-black/15 p-2.5">
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -133,7 +156,7 @@ export function RunwayAvatarEditor({
             </button>
           </div>
 
-          {fullSetItems.length > 0 && (
+          {fullSetItems.length > 0 && (categoryFilter === null || categoryFilter === "fullSet") && (
             <div className="mt-3">
               <div className="mb-1.5 flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">Full Set</p>
@@ -147,7 +170,7 @@ export function RunwayAvatarEditor({
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7">
+              <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7 lg:grid-cols-8">
                 {fullSetItems.map((item) => {
                   const isEquipped = draftFullSetId === item.item_id;
                   const icon = resolveAvatarItemIconPath(item.item_id);
@@ -169,7 +192,7 @@ export function RunwayAvatarEditor({
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-1">
+          <div className="mt-3 flex flex-wrap gap-1 border-y border-white/10 py-2">
             <button
               type="button"
               onClick={() => setCategoryFilter(null)}
@@ -177,7 +200,16 @@ export function RunwayAvatarEditor({
             >
               All
             </button>
-            {AVATAR_SLOT_ORDER.filter((slot) => (itemsBySlot[slot]?.length ?? 0) > 0).map((slot) => (
+            {fullSetItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter("fullSet")}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === "fullSet" ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
+              >
+                Full Set
+              </button>
+            )}
+            {visibleSlots.map((slot) => (
               <button
                 key={slot}
                 type="button"
@@ -189,8 +221,8 @@ export function RunwayAvatarEditor({
             ))}
           </div>
 
-          <div className="mt-2 max-h-[260px] space-y-3 overflow-y-auto pr-1">
-            {AVATAR_SLOT_ORDER.filter((slot) => (categoryFilter === null || categoryFilter === slot) && (itemsBySlot[slot]?.length ?? 0) > 0).map((slot) => (
+          <div className="mt-2 max-h-[250px] space-y-3 overflow-y-auto pr-1">
+            {visibleSlots.filter((slot) => categoryFilter === null || categoryFilter === slot).map((slot) => (
               <div key={slot}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">{SLOT_LABELS[slot]}</p>
@@ -204,7 +236,7 @@ export function RunwayAvatarEditor({
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7">
+                <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7 lg:grid-cols-8">
                   {itemsBySlot[slot]!.map((item) => {
                     const isEquipped = draftSlots[slot] === item.item_id;
                     const icon = resolveAvatarItemIconPath(item.item_id);

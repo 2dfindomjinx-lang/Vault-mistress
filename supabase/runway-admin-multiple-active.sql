@@ -3,6 +3,8 @@
 -- caller against ADMIN_USER_IDS. Regular users keep the one-active-avatar and
 -- seven-day cooldown rules.
 
+create extension if not exists pgcrypto with schema extensions;
+
 drop index if exists public.idx_voting_avatars_one_active_per_owner;
 create index if not exists idx_voting_avatars_one_active_per_owner
   on public.voting_avatars (owner_user_id) where is_active = true;
@@ -20,7 +22,7 @@ create or replace function public.submit_voting_avatar(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_request_hash text;

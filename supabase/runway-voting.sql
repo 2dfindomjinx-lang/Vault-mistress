@@ -19,7 +19,7 @@
 -- submit_voting_avatar only ever touches profiles -> voting_avatars (no
 -- tokens or votes are involved in submission at all).
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.voting_avatars (
   id uuid primary key default gen_random_uuid(),
@@ -144,7 +144,7 @@ create or replace function public.submit_voting_avatar(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_request_hash text;
@@ -243,7 +243,7 @@ create or replace function public.get_runway_candidate(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_ttl integer := greatest(30, least(coalesce(p_ttl_seconds, 120), 600));
@@ -341,7 +341,7 @@ create or replace function public.cast_avatar_vote(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_coin_reward integer := greatest(0, least(coalesce(p_coin_reward, 0), 100000));
@@ -507,7 +507,7 @@ create or replace function public.skip_avatar_vote(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_request_hash text;
@@ -590,7 +590,7 @@ create or replace function public.get_runway_leaderboard(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_section text := case when lower(coalesce(p_section, 'top')) in ('highest_rated', 'new') then lower(p_section) else 'top' end;
