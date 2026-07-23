@@ -158,13 +158,14 @@ function getCrateBatchPricing(
   activeEvents: Array<{ effect: EventEffect }>,
   freeOpenUsedToday: boolean,
   grantedOpenCount: number,
+  crateType?: string,
 ) {
   const safeQuantity = Math.max(1, Math.floor(quantity));
   const grantApplied = Math.min(safeQuantity, Math.max(0, Math.floor(grantedOpenCount)));
   const remainingAfterGrants = Math.max(0, safeQuantity - grantApplied);
-  const eventFreeApplied = hasFreeCrateOpen(activeEvents) && !freeOpenUsedToday && remainingAfterGrants > 0;
+  const eventFreeApplied = hasFreeCrateOpen(activeEvents, crateType) && !freeOpenUsedToday && remainingAfterGrants > 0;
   const paidQuantity = Math.max(0, remainingAfterGrants - (eventFreeApplied ? 1 : 0));
-  const openCost = Math.round(crateCost * getCrateCostMultiplier(activeEvents));
+  const openCost = Math.round(crateCost * getCrateCostMultiplier(activeEvents, crateType));
 
   return {
     batchCost: openCost * paidQuantity,
@@ -307,6 +308,7 @@ async function openCrateBatch(
     activeEvents,
     freeOpensUsedToday[crateType],
     grantedOpenPreview,
+    crateType,
   );
   const batchCost = pricing.batchCost;
 
@@ -332,6 +334,7 @@ async function openCrateBatch(
     activeEvents,
     freeOpensUsedToday[crateType],
     grantApplied,
+    crateType,
   );
   const finalBatchCost = finalPricing.batchCost;
 
@@ -722,6 +725,7 @@ export async function POST(request: Request) {
       activeEvents,
       freeOpensUsedToday[resolvedCrateType],
       grantPreview[resolvedCrateType] ?? 0,
+      resolvedCrateType,
     );
     const openCost = pricing.batchCost;
 
@@ -747,6 +751,7 @@ export async function POST(request: Request) {
       activeEvents,
       freeOpensUsedToday[resolvedCrateType],
       grantApplied,
+      resolvedCrateType,
     );
     const finalOpenCost = finalPricing.batchCost;
 

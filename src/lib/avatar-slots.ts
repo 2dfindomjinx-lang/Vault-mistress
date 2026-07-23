@@ -8,6 +8,7 @@ export type AvatarSlot =
   | "hands"
   | "top"
   | "bottom"
+  | "leggings"
   | "thighhighs"
   | "shoes"
   | "fullBody"
@@ -94,6 +95,11 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["rabbit-small-vibrator", "toy"],
   ["black-dildo", "toy"],
   ["classic-anal-beads", "toy"],
+  ["latex_whip", "toy"],
+  ["cat_o_nine_tails", "toy"],
+  ["pink_paddle", "toy"],
+  ["pink_feather_tickler", "toy"],
+  ["ruler", "toy"],
   // --- New wardrobe batch (2026-07) ---
   // Tops
   ["black_strappy_harness_top", "top"],
@@ -148,6 +154,7 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["cat_ears", "ears"],
   ["cat_collar", "collar"],
   ["fishnet_choker", "collar"],
+  ["spiked_collar", "collar"],
   ["latex_tape", "mouth"],
   ["pink_lips", "mouth"],
   ["cute_gloves", "hands"],
@@ -158,6 +165,26 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["cat_sneakers", "shoes"],
   ["cat_croptop", "top"],
   ["pink_camisole", "top"],
+
+  // --- New wardrobe batch (2026-07, round 5) ---
+  ["sharp_eyes", "blindfold"],
+  ["blacked_panties", "bottom"],
+  ["blacked_bra", "top"],
+  ["blacked_leggings", "leggings"],
+  ["bimbo_collar", "collar"],
+  ["qos_tattoo", "mouth"],
+  ["slingshot_swimsuit", "fullBody"],
+  ["white_fingerless_sports_gloves", "hands"],
+  ["white_sneakers", "shoes"],
+  ["white_sports_bra", "top"],
+  ["white_sport_pants", "leggings"],
+  ["pink_yoga_pants", "leggings"],
+  ["ripped_jeans", "leggings"],
+  ["latex_leggings", "leggings"],
+  ["black_garter_stockings", "leggings"],
+  ["pink_garter_stockings", "leggings"],
+  ["red_garter_stockings", "leggings"],
+  ["white_garter_stockings", "leggings"],
 ];
 
 AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
@@ -199,6 +226,7 @@ export const AVATAR_SLOT_ORDER: AvatarSlot[] = [
   "fullBody",
   "top",
   "hands",
+  "leggings",
   "bottom",
   "thighhighs",
   "shoes",
@@ -207,13 +235,14 @@ export const AVATAR_SLOT_ORDER: AvatarSlot[] = [
 
 export const SLOT_LABELS: Record<AvatarSlot, string> = {
   ears: "Ears",
-  blindfold: "Blindfold",
+  blindfold: "Eye",
   mouth: "Mouth",
-  collar: "Collar",
+  collar: "Neck",
   fullBody: "Full Body",
   top: "Top",
   hands: "Hands",
   bottom: "Bottom",
+  leggings: "Leggings",
   thighhighs: "Thighhighs",
   shoes: "Shoes",
   toy: "Toy",
@@ -222,6 +251,7 @@ export const SLOT_LABELS: Record<AvatarSlot, string> = {
 const RENDER_LAYER_ORDER: Array<Exclude<AvatarSlot, "toy">> = [
   "thighhighs",
   "shoes",
+  "leggings",
   "bottom",
   "top",
   "fullBody",
@@ -239,6 +269,7 @@ const SLOT_FOLDER_MAP: Record<Exclude<AvatarSlot, "toy">, string> = {
   ears: "ears",
   fullBody: "fullbody",
   hands: "hands",
+  leggings: "leggings",
   mouth: "mouth",
   shoes: "shoes",
   thighhighs: "thighhighs",
@@ -296,6 +327,11 @@ export function normalizeEquipment(equipped: EquippedAvatarSlots): EquippedAvata
     delete normalized.bottom;
   }
 
+  if (normalized.leggings) {
+    delete normalized.bottom;
+    delete normalized.thighhighs;
+  }
+
   return normalized;
 }
 
@@ -321,6 +357,15 @@ export function equipAvatarItem(
 
   if (slot === "top" || slot === "bottom") {
     delete next.fullBody;
+  }
+
+  if (slot === "leggings") {
+    delete next.bottom;
+    delete next.thighhighs;
+  }
+
+  if (slot === "bottom" || slot === "thighhighs") {
+    delete next.leggings;
   }
 
   return normalizeEquipment(next);
@@ -377,6 +422,13 @@ export const FULL_SET_ITEM_IDS: string[] = [
   "raiden_shogun_cosplay",
   "ryuko_matoi_cosplay",
   "tifa_lockhart_cosplay",
+
+  // Original (non-licensed-character) full sets - epic, not legendary.
+  "angel",
+  "bimbo_set",
+  "grunge_girl",
+  "ponyplay",
+  "succubus",
 ];
 
 export function isFullSetItem(itemId: string): boolean {
@@ -398,7 +450,7 @@ export function getAvatarBaseModelPath(
   const normalized = normalizeEquipment(equipped);
   const hasFullBody = !!normalized.fullBody;
   const hasTop = !!normalized.top;
-  const hasBottom = !!normalized.bottom;
+  const hasBottom = !!normalized.bottom || !!normalized.leggings;
 
   if (hasFullBody) {
     return BASE_AVATAR_MODEL_PATH;

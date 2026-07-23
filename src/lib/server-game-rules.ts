@@ -45,6 +45,12 @@ export const petGalleryScoreRequirements = new Map<string, number>(
 
 export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 
+// Runway (avatar voting pool): coins reward only the first N *new* votes a
+// user casts per day. Passed into the cast_avatar_vote RPC as parameters -
+// plpgsql cannot import this file, so this is the single source of truth.
+export const RUNWAY_VOTE_COIN_REWARD = 50;
+export const RUNWAY_DAILY_REWARDED_VOTE_LIMIT = 5;
+
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 150],
   ["streak-bonus-1", 50],

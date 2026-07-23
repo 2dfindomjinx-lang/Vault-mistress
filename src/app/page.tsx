@@ -58,6 +58,7 @@ const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/Profi
 const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal), { loading: VaultPanelLoading });
 const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame), { loading: VaultPanelLoading });
 const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
+const RunwayPanel = dynamic(() => import("@/components/RunwayPanel").then((module) => module.RunwayPanel), { loading: VaultPanelLoading });
 const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
 const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection), { loading: VaultPanelLoading });
 const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel), { loading: VaultPanelLoading });
@@ -68,16 +69,22 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
   debt: () => import("@/components/DebtSection"),
   devotion: () => import("@/components/DevotionLeaderboard"),
   pet: () => import("@/components/PetSection"),
+  runway: () => Promise.all([
+    import("@/components/RunwayPanel"),
+    import("@/components/RunwayAvatarEditor"),
+  ]),
   profile: () => Promise.all([
     import("@/components/ProfileHeaderCustomizationPanel"),
     import("@/components/TitleCollection"),
   ]),
-  puzzle: () => import("@/components/PuzzleGame"),
   shop: () => Promise.all([
     import("@/components/CosmeticShop"),
     import("@/components/RotatingShop"),
   ]),
-  tasks: () => import("@/components/TaskList"),
+  tasks: () => Promise.all([
+    import("@/components/TaskList"),
+    import("@/components/PuzzleGame"),
+  ]),
   tribute: () => import("@/components/TributePanel"),
 };
 
@@ -1796,7 +1803,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
 
   useEffect(() => {
     if (!authBootstrapped || (!isLoggedIn && !isPreviewMode && !isGuestMode)) return;
-    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "crates", "puzzle", "collection", "profile", "pet", "debt"];
+    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "crates", "runway", "collection", "profile", "pet", "debt"];
     let cancelled = false;
     let idleId: number | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2081,6 +2088,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // works), since these are genuinely separate routes in the app directory.
   // pushState only changes the address bar; React state here is untouched.
   const [activePanel, setActivePanelState] = useState<DashboardPage>(initialPanel);
+  const [isPuzzleExpanded, setIsPuzzleExpanded] = useState(false);
   const setActivePanel = useCallback((page: DashboardPage) => {
     setActivePanelState(page);
     if (typeof window !== "undefined") {
@@ -10419,7 +10427,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "devotion" as const, label: "Devotion" },
     { key: "shop" as const, label: "Shop" },
     { key: "crates" as const, label: "Cases" },
-    { key: "puzzle" as const, label: "Puzzle" },
+    { key: "runway" as const, label: "Runway" },
     {
       key: "collection" as const,
       label: "Gallery",
@@ -11216,15 +11224,31 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onUnlock={handleUnlock}
             />
           )}
-          {activePanel === "puzzle" && (
-            <PuzzleGame
-              coins={coins}
-              disabled={isTimeoutActive || isPreviewRestricted}
-              onProfileUpdate={(profile) => {
-                applyProfileStats(profile);
-                void loadCommunityStatus();
-              }}
-            />
+          {activePanel === "tasks" && (
+            <div className="mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+              <button
+                type="button"
+                onClick={() => setIsPuzzleExpanded((current) => !current)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <span className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">
+                  🧩 Puzzle {isPuzzleExpanded ? "▾" : "▸"}
+                </span>
+                <span className="text-xs text-zinc-400">{isPuzzleExpanded ? "Collapse" : "Expand"}</span>
+              </button>
+              {isPuzzleExpanded && (
+                <div className="mt-4">
+                  <PuzzleGame
+                    coins={coins}
+                    disabled={isTimeoutActive || isPreviewRestricted}
+                    onProfileUpdate={(profile) => {
+                      applyProfileStats(profile);
+                      void loadCommunityStatus();
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           )}
           {activePanel === "tasks" && (
             <TaskList
@@ -11308,6 +11332,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   setSpeechBubbleReply(msg);
                 }}
               />
+          )}
+          {activePanel === "runway" && (
+            <RunwayPanel
+              disabled={isTimeoutActive || isPreviewRestricted}
+              ownedItems={crateInventory}
+              liveEquippedSlots={equippedAvatarSlots}
+              liveEquippedFullSetId={equippedFullSetId}
+            />
           )}
           {activePanel === "shop" && (
             <div className="flex flex-col gap-6">
@@ -11568,7 +11600,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             );
                           }
 
-                          const equippedFullSetName = inventoryItemNameById.get(equippedFullSetId) ?? equippedFullSetId;
+                          const equippedFullSetName =
+                            inventoryItemNameById.get(equippedFullSetId) ??
+                            SAMPLE_CRATE_ITEMS[equippedFullSetId]?.name ??
+                            equippedFullSetId;
                           const equippedFullSetIcon = resolveAvatarItemIconPath(equippedFullSetId);
 
                           return (
@@ -11633,7 +11668,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             );
                           }
 
-                          const equippedItemName = inventoryItemNameById.get(equippedItemId) ?? equippedItemId;
+                          const equippedItemName =
+                            inventoryItemNameById.get(equippedItemId) ??
+                            SAMPLE_CRATE_ITEMS[equippedItemId]?.name ??
+                            equippedItemId;
                           const equippedItemIcon = resolveAvatarItemIconPath(equippedItemId);
 
                           return (

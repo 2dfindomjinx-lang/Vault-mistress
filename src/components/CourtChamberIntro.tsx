@@ -11,7 +11,7 @@ const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: s
   devotion: { code: "VI", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
   shop: { code: "VII", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
   crates: { code: "VIII", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
-  puzzle: { code: "IX", eyebrow: "Do not waste her time", title: "Solve the Puzzle", description: "Focus, finish it and give her a reason to be impressed." },
+  runway: { code: "IX", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
   collection: { code: "X", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
   profile: { code: "XI", eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
 };
@@ -66,11 +66,12 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
     imageClassName: "origin-bottom scale-[1.04] object-bottom",
     src: "/principessa-ui/generated/principessa-case-present.webp",
   },
-  puzzle: {
-    alt: "Principessa crouching as she joins two ornate puzzle pieces",
-    caption: "Think before you disappoint her.",
-    imageClassName: "origin-bottom scale-[1.14] object-bottom",
-    src: "/principessa-ui/generated/principessa-puzzle-pieces.webp",
+  runway: {
+    // TODO: swap in a dedicated runway/fashion-show illustration when available.
+    alt: "Principessa posing through an ornate gallery frame",
+    caption: "Let's see what you put together.",
+    imageClassName: "origin-bottom scale-[1.08] object-bottom",
+    src: "/principessa-ui/generated/principessa-gallery-frame.webp",
   },
   collection: {
     alt: "Principessa posing through an ornate gallery frame",

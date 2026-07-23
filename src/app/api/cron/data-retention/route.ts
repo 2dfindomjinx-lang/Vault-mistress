@@ -85,6 +85,26 @@ export async function GET(request: Request) {
     if (pruneError) console.warn("Rate limit bucket prune failed", pruneError);
   }
 
+  if (!dryRun) {
+    // Runway (avatar voting) retention: receipts/tokens/skip-history are
+    // short-lived bookkeeping, not data anyone needs kept long-term.
+    const now = Date.now();
+    const receiptsCutoff = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const tokensCutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const skipsCutoff = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [receiptsResult, tokensResult, skipsResult] = await Promise.all([
+      supabase.from("runway_action_receipts").delete().lt("created_at", receiptsCutoff),
+      // Every token's TTL is capped at 600s, so anything issued over a day
+      // ago is guaranteed expired (consumed or not) - safe to drop outright.
+      supabase.from("runway_candidate_tokens").delete().lt("issued_at", tokensCutoff),
+      supabase.from("avatar_feed_skips").delete().lt("created_at", skipsCutoff),
+    ]);
+    if (receiptsResult.error) console.warn("Runway receipts prune failed", receiptsResult.error);
+    if (tokensResult.error) console.warn("Runway candidate token prune failed", tokensResult.error);
+    if (skipsResult.error) console.warn("Runway skip history prune failed", skipsResult.error);
+  }
+
   const { data: deletionRows, error: deletionError } = await supabase.rpc("get_inactive_user_deletion_batch", { p_limit: dryRun ? 100 : 50 });
   if (deletionError) return Response.json({ error: deletionError.message, retention }, { status: 500 });
 

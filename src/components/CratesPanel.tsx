@@ -162,9 +162,9 @@ export function CratesPanel({
     const safeQuantity = Math.max(1, Math.floor(qty));
     const grantsApplied = Math.min(safeQuantity, getGrantedOpenCount(crate.crate_type));
     const remainingAfterGrants = Math.max(0, safeQuantity - grantsApplied);
-    const eventFreeApplied = hasFreeCrateOpen(activeEvents) && !hasFreeOpenToday(crate.crate_type) && remainingAfterGrants > 0;
+    const eventFreeApplied = hasFreeCrateOpen(activeEvents, crate.crate_type) && !hasFreeOpenToday(crate.crate_type) && remainingAfterGrants > 0;
     const paidQuantity = Math.max(0, remainingAfterGrants - (eventFreeApplied ? 1 : 0));
-    return Math.round(crate.cost * getCrateCostMultiplier(activeEvents)) * paidQuantity;
+    return Math.round(crate.cost * getCrateCostMultiplier(activeEvents, crate.crate_type)) * paidQuantity;
   };
   const getDisplayedCost = (crate: CrateDefinition) => getBatchOpenCost(crate, 1);
 
@@ -875,7 +875,7 @@ export function CratesPanel({
             const currentQty = getOpenQuantity(crate.crate_type);
             const batchCost = getBatchOpenCost(crate, currentQty);
             const displayCost = getDisplayedCost(crate);
-            const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !hasFreeOpenToday(crate.crate_type);
+            const freeOpenAvailable = hasFreeCrateOpen(activeEvents, crate.crate_type) && !hasFreeOpenToday(crate.crate_type);
             const grantedOpenCount = getGrantedOpenCount(crate.crate_type);
             const grantedOpenApplied = Math.min(currentQty, grantedOpenCount);
             const canAfford = coins >= batchCost;

@@ -15,17 +15,42 @@ function getActiveCrateEvents(activeEvents: Array<{ effect: EventEffect }>) {
   );
 }
 
-export function getCrateCostMultiplier(activeEvents: Array<{ effect: EventEffect }>) {
+// Lucky Key: discount varies per crate instead of one flat rate. Cheaper/lower-stakes
+// cases get a bigger cut; the guaranteed-legendary Cosplay Case barely moves since a
+// big discount there would make near-guaranteed legendaries too cheap.
+const LUCKY_KEY_CRATE_MULTIPLIERS: Record<string, number> = {
+  blessing_case: 0.6, // 40% off
+  principessa_case: 0.75, // 25% off
+  premium_case: 0.8, // 20% off
+  cat_case: 0.75, // 25% off
+  cosplay_case: 0.85, // 15% off
+  cosplay_pure_case: 0.95, // 5% off
+};
+
+export function getCrateCostMultiplier(
+  activeEvents: Array<{ effect: EventEffect }>,
+  crateType?: string,
+) {
   return getActiveCrateEvents(activeEvents).reduce((multiplier, event) => {
     if (event.effect.type !== "crate_cost_discount") {
       return multiplier;
     }
 
-    return multiplier * (event.effect.multiplier || 1);
+    const perCrateMultiplier = crateType ? LUCKY_KEY_CRATE_MULTIPLIERS[crateType] : undefined;
+    return multiplier * (perCrateMultiplier ?? event.effect.multiplier ?? 1);
   }, 1);
 }
 
-export function hasFreeCrateOpen(activeEvents: Array<{ effect: EventEffect }>) {
+// Free Key: every case gets one free open per day, except the guaranteed-legendary
+// Cosplay Case (a free open there is worth far more than a free open anywhere else).
+export function hasFreeCrateOpen(
+  activeEvents: Array<{ effect: EventEffect }>,
+  crateType?: string,
+) {
+  if (crateType === "cosplay_pure_case") {
+    return false;
+  }
+
   return getActiveCrateEvents(activeEvents).some((event) => event.effect.type === "crate_free_open");
 }
 
@@ -33,12 +58,13 @@ export function getCrateOpenCost(
   baseCost: number,
   activeEvents: Array<{ effect: EventEffect }>,
   freeOpenUsedToday = false,
+  crateType?: string,
 ) {
-  if (hasFreeCrateOpen(activeEvents) && !freeOpenUsedToday) {
+  if (hasFreeCrateOpen(activeEvents, crateType) && !freeOpenUsedToday) {
     return 0;
   }
 
-  return Math.round(baseCost * getCrateCostMultiplier(activeEvents));
+  return Math.round(baseCost * getCrateCostMultiplier(activeEvents, crateType));
 }
 
 export function getCrateBatchCost(
@@ -46,10 +72,11 @@ export function getCrateBatchCost(
   quantity: number,
   activeEvents: Array<{ effect: EventEffect }>,
   freeOpenUsedToday = false,
+  crateType?: string,
 ) {
   const safeQuantity = Math.max(1, Math.floor(quantity));
-  const openCost = Math.round(baseCost * getCrateCostMultiplier(activeEvents));
-  const freeOpenAvailable = hasFreeCrateOpen(activeEvents) && !freeOpenUsedToday;
+  const openCost = Math.round(baseCost * getCrateCostMultiplier(activeEvents, crateType));
+  const freeOpenAvailable = hasFreeCrateOpen(activeEvents, crateType) && !freeOpenUsedToday;
 
   if (freeOpenAvailable) {
     return openCost * Math.max(0, safeQuantity - 1);
@@ -182,6 +209,22 @@ export function getAdjustedCrateDrops(
     });
   }
 
+  if (crateType === "cosplay_case") {
+    return adjustDropWeightsByRarity(crateType, {
+      common: Math.round(baseTotal * 0.41),
+      epic: Math.round(baseTotal * 0.16),
+    });
+  }
+
+  if (crateType === "cat_case") {
+    return adjustDropWeightsByRarity(crateType, {
+      common: Math.round(baseTotal * 0.42),
+      epic: Math.round(baseTotal * 0.13),
+    });
+  }
+
+  // cosplay_pure_case is intentionally excluded — it's a single guaranteed-legendary
+  // tier, so there's nothing to shift between tiers.
   return baseDrops;
 }
 

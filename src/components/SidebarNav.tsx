@@ -7,7 +7,7 @@ export type DashboardPage =
   | "pet"
   | "debt"
   | "crates"
-  | "puzzle"
+  | "runway"
   | "shop"
   | "collection"
   | "tribute"
@@ -24,7 +24,7 @@ export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
   devotion: "/devotion",
   shop: "/shop",
   crates: "/cases",
-  puzzle: "/puzzle",
+  runway: "/runway",
   collection: "/collection",
   profile: "/profile",
 };
@@ -66,7 +66,7 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   devotion: { code: "VI", glyph: "◇" },
   shop: { code: "VII", glyph: "✦" },
   crates: { code: "VIII", glyph: "▣" },
-  puzzle: { code: "IX", glyph: "⌘" },
+  runway: { code: "IX", glyph: "▲" },
   collection: { code: "X", glyph: "◈" },
   profile: { code: "XI", glyph: "◐" },
 };
