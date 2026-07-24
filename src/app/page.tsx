@@ -10412,22 +10412,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const baseDashboardNavItems: SidebarNavItem[] = [
     { key: "home" as const, label: "Home" },
-    { key: "tribute" as const, label: "Shrine" },
+    { key: "runway" as const, label: "Runway" },
+    { key: "tribute" as const, label: "Shrine of Principessa" },
     { key: "tasks" as const, label: "Tasks" },
     {
       key: "pet" as const,
-      label: "Pet",
+      label: "Principessa's Pets",
       disabled: !isPetUnlocked,
       badge: isPetUnlocked ? undefined : "Locked",
     },
-    {
-      key: "debt" as const,
-      label: "Debt Contract",
-    },
-    { key: "devotion" as const, label: "Devotion" },
     { key: "shop" as const, label: "Shop" },
     { key: "crates" as const, label: "Cases" },
-    { key: "runway" as const, label: "Runway" },
+    {
+      key: "debt" as const,
+      label: "Debt Contracts",
+    },
+    { key: "devotion" as const, label: "Devotion" },
     {
       key: "collection" as const,
       label: "Gallery",

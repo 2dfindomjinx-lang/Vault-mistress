@@ -114,27 +114,6 @@ export function RunwayAvatarEditor({
             hasUncensored={false}
             imageClassName="object-contain object-center"
           />
-          <div className="absolute inset-x-1 bottom-1 space-y-0.5 rounded-md border border-white/10 bg-black/75 p-1">
-            {fullSetItems.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCategoryFilter(categoryFilter === "fullSet" ? null : "fullSet")}
-                className={`block w-full truncate rounded px-1 py-0.5 text-left text-[9px] transition ${categoryFilter === "fullSet" ? "bg-pink-500/20 text-pink-100" : "text-zinc-400 hover:bg-white/10"}`}
-              >
-                {draftFullSetId ? fullSetItems.find((item) => item.item_id === draftFullSetId)?.name ?? "Full Set" : "Full Set"}
-              </button>
-            )}
-            {visibleSlots.map((slot) => (
-              <button
-                key={slot}
-                type="button"
-                onClick={() => setCategoryFilter(categoryFilter === slot ? null : slot)}
-                className={`block w-full truncate rounded px-1 py-0.5 text-left text-[9px] transition ${categoryFilter === slot ? "bg-pink-500/20 text-pink-100" : "text-zinc-400 hover:bg-white/10"}`}
-              >
-                {draftSlots[slot] ? itemsBySlot[slot]?.find((item) => item.item_id === draftSlots[slot])?.name ?? SLOT_LABELS[slot] : SLOT_LABELS[slot]}
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="min-w-0 rounded-xl border border-white/10 bg-black/15 p-2.5">
@@ -156,7 +135,30 @@ export function RunwayAvatarEditor({
             </button>
           </div>
 
-          {fullSetItems.length > 0 && (categoryFilter === null || categoryFilter === "fullSet") && (
+          <div className="mt-3 flex flex-wrap gap-1 border-y border-white/10 py-2">
+            <span className="mr-1 self-center text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Choose</span>
+            {fullSetItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === "fullSet" ? null : "fullSet")}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === "fullSet" ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
+              >
+                Full Set
+              </button>
+            )}
+            {visibleSlots.map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setCategoryFilter(categoryFilter === slot ? null : slot)}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === slot ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
+              >
+                {SLOT_LABELS[slot]}
+              </button>
+            ))}
+          </div>
+
+          {fullSetItems.length > 0 && categoryFilter === "fullSet" && (
             <div className="mt-3">
               <div className="mb-1.5 flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">Full Set</p>
@@ -192,37 +194,8 @@ export function RunwayAvatarEditor({
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-1 border-y border-white/10 py-2">
-            <button
-              type="button"
-              onClick={() => setCategoryFilter(null)}
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === null ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
-            >
-              All
-            </button>
-            {fullSetItems.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCategoryFilter("fullSet")}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === "fullSet" ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
-              >
-                Full Set
-              </button>
-            )}
-            {visibleSlots.map((slot) => (
-              <button
-                key={slot}
-                type="button"
-                onClick={() => setCategoryFilter(slot)}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${categoryFilter === slot ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"}`}
-              >
-                {SLOT_LABELS[slot]}
-              </button>
-            ))}
-          </div>
-
           <div className="mt-2 max-h-[250px] space-y-3 overflow-y-auto pr-1">
-            {visibleSlots.filter((slot) => categoryFilter === null || categoryFilter === slot).map((slot) => (
+            {visibleSlots.filter((slot) => categoryFilter === slot).map((slot) => (
               <div key={slot}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-pink-100/70">{SLOT_LABELS[slot]}</p>
@@ -259,6 +232,9 @@ export function RunwayAvatarEditor({
             ))}
             {equippableItems.length === 0 && fullSetItems.length === 0 && (
               <p className="text-xs text-zinc-500">You don&apos;t own any equippable items yet.</p>
+            )}
+            {categoryFilter === null && (equippableItems.length > 0 || fullSetItems.length > 0) && (
+              <p className="py-4 text-center text-xs text-zinc-500">Choose a category to edit this voting look.</p>
             )}
           </div>
 

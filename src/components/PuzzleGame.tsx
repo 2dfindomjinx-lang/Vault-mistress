@@ -754,12 +754,14 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
   const [nextDailyResetAt, setNextDailyResetAt] = useState<string | null>(null);
   const [poolCount, setPoolCount] = useState(0);
   const startedAtRef = useRef<number | null>(null);
+  const loadRequestIdRef = useRef(0);
 
   const selectedImage = activeImage ?? images[0] ?? null;
   const activePresets = presets?.[aspect] ?? [];
   const selectedPreset = activePresets.find((preset) => preset.difficulty === selectedDifficulty) ?? activePresets[0] ?? null;
 
   const loadPuzzleData = async () => {
+    const requestId = ++loadRequestIdRef.current;
     try {
       const response = await fetch("/api/user/puzzle", { cache: "no-store" });
       const payload = (await response.json()) as PuzzleResponse & { error?: string };
@@ -767,6 +769,10 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
       if (!response.ok) {
         throw new Error(payload.error ?? "Puzzle data could not be loaded.");
       }
+
+      // An old GET can finish after a player abandons an attempt. Ignore that
+      // stale response instead of restoring the puzzle they just abandoned.
+      if (requestId !== loadRequestIdRef.current) return;
 
       setImages(payload.images ?? []);
       setActiveImage(payload.activeImage ?? null);
@@ -782,6 +788,13 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
         setHintCount(Math.max(0, Number(payload.activeAttempt.hint_count ?? 0)));
         setCompletedAttemptId(null);
         startedAtRef.current = Date.now();
+      } else {
+        setAttempt(null);
+        setMoves(0);
+        setHintCount(0);
+        setHintRequestId(0);
+        setCompletedAttemptId(null);
+        startedAtRef.current = null;
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Puzzle data could not be loaded.");
@@ -892,6 +905,9 @@ export function PuzzleGame({ coins, disabled = false, onProfileUpdate }: PuzzleG
     if (!attempt || isBusy || !window.confirm("Abandon this puzzle? Your entry coins will not be refunded.")) return;
     setIsBusy(true);
     setError("");
+    // Invalidate any in-flight GET before the server marks this attempt as
+    // abandoned, so it cannot win a race and rehydrate the board afterwards.
+    loadRequestIdRef.current += 1;
     try {
       const response = await fetch("/api/user/puzzle", {
         body: JSON.stringify({ action: "abandon", attemptId: attempt.id }),

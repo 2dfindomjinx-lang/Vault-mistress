@@ -71,6 +71,17 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   profile: { code: "XI", glyph: "◐" },
 };
 
+Object.assign(navigationMeta, {
+  runway: { ...navigationMeta.runway, code: "II" },
+  tribute: { ...navigationMeta.tribute, code: "III" },
+  tasks: { ...navigationMeta.tasks, code: "IV" },
+  pet: { ...navigationMeta.pet, code: "V" },
+  shop: { ...navigationMeta.shop, code: "VI" },
+  crates: { ...navigationMeta.crates, code: "VII" },
+  debt: { ...navigationMeta.debt, code: "VIII" },
+  devotion: { ...navigationMeta.devotion, code: "IX" },
+});
+
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (
     <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">

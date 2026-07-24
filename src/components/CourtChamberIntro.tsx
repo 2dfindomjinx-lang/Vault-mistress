@@ -67,11 +67,10 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
     src: "/principessa-ui/generated/principessa-case-present.webp",
   },
   runway: {
-    // TODO: swap in a dedicated runway/fashion-show illustration when available.
-    alt: "Principessa posing through an ornate gallery frame",
+    alt: "Principessa walking down her velvet runway podium",
     caption: "Let's see what you put together.",
-    imageClassName: "origin-bottom scale-[1.08] object-bottom",
-    src: "/principessa-ui/generated/principessa-gallery-frame.webp",
+    imageClassName: "origin-bottom scale-[1.02] object-bottom",
+    src: "/principessa-ui/generated/principessa-runway-podium.png",
   },
   collection: {
     alt: "Principessa posing through an ornate gallery frame",
