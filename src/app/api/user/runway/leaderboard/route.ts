@@ -15,6 +15,13 @@ type LeaderboardRow = {
   createdAt: string;
 };
 
+type VotingAvatarSnapshot = {
+  id: string;
+  equipped_avatar_slots: Record<string, string> | null;
+  equipped_full_set_id: string | null;
+  has_uncensored_avatar: boolean | null;
+};
+
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -58,22 +65,34 @@ export async function GET(request: Request) {
   const ownerIds = Array.from(
     new Set([...leaders.map((row) => row.ownerUserId), ...(viewerRow ? [viewerRow.ownerUserId] : [])]),
   );
+  const avatarIds = Array.from(
+    new Set([...leaders.map((row) => row.avatarId), ...(viewerRow ? [viewerRow.avatarId] : [])]),
+  );
 
   if (ownerIds.length === 0) {
     return Response.json({ section, leaders: [], viewer: null });
   }
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, username, display_name")
-    .in("id", ownerIds);
+  const [profilesResult, avatarsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", ownerIds),
+    supabase
+      .from("voting_avatars")
+      .select("id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar")
+      .in("id", avatarIds),
+  ]);
 
-  if (profilesError) {
-    console.error("[runway] leaderboard profile lookup failed", profilesError);
+  if (profilesResult.error) {
+    console.error("[runway] leaderboard profile lookup failed", profilesResult.error);
+  }
+  if (avatarsResult.error) {
+    console.error("[runway] leaderboard avatar lookup failed", avatarsResult.error);
   }
 
   const profileMap = new Map(
-    (profiles ?? []).map((profile) => [
+    (profilesResult.data ?? []).map((profile) => [
       String(profile.id),
       {
         username: profile.username ? `@${String(profile.username).replace(/^@/, "")}` : "@unknown",
@@ -81,15 +100,22 @@ export async function GET(request: Request) {
       },
     ]),
   );
+  const avatarMap = new Map(
+    ((avatarsResult.data ?? []) as VotingAvatarSnapshot[]).map((avatar) => [avatar.id, avatar]),
+  );
 
   const buildEntry = (row: LeaderboardRow) => {
     const profile = profileMap.get(row.ownerUserId);
+    const avatar = avatarMap.get(row.avatarId);
     return {
       rank: row.rank,
       avatarId: row.avatarId,
       ownerUserId: row.ownerUserId,
       username: profile?.username ?? "@unknown",
       displayName: profile?.displayName ?? null,
+      equippedAvatarSlots: avatar?.equipped_avatar_slots ?? {},
+      equippedFullSetId: avatar?.equipped_full_set_id ?? null,
+      hasUncensoredAvatar: Boolean(avatar?.has_uncensored_avatar),
       totalPoints: row.totalPoints,
       ratingCount: row.ratingCount,
       averageRating: row.ratingCount > 0 ? row.totalPoints / row.ratingCount : null,

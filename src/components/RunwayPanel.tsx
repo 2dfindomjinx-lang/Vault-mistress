@@ -49,6 +49,9 @@ type LeaderboardEntry = {
   ownerUserId: string;
   username: string;
   displayName: string | null;
+  equippedAvatarSlots: EquippedAvatarSlots;
+  equippedFullSetId: string | null;
+  hasUncensoredAvatar: boolean;
   totalPoints: number;
   ratingCount: number;
   averageRating: number | null;
@@ -62,6 +65,7 @@ const SECTION_LABELS: Record<LeaderboardSection, string> = {
   highest_rated: "Highest Rated",
   new: "New Avatars",
 };
+const RUNWAY_VOTING_BACKGROUND = "/principessa-ui/generated/runway-voting-background.png";
 
 function newIdempotencyKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -235,7 +239,19 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         <h2 className="text-3xl font-black">Your Voting Avatar</h2>
 
         {!loadingMe && myAvatar && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 flex gap-3 rounded-[1.25rem] border border-white/10 bg-black/30 p-3">
+            <div className="relative h-[152px] w-[56px] shrink-0 overflow-hidden rounded-xl border border-pink-300/25 bg-black/40">
+              <LayeredAvatar
+                alt="Your active voting avatar"
+                backgroundPath={RUNWAY_VOTING_BACKGROUND}
+                equipped={normalizeEquipment(myAvatar.equippedAvatarSlots)}
+                equippedFullSetId={myAvatar.equippedFullSetId}
+                hasUncensored={myAvatar.hasUncensoredAvatar}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-100/65">Currently in the voting pool</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <StatTile label="Rank" value={myAvatar.rank ? `#${myAvatar.rank}` : "Unranked"} />
             <StatTile label="Total Points" value={String(myAvatar.totalPoints)} />
             <StatTile
@@ -243,6 +259,8 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
               value={myAvatar.ratingCount > 0 ? (myAvatar.totalPoints / myAvatar.ratingCount).toFixed(2) : "—"}
             />
             <StatTile label="Votes" value={String(myAvatar.ratingCount)} />
+              </div>
+            </div>
           </div>
         )}
 
@@ -280,6 +298,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
               <div className="relative h-[220px] w-[74px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
                 <LayeredAvatar
                   alt={`${candidate.username}'s voting avatar`}
+                  backgroundPath={RUNWAY_VOTING_BACKGROUND}
                   equipped={normalizeEquipment(candidate.equippedAvatarSlots)}
                   equippedFullSetId={candidate.equippedFullSetId}
                   hasUncensored={candidate.hasUncensoredAvatar}
@@ -379,6 +398,15 @@ function LeaderboardRow({ entry, highlight = false }: { entry: LeaderboardEntry;
       }`}
     >
       <div className="w-10 shrink-0 text-center text-sm font-black text-pink-100">#{entry.rank}</div>
+      <div className="relative h-16 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+        <LayeredAvatar
+          alt={`${entry.username}'s voting avatar`}
+          backgroundPath={RUNWAY_VOTING_BACKGROUND}
+          equipped={normalizeEquipment(entry.equippedAvatarSlots)}
+          equippedFullSetId={entry.equippedFullSetId}
+          hasUncensored={entry.hasUncensoredAvatar}
+        />
+      </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-black text-white">{entry.displayName?.trim() || entry.username}</p>
         <p className="text-xs text-zinc-400">
