@@ -250,8 +250,8 @@ export const SLOT_LABELS: Record<AvatarSlot, string> = {
 
 const RENDER_LAYER_ORDER: Array<Exclude<AvatarSlot, "toy">> = [
   "thighhighs",
-  "shoes",
   "leggings",
+  "shoes",
   "bottom",
   "top",
   "fullBody",
