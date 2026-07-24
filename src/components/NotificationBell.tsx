@@ -271,7 +271,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-40 w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(80vh,42rem)] overflow-y-auto rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 pr-3 shadow-[0_24px_80px_rgba(0,0,0,0.48)] [scrollbar-width:thin]">
+        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[100] w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(80dvh,42rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 pr-3 shadow-[0_24px_80px_rgba(0,0,0,0.48)] [scrollbar-width:thin]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-100/70">

@@ -101,7 +101,7 @@ export function ProfileHeader({
   ];
 
   return (
-    <header className="relative isolate overflow-hidden border border-[#c89a55]/18 bg-[linear-gradient(105deg,rgba(13,6,9,.96),rgba(35,8,21,.78),rgba(8,4,6,.96))] shadow-[0_22px_65px_rgba(0,0,0,.32)]">
+    <header className="relative isolate overflow-visible border border-[#c89a55]/18 bg-[linear-gradient(105deg,rgba(13,6,9,.96),rgba(35,8,21,.78),rgba(8,4,6,.96))] shadow-[0_22px_65px_rgba(0,0,0,.32)]">
       <div className="pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_70%_20%,rgba(190,24,93,.14),transparent_52%)]" />
       <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#d7ad69]/35 to-transparent" />
 

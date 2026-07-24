@@ -62,11 +62,18 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [mutedText, setMutedText] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
   const lastReadAtRef = useRef<string | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const loadMessages = async (markRead = false) => {
+  const markLatestMessageRead = (latestCreatedAt: string | null) => {
+    if (!latestCreatedAt) return;
+    lastReadAtRef.current = latestCreatedAt;
+    window.localStorage.setItem("vault-live-chat-last-read-at", latestCreatedAt);
+    setUnreadCount(0);
+  };
+
+  const loadMessages = async () => {
     try {
       const response = await fetch("/api/live-chat", { cache: "no-store" });
       const payload = (await response.json()) as LiveChatResponse & { error?: string };
@@ -80,12 +87,9 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
       const storedLastReadAt = lastReadAtRef.current ?? window.localStorage.getItem("vault-live-chat-last-read-at");
       const shouldEstablishBaseline = !hasLoadedRef.current && !storedLastReadAt;
 
-      if (markRead || shouldEstablishBaseline) {
-        setUnreadCount(0);
-        if (newestCreatedAt) {
-          lastReadAtRef.current = newestCreatedAt;
-          window.localStorage.setItem("vault-live-chat-last-read-at", newestCreatedAt);
-        }
+      if (isOpen || shouldEstablishBaseline) {
+        // Opening Live Chat means the whole current thread is acknowledged.
+        markLatestMessageRead(newestCreatedAt);
       } else if (storedLastReadAt) {
         setUnreadCount(nextMessages.filter((message) => new Date(message.created_at).getTime() > new Date(storedLastReadAt).getTime()).length);
       }
@@ -123,7 +127,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   useEffect(() => {
-    const load = isOpen ? () => loadMessages(true) : loadSummary;
+    const load = isOpen ? loadMessages : loadSummary;
     const initialTimer = window.setTimeout(() => void load(), 0);
     const timer = window.setInterval(() => {
       void load();
@@ -133,9 +137,19 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ block: "end" });
-    }
+    if (!isOpen) return;
+
+    // Scroll the actual overflow container, rather than relying on
+    // scrollIntoView() to pick the right ancestor. This makes opening the
+    // panel land at the newest message on desktop and mobile alike.
+    const frame = window.requestAnimationFrame(() => {
+      const container = messagesScrollRef.current;
+      if (!container) return;
+      container.scrollTop = container.scrollHeight;
+      markLatestMessageRead(messages[messages.length - 1]?.created_at ?? null);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [isOpen, messages.length]);
 
   const sendMessage = async () => {
@@ -216,7 +230,10 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
             </button>
           </div>
 
-          <div className="flex max-h-[360px] flex-col gap-3 overflow-y-auto px-3 py-3">
+          <div
+            className="flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3"
+            ref={messagesScrollRef}
+          >
             {messages.map((message) => {
               const profile = getMessageProfile(message);
               const displayName = profile?.display_name || profile?.username || "Vault User";
@@ -259,7 +276,6 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                 </article>
               );
             })}
-            <div ref={messagesEndRef} />
           </div>
 
           <div className="border-t border-white/10 p-3">
