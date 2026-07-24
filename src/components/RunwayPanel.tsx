@@ -20,6 +20,7 @@ type MyAvatar = {
   hasUncensoredAvatar: boolean;
   totalPoints: number;
   ratingCount: number;
+  superVoteCount: number;
   isActive: boolean;
   createdAt: string;
   activatedAt: string;
@@ -39,6 +40,9 @@ type Candidate = {
   hasUncensoredAvatar: boolean;
   totalPoints: number;
   ratingCount: number;
+  superVoteCount: number;
+  canReceiveSuperVote: boolean;
+  superVotesUsedToday: number;
   submittedAt: string;
   existingRating: number | null;
 };
@@ -54,6 +58,7 @@ type LeaderboardEntry = {
   hasUncensoredAvatar: boolean;
   totalPoints: number;
   ratingCount: number;
+  superVoteCount: number;
   averageRating: number | null;
   createdAt: string;
 };
@@ -83,6 +88,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
   const [candidate, setCandidate] = useState<Candidate | null | undefined>(undefined);
   const [selectedStars, setSelectedStars] = useState(0);
   const [voting, setVoting] = useState(false);
+  const [superVotesToday, setSuperVotesToday] = useState(0);
 
   const [section, setSection] = useState<LeaderboardSection>("top");
   const [leaders, setLeaders] = useState<LeaderboardEntry[]>([]);
@@ -111,6 +117,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
       const nextCandidate = (data?.candidate ?? null) as Candidate | null;
       setCandidate(nextCandidate);
       setSelectedStars(nextCandidate?.existingRating ?? 0);
+      setSuperVotesToday(Math.min(2, Number(nextCandidate?.superVotesUsedToday ?? 0)));
     } catch (err) {
       console.error("Runway candidate fetch error", err);
       setCandidate(null);
@@ -230,6 +237,38 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
     }
   }, [voting, candidate, loadCandidate]);
 
+  const handleSuperVote = useCallback(async () => {
+    if (voting || !candidate || !candidate.canReceiveSuperVote) return;
+    setVoting(true);
+    try {
+      const res = await fetch("/api/user/runway/super-vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          avatarId: candidate.avatarId,
+          tokenId: candidate.tokenId,
+          idempotencyKey: newIdempotencyKey(),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        alert(data?.error ?? "Super Vote failed.");
+        await loadCandidate();
+        return;
+      }
+      if (typeof data?.superVotesUsedToday === "number") {
+        setSuperVotesToday(data.superVotesUsedToday);
+      }
+      await loadCandidate();
+      void loadLeaderboard(section);
+    } catch (err) {
+      console.error("Runway Super Vote error", err);
+      alert("Super Vote failed.");
+    } finally {
+      setVoting(false);
+    }
+  }, [voting, candidate, loadCandidate, loadLeaderboard, section]);
+
   const canSubmit = canAddMultipleAvatars || (myAvatar ? myAvatar.canResubmit : true);
 
   return (
@@ -313,6 +352,10 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
                   {candidate.totalPoints} points · {candidate.ratingCount} votes
                 </p>
 
+                <p className="mt-1 text-xs text-amber-100/80">
+                  {candidate.superVoteCount > 0 ? `${candidate.superVoteCount} Super Vote${candidate.superVoteCount === 1 ? "" : "s"}` : "No Super Votes yet"}
+                </p>
+
                 <div className="mt-3 flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
@@ -330,6 +373,17 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
                     </button>
                   ))}
                 </div>
+
+                {candidate.canReceiveSuperVote && (
+                  <button
+                    type="button"
+                    disabled={voting || disabled || superVotesToday >= 2}
+                    onClick={() => void handleSuperVote()}
+                    className="mt-3 block rounded-xl border border-amber-300/45 bg-amber-400/10 px-3 py-1.5 text-xs font-black text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Super Vote +10 · 2,500 Coins ({superVotesToday}/2 today)
+                  </button>
+                )}
 
                 <button
                   type="button"

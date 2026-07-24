@@ -50,6 +50,11 @@ export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 // plpgsql cannot import this file, so this is the single source of truth.
 export const RUNWAY_VOTE_COIN_REWARD = 50;
 export const RUNWAY_DAILY_REWARDED_VOTE_LIMIT = 5;
+// Kept in sync with the database RPC, which pins these values defensively.
+export const RUNWAY_SUPER_VOTE_COIN_COST = 2_500;
+export const RUNWAY_SUPER_VOTE_OWNER_REWARD = 1_000;
+export const RUNWAY_SUPER_VOTE_POINT_VALUE = 10;
+export const RUNWAY_SUPER_VOTE_DAILY_LIMIT = 2;
 
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 150],

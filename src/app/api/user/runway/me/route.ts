@@ -28,7 +28,7 @@ export async function GET() {
   const { data: avatar, error: avatarError } = await supabase
     .from("voting_avatars")
     .select(
-      "id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, total_points, rating_count, times_shown, skip_count, is_active, created_at, activated_at",
+      "id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, total_points, rating_count, super_vote_count, times_shown, skip_count, is_active, created_at, activated_at",
     )
     .eq("owner_user_id", userId)
     .order("activated_at", { ascending: false })
@@ -72,6 +72,7 @@ export async function GET() {
       hasUncensoredAvatar: Boolean(avatar.has_uncensored_avatar),
       totalPoints: Number(avatar.total_points ?? 0),
       ratingCount: Number(avatar.rating_count ?? 0),
+      superVoteCount: Number(avatar.super_vote_count ?? 0),
       timesShown: Number(avatar.times_shown ?? 0),
       skipCount: Number(avatar.skip_count ?? 0),
       isActive: Boolean(avatar.is_active),

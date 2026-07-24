@@ -12,6 +12,7 @@ type LeaderboardRow = {
   ownerUserId: string;
   totalPoints: number;
   ratingCount: number;
+  superVoteCount?: number;
   createdAt: string;
 };
 
@@ -20,6 +21,7 @@ type VotingAvatarSnapshot = {
   equipped_avatar_slots: Record<string, string> | null;
   equipped_full_set_id: string | null;
   has_uncensored_avatar: boolean | null;
+  super_vote_count: number | null;
 };
 
 function jsonError(message: string, status = 400) {
@@ -80,7 +82,7 @@ export async function GET(request: Request) {
       .in("id", ownerIds),
     supabase
       .from("voting_avatars")
-      .select("id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar")
+      .select("id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, super_vote_count")
       .in("id", avatarIds),
   ]);
 
@@ -118,7 +120,10 @@ export async function GET(request: Request) {
       hasUncensoredAvatar: Boolean(avatar?.has_uncensored_avatar),
       totalPoints: row.totalPoints,
       ratingCount: row.ratingCount,
-      averageRating: row.ratingCount > 0 ? row.totalPoints / row.ratingCount : null,
+      superVoteCount: Number(avatar?.super_vote_count ?? row.superVoteCount ?? 0),
+      averageRating: row.ratingCount > 0
+        ? Math.max(0, row.totalPoints - Number(avatar?.super_vote_count ?? row.superVoteCount ?? 0) * 10) / row.ratingCount
+        : null,
       createdAt: row.createdAt,
     };
   };

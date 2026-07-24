@@ -5,6 +5,8 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { getGmt3DateKey } from "@/lib/time";
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -54,7 +56,7 @@ export async function GET() {
 
   const { data: avatar, error: avatarError } = await supabase
     .from("voting_avatars")
-    .select("id, owner_user_id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, total_points, rating_count, created_at")
+    .select("id, owner_user_id, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, total_points, rating_count, super_vote_count, created_at")
     .eq("id", result.avatarId)
     .maybeSingle();
 
@@ -68,6 +70,13 @@ export async function GET() {
     .eq("id", avatar.owner_user_id)
     .maybeSingle();
 
+  const todayStart = `${getGmt3DateKey()}T00:00:00+03:00`;
+  const { count: superVotesUsedToday } = await supabase
+    .from("runway_super_votes")
+    .select("id", { count: "exact", head: true })
+    .eq("voter_user_id", userId)
+    .gte("created_at", todayStart);
+
   return Response.json({
     candidate: {
       tokenId: result.tokenId,
@@ -80,6 +89,9 @@ export async function GET() {
       hasUncensoredAvatar: Boolean(avatar.has_uncensored_avatar),
       totalPoints: Number(avatar.total_points ?? 0),
       ratingCount: Number(avatar.rating_count ?? 0),
+      superVoteCount: Number(avatar.super_vote_count ?? 0),
+      canReceiveSuperVote: !isTrustedAdminUserId(String(avatar.owner_user_id)),
+      superVotesUsedToday: Number(superVotesUsedToday ?? 0),
       submittedAt: avatar.created_at,
       existingRating: result.existingRating ?? null,
     },
