@@ -32,6 +32,7 @@ type TributePanelProps = {
   onClickGameStop?: () => void;
   onClickGameReset?: () => void;
   onClickGameClick?: () => void;
+  clickGameVisible?: boolean;
 };
 
 const tributeOptions = [
@@ -58,6 +59,7 @@ export function TributePanel({
   onClickGameStop,
   onClickGameReset,
   onClickGameClick,
+  clickGameVisible = false,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
@@ -327,7 +329,7 @@ export function TributePanel({
             </div>
           </div>
 
-          <div className="mt-7 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4">
+          <div className={clickGameVisible ? "mt-7 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4" : "hidden"}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">Click Game</p>

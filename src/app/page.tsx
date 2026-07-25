@@ -88,6 +88,10 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
   tribute: () => import("@/components/TributePanel"),
 };
 
+// Temporary product hold: preserves click-game progress and all routes, but
+// removes the feature from the visible Shrine experience and stops its polls.
+const CLICK_GAME_ENABLED = false;
+
 function preloadDashboardPanel(page: DashboardPage) {
   return dashboardPanelLoaders[page]?.() ?? Promise.resolve();
 }
@@ -3834,7 +3838,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadClickGameStatus = useCallback(async () => {
-    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+    if (!CLICK_GAME_ENABLED || isGuestMode || isPreviewMode || !isLoggedIn) {
       setClickGameStatus(null);
       return;
     }
@@ -3855,7 +3859,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadClickGameLeaderboard = useCallback(async () => {
-    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+    if (!CLICK_GAME_ENABLED || isGuestMode || isPreviewMode || !isLoggedIn) {
       setClickGameLeaderboard(null);
       return;
     }
@@ -4077,7 +4081,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isGuestMode, isLoggedIn, isPreviewMode, loadCommunityStatus]);
 
   useEffect(() => {
-    if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
+    if (!CLICK_GAME_ENABLED || affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setShrineStatus(null);
       return;
@@ -11356,6 +11360,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onClickGameStop={handleClickGameStop}
               onClickGameReset={handleClickGameReset}
               onClickGameClick={handleClickGameClick}
+              clickGameVisible={CLICK_GAME_ENABLED}
             />
           )}
           {activePanel === "collection" && (
