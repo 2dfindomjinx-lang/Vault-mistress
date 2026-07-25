@@ -1,5 +1,7 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { CLICK_GAME_CHAMPION_TITLE_ID, CLICK_GAME_DAILY_REDUCTION } from "@/lib/click-game";
+import { GMT3_OFFSET_MS, getGmt3DateKey } from "@/lib/time";
 
 export const maxDuration = 300;
 
@@ -103,6 +105,25 @@ export async function GET(request: Request) {
     if (receiptsResult.error) console.warn("Runway receipts prune failed", receiptsResult.error);
     if (tokensResult.error) console.warn("Runway candidate token prune failed", tokensResult.error);
     if (skipsResult.error) console.warn("Runway skip history prune failed", skipsResult.error);
+  }
+
+  if (!dryRun) {
+    // Click Game: daily flat progress reduction for every player ("Principessa
+    // punishes neglect"), plus - only on the GMT+3 Monday this cron happens to
+    // run on - the weekly leaderboard reset + champion title grant.
+    const { error: decayError } = await supabase.rpc("run_click_game_daily_decay", {
+      p_reduction: CLICK_GAME_DAILY_REDUCTION,
+      p_decay_date: getGmt3DateKey(),
+    });
+    if (decayError) console.warn("Click Game daily decay failed", decayError);
+
+    if (new Date(Date.now() + GMT3_OFFSET_MS).getUTCDay() === 1) {
+      const { error: weeklyResetError } = await supabase.rpc("run_click_game_weekly_reset", {
+        p_week_start: getGmt3DateKey(),
+        p_title_id: CLICK_GAME_CHAMPION_TITLE_ID,
+      });
+      if (weeklyResetError) console.warn("Click Game weekly reset failed", weeklyResetError);
+    }
   }
 
   const { data: deletionRows, error: deletionError } = await supabase.rpc("get_inactive_user_deletion_batch", { p_limit: dryRun ? 100 : 50 });

@@ -69,7 +69,7 @@ export type TitleItem = {
   id: string;
   name: string;
   description: string;
-  source: "progression" | "shop" | "throne" | "admin" | "pet" | "crate" | "inventory";
+  source: "progression" | "shop" | "throne" | "admin" | "pet" | "crate" | "inventory" | "click_game";
   minTribute?: number;
   minThroneCoins?: number;
   minPetScore?: number;
@@ -706,6 +706,15 @@ export const titleItems: TitleItem[] = [
     source: "inventory",
     requiresAllLegendaries: true,
   },
+  // Click Game weekly leaderboard champion (see src/lib/click-game.ts,
+  // CLICK_GAME_CHAMPION_TITLE_ID - this id must stay in sync with that
+  // constant, which is the single source of truth passed into the SQL RPC).
+  {
+    id: "click-game-weekly-champion",
+    name: "This Week's Cash Cow",
+    description: "Won the weekly Click Game leaderboard at least once.",
+    source: "click_game",
+  },
 ];
 
 const FEMSUB_TITLE_NAMES: Record<string, string> = {
@@ -731,6 +740,7 @@ const FEMSUB_TITLE_NAMES: Record<string, string> = {
   "inventory-250000": "Luxury Owned Girl",
   "inventory-1000000": "Millionaire Milked Girl",
   "inventory-all-legendaries": "The Ultimate Owned Girl",
+  "click-game-weekly-champion": "This Week's Cash Cow Girl",
 };
 
 export function adaptTitleItemForAddressTerm(

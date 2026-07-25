@@ -6,6 +6,13 @@ import {
   SHRINE_PURCHASE_OPTIONS,
   type ShrineStatus,
 } from "@/lib/shrine";
+import type { ClickGameLeaderboardEntry, ClickGameStatus, ClickGameWinHistoryEntry } from "@/lib/click-game";
+
+type ClickGameLeaderboardData = {
+  leaders: ClickGameLeaderboardEntry[];
+  viewerEntry: ClickGameLeaderboardEntry | null;
+  winHistory: ClickGameWinHistoryEntry[];
+};
 
 type TributePanelProps = {
   affection: number;
@@ -17,6 +24,14 @@ type TributePanelProps = {
   shrinePending?: boolean;
   onShrinePurchase?: (amount: number) => void;
   onTribute: (amount: number) => void;
+  clickGame?: ClickGameStatus | null;
+  clickGameLeaderboard?: ClickGameLeaderboardData | null;
+  clickGameTogglePending?: boolean;
+  clickGameClickPending?: boolean;
+  onClickGameStart?: () => void;
+  onClickGameStop?: () => void;
+  onClickGameReset?: () => void;
+  onClickGameClick?: () => void;
 };
 
 const tributeOptions = [
@@ -35,6 +50,14 @@ export function TributePanel({
   shrinePending = false,
   onShrinePurchase,
   onTribute,
+  clickGame = null,
+  clickGameLeaderboard = null,
+  clickGameTogglePending = false,
+  clickGameClickPending = false,
+  onClickGameStart,
+  onClickGameStop,
+  onClickGameReset,
+  onClickGameClick,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
@@ -298,6 +321,143 @@ export function TributePanel({
                     <p className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-zinc-400">
                       No Shrine offerings yet.
                     </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-7 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">Click Game</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  Every click costs {clickGame?.costPerClick ?? 10} coins. Stop clicking for 5 seconds and progress starts draining until you click again or hit Stop.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-4 py-3 text-sm text-pink-50/85">
+                <p>Stage {clickGame?.stage ?? 0}/10</p>
+                <p className="mt-1">Weekly clicks: {(clickGame?.weeklyClicks ?? 0).toLocaleString()}</p>
+                <p className="mt-1">Lifetime clicks: {(clickGame?.lifetimeClicks ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr]">
+              <div className="relative mx-auto aspect-[4/5] w-40 overflow-hidden rounded-xl border border-pink-200/10 bg-black/40 sm:mx-0">
+                {clickGame?.stageImagePath ? (
+                  <Image alt={`Click Game stage ${clickGame.stage}`} className="object-cover" fill sizes="160px" src={clickGame.stageImagePath} />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center px-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40">
+                    Awaiting Click Game images
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div>
+                  <div className="h-2 overflow-hidden rounded-full bg-black/35">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#a855f7)] transition-[width]"
+                      style={{
+                        width: `${Math.max(
+                          4,
+                          Math.min(
+                            100,
+                            clickGame?.nextThreshold
+                              ? ((clickGame.progress) / clickGame.nextThreshold) * 100
+                              : 100,
+                          ),
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {clickGame?.nextThreshold
+                      ? `${clickGame.progress.toLocaleString()} / ${clickGame.nextThreshold.toLocaleString()} to stage ${clickGame.stage + 1}`
+                      : `${(clickGame?.progress ?? 0).toLocaleString()} progress - all 10 stages reached`}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {clickGame?.isActive ? (
+                    <button
+                      className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-pink-50 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={disabled || clickGameTogglePending}
+                      onClick={onClickGameStop}
+                      type="button"
+                    >
+                      Stop
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded-xl border border-emerald-200/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={disabled || clickGameTogglePending}
+                      onClick={onClickGameStart}
+                      type="button"
+                    >
+                      Start
+                    </button>
+                  )}
+                  <button
+                    className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-6 py-2 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_0_18px_rgba(236,72,153,0.3)] transition disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={disabled || !clickGame?.isActive || clickGameClickPending || coins < (clickGame?.costPerClick ?? 10)}
+                    onClick={onClickGameClick}
+                    type="button"
+                  >
+                    Click
+                  </button>
+                  <button
+                    className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-zinc-400 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={disabled || clickGameTogglePending || !clickGame?.progress}
+                    onClick={() => {
+                      if (window.confirm("Reset your Click Game progress to 0? Your weekly/lifetime click totals will not be affected.")) {
+                        onClickGameReset?.();
+                      }
+                    }}
+                    type="button"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">This Week&apos;s Cash Cows</p>
+                <div className="mt-2 grid gap-1.5">
+                  {(clickGameLeaderboard?.leaders ?? []).length > 0 ? (
+                    clickGameLeaderboard!.leaders.map((entry) => (
+                      <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
+                        <p className="truncate text-xs font-bold text-white">
+                          #{entry.rank} {entry.displayName || entry.username}
+                        </p>
+                        <p className="shrink-0 text-xs font-black text-pink-100">{entry.weeklyClicks.toLocaleString()}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">No clicks logged this week yet.</p>
+                  )}
+                  {clickGameLeaderboard?.viewerEntry && !clickGameLeaderboard.leaders.some((entry) => entry.userId === clickGameLeaderboard.viewerEntry?.userId) ? (
+                    <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-pink-200/20 bg-pink-500/10 px-2.5 py-1.5">
+                      <p className="truncate text-xs font-bold text-pink-50">You - #{clickGameLeaderboard.viewerEntry.rank}</p>
+                      <p className="shrink-0 text-xs font-black text-pink-100">{clickGameLeaderboard.viewerEntry.weeklyClicks.toLocaleString()}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">Past Champions</p>
+                <div className="mt-2 grid gap-1.5">
+                  {(clickGameLeaderboard?.winHistory ?? []).length > 0 ? (
+                    clickGameLeaderboard!.winHistory.map((entry) => (
+                      <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
+                        <p className="truncate text-xs font-bold text-white">{entry.displayName || entry.username}</p>
+                        <p className="shrink-0 text-xs font-black text-amber-100">{entry.winCount}x</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">Nothing here yet.</p>
                   )}
                 </div>
               </div>

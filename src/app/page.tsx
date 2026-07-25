@@ -149,6 +149,7 @@ import {
   getShrineDevotionReward,
   type ShrineStatus,
 } from "@/lib/shrine";
+import type { ClickGameLeaderboardEntry, ClickGameStatus, ClickGameWinHistoryEntry } from "@/lib/click-game";
 import {
   getGlobalPrincipessaProgressPercent,
   getGlobalPrincipessaXpRequirement,
@@ -1863,6 +1864,12 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [totalDevotion, setTotalDevotion] = useState(0);
   const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
   const [seenShrineMemoryIds, setSeenShrineMemoryIds] = useState<string[]>([]);
+  const [clickGameStatus, setClickGameStatus] = useState<ClickGameStatus | null>(null);
+  const [clickGameLeaderboard, setClickGameLeaderboard] = useState<{
+    leaders: ClickGameLeaderboardEntry[];
+    viewerEntry: ClickGameLeaderboardEntry | null;
+    winHistory: ClickGameWinHistoryEntry[];
+  } | null>(null);
   const [lifetimeSpentCoins, setLifetimeSpentCoins] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
   const [userXp, setUserXp] = useState(0);
@@ -3826,6 +3833,57 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
+  const loadClickGameStatus = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setClickGameStatus(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/click-game/status", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { error?: string; status?: ClickGameStatus } | null;
+
+      if (!response.ok || !payload?.status) {
+        throw new Error(payload?.error ?? "Click Game status could not be loaded.");
+      }
+
+      setClickGameStatus(payload.status);
+    } catch (error) {
+      console.error("Failed to load click game status", error);
+      setClickGameStatus(null);
+    }
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
+
+  const loadClickGameLeaderboard = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setClickGameLeaderboard(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/click-game/leaderboard", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        leaders?: ClickGameLeaderboardEntry[];
+        viewerEntry?: ClickGameLeaderboardEntry | null;
+        winHistory?: ClickGameWinHistoryEntry[];
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? "Click Game leaderboard could not be loaded.");
+      }
+
+      setClickGameLeaderboard({
+        leaders: payload.leaders ?? [],
+        viewerEntry: payload.viewerEntry ?? null,
+        winHistory: payload.winHistory ?? [],
+      });
+    } catch (error) {
+      console.error("Failed to load click game leaderboard", error);
+      setClickGameLeaderboard(null);
+    }
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
+
   const loadSelectedCommunityProfile = useCallback(async (userId: string) => {
     setSelectedCommunityProfileLoading(true);
     setSelectedCommunityProfileError("");
@@ -4027,6 +4085,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     void loadShrineStatus();
   }, [affection, isGuestMode, isLoggedIn, isPreviewMode, loadShrineStatus]);
+
+  useEffect(() => {
+    if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
+      setClickGameStatus(null);
+      setClickGameLeaderboard(null);
+      return;
+    }
+
+    void loadClickGameStatus();
+    void loadClickGameLeaderboard();
+  }, [affection, isGuestMode, isLoggedIn, isPreviewMode, loadClickGameStatus, loadClickGameLeaderboard]);
 
   useEffect(() => {
     if (!selectedCommunityProfileId) {
@@ -7683,6 +7753,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTributeTotal(0);
     setTotalDevotion(0);
     setShrineStatus(null);
+    setClickGameStatus(null);
+    setClickGameLeaderboard(null);
     setLifetimeSpentCoins(0);
     setLoyaltyStreak(0);
     setLastLoyaltyAt(null);
@@ -7746,6 +7818,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setTributeTotal(0);
     setTotalDevotion(0);
     setShrineStatus(null);
+    setClickGameStatus(null);
+    setClickGameLeaderboard(null);
     setLifetimeSpentCoins(0);
     setPetScore(0);
     setOwnerLikeness(100);
@@ -7951,6 +8025,75 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       console.error("Failed to complete shrine purchase", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The Shrine ledger refused that offering. Try again.");
+    } finally {
+      finishTaskAction(actionId);
+    }
+  };
+
+  const handleClickGameToggle = async (action: "start" | "stop" | "reset") => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const actionId = "click-game-toggle";
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/user/click-game/${action}`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as { error?: string; status?: ClickGameStatus } | null;
+
+      if (!response.ok || !payload?.status) {
+        throw createApiError(`/api/user/click-game/${action}`, response, payload ?? {});
+      }
+
+      setClickGameStatus(payload.status);
+    } catch (error) {
+      console.error(`Failed to ${action} click game`, error);
+      setAuthError(describeError(error));
+    } finally {
+      finishTaskAction(actionId);
+    }
+  };
+
+  const handleClickGameStart = () => void handleClickGameToggle("start");
+  const handleClickGameStop = () => void handleClickGameToggle("stop");
+  const handleClickGameReset = () => void handleClickGameToggle("reset");
+
+  const handleClickGameClick = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const actionId = "click-game-click";
+    if (!beginTaskAction(actionId)) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/click-game/click", { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        status?: ClickGameStatus;
+        profile?: { coins: number };
+      } | null;
+
+      if (!response.ok || !payload?.status) {
+        throw createApiError("/api/user/click-game/click", response, payload ?? {});
+      }
+
+      const previousStage = clickGameStatus?.stage ?? 0;
+      setClickGameStatus(payload.status);
+      if (payload.profile) {
+        setCoins(payload.profile.coins);
+        coinsRef.current = payload.profile.coins;
+      }
+      if (payload.status.stage > previousStage) {
+        void loadClickGameLeaderboard();
+      }
+    } catch (error) {
+      console.error("Failed to register click game click", error);
     } finally {
       finishTaskAction(actionId);
     }
@@ -11205,6 +11348,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               shrinePending={pendingTaskActionIds.some((id) => id.startsWith("shrine:"))}
               onShrinePurchase={handleShrinePurchase}
               onTribute={handleTribute}
+              clickGame={clickGameStatus}
+              clickGameLeaderboard={clickGameLeaderboard}
+              clickGameTogglePending={pendingTaskActionIds.includes("click-game-toggle")}
+              clickGameClickPending={pendingTaskActionIds.includes("click-game-click")}
+              onClickGameStart={handleClickGameStart}
+              onClickGameStop={handleClickGameStop}
+              onClickGameReset={handleClickGameReset}
+              onClickGameClick={handleClickGameClick}
             />
           )}
           {activePanel === "collection" && (
