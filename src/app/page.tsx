@@ -1876,6 +1876,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
   const [seenShrineMemoryIds, setSeenShrineMemoryIds] = useState<string[]>([]);
   const [clickGameStatus, setClickGameStatus] = useState<ClickGameStatus | null>(null);
+  const [clickGameStatusCategory, setClickGameStatusCategory] = useState<ClickGameCategoryId | null>(null);
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const [clickGameLeaderboard, setClickGameLeaderboard] = useState<{
     leaders: ClickGameLeaderboardEntry[];
@@ -3848,10 +3849,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const loadClickGameStatus = useCallback(async () => {
     if (!CLICK_GAME_ENABLED || isGuestMode || isPreviewMode || !isLoggedIn) {
       setClickGameStatus(null);
+      setClickGameStatusCategory(null);
       return;
     }
 
     try {
+      setClickGameStatusCategory(null);
       const response = await fetch(`/api/user/click-game/status?category=${encodeURIComponent(clickGameCategory)}`, { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as { error?: string; status?: ClickGameStatus } | null;
 
@@ -3860,9 +3863,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       setClickGameStatus(payload.status);
+      setClickGameStatusCategory(clickGameCategory);
     } catch (error) {
       console.error("Failed to load click game status", error);
       setClickGameStatus(null);
+      setClickGameStatusCategory(null);
     }
   }, [clickGameCategory, isGuestMode, isLoggedIn, isPreviewMode]);
 
@@ -4109,6 +4114,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setClickGameStatus(null);
+      setClickGameStatusCategory(null);
       setClickGameLeaderboard(null);
       return;
     }
@@ -8072,6 +8078,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       setClickGameStatus(payload.status);
+      setClickGameStatusCategory(clickGameCategory);
     } catch (error) {
       console.error(`Failed to ${action} click game`, error);
       setAuthError(describeError(error));
@@ -8118,6 +8125,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         void loadClickGameStatus();
       } else {
         setClickGameStatus(payload.status);
+        setClickGameStatusCategory(category);
       }
       if (payload.profile) {
         setCoins(payload.profile.coins);
@@ -11389,6 +11397,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onClickGameClick={handleClickGameClick}
               clickGameVisible={CLICK_GAME_ENABLED}
               onClickGameCategoryChange={setClickGameCategory}
+              clickGameStatusCategory={clickGameStatusCategory}
             />
           )}
           {activePanel === "collection" && (

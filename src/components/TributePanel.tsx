@@ -50,6 +50,7 @@ type TributePanelProps = {
   onClickGameClick?: (count: number, categoryId: ClickGameCategoryId) => void | Promise<void>;
   clickGameVisible?: boolean;
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
+  clickGameStatusCategory?: ClickGameCategoryId | null;
 };
 
 const tributeOptions = [
@@ -77,10 +78,12 @@ export function TributePanel({
   onClickGameClick,
   clickGameVisible = false,
   onClickGameCategoryChange,
+  clickGameStatusCategory = null,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
+  const [categoryReady, setCategoryReady] = useState(true);
   const [optimisticClicks, setOptimisticClicks] = useState(0);
   const pendingClicksRef = useRef(0);
   const pendingCategoryRef = useRef<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
@@ -92,6 +95,7 @@ export function TributePanel({
     if (isClickGameCategoryId(stored)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount, not derivable from props
       setClickGameCategory(stored);
+      setCategoryReady(false);
       onClickGameCategoryChange?.(stored);
     }
   }, [onClickGameCategoryChange]);
@@ -118,6 +122,7 @@ export function TributePanel({
     // newly selected category's state.
     flushClickGameNow();
     setClickGameCategory(categoryId);
+    setCategoryReady(false);
     window.localStorage.setItem(CLICK_GAME_CATEGORY_STORAGE_KEY, categoryId);
     onClickGameCategoryChange?.(categoryId);
   };
@@ -195,7 +200,12 @@ export function TributePanel({
 
   const displayedProgress = (clickGame?.progress ?? 0) + optimisticClicks;
   const displayedStage = clickGame ? getClickGameStage(displayedProgress, clickGame.thresholds) : 0;
-  const displayedStageImagePath = getClickGameStageImagePath(displayedStage, clickGameCategory);
+  useEffect(() => {
+    if (clickGame && clickGameStatusCategory === clickGameCategory) {
+      setCategoryReady(true);
+    }
+  }, [clickGame, clickGameCategory, clickGameStatusCategory]);
+  const displayedStageImagePath = categoryReady ? getClickGameStageImagePath(displayedStage, clickGameCategory) : null;
 
   return (
     <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -484,7 +494,7 @@ export function TributePanel({
               </div>
             </div>
 
-            <div className="relative mt-4 min-h-[20rem] w-full overflow-hidden bg-black/50">
+            <div className="relative mt-4 min-h-[28rem] w-full overflow-hidden bg-black/50 sm:min-h-[34rem]">
               {displayedStageImagePath ? (
                 <Image
                   alt={`Click Game stage ${displayedStage}`}
@@ -494,15 +504,15 @@ export function TributePanel({
                   src={displayedStageImagePath}
                 />
               ) : (
-                <div className="flex h-full min-h-[20rem] w-full flex-col items-center justify-center px-5 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40">
-                  Awaiting Click Game images
+                <div className="flex h-full min-h-[28rem] w-full flex-col items-center justify-center px-5 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40 sm:min-h-[34rem]">
+                  Loading category...
                 </div>
               )}
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.05)_30%,rgba(0,0,0,0.15)_65%,rgba(0,0,0,0.75)_100%)]" />
 
               <div className="pointer-events-none absolute left-4 top-4 right-4 flex flex-wrap items-start justify-between gap-2">
                 <p className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-pink-50/90 backdrop-blur-sm">
-                  {clickGame?.costPerClick ?? 10} coins / click - idle 5s and it drains
+                  {clickGame?.costPerClick ?? 1} coins / click
                 </p>
                 <div className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-pink-50 backdrop-blur-sm">
                   Stage {displayedStage}/10

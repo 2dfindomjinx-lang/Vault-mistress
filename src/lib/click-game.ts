@@ -1,13 +1,12 @@
-export const CLICK_GAME_COST_PER_CLICK = 10;
+export const CLICK_GAME_COST_PER_CLICK = 1;
 export const CLICK_GAME_IDLE_GRACE_MS = 5_000;
 export const CLICK_GAME_DECAY_INTERVAL_MS = 250;
 export const CLICK_GAME_DECAY_PER_TICK = 1;
 export const CLICK_GAME_DAILY_REDUCTION = 150;
 
 // 10 ascending thresholds. Reaching stage 10 from scratch costs 20,000 net
-// clicks (200,000 coins) minimum even with zero decay - idle-drain and the
-// daily reduction push the real total well above that for anyone who isn't
-// consistently attentive.
+// clicks (20,000 coins) and therefore 20,000 coins minimum from zero. Each
+// category tracks that progress independently.
 export const CLICK_GAME_THRESHOLDS = [50, 150, 350, 700, 1300, 2300, 4000, 7000, 12000, 20000] as const;
 
 export const CLICK_GAME_CHAMPION_TITLE_ID = "click-game-weekly-champion";
