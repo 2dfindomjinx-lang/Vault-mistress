@@ -2,6 +2,18 @@
 -- Existing progress is preserved under the classic category; every other
 -- category starts at stage 0 with its own active/progress/click counters.
 
+-- Keep the original helper signature for compatibility, but disable decay:
+-- progress must not depend on when a batched request reaches the API.
+create or replace function public.click_game_settle_decay(
+  p_progress integer, p_is_active boolean, p_last_click_at timestamptz,
+  p_last_settled_at timestamptz, p_now timestamptz, p_idle_grace_ms integer,
+  p_decay_interval_ms integer, p_decay_per_tick integer
+) returns integer language plpgsql immutable as $$
+begin
+  return greatest(0, p_progress);
+end;
+$$;
+
 create table if not exists public.click_game_category_state (
   user_id uuid not null references auth.users(id) on delete cascade,
   category_id text not null check (category_id in ('classic', 'censored', 'pixel', 'huge_breasts', 'huge_ass')),
@@ -70,7 +82,7 @@ begin
 end; $$;
 
 create or replace function public.click_game_category_click(p_user_id uuid,p_category_id text,p_cost integer,p_clicks integer default 1,p_idle_grace_ms integer default 5000,p_decay_interval_ms integer default 250,p_decay_per_tick integer default 1) returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_profile record; v_row public.click_game_category_state; v_now timestamptz:=now(); v_requested integer:=greatest(1,least(p_clicks,100)); v_accepted integer; v_total integer; v_next integer;
+declare v_profile record; v_row public.click_game_category_state; v_now timestamptz:=now(); v_requested integer:=greatest(1,least(p_clicks,300)); v_accepted integer; v_total integer; v_next integer;
 begin
   if p_category_id not in ('classic','censored','pixel','huge_breasts','huge_ass') then return jsonb_build_object('error','invalid_category'); end if;
   select id,coins into v_profile from public.profiles where id=p_user_id for update;

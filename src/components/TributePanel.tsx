@@ -47,7 +47,7 @@ type TributePanelProps = {
   onClickGameStart?: () => void;
   onClickGameStop?: () => void;
   onClickGameReset?: () => void;
-  onClickGameClick?: (count: number) => void | Promise<void>;
+  onClickGameClick?: (count: number, categoryId: ClickGameCategoryId) => void | Promise<void>;
   clickGameVisible?: boolean;
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
 };
@@ -83,6 +83,7 @@ export function TributePanel({
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const [optimisticClicks, setOptimisticClicks] = useState(0);
   const pendingClicksRef = useRef(0);
+  const pendingCategoryRef = useRef<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const inFlightRef = useRef(false);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,6 +113,10 @@ export function TributePanel({
   }, []);
 
   const selectClickGameCategory = (categoryId: ClickGameCategoryId) => {
+    // Flush the previous category before switching. Any request already in
+    // flight carries its own category so its response cannot overwrite the
+    // newly selected category's state.
+    flushClickGameNow();
     setClickGameCategory(categoryId);
     window.localStorage.setItem(CLICK_GAME_CATEGORY_STORAGE_KEY, categoryId);
     onClickGameCategoryChange?.(categoryId);
@@ -129,15 +134,21 @@ export function TributePanel({
       return;
     }
 
-    const count = pendingClicksRef.current;
+    // 300 is the maximum size of one request, not a maximum for the user's
+    // whole click streak. Leave the remainder queued for the next request.
+    const count = Math.min(pendingClicksRef.current, CLICK_GAME_BATCH_MAX_CLICKS);
     if (count <= 0) {
       return;
     }
 
-    pendingClicksRef.current = 0;
+    pendingClicksRef.current -= count;
     inFlightRef.current = true;
-    void Promise.resolve(onClickGameClick?.(count)).finally(() => {
+    const batchCategory = pendingCategoryRef.current;
+    void Promise.resolve(onClickGameClick?.(count, batchCategory)).finally(() => {
       inFlightRef.current = false;
+      if (pendingClicksRef.current <= 0) {
+        pendingCategoryRef.current = clickGameCategory;
+      }
       if (pendingClicksRef.current >= CLICK_GAME_BATCH_FORCE_FLUSH_SIZE) {
         // A lot piled up while that request was in flight - send it right
         // away instead of making it wait out another debounce window.
@@ -166,13 +177,9 @@ export function TributePanel({
       return;
     }
 
-    if (pendingClicksRef.current >= CLICK_GAME_BATCH_MAX_CLICKS) {
-      // Already holding as many unsent clicks as a single request can carry
-      // (matches the server's own p_clicks clamp) - drop this tap rather
-      // than accumulate clicks that would just get silently truncated.
-      return;
+    if (pendingClicksRef.current === 0) {
+      pendingCategoryRef.current = clickGameCategory;
     }
-
     pendingClicksRef.current += 1;
     setOptimisticClicks((current) => current + 1);
 
@@ -505,7 +512,7 @@ export function TributePanel({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-12 pt-10">
                 <button
                   aria-label="Click the current stage"
-                  className="pointer-events-auto h-28 w-28 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_8px_rgba(236,72,153,.14),0_0_36px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-32 sm:w-32"
+                  className="pointer-events-auto h-20 w-20 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_6px_rgba(236,72,153,.14),0_0_24px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-24 sm:w-24"
                   disabled={disabled || !clickGame?.isActive}
                   onClick={registerClickGameTap}
                   type="button"

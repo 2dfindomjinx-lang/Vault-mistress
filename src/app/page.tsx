@@ -8089,14 +8089,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   // sends exactly one HTTP request per flush, not per tap, and is safe to
   // call again immediately since TributePanel guards against overlapping
   // in-flight flushes itself.
-  const handleClickGameClick = async (count: number) => {
+  const handleClickGameClick = async (count: number, category: ClickGameCategoryId = clickGameCategory) => {
     if (count <= 0 || blockIfTimedOut()) {
       return;
     }
 
     try {
       const response = await fetch("/api/user/click-game/click", {
-        body: JSON.stringify({ category: clickGameCategory, clicks: count }),
+        body: JSON.stringify({ category, clicks: count }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -8112,7 +8112,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       const previousStage = clickGameStatus?.stage ?? 0;
-      setClickGameStatus(payload.status);
+      if (category !== clickGameCategory) {
+        // A late response from a previous category must not replace the
+        // currently selected category's progress.
+        void loadClickGameStatus();
+      } else {
+        setClickGameStatus(payload.status);
+      }
       if (payload.profile) {
         setCoins(payload.profile.coins);
         coinsRef.current = payload.profile.coins;

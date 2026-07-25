@@ -39,8 +39,8 @@ export function isClickGameCategoryId(value: unknown): value is ClickGameCategor
 // whole burst. CLICK_GAME_BATCH_FORCE_FLUSH_SIZE is a safety net that flushes
 // early if someone spam-clicks nonstop for a long time without ever pausing,
 // so a session isn't silently building an unbounded unsent batch.
-export const CLICK_GAME_BATCH_DEBOUNCE_MS = 250;
-export const CLICK_GAME_BATCH_FORCE_FLUSH_SIZE = 50;
+export const CLICK_GAME_BATCH_DEBOUNCE_MS = 150;
+export const CLICK_GAME_BATCH_FORCE_FLUSH_SIZE = 40;
 export const CLICK_GAME_BATCH_MAX_CLICKS = 300;
 
 export const CLICK_GAME_CLICK_RATE_LIMIT_MAX = 8;
@@ -91,17 +91,9 @@ export function computeIdleDecay(
   decayIntervalMs: number = CLICK_GAME_DECAY_INTERVAL_MS,
   decayPerTick: number = CLICK_GAME_DECAY_PER_TICK,
 ): number {
-  if (!isActive || lastClickAtMs === null) {
-    return Math.max(0, progress);
-  }
-
-  const decayStart = Math.max(lastClickAtMs + Math.max(idleGraceMs, 0), lastSettledAtMs);
-  if (nowMs <= decayStart) {
-    return Math.max(0, progress);
-  }
-
-  const ticks = Math.floor((nowMs - decayStart) / Math.max(decayIntervalMs, 1));
-  return Math.max(0, progress - ticks * Math.max(decayPerTick, 0));
+  // Compatibility helper retained for older callers. Decay is disabled;
+  // progress changes only through accepted clicks or an explicit reset.
+  return Math.max(0, progress);
 }
 
 export type ClickGameStatus = {
