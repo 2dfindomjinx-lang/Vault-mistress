@@ -11,9 +11,39 @@ export const CLICK_GAME_DAILY_REDUCTION = 150;
 export const CLICK_GAME_THRESHOLDS = [50, 150, 350, 700, 1300, 2300, 4000, 7000, 12000, 20000] as const;
 
 export const CLICK_GAME_CHAMPION_TITLE_ID = "click-game-weekly-champion";
-export const CLICK_GAME_IMAGE_DIR = "/click-game"; // stage-1.webp … stage-10.webp
+export const CLICK_GAME_IMAGE_DIR = "/click-game";
 
-export const CLICK_GAME_CLICK_RATE_LIMIT_MAX = 5;
+// Each category is its own /public/click-game/<id>/stage-1..10.webp folder.
+// ("feet" is excluded - the folder only has one oddly-named file, not a real
+// stage-1..10 set yet.)
+export const CLICK_GAME_CATEGORIES = [
+  { id: "classic", label: "Classic", extension: "webp" },
+  { id: "censored", label: "Censored", extension: "webp" },
+  { id: "pixel", label: "Pixel", extension: "webp" },
+  { id: "huge_breasts", label: "Huge Breasts", extension: "webp" },
+  { id: "huge_ass", label: "Huge Ass", extension: "webp" },
+] as const;
+
+export type ClickGameCategoryId = (typeof CLICK_GAME_CATEGORIES)[number]["id"];
+export const DEFAULT_CLICK_GAME_CATEGORY: ClickGameCategoryId = "classic";
+export const CLICK_GAME_CATEGORY_STORAGE_KEY = "click-game-category";
+
+export function isClickGameCategoryId(value: unknown): value is ClickGameCategoryId {
+  return CLICK_GAME_CATEGORIES.some((category) => category.id === value);
+}
+
+// Batching: rapid taps are accumulated client-side and flushed as one
+// request instead of firing a network call per tap. The flush is debounced -
+// it fires CLICK_GAME_BATCH_DEBOUNCE_MS after the user stops tapping, not on
+// a fixed interval during continuous spam - so a single request covers a
+// whole burst. CLICK_GAME_BATCH_FORCE_FLUSH_SIZE is a safety net that flushes
+// early if someone spam-clicks nonstop for a long time without ever pausing,
+// so a session isn't silently building an unbounded unsent batch.
+export const CLICK_GAME_BATCH_DEBOUNCE_MS = 250;
+export const CLICK_GAME_BATCH_FORCE_FLUSH_SIZE = 50;
+export const CLICK_GAME_BATCH_MAX_CLICKS = 300;
+
+export const CLICK_GAME_CLICK_RATE_LIMIT_MAX = 8;
 export const CLICK_GAME_CLICK_RATE_LIMIT_WINDOW_SECONDS = 1;
 export const CLICK_GAME_TOGGLE_RATE_LIMIT_MAX = 5;
 export const CLICK_GAME_TOGGLE_RATE_LIMIT_WINDOW_SECONDS = 10;
@@ -30,11 +60,15 @@ export function getClickGameStage(progress: number, thresholds: readonly number[
   return stage;
 }
 
-export function getClickGameStageImagePath(stage: number): string | null {
+export function getClickGameStageImagePath(
+  stage: number,
+  categoryId: ClickGameCategoryId = DEFAULT_CLICK_GAME_CATEGORY,
+): string | null {
   if (stage <= 0) {
     return null;
   }
-  return `${CLICK_GAME_IMAGE_DIR}/stage-${stage}.webp`;
+  const category = CLICK_GAME_CATEGORIES.find((entry) => entry.id === categoryId) ?? CLICK_GAME_CATEGORIES[0];
+  return `${CLICK_GAME_IMAGE_DIR}/${category.id}/stage-${stage}.${category.extension}`;
 }
 
 export function getClickGameNextThreshold(progress: number, thresholds: readonly number[] = CLICK_GAME_THRESHOLDS): number | null {
@@ -73,7 +107,6 @@ export function computeIdleDecay(
 export type ClickGameStatus = {
   progress: number;
   stage: number;
-  stageImagePath: string | null;
   isActive: boolean;
   lastClickAt: string | null;
   weeklyClicks: number;
@@ -114,7 +147,6 @@ export function buildClickGameStatus(raw: {
   return {
     progress,
     stage,
-    stageImagePath: getClickGameStageImagePath(stage),
     isActive: raw.isActive,
     lastClickAt: raw.lastClickAt,
     weeklyClicks: Math.max(0, Math.floor(raw.weeklyClicks)),

@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import {
   SHRINE_BONUS_LEVEL_STEP,
   SHRINE_IMAGE_UNLOCK_COST,
@@ -6,7 +9,21 @@ import {
   SHRINE_PURCHASE_OPTIONS,
   type ShrineStatus,
 } from "@/lib/shrine";
-import type { ClickGameLeaderboardEntry, ClickGameStatus, ClickGameWinHistoryEntry } from "@/lib/click-game";
+import {
+  CLICK_GAME_BATCH_DEBOUNCE_MS,
+  CLICK_GAME_BATCH_FORCE_FLUSH_SIZE,
+  CLICK_GAME_BATCH_MAX_CLICKS,
+  CLICK_GAME_CATEGORIES,
+  CLICK_GAME_CATEGORY_STORAGE_KEY,
+  DEFAULT_CLICK_GAME_CATEGORY,
+  getClickGameStage,
+  getClickGameStageImagePath,
+  isClickGameCategoryId,
+  type ClickGameCategoryId,
+  type ClickGameLeaderboardEntry,
+  type ClickGameStatus,
+  type ClickGameWinHistoryEntry,
+} from "@/lib/click-game";
 
 type ClickGameLeaderboardData = {
   leaders: ClickGameLeaderboardEntry[];
@@ -27,11 +44,10 @@ type TributePanelProps = {
   clickGame?: ClickGameStatus | null;
   clickGameLeaderboard?: ClickGameLeaderboardData | null;
   clickGameTogglePending?: boolean;
-  clickGameClickPending?: boolean;
   onClickGameStart?: () => void;
   onClickGameStop?: () => void;
   onClickGameReset?: () => void;
-  onClickGameClick?: () => void;
+  onClickGameClick?: (count: number) => void | Promise<void>;
   clickGameVisible?: boolean;
 };
 
@@ -54,7 +70,6 @@ export function TributePanel({
   clickGame = null,
   clickGameLeaderboard = null,
   clickGameTogglePending = false,
-  clickGameClickPending = false,
   onClickGameStart,
   onClickGameStop,
   onClickGameReset,
@@ -62,6 +77,114 @@ export function TributePanel({
   clickGameVisible = false,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
+
+  const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
+  const [optimisticClicks, setOptimisticClicks] = useState(0);
+  const pendingClicksRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
+    if (isClickGameCategoryId(stored)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount, not derivable from props
+      setClickGameCategory(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Server response for a flushed batch replaces optimisticClicks with the
+    // authoritative progress, so any not-yet-flushed optimistic taps made
+    // since the last flush should be dropped once we resync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resyncing local optimistic count when the external clickGame prop settles
+    setOptimisticClicks(0);
+  }, [clickGame?.progress]);
+
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+      }
+    };
+  }, []);
+
+  const selectClickGameCategory = (categoryId: ClickGameCategoryId) => {
+    setClickGameCategory(categoryId);
+    window.localStorage.setItem(CLICK_GAME_CATEGORY_STORAGE_KEY, categoryId);
+  };
+
+  // Flushes whatever's pending right now, in one request. Safe to call while
+  // another flush is already in flight - the in-flight one's `finally` will
+  // notice the newly-queued clicks and schedule another round after it.
+  const flushClickGameNow = () => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    if (inFlightRef.current) {
+      return;
+    }
+
+    const count = pendingClicksRef.current;
+    if (count <= 0) {
+      return;
+    }
+
+    pendingClicksRef.current = 0;
+    inFlightRef.current = true;
+    void Promise.resolve(onClickGameClick?.(count)).finally(() => {
+      inFlightRef.current = false;
+      if (pendingClicksRef.current >= CLICK_GAME_BATCH_FORCE_FLUSH_SIZE) {
+        // A lot piled up while that request was in flight - send it right
+        // away instead of making it wait out another debounce window.
+        flushClickGameNow();
+      } else if (pendingClicksRef.current > 0) {
+        scheduleClickGameFlush();
+      }
+    });
+  };
+
+  // Debounced: fires CLICK_GAME_BATCH_DEBOUNCE_MS after the user stops
+  // tapping (each new tap restarts the timer), so a whole burst of spam
+  // clicks turns into a single request once they actually pause.
+  const scheduleClickGameFlush = () => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+    }
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      flushClickGameNow();
+    }, CLICK_GAME_BATCH_DEBOUNCE_MS);
+  };
+
+  const registerClickGameTap = () => {
+    if (disabled || !clickGame?.isActive) {
+      return;
+    }
+
+    if (pendingClicksRef.current >= CLICK_GAME_BATCH_MAX_CLICKS) {
+      // Already holding as many unsent clicks as a single request can carry
+      // (matches the server's own p_clicks clamp) - drop this tap rather
+      // than accumulate clicks that would just get silently truncated.
+      return;
+    }
+
+    pendingClicksRef.current += 1;
+    setOptimisticClicks((current) => current + 1);
+
+    // Safety net: never let an uninterrupted spam session pile up an
+    // unbounded unsent batch - force an early flush once it gets large.
+    if (pendingClicksRef.current >= CLICK_GAME_BATCH_FORCE_FLUSH_SIZE) {
+      flushClickGameNow();
+      return;
+    }
+
+    scheduleClickGameFlush();
+  };
+
+  const displayedProgress = (clickGame?.progress ?? 0) + optimisticClicks;
+  const displayedStage = clickGame ? getClickGameStage(displayedProgress, clickGame.thresholds) : 0;
+  const displayedStageImagePath = getClickGameStageImagePath(displayedStage, clickGameCategory);
 
   return (
     <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
@@ -329,102 +452,130 @@ export function TributePanel({
             </div>
           </div>
 
-          <div className={clickGameVisible ? "mt-7 rounded-[1.35rem] border border-pink-200/15 bg-black/30 p-4" : "hidden"}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">Click Game</p>
-                <p className="mt-1 text-sm leading-6 text-zinc-400">
-                  Every click costs {clickGame?.costPerClick ?? 10} coins. Stop clicking for 5 seconds and progress starts draining until you click again or hit Stop.
+          <div className={clickGameVisible ? "mt-7 overflow-hidden rounded-[1.35rem] border border-pink-200/15 bg-black/30" : "hidden"}>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 pb-0">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">Click Game</p>
+              <div className="flex flex-wrap gap-1.5">
+                {CLICK_GAME_CATEGORIES.map((category) => (
+                  <button
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] transition ${
+                      clickGameCategory === category.id
+                        ? "border-pink-300/50 bg-pink-500/20 text-pink-50"
+                        : "border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10"
+                    }`}
+                    key={category.id}
+                    onClick={() => selectClickGameCategory(category.id)}
+                    type="button"
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative mt-4 min-h-[20rem] w-full overflow-hidden bg-black/50">
+              {displayedStageImagePath ? (
+                <Image
+                  alt={`Click Game stage ${displayedStage}`}
+                  className="object-cover transition-opacity"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 700px"
+                  src={displayedStageImagePath}
+                />
+              ) : (
+                <div className="flex h-full min-h-[20rem] w-full flex-col items-center justify-center px-5 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40">
+                  Awaiting Click Game images
+                </div>
+              )}
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.05)_30%,rgba(0,0,0,0.15)_65%,rgba(0,0,0,0.75)_100%)]" />
+
+              <div className="pointer-events-none absolute left-4 top-4 right-4 flex flex-wrap items-start justify-between gap-2">
+                <p className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-pink-50/90 backdrop-blur-sm">
+                  {clickGame?.costPerClick ?? 10} coins / click - idle 5s and it drains
                 </p>
-              </div>
-              <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-4 py-3 text-sm text-pink-50/85">
-                <p>Stage {clickGame?.stage ?? 0}/10</p>
-                <p className="mt-1">Weekly clicks: {(clickGame?.weeklyClicks ?? 0).toLocaleString()}</p>
-                <p className="mt-1">Lifetime clicks: {(clickGame?.lifetimeClicks ?? 0).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr]">
-              <div className="relative mx-auto aspect-[4/5] w-40 overflow-hidden rounded-xl border border-pink-200/10 bg-black/40 sm:mx-0">
-                {clickGame?.stageImagePath ? (
-                  <Image alt={`Click Game stage ${clickGame.stage}`} className="object-cover" fill sizes="160px" src={clickGame.stageImagePath} />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center px-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40">
-                    Awaiting Click Game images
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div>
-                  <div className="h-2 overflow-hidden rounded-full bg-black/35">
-                    <div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#a855f7)] transition-[width]"
-                      style={{
-                        width: `${Math.max(
-                          4,
-                          Math.min(
-                            100,
-                            clickGame?.nextThreshold
-                              ? ((clickGame.progress) / clickGame.nextThreshold) * 100
-                              : 100,
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {clickGame?.nextThreshold
-                      ? `${clickGame.progress.toLocaleString()} / ${clickGame.nextThreshold.toLocaleString()} to stage ${clickGame.stage + 1}`
-                      : `${(clickGame?.progress ?? 0).toLocaleString()} progress - all 10 stages reached`}
-                  </p>
+                <div className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-pink-50 backdrop-blur-sm">
+                  Stage {displayedStage}/10
                 </div>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {clickGame?.isActive ? (
-                    <button
-                      className="rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-pink-50 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={disabled || clickGameTogglePending}
-                      onClick={onClickGameStop}
-                      type="button"
-                    >
-                      Stop
-                    </button>
-                  ) : (
-                    <button
-                      className="rounded-xl border border-emerald-200/25 bg-emerald-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-emerald-50 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={disabled || clickGameTogglePending}
-                      onClick={onClickGameStart}
-                      type="button"
-                    >
-                      Start
-                    </button>
-                  )}
-                  <button
-                    className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-6 py-2 text-sm font-black uppercase tracking-[0.14em] text-white shadow-[0_0_18px_rgba(236,72,153,0.3)] transition disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || !clickGame?.isActive || clickGameClickPending || coins < (clickGame?.costPerClick ?? 10)}
-                    onClick={onClickGameClick}
-                    type="button"
-                  >
-                    Click
-                  </button>
-                  <button
-                    className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-zinc-400 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={disabled || clickGameTogglePending || !clickGame?.progress}
-                    onClick={() => {
-                      if (window.confirm("Reset your Click Game progress to 0? Your weekly/lifetime click totals will not be affected.")) {
-                        onClickGameReset?.();
-                      }
+              <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4">
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/45">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#a855f7)] transition-[width]"
+                    style={{
+                      width: `${Math.max(
+                        4,
+                        Math.min(
+                          100,
+                          clickGame?.nextThreshold ? (displayedProgress / clickGame.nextThreshold) * 100 : 100,
+                        ),
+                      )}%`,
                     }}
-                    type="button"
-                  >
-                    Reset
-                  </button>
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold text-pink-50/85 drop-shadow">
+                    {clickGame?.nextThreshold
+                      ? `${displayedProgress.toLocaleString()} / ${clickGame.nextThreshold.toLocaleString()} to stage ${displayedStage + 1}`
+                      : `${displayedProgress.toLocaleString()} progress - all 10 stages reached`}
+                  </p>
+
+                  <div className="flex items-center gap-1.5">
+                    {clickGame?.isActive ? (
+                      <button
+                        className="rounded-full border border-white/25 bg-black/45 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-pink-50 backdrop-blur-sm hover:bg-black/60 disabled:cursor-not-allowed disabled:opacity-45"
+                        disabled={disabled || clickGameTogglePending}
+                        onClick={() => {
+                          flushClickGameNow();
+                          onClickGameStop?.();
+                        }}
+                        type="button"
+                      >
+                        Stop
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-full border border-emerald-200/40 bg-emerald-500/25 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-50 backdrop-blur-sm hover:bg-emerald-500/35 disabled:cursor-not-allowed disabled:opacity-45"
+                        disabled={disabled || clickGameTogglePending}
+                        onClick={onClickGameStart}
+                        type="button"
+                      >
+                        Start
+                      </button>
+                    )}
+                    <button
+                      className="rounded-full border border-white/15 bg-black/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-300 backdrop-blur-sm hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={disabled || clickGameTogglePending || !clickGame?.progress}
+                      onClick={() => {
+                        if (window.confirm("Reset your Click Game progress to 0? Your weekly/lifetime click totals will not be affected.")) {
+                          onClickGameReset?.();
+                        }
+                      }}
+                      type="button"
+                    >
+                      Reset
+                    </button>
+                    {/* Minimal tap target - intentionally small; spam-click as fast as you want, taps are batched client-side. */}
+                    <button
+                      className="rounded-full border border-pink-200/40 bg-pink-500/30 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_0_14px_rgba(236,72,153,0.35)] backdrop-blur-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={disabled || !clickGame?.isActive}
+                      onClick={registerClickGameTap}
+                      type="button"
+                    >
+                      Click
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="flex flex-wrap items-center gap-4 px-4 py-3 text-xs text-pink-50/70">
+              <p>Weekly clicks: <span className="font-black text-pink-50">{(clickGame?.weeklyClicks ?? 0).toLocaleString()}</span></p>
+              <p>Lifetime clicks: <span className="font-black text-pink-50">{(clickGame?.lifetimeClicks ?? 0).toLocaleString()}</span></p>
+            </div>
+
+            <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">This Week&apos;s Cash Cows</p>
                 <div className="mt-2 grid gap-1.5">

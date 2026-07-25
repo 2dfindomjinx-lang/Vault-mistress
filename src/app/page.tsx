@@ -90,7 +90,7 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
 
 // Temporary product hold: preserves click-game progress and all routes, but
 // removes the feature from the visible Shrine experience and stops its polls.
-const CLICK_GAME_ENABLED = false;
+const CLICK_GAME_ENABLED = true;
 
 function preloadDashboardPanel(page: DashboardPage) {
   return dashboardPanelLoaders[page]?.() ?? Promise.resolve();
@@ -8065,22 +8065,27 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const handleClickGameStop = () => void handleClickGameToggle("stop");
   const handleClickGameReset = () => void handleClickGameToggle("reset");
 
-  const handleClickGameClick = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-
-    const actionId = "click-game-click";
-    if (!beginTaskAction(actionId)) {
+  // Rapid taps are accumulated and flushed as one batched request by
+  // TributePanel (see CLICK_GAME_BATCH_FLUSH_INTERVAL_MS) - this handler
+  // sends exactly one HTTP request per flush, not per tap, and is safe to
+  // call again immediately since TributePanel guards against overlapping
+  // in-flight flushes itself.
+  const handleClickGameClick = async (count: number) => {
+    if (count <= 0 || blockIfTimedOut()) {
       return;
     }
 
     try {
-      const response = await fetch("/api/user/click-game/click", { method: "POST" });
+      const response = await fetch("/api/user/click-game/click", {
+        body: JSON.stringify({ clicks: count }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         status?: ClickGameStatus;
         profile?: { coins: number };
+        acceptedClicks?: number;
       } | null;
 
       if (!response.ok || !payload?.status) {
@@ -8098,8 +8103,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     } catch (error) {
       console.error("Failed to register click game click", error);
-    } finally {
-      finishTaskAction(actionId);
     }
   };
 
@@ -11355,7 +11358,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               clickGame={clickGameStatus}
               clickGameLeaderboard={clickGameLeaderboard}
               clickGameTogglePending={pendingTaskActionIds.includes("click-game-toggle")}
-              clickGameClickPending={pendingTaskActionIds.includes("click-game-click")}
               onClickGameStart={handleClickGameStart}
               onClickGameStop={handleClickGameStop}
               onClickGameReset={handleClickGameReset}

@@ -1,5 +1,6 @@
 import {
   buildClickGameStatus,
+  CLICK_GAME_BATCH_MAX_CLICKS,
   CLICK_GAME_CLICK_RATE_LIMIT_MAX,
   CLICK_GAME_CLICK_RATE_LIMIT_WINDOW_SECONDS,
   CLICK_GAME_COST_PER_CLICK,
@@ -14,6 +15,10 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+
+type Body = {
+  clicks?: number;
+};
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -30,7 +35,7 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -51,9 +56,13 @@ export async function POST() {
     return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
+  const body = (await request.json().catch(() => null)) as Body | null;
+  const clicks = Math.max(1, Math.min(CLICK_GAME_BATCH_MAX_CLICKS, Math.floor(Number(body?.clicks) || 1)));
+
   const { data, error } = await supabase.rpc("click_game_click", {
     p_user_id: userId,
     p_cost: CLICK_GAME_COST_PER_CLICK,
+    p_clicks: clicks,
     p_idle_grace_ms: CLICK_GAME_IDLE_GRACE_MS,
     p_decay_interval_ms: CLICK_GAME_DECAY_INTERVAL_MS,
     p_decay_per_tick: CLICK_GAME_DECAY_PER_TICK,
@@ -84,5 +93,7 @@ export async function POST() {
       serverNowIso: data.serverNowIso,
     }),
     profile: { coins: data.coins },
+    acceptedClicks: data.acceptedClicks,
+    requestedClicks: data.requestedClicks,
   });
 }

@@ -227,14 +227,23 @@ revoke all on function public.click_game_reset(uuid) from public, anon, authenti
 grant execute on function public.click_game_reset(uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- click_game_click: the atomic money+progress step. Lock order profiles ->
--- click_game_state, matching the documented "acting user's profile first"
--- convention. Settles decay BEFORE adding the click (so the click "catches"
--- the drain at its currently-decayed value, then adds 1 on top - matches the
--- spec's "progress starts draining... continuing until they click again").
+-- click_game_click: the atomic money+progress step. Accepts a BATCH of
+-- clicks (p_clicks) so rapid/spammed taps can be accumulated client-side and
+-- flushed as one request instead of one round trip per tap. Lock order
+-- profiles -> click_game_state, matching the documented "acting user's
+-- profile first" convention. Settles decay BEFORE adding the batch (so the
+-- batch "catches" the drain at its currently-decayed value, then adds on top
+-- - matches the spec's "progress starts draining... continuing until they
+-- click again"). If the player can't afford the full requested batch, it
+-- partially fills with whatever they CAN afford instead of hard-rejecting
+-- the whole batch (mirrors the "clamp to what's still possible" idiom used
+-- elsewhere in this codebase, e.g. pet-daily-click).
+drop function if exists public.click_game_click(uuid, integer, integer, integer, integer);
+
 create or replace function public.click_game_click(
   p_user_id uuid,
   p_cost integer,
+  p_clicks integer default 1,
   p_idle_grace_ms integer default 5000,
   p_decay_interval_ms integer default 250,
   p_decay_per_tick integer default 1
@@ -246,6 +255,9 @@ set search_path = public, extensions
 as $$
 declare
   v_cost integer := greatest(1, least(coalesce(p_cost, 0), 10000));
+  v_requested_clicks integer := greatest(1, least(coalesce(p_clicks, 1), 1000));
+  v_accepted_clicks integer;
+  v_total_cost integer;
   v_profile record;
   v_row public.click_game_state;
   v_now timestamptz := now();
@@ -266,7 +278,8 @@ begin
     return jsonb_build_object('error', 'not_active');
   end if;
 
-  if v_profile.coins < v_cost then
+  v_accepted_clicks := least(v_requested_clicks, floor(v_profile.coins::numeric / v_cost)::integer);
+  if v_accepted_clicks <= 0 then
     return jsonb_build_object('error', 'insufficient_coins');
   end if;
 
@@ -275,22 +288,26 @@ begin
     v_now, p_idle_grace_ms, p_decay_interval_ms, p_decay_per_tick
   );
 
-  v_next_coins := v_profile.coins - v_cost;
+  v_total_cost := v_accepted_clicks * v_cost;
+  v_next_coins := v_profile.coins - v_total_cost;
 
   update public.profiles set coins = v_next_coins, updated_at = v_now where id = p_user_id;
 
   insert into public.coin_transactions (user_id, amount, balance_before, balance_after, reason, metadata)
   values (
-    p_user_id, -v_cost, v_profile.coins, v_next_coins, 'click_game:click',
-    jsonb_build_object('progressAfter', v_row.progress + 1, 'spendAmount', v_cost)
+    p_user_id, -v_total_cost, v_profile.coins, v_next_coins, 'click_game:click',
+    jsonb_build_object(
+      'progressAfter', v_row.progress + v_accepted_clicks, 'spendAmount', v_total_cost,
+      'clicks', v_accepted_clicks
+    )
   );
 
   update public.click_game_state
-  set progress = v_row.progress + 1,
+  set progress = v_row.progress + v_accepted_clicks,
       last_click_at = v_now,
       last_decay_settled_at = v_now,
-      weekly_clicks = weekly_clicks + 1,
-      lifetime_clicks = lifetime_clicks + 1,
+      weekly_clicks = weekly_clicks + v_accepted_clicks,
+      lifetime_clicks = lifetime_clicks + v_accepted_clicks,
       updated_at = v_now
   where user_id = p_user_id
   returning * into v_row;
@@ -298,13 +315,14 @@ begin
   return jsonb_build_object(
     'progress', v_row.progress, 'isActive', v_row.is_active, 'lastClickAt', v_row.last_click_at,
     'weeklyClicks', v_row.weekly_clicks, 'lifetimeClicks', v_row.lifetime_clicks,
-    'coins', v_next_coins, 'serverNowIso', v_now
+    'coins', v_next_coins, 'serverNowIso', v_now,
+    'acceptedClicks', v_accepted_clicks, 'requestedClicks', v_requested_clicks
   );
 end;
 $$;
 
-revoke all on function public.click_game_click(uuid, integer, integer, integer, integer) from public, anon, authenticated;
-grant execute on function public.click_game_click(uuid, integer, integer, integer, integer) to service_role;
+revoke all on function public.click_game_click(uuid, integer, integer, integer, integer, integer) from public, anon, authenticated;
+grant execute on function public.click_game_click(uuid, integer, integer, integer, integer, integer) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- click_game_status: lazy read that also settles+persists pending decay, so
