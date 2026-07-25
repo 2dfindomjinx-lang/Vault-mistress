@@ -3,6 +3,8 @@ import {
   CLICK_GAME_DECAY_INTERVAL_MS,
   CLICK_GAME_DECAY_PER_TICK,
   CLICK_GAME_IDLE_GRACE_MS,
+  DEFAULT_CLICK_GAME_CATEGORY,
+  isClickGameCategoryId,
 } from "@/lib/click-game";
 import {
   createSupabaseAdminClient,
@@ -26,7 +28,7 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -36,9 +38,12 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId!;
+  const requestedCategory = new URL(request.url).searchParams.get("category");
+  const category = isClickGameCategoryId(requestedCategory) ? requestedCategory : DEFAULT_CLICK_GAME_CATEGORY;
 
-  const { data, error } = await supabase.rpc("click_game_status", {
+  const { data, error } = await supabase.rpc("click_game_category_status", {
     p_user_id: userId,
+    p_category_id: category,
     p_idle_grace_ms: CLICK_GAME_IDLE_GRACE_MS,
     p_decay_interval_ms: CLICK_GAME_DECAY_INTERVAL_MS,
     p_decay_per_tick: CLICK_GAME_DECAY_PER_TICK,

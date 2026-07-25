@@ -49,6 +49,7 @@ type TributePanelProps = {
   onClickGameReset?: () => void;
   onClickGameClick?: (count: number) => void | Promise<void>;
   clickGameVisible?: boolean;
+  onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
 };
 
 const tributeOptions = [
@@ -75,6 +76,7 @@ export function TributePanel({
   onClickGameReset,
   onClickGameClick,
   clickGameVisible = false,
+  onClickGameCategoryChange,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
@@ -89,8 +91,9 @@ export function TributePanel({
     if (isClickGameCategoryId(stored)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount, not derivable from props
       setClickGameCategory(stored);
+      onClickGameCategoryChange?.(stored);
     }
-  }, []);
+  }, [onClickGameCategoryChange]);
 
   useEffect(() => {
     // Server response for a flushed batch replaces optimisticClicks with the
@@ -111,6 +114,7 @@ export function TributePanel({
   const selectClickGameCategory = (categoryId: ClickGameCategoryId) => {
     setClickGameCategory(categoryId);
     window.localStorage.setItem(CLICK_GAME_CATEGORY_STORAGE_KEY, categoryId);
+    onClickGameCategoryChange?.(categoryId);
   };
 
   // Flushes whatever's pending right now, in one request. Safe to call while
@@ -477,7 +481,7 @@ export function TributePanel({
               {displayedStageImagePath ? (
                 <Image
                   alt={`Click Game stage ${displayedStage}`}
-                  className="object-cover transition-opacity"
+                  className="object-contain p-3 transition-opacity"
                   fill
                   sizes="(max-width: 768px) 100vw, 700px"
                   src={displayedStageImagePath}
@@ -496,6 +500,18 @@ export function TributePanel({
                 <div className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-pink-50 backdrop-blur-sm">
                   Stage {displayedStage}/10
                 </div>
+              </div>
+
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-12 pt-10">
+                <button
+                  aria-label="Click the current stage"
+                  className="pointer-events-auto h-28 w-28 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_8px_rgba(236,72,153,.14),0_0_36px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-32 sm:w-32"
+                  disabled={disabled || !clickGame?.isActive}
+                  onClick={registerClickGameTap}
+                  type="button"
+                >
+                  Click
+                </button>
               </div>
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4">
@@ -555,15 +571,6 @@ export function TributePanel({
                       type="button"
                     >
                       Reset
-                    </button>
-                    {/* Minimal tap target - intentionally small; spam-click as fast as you want, taps are batched client-side. */}
-                    <button
-                      className="rounded-full border border-pink-200/40 bg-pink-500/30 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_0_14px_rgba(236,72,153,0.35)] backdrop-blur-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={disabled || !clickGame?.isActive}
-                      onClick={registerClickGameTap}
-                      type="button"
-                    >
-                      Click
                     </button>
                   </div>
                 </div>

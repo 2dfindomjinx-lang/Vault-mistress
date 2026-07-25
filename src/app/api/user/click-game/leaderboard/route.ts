@@ -1,4 +1,4 @@
-import type { ClickGameLeaderboardEntry, ClickGameWinHistoryEntry } from "@/lib/click-game";
+import { DEFAULT_CLICK_GAME_CATEGORY, isClickGameCategoryId, type ClickGameLeaderboardEntry, type ClickGameWinHistoryEntry } from "@/lib/click-game";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -24,7 +24,7 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -34,8 +34,11 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId!;
+  const requestedCategory = new URL(request.url).searchParams.get("category");
+  const category = isClickGameCategoryId(requestedCategory) ? requestedCategory : DEFAULT_CLICK_GAME_CATEGORY;
 
-  const { data, error } = await supabase.rpc("click_game_leaderboard", {
+  const { data, error } = await supabase.rpc("click_game_category_leaderboard", {
+    p_category_id: category,
     p_limit: 20,
     p_viewer_id: userId,
   });

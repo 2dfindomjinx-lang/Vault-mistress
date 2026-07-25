@@ -5,6 +5,8 @@ import {
   CLICK_GAME_IDLE_GRACE_MS,
   CLICK_GAME_TOGGLE_RATE_LIMIT_MAX,
   CLICK_GAME_TOGGLE_RATE_LIMIT_WINDOW_SECONDS,
+  DEFAULT_CLICK_GAME_CATEGORY,
+  isClickGameCategoryId,
 } from "@/lib/click-game";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -29,7 +31,7 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -39,6 +41,8 @@ export async function POST() {
 
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId!;
+  const body = (await request.json().catch(() => null)) as { category?: string } | null;
+  const category = isClickGameCategoryId(body?.category) ? body.category : DEFAULT_CLICK_GAME_CATEGORY;
 
   const rateLimit = await checkRateLimit(
     supabase,
@@ -50,8 +54,9 @@ export async function POST() {
     return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
-  const { data, error } = await supabase.rpc("click_game_stop", {
+  const { data, error } = await supabase.rpc("click_game_category_stop", {
     p_user_id: userId,
+    p_category_id: category,
     p_idle_grace_ms: CLICK_GAME_IDLE_GRACE_MS,
     p_decay_interval_ms: CLICK_GAME_DECAY_INTERVAL_MS,
     p_decay_per_tick: CLICK_GAME_DECAY_PER_TICK,

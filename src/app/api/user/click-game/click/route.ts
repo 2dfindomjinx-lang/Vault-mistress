@@ -7,6 +7,8 @@ import {
   CLICK_GAME_DECAY_INTERVAL_MS,
   CLICK_GAME_DECAY_PER_TICK,
   CLICK_GAME_IDLE_GRACE_MS,
+  DEFAULT_CLICK_GAME_CATEGORY,
+  isClickGameCategoryId,
 } from "@/lib/click-game";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
@@ -18,6 +20,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 
 type Body = {
   clicks?: number;
+  category?: string;
 };
 
 function jsonError(message: string, status = 400) {
@@ -58,9 +61,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Body | null;
   const clicks = Math.max(1, Math.min(CLICK_GAME_BATCH_MAX_CLICKS, Math.floor(Number(body?.clicks) || 1)));
+  const category = isClickGameCategoryId(body?.category) ? body.category : DEFAULT_CLICK_GAME_CATEGORY;
 
-  const { data, error } = await supabase.rpc("click_game_click", {
+  const { data, error } = await supabase.rpc("click_game_category_click", {
     p_user_id: userId,
+    p_category_id: category,
     p_cost: CLICK_GAME_COST_PER_CLICK,
     p_clicks: clicks,
     p_idle_grace_ms: CLICK_GAME_IDLE_GRACE_MS,
