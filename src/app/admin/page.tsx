@@ -171,6 +171,17 @@ type AdminAnnouncement = {
   updated_at: string | null;
 };
 
+type AdminPremiumTitleConfig = {
+  current_name: string;
+  current_description: string;
+  current_price: number;
+  current_expires_at: string;
+  next_name: string | null;
+  next_description: string | null;
+  next_price: number | null;
+  next_starts_at: string | null;
+};
+
 type CaseOpening = {
   id: string;
   crateName: string;
@@ -200,6 +211,7 @@ type AdminTabKey =
   | "events"
   | "irlTasks"
   | "maxAffection"
+  | "premiumTitle"
   | "petTasks"
   | "timeouts";
 
@@ -231,6 +243,7 @@ type AdminLoadKey =
   | "events"
   | "irlTasks"
   | "maxAffection"
+  | "premiumTitle"
   | "petTaskLogs"
   | "petTasks"
   | "timeouts";
@@ -301,6 +314,11 @@ export default function AdminPage() {
   const [previewDebtImage, setPreviewDebtImage] = useState<string | null>(null);
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
+  const [premiumTitleConfig, setPremiumTitleConfig] = useState<AdminPremiumTitleConfig | null>(null);
+  const [premiumTitleForm, setPremiumTitleForm] = useState({
+    currentName: "", currentDescription: "", currentPrice: "50000", currentExpiresAt: "",
+    nextName: "", nextDescription: "", nextPrice: "50000", nextStartsAt: "",
+  });
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
   const [announcementBody, setAnnouncementBody] = useState(
@@ -322,6 +340,7 @@ export default function AdminPage() {
     events: false,
     irlTasks: false,
     maxAffection: false,
+    premiumTitle: false,
     petTaskLogs: false,
     petTasks: false,
     timeouts: false,
@@ -333,6 +352,7 @@ export default function AdminPage() {
     events: false,
     irlTasks: false,
     maxAffection: false,
+    premiumTitle: false,
     petTaskLogs: false,
     petTasks: false,
     timeouts: false,
@@ -666,6 +686,52 @@ export default function AdminPage() {
       setStatus(error instanceof Error ? error.message : "Announcement list failed.");
     } finally {
       setSectionLoading("announcements", false);
+    }
+  };
+
+  const loadPremiumTitle = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) return;
+    setSectionLoading("premiumTitle", true);
+    if (!keepStatus) setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title", { cache: "no-store" });
+      const result = await response.json() as { config?: AdminPremiumTitleConfig; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title settings failed.");
+      const config = result.config ?? null;
+      setPremiumTitleConfig(config);
+      if (config) {
+        const toLocal = (value: string | null) => value ? new Date(value).toISOString().slice(0, 16) : "";
+        setPremiumTitleForm({
+          currentName: config.current_name, currentDescription: config.current_description,
+          currentPrice: String(config.current_price), currentExpiresAt: toLocal(config.current_expires_at),
+          nextName: config.next_name ?? "", nextDescription: config.next_description ?? "",
+          nextPrice: String(config.next_price ?? 50000), nextStartsAt: toLocal(config.next_starts_at),
+        });
+      }
+      markSectionLoaded("premiumTitle");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title settings failed.");
+    } finally {
+      setSectionLoading("premiumTitle", false);
+    }
+  };
+
+  const savePremiumTitle = async () => {
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save", ...premiumTitleForm }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title save failed.");
+      setStatus("Premium title rotation saved.");
+      await loadPremiumTitle({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title save failed.");
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -1314,6 +1380,11 @@ export default function AdminPage() {
           void loadAnnouncements();
         }
         break;
+      case "premiumTitle":
+        if (!loadedSections.premiumTitle && !loadingSections.premiumTitle) {
+          void loadPremiumTitle();
+        }
+        break;
       case "timeouts":
         if (!loadedSections.timeouts && !loadingSections.timeouts) {
           void loadTimeouts();
@@ -1408,6 +1479,14 @@ export default function AdminPage() {
       description: "Publish and retire public-facing messages.",
       countLabel: loadedSections.announcements ? String(activeAnnouncementCount) : "0",
       tone: "from-pink-500/16 via-rose-500/10 to-transparent border-pink-300/18",
+    },
+    {
+      key: "premiumTitle",
+      label: "Premium Title",
+      eyebrow: "Rotating offer",
+      description: "Change the active and next shop title without a deploy.",
+      countLabel: loadedSections.premiumTitle && premiumTitleConfig ? "1" : "0",
+      tone: "from-yellow-500/16 via-amber-500/10 to-transparent border-yellow-300/18",
     },
     {
       key: "timeouts",
@@ -2641,6 +2720,40 @@ export default function AdminPage() {
                   </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === "premiumTitle" && (
+            <div className="mt-4 rounded-[1.5rem] border border-yellow-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(250,204,21,0.08)]">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-yellow-200/70">Premium Title Rotation</p>
+                  <p className="mt-1 text-xs text-zinc-500">The current offer stays on the stable premium title ID; the next offer activates automatically after expiry.</p>
+                </div>
+                <button className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200" disabled={isBusy} onClick={() => void loadPremiumTitle()} type="button">Refresh</button>
+              </div>
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <div className="space-y-3 rounded-2xl border border-yellow-200/15 bg-yellow-400/[0.04] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow-100/80">Current title</p>
+                  <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Title name" value={premiumTitleForm.currentName} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentName: event.target.value }))} />
+                  <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Description" value={premiumTitleForm.currentDescription} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentDescription: event.target.value }))} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} type="number" placeholder="Price" value={premiumTitleForm.currentPrice} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentPrice: event.target.value }))} />
+                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" type="datetime-local" value={premiumTitleForm.currentExpiresAt} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentExpiresAt: event.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-2xl border border-fuchsia-200/15 bg-fuchsia-400/[0.04] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-fuchsia-100/80">Next title (optional)</p>
+                  <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Next title name" value={premiumTitleForm.nextName} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextName: event.target.value }))} />
+                  <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Next description" value={premiumTitleForm.nextDescription} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextDescription: event.target.value }))} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} type="number" placeholder="Price" value={premiumTitleForm.nextPrice} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextPrice: event.target.value }))} />
+                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" type="datetime-local" value={premiumTitleForm.nextStartsAt} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextStartsAt: event.target.value }))} />
+                  </div>
+                  <p className="text-xs text-zinc-500">Leave all next fields blank to keep the current title active until it expires.</p>
+                </div>
+              </div>
+              <button className="mt-4 w-full rounded-2xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-3 text-sm font-black text-yellow-50 transition hover:border-yellow-100/60 disabled:cursor-not-allowed disabled:opacity-50" disabled={isBusy || !loadedSections.premiumTitle} onClick={() => void savePremiumTitle()} type="button">Save Premium Title Rotation</button>
             </div>
           )}
 

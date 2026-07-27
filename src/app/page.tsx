@@ -128,6 +128,7 @@ import {
   type CosmeticType,
   type TitleItem,
 } from "@/lib/cosmetics";
+import { PREMIUM_TITLE_ID, type PremiumTitleConfig } from "@/lib/premium-title";
 import {
   DEFAULT_SPEECH_AVATAR_ID,
   RANDOM_SPEECH_AVATAR_ID,
@@ -1973,6 +1974,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   });
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>(["leadership-0"]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
+  const [premiumTitleConfig, setPremiumTitleConfig] = useState<PremiumTitleConfig | null>(null);
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
   const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
@@ -2197,9 +2199,29 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       ),
     [addressTerm],
   );
+  useEffect(() => {
+    if (!authBootstrapped) return;
+    let cancelled = false;
+    void fetch("/api/premium-title", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ premiumTitle?: PremiumTitleConfig }>)
+      .then((payload) => {
+        if (!cancelled && payload.premiumTitle) setPremiumTitleConfig(payload.premiumTitle);
+      })
+      .catch((error) => console.warn("Failed to load rotating premium title", error));
+    return () => { cancelled = true; };
+  }, [authBootstrapped]);
   const addressAwareTitleItems = useMemo(
-    () => getTitleItemsForAddressTerm(addressTerm),
-    [addressTerm],
+    () => getTitleItemsForAddressTerm(addressTerm).map((title) =>
+      title.id === PREMIUM_TITLE_ID && premiumTitleConfig
+        ? {
+            ...title,
+            name: premiumTitleConfig.name,
+            description: premiumTitleConfig.description,
+            price: premiumTitleConfig.price,
+          }
+        : title,
+    ),
+    [addressTerm, premiumTitleConfig],
   );
   const activeManualTemporarySpeechAvatar =
     speechAvatarEvent &&
@@ -2276,8 +2298,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const equippedAvatarBackground = getCosmeticItem(equippedCosmeticIds["avatar-background"] ?? "");
   const equippedProfileBorder = getCosmeticItem(equippedCosmeticIds["profile-border"] ?? "");
   const equippedTitle =
-    getTitleItem(equippedTitleId ?? "", addressTerm) ??
-    getTitleItem(getDefaultTitleId(tributeTotal), addressTerm);
+    addressAwareTitleItems.find((title) => title.id === equippedTitleId) ??
+    addressAwareTitleItems.find((title) => title.id === getDefaultTitleId(tributeTotal));
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -4111,7 +4133,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [affection, isGuestMode, isLoggedIn, isPreviewMode, loadShrineStatus]);
 
   useEffect(() => {
-    if (affection < 100 || isGuestMode || isPreviewMode || !isLoggedIn) {
+    // Intentionally NOT gated on affection/Shrine unlock - the Click Game is
+    // its own feature and shouldn't require maxing out affection first.
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setClickGameStatus(null);
       setClickGameStatusCategory(null);
@@ -4121,7 +4145,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     void loadClickGameStatus();
     void loadClickGameLeaderboard();
-  }, [affection, clickGameCategory, isGuestMode, isLoggedIn, isPreviewMode, loadClickGameStatus, loadClickGameLeaderboard]);
+  }, [clickGameCategory, isGuestMode, isLoggedIn, isPreviewMode, loadClickGameStatus, loadClickGameLeaderboard]);
 
   useEffect(() => {
     if (!selectedCommunityProfileId) {
@@ -9678,12 +9702,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             : entry,
         ),
       );
-      setAvatarMistressReply(`Case result: ${reward > 0 ? "+" : ""}${reward} coins.`);
+      // Reply text is intentionally NOT set here - it would spoil the result
+      // before the reel animation in TaskList finishes. TaskList calls
+      // handleCaseOpenRevealed with this same reward once the reveal lands.
       return reward;
     } finally {
       finishTaskAction(actionId);
     }
   };
+
+  const handleCaseOpenRevealed = useCallback((reward: number) => {
+    setAvatarMistressReply(`Case result: ${reward > 0 ? "+" : ""}${reward} coins.`);
+  }, [setAvatarMistressReply]);
 
   const handleCooldownAttempt = useCallback((message: string) => {
     const avatarId = resolveSpeechAvatarIdForMessage();
@@ -11468,6 +11498,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onJackpotContribute={handleJackpotContribute}
               onLevelDrain={handleLevelDrain}
               onCaseOpen={handleCaseOpen}
+              onCaseOpenRevealed={handleCaseOpenRevealed}
               onIrlTaskSpin={handleIrlTaskSpin}
               onMovementFail={handleVerticalMotionFail}
               onMovementFinishFakeHope={handleVerticalMotionFinishFakeHope}

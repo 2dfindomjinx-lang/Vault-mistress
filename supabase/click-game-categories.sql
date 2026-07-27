@@ -100,12 +100,24 @@ begin
   return jsonb_build_object('progress',v_row.progress,'isActive',v_row.is_active,'lastClickAt',v_row.last_click_at,'weeklyClicks',v_row.weekly_clicks,'lifetimeClicks',v_row.lifetime_clicks,'coins',v_next,'serverNowIso',v_now,'acceptedClicks',v_accepted,'requestedClicks',v_requested);
 end; $$;
 
+-- Admin accounts are excluded from the ranked list entirely (same posture as
+-- every other leaderboard in this project - shrine top worshippers,
+-- jackpot, pet-score, devotion). If the viewer themself is an admin, their
+-- own row is omitted too, not just hidden from other players.
 create or replace function public.click_game_category_leaderboard(p_category_id text,p_limit integer default 20,p_viewer_id uuid default null) returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_leaders jsonb; v_viewer jsonb; v_limit integer:=greatest(1,least(p_limit,100));
 begin
   if p_category_id not in ('classic','censored','pixel','huge_breasts','huge_ass') then return jsonb_build_object('error','invalid_category'); end if;
-  with ranked as (select user_id,weekly_clicks,row_number() over(order by weekly_clicks desc,user_id asc) rnk from public.click_game_category_state where category_id=p_category_id and weekly_clicks>0)
-  select (select jsonb_agg(jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) order by rnk) from ranked where rnk<=v_limit),(select jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) from ranked where user_id=p_viewer_id order by rnk limit 1) into v_leaders,v_viewer;
+  with ranked as (
+    select s.user_id, s.weekly_clicks, row_number() over (order by s.weekly_clicks desc, s.user_id asc) rnk
+    from public.click_game_category_state s
+    join public.profiles p on p.id = s.user_id
+    where s.category_id = p_category_id and s.weekly_clicks > 0 and not coalesce(p.is_admin, false)
+  )
+  select
+    (select jsonb_agg(jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) order by rnk) from ranked where rnk<=v_limit),
+    (select jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) from ranked where user_id=p_viewer_id order by rnk limit 1)
+  into v_leaders,v_viewer;
   return jsonb_build_object('leaders',coalesce(v_leaders,'[]'::jsonb),'viewer',v_viewer,'winHistory','[]'::jsonb);
 end; $$;
 

@@ -472,8 +472,12 @@ export function TributePanel({
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          <div className={clickGameVisible ? "mt-7 overflow-hidden rounded-[1.35rem] border border-pink-200/15 bg-black/30" : "hidden"}>
+      {/* Click Game intentionally lives outside the affection-gated Shrine
+          block above - it shouldn't require maxing out affection first. */}
+      <div className={clickGameVisible ? "mt-7 overflow-hidden rounded-[1.35rem] border border-pink-200/15 bg-black/30" : "hidden"}>
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 pb-0">
               <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/70">Click Game</p>
               <div className="flex flex-wrap gap-1.5">
@@ -640,8 +644,6 @@ export function TributePanel({
               </div>
             </div>
           </div>
-        </div>
-      )}
 
       <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.34))] p-4 shadow-[0_0_28px_rgba(236,72,153,0.12)]">
         <a

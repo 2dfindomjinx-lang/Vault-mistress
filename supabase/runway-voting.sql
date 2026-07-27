@@ -132,7 +132,7 @@ create policy "Users can read own votes given"
 -- already-validated snapshot (ownership/slot/full-set validation happens in
 -- the calling API route - this function trusts its own DB only). The route
 -- passes p_allow_multiple_active only after checking ADMIN_USER_IDS; regular
--- users retain one active row and the 7-day cooldown.
+-- users retain one active row and the 3-day cooldown.
 create or replace function public.submit_voting_avatar(
   p_user_id uuid,
   p_equipped_avatar_slots jsonb,
@@ -193,10 +193,10 @@ begin
 
   if not coalesce(p_allow_multiple_active, false)
     and v_last_activated_at is not null
-    and now() < v_last_activated_at + interval '7 days' then
+    and now() < v_last_activated_at + interval '3 days' then
     v_result := jsonb_build_object(
       'error', 'cooldown_active',
-      'next_eligible_at', v_last_activated_at + interval '7 days'
+      'next_eligible_at', v_last_activated_at + interval '3 days'
     );
   else
     if not coalesce(p_allow_multiple_active, false) then
@@ -215,7 +215,7 @@ begin
     v_result := jsonb_build_object(
       'success', true,
       'avatarId', v_new_avatar_id,
-      'nextEligibleAt', now() + interval '7 days'
+      'nextEligibleAt', now() + interval '3 days'
     );
   end if;
 

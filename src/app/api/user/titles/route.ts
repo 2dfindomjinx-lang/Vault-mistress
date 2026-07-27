@@ -1,4 +1,5 @@
 import { getTitleItem, type TitleItem } from "@/lib/cosmetics";
+import { PREMIUM_TITLE_ID } from "@/lib/premium-title";
 import { profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
@@ -170,7 +171,21 @@ export async function POST(request: Request) {
     return jsonError("Invalid title request.");
   }
 
-  const price = title.price ?? 0;
+  let price = title.price ?? 0;
+
+  if (title.id === PREMIUM_TITLE_ID) {
+    const { data: premiumConfig, error: premiumConfigError } = await supabase
+      .from("premium_title_config")
+      .select("current_price, current_expires_at")
+      .eq("id", true)
+      .maybeSingle();
+    if (!premiumConfigError && premiumConfig) {
+      if (new Date(premiumConfig.current_expires_at).getTime() <= Date.now()) {
+        return jsonError("This premium title offer has expired. Refresh the shop for the next title.", 409);
+      }
+      price = Math.max(0, Number(premiumConfig.current_price));
+    }
+  }
 
   if (price <= 0) {
     return jsonError("This title does not need purchase.", 422);

@@ -164,6 +164,10 @@ type TaskListProps = {
   onBeg: () => void;
   onClaim: (taskId: string) => void;
   onCaseOpen: () => Promise<number | null> | number | null;
+  // Called once the reel animation actually lands on the reward, not when
+  // onCaseOpen's API call resolves - keeps the speech-bubble reply from
+  // spoiling the result before the reveal plays.
+  onCaseOpenRevealed?: (reward: number) => void;
   onJackpotContribute: (amount: number) => void;
   onLevelDrain: () => void;
   onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
@@ -206,6 +210,7 @@ export function TaskList({
   onBeg,
   onClaim,
   onCaseOpen,
+  onCaseOpenRevealed,
   onJackpotContribute,
   onLevelDrain,
   onIrlTaskSpin,
@@ -360,10 +365,11 @@ export function TaskList({
       setCaseOpenActiveIndex(CASE_OPEN_REEL_LANDING_INDEX);
       setCaseOpenResolvedReward(reward);
       setCaseOpenPhase("idle");
+      onCaseOpenRevealed?.(reward);
     };
 
     caseOpenAnimationFrameRef.current = window.requestAnimationFrame(step);
-  }, [caseOpenSlotSize, stopCaseOpenAnimation]);
+  }, [caseOpenSlotSize, stopCaseOpenAnimation, onCaseOpenRevealed]);
   const handleCooldownAttempt = (message: string) => {
     emitSoundEvent("button_click");
     onCooldownAttempt?.(message);

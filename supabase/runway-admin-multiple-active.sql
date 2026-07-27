@@ -1,7 +1,7 @@
 -- Run once after supabase/runway-voting.sql.
 -- The API route only passes p_allow_multiple_active after verifying the
 -- caller against ADMIN_USER_IDS. Regular users keep the one-active-avatar and
--- seven-day cooldown rules.
+-- three-day cooldown rules.
 
 create extension if not exists pgcrypto with schema extensions;
 
@@ -71,10 +71,10 @@ begin
 
   if not coalesce(p_allow_multiple_active, false)
     and v_last_activated_at is not null
-    and now() < v_last_activated_at + interval '7 days' then
+    and now() < v_last_activated_at + interval '3 days' then
     v_result := jsonb_build_object(
       'error', 'cooldown_active',
-      'next_eligible_at', v_last_activated_at + interval '7 days'
+      'next_eligible_at', v_last_activated_at + interval '3 days'
     );
   else
     if not coalesce(p_allow_multiple_active, false) then
@@ -93,7 +93,7 @@ begin
     v_result := jsonb_build_object(
       'success', true,
       'avatarId', v_new_avatar_id,
-      'nextEligibleAt', now() + interval '7 days'
+      'nextEligibleAt', now() + interval '3 days'
     );
   end if;
 

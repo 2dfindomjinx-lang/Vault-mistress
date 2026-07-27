@@ -1,5 +1,6 @@
 import { getBaseTaskReward, profileSelect, roundRewardToNearestFive } from "@/lib/server-game-rules";
 import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
+import { getActiveEventMultipliers } from "@/lib/server-task-actions";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -53,44 +54,6 @@ function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
   const cycleStart = new Date(lastLoyaltyAt);
   cycleStart.setUTCDate(cycleStart.getUTCDate() - (streak - 1));
   return getGmt3DateKey(cycleStart);
-}
-
-function getTaskRewardMultiplier(effect: unknown) {
-  if (
-    effect &&
-    typeof effect === "object" &&
-    "type" in effect &&
-    "multiplier" in effect &&
-    effect.type === "task_reward_multiplier" &&
-    typeof effect.multiplier === "number" &&
-    Number.isFinite(effect.multiplier)
-  ) {
-    return effect.multiplier;
-  }
-
-  return 1;
-}
-
-async function getActiveTaskRewardMultiplier(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-) {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("random_events")
-    .select("effect")
-    .eq("active", true)
-    .lte("starts_at", now)
-    .gt("ends_at", now)
-    .order("starts_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Task claim active event lookup failed", error);
-    return 1;
-  }
-
-  return getTaskRewardMultiplier(data?.effect);
 }
 
 function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTaskRow | null) {
@@ -178,7 +141,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const [profileResult, taskResult, multiplier] = await Promise.all([
+  const [profileResult, taskResult, eventMultipliers] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, coins, affection, loyalty_streak, last_loyalty_at")
@@ -190,8 +153,9 @@ export async function POST(request: Request) {
       .eq("user_id", authData.user.id)
       .eq("task_id", taskId)
       .maybeSingle(),
-    getActiveTaskRewardMultiplier(supabase),
+    getActiveEventMultipliers(supabase, ["task_reward_multiplier"]),
   ]);
+  const multiplier = eventMultipliers.task_reward_multiplier ?? 1;
 
   if (profileResult.error || !profileResult.data) {
     console.error("[task-claim] Supabase error reading profile", {
