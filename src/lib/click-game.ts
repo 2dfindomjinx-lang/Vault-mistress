@@ -35,10 +35,17 @@ export function isClickGameCategoryId(value: unknown): value is ClickGameCategor
 // request instead of firing a network call per tap. The flush is debounced -
 // it fires CLICK_GAME_BATCH_DEBOUNCE_MS after the user stops tapping, not on
 // a fixed interval during continuous spam - so a single request covers a
-// whole burst. CLICK_GAME_BATCH_FORCE_FLUSH_SIZE is a safety net that flushes
-// early if someone spam-clicks nonstop for a long time without ever pausing,
-// so a session isn't silently building an unbounded unsent batch.
-export const CLICK_GAME_BATCH_DEBOUNCE_MS = 150;
+// whole burst. BUT a pure idle-debounce only batches taps that land closer
+// together than CLICK_GAME_BATCH_DEBOUNCE_MS apart - a normal person clicking
+// at a steady, deliberate pace (e.g. every 200-400ms) never goes quiet long
+// enough to trigger it, so every tap would flush on its own and defeat
+// batching entirely. CLICK_GAME_BATCH_MAX_WAIT_MS bounds that: once a batch
+// has been open this long, it flushes regardless of whether taps are still
+// arriving, so sustained-but-not-frantic clicking still gets grouped.
+// CLICK_GAME_BATCH_FORCE_FLUSH_SIZE is a separate safety net for genuinely
+// fast spam, so a session isn't silently building an unbounded unsent batch.
+export const CLICK_GAME_BATCH_DEBOUNCE_MS = 250;
+export const CLICK_GAME_BATCH_MAX_WAIT_MS = 600;
 export const CLICK_GAME_BATCH_FORCE_FLUSH_SIZE = 40;
 export const CLICK_GAME_BATCH_MAX_CLICKS = 300;
 

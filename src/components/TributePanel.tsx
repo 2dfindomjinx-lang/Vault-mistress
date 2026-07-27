@@ -13,6 +13,7 @@ import {
   CLICK_GAME_BATCH_DEBOUNCE_MS,
   CLICK_GAME_BATCH_FORCE_FLUSH_SIZE,
   CLICK_GAME_BATCH_MAX_CLICKS,
+  CLICK_GAME_BATCH_MAX_WAIT_MS,
   CLICK_GAME_CATEGORIES,
   CLICK_GAME_CATEGORY_STORAGE_KEY,
   DEFAULT_CLICK_GAME_CATEGORY,
@@ -89,6 +90,11 @@ export function TributePanel({
   const pendingCategoryRef = useRef<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const inFlightRef = useRef(false);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp the current unflushed batch was opened at - lets registerClickGameTap
+  // force a flush once CLICK_GAME_BATCH_MAX_WAIT_MS has elapsed even while taps
+  // keep arriving, so a steady (not-idle) clicking pace still gets batched
+  // instead of resetting the idle-debounce timer forever.
+  const batchOpenedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
@@ -130,6 +136,9 @@ export function TributePanel({
   // Flushes whatever's pending right now, in one request. Safe to call while
   // another flush is already in flight - the in-flight one's `finally` will
   // notice the newly-queued clicks and schedule another round after it.
+  // Plain function (not useCallback) - it's only ever invoked from onClick/
+  // setTimeout callbacks below, never during render, so the Date.now() calls
+  // inside are safe despite the generic purity lint warning.
   const flushClickGameNow = () => {
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
@@ -147,12 +156,18 @@ export function TributePanel({
     }
 
     pendingClicksRef.current -= count;
+    if (pendingClicksRef.current <= 0) {
+      batchOpenedAtRef.current = null;
+    }
     inFlightRef.current = true;
     const batchCategory = pendingCategoryRef.current;
     void Promise.resolve(onClickGameClick?.(count, batchCategory)).finally(() => {
       inFlightRef.current = false;
       if (pendingClicksRef.current <= 0) {
         pendingCategoryRef.current = clickGameCategory;
+      } else if (batchOpenedAtRef.current === null) {
+        // Leftover clicks beyond the per-request cap keep the batch open.
+        batchOpenedAtRef.current = Date.now();
       }
       if (pendingClicksRef.current >= CLICK_GAME_BATCH_FORCE_FLUSH_SIZE) {
         // A lot piled up while that request was in flight - send it right
@@ -184,6 +199,8 @@ export function TributePanel({
 
     if (pendingClicksRef.current === 0) {
       pendingCategoryRef.current = clickGameCategory;
+      // eslint-disable-next-line react-hooks/purity -- only runs inside this onClick handler, never during render
+      batchOpenedAtRef.current = Date.now();
     }
     pendingClicksRef.current += 1;
     setOptimisticClicks((current) => current + 1);
@@ -191,6 +208,15 @@ export function TributePanel({
     // Safety net: never let an uninterrupted spam session pile up an
     // unbounded unsent batch - force an early flush once it gets large.
     if (pendingClicksRef.current >= CLICK_GAME_BATCH_FORCE_FLUSH_SIZE) {
+      flushClickGameNow();
+      return;
+    }
+
+    // A steady (not necessarily fast) clicking pace never goes quiet long
+    // enough for the idle debounce below to fire - bound the worst case so
+    // it still gets batched instead of flushing on every single tap.
+    // eslint-disable-next-line react-hooks/purity -- only runs inside this onClick handler, never during render
+    if (batchOpenedAtRef.current !== null && Date.now() - batchOpenedAtRef.current >= CLICK_GAME_BATCH_MAX_WAIT_MS) {
       flushClickGameNow();
       return;
     }

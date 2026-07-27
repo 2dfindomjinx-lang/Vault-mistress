@@ -123,3 +123,32 @@ end; $$;
 
 revoke all on function public.click_game_category_status(uuid,text,integer,integer,integer),public.click_game_category_start(uuid,text,integer,integer,integer),public.click_game_category_stop(uuid,text,integer,integer,integer),public.click_game_category_reset(uuid,text),public.click_game_category_click(uuid,text,integer,integer,integer,integer,integer),public.click_game_category_leaderboard(text,integer,uuid) from public,anon,authenticated;
 grant execute on function public.click_game_category_status(uuid,text,integer,integer,integer),public.click_game_category_start(uuid,text,integer,integer,integer),public.click_game_category_stop(uuid,text,integer,integer,integer),public.click_game_category_reset(uuid,text),public.click_game_category_click(uuid,text,integer,integer,integer,integer,integer),public.click_game_category_leaderboard(text,integer,uuid) to service_role;
+
+-- Single combined leaderboard: a user's clicks across ALL 5 categories are
+-- summed into one weekly_clicks total and ranked together, instead of each
+-- category having its own separate ranking. Admin accounts excluded, same
+-- posture as click_game_category_leaderboard above.
+create or replace function public.click_game_combined_leaderboard(p_limit integer default 20, p_viewer_id uuid default null)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare v_leaders jsonb; v_viewer jsonb; v_limit integer := greatest(1, least(p_limit, 100));
+begin
+  with totals as (
+    select s.user_id, sum(s.weekly_clicks) as weekly_clicks
+    from public.click_game_category_state s
+    join public.profiles p on p.id = s.user_id
+    where not coalesce(p.is_admin, false)
+    group by s.user_id
+    having sum(s.weekly_clicks) > 0
+  ), ranked as (
+    select user_id, weekly_clicks, row_number() over (order by weekly_clicks desc, user_id asc) rnk
+    from totals
+  )
+  select
+    (select jsonb_agg(jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) order by rnk) from ranked where rnk<=v_limit),
+    (select jsonb_build_object('rank',rnk,'userId',user_id,'weeklyClicks',weekly_clicks) from ranked where user_id=p_viewer_id order by rnk limit 1)
+  into v_leaders, v_viewer;
+  return jsonb_build_object('leaders', coalesce(v_leaders,'[]'::jsonb), 'viewer', v_viewer, 'winHistory', '[]'::jsonb);
+end; $$;
+
+revoke all on function public.click_game_combined_leaderboard(integer, uuid) from public, anon, authenticated;
+grant execute on function public.click_game_combined_leaderboard(integer, uuid) to service_role;

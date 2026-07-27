@@ -3900,7 +3900,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     try {
-      const response = await fetch(`/api/user/click-game/leaderboard?category=${encodeURIComponent(clickGameCategory)}`, { cache: "no-store" });
+      // Leaderboard is combined across all categories - not category-scoped.
+      const response = await fetch("/api/user/click-game/leaderboard", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         leaders?: ClickGameLeaderboardEntry[];
@@ -3921,7 +3922,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       console.error("Failed to load click game leaderboard", error);
       setClickGameLeaderboard(null);
     }
-  }, [clickGameCategory, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadSelectedCommunityProfile = useCallback(async (userId: string) => {
     setSelectedCommunityProfileLoading(true);
