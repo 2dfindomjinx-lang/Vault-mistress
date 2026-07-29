@@ -876,8 +876,8 @@ export function CratesPanel({
           remain unchanged, while the desktop cards fit the same panel height
           as the opening/reel view. */}
       { ! (isOpening || wonItems.length > 0) && (
-      <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
-          <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[680px]">
+          <div className="court-grid court-grid--collection grid min-h-[640px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {crates.length === 0 && (
             <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
           )}
@@ -903,7 +903,7 @@ export function CratesPanel({
             return (
               <div key={crate.crate_type} className="court-grid-card court-grid-card--violet w-full p-2">
                 <div
-                  className="relative h-[340px] sm:h-[364px] lg:h-[250px] w-full [perspective:1200px]"
+                  className="relative h-[340px] sm:h-[364px] lg:h-[320px] w-full [perspective:1200px]"
                   onClick={() => {
                     if (!isFlipped) {
                       setFlippedCrate(crate.crate_type);
@@ -965,7 +965,7 @@ export function CratesPanel({
                           <img
                             src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
                             alt={crate.name}
-                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36 lg:h-24 lg:w-24"
+                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36 lg:h-28 lg:w-28"
                             onError={(e) => {
                               const t = e.target as HTMLImageElement;
                               t.style.opacity = "0.25";
