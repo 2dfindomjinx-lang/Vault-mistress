@@ -13,14 +13,13 @@ export const CLICK_GAME_CHAMPION_TITLE_ID = "click-game-weekly-champion";
 export const CLICK_GAME_IMAGE_DIR = "/click-game";
 
 // Each category is its own /public/click-game/<id>/stage-1..10.webp folder.
-// ("feet" is excluded - the folder only has one oddly-named file, not a real
-// stage-1..10 set yet.)
 export const CLICK_GAME_CATEGORIES = [
   { id: "classic", label: "Classic", extension: "webp" },
   { id: "censored", label: "Censored", extension: "webp" },
   { id: "pixel", label: "Pixel", extension: "webp" },
   { id: "huge_breasts", label: "Huge Breasts", extension: "webp" },
   { id: "huge_ass", label: "Huge Ass", extension: "webp" },
+  { id: "feet", label: "Feet", extension: "webp" },
 ] as const;
 
 export type ClickGameCategoryId = (typeof CLICK_GAME_CATEGORIES)[number]["id"];

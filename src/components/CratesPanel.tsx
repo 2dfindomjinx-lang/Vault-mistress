@@ -140,9 +140,11 @@ export function CratesPanel({
   const [lastOpenedBatchCost, setLastOpenedBatchCost] = useState(0);
   const [flippedCrate, setFlippedCrate] = useState<string | null>(null);
 
-  // Responsive: desktop = classic multi-item horizontal slide reel (5 visible)
+  // Responsive: desktop = classic multi-item horizontal slide reel; mobile keeps
+  // the compact single-item presentation.
   // mobile = current single updating item style (kept as user requested)
   const [isMobile, setIsMobile] = useState(false);
+  const [reelViewportWidth, setReelViewportWidth] = useState(680);
   const [spinSequence, setSpinSequence] = useState<WonItem[]>([]);
   const [reelProgress, setReelProgress] = useState(0);
 
@@ -168,30 +170,26 @@ export function CratesPanel({
   };
   const getDisplayedCost = (crate: CrateDefinition) => getBatchOpenCost(crate, 1);
 
-  // Square cards for better icon visibility (icons are square-designed).
-  // Exactly 5 visible during slide. Larger squares, same overall area.
-  const ITEM_WIDTH = 104;
-  const ITEM_GAP = 8; // matches gap-2
-  const FULL_SLOT = ITEM_WIDTH + ITEM_GAP;
-  const VISIBLE_COUNT = 5;
-  const CENTER_INDEX = 2; // middle of 5 (0-based)
-
-  // Compensation so that when progress = someIndex, that item is visually centered under the marker.
-  // Using approx center of the 680px container.
-  const CENTER_COMPENSATION = 340 - (ITEM_WIDTH / 2); // ~288
-
-  // For animation we use FULL_SLOT as the step
-  const SLOT_WIDTH = FULL_SLOT; // for progress calculations
-  const CENTER_OFFSET = CENTER_COMPENSATION; // for compatibility with previous naming in some places
+  // Reel geometry is derived from the actual viewport. This keeps the center
+  // marker and animation aligned when the panel grows or the window resizes.
+  const REEL_GAP = 8;
+  const reelVisibleCount = Math.max(3, Math.min(7, Math.floor((reelViewportWidth + REEL_GAP) / (104 + REEL_GAP))));
+  const reelCardWidth = Math.max(
+    64,
+    Math.min(104, Math.floor((reelViewportWidth - (reelVisibleCount - 1) * REEL_GAP) / reelVisibleCount)),
+  );
+  const reelStep = reelCardWidth + REEL_GAP;
+  const reelCenterOffset = reelViewportWidth / 2 - reelCardWidth / 2;
 
   const WINNER_SLOT = 43; // fixed position in the built sequence where the real winner is placed (for exact final centering in result phase too)
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const stripRef = useRef<HTMLDivElement>(null);
+  const horizontalReelViewportRef = useRef<HTMLDivElement>(null);
   // React can re-render during an open when coins/inventory update. Keep the
   // current transform outside render state so such a re-render never snaps the
   // strip back to its starting position mid-spin.
-  const horizontalReelTransformRef = useRef(`translate3d(${CENTER_COMPENSATION}px, 0, 0)`);
+  const horizontalReelTransformRef = useRef(`translate3d(${reelCenterOffset}px, 0, 0)`);
   const reelPanelRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -216,6 +214,19 @@ export function CratesPanel({
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  useEffect(() => {
+    const target = horizontalReelViewportRef.current;
+    if (!target || typeof ResizeObserver === "undefined") return;
+
+    const update = () => {
+      setReelViewportWidth(Math.max(1, target.clientWidth));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [isMobile, isOpening, wonItems.length]);
 
   useEffect(() => {
     if (!isMobile || !(isOpening || wonItems.length > 0)) {
@@ -561,11 +572,9 @@ export function CratesPanel({
       const WINNER_SLOT = 43;
       const TARGET_PROGRESS = WINNER_SLOT; // the logical index we want under the marker at the end
 
-      const ITEM_SIZE = 104;
-      const ITEM_GAP = 8;
-      const STEP = ITEM_SIZE + ITEM_GAP;
-      const VISIBLE_SIZE = 120;
-      const CENTER_OFFSET = (VISIBLE_SIZE - ITEM_SIZE) / 2; // 8px to center item in visible area
+      const VERTICAL_ITEM_SIZE = 104;
+      const VERTICAL_STEP = VERTICAL_ITEM_SIZE + 8;
+      const VERTICAL_CENTER_OFFSET = (120 - VERTICAL_ITEM_SIZE) / 2;
 
       // Sound scheduler: mimics the old variable-delay ticks for authentic feel (independent of visual rAF)
       let soundTick = 0;
@@ -600,12 +609,12 @@ export function CratesPanel({
           seqs.forEach((s, i) => {
             const strip = verticalReelRefs.current[i];
             if (strip) {
-              const y = -newProg * STEP + CENTER_OFFSET;
+              const y = -newProg * VERTICAL_STEP + VERTICAL_CENTER_OFFSET;
               strip.style.transform = `translateY(${y}px)`;
             }
           });
         } else if (stripRef.current) {
-          const x = -newProg * FULL_SLOT + CENTER_COMPENSATION;
+          const x = -newProg * reelStep + reelCenterOffset;
           setHorizontalReelTransform(x);
         }
 
@@ -630,12 +639,12 @@ export function CratesPanel({
             seqs.forEach((s, i) => {
               const strip = verticalReelRefs.current[i];
               if (strip) {
-                const exactY = -(winnerIndexInSeq * STEP) + CENTER_OFFSET;
+                const exactY = -(winnerIndexInSeq * VERTICAL_STEP) + VERTICAL_CENTER_OFFSET;
                 strip.style.transform = `translateY(${exactY}px)`;
               }
             });
           } else if (stripRef.current) {
-            const exactX = -(winnerIndexInSeq * FULL_SLOT) + CENTER_COMPENSATION;
+            const exactX = -(winnerIndexInSeq * reelStep) + reelCenterOffset;
             setHorizontalReelTransform(exactX);
           }
 
@@ -663,11 +672,11 @@ export function CratesPanel({
         seqs.forEach((s, i) => {
           const strip = verticalReelRefs.current[i];
           if (strip) {
-            strip.style.transform = `translateY(${CENTER_OFFSET}px)`;
+            strip.style.transform = `translateY(${VERTICAL_CENTER_OFFSET}px)`;
           }
         });
       } else if (stripRef.current) {
-        setHorizontalReelTransform(CENTER_COMPENSATION);
+        setHorizontalReelTransform(reelCenterOffset);
       }
 
       requestAnimationFrame(animate);
@@ -805,7 +814,7 @@ export function CratesPanel({
     setReelItems([]);
     setSpinSequence([]);
     setReelProgress(0);
-    horizontalReelTransformRef.current = `translate3d(${CENTER_COMPENSATION}px, 0, 0)`;
+    horizontalReelTransformRef.current = `translate3d(${reelCenterOffset}px, 0, 0)`;
     setLastOpenedCrateType(null);
     setLastOpenedBatchCost(0);
     setIsVerticalMode(false);
@@ -863,7 +872,9 @@ export function CratesPanel({
         </p>
       )}
 
-      {/* Static cases area */}
+      {/* Six cases stay in a compact 3x2 desktop grid. The mobile breakpoints
+          remain unchanged, while the desktop cards fit the same panel height
+          as the opening/reel view. */}
       { ! (isOpening || wonItems.length > 0) && (
       <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px]">
           <div className="court-grid court-grid--collection grid min-h-[520px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -892,7 +903,7 @@ export function CratesPanel({
             return (
               <div key={crate.crate_type} className="court-grid-card court-grid-card--violet w-full p-2">
                 <div
-                  className="relative h-[340px] sm:h-[364px] w-full [perspective:1200px]"
+                  className="relative h-[340px] sm:h-[364px] lg:h-[250px] w-full [perspective:1200px]"
                   onClick={() => {
                     if (!isFlipped) {
                       setFlippedCrate(crate.crate_type);
@@ -954,7 +965,7 @@ export function CratesPanel({
                           <img
                             src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
                             alt={crate.name}
-                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36"
+                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36 lg:h-24 lg:w-24"
                             onError={(e) => {
                               const t = e.target as HTMLImageElement;
                               t.style.opacity = "0.25";
@@ -1252,17 +1263,21 @@ export function CratesPanel({
             </div>
           )}
 
-          {/* DESKTOP SLIDING REEL - exactly 5 items visible (as requested).
-              Square cards because item icons are square-designed. Larger squares for visibility, overall reel area kept the same.
-              Shown both during spin and in result for single open (so result screen matches reel width). */}
+          {/* DESKTOP SLIDING REEL - card count and card size follow the actual
+              panel width, so the track remains natural with any case/item pool. */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
-            <div className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 180 }}>
+            <div ref={horizontalReelViewportRef} className="relative mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 180 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
                 ref={stripRef}
-                className="absolute top-8 flex h-[112px] gap-2 items-center will-change-transform"
+                className="absolute left-0 flex items-center will-change-transform"
                 style={
-                  { transform: horizontalReelTransformRef.current }
+                  {
+                    top: (180 - reelCardWidth) / 2,
+                    height: reelCardWidth,
+                    gap: REEL_GAP,
+                    transform: horizontalReelTransformRef.current,
+                  }
                 }  // Keep the live rAF transform across parent re-renders; this prevents visual jumps while the API result updates coins/inventory.
               >
                 {spinSequence.map((item, idx) => {
@@ -1272,7 +1287,8 @@ export function CratesPanel({
                   return (
                     <div
                       key={idx}
-                      className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
+                      className={`shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
+                      style={{ width: reelCardWidth, height: reelCardWidth }}
                     >
                       <img
                         src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
@@ -1288,8 +1304,16 @@ export function CratesPanel({
                 })}
               </div>
 
-              {/* Fixed center selector / pointer (frames the middle square) */}
-              <div className="pointer-events-none absolute left-1/2 top-8 h-[112px] w-[112px] -translate-x-1/2 rounded-2xl border-[3.5px] border-yellow-400/95" />
+              {/* Center selector follows the same card size as the moving track. */}
+              <div
+                className="pointer-events-none absolute left-1/2 rounded-2xl border-[3.5px] border-yellow-400/95"
+                style={{
+                  top: (180 - reelCardWidth) / 2 - 4,
+                  width: reelCardWidth + 8,
+                  height: reelCardWidth + 8,
+                  transform: "translateX(-50%)",
+                }}
+              />
             </div>
           )}
 

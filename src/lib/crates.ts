@@ -52,7 +52,7 @@ export const RARITY_ORDER: CrateRarity[] = ["common", "uncommon", "rare", "epic"
 // These can (and should) later be moved to DB tables for full admin configurability.
 // For now they live here so the system works immediately after schema is applied.
 
-export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: Array<{ item_id: string; weight: number; variant?: string }>; icon_url?: string }> = {
+const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: Array<{ item_id: string; weight: number; variant?: string }>; icon_url?: string }> = {
   principessa_case: {
     name: "Principessa Case",
     description: "An exquisite and highly exclusive case containing rare memorabilia from Principessa's personal collection. Only the most devoted are permitted to open it.",
@@ -360,8 +360,15 @@ export const CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops
   },
 };
 
+export const CRATE_TYPES = Object.fromEntries(
+  Object.entries(BASE_CRATE_TYPES).map(([crateType, crate]) => [
+    crateType,
+    { ...crate, cost: Math.round(crate.cost * 0.5) },
+  ]),
+) as typeof BASE_CRATE_TYPES;
+
 // Sample item catalog (in real V1 you would INSERT these into crate_items table)
-export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabled">> = {
+const BASE_SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabled">> = {
   // Common
   "classic-collar": {
     name: "Classic Collar",
@@ -1583,6 +1590,13 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     sell_value: 16000,
   },
 };
+
+export const SAMPLE_CRATE_ITEMS = Object.fromEntries(
+  Object.entries(BASE_SAMPLE_CRATE_ITEMS).map(([itemId, item]) => [
+    itemId,
+    { ...item, sell_value: Math.round(item.sell_value * 0.5) },
+  ]),
+) as typeof BASE_SAMPLE_CRATE_ITEMS;
 
 export const ALL_LEGENDARY_ITEM_IDS = Object.keys(SAMPLE_CRATE_ITEMS).filter(
   (id) => SAMPLE_CRATE_ITEMS[id].rarity === "legendary"
