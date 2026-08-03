@@ -10,6 +10,7 @@ export const PET_TASK_REWARD = 10;
 export const PET_WEEKLY_TAX_REWARD = 20;
 export const PET_OWNERSHIP_OATH_REPEAT_COUNT = 25;
 export const PET_WORSHIP_MIN_AMOUNT = 500;
+export const PET_WORSHIP_DOWNLOAD_COST = 1000;
 export const PET_WORSHIP_CATEGORIES = ["feet", "ass", "breasts"] as const;
 export type PetWorshipCategory = (typeof PET_WORSHIP_CATEGORIES)[number];
 
@@ -212,31 +213,31 @@ const girlPerfectWritingSentencePool = [
 ];
 
 const boyConfessionSentencePool = [
-  "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
-  "Principessa owns my small dick, my mind, my money, and my dignity.",
-  "I crawl back to the vault because I’m too weak to resist Principessa’s control.",
-  "I’m grateful to be trained and humiliated as Principessa’s obedient paypig.",
-  "Principessa’s approval is everything. I will degrade myself daily to earn it.",
-  "I accept my place: locked, denied, and used for Principessa’s amusement.",
-  "My pathetic Pet score and my tiny dick belong entirely to Principessa.",
-  "I will not rush. I will edge and suffer properly like a good denied pet.",
-  "Principessa’s pet waits, leaks, reports, and begs for more humiliation.",
-  "Excuses are for weak losers. I prove my devotion with discipline and shame.",
-  "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
+  "I am Principessa's pathetic little pet, and I obey every single rule like the weak, small-dicked bitch I truly am.",
+  "Principessa owns my small dick, my mind, my money, and my entire dignity, and I will never take any of it back from her.",
+  "I crawl back to the vault every single day because I am far too weak and pathetic to resist Principessa’s total control over me.",
+  "I’m grateful to be trained, disciplined, and humiliated as Principessa’s obedient paypig, exactly the way a worthless pet like me deserves.",
+  "Principessa’s approval is everything to me, and I will gladly degrade myself daily, without hesitation, just to earn even a moment of it.",
+  "I accept my place completely: locked, denied, and used purely for Principessa’s amusement, with no say over my own body or desires.",
+  "My pathetic Pet score and my tiny, useless dick belong entirely to Principessa, to control, mock, and deny however she pleases.",
+  "I will not rush and I will not cheat. I will edge slowly and suffer properly like a good, denied pet who knows his place.",
+  "Principessa’s pet waits patiently, leaks helplessly, reports honestly, and begs shamelessly for more humiliation every single day.",
+  "Excuses are only for weak losers. I prove my devotion with strict discipline, total honesty, and constant shame, exactly as expected of me.",
+  "I exist only to be broken down and reshaped into Principessa’s perfect, humiliated, obedient little pet, forever and completely.",
 ];
 
 const girlConfessionSentencePool = [
-  "I am Principessa's pathetic little pet, and I obey every rule like the weak bitch I am.",
-  "Principessa owns my needy pussy, my mind, my money, and my dignity.",
-  "I crawl back to the vault because I’m too weak to resist Principessa’s control.",
-  "I’m grateful to be trained and humiliated as Principessa’s obedient paypig.",
-  "Principessa’s approval is everything. I will degrade myself daily to earn it.",
-  "I accept my place: locked, denied, and used for Principessa’s amusement.",
-  "My pathetic Pet score and my dripping needy pussy belong entirely to Principessa.",
-  "I will not rush. I will edge and suffer properly like a good denied pet.",
-  "Principessa’s pet waits, drips, reports, and begs for more humiliation.",
-  "Excuses are for weak losers. I prove my devotion with discipline and shame.",
-  "I exist to be broken and reshaped into Principessa’s perfect humiliated pet.",
+  "I am Principessa's pathetic little pet, and I obey every single rule like the weak, needy bitch I truly am.",
+  "Principessa owns my needy pussy, my mind, my money, and my entire dignity, and I will never take any of it back from her.",
+  "I crawl back to the vault every single day because I am far too weak and pathetic to resist Principessa’s total control over me.",
+  "I’m grateful to be trained, disciplined, and humiliated as Principessa’s obedient paypig, exactly the way a worthless pet like me deserves.",
+  "Principessa’s approval is everything to me, and I will gladly degrade myself daily, without hesitation, just to earn even a moment of it.",
+  "I accept my place completely: locked, denied, and used purely for Principessa’s amusement, with no say over my own body or desires.",
+  "My pathetic Pet score and my dripping, needy pussy belong entirely to Principessa, to control, mock, and deny however she pleases.",
+  "I will not rush and I will not cheat. I will edge slowly and suffer properly like a good, denied pet who knows her place.",
+  "Principessa’s pet waits patiently, drips helplessly, reports honestly, and begs shamelessly for more humiliation every single day.",
+  "Excuses are only for weak losers. I prove my devotion with strict discipline, total honesty, and constant shame, exactly as expected of me.",
+  "I exist only to be broken down and reshaped into Principessa’s perfect, humiliated, obedient little pet, forever and completely.",
 ];
 
 /** Mostly gender-neutral already; kept as one pool for all terms. */

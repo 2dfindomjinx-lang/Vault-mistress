@@ -8,7 +8,6 @@ function fallback(): PremiumTitleConfig {
     description: "A premium title bought from the cosmetic shop.",
     price: 50000,
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    next: null,
   };
 }
 
@@ -21,32 +20,14 @@ export async function GET() {
 
   const now = new Date();
   const currentExpired = new Date(data.current_expires_at).getTime() <= now.getTime();
-  const manualNextReady = data.next_name && (!data.next_starts_at || new Date(data.next_starts_at).getTime() <= now.getTime());
-  const nextExpires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  if (currentExpired && manualNextReady) {
-    // A one-off manual override takes priority over the pool for exactly
-    // this rotation. current_pool_id is left untouched so the pool resumes
-    // from wherever it left off once this manual title also expires.
-    const promoted = {
-      current_name: data.next_name,
-      current_description: data.next_description ?? "A rotating premium title.",
-      current_price: data.next_price ?? 50000,
-      current_expires_at: nextExpires,
-      next_name: null,
-      next_description: null,
-      next_price: null,
-      next_starts_at: null,
-      updated_at: now.toISOString(),
-    };
-    const { data: updated } = await supabase.from("premium_title_config").update(promoted).eq("id", true).select("*").single();
-    if (updated) data = updated;
-  } else if (currentExpired) {
-    // No manual override queued - auto-advance to the next enabled pool
-    // entry (sort_order, wrapping around) instead of freezing forever.
+  if (currentExpired) {
+    // Auto-advance to the next enabled pool entry (sort_order, wrapping
+    // around) instead of freezing forever. Each entry controls its own
+    // active duration via duration_hours.
     const { data: poolEntries } = await supabase
       .from("premium_title_pool")
-      .select("id, name, description, price")
+      .select("id, name, description, price, duration_hours")
       .eq("enabled", true)
       .order("sort_order", { ascending: true });
 
@@ -55,11 +36,12 @@ export async function GET() {
         ? poolEntries.findIndex((entry) => entry.id === data.current_pool_id)
         : -1;
       const nextEntry = poolEntries[(currentIndex + 1) % poolEntries.length];
+      const durationHours = Math.max(1, Number(nextEntry.duration_hours) || 720);
       const promoted = {
         current_name: nextEntry.name,
         current_description: nextEntry.description,
         current_price: nextEntry.price,
-        current_expires_at: nextExpires,
+        current_expires_at: new Date(now.getTime() + durationHours * 60 * 60 * 1000).toISOString(),
         current_pool_id: nextEntry.id,
         updated_at: now.toISOString(),
       };
@@ -84,12 +66,6 @@ export async function GET() {
     description: data.current_description,
     price: Number(data.current_price),
     expiresAt: data.current_expires_at,
-    next: data.next_name ? {
-      name: data.next_name,
-      description: data.next_description ?? "A rotating premium title.",
-      price: Number(data.next_price ?? 50000),
-      startsAt: data.next_starts_at,
-    } : null,
   };
   return Response.json({ premiumTitle }, { headers: { "Cache-Control": "no-store" } });
 }

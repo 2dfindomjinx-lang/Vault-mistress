@@ -1,9 +1,8 @@
-import { readdir } from "node:fs/promises";
-import path from "node:path";
 import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/server-game-rules";
-import { PET_TASK_REWARD, PET_WORSHIP_MIN_AMOUNT, PET_WORSHIP_CATEGORIES, type PetWorshipCategory } from "@/lib/pet-tasks-content";
-import { getDailyGmt3CooldownUntil, getGmt3DateKey, getGmt3DayIndex } from "@/lib/time";
+import { PET_TASK_REWARD, PET_WORSHIP_MIN_AMOUNT, PET_WORSHIP_DOWNLOAD_COST } from "@/lib/pet-tasks-content";
+import { getTodaysWorshipImage } from "@/lib/pet-worship";
+import { getDailyGmt3CooldownUntil, getGmt3DateKey } from "@/lib/time";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -31,52 +30,6 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
-async function getWorshipImageFileNames(category: PetWorshipCategory) {
-  const dir = path.join(process.cwd(), "public", "worship", category);
-
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((entry) => entry.isFile() && /\.(avif|gif|jfif|jpe?g|png|webp)$/i.test(entry.name))
-      .map((entry) => entry.name)
-      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }));
-  } catch (error) {
-    const nodeError = error as NodeJS.ErrnoException | null;
-    if (nodeError?.code !== "ENOENT") {
-      console.error("[pet-worship] image directory read failed", error);
-    }
-    return [] as string[];
-  }
-}
-
-function getTodaysWorshipCategory(): PetWorshipCategory {
-  const dayIndex = getGmt3DayIndex();
-  return PET_WORSHIP_CATEGORIES[dayIndex % PET_WORSHIP_CATEGORIES.length];
-}
-
-// Scatters the pick across the folder independent of filename/sort order,
-// while staying stable for the whole day (same image on every reload today).
-function hashDailyPick(seed: string, optionCount: number) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % optionCount;
-}
-
-async function getTodaysWorshipImage() {
-  const category = getTodaysWorshipCategory();
-  const fileNames = await getWorshipImageFileNames(category);
-
-  if (fileNames.length === 0) {
-    return { category, imagePath: null as string | null };
-  }
-
-  const dayIndex = getGmt3DayIndex();
-  const fileName = fileNames[hashDailyPick(`${category}:${dayIndex}`, fileNames.length)];
-  return { category, imagePath: `/worship/${category}/${fileName}` };
-}
-
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -84,9 +37,97 @@ export async function GET() {
 
   const authResult = await getAuthedUserId();
   if (authResult.error) return authResult.error;
+  const userId = authResult.userId!;
 
-  const { category, imagePath } = await getTodaysWorshipImage();
-  return Response.json({ category, imagePath });
+  const { category, imageKey } = await getTodaysWorshipImage();
+
+  let unlocked = false;
+  if (imageKey) {
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase
+      .from("user_worship_unlocks")
+      .select("image_key")
+      .eq("user_id", userId)
+      .eq("image_key", imageKey)
+      .maybeSingle();
+    unlocked = Boolean(data);
+  }
+
+  return Response.json({ category, imagePath: imageKey, unlocked });
+}
+
+async function handleWorshipDownload(userId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { category, imageKey } = await getTodaysWorshipImage();
+
+  if (!imageKey) {
+    return jsonError("No worship image available today.", 404);
+  }
+
+  const { data: existingUnlock } = await supabase
+    .from("user_worship_unlocks")
+    .select("image_key")
+    .eq("user_id", userId)
+    .eq("image_key", imageKey)
+    .maybeSingle();
+
+  if (existingUnlock) {
+    return Response.json({ alreadyUnlocked: true, imagePath: imageKey, category });
+  }
+
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select(profileSelect)
+    .eq("id", userId)
+    .single();
+
+  if (profileError || !profileData) {
+    return jsonError(profileError?.message ?? "Profile not found.", 404);
+  }
+
+  const profile = profileData as ProfileRow;
+  if (profile.coins < PET_WORSHIP_DOWNLOAD_COST) {
+    return jsonError(`Downloading costs ${PET_WORSHIP_DOWNLOAD_COST} coins.`, 402);
+  }
+
+  const now = new Date().toISOString();
+  const nextCoins = profile.coins - PET_WORSHIP_DOWNLOAD_COST;
+
+  const { data: updatedProfile, error: updateError } = await supabase
+    .from("profiles")
+    .update({ coins: nextCoins, updated_at: now })
+    .eq("id", userId)
+    .eq("coins", profile.coins)
+    .select(profileSelect)
+    .maybeSingle();
+
+  if (updateError || !updatedProfile) {
+    return jsonError(updateError?.message ?? "Download purchase was stale.", updateError ? 500 : 409);
+  }
+
+  const { error: transactionError } = await supabase.from("coin_transactions").insert({
+    amount: -PET_WORSHIP_DOWNLOAD_COST,
+    balance_after: nextCoins,
+    balance_before: profile.coins,
+    metadata: { category, imageKey },
+    reason: "download:pet-worship",
+    user_id: userId,
+  });
+
+  if (transactionError) {
+    await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", userId).eq("coins", nextCoins);
+    return jsonError("Download purchase logging failed.", 500);
+  }
+
+  const { error: unlockError } = await supabase
+    .from("user_worship_unlocks")
+    .insert({ user_id: userId, image_key: imageKey });
+
+  if (unlockError && (unlockError as { code?: string }).code !== "23505") {
+    console.error("[pet-worship] unlock record failed", unlockError);
+  }
+
+  return Response.json({ profile: updatedProfile, imagePath: imageKey, category, alreadyUnlocked: false });
 }
 
 export async function POST(request: Request) {
@@ -98,7 +139,12 @@ export async function POST(request: Request) {
   if (authResult.error) return authResult.error;
 
   const userId = authResult.userId!;
-  const body = (await request.json().catch(() => null)) as { amount?: number; compliment?: string } | null;
+  const body = (await request.json().catch(() => null)) as { action?: string; amount?: number; compliment?: string } | null;
+
+  if (body?.action === "download") {
+    return handleWorshipDownload(userId);
+  }
+
   const amount = Math.floor(Number(body?.amount));
   const compliment = typeof body?.compliment === "string" ? body.compliment.trim().slice(0, 500) : "";
 
@@ -131,7 +177,7 @@ export async function POST(request: Request) {
     return jsonError("Not enough coins for that tribute.", 402);
   }
 
-  const { category, imagePath } = await getTodaysWorshipImage();
+  const { category, imageKey } = await getTodaysWorshipImage();
   const now = new Date().toISOString();
   const nextCoins = profile.coins - amount;
   const nextPetScore = (profile.pet_score ?? 0) + PET_TASK_REWARD;
@@ -152,7 +198,7 @@ export async function POST(request: Request) {
     amount: -amount,
     balance_after: nextCoins,
     balance_before: profile.coins,
-    metadata: { category, compliment, imagePath },
+    metadata: { category, compliment, imageKey },
     reason: "tribute:pet-worship",
     user_id: userId,
   });
@@ -185,7 +231,7 @@ export async function POST(request: Request) {
         reviewed_at: now,
         reward_score: PET_TASK_REWARD,
         status: "approved",
-        metadata: { amount, category, imagePath, compliment },
+        metadata: { amount, category, imageKey, compliment },
       },
       { onConflict: "user_id,task_id" },
     )

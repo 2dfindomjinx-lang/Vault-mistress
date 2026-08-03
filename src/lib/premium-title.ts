@@ -6,12 +6,6 @@ export type PremiumTitleConfig = {
   description: string;
   price: number;
   expiresAt: string;
-  next: {
-    name: string;
-    description: string;
-    price: number;
-    startsAt: string | null;
-  } | null;
 };
 
 export function isPremiumTitleActive(config: PremiumTitleConfig, now = Date.now()) {
@@ -25,4 +19,5 @@ export type PremiumTitlePoolEntry = {
   description: string;
   price: number;
   enabled: boolean;
+  durationHours: number;
 };

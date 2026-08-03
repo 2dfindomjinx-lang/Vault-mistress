@@ -11,6 +11,7 @@ import {
 import {
   getWorshipComplimentPlaceholder,
   PET_OWNERSHIP_OATH_REPEAT_COUNT,
+  PET_WORSHIP_DOWNLOAD_COST,
   PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import type { PetDebtContract, PetTaskItem } from "@/lib/types";
@@ -603,8 +604,11 @@ export function PetSection({
   onConfessionSubmit,
   onOwnershipOathSubmit,
   onWorshipSubmit,
+  onWorshipDownload,
   worshipCategory = null,
   worshipImagePath = null,
+  worshipUnlocked = false,
+  worshipImageVersion = 0,
   onCompleteTask,
   onCooldownAttempt,
   onDebtAutoPayChange = () => {},
@@ -649,8 +653,11 @@ export function PetSection({
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onOwnershipOathSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onWorshipSubmit: (amount: number, compliment: string) => void;
+  onWorshipDownload: () => void;
   worshipCategory?: "feet" | "ass" | "breasts" | null;
   worshipImagePath?: string | null;
+  worshipUnlocked?: boolean;
+  worshipImageVersion?: number;
   onCompleteTask: (taskId: string) => void;
   onCooldownAttempt?: (message: string) => void;
   onDebtAutoPayChange?: (enabled: boolean) => void;
@@ -1552,6 +1559,8 @@ export function PetSection({
                         ? "Admin approval only adds the selected Throne payout with both bonuses."
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
+                      : task.kind === "worship"
+                        ? `One-way tribute: send coins (min ${PET_WORSHIP_MIN_AMOUNT}), no coins back. Reward: +${task.reward} Pet Score, Devotion scales with the amount sent.`
                       : `Completion reward: +${task.reward} Pet Score, +${
                           task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
                         } Coins`}
@@ -1676,37 +1685,62 @@ export function PetSection({
                       {worshipImagePath ? (
                         <img
                           alt={`Worship: ${worshipCategory ?? ""}`}
-                          className="h-64 w-full rounded-2xl border border-red-200/15 bg-black/40 object-contain"
-                          src={worshipImagePath}
+                          className="h-64 w-full select-none rounded-2xl border border-red-200/15 bg-black/40 object-contain"
+                          draggable={false}
+                          onContextMenu={(event) => event.preventDefault()}
+                          src={`/api/user/pet-worship/image?v=${worshipImageVersion}`}
                         />
                       ) : (
                         <div className="flex h-40 items-center justify-center rounded-2xl border border-red-200/15 bg-black/40 text-center text-xs text-red-200/60">
                           Awaiting worship images.
                         </div>
                       )}
-                      <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
-                        {worshipCategory ? `Today: ${worshipCategory}` : "Today's tribute"}
-                      </p>
-                      <input
-                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
-                        inputMode="numeric"
-                        min={PET_WORSHIP_MIN_AMOUNT}
-                        onChange={(event) => setWorshipAmountInput(event.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder={`Send for my ${worshipCategory ?? "worship"}... (min ${PET_WORSHIP_MIN_AMOUNT})`}
-                        type="number"
-                        value={worshipAmountInput}
-                      />
-                      <textarea
-                        className="w-full resize-none rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
-                        onChange={(event) => setWorshipComplimentInput(event.target.value)}
-                        placeholder={
-                          worshipCategory ? getWorshipComplimentPlaceholder(worshipCategory) : "Write your worship line..."
-                        }
-                        rows={2}
-                        value={worshipComplimentInput}
-                      />
+                      {worshipImagePath && (
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
+                            {worshipCategory ? `Today: ${worshipCategory}` : "Today's tribute"}
+                            {worshipUnlocked && <span className="ml-2 text-emerald-300">· Unlocked</span>}
+                          </p>
+                          <button
+                            className="rounded-full border border-red-200/25 bg-red-600/10 px-3 py-1 text-[11px] font-bold text-red-100 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={disabled || actionPending}
+                            onClick={onWorshipDownload}
+                            type="button"
+                          >
+                            {worshipUnlocked ? "Download" : `Download (${PET_WORSHIP_DOWNLOAD_COST} coins)`}
+                          </button>
+                        </div>
+                      )}
+                      <div>
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-red-200/60">
+                          Tribute amount (min {PET_WORSHIP_MIN_AMOUNT} coins)
+                        </p>
+                        <input
+                          className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={disabled || coolingDown || task.status === "approved" || actionPending}
+                          inputMode="numeric"
+                          min={PET_WORSHIP_MIN_AMOUNT}
+                          onChange={(event) => setWorshipAmountInput(event.target.value.replace(/[^0-9]/g, ""))}
+                          placeholder={`Send for my ${worshipCategory ?? "worship"}...`}
+                          type="number"
+                          value={worshipAmountInput}
+                        />
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-red-200/60">
+                          Your worship message
+                        </p>
+                        <textarea
+                          className="w-full resize-none rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={disabled || coolingDown || task.status === "approved" || actionPending}
+                          onChange={(event) => setWorshipComplimentInput(event.target.value)}
+                          placeholder={
+                            worshipCategory ? getWorshipComplimentPlaceholder(worshipCategory) : "Write your worship line..."
+                          }
+                          rows={2}
+                          value={worshipComplimentInput}
+                        />
+                      </div>
                       <button
                         className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={

@@ -176,16 +176,13 @@ type AdminPremiumTitleConfig = {
   current_description: string;
   current_price: number;
   current_expires_at: string;
-  next_name: string | null;
-  next_description: string | null;
-  next_price: number | null;
-  next_starts_at: string | null;
   current_pool_id: string | null;
 };
 
 type AdminPremiumTitlePoolEntry = {
   id: string;
   sort_order: number;
+  duration_hours: number;
   name: string;
   description: string;
   price: number;
@@ -325,12 +322,8 @@ export default function AdminPage() {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [premiumTitleConfig, setPremiumTitleConfig] = useState<AdminPremiumTitleConfig | null>(null);
-  const [premiumTitleForm, setPremiumTitleForm] = useState({
-    currentName: "", currentDescription: "", currentPrice: "50000", currentExpiresAt: "",
-    nextName: "", nextDescription: "", nextPrice: "50000", nextStartsAt: "",
-  });
   const [premiumTitlePool, setPremiumTitlePool] = useState<AdminPremiumTitlePoolEntry[]>([]);
-  const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000" });
+  const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000", durationHours: "720" });
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
   const [announcementBody, setAnnouncementBody] = useState(
@@ -711,39 +704,11 @@ export default function AdminPage() {
       if (!response.ok) throw new Error(result.error ?? "Premium title settings failed.");
       const config = result.config ?? null;
       setPremiumTitleConfig(config);
-      if (config) {
-        const toLocal = (value: string | null) => value ? new Date(value).toISOString().slice(0, 16) : "";
-        setPremiumTitleForm({
-          currentName: config.current_name, currentDescription: config.current_description,
-          currentPrice: String(config.current_price), currentExpiresAt: toLocal(config.current_expires_at),
-          nextName: config.next_name ?? "", nextDescription: config.next_description ?? "",
-          nextPrice: String(config.next_price ?? 50000), nextStartsAt: toLocal(config.next_starts_at),
-        });
-      }
       markSectionLoaded("premiumTitle");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Premium title settings failed.");
     } finally {
       setSectionLoading("premiumTitle", false);
-    }
-  };
-
-  const savePremiumTitle = async () => {
-    setIsBusy(true);
-    setStatus("");
-    try {
-      const response = await fetch("/api/admin/premium-title", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save", ...premiumTitleForm }),
-      });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Premium title save failed.");
-      setStatus("Premium title rotation saved.");
-      await loadPremiumTitle({ keepStatus: true });
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Premium title save failed.");
-    } finally {
-      setIsBusy(false);
     }
   };
 
@@ -770,12 +735,13 @@ export default function AdminPage() {
           name: premiumTitlePoolForm.name,
           description: premiumTitlePoolForm.description,
           price: premiumTitlePoolForm.price,
+          durationHours: premiumTitlePoolForm.durationHours,
           enabled: true,
         }),
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Premium title pool entry add failed.");
-      setPremiumTitlePoolForm({ name: "", description: "", price: "50000" });
+      setPremiumTitlePoolForm({ name: "", description: "", price: "50000", durationHours: "720" });
       setStatus("Premium title pool entry added.");
       await loadPremiumTitlePool();
     } catch (error) {
@@ -793,7 +759,7 @@ export default function AdminPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "upsert", id: entry.id, name: entry.name, description: entry.description,
-          price: entry.price, enabled: entry.enabled,
+          price: entry.price, enabled: entry.enabled, durationHours: entry.duration_hours,
         }),
       });
       const result = await response.json() as { error?: string };
@@ -2846,47 +2812,29 @@ export default function AdminPage() {
             <div className="mt-4 rounded-[1.5rem] border border-yellow-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(250,204,21,0.08)]">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-yellow-200/70">Premium Title Rotation</p>
-                  <p className="mt-1 text-xs text-zinc-500">The current offer stays on the stable premium title ID; the next offer activates automatically after expiry.</p>
-                </div>
-                <button className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200" disabled={isBusy} onClick={() => void loadPremiumTitle()} type="button">Refresh</button>
-              </div>
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                <div className="space-y-3 rounded-2xl border border-yellow-200/15 bg-yellow-400/[0.04] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-yellow-100/80">Current title</p>
-                  <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Title name" value={premiumTitleForm.currentName} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentName: event.target.value }))} />
-                  <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Description" value={premiumTitleForm.currentDescription} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentDescription: event.target.value }))} />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} type="number" placeholder="Price" value={premiumTitleForm.currentPrice} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentPrice: event.target.value }))} />
-                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" type="datetime-local" value={premiumTitleForm.currentExpiresAt} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, currentExpiresAt: event.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-3 rounded-2xl border border-fuchsia-200/15 bg-fuchsia-400/[0.04] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-fuchsia-100/80">Next title (optional)</p>
-                  <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Next title name" value={premiumTitleForm.nextName} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextName: event.target.value }))} />
-                  <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" placeholder="Next description" value={premiumTitleForm.nextDescription} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextDescription: event.target.value }))} />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} type="number" placeholder="Price" value={premiumTitleForm.nextPrice} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextPrice: event.target.value }))} />
-                    <input className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" type="datetime-local" value={premiumTitleForm.nextStartsAt} onChange={(event) => setPremiumTitleForm((form) => ({ ...form, nextStartsAt: event.target.value }))} />
-                  </div>
-                  <p className="text-xs text-zinc-500">Leave all next fields blank to keep the current title active until it expires.</p>
-                </div>
-              </div>
-              <button className="mt-4 w-full rounded-2xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-3 text-sm font-black text-yellow-50 transition hover:border-yellow-100/60 disabled:cursor-not-allowed disabled:opacity-50" disabled={isBusy || !loadedSections.premiumTitle} onClick={() => void savePremiumTitle()} type="button">Save Premium Title Rotation</button>
-            </div>
-          )}
-
-          {activeTab === "premiumTitle" && (
-            <div className="mt-4 rounded-[1.5rem] border border-yellow-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(250,204,21,0.08)]">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-yellow-200/70">Premium Title Pool</p>
                   <p className="mt-1 text-xs text-zinc-500">
-                    When the current offer expires and no manual &quot;next&quot; title above is queued, the rotation
-                    automatically advances to the next enabled entry below (in order, wrapping around) - nothing to do manually.
+                    When the current offer expires, the rotation automatically advances to the next enabled entry
+                    below (in order, wrapping around), staying active for that entry&apos;s own duration.
                   </p>
+                  {premiumTitleConfig && (
+                    <p className="mt-2 text-xs font-bold text-emerald-200/80">
+                      Currently active: {premiumTitleConfig.current_name} ({premiumTitleConfig.current_price.toLocaleString()} coins) -
+                      expires {new Date(premiumTitleConfig.current_expires_at).toLocaleString()}
+                    </p>
+                  )}
                 </div>
-                <button className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200" disabled={isBusy} onClick={() => void loadPremiumTitlePool()} type="button">Refresh</button>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                  disabled={isBusy}
+                  onClick={() => {
+                    void loadPremiumTitle();
+                    void loadPremiumTitlePool();
+                  }}
+                  type="button"
+                >
+                  Refresh
+                </button>
               </div>
 
               <div className="mt-4 space-y-2">
@@ -2938,13 +2886,27 @@ export default function AdminPage() {
                               value={entry.description}
                             />
                             <div className="flex flex-wrap items-center gap-3">
-                              <input
-                                className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
-                                min={0}
-                                onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, price: Number(event.target.value) } : item))}
-                                type="number"
-                                value={entry.price}
-                              />
+                              <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                                Price
+                                <input
+                                  className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                                  min={0}
+                                  onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, price: Number(event.target.value) } : item))}
+                                  type="number"
+                                  value={entry.price}
+                                />
+                              </label>
+                              <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                                Duration (hours)
+                                <input
+                                  className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                                  min={1}
+                                  max={8760}
+                                  onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, duration_hours: Number(event.target.value) } : item))}
+                                  type="number"
+                                  value={entry.duration_hours}
+                                />
+                              </label>
                               <label className="flex items-center gap-2 text-xs text-zinc-300">
                                 <input
                                   checked={entry.enabled}
@@ -2993,13 +2955,27 @@ export default function AdminPage() {
                   value={premiumTitlePoolForm.description}
                 />
                 <div className="flex flex-wrap items-center gap-3">
-                  <input
-                    className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
-                    min={0}
-                    onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, price: event.target.value }))}
-                    type="number"
-                    value={premiumTitlePoolForm.price}
-                  />
+                  <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                    Price
+                    <input
+                      className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                      min={0}
+                      onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, price: event.target.value }))}
+                      type="number"
+                      value={premiumTitlePoolForm.price}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                    Duration (hours)
+                    <input
+                      className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                      min={1}
+                      max={8760}
+                      onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, durationHours: event.target.value }))}
+                      type="number"
+                      value={premiumTitlePoolForm.durationHours}
+                    />
+                  </label>
                   <button
                     className="rounded-xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-2 text-sm font-bold text-yellow-50 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isBusy || !premiumTitlePoolForm.name.trim() || !premiumTitlePoolForm.description.trim()}

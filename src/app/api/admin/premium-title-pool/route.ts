@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const price = Math.max(0, Math.floor(Number(body.price)));
     const enabled = body.enabled !== false;
+    const durationHours = Math.min(8760, Math.max(1, Math.floor(Number(body.durationHours)) || 720));
 
     if (!name || !description || !Number.isFinite(price)) {
       return Response.json({ error: "Name, description, and price are required." }, { status: 400 });
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     if (id) {
       const { error } = await admin.supabase
         .from("premium_title_pool")
-        .update({ name, description, price, enabled, updated_at: new Date().toISOString() })
+        .update({ name, description, price, enabled, duration_hours: durationHours, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) return Response.json({ error: error.message }, { status: 500 });
     } else {
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
 
       const { error } = await admin.supabase
         .from("premium_title_pool")
-        .insert({ name, description, price, enabled, sort_order: nextSortOrder });
+        .insert({ name, description, price, enabled, duration_hours: durationHours, sort_order: nextSortOrder });
       if (error) return Response.json({ error: error.message }, { status: 500 });
     }
 

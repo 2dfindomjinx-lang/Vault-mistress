@@ -212,6 +212,7 @@ import {
   PET_OWNERSHIP_OATH_REPEAT_COUNT,
   PET_WEEKLY_TAX_REWARD as PET_TASK_CONTENT_WEEKLY_TAX_REWARD,
   PET_WORSHIP_CATEGORIES,
+  PET_WORSHIP_DOWNLOAD_COST,
   PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
@@ -2010,7 +2011,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [petWorshipToday, setPetWorshipToday] = useState<{
     category: "feet" | "ass" | "breasts";
     imagePath: string | null;
+    unlocked: boolean;
   } | null>(null);
+  const [worshipImageVersion, setWorshipImageVersion] = useState(0);
+  const [guestWorshipUnlockedKeys, setGuestWorshipUnlockedKeys] = useState<Set<string>>(new Set());
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
   const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
@@ -2250,10 +2254,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     if (!authBootstrapped) return;
     let cancelled = false;
     void fetch("/api/user/pet-worship", { cache: "no-store" })
-      .then((response) => response.json() as Promise<{ category?: "feet" | "ass" | "breasts"; imagePath?: string | null }>)
+      .then((response) => response.json() as Promise<{ category?: "feet" | "ass" | "breasts"; imagePath?: string | null; unlocked?: boolean }>)
       .then((payload) => {
         if (!cancelled && payload.category) {
-          setPetWorshipToday({ category: payload.category, imagePath: payload.imagePath ?? null });
+          setPetWorshipToday({ category: payload.category, imagePath: payload.imagePath ?? null, unlocked: Boolean(payload.unlocked) });
         }
       })
       .catch((error) => console.warn("Failed to load today's worship image", error));
@@ -9525,6 +9529,87 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const triggerWorshipFileDownload = async () => {
+    const response = await fetch(`/api/user/pet-worship/image?download=1&v=${Date.now()}`);
+    if (!response.ok) throw new Error("Download request failed.");
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = `worship-${petWorshipToday?.category ?? "image"}.jpg`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  const handlePetWorshipDownload = async () => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const imageKey = petWorshipToday?.imagePath ?? null;
+    if (!imageKey) {
+      setAvatarMistressReply("No worship image available today.");
+      return;
+    }
+
+    const alreadyUnlocked = petWorshipToday?.unlocked || guestWorshipUnlockedKeys.has(imageKey);
+
+    if (!alreadyUnlocked && coinsRef.current < PET_WORSHIP_DOWNLOAD_COST) {
+      setAvatarMistressReply(`Downloading costs ${PET_WORSHIP_DOWNLOAD_COST} coins.`);
+      return;
+    }
+
+    if (isGuestMode) {
+      if (!alreadyUnlocked) {
+        const nextCoins = coinsRef.current - PET_WORSHIP_DOWNLOAD_COST;
+        setCoins(nextCoins);
+        coinsRef.current = nextCoins;
+        setGuestWorshipUnlockedKeys((current) => new Set(current).add(imageKey));
+      }
+      setAvatarMistressReply(
+        alreadyUnlocked
+          ? "Already unlocked - no charge."
+          : `Download unlocked for ${PET_WORSHIP_DOWNLOAD_COST} coins.`,
+      );
+      return;
+    }
+
+    try {
+      if (!alreadyUnlocked) {
+        const response = await fetch("/api/user/pet-worship", {
+          body: JSON.stringify({ action: "download" }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+          profile?: Profile;
+          alreadyUnlocked?: boolean;
+        } | null;
+
+        if (!response.ok) {
+          throw createApiError("/api/user/pet-worship", response, payload ?? {});
+        }
+        if (payload?.profile) applyProfileStats(payload.profile);
+        setPetWorshipToday((current) => (current ? { ...current, unlocked: true } : current));
+        setWorshipImageVersion((current) => current + 1);
+      }
+
+      await triggerWorshipFileDownload();
+      setAvatarMistressReply(
+        alreadyUnlocked
+          ? "Already unlocked - no charge."
+          : `Download unlocked for ${PET_WORSHIP_DOWNLOAD_COST} coins.`,
+      );
+    } catch (error) {
+      console.error("Failed to download worship image", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The download was refused. Try again.");
+    }
+  };
+
   const handlePetWeeklyTax = async () => {
     if (blockIfTimedOut()) {
       return;
@@ -12592,8 +12677,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onWorshipSubmit={(amount, compliment) =>
                 runPetAction("pet-worship", () => handlePetWorshipSubmit(amount, compliment))
               }
+              onWorshipDownload={() => runPetAction("pet-worship-download", handlePetWorshipDownload)}
               worshipCategory={petWorshipToday?.category ?? null}
               worshipImagePath={petWorshipToday?.imagePath ?? null}
+              worshipUnlocked={Boolean(petWorshipToday?.unlocked) || (petWorshipToday ? guestWorshipUnlockedKeys.has(petWorshipToday.imagePath ?? "") : false)}
+              worshipImageVersion={worshipImageVersion}
               onCancelThroneTribute={() =>
                 runPetAction(PET_THRONE_TASK_ID, handlePetThroneTributeCancel)
               }
