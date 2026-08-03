@@ -204,11 +204,15 @@ import {
 } from "@/lib/pet-throne";
 import {
   getDailyPetConfessionSentence,
+  getDailyPetOwnershipOathSentence,
   getDailyPetPerfectWritingSentence,
   getDailyPetVoiceSentence,
   getPetTasks,
   petTasks as defaultPetTasks,
+  PET_OWNERSHIP_OATH_REPEAT_COUNT,
   PET_WEEKLY_TAX_REWARD as PET_TASK_CONTENT_WEEKLY_TAX_REWARD,
+  PET_WORSHIP_CATEGORIES,
+  PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
 import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
@@ -1023,6 +1027,34 @@ function buildPetTasksFromRows(
         cooldownUntil,
         reviewedAt,
         sentence: getDailyPetConfessionSentence(addressTerm),
+        status: cooldownUntil ? baseStatus : "available",
+      };
+    }
+
+    if (task.kind === "ownership-oath") {
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
+      const oathCount =
+        completedAt && !cooldownUntil ? 0 : getTaskMetadataNumber(row?.metadata, "count", 0);
+
+      return {
+        ...task,
+        completedAt,
+        oathCount,
+        cooldownUntil,
+        reviewedAt,
+        sentence: getDailyPetOwnershipOathSentence(addressTerm),
+        status: cooldownUntil ? baseStatus : "available",
+      };
+    }
+
+    if (task.kind === "worship") {
+      const cooldownUntil = getPetTaskCooldownUntil(cooldownAnchor);
+
+      return {
+        ...task,
+        completedAt,
+        cooldownUntil,
+        reviewedAt,
         status: cooldownUntil ? baseStatus : "available",
       };
     }
@@ -1975,6 +2007,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>(["leadership-0"]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>("leadership-0");
   const [premiumTitleConfig, setPremiumTitleConfig] = useState<PremiumTitleConfig | null>(null);
+  const [petWorshipToday, setPetWorshipToday] = useState<{
+    category: "feet" | "ass" | "breasts";
+    imagePath: string | null;
+  } | null>(null);
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
   const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
@@ -2208,6 +2244,19 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
         if (!cancelled && payload.premiumTitle) setPremiumTitleConfig(payload.premiumTitle);
       })
       .catch((error) => console.warn("Failed to load rotating premium title", error));
+    return () => { cancelled = true; };
+  }, [authBootstrapped]);
+  useEffect(() => {
+    if (!authBootstrapped) return;
+    let cancelled = false;
+    void fetch("/api/user/pet-worship", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ category?: "feet" | "ass" | "breasts"; imagePath?: string | null }>)
+      .then((payload) => {
+        if (!cancelled && payload.category) {
+          setPetWorshipToday({ category: payload.category, imagePath: payload.imagePath ?? null });
+        }
+      })
+      .catch((error) => console.warn("Failed to load today's worship image", error));
     return () => { cancelled = true; };
   }, [authBootstrapped]);
   const addressAwareTitleItems = useMemo(
@@ -9272,6 +9321,210 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const handlePetOwnershipOathSubmit = async (
+    value: string,
+    options: { cheated?: boolean } = {},
+  ) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-ownership-oath");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
+    const sentence = task?.sentence ?? getDailyPetOwnershipOathSentence();
+
+    if (!task || coolingDown) {
+      return;
+    }
+
+    if (options.cheated) {
+      const avatarId = resolveSpeechAvatarIdForMessage();
+      setAvatarMistressReply(
+        getSpeechBubbleResponseMessage(avatarId, "cheat", "Trying to cheat your oath? Pathetic."),
+      );
+      return;
+    }
+
+    if (!writingEquals(sentence, value)) {
+      setAvatarMistressReply("Exact words only. Start that line again.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextCount = Math.min(PET_OWNERSHIP_OATH_REPEAT_COUNT, (task.oathCount ?? 0) + 1);
+    const completed = nextCount >= PET_OWNERSHIP_OATH_REPEAT_COUNT;
+    const nextPetScore = completed ? petScore + task.reward : petScore;
+
+    if (!isGuestMode && authUserId) {
+      if (completed) {
+        try {
+          await persistPetProfilePatch(
+            { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
+            "reward:pet-ownership-oath",
+          );
+        } catch (error) {
+          setAuthError(describeError(error));
+          void resyncAuthenticatedProfile("Failed pet ownership oath reward").catch(() => {});
+          return;
+        }
+      }
+
+      try {
+        const savedTask = await persistPetTask(
+        {
+          task_id: task.id,
+          completed_at: completed ? now : null,
+          reward_score: task.reward,
+          status: completed ? "approved" : "available",
+          reviewed_at: completed ? now : null,
+          metadata: {
+            count: nextCount,
+          },
+        },
+        );
+
+        const savedCount = getTaskMetadataNumber(savedTask.metadata, "count", nextCount);
+        if (savedCount !== nextCount) {
+          console.warn("Pet ownership oath saved count mismatch", { expected: nextCount, saved: savedCount });
+        }
+      } catch (error) {
+        console.error("Failed to persist Pet ownership oath progress", error);
+        setAuthError(describeError(error));
+        void resyncAuthenticatedProfile("Failed pet ownership oath state").catch(() => {});
+        return;
+      }
+    } else if (completed) {
+      setPetScore(nextPetScore);
+    }
+
+    setPetTaskStateOptimistic((current) =>
+      current.map((entry) =>
+        entry.id === task.id
+          ? {
+              ...entry,
+              completedAt: completed ? now : entry.completedAt,
+              oathCount: nextCount,
+              cooldownUntil: completed ? getPetTaskCooldownUntil(now) : entry.cooldownUntil,
+              reviewedAt: completed ? now : entry.reviewedAt,
+              status: completed ? "approved" : "available",
+            }
+          : entry,
+      ),
+    );
+    setAvatarMistressReply(
+      completed
+        ? `Oath accepted. +${task.reward} Pet Score, +${eventPetTaskCoinReward} coins.`
+        : `Good. ${nextCount}/${PET_OWNERSHIP_OATH_REPEAT_COUNT} repetitions complete.`,
+    );
+    if (completed) {
+      emitSoundEvent("task_completion");
+    }
+  };
+
+  const handlePetWorshipSubmit = async (amount: number, compliment: string) => {
+    if (blockIfTimedOut()) {
+      return;
+    }
+
+    const task = petTaskStateRef.current.find((entry) => entry.id === "pet-worship");
+    const coolingDown =
+      Boolean(task?.cooldownUntil) &&
+      new Date(task?.cooldownUntil ?? "").getTime() > new Date().getTime();
+
+    if (!task || coolingDown) {
+      return;
+    }
+
+    const spendAmount = Math.floor(amount);
+    const trimmedCompliment = compliment.trim();
+
+    if (!Number.isFinite(spendAmount) || spendAmount < PET_WORSHIP_MIN_AMOUNT) {
+      setAvatarMistressReply(`Send at least ${PET_WORSHIP_MIN_AMOUNT} coins.`);
+      return;
+    }
+
+    if (!trimmedCompliment) {
+      setAvatarMistressReply("Write your worship line before sending.");
+      return;
+    }
+
+    if (coinsRef.current < spendAmount) {
+      setAvatarMistressReply("Not enough coins for that tribute.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    if (isGuestMode) {
+      const nextCoins = coinsRef.current - spendAmount;
+      const nextPetScore = petScore + task.reward;
+      const devotionAward = Math.max(1, Math.floor(spendAmount / PET_WORSHIP_MIN_AMOUNT));
+      const category =
+        petWorshipToday?.category ?? PET_WORSHIP_CATEGORIES[getGmt3DayIndex() % PET_WORSHIP_CATEGORIES.length];
+
+      setCoins(nextCoins);
+      coinsRef.current = nextCoins;
+      setPetScore(nextPetScore);
+      setTotalDevotion((current) => current + devotionAward);
+      setPetTaskStateOptimistic((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completedAt: now,
+                cooldownUntil: getPetTaskCooldownUntil(now),
+                reviewedAt: now,
+                status: "approved",
+              }
+            : entry,
+        ),
+      );
+      setAvatarMistressReply(`Worship accepted. +${task.reward} Pet Score, +${devotionAward} Devotion.`);
+      emitSoundEvent("task_completion");
+      void category;
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/pet-worship", {
+        body: JSON.stringify({ amount: spendAmount, compliment: trimmedCompliment }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        profile?: Profile;
+      } | null;
+
+      if (!response.ok || !payload?.profile) {
+        throw createApiError("/api/user/pet-worship", response, payload ?? {});
+      }
+
+      applyProfileStats(payload.profile);
+      setPetTaskStateOptimistic((current) =>
+        current.map((entry) =>
+          entry.id === task.id
+            ? {
+                ...entry,
+                completedAt: now,
+                cooldownUntil: getPetTaskCooldownUntil(now),
+                reviewedAt: now,
+                status: "approved",
+              }
+            : entry,
+        ),
+      );
+      setAvatarMistressReply(`Worship accepted. +${task.reward} Pet Score.`);
+      emitSoundEvent("task_completion");
+    } catch (error) {
+      console.error("Failed to submit Pet worship tribute", error);
+      setAuthError(describeError(error));
+      setAvatarMistressReply("The worship offering was refused. Try again.");
+    }
+  };
+
   const handlePetWeeklyTax = async () => {
     if (blockIfTimedOut()) {
       return;
@@ -10865,7 +11118,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 ? getDailyPetPerfectWritingSentence(term)
                 : task.kind === "confession-writing"
                   ? getDailyPetConfessionSentence(term)
-                  : task.sentence,
+                  : task.kind === "ownership-oath"
+                    ? getDailyPetOwnershipOathSentence(term)
+                    : task.sentence,
             voiceSentence:
               task.id === "pet-voice-proof"
                 ? getDailyPetVoiceSentence(term)
@@ -11599,6 +11854,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   .filter((id) => id.startsWith("title:"))
                   .map((id) => id.slice("title:".length))}
                 premiumTitle={getPremiumShopTitle(addressAwareTitleItems)}
+                premiumTitleExpiresAt={premiumTitleConfig?.expiresAt ?? null}
                 shopItems={addressAwarePermanentCosmeticItems}
                 onEquipCosmetic={handleEquipCosmetic}
                 onPurchaseCosmetic={handlePurchaseCosmetic}
@@ -12330,6 +12586,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onConfessionSubmit={(value, options) =>
                 runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
               }
+              onOwnershipOathSubmit={(value, options) =>
+                runPetAction("pet-ownership-oath", () => handlePetOwnershipOathSubmit(value, options))
+              }
+              onWorshipSubmit={(amount, compliment) =>
+                runPetAction("pet-worship", () => handlePetWorshipSubmit(amount, compliment))
+              }
+              worshipCategory={petWorshipToday?.category ?? null}
+              worshipImagePath={petWorshipToday?.imagePath ?? null}
               onCancelThroneTribute={() =>
                 runPetAction(PET_THRONE_TASK_ID, handlePetThroneTributeCancel)
               }

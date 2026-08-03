@@ -180,6 +180,16 @@ type AdminPremiumTitleConfig = {
   next_description: string | null;
   next_price: number | null;
   next_starts_at: string | null;
+  current_pool_id: string | null;
+};
+
+type AdminPremiumTitlePoolEntry = {
+  id: string;
+  sort_order: number;
+  name: string;
+  description: string;
+  price: number;
+  enabled: boolean;
 };
 
 type CaseOpening = {
@@ -319,6 +329,8 @@ export default function AdminPage() {
     currentName: "", currentDescription: "", currentPrice: "50000", currentExpiresAt: "",
     nextName: "", nextDescription: "", nextPrice: "50000", nextStartsAt: "",
   });
+  const [premiumTitlePool, setPremiumTitlePool] = useState<AdminPremiumTitlePoolEntry[]>([]);
+  const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000" });
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
   const [announcementBody, setAnnouncementBody] = useState(
@@ -730,6 +742,112 @@ export default function AdminPage() {
       await loadPremiumTitle({ keepStatus: true });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Premium title save failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const loadPremiumTitlePool = async () => {
+    if (!isAdmin) return;
+    try {
+      const response = await fetch("/api/admin/premium-title-pool", { cache: "no-store" });
+      const result = await response.json() as { pool?: AdminPremiumTitlePoolEntry[]; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title pool load failed.");
+      setPremiumTitlePool(result.pool ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title pool load failed.");
+    }
+  };
+
+  const addPremiumTitlePoolEntry = async () => {
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title-pool", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert",
+          name: premiumTitlePoolForm.name,
+          description: premiumTitlePoolForm.description,
+          price: premiumTitlePoolForm.price,
+          enabled: true,
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title pool entry add failed.");
+      setPremiumTitlePoolForm({ name: "", description: "", price: "50000" });
+      setStatus("Premium title pool entry added.");
+      await loadPremiumTitlePool();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title pool entry add failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const savePremiumTitlePoolEntry = async (entry: AdminPremiumTitlePoolEntry) => {
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title-pool", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert", id: entry.id, name: entry.name, description: entry.description,
+          price: entry.price, enabled: entry.enabled,
+        }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title pool entry save failed.");
+      setStatus("Premium title pool entry saved.");
+      await loadPremiumTitlePool();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title pool entry save failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const deletePremiumTitlePoolEntry = async (id: string) => {
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title-pool", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title pool entry delete failed.");
+      setStatus("Premium title pool entry deleted.");
+      await loadPremiumTitlePool();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title pool entry delete failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const movePremiumTitlePoolEntry = async (id: string, direction: "up" | "down") => {
+    const index = premiumTitlePool.findIndex((entry) => entry.id === id);
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || swapIndex < 0 || swapIndex >= premiumTitlePool.length) return;
+
+    const reordered = [...premiumTitlePool];
+    [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
+    setPremiumTitlePool(reordered);
+
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/premium-title-pool", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reorder", orderedIds: reordered.map((entry) => entry.id) }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Premium title pool reorder failed.");
+      await loadPremiumTitlePool();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Premium title pool reorder failed.");
+      await loadPremiumTitlePool();
     } finally {
       setIsBusy(false);
     }
@@ -1383,6 +1501,7 @@ export default function AdminPage() {
       case "premiumTitle":
         if (!loadedSections.premiumTitle && !loadingSections.premiumTitle) {
           void loadPremiumTitle();
+          void loadPremiumTitlePool();
         }
         break;
       case "timeouts":
@@ -1587,13 +1706,13 @@ export default function AdminPage() {
         </div>
 
         <div className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0a12]/95 px-4 py-2 backdrop-blur">
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
                   {adminTabs.map((tab) => {
                     const isActive = activeTab === tab.key;
 
                     return (
                       <button
-                        className={`shrink-0 rounded-md border px-3 py-1.5 text-left transition ${
+                        className={`shrink-0 rounded-md border px-2.5 py-1 text-left transition ${
                           isActive
                             ? "border-pink-300/35 bg-pink-500/16 text-white"
                             : "border-white/8 bg-white/[0.03] text-zinc-300 hover:border-white/14 hover:text-white"
@@ -1602,10 +1721,10 @@ export default function AdminPage() {
                         onClick={() => openAdminTab(tab.key)}
                         type="button"
                       >
-                        <span className="flex items-center gap-2">
-                          <span className="text-[12px] font-black leading-none">{tab.label}</span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-black leading-none">{tab.label}</span>
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
+                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${
                               isActive ? "bg-white/10 text-pink-50" : "bg-black/25 text-zinc-400"
                             }`}
                           >
@@ -2754,6 +2873,143 @@ export default function AdminPage() {
                 </div>
               </div>
               <button className="mt-4 w-full rounded-2xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-3 text-sm font-black text-yellow-50 transition hover:border-yellow-100/60 disabled:cursor-not-allowed disabled:opacity-50" disabled={isBusy || !loadedSections.premiumTitle} onClick={() => void savePremiumTitle()} type="button">Save Premium Title Rotation</button>
+            </div>
+          )}
+
+          {activeTab === "premiumTitle" && (
+            <div className="mt-4 rounded-[1.5rem] border border-yellow-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(250,204,21,0.08)]">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-yellow-200/70">Premium Title Pool</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    When the current offer expires and no manual &quot;next&quot; title above is queued, the rotation
+                    automatically advances to the next enabled entry below (in order, wrapping around) - nothing to do manually.
+                  </p>
+                </div>
+                <button className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200" disabled={isBusy} onClick={() => void loadPremiumTitlePool()} type="button">Refresh</button>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {premiumTitlePool.length === 0 ? (
+                  <p className="text-xs text-zinc-500">No pool entries yet. Add one below.</p>
+                ) : (
+                  premiumTitlePool.map((entry, index) => {
+                    const isCurrent = premiumTitleConfig?.current_pool_id === entry.id;
+                    return (
+                      <div
+                        className={`rounded-2xl border p-3 ${isCurrent ? "border-emerald-200/30 bg-emerald-400/[0.06]" : "border-white/10 bg-white/[0.03]"}`}
+                        key={entry.id}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex flex-col gap-1">
+                            <button
+                              className="rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-xs text-zinc-300 disabled:opacity-30"
+                              disabled={isBusy || index === 0}
+                              onClick={() => void movePremiumTitlePoolEntry(entry.id, "up")}
+                              type="button"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              className="rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-xs text-zinc-300 disabled:opacity-30"
+                              disabled={isBusy || index === premiumTitlePool.length - 1}
+                              onClick={() => void movePremiumTitlePoolEntry(entry.id, "down")}
+                              type="button"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                          <div className="min-w-0 flex-1 space-y-2">
+                            {isCurrent && (
+                              <span className="inline-block rounded-full border border-emerald-200/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-100">
+                                Currently active
+                              </span>
+                            )}
+                            <input
+                              className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                              onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, name: event.target.value } : item))}
+                              placeholder="Title name"
+                              value={entry.name}
+                            />
+                            <textarea
+                              className="min-h-16 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                              onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, description: event.target.value } : item))}
+                              placeholder="Description"
+                              value={entry.description}
+                            />
+                            <div className="flex flex-wrap items-center gap-3">
+                              <input
+                                className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                                min={0}
+                                onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, price: Number(event.target.value) } : item))}
+                                type="number"
+                                value={entry.price}
+                              />
+                              <label className="flex items-center gap-2 text-xs text-zinc-300">
+                                <input
+                                  checked={entry.enabled}
+                                  onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, enabled: event.target.checked } : item))}
+                                  type="checkbox"
+                                />
+                                Enabled
+                              </label>
+                              <button
+                                className="rounded-xl border border-yellow-100/30 bg-yellow-300/15 px-3 py-1.5 text-xs font-bold text-yellow-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={isBusy}
+                                onClick={() => void savePremiumTitlePoolEntry(entry)}
+                                type="button"
+                              >
+                                Save
+                              </button>
+                              <button
+                                className="rounded-xl border border-red-200/30 bg-red-400/10 px-3 py-1.5 text-xs font-bold text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                disabled={isBusy}
+                                onClick={() => void deletePremiumTitlePoolEntry(entry.id)}
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="mt-4 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-300">Add new pool entry</p>
+                <input
+                  className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                  onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, name: event.target.value }))}
+                  placeholder="Title name"
+                  value={premiumTitlePoolForm.name}
+                />
+                <textarea
+                  className="min-h-16 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                  onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, description: event.target.value }))}
+                  placeholder="Description"
+                  value={premiumTitlePoolForm.description}
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white"
+                    min={0}
+                    onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, price: event.target.value }))}
+                    type="number"
+                    value={premiumTitlePoolForm.price}
+                  />
+                  <button
+                    className="rounded-xl border border-yellow-100/30 bg-yellow-300/15 px-4 py-2 text-sm font-bold text-yellow-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isBusy || !premiumTitlePoolForm.name.trim() || !premiumTitlePoolForm.description.trim()}
+                    onClick={() => void addPremiumTitlePoolEntry()}
+                    type="button"
+                  >
+                    Add to pool
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

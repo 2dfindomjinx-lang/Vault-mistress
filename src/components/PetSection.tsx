@@ -8,6 +8,11 @@ import {
   PET_THRONE_AMOUNTS,
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
+import {
+  getWorshipComplimentPlaceholder,
+  PET_OWNERSHIP_OATH_REPEAT_COUNT,
+  PET_WORSHIP_MIN_AMOUNT,
+} from "@/lib/pet-tasks-content";
 import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
@@ -596,6 +601,10 @@ export function PetSection({
   onCancelThroneTribute,
   onClaimAffection,
   onConfessionSubmit,
+  onOwnershipOathSubmit,
+  onWorshipSubmit,
+  worshipCategory = null,
+  worshipImagePath = null,
   onCompleteTask,
   onCooldownAttempt,
   onDebtAutoPayChange = () => {},
@@ -638,6 +647,10 @@ export function PetSection({
   onCancelThroneTribute: () => void;
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
+  onOwnershipOathSubmit: (value: string, options?: { cheated?: boolean }) => void;
+  onWorshipSubmit: (amount: number, compliment: string) => void;
+  worshipCategory?: "feet" | "ass" | "breasts" | null;
+  worshipImagePath?: string | null;
   onCompleteTask: (taskId: string) => void;
   onCooldownAttempt?: (message: string) => void;
   onDebtAutoPayChange?: (enabled: boolean) => void;
@@ -709,6 +722,9 @@ export function PetSection({
   const [evilWaitRemaining, setEvilWaitRemaining] = useState(120);
   const [evilTeaseIndex, setEvilTeaseIndex] = useState(0);
   const [confessionInput, setConfessionInput] = useState("");
+  const [oathInput, setOathInput] = useState("");
+  const [worshipAmountInput, setWorshipAmountInput] = useState("");
+  const [worshipComplimentInput, setWorshipComplimentInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
   const [selectedThroneAmount, setSelectedThroneAmount] = useState<number>(PET_THRONE_AMOUNTS[0]);
   const [throneProofError, setThroneProofError] = useState("");
@@ -1279,6 +1295,24 @@ export function PetSection({
     onConfessionSubmit("", { cheated: true });
   }
 
+  function handleOathSubmit() {
+    onOwnershipOathSubmit(oathInput);
+    setOathInput("");
+  }
+
+  function handleWorshipSubmit() {
+    const amount = Math.floor(Number(worshipAmountInput));
+    if (!Number.isFinite(amount)) return;
+    onWorshipSubmit(amount, worshipComplimentInput);
+    setWorshipAmountInput("");
+    setWorshipComplimentInput("");
+  }
+
+  function handleOathPasteAttempt() {
+    setOathInput("");
+    onOwnershipOathSubmit("", { cheated: true });
+  }
+
   const evilTeaseBoxes = [
     { left: "7%", top: "12%", text: "Confirm obedience" },
     { left: "42%", top: "35%", text: "Confirm obedience" },
@@ -1586,6 +1620,107 @@ export function PetSection({
                         type="button"
                       >
                         Submit Line
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "ownership-oath" && (
+                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                      <span
+                        className="block select-none"
+                        onContextMenu={(event) => event.preventDefault()}
+                      >
+                        {task.sentence}
+                      </span>
+                      </p>
+                      <div className="h-2 overflow-hidden rounded-full bg-black/70">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
+                          style={{ width: `${((task.oathCount ?? 0) / PET_OWNERSHIP_OATH_REPEAT_COUNT) * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-xs font-bold text-red-100">
+                        {task.oathCount ?? 0}/{PET_OWNERSHIP_OATH_REPEAT_COUNT} exact repetitions
+                      </p>
+                      <input
+                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
+                        onKeyDown={(event) => {
+                          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+                            event.preventDefault();
+                            handleOathPasteAttempt();
+                          }
+                        }}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          handleOathPasteAttempt();
+                        }}
+                        onChange={(event) => setOathInput(event.target.value)}
+                        placeholder="Type the oath exactly..."
+                        value={oathInput}
+                      />
+                      <button
+                        className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending || oathInput.length === 0}
+                        onClick={handleOathSubmit}
+                        type="button"
+                      >
+                        Submit Line
+                      </button>
+                    </div>
+                  )}
+
+                  {task.kind === "worship" && (
+                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+                      {worshipImagePath ? (
+                        <img
+                          alt={`Worship: ${worshipCategory ?? ""}`}
+                          className="h-64 w-full rounded-2xl border border-red-200/15 bg-black/40 object-contain"
+                          src={worshipImagePath}
+                        />
+                      ) : (
+                        <div className="flex h-40 items-center justify-center rounded-2xl border border-red-200/15 bg-black/40 text-center text-xs text-red-200/60">
+                          Awaiting worship images.
+                        </div>
+                      )}
+                      <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
+                        {worshipCategory ? `Today: ${worshipCategory}` : "Today's tribute"}
+                      </p>
+                      <input
+                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
+                        inputMode="numeric"
+                        min={PET_WORSHIP_MIN_AMOUNT}
+                        onChange={(event) => setWorshipAmountInput(event.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder={`Send for my ${worshipCategory ?? "worship"}... (min ${PET_WORSHIP_MIN_AMOUNT})`}
+                        type="number"
+                        value={worshipAmountInput}
+                      />
+                      <textarea
+                        className="w-full resize-none rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={disabled || coolingDown || task.status === "approved" || actionPending}
+                        onChange={(event) => setWorshipComplimentInput(event.target.value)}
+                        placeholder={
+                          worshipCategory ? getWorshipComplimentPlaceholder(worshipCategory) : "Write your worship line..."
+                        }
+                        rows={2}
+                        value={worshipComplimentInput}
+                      />
+                      <button
+                        className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={
+                          disabled ||
+                          coolingDown ||
+                          task.status === "approved" ||
+                          actionPending ||
+                          Number(worshipAmountInput || 0) < PET_WORSHIP_MIN_AMOUNT ||
+                          worshipComplimentInput.trim().length === 0
+                        }
+                        onClick={handleWorshipSubmit}
+                        type="button"
+                      >
+                        Send Tribute
                       </button>
                     </div>
                   )}

@@ -124,6 +124,8 @@ export type PetTaskItem = {
     | "review"
     | "throne-tribute"
     | "confession-writing"
+    | "ownership-oath"
+    | "worship"
     | "perfect-writing"
     | "weekly-tax"
     | "case-open"
@@ -149,6 +151,7 @@ export type PetTaskItem = {
   highLowResetAt?: string | null;
   highLowRoundAvailableAt?: string | null;
   confessionCount?: number;
+  oathCount?: number;
   deadlineAt?: string | null;
   falseHopeProgress?: number;
   falseHopeStage?: number;
@@ -177,6 +180,8 @@ export type PetTaskItem = {
   clickImage?: string | null;
   clickProgress?: number;
   clickRequirement?: number;
+  worshipCategory?: "feet" | "ass" | "breasts" | null;
+  worshipImagePath?: string | null;
 };
 
 export type PetDebtContract = {

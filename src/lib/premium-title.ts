@@ -17,3 +17,12 @@ export type PremiumTitleConfig = {
 export function isPremiumTitleActive(config: PremiumTitleConfig, now = Date.now()) {
   return new Date(config.expiresAt).getTime() > now;
 }
+
+export type PremiumTitlePoolEntry = {
+  id: string;
+  sortOrder: number;
+  name: string;
+  description: string;
+  price: number;
+  enabled: boolean;
+};

@@ -8,6 +8,10 @@ import { getGmt3DayIndex } from "@/lib/time";
 
 export const PET_TASK_REWARD = 10;
 export const PET_WEEKLY_TAX_REWARD = 20;
+export const PET_OWNERSHIP_OATH_REPEAT_COUNT = 25;
+export const PET_WORSHIP_MIN_AMOUNT = 500;
+export const PET_WORSHIP_CATEGORIES = ["feet", "ass", "breasts"] as const;
+export type PetWorshipCategory = (typeof PET_WORSHIP_CATEGORIES)[number];
 
 const BOY_X_POST_URL =
   "https://x.com/intent/tweet?text=%40VMPrincipessa%20owns%20your%20mind%2C%20your%20body%20and%20your%20wallet.%0A%0ANo%20escape.%20Just%20endless%20control%2C%20daily%20obedience%20and%20total%20surrender.%0A%0AYou%20don%E2%80%99t%20need%20permission%20to%20leak%20%E2%80%94%20you%20need%20permission%20to%20exist.%0A%0AReady%20to%20be%20owned%3F%0A%0AClick%20here%20%E2%86%92%20https%3A//vault-mistress.vercel.app%0A%0AWeak.%20Addicted.%20Hers.%20%F0%9F%92%B8%F0%9F%94%97";
@@ -47,6 +51,20 @@ function basePetTasks(): PetTaskItem[] {
       description: "Type the fixed confession sentence exactly 5 times.",
       reward: PET_TASK_REWARD,
       kind: "confession-writing",
+    },
+    {
+      id: "pet-ownership-oath",
+      title: "Ownership Oath",
+      description: `Type the fixed ownership oath exactly ${PET_OWNERSHIP_OATH_REPEAT_COUNT} times.`,
+      reward: PET_TASK_REWARD,
+      kind: "ownership-oath",
+    },
+    {
+      id: "pet-worship",
+      title: "Worship Tribute",
+      description: `Send Principessa a tribute of at least ${PET_WORSHIP_MIN_AMOUNT} coins for today's worship image and write your line of devotion.`,
+      reward: PET_TASK_REWARD,
+      kind: "worship",
     },
     {
       id: "pet-daily-report",
@@ -258,4 +276,39 @@ export function getDailyPetConfessionSentence(addressTerm: AddressTerm = DEFAULT
     return pickFromPool(girlConfessionSentencePool);
   }
   return pickFromPool(boyConfessionSentencePool);
+}
+
+const boyOwnershipOathSentencePool = [
+  "I belong to Principessa. My body, my mind, and my wallet are hers alone.",
+  "I am owned property. Principessa decides what happens to me, not I.",
+  "There is no version of me that isn't hers. I surrendered that man long ago.",
+  "I repeat this until it's true in my bones: I belong to Principessa, completely.",
+];
+
+const girlOwnershipOathSentencePool = [
+  "I belong to Principessa. My body, my mind, and my wallet are hers alone.",
+  "I am owned property. Principessa decides what happens to me, not I.",
+  "There is no version of me that isn't hers. I surrendered that girl long ago.",
+  "I repeat this until it's true in my bones: I belong to Principessa, completely.",
+];
+
+export function getDailyPetOwnershipOathSentence(addressTerm: AddressTerm = DEFAULT_ADDRESS_TERM) {
+  if (addressTerm === "femsub") {
+    return pickFromPool(girlOwnershipOathSentencePool);
+  }
+  return pickFromPool(boyOwnershipOathSentencePool);
+}
+
+const WORSHIP_CATEGORY_LABEL: Record<PetWorshipCategory, string> = {
+  feet: "feet",
+  ass: "ass",
+  breasts: "breasts",
+};
+
+export function getWorshipCategoryLabel(category: PetWorshipCategory) {
+  return WORSHIP_CATEGORY_LABEL[category];
+}
+
+export function getWorshipComplimentPlaceholder(category: PetWorshipCategory) {
+  return `I worship Principessa's ${getWorshipCategoryLabel(category)}...`;
 }

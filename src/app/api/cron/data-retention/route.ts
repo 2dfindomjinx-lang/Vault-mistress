@@ -111,14 +111,14 @@ export async function GET(request: Request) {
     // Click Game: daily flat progress reduction for every player ("Principessa
     // punishes neglect"), plus - only on the GMT+3 Monday this cron happens to
     // run on - the weekly leaderboard reset + champion title grant.
-    const { error: decayError } = await supabase.rpc("run_click_game_daily_decay", {
+    const { error: decayError } = await supabase.rpc("run_click_game_category_daily_decay", {
       p_reduction: CLICK_GAME_DAILY_REDUCTION,
       p_decay_date: getGmt3DateKey(),
     });
     if (decayError) console.warn("Click Game daily decay failed", decayError);
 
     if (new Date(Date.now() + GMT3_OFFSET_MS).getUTCDay() === 1) {
-      const { error: weeklyResetError } = await supabase.rpc("run_click_game_weekly_reset", {
+      const { error: weeklyResetError } = await supabase.rpc("run_click_game_category_weekly_reset", {
         p_week_start: getGmt3DateKey(),
         p_title_id: CLICK_GAME_CHAMPION_TITLE_ID,
       });

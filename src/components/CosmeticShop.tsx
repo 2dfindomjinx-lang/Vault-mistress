@@ -1,8 +1,26 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import type { CosmeticItem, TitleItem } from "@/lib/cosmetics";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
+
+function formatCountdown(targetIso: string) {
+  const remainingMs = Math.max(0, new Date(targetIso).getTime() - Date.now());
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m`;
+  }
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
 
 type CosmeticShopProps = {
   coins: number;
@@ -10,6 +28,7 @@ type CosmeticShopProps = {
   ownedCosmeticIds: string[];
   ownedTitleIds: string[];
   premiumTitle: TitleItem;
+  premiumTitleExpiresAt?: string | null;
   shopItems: CosmeticItem[];
   disabled?: boolean;
   eventSpeechAvatarId?: string | null;
@@ -30,11 +49,19 @@ export function CosmeticShop({
   pendingCosmeticIds = [],
   pendingTitleIds = [],
   premiumTitle,
+  premiumTitleExpiresAt = null,
   shopItems,
   onEquipCosmetic,
   onPurchaseCosmetic,
   onPurchaseTitle,
 }: CosmeticShopProps) {
+  const [, forceCountdownTick] = useState(0);
+
+  useEffect(() => {
+    if (!premiumTitleExpiresAt) return;
+    const interval = window.setInterval(() => forceCountdownTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(interval);
+  }, [premiumTitleExpiresAt]);
   const sortByPrice = (items: CosmeticItem[]) =>
     [...items].sort((a, b) => a.price - b.price);
   const groupedItems = [
@@ -310,6 +337,11 @@ export function CosmeticShop({
             </p>
             <h3 className="mt-1 text-xl font-black text-white">{premiumTitle.name}</h3>
             <p className="mt-1 text-sm text-yellow-50/75">{premiumTitle.description}</p>
+            {premiumTitleExpiresAt && (
+              <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-yellow-200/70">
+                New title in {formatCountdown(premiumTitleExpiresAt)}
+              </p>
+            )}
           </div>
           <button
             className="rounded-2xl border border-yellow-100/30 bg-yellow-400/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-100/60 enabled:hover:bg-yellow-400/25 disabled:cursor-not-allowed disabled:opacity-40"

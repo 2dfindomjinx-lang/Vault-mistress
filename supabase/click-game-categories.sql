@@ -152,3 +152,102 @@ end; $$;
 
 revoke all on function public.click_game_combined_leaderboard(integer, uuid) from public, anon, authenticated;
 grant execute on function public.click_game_combined_leaderboard(integer, uuid) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- run_click_game_category_weekly_reset: replaces run_click_game_weekly_reset
+-- (supabase/click-game.sql), which still operates on the old, no-longer-
+-- written-to click_game_state table - so it never found a winner and never
+-- reset the real (per-category) weekly_clicks. This version sums weekly_clicks
+-- across all 5 categories per user (same aggregation as
+-- click_game_combined_leaderboard), excludes admins, grants the champion
+-- title only the first time a user wins, and resets weekly_clicks to 0 across
+-- every category row. Idempotent against a same-week double-fire via the
+-- (user_id, week_start) unique constraint on click_game_win_history.
+create or replace function public.run_click_game_category_weekly_reset(p_week_start date, p_title_id text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_winner record;
+  v_already_won boolean;
+  v_title_newly_granted boolean := false;
+begin
+  select user_id, weekly_clicks into v_winner
+  from (
+    select s.user_id, sum(s.weekly_clicks) as weekly_clicks
+    from public.click_game_category_state s
+    join public.profiles p on p.id = s.user_id
+    where not coalesce(p.is_admin, false)
+    group by s.user_id
+    having sum(s.weekly_clicks) > 0
+  ) totals
+  order by weekly_clicks desc, user_id asc
+  limit 1;
+
+  if found then
+    perform 1 from public.click_game_category_state where user_id = v_winner.user_id for update;
+
+    select exists(
+      select 1 from public.user_titles where user_id = v_winner.user_id and title_id = p_title_id
+    ) into v_already_won;
+
+    v_title_newly_granted := not v_already_won;
+
+    if v_title_newly_granted then
+      insert into public.user_titles (user_id, title_id, source, equipped)
+      values (v_winner.user_id, p_title_id, 'click_game', false)
+      on conflict (user_id, title_id) do nothing;
+    end if;
+
+    insert into public.click_game_win_history (user_id, week_start, weekly_clicks, title_newly_granted)
+    values (v_winner.user_id, p_week_start, v_winner.weekly_clicks, v_title_newly_granted)
+    on conflict (user_id, week_start) do nothing;
+  end if;
+
+  update public.click_game_category_state set weekly_clicks = 0, updated_at = now() where weekly_clicks > 0;
+
+  return jsonb_build_object(
+    'winnerUserId', case when found then v_winner.user_id else null end,
+    'weeklyClicks', case when found then v_winner.weekly_clicks else 0 end,
+    'titleNewlyGranted', v_title_newly_granted
+  );
+end;
+$$;
+
+revoke all on function public.run_click_game_category_weekly_reset(date, text) from public, anon, authenticated;
+grant execute on function public.run_click_game_category_weekly_reset(date, text) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- run_click_game_category_daily_decay: replaces run_click_game_daily_decay
+-- (supabase/click-game.sql) for the same reason - that one only touches the
+-- old click_game_state table. This applies the daily flat reduction across
+-- every category row, guarded against a same-day double-fire the same way.
+create or replace function public.run_click_game_category_daily_decay(p_reduction integer, p_decay_date date)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_reduction integer := greatest(0, least(coalesce(p_reduction, 0), 100000));
+  v_updated integer;
+begin
+  begin
+    insert into public.click_game_daily_decay_log (decay_date) values (p_decay_date);
+  exception when unique_violation then
+    return jsonb_build_object('skipped', true, 'reason', 'already_applied_today');
+  end;
+
+  update public.click_game_category_state
+  set progress = greatest(0, progress - v_reduction), last_decay_settled_at = now(), updated_at = now()
+  where progress > 0;
+  get diagnostics v_updated = row_count;
+
+  return jsonb_build_object('usersReduced', v_updated, 'reduction', v_reduction);
+end;
+$$;
+
+revoke all on function public.run_click_game_category_daily_decay(integer, date) from public, anon, authenticated;
+grant execute on function public.run_click_game_category_daily_decay(integer, date) to service_role;
