@@ -1,4 +1,4 @@
-import { requireAdminProfile } from "@/lib/admin-guard";
+import { requireMobileAdmin } from "@/lib/mobile-admin";
 import {
   loadWallpaperAdminState,
   runWallpaperAdminAction,
@@ -8,8 +8,8 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
-  const admin = await requireAdminProfile();
+export async function GET(request: Request) {
+  const admin = await requireMobileAdmin(request);
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
@@ -25,12 +25,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const admin = await requireAdminProfile();
+  const admin = await requireMobileAdmin(request);
   if ("error" in admin) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const body = (await request.json()) as WallpaperAdminBody;
+  const body = (await request.json().catch(() => ({}))) as WallpaperAdminBody;
 
   try {
     const result = await runWallpaperAdminAction(admin.supabase, admin.adminUser.id, body);

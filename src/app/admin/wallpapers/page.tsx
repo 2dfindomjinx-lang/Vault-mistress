@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { WallpaperCropTool } from "@/components/admin/WallpaperCropTool";
-import { cropWallpaperImage } from "@/lib/wallpaper-crop";
+import { WALLPAPER_MIN_ZOOM, cropWallpaperImage } from "@/lib/wallpaper-crop";
 
 type Device = {
   id: string;
@@ -109,6 +109,7 @@ export default function WallpaperAdminPage() {
   const [file, setFile] = useState<File | null>(null);
   const [cropPanX, setCropPanX] = useState(0.5);
   const [cropPanY, setCropPanY] = useState(0.5);
+  const [cropZoom, setCropZoom] = useState(WALLPAPER_MIN_ZOOM);
   const [liveMessage, setLiveMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isBusy, setIsBusy] = useState(true);
@@ -223,7 +224,7 @@ export default function WallpaperAdminPage() {
     setIsBusy(true);
     setStatus("Görsel kırpılıyor…");
     try {
-      const croppedBlob = await cropWallpaperImage(file, cropPanX, cropPanY);
+      const croppedBlob = await cropWallpaperImage(file, cropPanX, cropPanY, cropZoom);
 
       setStatus("Yükleme hazırlanıyor…");
       const prepareResponse = await fetch("/api/admin/wallpapers", {
@@ -263,6 +264,7 @@ export default function WallpaperAdminPage() {
       setFile(null);
       setCropPanX(0.5);
       setCropPanY(0.5);
+      setCropZoom(WALLPAPER_MIN_ZOOM);
       const input = document.getElementById("wallpaper-file") as HTMLInputElement | null;
       if (input) input.value = "";
       setStatus(`${targetTitle} için yeni duvar kâğıdı uygulandı.`);
@@ -519,6 +521,7 @@ export default function WallpaperAdminPage() {
                       setFile(event.target.files?.[0] ?? null);
                       setCropPanX(0.5);
                       setCropPanY(0.5);
+                      setCropZoom(WALLPAPER_MIN_ZOOM);
                     }}
                     type="file"
                   />
@@ -530,8 +533,10 @@ export default function WallpaperAdminPage() {
                           setCropPanX(nextPanX);
                           setCropPanY(nextPanY);
                         }}
+                        onZoomChange={setCropZoom}
                         panX={cropPanX}
                         panY={cropPanY}
+                        zoom={cropZoom}
                       />
                     </div>
                   )}

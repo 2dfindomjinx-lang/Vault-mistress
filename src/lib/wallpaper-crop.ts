@@ -6,6 +6,14 @@ export const WALLPAPER_TARGET_ASPECT_RATIO = 9 / 19.5;
 export const WALLPAPER_OUTPUT_WIDTH = 1080;
 export const WALLPAPER_OUTPUT_HEIGHT = Math.round(WALLPAPER_OUTPUT_WIDTH / WALLPAPER_TARGET_ASPECT_RATIO);
 
+export const WALLPAPER_MIN_ZOOM = 1;
+export const WALLPAPER_MAX_ZOOM = 5;
+
+export function clampWallpaperZoom(zoom: number) {
+  if (!Number.isFinite(zoom)) return WALLPAPER_MIN_ZOOM;
+  return Math.min(WALLPAPER_MAX_ZOOM, Math.max(WALLPAPER_MIN_ZOOM, zoom));
+}
+
 export type WallpaperCropLayout = {
   displayWidth: number;
   displayHeight: number;
@@ -19,7 +27,11 @@ export type WallpaperCropLayout = {
  * "Cover" layout math shared by the preview tool and the final export canvas.
  * panX/panY are 0..1 fractions of how far the crop window has been slid across
  * whichever axis overflows (0 = left/top edge visible, 1 = right/bottom edge,
- * 0.5 = centered - the previous fixed behavior).
+ * 0.5 = centered).
+ *
+ * zoom multiplies the cover scale: 1 fits the image to the frame the short way
+ * (the old fixed behavior), higher values crop tighter into the middle of the
+ * image so only part of it becomes the wallpaper.
  */
 export function getWallpaperCoverLayout(
   naturalWidth: number,
@@ -28,10 +40,12 @@ export function getWallpaperCoverLayout(
   boxHeight: number,
   panX: number,
   panY: number,
+  zoom: number = WALLPAPER_MIN_ZOOM,
 ): WallpaperCropLayout {
   const naturalRatio = naturalWidth / naturalHeight;
   const boxRatio = boxWidth / boxHeight;
-  const scale = naturalRatio > boxRatio ? boxHeight / naturalHeight : boxWidth / naturalWidth;
+  const coverScale = naturalRatio > boxRatio ? boxHeight / naturalHeight : boxWidth / naturalWidth;
+  const scale = coverScale * clampWallpaperZoom(zoom);
 
   const displayWidth = naturalWidth * scale;
   const displayHeight = naturalHeight * scale;
@@ -67,7 +81,12 @@ function loadImage(file: File | Blob): Promise<HTMLImageElement> {
   });
 }
 
-export async function cropWallpaperImage(file: File, panX: number, panY: number): Promise<Blob> {
+export async function cropWallpaperImage(
+  file: File,
+  panX: number,
+  panY: number,
+  zoom: number = WALLPAPER_MIN_ZOOM,
+): Promise<Blob> {
   const image = await loadImage(file);
   const canvas = document.createElement("canvas");
   canvas.width = WALLPAPER_OUTPUT_WIDTH;
@@ -85,6 +104,7 @@ export async function cropWallpaperImage(file: File, panX: number, panY: number)
     WALLPAPER_OUTPUT_HEIGHT,
     panX,
     panY,
+    zoom,
   );
   ctx.drawImage(image, layout.offsetX, layout.offsetY, layout.displayWidth, layout.displayHeight);
 
