@@ -410,6 +410,100 @@ export function TributePanel({
         </p>
       </div>
 
+      {/* Drain Session: its own top-level grid, same as Click Game below -
+          not nested inside the Shrine grid/card. */}
+      <div className="mt-5 rounded-[1.35rem] border border-rose-200/20 bg-black/30 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-100/70">Drain Session</p>
+          {drainActive && (
+            <span className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-rose-50">
+              Draining
+            </span>
+          )}
+        </div>
+
+        {(shrine?.revealedMemories?.length ?? 0) === 0 ? (
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            Unlock a Shrine Memory to enable Drain Sessions.
+          </p>
+        ) : (
+          <>
+            {drainActive && (
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/50">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#fbbf24,#f43f5e)] transition-[width] duration-1000 ease-linear"
+                  style={{
+                    width: `${Math.max(0, 100 - (drainTotal / Math.max(1, drainStartCoins)) * 100)}%`,
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {drainActive ? (
+                <>
+                  <p className="animate-pulse text-sm text-zinc-300">
+                    Drained: <span className="font-black text-rose-100">{drainTotal.toLocaleString()}</span>{" "}
+                    / Remaining: <span className="font-black text-amber-100">{Math.max(0, drainStartCoins - drainTotal).toLocaleString()}</span> coins
+                  </p>
+                  <button
+                    className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition hover:border-rose-200/60 hover:bg-rose-500/25"
+                    onClick={handleDrainStop}
+                    type="button"
+                  >
+                    Stop
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input
+                    className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none focus:border-rose-200/40"
+                    disabled={disabled}
+                    min={DRAIN_SESSION_MIN_RATE}
+                    max={DRAIN_SESSION_MAX_RATE}
+                    onChange={(event) => setDrainRateInput(event.target.value)}
+                    type="number"
+                    value={drainRateInput}
+                  />
+                  <p className="text-xs text-zinc-500">coins/sec (min {DRAIN_SESSION_MIN_RATE})</p>
+                  <button
+                    className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition enabled:hover:border-rose-200/60 enabled:hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={disabled || coins < DRAIN_SESSION_MIN_RATE}
+                    onClick={handleDrainStart}
+                    type="button"
+                  >
+                    Start Draining
+                  </button>
+                </>
+              )}
+            </div>
+            {drainError && <p className="mt-2 text-xs text-rose-200/80">{drainError}</p>}
+          </>
+        )}
+      </div>
+
+      {mounted &&
+        createPortal(
+          <div className="pointer-events-none fixed inset-0 z-[95]">
+            {drainFloaters.map((floater) => (
+              <Image
+                alt={floater.title}
+                className="absolute w-[min(38vw,220px)] rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-[fadeOut_3.5s_ease-in-out_both]"
+                height={280}
+                key={floater.id}
+                src={floater.path}
+                style={{
+                  left: `${floater.left}%`,
+                  top: `${floater.top}%`,
+                  transform: `rotate(${floater.rotate}deg)`,
+                }}
+                width={220}
+              />
+            ))}
+          </div>,
+          document.body,
+        )}
+
       {!hideAffectionOffer && (
         <>
       <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-3">
@@ -557,100 +651,6 @@ export function TributePanel({
               </div>
             ) : null}
             </div>
-
-          {/* Its own section, separate from the Shrine cards below - not one
-              of the Shrine grid tiles. */}
-          <div className="mt-4 rounded-[1.35rem] border border-rose-200/20 bg-black/35 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-100/70">Drain Session</p>
-              {drainActive && (
-                <span className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-rose-50">
-                  Draining
-                </span>
-              )}
-            </div>
-
-            {(shrine?.revealedMemories?.length ?? 0) === 0 ? (
-              <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Unlock a Shrine Memory to enable Drain Sessions.
-              </p>
-            ) : (
-              <>
-                {drainActive && (
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/50">
-                    <div
-                      className="h-full rounded-full bg-[linear-gradient(90deg,#fbbf24,#f43f5e)] transition-[width] duration-1000 ease-linear"
-                      style={{
-                        width: `${Math.max(0, 100 - (drainTotal / Math.max(1, drainStartCoins)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                )}
-
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  {drainActive ? (
-                    <>
-                      <p className="animate-pulse text-sm text-zinc-300">
-                        Drained: <span className="font-black text-rose-100">{drainTotal.toLocaleString()}</span>{" "}
-                        / Remaining: <span className="font-black text-amber-100">{Math.max(0, drainStartCoins - drainTotal).toLocaleString()}</span> coins
-                      </p>
-                      <button
-                        className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition hover:border-rose-200/60 hover:bg-rose-500/25"
-                        onClick={handleDrainStop}
-                        type="button"
-                      >
-                        Stop
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <input
-                        className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none focus:border-rose-200/40"
-                        disabled={disabled}
-                        min={DRAIN_SESSION_MIN_RATE}
-                        max={DRAIN_SESSION_MAX_RATE}
-                        onChange={(event) => setDrainRateInput(event.target.value)}
-                        type="number"
-                        value={drainRateInput}
-                      />
-                      <p className="text-xs text-zinc-500">coins/sec (min {DRAIN_SESSION_MIN_RATE})</p>
-                      <button
-                        className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition enabled:hover:border-rose-200/60 enabled:hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={disabled || coins < DRAIN_SESSION_MIN_RATE}
-                        onClick={handleDrainStart}
-                        type="button"
-                      >
-                        Start Draining
-                      </button>
-                    </>
-                  )}
-                </div>
-                {drainError && <p className="mt-2 text-xs text-rose-200/80">{drainError}</p>}
-              </>
-            )}
-          </div>
-
-          {mounted &&
-            createPortal(
-              <div className="pointer-events-none fixed inset-0 z-[95]">
-                {drainFloaters.map((floater) => (
-                  <Image
-                    alt={floater.title}
-                    className="absolute w-[min(38vw,220px)] rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-[fadeOut_3.5s_ease-in-out_both]"
-                    height={280}
-                    key={floater.id}
-                    src={floater.path}
-                    style={{
-                      left: `${floater.left}%`,
-                      top: `${floater.top}%`,
-                      transform: `rotate(${floater.rotate}deg)`,
-                    }}
-                    width={220}
-                  />
-                ))}
-              </div>,
-              document.body,
-            )}
 
             <div className="grid gap-4">
           <div className="court-feature-card court-grid-card rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
