@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   SHRINE_BONUS_LEVEL_STEP,
   SHRINE_IMAGE_UNLOCK_COST,
@@ -9,6 +10,15 @@ import {
   SHRINE_PURCHASE_OPTIONS,
   type ShrineStatus,
 } from "@/lib/shrine";
+import {
+  clampDrainSessionRate,
+  DRAIN_SESSION_DEFAULT_RATE,
+  DRAIN_SESSION_IMAGE_INTERVAL_MS,
+  DRAIN_SESSION_MAX_RATE,
+  DRAIN_SESSION_MIN_RATE,
+  DRAIN_SESSION_SYNC_INTERVAL_MS,
+  DRAIN_SESSION_TICK_MS,
+} from "@/lib/drain-session";
 import {
   CLICK_GAME_BATCH_DEBOUNCE_MS,
   CLICK_GAME_BATCH_FORCE_FLUSH_SIZE,
@@ -53,6 +63,7 @@ type TributePanelProps = {
   clickGameVisible?: boolean;
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
   clickGameStatusCategory?: ClickGameCategoryId | null;
+  onDrainSessionSync?: (amount: number) => Promise<boolean>;
 };
 
 const tributeOptions = [
@@ -60,6 +71,14 @@ const tributeOptions = [
   { amount: 1000, label: "Gilded Offering", boost: "+5 affection" },
   { amount: 5000, label: "Vault Tribute", boost: "+30 affection" },
 ];
+
+function randomDrainTransform() {
+  return {
+    left: Math.random() * 65, // % of viewport width - keeps the image on-screen
+    rotate: Math.random() * 90 - 45, // -45..45 degrees
+    top: Math.random() * 70, // % of viewport height
+  };
+}
 
 function formatCountdown(targetIso: string, nowMs: number) {
   const remainingMs = Math.max(0, new Date(targetIso).getTime() - nowMs);
@@ -93,6 +112,7 @@ export function TributePanel({
   clickGameVisible = false,
   onClickGameCategoryChange,
   clickGameStatusCategory = null,
+  onDrainSessionSync,
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
@@ -109,6 +129,116 @@ export function TributePanel({
   // instead of resetting the idle-debounce timer forever.
   const batchOpenedAtRef = useRef<number | null>(null);
   const [countdownNow, setCountdownNow] = useState(() => Date.now());
+
+  const [drainActive, setDrainActive] = useState(false);
+  const [drainRateInput, setDrainRateInput] = useState(String(DRAIN_SESSION_DEFAULT_RATE));
+  const [drainTotal, setDrainTotal] = useState(0);
+  const [drainImageIndex, setDrainImageIndex] = useState(0);
+  const [drainTransform, setDrainTransform] = useState({ left: 30, rotate: 0, top: 20 });
+  const [drainError, setDrainError] = useState("");
+  const [drainStartCoins, setDrainStartCoins] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-mount flag so the drain image portal only targets document.body after hydration
+    setMounted(true);
+  }, []);
+  const drainStartCoinsRef = useRef(0);
+  const drainRateRef = useRef(DRAIN_SESSION_DEFAULT_RATE);
+  const drainTotalRef = useRef(0);
+  const drainSyncedRef = useRef(0);
+  const drainTickTimerRef = useRef<number | null>(null);
+  const drainImageTimerRef = useRef<number | null>(null);
+  const drainSyncTimerRef = useRef<number | null>(null);
+  const drainSyncingRef = useRef(false);
+  // Kept in sync via effect (not during render) so the image-cycle interval,
+  // created once in handleDrainStart, always sees the latest unlocked list
+  // instead of a snapshot frozen at session start.
+  const drainImagesRef = useRef(shrine?.revealedMemories ?? []);
+  useEffect(() => {
+    drainImagesRef.current = shrine?.revealedMemories ?? [];
+  }, [shrine?.revealedMemories]);
+
+  const stopDrainTimers = () => {
+    if (drainTickTimerRef.current) { window.clearInterval(drainTickTimerRef.current); drainTickTimerRef.current = null; }
+    if (drainImageTimerRef.current) { window.clearInterval(drainImageTimerRef.current); drainImageTimerRef.current = null; }
+    if (drainSyncTimerRef.current) { window.clearInterval(drainSyncTimerRef.current); drainSyncTimerRef.current = null; }
+  };
+
+  // Reads drainTotalRef (not the drainTotal state) because this is invoked
+  // from setInterval callbacks created once in handleDrainStart - closing
+  // over the state value directly would freeze it at whatever it was when
+  // the interval was created instead of seeing later ticks.
+  const flushDrainSync = async (finalFlush: boolean) => {
+    const unsynced = drainTotalRef.current - drainSyncedRef.current;
+    if (unsynced <= 0 || !onDrainSessionSync || drainSyncingRef.current) return;
+    drainSyncingRef.current = true;
+    try {
+      const ok = await onDrainSessionSync(unsynced);
+      if (ok) {
+        drainSyncedRef.current += unsynced;
+      } else if (!finalFlush) {
+        setDrainError("Drain session stopped - out of coins.");
+        setDrainActive(false);
+        stopDrainTimers();
+      }
+    } finally {
+      drainSyncingRef.current = false;
+    }
+  };
+
+  const handleDrainStart = () => {
+    const rate = clampDrainSessionRate(Number(drainRateInput));
+    if (coins < DRAIN_SESSION_MIN_RATE) {
+      setDrainError(`Need at least ${DRAIN_SESSION_MIN_RATE} coins to start.`);
+      return;
+    }
+    setDrainError("");
+    setDrainRateInput(String(rate));
+    drainRateRef.current = rate;
+    drainStartCoinsRef.current = coins;
+    setDrainStartCoins(coins);
+    drainSyncedRef.current = 0;
+    drainTotalRef.current = 0;
+    setDrainTotal(0);
+    setDrainImageIndex(Math.floor(Math.random() * Math.max(1, drainImagesRef.current.length)));
+    setDrainTransform(randomDrainTransform());
+    setDrainActive(true);
+
+    drainTickTimerRef.current = window.setInterval(() => {
+      const next = Math.min(drainStartCoinsRef.current, drainTotalRef.current + drainRateRef.current);
+      drainTotalRef.current = next;
+      setDrainTotal(next);
+      if (next >= drainStartCoinsRef.current) {
+        setDrainActive(false);
+        stopDrainTimers();
+        void flushDrainSync(true);
+        setDrainError("Drain session stopped - balance reached 0.");
+      }
+    }, DRAIN_SESSION_TICK_MS);
+    drainImageTimerRef.current = window.setInterval(() => {
+      const count = drainImagesRef.current.length;
+      if (count > 0) {
+        setDrainImageIndex((current) => {
+          if (count === 1) return 0;
+          let next = Math.floor(Math.random() * count);
+          while (next === current) next = Math.floor(Math.random() * count);
+          return next;
+        });
+      }
+      setDrainTransform(randomDrainTransform());
+    }, DRAIN_SESSION_IMAGE_INTERVAL_MS);
+    drainSyncTimerRef.current = window.setInterval(() => {
+      void flushDrainSync(false);
+    }, DRAIN_SESSION_SYNC_INTERVAL_MS);
+  };
+
+  const handleDrainStop = () => {
+    setDrainActive(false);
+    stopDrainTimers();
+    void flushDrainSync(true);
+  };
+
+  useEffect(() => stopDrainTimers, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => setCountdownNow(Date.now()), 60_000);
@@ -484,6 +614,97 @@ export function TributePanel({
                   : "No Shrine Memories have been placed yet, but your offerings are already being remembered."}
               </p>
             </div>
+
+            <div className="rounded-[1.35rem] border border-amber-200/15 bg-black/30 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">Drain Session</p>
+                {drainActive && (
+                  <span className="rounded-full border border-rose-200/20 bg-rose-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-rose-50">
+                    Draining
+                  </span>
+                )}
+              </div>
+
+              {(shrine?.revealedMemories?.length ?? 0) === 0 ? (
+                <p className="mt-3 text-sm leading-6 text-zinc-400">
+                  Unlock a Shrine Memory to enable Drain Sessions.
+                </p>
+              ) : (
+                <>
+                  {drainActive && (
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/50">
+                      <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#fbbf24,#f43f5e)] transition-[width] duration-1000 ease-linear"
+                        style={{
+                          width: `${Math.max(0, 100 - (drainTotal / Math.max(1, drainStartCoins)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {drainActive ? (
+                      <>
+                        <p className="animate-pulse text-sm text-zinc-300">
+                          Drained: <span className="font-black text-rose-100">{drainTotal.toLocaleString()}</span>{" "}
+                          / Remaining: <span className="font-black text-amber-100">{Math.max(0, drainStartCoins - drainTotal).toLocaleString()}</span> coins
+                        </p>
+                        <button
+                          className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition hover:border-rose-200/60 hover:bg-rose-500/25"
+                          onClick={handleDrainStop}
+                          type="button"
+                        >
+                          Stop
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <input
+                          className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none focus:border-rose-200/40"
+                          disabled={disabled}
+                          min={DRAIN_SESSION_MIN_RATE}
+                          max={DRAIN_SESSION_MAX_RATE}
+                          onChange={(event) => setDrainRateInput(event.target.value)}
+                          type="number"
+                          value={drainRateInput}
+                        />
+                        <p className="text-xs text-zinc-500">coins/sec (min {DRAIN_SESSION_MIN_RATE})</p>
+                        <button
+                          className="rounded-full border border-rose-200/30 bg-rose-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-rose-50 transition enabled:hover:border-rose-200/60 enabled:hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={disabled || coins < DRAIN_SESSION_MIN_RATE}
+                          onClick={handleDrainStart}
+                          type="button"
+                        >
+                          Start Draining
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {drainError && <p className="mt-2 text-xs text-rose-200/80">{drainError}</p>}
+                </>
+              )}
+            </div>
+
+            {mounted && drainActive && shrine?.revealedMemories?.length ? (
+              createPortal(
+                <div className="pointer-events-none fixed inset-0 z-[70]">
+                  <Image
+                    alt={shrine.revealedMemories[drainImageIndex % shrine.revealedMemories.length]?.title ?? "Shrine Memory"}
+                    className="absolute w-[min(38vw,220px)] rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)] transition-all duration-700 ease-out"
+                    height={280}
+                    src={shrine.revealedMemories[drainImageIndex % shrine.revealedMemories.length]?.path ?? ""}
+                    style={{
+                      left: `${drainTransform.left}%`,
+                      top: `${drainTransform.top}%`,
+                      transform: `rotate(${drainTransform.rotate}deg)`,
+                    }}
+                    width={220}
+                  />
+                </div>,
+                document.body,
+              )
+            ) : null}
+
               <div className="rounded-[1.35rem] border border-amber-200/15 bg-black/30 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-100/70">
                   Top 3 Worshippers

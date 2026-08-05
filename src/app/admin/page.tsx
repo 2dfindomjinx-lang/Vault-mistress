@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
-import { getNextClickGameWeeklyResetAt } from "@/lib/click-game";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
 
 type ConsoleArgKind = "value" | "caseType" | "titleKey";
@@ -214,7 +213,6 @@ type CaseOpener = {
 type AdminTabKey =
   | "announcements"
   | "caseOpeners"
-  | "clickGame"
   | "console"
   | "debt"
   | "events"
@@ -326,13 +324,6 @@ export default function AdminPage() {
   const [premiumTitleConfig, setPremiumTitleConfig] = useState<AdminPremiumTitleConfig | null>(null);
   const [premiumTitlePool, setPremiumTitlePool] = useState<AdminPremiumTitlePoolEntry[]>([]);
   const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000", durationHours: "720" });
-  const [clickGameWeeklyResetResult, setClickGameWeeklyResetResult] = useState<{
-    winnerUserId: string | null;
-    weeklyClicks: number;
-    titleNewlyGranted: boolean;
-    winnerLabel: string | null;
-  } | null>(null);
-  const [isClickGameWeeklyResetRunning, setIsClickGameWeeklyResetRunning] = useState(false);
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
   const [announcementBody, setAnnouncementBody] = useState(
@@ -825,33 +816,6 @@ export default function AdminPage() {
       await loadPremiumTitlePool();
     } finally {
       setIsBusy(false);
-    }
-  };
-
-  const runClickGameWeeklyReset = async () => {
-    setIsClickGameWeeklyResetRunning(true);
-    setStatus("");
-    try {
-      const response = await fetch("/api/admin/click-game/weekly-reset", { method: "POST" });
-      const result = await response.json() as {
-        error?: string;
-        result?: { winnerUserId: string | null; weeklyClicks: number; titleNewlyGranted: boolean };
-        winnerProfile?: { username: string; display_name: string | null } | null;
-      };
-      if (!response.ok || !result.result) throw new Error(result.error ?? "Click Game weekly reset failed.");
-      setClickGameWeeklyResetResult({
-        winnerUserId: result.result.winnerUserId,
-        weeklyClicks: result.result.weeklyClicks,
-        titleNewlyGranted: result.result.titleNewlyGranted,
-        winnerLabel: result.winnerProfile
-          ? (result.winnerProfile.display_name ?? result.winnerProfile.username)
-          : null,
-      });
-      setStatus("Click Game weekly reset ran.");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Click Game weekly reset failed.");
-    } finally {
-      setIsClickGameWeeklyResetRunning(false);
     }
   };
 
@@ -1608,14 +1572,6 @@ export default function AdminPage() {
       description: "Change the active and next shop title without a deploy.",
       countLabel: loadedSections.premiumTitle && premiumTitleConfig ? "1" : "0",
       tone: "from-yellow-500/16 via-amber-500/10 to-transparent border-yellow-300/18",
-    },
-    {
-      key: "clickGame",
-      label: "Click Game",
-      eyebrow: "Weekly champion",
-      description: "Manually verify or re-run the weekly champion determination.",
-      countLabel: clickGameWeeklyResetResult ? "1" : "0",
-      tone: "from-fuchsia-500/16 via-purple-500/10 to-transparent border-fuchsia-300/18",
     },
     {
       key: "timeouts",
@@ -3030,44 +2986,6 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {activeTab === "clickGame" && (
-            <div className="mt-4 rounded-[1.5rem] border border-fuchsia-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(217,70,239,0.08)]">
-              <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">Click Game Weekly Champion</p>
-              <p className="mt-1 text-xs text-zinc-500">
-                Normally determined automatically by the daily cron, only on the GMT+3 Monday it happens to run on.
-                Next automatic run: {formatRemaining(getNextClickGameWeeklyResetAt(adminNow).toISOString(), adminNow)}.
-                Use the button below to verify it works or re-run it on demand.
-              </p>
-              <button
-                className="mt-4 rounded-2xl border border-fuchsia-100/30 bg-fuchsia-300/15 px-4 py-3 text-sm font-black text-fuchsia-50 transition hover:border-fuchsia-100/60 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isClickGameWeeklyResetRunning}
-                onClick={() => void runClickGameWeeklyReset()}
-                type="button"
-              >
-                {isClickGameWeeklyResetRunning ? "Running..." : "Run weekly reset now"}
-              </button>
-              {clickGameWeeklyResetResult && (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-sm text-zinc-200">
-                  {clickGameWeeklyResetResult.winnerUserId ? (
-                    <>
-                      <p>
-                        Winner: <span className="font-bold text-fuchsia-200">{clickGameWeeklyResetResult.winnerLabel ?? clickGameWeeklyResetResult.winnerUserId}</span>{" "}
-                        with {clickGameWeeklyResetResult.weeklyClicks.toLocaleString()} weekly clicks.
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {clickGameWeeklyResetResult.titleNewlyGranted
-                          ? "Champion title granted for the first time."
-                          : "Already had the champion title - not re-granted."}
-                      </p>
-                    </>
-                  ) : (
-                    <p>No winner this run (nobody has clicked this week). Weekly counters were still reset.</p>
-                  )}
-                </div>
-              )}
             </div>
           )}
 

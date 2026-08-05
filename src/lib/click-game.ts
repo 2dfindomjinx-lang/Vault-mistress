@@ -11,14 +11,13 @@ export const CLICK_GAME_THRESHOLDS = [50, 150, 350, 700, 1300, 2300, 4000, 7000,
 
 export const CLICK_GAME_CHAMPION_TITLE_ID = "click-game-weekly-champion";
 
-// Matches vercel.json's cron schedule ("0 3 * * *" = 03:00 UTC daily) and
-// the GMT+3-Monday gate in src/app/api/cron/data-retention/route.ts - the
-// weekly champion reset only actually runs on the cron firing that lands on
-// a GMT+3 Monday, which is 03:00 UTC Monday (= 06:00 GMT+3 Monday, still
-// Monday). Used purely to render an honest "next determined in" countdown.
+// Matches vercel.json's dedicated cron schedule for
+// src/app/api/cron/click-game-weekly-reset/route.ts ("0 0 * * 1" = exactly
+// UTC Monday 00:00). Used purely to render an honest "next determined in"
+// countdown.
 export function getNextClickGameWeeklyResetAt(date: Date | number | string = new Date()): Date {
   const now = new Date(date);
-  const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 3, 0, 0, 0));
+  const candidate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
   while (candidate.getUTCDay() !== 1 || candidate.getTime() <= now.getTime()) {
     candidate.setUTCDate(candidate.getUTCDate() + 1);
   }

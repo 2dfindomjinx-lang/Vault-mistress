@@ -8134,6 +8134,37 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  const handleDrainSessionSync = async (amount: number): Promise<boolean> => {
+    if (amount <= 0) return true;
+
+    if (isGuestMode) {
+      if (coinsRef.current < amount) return false;
+      const nextCoins = coinsRef.current - amount;
+      setCoins(nextCoins);
+      coinsRef.current = nextCoins;
+      return true;
+    }
+
+    try {
+      const response = await fetch("/api/user/drain-session", {
+        body: JSON.stringify({ amount }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; profile?: Profile } | null;
+
+      if (!response.ok || !payload?.profile) {
+        return false;
+      }
+
+      applyProfileStats(payload.profile);
+      return true;
+    } catch (error) {
+      console.error("Failed to sync drain session", error);
+      return false;
+    }
+  };
+
   const handleClickGameToggle = async (action: "start" | "stop" | "reset") => {
     if (blockIfTimedOut()) {
       return;
@@ -11770,6 +11801,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               clickGameVisible={CLICK_GAME_ENABLED}
               onClickGameCategoryChange={setClickGameCategory}
               clickGameStatusCategory={clickGameStatusCategory}
+              onDrainSessionSync={handleDrainSessionSync}
             />
           )}
           {activePanel === "collection" && (
