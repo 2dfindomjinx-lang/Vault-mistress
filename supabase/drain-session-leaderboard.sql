@@ -2,6 +2,17 @@
 -- Sums every drain:session coin_transactions row per user (already the
 -- authoritative spend ledger written by /api/user/drain-session), excludes
 -- admins, same posture as every other leaderboard in this project.
+
+-- Without this, the aggregate below scans the whole coin_transactions ledger.
+-- The existing coin_transactions_user_reason_idx is (user_id, reason), which
+-- cannot serve a "where reason = X group by user_id" lookup efficiently. This
+-- partial index covers exactly the rows this leaderboard reads and stays tiny
+-- regardless of how large the rest of the ledger grows.
+create index if not exists coin_transactions_drain_session_idx
+  on public.coin_transactions (user_id)
+  include (amount)
+  where reason = 'drain:session';
+
 create or replace function public.get_drain_session_leaderboard(p_limit integer default 3)
 returns jsonb
 language plpgsql

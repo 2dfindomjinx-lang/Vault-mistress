@@ -8150,7 +8150,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleDrainSessionSync = async (amount: number): Promise<boolean> => {
+  // isFinal marks the flush that happens when a drain session ends. The
+  // "Most Drained Subs" table aggregates the whole coin_transactions ledger,
+  // so it is refreshed only then - never on the periodic 5s syncs.
+  const handleDrainSessionSync = async (amount: number, isFinal = false): Promise<boolean> => {
     if (amount <= 0) return true;
 
     if (isGuestMode) {
@@ -8174,7 +8177,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       applyProfileStats(payload.profile);
-      loadDrainLeaderboard();
+      if (isFinal) loadDrainLeaderboard();
       return true;
     } catch (error) {
       console.error("Failed to sync drain session", error);

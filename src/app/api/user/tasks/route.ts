@@ -1,4 +1,4 @@
-import { getAllowedTaskRewards, getBaseTaskReward } from "@/lib/server-game-rules";
+import { getAllowedTaskRewards, getBaseTaskReward, SUPPORT_COST } from "@/lib/server-game-rules";
 import { getNextGmt3Reset } from "@/lib/time";
 import {
   createSupabaseAdminClient,
@@ -43,7 +43,6 @@ const DANGEROUS_METADATA_KEYS = [
   "date",
 ];
 
-const SUPPORT_COST = 2500;
 
 type ExistingTaskRow = {
   claimed_at: string | null;

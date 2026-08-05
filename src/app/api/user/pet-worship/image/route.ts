@@ -70,7 +70,11 @@ export async function GET(request: Request) {
   try {
     const original = await readFile(filePath);
     const headers: Record<string, string> = {
-      "Cache-Control": "private, no-store",
+      // Viewing is not gated, and today's pick is stable for the whole GMT+3
+      // day, so let the browser keep it instead of re-downloading the full
+      // image on every render. Still `private` - never shared/CDN cached.
+      // The download variant stays uncacheable because it is entitlement-gated.
+      "Cache-Control": wantsDownload ? "private, no-store" : "private, max-age=3600",
       "Content-Type": CONTENT_TYPES[ext] ?? "application/octet-stream",
     };
     if (wantsDownload) {

@@ -65,7 +65,7 @@ type TributePanelProps = {
   clickGameVisible?: boolean;
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
   clickGameStatusCategory?: ClickGameCategoryId | null;
-  onDrainSessionSync?: (amount: number) => Promise<boolean>;
+  onDrainSessionSync?: (amount: number, isFinal?: boolean) => Promise<boolean>;
   drainLeaderboard?: Array<{ rank: number; userId: string; username: string; displayName: string | null; drained: number }>;
 };
 
@@ -200,7 +200,7 @@ export function TributePanel({
     if (unsynced <= 0 || !onDrainSessionSync || drainSyncingRef.current) return;
     drainSyncingRef.current = true;
     try {
-      const ok = await onDrainSessionSync(unsynced);
+      const ok = await onDrainSessionSync(unsynced, finalFlush);
       if (ok) {
         drainSyncedRef.current += unsynced;
       } else if (!finalFlush) {

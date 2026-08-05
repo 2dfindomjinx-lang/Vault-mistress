@@ -34,6 +34,10 @@ export const SACRIFICE_ITEM_IDS = Array.from({ length: 10 }, (_, index) => `sacr
 export const SACRIFICE_COST = 500;
 export const SACRIFICE_UNLOCK_CHANCE = 0.35;
 
+// Mirror of the client's SUPPORT_COST (src/app/page.tsx). Kept here so every
+// server route validates the same value instead of re-declaring its own.
+export const SUPPORT_COST = 2500;
+
 // Server-authoritative mirror of the client's `petGalleryItems` (src/app/page.tsx):
 // free, pet_score-threshold gated. Keep the formula in sync with the client.
 export const petGalleryScoreRequirements = new Map<string, number>(

@@ -4,6 +4,8 @@ import {
   getTitlePrice,
   profileSelect,
   visibleGalleryCosts,
+  SACRIFICE_COST,
+  SUPPORT_COST,
   TIMEOUT_RISK_DAILY_SAFE_LIMIT,
 } from "@/lib/server-game-rules";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
@@ -254,8 +256,11 @@ export async function POST(request: Request) {
     nextAffection = current.affection;
     nextTribute = current.tribute_total ?? 0;
   } else if (reason === "tribute:sacrifice" || reason === "tribute:support") {
+    // Pin the charge to the server constant instead of trusting the client's
+    // reported spendAmount - every other spend branch above already does this.
+    const expectedAmount = reason === "tribute:sacrifice" ? SACRIFICE_COST : SUPPORT_COST;
     const spendAmount = numberFromMetadata(metadata, "spendAmount") || 0;
-    if (!spendAmount || current.coins < spendAmount) {
+    if (spendAmount !== expectedAmount || current.coins < expectedAmount) {
       return jsonError("Invalid tribute spend or insufficient funds.", 422);
     }
     nextCoins = current.coins - spendAmount;

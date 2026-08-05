@@ -6,6 +6,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -32,6 +33,13 @@ export async function GET() {
   if (authResult.error) return authResult.error;
 
   const supabase = createSupabaseAdminClient();
+
+  // This aggregates the coin_transactions ledger, so it is the most expensive
+  // call in this route - bound it even though the client only asks on mount
+  // and when a session ends.
+  const limit = await checkRateLimit(supabase, `drain-leaderboard:${authResult.userId}`, 10, 60);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+
   const { data, error } = await supabase.rpc("get_drain_session_leaderboard", { p_limit: 3 });
 
   if (error) {
@@ -61,6 +69,13 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+
+  // A live session syncs once every DRAIN_SESSION_SYNC_INTERVAL_MS (5s), so
+  // ~12/min is the honest ceiling; 30 leaves headroom for a stop-flush and a
+  // restart without ever letting a script hammer the ledger.
+  const limit = await checkRateLimit(supabase, `drain-session:${userId}`, 30, 60);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
     .select(profileSelect)
