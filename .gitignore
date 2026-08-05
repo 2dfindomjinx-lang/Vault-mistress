@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# database migrations - kept local only. They are run by hand against Supabase
+# and are not part of the deployed app, and some contain real usernames.
+/supabase/
