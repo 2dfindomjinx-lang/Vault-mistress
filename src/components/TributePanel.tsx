@@ -66,6 +66,7 @@ type TributePanelProps = {
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
   clickGameStatusCategory?: ClickGameCategoryId | null;
   onDrainSessionSync?: (amount: number) => Promise<boolean>;
+  drainLeaderboard?: Array<{ rank: number; userId: string; username: string; displayName: string | null; drained: number }>;
 };
 
 const tributeOptions = [
@@ -117,6 +118,7 @@ export function TributePanel({
   onClickGameCategoryChange,
   clickGameStatusCategory = null,
   onDrainSessionSync,
+  drainLeaderboard = [],
 }: TributePanelProps) {
   const isMaxAffection = affection >= 100;
 
@@ -480,25 +482,48 @@ export function TributePanel({
             {drainError && <p className="mt-2 text-xs text-rose-200/80">{drainError}</p>}
           </>
         )}
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-rose-100/60">Most Drained Subs</p>
+          <div className="mt-2 grid gap-1.5">
+            {drainLeaderboard.length > 0 ? (
+              drainLeaderboard.map((entry) => (
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
+                  <p className="truncate text-xs font-bold text-white">
+                    #{entry.rank} {entry.displayName || entry.username}
+                  </p>
+                  <p className="shrink-0 text-xs font-black text-rose-100">{entry.drained.toLocaleString()}</p>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">No one has drained yet.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {mounted &&
         createPortal(
           <div className="pointer-events-none fixed inset-0 z-[95]">
             {drainFloaters.map((floater) => (
-              <Image
-                alt={floater.title}
-                className="absolute w-[min(38vw,220px)] rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-[fadeOut_3.5s_ease-in-out_both]"
-                height={280}
+              <div
+                className="absolute w-[min(38vw,220px)]"
                 key={floater.id}
-                src={floater.path}
                 style={{
                   left: `${floater.left}%`,
                   top: `${floater.top}%`,
                   transform: `rotate(${floater.rotate}deg)`,
                 }}
-                width={220}
-              />
+              >
+                {/* animation duration must match DRAIN_SESSION_IMAGE_LIFESPAN_MS */}
+                <Image
+                  alt={floater.title}
+                  className="w-full rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)] animate-[drainImagePop_5s_ease-in-out_both]"
+                  height={280}
+                  src={floater.path}
+                  width={220}
+                />
+              </div>
             ))}
           </div>,
           document.body,

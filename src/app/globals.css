@@ -357,6 +357,32 @@ button:disabled {
   }
 }
 
+@keyframes drainImagePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  8% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+
+  14% {
+    transform: scale(1);
+  }
+
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
 @keyframes pet-shake {
   0%,
   100% {

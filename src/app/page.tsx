@@ -2016,6 +2016,9 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   } | null>(null);
   const [worshipImageVersion, setWorshipImageVersion] = useState(0);
   const [guestWorshipUnlockedKeys, setGuestWorshipUnlockedKeys] = useState<Set<string>>(new Set());
+  const [drainLeaderboard, setDrainLeaderboard] = useState<
+    Array<{ rank: number; userId: string; username: string; displayName: string | null; drained: number }>
+  >([]);
   const [isTitleManuallySelected, setIsTitleManuallySelected] = useState(false);
   const [equippedAvatarSlots, setEquippedAvatarSlots] = useState<EquippedAvatarSlots>({});
   const [equippedFullSetId, setEquippedFullSetId] = useState<string | null>(null);
@@ -2264,6 +2267,19 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       .catch((error) => console.warn("Failed to load today's worship image", error));
     return () => { cancelled = true; };
   }, [authBootstrapped]);
+  const loadDrainLeaderboard = useCallback(() => {
+    if (isGuestMode) return;
+    void fetch("/api/user/drain-session", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ leaderboard?: typeof drainLeaderboard }>)
+      .then((payload) => {
+        if (payload.leaderboard) setDrainLeaderboard(payload.leaderboard);
+      })
+      .catch((error) => console.warn("Failed to load drain session leaderboard", error));
+  }, [isGuestMode]);
+  useEffect(() => {
+    if (!authBootstrapped) return;
+    loadDrainLeaderboard();
+  }, [authBootstrapped, loadDrainLeaderboard]);
   const addressAwareTitleItems = useMemo(
     () => getTitleItemsForAddressTerm(addressTerm).map((title) =>
       title.id === PREMIUM_TITLE_ID && premiumTitleConfig
@@ -8158,6 +8174,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
 
       applyProfileStats(payload.profile);
+      loadDrainLeaderboard();
       return true;
     } catch (error) {
       console.error("Failed to sync drain session", error);
@@ -11802,6 +11819,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onClickGameCategoryChange={setClickGameCategory}
               clickGameStatusCategory={clickGameStatusCategory}
               onDrainSessionSync={handleDrainSessionSync}
+              drainLeaderboard={drainLeaderboard}
             />
           )}
           {activePanel === "collection" && (

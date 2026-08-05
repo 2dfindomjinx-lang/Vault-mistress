@@ -22,6 +22,25 @@ async function getAuthedUserId() {
   return { error: null, userId: authData.user.id };
 }
 
+// All-time "Most Drained Subs" leaderboard.
+export async function GET() {
+  if (!isSupabaseAdminConfigured) {
+    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+  }
+
+  const authResult = await getAuthedUserId();
+  if (authResult.error) return authResult.error;
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.rpc("get_drain_session_leaderboard", { p_limit: 3 });
+
+  if (error) {
+    return jsonError(error.message, 500);
+  }
+
+  return Response.json({ leaderboard: data ?? [] });
+}
+
 // Periodic settlement call from an active Drain Session - deducts the coins
 // that ticked away client-side since the last sync. Pure sink: no devotion,
 // no pet score, nothing awarded back.

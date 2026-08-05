@@ -10,9 +10,9 @@ export const DRAIN_SESSION_TICK_MS = 1_000;
 // A new floating image spawns this often; each one lives for
 // DRAIN_SESSION_IMAGE_LIFESPAN_MS before fading out and being removed, so
 // several can be on screen at once instead of one replacing the last.
-export const DRAIN_SESSION_IMAGE_INTERVAL_MS = 1_800;
-export const DRAIN_SESSION_IMAGE_LIFESPAN_MS = 3_500;
-export const DRAIN_SESSION_MAX_CONCURRENT_IMAGES = 6;
+export const DRAIN_SESSION_IMAGE_INTERVAL_MS = 900;
+export const DRAIN_SESSION_IMAGE_LIFESPAN_MS = 5_000;
+export const DRAIN_SESSION_MAX_CONCURRENT_IMAGES = 12;
 export const DRAIN_SESSION_SYNC_INTERVAL_MS = 5_000;
 
 export function clampDrainSessionRate(value: number) {
