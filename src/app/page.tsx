@@ -157,6 +157,7 @@ import {
 import {
   CLICK_GAME_CATEGORY_STORAGE_KEY,
   DEFAULT_CLICK_GAME_CATEGORY,
+  isClickGameCategoryId,
   type ClickGameCategoryId,
   type ClickGameLeaderboardEntry,
   type ClickGameStatus,
@@ -4082,7 +4083,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   useEffect(() => {
     const storedCategory = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
-    if (storedCategory === "classic" || storedCategory === "censored" || storedCategory === "pixel" || storedCategory === "huge_breasts" || storedCategory === "huge_ass") {
+    if (isClickGameCategoryId(storedCategory)) {
       setClickGameCategory(storedCategory);
     }
   }, []);

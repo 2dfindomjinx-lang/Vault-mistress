@@ -36,7 +36,7 @@ export async function GET() {
   const userId = authResult.userId!;
 
   // Single combined leaderboard across all 5 categories - a user's clicks in
-  // classic/censored/pixel/huge_breasts/huge_ass all count toward the same
+  // classic/censored/pixel/huge_breasts/huge_ass/feet all count toward the same
   // ranking, not five separate per-category boards.
   const { data, error } = await supabase.rpc("click_game_combined_leaderboard", {
     p_limit: 20,

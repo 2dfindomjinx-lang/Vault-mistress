@@ -19,6 +19,7 @@ import {
   DEFAULT_CLICK_GAME_CATEGORY,
   getClickGameStage,
   getClickGameStageImagePath,
+  getNextClickGameWeeklyResetAt,
   isClickGameCategoryId,
   type ClickGameCategoryId,
   type ClickGameLeaderboardEntry,
@@ -60,6 +61,18 @@ const tributeOptions = [
   { amount: 5000, label: "Vault Tribute", boost: "+30 affection" },
 ];
 
+function formatCountdown(targetIso: string, nowMs: number) {
+  const remainingMs = Math.max(0, new Date(targetIso).getTime() - nowMs);
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 export function TributePanel({
   affection,
   coins,
@@ -95,6 +108,12 @@ export function TributePanel({
   // keep arriving, so a steady (not-idle) clicking pace still gets batched
   // instead of resetting the idle-debounce timer forever.
   const batchOpenedAtRef = useRef<number | null>(null);
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCountdownNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
@@ -627,6 +646,12 @@ export function TributePanel({
             <div className="flex flex-wrap items-center gap-4 px-4 py-3 text-xs text-pink-50/70">
               <p>Weekly clicks: <span className="font-black text-pink-50">{(clickGame?.weeklyClicks ?? 0).toLocaleString()}</span></p>
               <p>Lifetime clicks: <span className="font-black text-pink-50">{(clickGame?.lifetimeClicks ?? 0).toLocaleString()}</span></p>
+              <p>
+                Champion decided in{" "}
+                <span className="font-black text-pink-50">
+                  {formatCountdown(getNextClickGameWeeklyResetAt(countdownNow).toISOString(), countdownNow)}
+                </span>
+              </p>
             </div>
 
             <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
