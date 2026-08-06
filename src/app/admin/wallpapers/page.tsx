@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { WallpaperCropTool } from "@/components/admin/WallpaperCropTool";
 import { WALLPAPER_MIN_ZOOM, cropWallpaperImage } from "@/lib/wallpaper-crop";
 
+// R2 objects are not publicly readable, so previews go through the authenticated admin proxy
+// rather than using the stored wallpaper_url directly.
+function wallpaperImageSrc(assignmentId: string) {
+  return `/api/admin/wallpapers/image?assignmentId=${encodeURIComponent(assignmentId)}`;
+}
+
 type Device = {
   id: string;
   activation_code: string;
@@ -480,7 +486,7 @@ export default function WallpaperAdminPage() {
                     <img
                       alt="Aktif duvar kâğıdı"
                       className="h-full w-full object-cover"
-                      src={effectiveAssignment.wallpaper_url}
+                      src={wallpaperImageSrc(effectiveAssignment.id)}
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-5 pb-4 pt-16">
                       <p className="text-xs text-zinc-300">
@@ -642,7 +648,7 @@ export default function WallpaperAdminPage() {
                             alt=""
                             className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                             loading="lazy"
-                            src={asset.wallpaper_url}
+                            src={wallpaperImageSrc(asset.id)}
                           />
                           {isActive && (
                             <span className="absolute left-2 top-2 rounded-full bg-emerald-400 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-950">
