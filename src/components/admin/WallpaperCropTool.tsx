@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   WALLPAPER_MAX_ZOOM,
   WALLPAPER_MIN_ZOOM,
@@ -29,6 +29,7 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
   const dragStateRef = useRef<{ startX: number; startY: number; startPanX: number; startPanY: number } | null>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchStateRef = useRef<{ startDistance: number; startZoom: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Reset the measured size when a new file is selected (adjusting state in
   // response to a prop change, done during render rather than in an effect).
@@ -114,9 +115,22 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
     dragStateRef.current = null;
   };
 
-  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    onZoomChange(clampWallpaperZoom(zoom - Math.sign(event.deltaY) * ZOOM_STEP));
-  };
+  // React attaches its own `wheel` listener passively at the root, so
+  // event.preventDefault() inside an onWheel prop is ignored and the page
+  // scrolls while the preview zooms. Bind a native non-passive listener
+  // instead so the wheel only ever drives the zoom here.
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      onZoomChange(clampWallpaperZoom(zoom - Math.sign(event.deltaY) * ZOOM_STEP));
+    };
+
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [onZoomChange, zoom]);
 
   const isZoomed = zoom > WALLPAPER_MIN_ZOOM + 0.001;
 
@@ -128,7 +142,7 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
+        ref={containerRef}
         style={{
           width: PREVIEW_WIDTH,
           height: PREVIEW_HEIGHT,
