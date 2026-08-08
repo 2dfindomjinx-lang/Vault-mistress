@@ -48,6 +48,8 @@ type ClickGameLeaderboardData = {
 type TributePanelProps = {
   affection: number;
   coins: number;
+  tributeCode?: string | null;
+  petTributeCode?: string | null;
   disabled?: boolean;
   hideAffectionOffer?: boolean;
   pending?: boolean;
@@ -100,6 +102,8 @@ function formatCountdown(targetIso: string, nowMs: number) {
 export function TributePanel({
   affection,
   coins,
+  tributeCode = null,
+  petTributeCode = null,
   disabled = false,
   hideAffectionOffer = false,
   pending = false,
@@ -120,6 +124,7 @@ export function TributePanel({
   onDrainSessionSync,
   drainLeaderboard = [],
 }: TributePanelProps) {
+  const [showThroneCode, setShowThroneCode] = useState(false);
   const isMaxAffection = affection >= 100;
 
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
@@ -961,25 +966,21 @@ export function TributePanel({
           </div>
 
       <div className="mt-6 rounded-[1.5rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.12),rgba(0,0,0,0.34))] p-4 shadow-[0_0_28px_rgba(236,72,153,0.12)]">
-        <a
+        <button
           className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-center text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)] transition hover:scale-[1.01] sm:w-auto"
-          href="https://throne.com/principessa2dfd"
-          rel="noopener noreferrer"
-          target="_blank"
+          onClick={() => setShowThroneCode(true)}
+          type="button"
         >
           Get Coins / Tribute on Throne
-        </a>
+        </button>
         <p className="mt-4 text-sm leading-6 text-pink-50">
-          You can leave the Throne gift message empty. If you write anything,
-          use your exact app @username, not your Display Name.
+          Use the code shown in the payment popup inside your Throne gift message.
         </p>
         <p className="mt-2 text-sm leading-6 text-pink-50">
-          After supporting, DM @VMPrincipessa with the same @username to receive
-          coins manually. 1 USD = 1000 coins.
+          The matching code lets the webhook credit your coins automatically. 1 USD = 1000 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
-          Coins are fantasy points and are manually granted as supporter
-          rewards. No automatic payment integration yet.
+          If automation fails, DM @VMPrincipessa with your Throne receipt for manual help.
         </p>
         <div className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-200/15 bg-black/35 shadow-[0_0_22px_rgba(217,70,239,0.1)]">
           <Image
@@ -991,6 +992,29 @@ export function TributePanel({
           />
         </div>
       </div>
+      {showThroneCode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-pink-200/25 bg-[#180812] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Throne payment</p><h3 className="mt-2 text-2xl font-black text-white">Choose your code</h3></div>
+              <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowThroneCode(false)} type="button">×</button>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">Use the normal code for Coin Add. Use the Pet code when you want the additional Throne Bonus.</p>
+            <div className="mt-4 space-y-3">
+              {[
+                ["Coin Add", tributeCode, "Base coins + regular give bonus"],
+                ["Pet Throne Bonus", petTributeCode, "Base coins + give bonus + Pet bonus"],
+              ].map(([label, code, detail]) => (
+                <div className="rounded-2xl border border-pink-200/20 bg-black/35 p-3" key={label}>
+                  <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-pink-100/70">{label}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div><button className="rounded-xl border border-pink-200/25 px-3 py-2 text-xs font-black text-pink-50 disabled:opacity-40" disabled={!code} onClick={() => code && void navigator.clipboard?.writeText(code)} type="button">Copy</button></div>
+                  <p className="mt-3 rounded-xl bg-black/40 px-3 py-2 text-center font-black tracking-[0.18em] text-pink-50">{code ?? "Code unavailable"}</p>
+                </div>
+              ))}
+            </div>
+            <a className="mt-4 block rounded-2xl bg-pink-500 px-4 py-3 text-center text-sm font-black text-white" href="https://throne.com/principessa2dfd" rel="noopener noreferrer" target="_blank">Open Throne</a>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

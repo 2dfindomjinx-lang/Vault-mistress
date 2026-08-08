@@ -186,7 +186,6 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
     includedReasons: [
       "crate:open",
       "cosmetic:display_name_change",
-      "jackpot_contribution",
       "spend:cosmetic",
       "spend:gallery-unlock",
       "spend:irl-task-wheel",
@@ -434,8 +433,7 @@ export function isCommunityGoalReason(reason: string | null | undefined) {
     normalizedReason.startsWith("spend:") ||
     normalizedReason.startsWith("tribute:") ||
     normalizedReason === "crate:open" ||
-    normalizedReason === "cosmetic:display_name_change" ||
-    normalizedReason === "jackpot_contribution"
+    normalizedReason === "cosmetic:display_name_change"
   );
 }
 
@@ -453,7 +451,6 @@ export function isCommunityGoalContribution(transaction: CoinTransactionLite) {
       reason.startsWith("tribute:") ||
       reason === "crate:open" ||
       reason === "cosmetic:display_name_change" ||
-      reason === "jackpot_contribution" ||
       reason === "throne_tribute"
     );
   }

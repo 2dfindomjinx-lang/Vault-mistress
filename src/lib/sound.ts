@@ -8,8 +8,6 @@ export type SoundEventName =
   | "affection_level_up"
   | "debt_contract_signed"
   | "cosmetic_purchased"
-  | "jackpot_contribution"
-  | "jackpot_win"
   | "random_event_activation"
   | "crate_reel_tick"
   | "crate_reveal"
@@ -46,8 +44,6 @@ const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3" },
   debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav" },
   cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav" },
-  jackpot_contribution: { category: "gameplay", src: "/sounds/jackpot-contribution.mp3" },
-  jackpot_win: { category: "gameplay", src: "/sounds/jackpot-win.mp3" },
   random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3" },
 
   // Crate opening sounds.

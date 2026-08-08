@@ -178,7 +178,6 @@ import {
   getCrateIconUrl,
   type CrateRarity,
 } from "@/lib/crates";
-import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import { getLeadershipRank, type LeadershipEntry, type ShameEntry } from "@/lib/leadership";
 import {
   HIGH_LOW_BET_ALLOWANCE,
@@ -504,10 +503,6 @@ const SACRIFICE_COST = 500;
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
 const SUPPORT_COST = 2500;
 const TIMEOUT_RISK_CHANCE = 0.2;
-const JACKPOT_IDLE_REFRESH_MS = 15 * 60 * 1000;
-const JACKPOT_NEAR_END_REFRESH_MS = 2 * 60 * 1000;
-const JACKPOT_FINAL_REFRESH_MS = 30 * 1000;
-const JACKPOT_WIN_SOUND_STORAGE_KEY = "vault:jackpot-win-sound:last-played";
 const OWNER_LIKENESS_PROTECTED_USERNAME = "vmprincipessa";
 const STREAK_BONUSES = [
   { id: "streak-bonus-1", milestone: 1, reward: 50, title: "1 day streak bonus" },
@@ -516,28 +511,6 @@ const STREAK_BONUSES = [
   { id: "streak-bonus-15", milestone: 15, reward: 500, title: "15 day streak bonus" },
   { id: "streak-bonus-30", milestone: 30, reward: 1000, title: "30 day streak bonus" },
 ] as const;
-
-function getJackpotRefreshDelay(jackpot: LoyaltyJackpotState | null) {
-  if (!jackpot?.phaseEndsAt) {
-    return JACKPOT_IDLE_REFRESH_MS;
-  }
-
-  const msUntilPhaseEnds = new Date(jackpot.phaseEndsAt).getTime() - Date.now();
-
-  if (!Number.isFinite(msUntilPhaseEnds)) {
-    return JACKPOT_IDLE_REFRESH_MS;
-  }
-
-  if (msUntilPhaseEnds <= 5 * 60 * 1000) {
-    return JACKPOT_FINAL_REFRESH_MS;
-  }
-
-  if (msUntilPhaseEnds <= 30 * 60 * 1000) {
-    return JACKPOT_NEAR_END_REFRESH_MS;
-  }
-
-  return JACKPOT_IDLE_REFRESH_MS;
-}
 
 const petTasks = defaultPetTasks;
 
@@ -1326,36 +1299,6 @@ function getDebtAutoPayStorageKey(userId: string) {
   return `${DEBT_AUTO_PAY_STORAGE_PREFIX}:${userId}`;
 }
 
-function getJackpotWinnerRevealKey(jackpotState: LoyaltyJackpotState | null) {
-  if (!jackpotState) {
-    return null;
-  }
-
-  const winners =
-    jackpotState.currentWinners.length > 0
-      ? jackpotState.currentWinners
-      : jackpotState.currentWinner
-        ? [jackpotState.currentWinner]
-        : [];
-
-  if (winners.length === 0) {
-    return null;
-  }
-
-  const winnerKey = winners
-    .map((winner) =>
-      [
-        winner.place ?? 0,
-        winner.username,
-        winner.amount,
-        winner.selectedAt,
-      ].join(":"),
-    )
-    .join("|");
-
-  return `${jackpotState.id}:${jackpotState.cycleKey}:${winnerKey}`;
-}
-
 function readDebtAutoPayEnabled(userId: string) {
   if (typeof window === "undefined") {
     return false;
@@ -2000,9 +1943,6 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [dismissedSpeechAvatarEventId, setDismissedSpeechAvatarEventId] = useState<string | null>(
     null,
   );
-  const [jackpot, setJackpot] = useState<LoyaltyJackpotState | null>(null);
-  const [jackpotError, setJackpotError] = useState("");
-  const [isJackpotBusy, setIsJackpotBusy] = useState(false);
   const [ownedCosmeticIds, setOwnedCosmeticIds] = useState<string[]>([DEFAULT_SPEECH_AVATAR_ID]);
   const [equippedCosmeticIds, setEquippedCosmeticIds] = useState<Partial<Record<CosmeticType, string>>>({
     "speech-avatar": DEFAULT_SPEECH_AVATAR_ID,
@@ -2196,7 +2136,6 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const bubbleMessageIdRef = useRef(1);
   const lastAddingXpBubbleAtRef = useRef(0);
   const highLowRefreshTimerRef = useRef<number | null>(null);
-  const lastPlayedJackpotWinnerSoundKeyRef = useRef<string | null>(null);
   const activeEventIdsRef = useRef<string[]>([]);
   const profileIdRef = useRef<string | null>(null);
   const debtAutoCollectRequestRef = useRef<string | null>(null);
@@ -4073,78 +4012,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode]);
 
-  const loadJackpot = useCallback(async () => {
-    if (isGuestMode || isPreviewMode) {
-      setJackpot(null);
-      setJackpotError("");
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/jackpot", { cache: "no-store" });
-      const payload = (await response.json()) as {
-        jackpot?: LoyaltyJackpotState;
-        error?: string;
-        needsAdvance?: boolean;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Jackpot could not be loaded.");
-      }
-
-      let nextJackpot = payload.jackpot ?? null;
-      if (payload.needsAdvance && isLoggedIn) {
-        const advanceResponse = await fetch("/api/jackpot/advance", { method: "POST" });
-        const advancePayload = (await advanceResponse.json().catch(() => null)) as {
-          error?: string;
-          state?: LoyaltyJackpotState | null;
-        } | null;
-        if (!advanceResponse.ok) {
-          throw new Error(advancePayload?.error ?? "Jackpot could not be advanced.");
-        }
-        nextJackpot = advancePayload?.state ?? nextJackpot;
-      }
-
-      setJackpot(nextJackpot);
-      setJackpotError("");
-    } catch (error) {
-      console.error("Failed to load loyalty jackpot", error);
-      setJackpotError(describeError(error));
-    }
-  }, [isGuestMode, isLoggedIn, isPreviewMode]);
-
   useEffect(() => {
     const storedCategory = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
     if (isClickGameCategoryId(storedCategory)) {
       setClickGameCategory(storedCategory);
     }
   }, []);
-
-  useEffect(() => {
-    const revealKey = getJackpotWinnerRevealKey(jackpot);
-
-    if (!revealKey) {
-      return;
-    }
-
-    if (lastPlayedJackpotWinnerSoundKeyRef.current === revealKey) {
-      return;
-    }
-
-    try {
-      if (window.localStorage.getItem(JACKPOT_WIN_SOUND_STORAGE_KEY) === revealKey) {
-        lastPlayedJackpotWinnerSoundKeyRef.current = revealKey;
-        return;
-      }
-
-      window.localStorage.setItem(JACKPOT_WIN_SOUND_STORAGE_KEY, revealKey);
-    } catch {
-      // Storage failures should not break jackpot rendering.
-    }
-
-    lastPlayedJackpotWinnerSoundKeyRef.current = revealKey;
-    emitSoundEvent("jackpot_win");
-  }, [jackpot]);
 
   useEffect(() => {
     if (activePanel !== "devotion") {
@@ -4276,81 +4149,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.removeEventListener("storage", refreshRecentTributes);
     };
   }, [isGuestMode, isLoggedIn, isPreviewMode, loadCratesData, loadRecentTributes]);
-
-  useEffect(() => {
-    if (!isLoggedIn || isGuestMode || isPreviewMode || activePanel !== "tasks") {
-      return;
-    }
-
-    let isDisposed = false;
-    let isRefreshing = false;
-    let timer: number | null = null;
-
-    const clearScheduledRefresh = () => {
-      if (timer !== null) {
-        window.clearTimeout(timer);
-        timer = null;
-      }
-    };
-
-    const scheduleNextRefresh = (delay = getJackpotRefreshDelay(jackpot)) => {
-      clearScheduledRefresh();
-
-      if (isDisposed) {
-        return;
-      }
-
-      timer = window.setTimeout(() => {
-        void refreshJackpot();
-      }, delay);
-    };
-
-    const refreshJackpot = async () => {
-      if (isDisposed || isRefreshing) {
-        return;
-      }
-
-      if (document.visibilityState === "hidden") {
-        scheduleNextRefresh();
-        return;
-      }
-
-      isRefreshing = true;
-
-      try {
-        await loadJackpot();
-      } finally {
-        isRefreshing = false;
-        scheduleNextRefresh();
-      }
-    };
-
-    const handleWindowFocus = () => {
-      clearScheduledRefresh();
-      void refreshJackpot();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      clearScheduledRefresh();
-      void refreshJackpot();
-    };
-
-    scheduleNextRefresh(0);
-    window.addEventListener("focus", handleWindowFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      isDisposed = true;
-      clearScheduledRefresh();
-      window.removeEventListener("focus", handleWindowFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately narrowed to jackpot?.phase/phaseEndsAt (used to compute refresh delay); the full jackpot object changes far more often (e.g. live amount ticks) and would reset this refresh-timer effect on every tick
-  }, [activePanel, isGuestMode, isLoggedIn, isPreviewMode, jackpot?.phase, jackpot?.phaseEndsAt, loadJackpot]);
 
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0 || isGuestMode) {
@@ -7961,8 +7759,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       sacrificeComplete: false,
       allGalleryComplete: false,
     });
-    setJackpot(null);
-    setJackpotError("");
 
     setActivePanel("profile");
     setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
@@ -7993,8 +7789,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLeadershipTop([]);
     setShameTop([]);
     setTopTributes([]);
-    setJackpot(null);
-    setJackpotError("");
     setIsAdminUser(false);
     setCoins(100);
     setAffection(0);
@@ -8360,64 +8154,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
     } catch (error) {
       console.error("Failed to register click game click", error);
-    }
-  };
-
-  const handleJackpotContribute = async (amount: number) => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-
-    if (isGuestMode || isPreviewMode || !authUserId) {
-      setAvatarMistressReply("Sign in to join the Loyalty Jackpot.");
-      return;
-    }
-
-    if (!Number.isInteger(amount) || amount < JACKPOT_MIN_CONTRIBUTION) {
-      setAvatarMistressReply(
-        `Jackpot contributions require at least ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} coins.`,
-      );
-      return;
-    }
-
-    if (coinsRef.current < amount) {
-      setAvatarMistressReply("Not enough coins for the jackpot pool.");
-      return;
-    }
-
-    setIsJackpotBusy(true);
-    setJackpotError("");
-
-    try {
-      const response = await fetch("/api/jackpot", {
-        body: JSON.stringify({ amount }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        coins?: number;
-        jackpot?: LoyaltyJackpotState;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Jackpot contribution failed.");
-      }
-
-      if (typeof payload.coins === "number") {
-        setCoins(payload.coins);
-      }
-
-      setJackpot(payload.jackpot ?? null);
-      emitSoundEvent("jackpot_contribution");
-      setAvatarMistressReply(`Your ${amount.toLocaleString()} coins were added to the jackpot pool.`);
-    } catch (error) {
-      console.error("Failed to contribute to jackpot", error);
-      const message = describeError(error);
-      setJackpotError(message);
-      setAvatarMistressReply(message);
-    } finally {
-      setIsJackpotBusy(false);
     }
   };
 
@@ -11937,6 +11673,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             <TributePanel
               affection={affection}
               coins={coins}
+              tributeCode={tributeCode}
+              petTributeCode={petTributeCode}
               disabled={isTimeoutActive || isPreviewRestricted}
               hideAffectionOffer={affection >= 100}
               pending={pendingTaskActionIds.some((id) => id.startsWith("tribute:"))}
@@ -12011,11 +11749,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               addressTerm={addressTerm}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
-              isJackpotBusy={isJackpotBusy}
               isFreeFridaySpinAvailable={isFreeFridaySpinAvailable}
               onFreeFridaySpinConsumed={() => setFreeFridaySpinAvailable(false)}
-              jackpot={jackpot}
-              jackpotError={jackpotError}
               globalPrincipessaLevel={globalPrincipessa.level}
               globalPrincipessaProgressPercent={globalPrincipessaProgressPercent}
               globalPrincipessaRequirement={globalPrincipessaRequirement}
@@ -12028,7 +11763,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onBeg={handleBeg}
               onClaim={handleClaimTask}
               onCooldownAttempt={handleCooldownAttempt}
-              onJackpotContribute={handleJackpotContribute}
               onLevelDrain={handleLevelDrain}
               onCaseOpen={handleCaseOpen}
               onCaseOpenRevealed={handleCaseOpenRevealed}
@@ -12956,6 +12690,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     </main>
   );
 }
+
+
+
 
 
 

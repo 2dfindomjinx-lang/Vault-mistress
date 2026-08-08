@@ -9,7 +9,6 @@ import {
   IRL_TASK_WHEEL_COST,
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
-import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 import { emitSoundEvent } from "@/lib/sound";
 import type { MechanicsState, TaskItem } from "@/lib/types";
@@ -17,7 +16,6 @@ import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const SACRIFICE_COST = 250;
 const SUPPORT_COST = 2500;
-const JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY = "vault:jackpot-hide-contributors";
 const CLICKABLE_COOLDOWN_BUTTON_CLASS =
   "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-70";
@@ -148,9 +146,6 @@ type TaskListProps = {
   mechanics: MechanicsState;
   tasks: TaskItem[];
   pendingTaskActionIds?: string[];
-  isJackpotBusy?: boolean;
-  jackpot: LoyaltyJackpotState | null;
-  jackpotError?: string;
   currentUsername?: string;
   usernameStyle?: CSSProperties;
   globalPrincipessaLevel: number;
@@ -168,7 +163,6 @@ type TaskListProps = {
   // onCaseOpen's API call resolves - keeps the speech-bubble reply from
   // spoiling the result before the reveal plays.
   onCaseOpenRevealed?: (reward: number) => void;
-  onJackpotContribute: (amount: number) => void;
   onLevelDrain: () => void;
   onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
   onFreeFridaySpinConsumed?: () => void;
@@ -198,9 +192,6 @@ export function TaskList({
   addressTerm = DEFAULT_ADDRESS_TERM,
   coins,
   disabled = false,
-  isJackpotBusy = false,
-  jackpot,
-  jackpotError = "",
   currentUsername,
   globalPrincipessaLevel,
   globalPrincipessaProgressPercent,
@@ -211,7 +202,6 @@ export function TaskList({
   onClaim,
   onCaseOpen,
   onCaseOpenRevealed,
-  onJackpotContribute,
   onLevelDrain,
   onIrlTaskSpin,
   onFreeFridaySpinConsumed,
@@ -787,18 +777,6 @@ export function TaskList({
           </div>
         </div>
       </article>
-
-      <LoyaltyJackpotTaskCard
-        coins={coins}
-        disabled={disabled}
-        error={jackpotError}
-        isBusy={isJackpotBusy}
-        jackpot={jackpot}
-        currentUsername={currentUsername}
-        now={now}
-        onContribute={onJackpotContribute}
-        usernameStyle={usernameStyle}
-      />
 
       <div className="court-grid court-grid--tasks mt-5 grid gap-3 md:grid-cols-2">
         {visibleTasks.map((task) => {
@@ -1856,323 +1834,6 @@ function WheelSpinner({
   );
 }
 
-function LoyaltyJackpotTaskCard({
-  coins,
-  disabled,
-  error,
-  isBusy,
-  jackpot,
-  currentUsername,
-  now,
-  onContribute,
-  usernameStyle,
-}: {
-  coins: number;
-  currentUsername?: string;
-  disabled: boolean;
-  error: string;
-  isBusy: boolean;
-  jackpot: LoyaltyJackpotState | null;
-  now: number;
-  onContribute: (amount: number) => void;
-  usernameStyle?: CSSProperties;
-}) {
-  const [amount, setAmount] = useState(String(JACKPOT_MIN_CONTRIBUTION));
-  const [hideContributors, setHideContributors] = useState(false);
-  const parsedAmount = Number(amount);
-  const cleanAmount = Number.isInteger(parsedAmount) ? parsedAmount : 0;
-  const jackpotWinners = jackpot?.currentWinners?.length
-    ? jackpot.currentWinners
-    : jackpot?.currentWinner
-      ? [jackpot.currentWinner]
-      : [];
-  const previousJackpotWinners = jackpot?.previousWinners?.length
-    ? jackpot.previousWinners
-    : jackpot?.previousWinner
-      ? [jackpot.previousWinner]
-      : [];
-  const phaseLabel =
-    jackpot?.phase === "contribution"
-      ? "Contribution Open"
-      : jackpot?.phase === "winner"
-        ? "Drawing Winners"
-        : "Next Cycle Preparing";
-  const phaseEndsAt = jackpot ? new Date(jackpot.phaseEndsAt).getTime() : 0;
-  const remainingMs = Math.max(0, phaseEndsAt - now);
-  const canContribute =
-    Boolean(jackpot && jackpot.phase === "contribution" && !disabled) &&
-    cleanAmount >= JACKPOT_MIN_CONTRIBUTION &&
-    cleanAmount <= coins;
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY);
-      queueMicrotask(() => setHideContributors(stored === "true"));
-    } catch {
-      // A private browsing/storage failure should not break the jackpot card.
-    }
-  }, []);
-
-  const handleHideContributorsChange = (checked: boolean) => {
-    setHideContributors(checked);
-
-    try {
-      window.localStorage.setItem(JACKPOT_HIDE_CONTRIBUTORS_STORAGE_KEY, String(checked));
-    } catch {
-      // Keep the current in-memory preference even if persistence fails.
-    }
-  };
-
-  return (
-      <article className="court-feature-card court-grid-card court-grid-card--gold mt-5 rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(245,158,11,0.16),rgba(0,0,0,0.38))] p-4 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-100/70">
-            Loyalty Jackpot
-          </p>
-          <h3 className="mt-1 text-2xl font-black text-white">
-            {jackpot ? (
-              <CoinAmount amount={jackpot.pool} iconSize={24} label="coins" />
-            ) : (
-              "Loading pool"
-            )}
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-300">
-            3+ day loyalty streak users enter the draw automatically. Extra payment is
-            not required to participate; contributions only increase the winners coin
-            prize and do not count as tribute.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-amber-100/20 bg-black/30 px-4 py-3 text-sm text-amber-50">
-          <p className="font-black">{phaseLabel}</p>
-          <p className="mt-1 text-xs text-amber-100/70">
-            {jackpot ? `${formatJackpotRemaining(remainingMs)} left` : "Checking vault..."}
-          </p>
-        </div>
-      </div>
-
-      {jackpot && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <JackpotStat label="Eligible" value={jackpot.eligibleCount.toLocaleString()} />
-          <JackpotStat label="Contributors" value={jackpot.participantCount.toLocaleString()} />
-          <JackpotStat label="Your Pool" value={jackpot.userContributionTotal.toLocaleString()} />
-        </div>
-      )}
-
-      {jackpotWinners.length > 0 && (
-        <div className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-50/80">
-            Jackpot Winners
-          </p>
-          <div className="mt-3 grid gap-2">
-            {jackpotWinners.map((winner, index) => (
-              <div
-                className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100/15 bg-black/25 px-3 py-2"
-                key={`${winner.username}-${winner.selectedAt}-${index}`}
-              >
-                <span className="min-w-0 truncate">
-                  {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
-                  <StyledUsername
-                    currentUsername={currentUsername}
-                    displayName={winner.displayName}
-                    displayUsernameStyle={winner.usernameStyle}
-                    username={winner.username}
-                    usernameStyle={usernameStyle}
-                  />
-                </span>
-                <CoinAmount amount={winner.amount} className="shrink-0" iconSize={16} label="coins" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {previousJackpotWinners.length > 0 && jackpotWinners.length === 0 && (
-        <div className="mt-4 text-sm text-zinc-400">
-          <p className="font-bold text-zinc-300">Previous Jackpot Winners:</p>
-          <div className="mt-2 grid gap-1.5">
-            {previousJackpotWinners.map((winner, index) => (
-              <p key={`${winner.username}-${winner.selectedAt}-${index}`}>
-                {winner.place ? `${winner.place}${getOrdinalSuffix(winner.place)}` : `#${index + 1}`}{" "}
-                <StyledUsername
-                  currentUsername={currentUsername}
-                  displayName={winner.displayName}
-                  displayUsernameStyle={winner.usernameStyle}
-                  username={winner.username}
-                  usernameStyle={usernameStyle}
-                />{" "}
-                won <CoinAmount amount={winner.amount} iconSize={16} label="coins" />.
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {jackpot?.userProtected && (
-        <p className="mt-4 rounded-2xl border border-fuchsia-200/20 bg-fuchsia-500/10 px-4 py-3 text-sm text-fuchsia-100">
-          You won recently, so this cycle protects the pool from repeat winners.
-        </p>
-      )}
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-        <label className="block">
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-            Contribution Amount
-          </span>
-          <input
-            className="mt-2 w-full rounded-2xl border border-amber-100/20 bg-black/35 px-4 py-3 text-base font-bold text-amber-50 outline-none transition focus:border-amber-100/60 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled || isBusy || jackpot?.phase !== "contribution"}
-            inputMode="numeric"
-            min={JACKPOT_MIN_CONTRIBUTION}
-            onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ""))}
-            placeholder={`Minimum ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} coins`}
-            type="text"
-            value={amount}
-          />
-        </label>
-        <button
-          className="self-end rounded-2xl border border-amber-100/20 bg-amber-400/10 px-5 py-3 text-sm font-black text-amber-50 transition enabled:hover:border-amber-100/50 enabled:hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={!canContribute || isBusy}
-          onClick={() => {
-            emitSoundEvent("button_click");
-            onContribute(cleanAmount);
-          }}
-          type="button"
-        >
-          {isBusy
-            ? "Adding..."
-            : cleanAmount > 0 && cleanAmount < JACKPOT_MIN_CONTRIBUTION
-              ? `Min ${JACKPOT_MIN_CONTRIBUTION.toLocaleString()} Coins`
-            : cleanAmount > coins
-              ? "Not Enough Coins"
-              : "Add to Jackpot"}
-        </button>
-      </div>
-
-      {jackpot?.recentContributors.length ? (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-              Recent Contributions
-            </p>
-            <label className="flex w-fit cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-bold text-zinc-300 transition hover:border-amber-100/30 hover:text-amber-50">
-              <input
-                checked={hideContributors}
-                className="h-4 w-4 accent-amber-300"
-                onChange={(event) => handleHideContributorsChange(event.target.checked)}
-                type="checkbox"
-              />
-              Hide contributors
-            </label>
-          </div>
-          {hideContributors ? (
-            <p className="mt-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-zinc-400">
-              Contributor names hidden.
-            </p>
-          ) : (
-            <div className="mt-3 grid max-h-[8.75rem] gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
-              {jackpot.recentContributors.map((contribution) => (
-                <div
-                  className="flex items-center justify-between rounded-2xl bg-black/25 px-3 py-2 text-sm"
-                  key={`${contribution.username}-${contribution.createdAt}`}
-                >
-                  <span className="text-zinc-200">
-                    <StyledUsername
-                      currentUsername={currentUsername}
-                      displayName={contribution.displayName}
-                      displayUsernameStyle={contribution.usernameStyle}
-                      username={contribution.username}
-                      usernameStyle={usernameStyle}
-                    />
-                  </span>
-                  <span className="font-black text-amber-100">
-                    <CoinAmount amount={contribution.amount} iconSize={16} label="" prefix="+" />
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {error && <p className="mt-4 text-sm text-rose-200">{error}</p>}
-    </article>
-  );
-}
-
-function StyledUsername({
-  currentUsername,
-  displayName,
-  display_name,
-  displayUsernameStyle,
-  username,
-  usernameStyle,
-}: {
-  currentUsername?: string;
-  displayName?: string | null;
-  display_name?: string | null;
-  displayUsernameStyle?: CSSProperties;
-  username: string;
-  usernameStyle?: CSSProperties;
-}) {
-  const isCurrentUser =
-    username === currentUsername ||
-    displayName === currentUsername ||
-    display_name === currentUsername;
-
-  return (
-    <DisplayNameWithUsername
-      displayName={displayName ?? display_name}
-      primaryClassName="truncate text-sm font-black text-white"
-      primaryStyle={displayUsernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
-      secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
-      username={username}
-    />
-  );
-}
-
-function JackpotStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/25 px-3 py-3">
-      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function getOrdinalSuffix(place: number) {
-  if (place === 1) {
-    return "st";
-  }
-
-  if (place === 2) {
-    return "nd";
-  }
-
-  if (place === 3) {
-    return "rd";
-  }
-
-  return "th";
-}
-
-function formatJackpotRemaining(milliseconds: number) {
-  const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60000));
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const minutes = totalMinutes % 60;
-
-  if (days > 0) {
-    return `${days}d ${hours}h`;
-  }
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  return `${minutes}m`;
-}
-
 function WaitObedientlyPanel({
   cooldownRemaining,
   formatRemaining,
@@ -2568,4 +2229,5 @@ function MechanicCard({
     </article>
   );
 }
+
 
