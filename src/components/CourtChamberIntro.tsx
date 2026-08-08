@@ -3,17 +3,19 @@ import type { DashboardPage } from "@/components/SidebarNav";
 
 type ChamberPage = Exclude<DashboardPage, "home">;
 
+// `code` mirrors navigationMeta in SidebarNav.tsx - panels that are tabs
+// inside another panel (pet, crates, drain) share their host's numeral.
 const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: string; description: string }> = {
-  tribute: { code: "II", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
-  tasks: { code: "III", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
+  runway: { code: "II", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
+  tribute: { code: "III", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
+  drain: { code: "III", eyebrow: "Watch it disappear", title: "The Drain", description: "Start the bleed, click for her, and let your balance run out where everyone can see it." },
+  tasks: { code: "IV", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
   pet: { code: "IV", eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
-  debt: { code: "V", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
-  devotion: { code: "VI", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
-  shop: { code: "VII", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
-  crates: { code: "VIII", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
-  runway: { code: "IX", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
-  collection: { code: "X", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
-  profile: { code: "XI", eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
+  shop: { code: "V", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
+  crates: { code: "V", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
+  debt: { code: "VI", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
+  collection: { code: "VII", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
+  profile: { code: "VIII", eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
 };
 
 type CharacterMoment = {
@@ -29,6 +31,12 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
     caption: "Let's see if you know what enough means.",
     imageClassName: "origin-bottom translate-y-[4%] scale-[1.01] object-bottom",
     src: "/principessa-ui/generated/principessa-shrine-offering.webp",
+  },
+  drain: {
+    alt: "Principessa reaching across her ledger for what is left of your balance",
+    caption: "Keep going until there is nothing left.",
+    imageClassName: "origin-bottom translate-y-[4%] scale-[1.02] object-bottom",
+    src: "/principessa-ui/generated/principessa-ledger-reach.webp",
   },
   tasks: {
     alt: "Principessa seated on the edge of the order panel",
@@ -47,12 +55,6 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
     caption: "You signed it. Now pay it.",
     imageClassName: "origin-bottom scale-[1.12] object-bottom",
     src: "/principessa-ui/generated/principessa-debt-contract.webp",
-  },
-  devotion: {
-    alt: "Principessa recording devotion in an ornate court ledger",
-    caption: "Claims mean nothing. Numbers do.",
-    imageClassName: "origin-bottom scale-[1.16] object-bottom",
-    src: "/principessa-ui/generated/principessa-devotion-ledger.webp",
   },
   shop: {
     alt: "Principessa inspecting a court card beside luxury shopping bags",

@@ -2,6 +2,6 @@
 // its own initialPanel instead of just re-exporting the default.
 import Home from "../page";
 
-export default function DevotionPage() {
-  return <Home initialPanel="devotion" />;
+export default function DrainPage() {
+  return <Home initialPanel="drain" />;
 }

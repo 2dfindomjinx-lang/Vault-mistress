@@ -22,10 +22,14 @@ import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { NotificationBell } from "@/components/NotificationBell";
+import { type PetScoreLeaderboardEntry } from "@/components/PetScoreLeaderboard";
+// Statically imported on purpose: every dynamic() panel here uses
+// VaultPanelLoading, a full-screen "Opening the Vault" overlay. Lazy-loading a
+// Home widget would flash that modal over the dashboard on every Home load.
 import {
-  PetScoreLeaderboard,
-  type PetScoreLeaderboardEntry,
-} from "@/components/PetScoreLeaderboard";
+  CourtLeaderboardCompact,
+  type CourtLeaderboardBoard,
+} from "@/components/CourtLeaderboardCompact";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import {
@@ -48,18 +52,25 @@ function VaultPanelLoading() {
   </div>;
 }
 
+// For lazy panels that live *inside* another panel (a tab body). VaultPanelLoading
+// is `fixed inset-0 ... backdrop-blur-md`, so using it for a tab switch blanks the
+// whole dashboard behind an "Opening the Vault" modal on every tab click.
+function InlinePanelLoading() {
+  return <div aria-live="polite" className="court-feature-panel min-h-[24rem] rounded-[2rem] p-6 text-center text-sm text-pink-100/60" role="status">Preparing...</div>;
+}
+
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
-const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
+const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: InlinePanelLoading });
 const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection), { loading: VaultPanelLoading });
-const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard), { loading: VaultPanelLoading });
+const DrainPanel = dynamic(() => import("@/components/DrainPanel").then((module) => module.DrainPanel), { loading: InlinePanelLoading });
 const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid), { loading: VaultPanelLoading });
-const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection), { loading: VaultPanelLoading });
+const OfferingsSection = dynamic(() => import("@/components/OfferingsSection").then((module) => module.OfferingsSection), { loading: InlinePanelLoading });
+const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection), { loading: InlinePanelLoading });
 const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel), { loading: VaultPanelLoading });
 const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal), { loading: VaultPanelLoading });
-const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame), { loading: VaultPanelLoading });
 const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
 const RunwayPanel = dynamic(() => import("@/components/RunwayPanel").then((module) => module.RunwayPanel), { loading: VaultPanelLoading });
-const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
+const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: InlinePanelLoading });
 const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection), { loading: VaultPanelLoading });
 const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel), { loading: VaultPanelLoading });
 
@@ -67,7 +78,7 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
   collection: () => import("@/components/GalleryGrid"),
   crates: () => import("@/components/CratesPanel"),
   debt: () => import("@/components/DebtSection"),
-  devotion: () => import("@/components/DevotionLeaderboard"),
+  drain: () => import("@/components/DrainPanel"),
   pet: () => import("@/components/PetSection"),
   runway: () => Promise.all([
     import("@/components/RunwayPanel"),
@@ -81,11 +92,11 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
     import("@/components/CosmeticShop"),
     import("@/components/RotatingShop"),
   ]),
-  tasks: () => Promise.all([
-    import("@/components/TaskList"),
-    import("@/components/PuzzleGame"),
+  tasks: () => import("@/components/TaskList"),
+  tribute: () => Promise.all([
+    import("@/components/TributePanel"),
+    import("@/components/OfferingsSection"),
   ]),
-  tribute: () => import("@/components/TributePanel"),
 };
 
 // Temporary product hold: preserves click-game progress and all routes, but
@@ -222,7 +233,6 @@ import {
   getDailyGmt3CooldownUntil,
   getGmt3DateKey,
   getGmt3DayIndex,
-  getMsUntilNextGmt3HalfDayReset,
   getNextGmt3HalfDayReset,
   getNextGmt3Reset,
 } from "@/lib/time";
@@ -1850,7 +1860,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
 
   useEffect(() => {
     if (!authBootstrapped || (!isLoggedIn && !isPreviewMode && !isGuestMode)) return;
-    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "crates", "runway", "collection", "profile", "pet", "debt"];
+    const panels: DashboardPage[] = ["tribute", "shop", "tasks", "crates", "runway", "collection", "profile", "pet", "debt"];
     let cancelled = false;
     let idleId: number | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1971,6 +1981,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [petScoreLeaders, setPetScoreLeaders] = useState<PetScoreLeaderboardEntry[]>([]);
   const [petScoreLeaderboardLoading, setPetScoreLeaderboardLoading] = useState(false);
   const [petScoreLeaderboardError, setPetScoreLeaderboardError] = useState("");
+  const [homeLeaderboardBoard, setHomeLeaderboardBoard] = useState<CourtLeaderboardBoard>("pet");
   const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("all_time");
   const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
   const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
@@ -2154,7 +2165,22 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // works), since these are genuinely separate routes in the app directory.
   // pushState only changes the address bar; React state here is untouched.
   const [activePanel, setActivePanelState] = useState<DashboardPage>(initialPanel);
-  const [isPuzzleExpanded, setIsPuzzleExpanded] = useState(false);
+  // Tab selections are derived from activePanel rather than held as their own
+  // state: each tab has a real URL, and popstate only updates activePanel, so
+  // independent tab state would desync from the address bar on Back/Forward.
+  const shopTab: "cosmetics" | "cases" = activePanel === "crates" ? "cases" : "cosmetics";
+  const tributeTab: "shrine" | "drain" = activePanel === "drain" ? "drain" : "shrine";
+  // Set by CratesPanel while a reel is spinning. Tab switches are blocked during
+  // that window: unmounting mid-spin loses the won items and the sell flow, and
+  // a display:none parent collapses the reel viewport width, which corrupts the
+  // in-flight animation geometry.
+  const [isCaseOpening, setIsCaseOpening] = useState(false);
+  // Latch: once Cases has been shown it stays mounted behind the Cosmetics tab
+  // so a half-inspected reveal is not thrown away by a tab switch.
+  const [hasMountedCasesTab, setHasMountedCasesTab] = useState(initialPanel === "crates");
+  const [isJigsawUnlocking, setIsJigsawUnlocking] = useState(false);
+  const [jigsawError, setJigsawError] = useState("");
+  const [jigsawLink, setJigsawLink] = useState<{ label: string; url: string } | null>(null);
   const setActivePanel = useCallback((page: DashboardPage) => {
     setActivePanelState(page);
     if (typeof window !== "undefined") {
@@ -3250,7 +3276,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       Boolean(timeoutUntil) ||
       activePanel === "home" ||
       activePanel === "tasks" ||
-      activePanel === "devotion" ||
       activePanel === "shop";
 
     if (!needsPageClock) {
@@ -4100,6 +4125,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   useEffect(() => {
     const storedCategory = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
     if (isClickGameCategoryId(storedCategory)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time localStorage hydration on mount, not derivable from props
       setClickGameCategory(storedCategory);
     }
   }, []);
@@ -4131,7 +4157,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [jackpot]);
 
   useEffect(() => {
-    if (activePanel !== "devotion") {
+    // Gated on the selected board, not just the panel: /api/devotion/leaderboard
+    // costs 4 Supabase round-trips (the RPC plus profiles/user_cosmetics/user_titles
+    // .in() fan-outs over 21 ids). Home is the most-hit route, so this must only
+    // fire when the viewer actually switches to the Devotion board.
+    if (activePanel !== "home" || homeLeaderboardBoard !== "devotion") {
       return;
     }
 
@@ -4140,7 +4170,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // breaking real leaderboard fetch timing in production.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-when-panel-active data load, not a derivable value
     void loadDevotionLeaderboard(devotionPeriod);
-  }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
+  }, [activePanel, devotionPeriod, homeLeaderboardBoard, loadDevotionLeaderboard]);
 
   useEffect(() => {
     if (activePanel !== "home") {
@@ -4152,7 +4182,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [activePanel, loadPetScoreLeaderboard, petScore]);
 
   useEffect(() => {
-    if (activePanel !== "devotion" || isGuestMode || isPreviewMode || !isLoggedIn) {
+    if (
+      activePanel !== "home" ||
+      homeLeaderboardBoard !== "devotion" ||
+      isGuestMode ||
+      isPreviewMode ||
+      !isLoggedIn
+    ) {
       devotionRefreshBoundaryRef.current = null;
       return;
     }
@@ -4168,7 +4204,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       devotionRefreshBoundaryRef.current = nextBoundaryIso;
       void loadDevotionLeaderboard(devotionPeriod);
     }
-  }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
+  }, [activePanel, currentTime, devotionPeriod, homeLeaderboardBoard, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
 
   useEffect(() => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
@@ -8153,6 +8189,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   // isFinal marks the flush that happens when a drain session ends. The
   // "Most Drained Subs" table aggregates the whole coin_transactions ledger,
   // so it is refreshed only then - never on the periodic 5s syncs.
+  const handleJigsawUnlock = async () => {
+    if (blockIfTimedOut() || isJigsawUnlocking) {
+      return;
+    }
+
+    setIsJigsawUnlocking(true);
+    setJigsawError("");
+
+    try {
+      const response = await fetch("/api/user/jigsaw-unlock", { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        label?: string;
+        profile?: Profile;
+        url?: string;
+      } | null;
+
+      if (!response.ok || !payload?.url || !payload?.profile) {
+        setJigsawError(payload?.error ?? "The jigsaw stayed locked. Try again.");
+        return;
+      }
+
+      applyProfileStats(payload.profile);
+      void loadCommunityStatus();
+      setJigsawLink({ label: payload.label ?? "Jigsaw", url: payload.url });
+    } catch (error) {
+      console.error("Failed to unlock jigsaw", error);
+      setJigsawError("The jigsaw stayed locked. Try again.");
+    } finally {
+      setIsJigsawUnlocking(false);
+    }
+  };
+
   const handleDrainSessionSync = async (amount: number, isFinal = false): Promise<boolean> => {
     if (amount <= 0) return true;
 
@@ -11018,20 +11087,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "home" as const, label: "Home" },
     { key: "runway" as const, label: "Runway" },
     { key: "tribute" as const, label: "Shrine of Principessa" },
-    { key: "tasks" as const, label: "Tasks" },
-    {
-      key: "pet" as const,
-      label: "Principessa's Pets",
-      disabled: !isPetUnlocked,
-      badge: isPetUnlocked ? undefined : "Locked",
-    },
-    { key: "shop" as const, label: "Shop" },
-    { key: "crates" as const, label: "Cases" },
+    { key: "tasks" as const, label: "Tasks & Pets" },
+    { key: "shop" as const, label: "Shop & Cases" },
     {
       key: "debt" as const,
       label: "Debt Contracts",
     },
-    { key: "devotion" as const, label: "Devotion" },
     {
       key: "collection" as const,
       label: "Gallery",
@@ -11047,18 +11108,30 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       item.onHover?.();
     },
   }));
+  // Some panels no longer have their own sidebar entry - they are tabs inside
+  // another panel. The panel key stays in DashboardPage so /pet keeps working as
+  // a deep link (and so Back from it does not fall through to "home" in the
+  // popstate handler); the sidebar just highlights the host item instead.
+  const NAV_ALIAS: Partial<Record<DashboardPage, DashboardPage>> = {
+    crates: "shop",
+    drain: "tribute",
+    pet: "tasks",
+  };
+  const sidebarActiveKey: DashboardPage = NAV_ALIAS[activePanel] ?? activePanel;
+  const ALIASED_PAGE_LABELS: Partial<Record<DashboardPage, string>> = {
+    crates: "Cases",
+    drain: "The Drain",
+    pet: "Principessa's Pets",
+  };
   const activePageLabel =
-    dashboardNavItems.find((item) => item.key === activePanel)?.label ?? "Home";
-  const selectedDevotionRank =
-    devotionLeaders.find((entry) => entry.userId === authUserId)?.rank ??
-    devotionCurrentUserEntry?.rank ??
-    null;
+    ALIASED_PAGE_LABELS[activePanel] ??
+    dashboardNavItems.find((item) => item.key === sidebarActiveKey)?.label ??
+    "Home";
   const devotionLeaderboardData: DevotionLeaderboardResponse = {
     currentUserEntry: devotionCurrentUserEntry,
     leaders: devotionLeaders,
     period: devotionPeriod,
   };
-  const devotionRefreshCountdownMs = getMsUntilNextGmt3HalfDayReset(currentTime);
   const currentUserPrestigeBadges = communityStatus?.currentUserBadges ?? [];
   const hallOfFameCards = communityStatus?.hallOfFame ?? [];
   const communityGoal = communityStatus?.communityGoal ?? null;
@@ -11324,16 +11397,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           },
           { label: "Rights", value: storedRights.toLocaleString(), hint: "Stored rights" },
         ]
-      : activePanel === "devotion"
-        ? [
-            {
-              label: "Rank",
-              value: selectedDevotionRank ? `#${selectedDevotionRank}` : "Unranked",
-              hint: "Current ladder",
-            },
-            { label: "Devotion", value: totalDevotion.toLocaleString(), hint: "All time prestige" },
-            { label: "Tribute", value: tributeTotal.toLocaleString(), hint: "Total offered" },
-          ]
       : activePanel === "tasks"
         ? [
             {
@@ -11533,7 +11596,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <AppShell
-        activePage={activePanel}
+        activePage={sidebarActiveKey}
         items={dashboardNavItems}
         onCoinsChange={(nextCoins) => {
           setCoins(nextCoins);
@@ -11776,10 +11839,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                     isPending={pendingTaskActionIds.includes("rebrand-profile")}
                     onRebrandProfile={handleRebrandProfile}
                   />
-                  <PetScoreLeaderboard
-                    error={petScoreLeaderboardError}
-                    isLoading={petScoreLeaderboardLoading}
-                    leaders={petScoreLeaders}
+                  <CourtLeaderboardCompact
+                    board={homeLeaderboardBoard}
+                    devotionData={devotionLeaderboardData}
+                    devotionError={devotionError}
+                    devotionPeriod={devotionPeriod}
+                    isDevotionLoading={devotionLoading}
+                    isPetLoading={petScoreLeaderboardLoading}
+                    onBoardChange={setHomeLeaderboardBoard}
+                    onDevotionPeriodChange={setDevotionPeriod}
+                    petError={petScoreLeaderboardError}
+                    petLeaders={petScoreLeaders}
+                    viewerUserId={authUserId}
                   />
                 </div>
 
@@ -11800,7 +11871,42 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               </div>
             </div>
           )}
-          {activePanel === "tribute" && (
+          {/* Direct child of .court-panel-stage, like the Tasks/Pets strip. */}
+          {(activePanel === "tribute" || activePanel === "drain") && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition ${
+                  tributeTab === "shrine"
+                    ? "border-amber-200/45 bg-amber-500/20 text-amber-50"
+                    : "border-white/10 bg-black/25 text-zinc-400 hover:text-amber-100"
+                }`}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  setActivePanel("tribute");
+                }}
+                type="button"
+              >
+                Shrine
+              </button>
+              <button
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition ${
+                  tributeTab === "drain"
+                    ? "border-rose-200/45 bg-rose-500/20 text-rose-50"
+                    : "border-white/10 bg-black/25 text-zinc-400 hover:text-rose-100"
+                }`}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  setActivePanel("drain");
+                }}
+                onFocus={() => void preloadDashboardPanel("drain")}
+                onMouseEnter={() => void preloadDashboardPanel("drain")}
+                type="button"
+              >
+                The Drain
+              </button>
+            </div>
+          )}
+          {(activePanel === "tribute" || activePanel === "drain") && tributeTab === "shrine" && (
             <TributePanel
               affection={affection}
               coins={coins}
@@ -11811,6 +11917,49 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               shrinePending={pendingTaskActionIds.some((id) => id.startsWith("shrine:"))}
               onShrinePurchase={handleShrinePurchase}
               onTribute={handleTribute}
+            />
+          )}
+          {/* The coin-spending pet tasks live here rather than in the pet task
+              grid: that grid is the earn surface, and these only take. Gated on
+              isPetUnlocked like PetSection itself - they are pet tasks, and the
+              API routes reject them before the pet is claimed. */}
+          {(activePanel === "tribute" || activePanel === "drain") && tributeTab === "shrine" && isPetUnlocked && (
+            <OfferingsSection
+              coins={coins}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              nextTaxDueAt={nextPetTaxDueAt}
+              pendingPetActionIds={pendingPetActionIds}
+              tasks={petTaskState}
+              weeklyTaxCost={currentWeeklyTaxCost}
+              onCooldownAttempt={handleCooldownAttempt}
+              onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}
+              onCancelThroneTribute={() =>
+                runPetAction(PET_THRONE_TASK_ID, handlePetThroneTributeCancel)
+              }
+              onSubmitThroneTribute={(submission) =>
+                runPetAction(PET_THRONE_TASK_ID, () => handlePetThroneTributeSubmit(submission))
+              }
+              onWorshipSubmit={(amount, compliment) =>
+                runPetAction("pet-worship", () => handlePetWorshipSubmit(amount, compliment))
+              }
+              onWorshipDownload={() => runPetAction("pet-worship-download", handlePetWorshipDownload)}
+              worshipCategory={petWorshipToday?.category ?? null}
+              worshipImagePath={petWorshipToday?.imagePath ?? null}
+              worshipUnlocked={Boolean(petWorshipToday?.unlocked) || (petWorshipToday ? guestWorshipUnlockedKeys.has(petWorshipToday.imagePath ?? "") : false)}
+              worshipImageVersion={worshipImageVersion}
+            />
+          )}
+          {/* Unmounted (not hidden) when the tab is inactive, unlike Cases:
+              leaving it mounted would keep the drain tick/sync intervals and
+              the click-batch debounce running behind the Shrine tab. Its
+              unmount cleanup stops all of them; the at-most-one-interval of
+              unsynced drain that gets dropped is never charged, which is the
+              same thing that already happened on navigating away. */}
+          {(activePanel === "tribute" || activePanel === "drain") && tributeTab === "drain" && (
+            <DrainPanel
+              coins={coins}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              revealedMemories={shrineStatus?.revealedMemories}
               clickGame={clickGameStatus}
               clickGameLeaderboard={clickGameLeaderboard}
               clickGameTogglePending={pendingTaskActionIds.includes("click-game-toggle")}
@@ -11842,30 +11991,87 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onUnlock={handleUnlock}
             />
           )}
+          {/* Direct child of .court-panel-stage on purpose: globals.css styles
+              `.court-panel-stage > section|div`, so wrapping this in a container
+              would break those selectors for everything below it.
+              rounded-full, not rounded-[1.5rem]: globals.css forces
+              border-radius 0.35rem !important on those tokens. */}
+          {(activePanel === "tasks" || activePanel === "pet") && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition ${
+                  activePanel === "tasks"
+                    ? "border-fuchsia-200/45 bg-fuchsia-500/20 text-fuchsia-50"
+                    : "border-white/10 bg-black/25 text-zinc-400 hover:text-fuchsia-100"
+                }`}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  setActivePanel("tasks");
+                }}
+                type="button"
+              >
+                Tasks
+              </button>
+              {/* aria-disabled + no-op click rather than the native disabled
+                  attribute, so the locked tab stays focusable and can say why. */}
+              <button
+                aria-disabled={!isPetUnlocked || undefined}
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition ${
+                  activePanel === "pet"
+                    ? "border-rose-200/45 bg-rose-500/20 text-rose-50"
+                    : isPetUnlocked
+                      ? "border-white/10 bg-black/25 text-zinc-400 hover:text-rose-100"
+                      : "cursor-not-allowed border-white/8 bg-black/20 text-zinc-600"
+                }`}
+                onClick={() => {
+                  if (!isPetUnlocked) {
+                    setAvatarMistressReply("Principessa's Pet is locked.");
+                    return;
+                  }
+                  emitSoundEvent("button_click");
+                  setActivePanel("pet");
+                }}
+                onFocus={() => void preloadDashboardPanel("pet")}
+                onMouseEnter={() => void preloadDashboardPanel("pet")}
+                type="button"
+              >
+                Pets{isPetUnlocked ? "" : " · Locked"}
+              </button>
+            </div>
+          )}
           {activePanel === "tasks" && (
             <div className="mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
-              <button
-                type="button"
-                onClick={() => setIsPuzzleExpanded((current) => !current)}
-                className="flex w-full items-center justify-between text-left"
-              >
-                <span className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">
-                  🧩 Puzzle {isPuzzleExpanded ? "▾" : "▸"}
-                </span>
-                <span className="text-xs text-zinc-400">{isPuzzleExpanded ? "Collapse" : "Expand"}</span>
-              </button>
-              {isPuzzleExpanded && (
-                <div className="mt-4">
-                  <PuzzleGame
-                    coins={coins}
-                    disabled={isTimeoutActive || isPreviewRestricted}
-                    onProfileUpdate={(profile) => {
-                      applyProfileStats(profile);
-                      void loadCommunityStatus();
-                    }}
-                  />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">🧩 Jigsaw</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Pay to have one of Principessa&apos;s jigsaws chosen for you. She picks which one.
+                  </p>
                 </div>
+                <button
+                  className="shrink-0 rounded-full border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isTimeoutActive || isPreviewRestricted || isJigsawUnlocking}
+                  onClick={() => void handleJigsawUnlock()}
+                  type="button"
+                >
+                  {isJigsawUnlocking ? "Unlocking..." : "Unlock a jigsaw"}
+                </button>
+              </div>
+
+              {/* Rendered as a link the user clicks, never window.open() after an
+                  await - a popup outside the gesture window is blocked by default
+                  in Safari and Firefox, which would charge them and show nothing. */}
+              {jigsawLink && (
+                <a
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-emerald-200/25 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:border-emerald-200/55 hover:bg-emerald-500/20"
+                  href={jigsawLink.url}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Open &quot;{jigsawLink.label}&quot;
+                </a>
               )}
+              {jigsawError && <p className="mt-2 text-xs text-rose-200/80">{jigsawError}</p>}
             </div>
           )}
           {activePanel === "tasks" && (
@@ -11919,38 +12125,58 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onWaitObedientlyStart={handleWaitObedientlyStart}
             />
           )}
-          {activePanel === "crates" && (
-              <CratesPanel
-                coins={coins}
-                disabled={isTimeoutActive || isPreviewRestricted}
-                crates={availableCrates}
-                inventory={crateInventory}
-                activeEvents={activeEvents}
-                crateOpenCredits={crateOpenCredits}
-                freeOpensUsedToday={crateFreeOpensUsedToday}
-                pending={cratePending}
-                onOpenCrate={handleOpenCrate}
-                onSellItem={handleSellCrateItem}
-                onSellAll={handleSellAllCrateItems}
-                onSellDuplicates={handleSellDuplicateCrateItems}
-                onSellWonItems={handleSellWonCrateItems}
-                pityStats={pityStats}
-                onCrateOpen={() => {
-                  const avatarId = resolveSpeechAvatarIdForMessage();
-                  // Use direct set + explicit category so we hit the dedicated "crate_open" pool
-                  // (instead of going through setAvatarMistressReply → getSpeechBubbleMessageForText → classify → general).
-                  const msg = getSpeechBubbleResponseMessage(avatarId, "crate_open");
-                  setSpeechBubbleReply(msg);
-                }}
-                onCrateResult={(item) => {
-                  const avatarId = resolveSpeechAvatarIdForMessage();
-                  const rarityKey = `crate_result_${item.rarity}` as const;
-                  // Direct set ensures the specific crate_result_rarity category is used (random pick from its pool).
-                  // Avoids re-classification that was forcing "general" for equipped speech avatars.
-                  const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);
-                  setSpeechBubbleReply(msg);
-                }}
-              />
+          {activePanel === "pet" && isPetUnlocked && (
+            <PetSection
+              disabled={isTimeoutActive || isPreviewRestricted}
+              coins={coins}
+              isGuest={isGuestMode}
+              favorCoinReward={eventFavorCoinReward}
+              ownerLikeness={ownerLikeness}
+              petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
+              petTaskCoinReward={eventPetTaskCoinReward}
+              petScore={petScore}
+              petAffectionClaimed={petAffectionClaimed}
+              storedRights={storedRights}
+              rightExpirations={rightExpirations}
+              dailyPurchaseCount={dailyPurchaseCount}
+              rightPurchaseDate={rightPurchaseDate}
+              pendingPetActionIds={pendingPetActionIds}
+              tasks={petTaskState}
+              onBuyRight={() => handleRightsAction("buy")}
+              onClaimAffection={() => runPetAction("pet-affection-claim", handlePetAffectionClaim)}
+              onConfessionSubmit={(value, options) =>
+                runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
+              }
+              onOwnershipOathSubmit={(value, options) =>
+                runPetAction("pet-ownership-oath", () => handlePetOwnershipOathSubmit(value, options))
+              }
+              onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
+              onCooldownAttempt={handleCooldownAttempt}
+              onFalseHopeKey={handlePetFalseHopeKey}
+              onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
+              onHighLowPlay={handleHighLowPlay}
+              highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
+              highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
+              onPetDailyClick={handlePetDailyClick}
+              onPetEvilWaitComplete={() => runPetAction("pet-evil-wait", handlePetEvilWaitComplete)}
+              onPetEvilWaitFail={() => runPetAction("pet-evil-wait", handlePetEvilWaitFail)}
+              onPetEvilWaitStart={() => runPetAction("pet-evil-wait", handlePetEvilWaitStart)}
+              onPerfectWritingProgress={handlePetPerfectWritingProgress}
+              onUseRight={() => handleRightsAction("use")}
+            />
+          )}
+          {/* The Pet tab is now clickable even when locked, so /pet has to say
+              something. Before the merge the sidebar entry was `disabled` and
+              landing here rendered a blank stage. No redirect on purpose - it
+              would fight pushState and remount Home. */}
+          {activePanel === "pet" && !isPetUnlocked && (
+            <section className="court-feature-panel rounded-[2rem] border border-rose-200/15 bg-black/40 p-6 text-center">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-200/70">Locked</p>
+              <h3 className="mt-2 text-xl font-black text-white">Principessa&apos;s Pets</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Reach {affection}/100 affection to be considered. Keep offering at the Shrine.
+              </p>
+            </section>
           )}
           {activePanel === "runway" && (
             <RunwayPanel
@@ -11960,7 +12186,50 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               liveEquippedFullSetId={equippedFullSetId}
             />
           )}
-          {activePanel === "shop" && (
+          {/* Direct child of .court-panel-stage, like the Tasks/Pets strip. */}
+          {(activePanel === "shop" || activePanel === "crates") && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  shopTab === "cosmetics"
+                    ? "border-fuchsia-200/45 bg-fuchsia-500/20 text-fuchsia-50"
+                    : "border-white/10 bg-black/25 text-zinc-400 hover:text-fuchsia-100"
+                }`}
+                disabled={isCaseOpening}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  setActivePanel("shop");
+                }}
+                type="button"
+              >
+                Cosmetics
+              </button>
+              <button
+                className={`rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  shopTab === "cases"
+                    ? "border-amber-200/45 bg-amber-500/20 text-amber-50"
+                    : "border-white/10 bg-black/25 text-zinc-400 hover:text-amber-100"
+                }`}
+                disabled={isCaseOpening}
+                onClick={() => {
+                  emitSoundEvent("button_click");
+                  setHasMountedCasesTab(true);
+                  setActivePanel("crates");
+                }}
+                onFocus={() => void preloadDashboardPanel("crates")}
+                onMouseEnter={() => void preloadDashboardPanel("crates")}
+                type="button"
+              >
+                Cases
+              </button>
+              {isCaseOpening && (
+                <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-100/60">
+                  Opening...
+                </span>
+              )}
+            </div>
+          )}
+          {(activePanel === "shop" || activePanel === "crates") && shopTab === "cosmetics" && (
             <div className="flex flex-col gap-6">
               <RotatingShop
                 coins={coins}
@@ -12001,16 +12270,46 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               />
             </div>
           )}
-          {activePanel === "devotion" && (
-            <DevotionLeaderboard
-              data={devotionLeaderboardData}
-              error={devotionError}
-              isLoading={devotionLoading}
-              refreshCountdownMs={devotionRefreshCountdownMs}
-              onPeriodChange={(period) => {
-                setDevotionPeriod(period);
-              }}
-            />
+          {/* Kept mounted once visited rather than unmounted on tab switch:
+              CratesPanel holds 14 pieces of local state (won items, per-case
+              quantities, the reel arrays) that are all lost on unmount.
+              `contents` keeps it a direct child of .court-panel-stage for the
+              globals.css child selectors, unlike a plain hidden wrapper div. */}
+          {(activePanel === "shop" || activePanel === "crates") && (shopTab === "cases" || hasMountedCasesTab) && (
+            <div className={shopTab === "cases" ? "contents" : "hidden"}>
+              <CratesPanel
+                coins={coins}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                crates={availableCrates}
+                inventory={crateInventory}
+                activeEvents={activeEvents}
+                crateOpenCredits={crateOpenCredits}
+                freeOpensUsedToday={crateFreeOpensUsedToday}
+                pending={cratePending}
+                onBusyChange={setIsCaseOpening}
+                onOpenCrate={handleOpenCrate}
+                onSellItem={handleSellCrateItem}
+                onSellAll={handleSellAllCrateItems}
+                onSellDuplicates={handleSellDuplicateCrateItems}
+                onSellWonItems={handleSellWonCrateItems}
+                pityStats={pityStats}
+                onCrateOpen={() => {
+                  const avatarId = resolveSpeechAvatarIdForMessage();
+                  // Use direct set + explicit category so we hit the dedicated "crate_open" pool
+                  // (instead of going through setAvatarMistressReply → getSpeechBubbleMessageForText → classify → general).
+                  const msg = getSpeechBubbleResponseMessage(avatarId, "crate_open");
+                  setSpeechBubbleReply(msg);
+                }}
+                onCrateResult={(item) => {
+                  const avatarId = resolveSpeechAvatarIdForMessage();
+                  const rarityKey = `crate_result_${item.rarity}` as const;
+                  // Direct set ensures the specific crate_result_rarity category is used (random pick from its pool).
+                  // Avoids re-classification that was forcing "general" for equipped speech avatars.
+                  const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);
+                  setSpeechBubbleReply(msg);
+                }}
+              />
+            </div>
           )}
           {activePanel === "profile" && (
             <div className="flex min-w-0 flex-col gap-6">
@@ -12701,63 +13000,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               </section>
             </div>
           )}
-          {activePanel === "pet" && isPetUnlocked && (
-            <PetSection
-              disabled={isTimeoutActive || isPreviewRestricted}
-              coins={coins}
-              isGuest={isGuestMode}
-              favorCoinReward={eventFavorCoinReward}
-              nextTaxDueAt={nextPetTaxDueAt}
-              ownerLikeness={ownerLikeness}
-              petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
-              petTaskCoinReward={eventPetTaskCoinReward}
-              petScore={petScore}
-              petAffectionClaimed={petAffectionClaimed}
-              storedRights={storedRights}
-              rightExpirations={rightExpirations}
-              dailyPurchaseCount={dailyPurchaseCount}
-              rightPurchaseDate={rightPurchaseDate}
-              pendingPetActionIds={pendingPetActionIds}
-              tasks={petTaskState}
-              weeklyTaxCost={currentWeeklyTaxCost}
-              onBuyRight={() => handleRightsAction("buy")}
-              onClaimAffection={() => runPetAction("pet-affection-claim", handlePetAffectionClaim)}
-              onConfessionSubmit={(value, options) =>
-                runPetAction("pet-confession-dm", () => handlePetConfessionSubmit(value, options))
-              }
-              onOwnershipOathSubmit={(value, options) =>
-                runPetAction("pet-ownership-oath", () => handlePetOwnershipOathSubmit(value, options))
-              }
-              onWorshipSubmit={(amount, compliment) =>
-                runPetAction("pet-worship", () => handlePetWorshipSubmit(amount, compliment))
-              }
-              onWorshipDownload={() => runPetAction("pet-worship-download", handlePetWorshipDownload)}
-              worshipCategory={petWorshipToday?.category ?? null}
-              worshipImagePath={petWorshipToday?.imagePath ?? null}
-              worshipUnlocked={Boolean(petWorshipToday?.unlocked) || (petWorshipToday ? guestWorshipUnlockedKeys.has(petWorshipToday.imagePath ?? "") : false)}
-              worshipImageVersion={worshipImageVersion}
-              onCancelThroneTribute={() =>
-                runPetAction(PET_THRONE_TASK_ID, handlePetThroneTributeCancel)
-              }
-              onCompleteTask={(taskId) => runPetAction(taskId, () => handlePetTaskComplete(taskId))}
-              onCooldownAttempt={handleCooldownAttempt}
-              onFalseHopeKey={handlePetFalseHopeKey}
-              onFavorPick={(index) => runPetAction("pet-favor-roulette", () => handlePetFavorPick(index))}
-              onHighLowPlay={handleHighLowPlay}
-              highLowAllowanceCap={HIGH_LOW_BET_ALLOWANCE}
-              highLowProfitCap={HIGH_LOW_PROFIT_LIMIT}
-              onPetDailyClick={handlePetDailyClick}
-              onPayWeeklyTax={() => runPetAction("pet-weekly-throne-tax", handlePetWeeklyTax)}
-              onPetEvilWaitComplete={() => runPetAction("pet-evil-wait", handlePetEvilWaitComplete)}
-              onPetEvilWaitFail={() => runPetAction("pet-evil-wait", handlePetEvilWaitFail)}
-              onPetEvilWaitStart={() => runPetAction("pet-evil-wait", handlePetEvilWaitStart)}
-              onPerfectWritingProgress={handlePetPerfectWritingProgress}
-              onSubmitThroneTribute={(submission) =>
-                runPetAction(PET_THRONE_TASK_ID, () => handlePetThroneTributeSubmit(submission))
-              }
-              onUseRight={() => handleRightsAction("use")}
-            />
-          )}
           {activePanel === "debt" && (
             <DebtSection
               canManageActiveDebtWhileTimedOut={isDebtOverdueTimeoutActive}
@@ -12808,6 +13050,5 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     </main>
   );
 }
-
 
 

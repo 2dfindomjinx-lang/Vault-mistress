@@ -2,19 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import {
-  formatPetThroneAmount,
-  getPetThroneRewardBreakdown,
-  PET_THRONE_AMOUNTS,
-  PET_THRONE_TASK_ID,
-} from "@/lib/pet-throne";
-import {
-  getWorshipComplimentPlaceholder,
-  PET_OWNERSHIP_OATH_REPEAT_COUNT,
-  PET_WORSHIP_DOWNLOAD_COST,
-  PET_WORSHIP_MIN_AMOUNT,
-} from "@/lib/pet-tasks-content";
-import type { PetDebtContract, PetTaskItem } from "@/lib/types";
+import { PET_OWNERSHIP_OATH_REPEAT_COUNT } from "@/lib/pet-tasks-content";
+import type { PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
@@ -27,38 +16,6 @@ const PET_RANKS = [
   { min: 1000, title: "Principessa's Perfect Pet" },
 ];
 
-const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
-const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.webp";
-const DEBT_DURATION_LIMITS = {
-  monthly: { label: "Months", max: 24, min: 1 },
-  weekly: { label: "Weeks", max: 52, min: 1 },
-};
-const DEBT_MINIMUM_PAYMENTS = {
-  monthly: 50000,
-  weekly: 10000,
-};
-const EVIL_DEBT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-const DEBT_RANDOM_AMOUNT_STEPS = {
-  monthly: 10000,
-  weekly: 5000,
-};
-const EVIL_DEBT_DURATION_MULTIPLIER = 2.5;
-const EVIL_CONSENT_PRIMARY_TEXT =
-  "I confirm that these images belong to me and I am sharing them with my own consent.";
-const EVIL_CONSENT_SECONDARY_TEXT =
-  "I consent that Principessa may use these images and I accept the consequences.";
-const EVIL_DEBT_TIMEZONE_OPTIONS = Array.from({ length: 25 }, (_, index) => {
-  const offset = index - 12;
-  return `UTC${offset >= 0 ? "+" : ""}${offset}`;
-});
-const DEBT_RANDOM_AMOUNT_LIMITS = {
-  monthly: { max: 200000, min: 50000 },
-  weekly: { max: 30000, min: 10000 },
-};
-const DEBT_RANDOM_DURATION_LIMITS = {
-  monthly: { label: "Months", max: 24, min: 4 },
-  weekly: { label: "Weeks", max: 52, min: 8 },
-};
 const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
 const RIGHTS_TASK_TITLE = "Owned Orgasm Permission";
@@ -385,23 +342,6 @@ function isPetTaskApprovedToday(task: PetTaskItem, now: number) {
   return completedDate === today || reviewedDate === today || taskDate === today;
 }
 
-function randomInteger(minimum: number, maximum: number) {
-  return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
-}
-
-function randomPetName() {
-  return DEBT_PET_NAMES[Math.floor(Math.random() * DEBT_PET_NAMES.length)] ?? DEBT_PET_NAMES[0];
-}
-
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Image upload failed."));
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.readAsDataURL(file);
-  });
-}
-
 function getRandomWebsiteState(): RandomWebsiteState {
   if (typeof window === "undefined") {
     return { currentLink: null, seenLinks: [] };
@@ -475,81 +415,6 @@ function pickRandomWebsiteLink(state: RandomWebsiteState): RandomWebsiteState {
   };
 }
 
-function randomWeightedWeeklyDebtDuration(amount: number) {
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS.weekly;
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS.weekly;
-  const amountRange = amountLimit.max - amountLimit.min;
-  const lowAmountBias =
-    amountRange > 0 ? Math.max(0, (amountLimit.max - amount) / amountRange) : 0;
-  const durationOptions = Array.from(
-    { length: durationLimit.max - durationLimit.min + 1 },
-    (_, index) => durationLimit.min + index,
-  );
-  const weightedOptions = durationOptions.map((duration) => {
-    const durationRange = durationLimit.max - durationLimit.min;
-    const highDurationBias =
-      durationRange > 0 ? (duration - durationLimit.min) / durationRange : 0;
-
-    return {
-      duration,
-      weight: 1 + lowAmountBias * highDurationBias * 5,
-    };
-  });
-  const totalWeight = weightedOptions.reduce((sum, option) => sum + option.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const option of weightedOptions) {
-    roll -= option.weight;
-
-    if (roll <= 0) {
-      return option.duration;
-    }
-  }
-
-  return durationLimit.max;
-}
-
-function randomDebtPeriodType(): "weekly" | "monthly" {
-  return Math.random() < 0.5 ? "weekly" : "monthly";
-}
-
-function getRandomDebtDraft(): {
-  amount: number;
-  duration: number;
-  periodType: "weekly" | "monthly";
-} {
-  const periodType = randomDebtPeriodType();
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
-  const amountStep = DEBT_RANDOM_AMOUNT_STEPS[periodType];
-  const minimumMultiplier = amountLimit.min / amountStep;
-  const maximumMultiplier = amountLimit.max / amountStep;
-  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * amountStep;
-  const duration =
-    periodType === "weekly"
-      ? randomWeightedWeeklyDebtDuration(installmentAmount)
-      : randomInteger(durationLimit.min, durationLimit.max);
-
-  return {
-    amount: installmentAmount,
-    duration,
-    periodType,
-  };
-}
-
-const PET_CASE_DISPLAY_POOL = [
-  { value: 100, tier: "ice", weight: 90 },
-  { value: 150, tier: "ice", weight: 82 },
-  { value: 200, tier: "blue", weight: 64 },
-  { value: 250, tier: "blue", weight: 56 },
-  { value: 300, tier: "blue", weight: 44 },
-  { value: 400, tier: "pink", weight: 30 },
-  { value: 500, tier: "pink", weight: 20 },
-  { value: 650, tier: "red", weight: 12 },
-  { value: 800, tier: "red", weight: 6 },
-  { value: 1000, tier: "gold", weight: 2 },
-];
-
 const EVIL_DISTRACTION_TEXTS = [
   "Confirm Obedience",
   "Click to Prove Loyalty",
@@ -597,41 +462,26 @@ export function PetSection({
   coins,
   favorCoinReward,
   isGuest,
-  isDebtAutoPayEnabled = false,
-  nextTaxDueAt,
-  onCancelThroneTribute,
   onClaimAffection,
   onConfessionSubmit,
   onOwnershipOathSubmit,
-  onWorshipSubmit,
-  onWorshipDownload,
-  worshipCategory = null,
-  worshipImagePath = null,
-  worshipUnlocked = false,
-  worshipImageVersion = 0,
   onCompleteTask,
   onCooldownAttempt,
-  onDebtAutoPayChange = () => {},
-  onPayDebtPeriod = () => {},
   onBuyRight,
-  onSignDebtContract = async () => false,
   onUseRight,
   onFalseHopeKey,
   onFavorPick,
   onHighLowPlay,
   onPetDailyClick,
-  onPayWeeklyTax,
   onPetEvilWaitComplete,
   onPetEvilWaitFail,
   onPetEvilWaitStart,
   onPerfectWritingProgress,
-  onSubmitThroneTribute,
   highLowAllowanceCap,
   highLowProfitCap,
   pendingPetActionIds = [],
   ownerLikeness,
   petScore,
-  petDebtContract = null,
   petAffectionClaimed,
   petReviewTaskCoinReward,
   petTaskCoinReward,
@@ -640,60 +490,29 @@ export function PetSection({
   dailyPurchaseCount,
   rightPurchaseDate,
   tasks,
-  weeklyTaxCost,
 }: {
   disabled?: boolean;
   coins: number;
   favorCoinReward: number;
   isGuest?: boolean;
-  isDebtAutoPayEnabled?: boolean;
-  nextTaxDueAt: string | null;
-  onCancelThroneTribute: () => void;
   onClaimAffection: () => void;
   onConfessionSubmit: (value: string, options?: { cheated?: boolean }) => void;
   onOwnershipOathSubmit: (value: string, options?: { cheated?: boolean }) => void;
-  onWorshipSubmit: (amount: number, compliment: string) => void;
-  onWorshipDownload: () => void;
-  worshipCategory?: "feet" | "ass" | "breasts" | null;
-  worshipImagePath?: string | null;
-  worshipUnlocked?: boolean;
-  worshipImageVersion?: number;
   onCompleteTask: (taskId: string) => void;
   onCooldownAttempt?: (message: string) => void;
-  onDebtAutoPayChange?: (enabled: boolean) => void;
-  onPayDebtPeriod?: () => void;
   onBuyRight: () => void;
-  onSignDebtContract?: (form: {
-    age?: number | string;
-    consentPrimary?: boolean;
-    consentPrimaryText?: string;
-    consentSecondary?: boolean;
-    consentSecondaryText?: string;
-    contractType?: "normal" | "evil";
-    debtAmount: number;
-    durationPeriods: number;
-    fullName?: string;
-    imageUrls?: string[];
-    randomGenerated?: boolean;
-    periodType: "weekly" | "monthly";
-    petName: string;
-    timezone?: string;
-  }) => Promise<boolean> | boolean;
   onUseRight: () => void;
   onFalseHopeKey: (key: "a" | "d") => void;
   onFavorPick: (index: number) => void;
   onHighLowPlay: (guess: "higher" | "lower", stake: number) => void;
   onPetDailyClick: () => void;
-  onPayWeeklyTax: () => void;
   onPetEvilWaitComplete: () => void;
   onPetEvilWaitFail: () => void;
   onPetEvilWaitStart: () => void;
   onPerfectWritingProgress: (value: string) => void;
-  onSubmitThroneTribute: (submission: { amount: number; proofImage: string }) => void;
   pendingPetActionIds?: string[];
   ownerLikeness: number;
   petScore: number;
-  petDebtContract?: PetDebtContract | null;
   petAffectionClaimed: boolean;
   petReviewTaskCoinReward: number;
   petTaskCoinReward: number;
@@ -704,12 +523,9 @@ export function PetSection({
   tasks: PetTaskItem[];
   highLowAllowanceCap: number;
   highLowProfitCap: number;
-  weeklyTaxCost: number;
 }) {
   const now = useDeadlineClock(
     [
-      nextTaxDueAt,
-      petDebtContract?.next_due_at,
       ...rightExpirations,
       ...tasks.flatMap((task) => [task.cooldownUntil, task.highLowResetAt, task.highLowRoundAvailableAt]),
     ],
@@ -730,27 +546,9 @@ export function PetSection({
   const [evilTeaseIndex, setEvilTeaseIndex] = useState(0);
   const [confessionInput, setConfessionInput] = useState("");
   const [oathInput, setOathInput] = useState("");
-  const [worshipAmountInput, setWorshipAmountInput] = useState("");
-  const [worshipComplimentInput, setWorshipComplimentInput] = useState("");
+  const [showRestingTasks, setShowRestingTasks] = useState(false);
   const [perfectInput, setPerfectInput] = useState("");
-  const [selectedThroneAmount, setSelectedThroneAmount] = useState<number>(PET_THRONE_AMOUNTS[0]);
-  const [throneProofError, setThroneProofError] = useState("");
-  const [throneProofImage, setThroneProofImage] = useState("");
-  const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
-  const [debtAmount, setDebtAmount] = useState("");
-  const [debtDuration, setDebtDuration] = useState("");
-  const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
-  const [debtMode, setDebtMode] = useState<"normal" | "evil">("normal");
-  const [evilAge, setEvilAge] = useState("");
-  const [evilFullName, setEvilFullName] = useState("");
-  const [evilTimezone, setEvilTimezone] = useState("UTC+3");
-  const [evilCustomNote, setEvilCustomNote] = useState("");
-  const [evilConsentPrimary, setEvilConsentPrimary] = useState("");
-  const [evilConsentSecondary, setEvilConsentSecondary] = useState("");
-  const [evilImageUrls, setEvilImageUrls] = useState<string[]>([]);
-  const [evilImageError, setEvilImageError] = useState("");
   const [randomWebsiteLink, setRandomWebsiteLink] = useState<string | null>(null);
-  const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
   const onPetEvilWaitCompleteRef = useRef(onPetEvilWaitComplete);
@@ -775,76 +573,31 @@ export function PetSection({
   const rank = getPetRank(petScore);
   const approvedCount = tasks.filter((task) => isPetTaskApprovedToday(task, now)).length;
   const canClaimAffection = approvedCount >= 5 && !petAffectionClaimed;
-  const throneTask =
-    tasks.find((task) => task.id === PET_THRONE_TASK_ID) ??
-    ({
-      id: PET_THRONE_TASK_ID,
-      title: "Throne Bonus",
-      description: "Pick a Throne tribute amount, upload the gift screen, and submit it for review.",
-      reward: 0,
-      kind: "throne-tribute",
-      status: "available",
-    } as PetTaskItem);
-  const weeklyTaxTask = tasks.find((task) => task.kind === "weekly-tax");
-  const weeklyTaxCoolingDown =
-    Boolean(weeklyTaxTask?.cooldownUntil) &&
-    new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
-  const debtTask =
-    tasks.find((task) => task.kind === "debt-contract") ??
-    ({
-      id: "pet-debt-contract",
-      title: "Debt Contract",
-      description: "Sign a recurring debt contract and pay the selected amount each period.",
-      reward: 0,
-      kind: "debt-contract",
-      status: "available",
-    } as PetTaskItem);
-  const baseDebtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
-  const debtDurationLimit = {
-    ...baseDebtDurationLimit,
-    min: debtMode === "evil" ? Math.ceil(baseDebtDurationLimit.min * EVIL_DEBT_DURATION_MULTIPLIER) : baseDebtDurationLimit.min,
-  };
-  const debtMinimumPayment =
-    debtMode === "evil"
-      ? debtPeriodType === "weekly"
-        ? 50000
-        : 200000
-      : DEBT_MINIMUM_PAYMENTS[debtPeriodType];
-  const debtAmountStep = debtMode === "evil" ? 5000 : DEBT_RANDOM_AMOUNT_STEPS[debtPeriodType];
-  const activeDebtContractType = petDebtContract?.contract_type === "evil" ? "evil" : "normal";
-  const hasOpenDebtContract = Boolean(
-    petDebtContract && ["active", "pending"].includes(petDebtContract.status),
-  );
-  const debtPaymentDue =
-    Boolean(petDebtContract) &&
-    new Date(petDebtContract?.next_due_at ?? "").getTime() <= now;
-  const debtInstallmentNumber = petDebtContract
-    ? Math.min(petDebtContract.paid_periods + 1, petDebtContract.duration_periods)
-    : 0;
-  const remainingDebtBalance = petDebtContract
-    ? Math.max(
-        0,
-        (Math.max(1, petDebtContract.current_installment_remaining || petDebtContract.debt_amount))
-          + Math.max(0, petDebtContract.duration_periods - petDebtContract.paid_periods - 1) * petDebtContract.debt_amount,
-      )
-    : 0;
   const dailyClickTask = tasks.find((task) => task.kind === "daily-click");
-  const throneCoolingDown =
-    Boolean(throneTask.cooldownUntil) &&
-    new Date(throneTask.cooldownUntil ?? "").getTime() > now;
-  const thronePending = throneTask.status === "pending";
-  const throneApproved = throneTask.status === "approved";
-  const throneFailed = throneTask.status === "failed";
-  const throneActionPending = isPetActionPending(throneTask.id);
-  const throneRewardBreakdown = getPetThroneRewardBreakdown(selectedThroneAmount);
-  const throneCoinEquivalent = throneRewardBreakdown.totalCoinAmount;
+  // The excluded kinds either have a dedicated card elsewhere in this file
+  // (daily-click), their own panel (debt-contract), or moved to the Offerings
+  // surface because they cost coins instead of paying them (weekly-tax,
+  // throne-tribute, worship). Filtered at render only - `tasks` stays whole,
+  // because coin accounting in page.tsx iterates the same array.
   const regularTasks = tasks.filter(
     (task) =>
       task.kind !== "debt-contract" &&
       task.kind !== "weekly-tax" &&
       task.kind !== "daily-click" &&
-      task.kind !== "throne-tribute",
+      task.kind !== "throne-tribute" &&
+      task.kind !== "worship",
   );
+  // A task is "resting" when there is nothing the user can do about it right
+  // now - it is on cooldown, or already approved for today. Those are hidden
+  // by default so the grid only shows what is actually actionable; "pending"
+  // (awaiting admin review) and "failed" stay visible on purpose, since the
+  // first is reassurance that a submission landed and the second needs a retry.
+  const isTaskResting = (task: PetTaskItem) =>
+    (Boolean(task.cooldownUntil) && new Date(task.cooldownUntil ?? "").getTime() > now) ||
+    task.status === "approved";
+  const activeRegularTasks = regularTasks.filter((task) => !isTaskResting(task));
+  const restingRegularTaskCount = regularTasks.length - activeRegularTasks.length;
+  const visibleRegularTasks = showRestingTasks ? regularTasks : activeRegularTasks;
   const evilWaitTask = tasks.find((task) => task.kind === "evil-wait");
   const falseHopeTask = tasks.find((task) => task.kind === "false-hope");
   const showFalseHopeWarning =
@@ -1112,15 +865,6 @@ export function PetSection({
     };
   }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitEndsAt, evilWaitTask?.waitState]);
 
-  useEffect(() => {
-    if (throneTask.throneAmount && throneTask.throneAmount > 0) {
-      setSelectedThroneAmount(throneTask.throneAmount);
-    }
-
-    setThroneProofImage(throneTask.throneProofImage ?? "");
-    setThroneProofError("");
-  }, [throneTask.throneAmount, throneTask.throneProofImage]);
-
   function handlePerfectInput(value: string, sentence: string) {
     if (!writingPreviewStartsWith(sentence, value)) {
       setPerfectInput("");
@@ -1130,145 +874,6 @@ export function PetSection({
 
     setPerfectInput(value);
     onPerfectWritingProgress(value);
-  }
-
-  async function handleThroneProofChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0] ?? null;
-    event.target.value = "";
-
-    if (!selectedFile) {
-      return;
-    }
-
-    if (!selectedFile.type.startsWith("image/")) {
-      setThroneProofError("Please upload an image file.");
-      return;
-    }
-
-    if (selectedFile.size > 4 * 1024 * 1024) {
-      setThroneProofError("Image must stay under 4 MB.");
-      return;
-    }
-
-    try {
-      setThroneProofImage(await fileToDataUrl(selectedFile));
-      setThroneProofError("");
-    } catch {
-      setThroneProofError("Image upload failed.");
-    }
-  }
-
-  function handleClearThroneProof() {
-    onCancelThroneTribute();
-  }
-
-  function showDebtSignedImage() {
-    setShowDebtSigningImage(true);
-    if (debtSignTimerRef.current !== null) {
-      window.clearTimeout(debtSignTimerRef.current);
-    }
-    debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
-  }
-
-  async function signDebtContract(form: {
-    age?: number | string;
-    consentPrimary?: boolean;
-    consentPrimaryText?: string;
-    consentSecondary?: boolean;
-    consentSecondaryText?: string;
-    contractType?: "normal" | "evil";
-    debtAmount: number;
-    durationPeriods: number;
-    fullName?: string;
-    customNote?: string;
-    imageUrls?: string[];
-    randomGenerated?: boolean;
-    periodType: "weekly" | "monthly";
-    petName: string;
-    timezone?: string;
-  }) {
-    const signed = await onSignDebtContract(form);
-
-    if (signed && form.contractType !== "evil") {
-      showDebtSignedImage();
-    }
-
-    return signed;
-  }
-
-  async function handleDebtSign() {
-    await signDebtContract({
-      debtAmount: Number(debtAmount),
-      durationPeriods: Number(debtDuration),
-      periodType: debtPeriodType,
-      petName: debtPetName,
-    });
-  }
-
-  async function handleEvilDebtImages(files: FileList | null) {
-    setEvilImageError("");
-    const selectedFiles = Array.from(files ?? []).slice(0, 8);
-
-    if (selectedFiles.length === 0) {
-      setEvilImageUrls([]);
-      return;
-    }
-
-    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
-      setEvilImageError("Only image files are accepted.");
-      return;
-    }
-
-    if (selectedFiles.some((file) => file.size > EVIL_DEBT_IMAGE_MAX_BYTES)) {
-      setEvilImageError("Each image must be 4MB or smaller.");
-      return;
-    }
-
-    try {
-      setEvilImageUrls(await Promise.all(selectedFiles.map(fileToDataUrl)));
-    } catch {
-      setEvilImageError("Images failed to load.");
-    }
-  }
-
-  async function handleEvilDebtSign() {
-    if (!window.confirm("Are you absolutely sure you want to sign the Evil Debt Contract?")) {
-      return;
-    }
-
-    await signDebtContract({
-      age: evilAge,
-      consentPrimary: evilConsentPrimary.trim() === EVIL_CONSENT_PRIMARY_TEXT,
-      consentPrimaryText: evilConsentPrimary.trim(),
-      consentSecondary: evilConsentSecondary.trim() === EVIL_CONSENT_SECONDARY_TEXT,
-      consentSecondaryText: evilConsentSecondary.trim(),
-      contractType: "evil",
-      debtAmount: Number(debtAmount),
-      durationPeriods: Number(debtDuration),
-      fullName: evilFullName,
-      customNote: evilCustomNote,
-      imageUrls: evilImageUrls,
-      periodType: debtPeriodType,
-      petName: "Evil Debt Contract",
-      timezone: evilTimezone,
-    });
-  }
-
-  async function handleRandomDebtSign() {
-    const draft = getRandomDebtDraft();
-    const petName = randomPetName();
-
-    setDebtPetName(petName);
-    setDebtAmount(String(draft.amount));
-    setDebtDuration(String(draft.duration));
-    setDebtPeriodType(draft.periodType);
-    await signDebtContract({
-      debtAmount: draft.amount,
-      durationPeriods: draft.duration,
-      randomGenerated: true,
-      periodType: draft.periodType,
-      petName,
-    });
   }
 
   function handleRandomWebsiteOpen() {
@@ -1305,14 +910,6 @@ export function PetSection({
   function handleOathSubmit() {
     onOwnershipOathSubmit(oathInput);
     setOathInput("");
-  }
-
-  function handleWorshipSubmit() {
-    const amount = Math.floor(Number(worshipAmountInput));
-    if (!Number.isFinite(amount)) return;
-    onWorshipSubmit(amount, worshipComplimentInput);
-    setWorshipAmountInput("");
-    setWorshipComplimentInput("");
   }
 
   function handleOathPasteAttempt() {
@@ -1483,57 +1080,30 @@ export function PetSection({
 
       <div className="court-grid court-grid--pet mt-4 min-w-0">
         <div className="space-y-3">
-          <div className="court-grid-card court-grid-card--gold rounded-[1.5rem] border border-yellow-200/15 bg-yellow-400/10 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-yellow-100/70">
-                  Weekly Tax
-                </p>
-                <p className="mt-1 text-sm text-yellow-50">
-                  Due in: {formatRemaining(nextTaxDueAt, now)}
-                </p>
-              </div>
-              <span className="rounded-full border border-yellow-100/20 bg-yellow-300/10 px-3 py-1 text-xs font-black text-yellow-50">
-                +{weeklyTaxTask?.reward ?? 0} Pet Score
-              </span>
+          {restingRegularTaskCount > 0 && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-red-200/12 bg-black/25 px-3 py-2">
+              <p className="text-xs text-red-100/60">
+                {activeRegularTasks.length > 0
+                  ? `${activeRegularTasks.length} task ready now · ${restingRegularTaskCount} resting`
+                  : `Every task is resting. ${restingRegularTaskCount} will return tomorrow.`}
+              </p>
+              <button
+                className="shrink-0 rounded-full border border-red-200/25 bg-red-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-red-50 transition hover:border-red-200/55 hover:bg-red-500/20"
+                onClick={() => setShowRestingTasks((current) => !current)}
+                type="button"
+              >
+                {showRestingTasks ? "Hide resting" : "Show all"}
+              </button>
             </div>
-            <p className="mt-2 text-xs text-yellow-100/70">
-              Tax amount: {weeklyTaxCost} Principessa Coins. Rule: 10% of your coins with a minimum of 2,500 and a maximum of 10,000. If it stays unpaid for 7 days, affection definitely drops.
-            </p>
-            <button
-              aria-disabled={weeklyTaxCoolingDown || undefined}
-              className={`mt-4 w-full rounded-2xl border border-yellow-200/25 bg-yellow-500/15 px-4 py-3 text-sm font-black text-yellow-50 transition enabled:hover:border-yellow-200/55 enabled:hover:bg-yellow-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
-                weeklyTaxCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-              }`}
-              disabled={disabled || coins < weeklyTaxCost || isPetActionPending("pet-weekly-throne-tax")}
-              onClick={() => {
-                if (weeklyTaxCoolingDown) {
-                  handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(weeklyTaxTask?.cooldownUntil ?? null, now)}.`);
-                  return;
-                }
-
-                onPayWeeklyTax();
-              }}
-              type="button"
-            >
-              {isPetActionPending("pet-weekly-throne-tax")
-                ? "Saving..."
-                : weeklyTaxCoolingDown
-                ? "Tax Paid"
-                : coins < weeklyTaxCost
-                  ? `Need ${weeklyTaxCost} Coins`
-                  : `Pay ${weeklyTaxCost} Coins`}
-            </button>
-          </div>
+          )}
 
           <div className="court-grid court-grid--pet grid min-w-0 gap-3 md:grid-cols-2">
-            {regularTasks.map((task) => {
+            {visibleRegularTasks.map((task) => {
               const coolingDown =
                 Boolean(task.cooldownUntil) &&
                 new Date(task.cooldownUntil ?? "").getTime() > now;
               const pending = task.status === "pending";
-              const approved =
-                (task.kind === "review" || task.kind === "throne-tribute") && task.status === "approved";
+              const approved = task.kind === "review" && task.status === "approved";
               const failed = task.status === "failed";
               const sentence = task.sentence ?? "";
               const actionPending = isPetActionPending(task.id);
@@ -1555,12 +1125,8 @@ export function PetSection({
                   <p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
-                      : task.kind === "throne-tribute"
-                        ? "Admin approval only adds the selected Throne payout with both bonuses."
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
-                      : task.kind === "worship"
-                        ? `One-way tribute: send coins (min ${PET_WORSHIP_MIN_AMOUNT}), no coins back. Reward: +${task.reward} Pet Score, Devotion scales with the amount sent.`
                       : `Completion reward: +${task.reward} Pet Score, +${
                           task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
                         } Coins`}
@@ -1676,85 +1242,6 @@ export function PetSection({
                         type="button"
                       >
                         Submit Line
-                      </button>
-                    </div>
-                  )}
-
-                  {task.kind === "worship" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                      {worshipImagePath ? (
-                        <img
-                          alt={`Worship: ${worshipCategory ?? ""}`}
-                          className="h-64 w-full select-none rounded-2xl border border-red-200/15 bg-black/40 object-contain"
-                          draggable={false}
-                          onContextMenu={(event) => event.preventDefault()}
-                          src={`/api/user/pet-worship/image?v=${worshipImageVersion}`}
-                        />
-                      ) : (
-                        <div className="flex h-40 items-center justify-center rounded-2xl border border-red-200/15 bg-black/40 text-center text-xs text-red-200/60">
-                          Awaiting worship images.
-                        </div>
-                      )}
-                      {worshipImagePath && (
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold uppercase tracking-wide text-red-200/70">
-                            {worshipCategory ? `Today: ${worshipCategory}` : "Today's tribute"}
-                            {worshipUnlocked && <span className="ml-2 text-emerald-300">· Unlocked</span>}
-                          </p>
-                          <button
-                            className="rounded-full border border-red-200/25 bg-red-600/10 px-3 py-1 text-[11px] font-bold text-red-100 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/20 disabled:cursor-not-allowed disabled:opacity-40"
-                            disabled={disabled || actionPending}
-                            onClick={onWorshipDownload}
-                            type="button"
-                          >
-                            {worshipUnlocked ? "Download" : `Download (${PET_WORSHIP_DOWNLOAD_COST} coins)`}
-                          </button>
-                        </div>
-                      )}
-                      <div>
-                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-red-200/60">
-                          Tribute amount (min {PET_WORSHIP_MIN_AMOUNT} coins)
-                        </p>
-                        <input
-                          className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={disabled || coolingDown || task.status === "approved" || actionPending}
-                          inputMode="numeric"
-                          min={PET_WORSHIP_MIN_AMOUNT}
-                          onChange={(event) => setWorshipAmountInput(event.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder={`Send for my ${worshipCategory ?? "worship"}...`}
-                          type="number"
-                          value={worshipAmountInput}
-                        />
-                      </div>
-                      <div>
-                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-red-200/60">
-                          Your worship message
-                        </p>
-                        <textarea
-                          className="w-full resize-none rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={disabled || coolingDown || task.status === "approved" || actionPending}
-                          onChange={(event) => setWorshipComplimentInput(event.target.value)}
-                          placeholder={
-                            worshipCategory ? getWorshipComplimentPlaceholder(worshipCategory) : "Write your worship line..."
-                          }
-                          rows={2}
-                          value={worshipComplimentInput}
-                        />
-                      </div>
-                      <button
-                        className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={
-                          disabled ||
-                          coolingDown ||
-                          task.status === "approved" ||
-                          actionPending ||
-                          Number(worshipAmountInput || 0) < PET_WORSHIP_MIN_AMOUNT ||
-                          worshipComplimentInput.trim().length === 0
-                        }
-                        onClick={handleWorshipSubmit}
-                        type="button"
-                      >
-                        Send Tribute
                       </button>
                     </div>
                   )}
@@ -2180,183 +1667,6 @@ export function PetSection({
                     </div>
                   )}
 
-                  {task.kind === "daily-click" && (
-                    <div className="mt-auto rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                      <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
-                        {(() => {
-                          const clickRequirement = task.clickRequirement ?? 0;
-                          const clickProgress = task.clickProgress ?? 0;
-                          const revealProgress =
-                            clickRequirement > 0
-                              ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
-                              : 0;
-                          const censorOpacity = Math.max(0, 1 - revealProgress);
-                          const censorBlur = Math.round(18 * censorOpacity);
-
-                          return (
-                            <>
-                              {task.clickImage ? (
-                                <Image
-                                  alt="Daily pet click"
-                                  className="object-cover"
-                                  fill
-                                  sizes="360px"
-                                  src={task.clickImage}
-                                  unoptimized
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
-                                  Image unlocks on first click
-                                </div>
-                              )}
-                              {censorOpacity > 0 && (
-                                <div
-                                  className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
-                                  style={{
-                                    backdropFilter: `blur(${censorBlur}px)`,
-                                    opacity: censorOpacity,
-                                  }}
-                                />
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
-                        <div
-                          className="h-full rounded-full bg-pink-400 transition-all"
-                          style={{
-                            width:
-                              task.clickRequirement && task.clickRequirement > 0
-                                ? `${Math.min(100, ((task.clickProgress ?? 0) / task.clickRequirement) * 100)}%`
-                                : "0%",
-                          }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs font-bold text-pink-100/75">
-                        {(task.clickProgress ?? 0).toLocaleString()} /{" "}
-                        {task.status === "approved" && (task.clickRequirement ?? 0) > 0
-                          ? task.clickRequirement?.toLocaleString()
-                          : "???"} clicks
-                      </p>
-                      <button
-                        className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={disabled || actionPending || task.status === "approved"}
-                        onClick={onPetDailyClick}
-                        type="button"
-                      >
-                        {actionPending
-                          ? "Saving..."
-                          : task.status === "approved"
-                            ? "Completed Today"
-                            : "Click"}
-                      </button>
-                    </div>
-                  )}
-
-                  {task.kind === "throne-tribute" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                        {PET_THRONE_AMOUNTS.map((amount) => {
-                          const active = selectedThroneAmount === amount;
-
-                          return (
-                            <button
-                              className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-center text-sm font-black leading-none transition ${
-                                active
-                                  ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
-                                  : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
-                              }`}
-                              disabled={disabled || pending || actionPending}
-                              key={amount}
-                              onClick={() => setSelectedThroneAmount(amount)}
-                              type="button"
-                            >
-                              {formatPetThroneAmount(amount)}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
-                        <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
-                          You Receive
-                        </p>
-                        <p className="mt-2 text-2xl font-black text-pink-50">
-                          {formatPetThroneAmount(throneCoinEquivalent)}
-                        </p>
-                        <p className="mt-2 text-xs text-zinc-400">
-                          Pick the gift amount, open the Throne page, then upload the gift screen screenshot.
-                        </p>
-                      </div>
-
-                      <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
-                        <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
-                          Throne screenshot
-                        </span>
-                        <input
-                          accept="image/*"
-                          className="mt-3 block w-full cursor-pointer text-sm text-zinc-200 file:mr-3 file:rounded-xl file:border-0 file:bg-pink-500/20 file:px-3 file:py-2 file:font-black file:text-pink-50"
-                          disabled={disabled || actionPending}
-                          onChange={handleThroneProofChange}
-                          type="file"
-                        />
-                      </label>
-
-                      {throneProofError && (
-                        <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-100">
-                          {throneProofError}
-                        </p>
-                      )}
-
-                      {throneProofImage && (
-                        <div className="overflow-hidden rounded-2xl border border-pink-200/15 bg-black/40">
-                          {/* Keep the screenshot visible so users can verify what will be submitted. */}
-                          <img
-                            alt="Selected Throne proof"
-                            className="max-h-56 w-full object-contain"
-                            src={throneProofImage}
-                          />
-                        </div>
-                      )}
-
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <button
-                          className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
-                            coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-                          }`}
-                          disabled={disabled || pending || actionPending || !throneProofImage}
-                          onClick={() => {
-                            if (coolingDown) {
-                              handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(task.cooldownUntil ?? null, now)}.`);
-                              return;
-                            }
-
-                            onSubmitThroneTribute({
-                              amount: selectedThroneAmount,
-                              proofImage: throneProofImage,
-                            });
-                          }}
-                          type="button"
-                        >
-                          {actionPending
-                            ? "Saving..."
-                            : pending
-                              ? "Pending Review"
-                              : "Submit for Review"}
-                        </button>
-                        <button
-                          className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-40"
-                          disabled={disabled || actionPending || !pending}
-                          onClick={onCancelThroneTribute}
-                          type="button"
-                        >
-                          {actionPending ? "Saving..." : "Cancel Submission"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {task.kind === "review" && (
                     <button
                       aria-disabled={coolingDown || undefined}
@@ -2553,136 +1863,6 @@ export function PetSection({
             </div>
 
             <div className="grid min-w-0 gap-3">
-            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-black text-white">{throneTask.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{throneTask.description}</p>
-                  </div>
-                  <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                    {getPetTaskBadgeLabel(throneTask, thronePending, throneApproved, throneFailed)}
-                  </span>
-                </div>
-                <p className="mt-3 text-xs font-bold text-red-100">
-                  Admin approval adds the selected Throne payout with both bonuses only.
-                </p>
-                <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    {PET_THRONE_AMOUNTS.map((amount) => {
-                      const active = selectedThroneAmount === amount;
-
-                      return (
-                        <button
-                          className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-center text-sm font-black leading-none transition ${
-                            active
-                              ? "border-pink-200/60 bg-pink-500/20 text-pink-50"
-                              : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-200/35 hover:text-pink-50"
-                          }`}
-                          disabled={disabled || thronePending || throneActionPending}
-                          key={amount}
-                          onClick={() => setSelectedThroneAmount(amount)}
-                          type="button"
-                        >
-                          {formatPetThroneAmount(amount)}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="rounded-2xl border border-pink-200/15 bg-black/30 px-3 py-3">
-                    <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">
-                      You Receive
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-pink-50">
-                      {formatPetThroneAmount(throneCoinEquivalent)}
-                    </p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
-                      Coin equivalent
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Base {throneRewardBreakdown.baseCoinAmount.toLocaleString()} + give bonus {throneRewardBreakdown.giveBonusAmount.toLocaleString()} + task bonus {throneRewardBreakdown.taskBonusAmount.toLocaleString()}
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Pick the Throne amount, open the Throne page, then upload the gift screen screenshot.
-                    </p>
-                  </div>
-
-                  <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
-                    <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
-                      Throne screenshot
-                    </span>
-                    <input
-                      accept="image/*"
-                      className="mt-3 block w-full cursor-pointer text-sm text-zinc-200 file:mr-3 file:rounded-xl file:border-0 file:bg-pink-500/20 file:px-3 file:py-2 file:font-black file:text-pink-50"
-                      disabled={disabled || throneActionPending}
-                      onChange={handleThroneProofChange}
-                      type="file"
-                    />
-                    {throneProofError ? (
-                      <span className="mt-2 block text-xs text-red-300">{throneProofError}</span>
-                    ) : (
-                      <span className="mt-2 block text-xs text-zinc-500">
-                        Upload the Throne checkout or gift confirmation screen.
-                      </span>
-                    )}
-                  </label>
-
-                  {throneProofImage && (
-                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
-                      <Image
-                        alt="Throne proof preview"
-                        className="h-auto w-full"
-                        height={960}
-                        src={throneProofImage}
-                        unoptimized
-                        width={720}
-                      />
-                    </div>
-                  )}
-
-                  {throneCoolingDown && (
-                    <p className="text-xs text-yellow-100">
-                      Available in {formatRemaining(throneTask.cooldownUntil ?? null, now)}
-                    </p>
-                  )}
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <button
-                      className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
-                        throneCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-                      }`}
-                      disabled={disabled || thronePending || throneActionPending || !throneProofImage}
-                      onClick={() => {
-                        if (throneCoolingDown) {
-                          handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(throneTask.cooldownUntil ?? null, now)}.`);
-                          return;
-                        }
-
-                        onSubmitThroneTribute({
-                          amount: selectedThroneAmount,
-                          proofImage: throneProofImage,
-                        });
-                      }}
-                      type="button"
-                    >
-                      {throneActionPending
-                        ? "Submitting..."
-                        : thronePending
-                          ? "Pending Review"
-                          : "Submit Throne Bonus"}
-                    </button>
-                    <button
-                      className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm font-black text-zinc-200 transition enabled:hover:border-white/20 enabled:hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled || throneActionPending || !throneProofImage}
-                      onClick={handleClearThroneProof}
-                      type="button"
-                    >
-                      Clear Screenshot
-                    </button>
-                  </div>
-                </div>
-              </article>
-
             <article className="court-feature-card court-grid-card flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -2751,47 +1931,5 @@ export function PetSection({
         </div>
       </div>
     </section>
-  );
-}
-
-function AutoPaymentSwitch({
-  disabled = false,
-  enabled,
-  onChange,
-}: {
-  disabled?: boolean;
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
-}) {
-  return (
-    <button
-      aria-pressed={enabled}
-      className="flex w-full items-center gap-3 text-left"
-      onClick={() => onChange(!enabled)}
-      disabled={disabled}
-      type="button"
-    >
-      <span className="min-w-0 flex-1">Auto payment</span>
-      <span className="ml-auto inline-flex items-center gap-2">
-        <span
-          className={`relative h-7 w-14 rounded-full border transition ${
-            enabled
-              ? "border-emerald-200/40 bg-emerald-400/25"
-              : "border-red-200/25 bg-black/55"
-          }`}
-        >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full transition ${
-            enabled
-              ? "left-7 bg-emerald-100 shadow-[0_0_14px_rgba(110,231,183,0.55)]"
-              : "left-1 bg-red-100/80"
-          }`}
-        />
-        </span>
-        <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
-          {enabled ? "ON" : "OFF"}
-        </span>
-      </span>
-    </button>
   );
 }

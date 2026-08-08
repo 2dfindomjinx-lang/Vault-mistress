@@ -3,7 +3,6 @@ import Image from "next/image";
 export type DashboardPage =
   | "home"
   | "tasks"
-  | "devotion"
   | "pet"
   | "debt"
   | "crates"
@@ -11,6 +10,7 @@ export type DashboardPage =
   | "shop"
   | "collection"
   | "tribute"
+  | "drain"
   | "profile";
 
 // Maps each dashboard panel to its own real URL (so refreshing / sharing a
@@ -18,10 +18,10 @@ export type DashboardPage =
 export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
   home: "/",
   tribute: "/tribute",
+  drain: "/drain",
   tasks: "/tasks",
   pet: "/pet",
   debt: "/debt",
-  devotion: "/devotion",
   shop: "/shop",
   crates: "/cases",
   runway: "/runway",
@@ -57,30 +57,22 @@ type SidebarNavProps = {
   onSelect: (page: DashboardPage) => void;
 };
 
+// Codes run I..VIII in the order the sidebar actually renders them. Panels
+// that are tabs inside another panel (pet, crates, drain) never render their
+// own row, so they inherit their host's code purely to satisfy the Record.
 const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   home: { code: "I", glyph: "◆" },
-  tribute: { code: "II", glyph: "♛" },
-  tasks: { code: "III", glyph: "✓" },
+  runway: { code: "II", glyph: "▲" },
+  tribute: { code: "III", glyph: "♛" },
+  drain: { code: "III", glyph: "⌁" },
+  tasks: { code: "IV", glyph: "✓" },
   pet: { code: "IV", glyph: "♙" },
-  debt: { code: "V", glyph: "§" },
-  devotion: { code: "VI", glyph: "◇" },
-  shop: { code: "VII", glyph: "✦" },
-  crates: { code: "VIII", glyph: "▣" },
-  runway: { code: "IX", glyph: "▲" },
-  collection: { code: "X", glyph: "◈" },
-  profile: { code: "XI", glyph: "◐" },
+  shop: { code: "V", glyph: "✦" },
+  crates: { code: "V", glyph: "▣" },
+  debt: { code: "VI", glyph: "§" },
+  collection: { code: "VII", glyph: "◈" },
+  profile: { code: "VIII", glyph: "◐" },
 };
-
-Object.assign(navigationMeta, {
-  runway: { ...navigationMeta.runway, code: "II" },
-  tribute: { ...navigationMeta.tribute, code: "III" },
-  tasks: { ...navigationMeta.tasks, code: "IV" },
-  pet: { ...navigationMeta.pet, code: "V" },
-  shop: { ...navigationMeta.shop, code: "VI" },
-  crates: { ...navigationMeta.crates, code: "VII" },
-  debt: { ...navigationMeta.debt, code: "VIII" },
-  devotion: { ...navigationMeta.devotion, code: "IX" },
-});
 
 export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
   return (

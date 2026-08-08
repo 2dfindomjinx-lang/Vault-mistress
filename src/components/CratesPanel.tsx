@@ -76,6 +76,10 @@ type CratesPanelProps = {
   freeOpensUsedToday?: Record<string, boolean>;
   onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
+  // Lets the host disable tab switching while a reel is spinning. Unmounting
+  // mid-spin loses wonItems and the sell flow, and a display:none parent
+  // collapses the reel viewport width, which corrupts the in-flight geometry.
+  onBusyChange?: (busy: boolean) => void;
   pending?: boolean;
 };
 
@@ -130,9 +134,24 @@ export function CratesPanel({
   freeOpensUsedToday = {},
   onCrateOpen,
   onCrateResult,
+  onBusyChange,
   pending = false,
 }: CratesPanelProps) {
   const [isOpening, setIsOpening] = useState(false);
+  // The reel drives a rAF loop plus a recursive setTimeout sound chain of up to
+  // 65 ticks. Neither had any unmount cleanup, so a panel that goes away
+  // mid-spin kept firing crate_reel_tick from nowhere.
+  const isMountedRef = useRef(true);
+  const reelRafRef = useRef<number | null>(null);
+  const soundTickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (reelRafRef.current !== null) cancelAnimationFrame(reelRafRef.current);
+      if (soundTickTimeoutRef.current !== null) clearTimeout(soundTickTimeoutRef.current);
+    };
+  }, []);
   const [openingCrate, setOpeningCrate] = useState<string | null>(null);
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
   const [sellPending, setSellPending] = useState<string | null>(null);
@@ -492,6 +511,7 @@ export function CratesPanel({
       // Only NOW start the opening UI + reel (server accepted, we have a real result).
       // This prevents "Reel is spinning" + no animation when API fails (auth, coins, etc.).
       setIsOpening(true);
+      onBusyChange?.(true);
       setOpeningCrate(crate.name);
       setLastOpenedCrateType(crate.crate_type);
     setWonItems([]);
@@ -580,7 +600,8 @@ export function CratesPanel({
       let soundTick = 0;
       const maxSoundTicks = 65;
       const scheduleSoundTick = (delay: number) => {
-        setTimeout(() => {
+        soundTickTimeoutRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
           if (soundTick < maxSoundTicks) {
             emitSoundEvent("crate_reel_tick");
             soundTick++;
@@ -594,6 +615,7 @@ export function CratesPanel({
 
       // Pure rAF visual animation — buttery smooth motion
       const animate = (now: number) => {
+        if (!isMountedRef.current) return;
         const elapsed = now - startTime;
         const p = Math.min(1, elapsed / duration);
 
@@ -629,7 +651,7 @@ export function CratesPanel({
         }
 
         if (p < 1) {
-          requestAnimationFrame(animate);
+          reelRafRef.current = requestAnimationFrame(animate);
         } else {
           // Final settle - force exact centering of the winner (the item we placed at WINNER_SLOT in the sequence)
           // This guarantees that the item visually under the marker at the end of the spin is the exact real result.
@@ -679,7 +701,7 @@ export function CratesPanel({
         setHorizontalReelTransform(reelCenterOffset);
       }
 
-      requestAnimationFrame(animate);
+      reelRafRef.current = requestAnimationFrame(animate);
     });
   }
 
@@ -810,6 +832,10 @@ export function CratesPanel({
   };
 
   const closeReveal = () => {
+    // Only here is the panel truly idle: the reveal is dismissed and there is
+    // nothing left to lose if the host unmounts us. Deliberately not in the
+    // open() finally - wonItems is still on screen and still sellable there.
+    onBusyChange?.(false);
     setWonItems([]);
     setReelItems([]);
     setSpinSequence([]);

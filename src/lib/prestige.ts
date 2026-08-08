@@ -191,8 +191,12 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
       "spend:gallery-unlock",
       "spend:irl-task-wheel",
       "spend:pet-weekly-tax",
+      // The in-site puzzle is gone, but these two reasons stay forever: they
+      // match historical coin_transactions rows, and dropping them would make
+      // the live community-goal bar jump backwards for every user at once.
       "spend:puzzle",
       "spend:puzzle-preview",
+      "spend:jigsaw-unlock",
       "spend:rights",
       "spend:chat-highlight",
       "spend:title",

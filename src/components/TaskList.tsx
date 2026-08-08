@@ -247,6 +247,7 @@ export function TaskList({
     tasks.flatMap((task) => [task.cooldownUntil, task.timeoutUntil, task.assignedIrlDueAt]),
     30_000,
   );
+  const [showRestingTasks, setShowRestingTasks] = useState(false);
   const [typingValue, setTypingValue] = useState("");
   const [stake, setStake] = useState(10);
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
@@ -646,9 +647,31 @@ export function TaskList({
               : "Open"}
     </span>
   );
-  const visibleTasks = tasks.filter(
+  const listedTasks = tasks.filter(
     (task) => !isHiddenClaimedOneTimeTask(task) && !task.id.startsWith("streak-bonus-"),
   );
+  // Collapse cards the user cannot act on right now.
+  //
+  // timeout-risk is not a plain card: it hosts wait-obediently and irl-wheel as
+  // sections inside its own two-column layout (those two return null from this
+  // map). So it is only dropped from the list once all three are cooling down -
+  // otherwise a resting timeout-risk would take two live tasks down with it.
+  // Each section hides itself individually inside the card instead.
+  const isTaskCoolingDown = (task: TaskItem) =>
+    Boolean(task.cooldownUntil) && new Date(task.cooldownUntil ?? "").getTime() > now;
+  const wheelGroupTasks = listedTasks.filter(
+    (task) => task.kind === "timeout-risk" || isGroupedWheelLayoutKind(task.kind),
+  );
+  const isWholeWheelGroupResting =
+    wheelGroupTasks.length > 0 && wheelGroupTasks.every(isTaskCoolingDown);
+  const isTaskResting = (task: TaskItem) => {
+    if (!isTaskCoolingDown(task)) return false;
+    if (task.kind === "timeout-risk") return isWholeWheelGroupResting;
+    return true;
+  };
+  const activeListedTasks = listedTasks.filter((task) => !isTaskResting(task));
+  const restingListedTaskCount = listedTasks.length - activeListedTasks.length;
+  const visibleTasks = showRestingTasks ? listedTasks : activeListedTasks;
   const isFreeFridayEventActive = isFreeTaskFriday(now);
   const wheelSegments = getIrlTaskWheelSegments(addressTerm, isFreeFridayEventActive);
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
@@ -800,6 +823,23 @@ export function TaskList({
         usernameStyle={usernameStyle}
       />
 
+      {restingListedTaskCount > 0 && (
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-fuchsia-200/12 bg-black/25 px-3 py-2">
+          <p className="text-xs text-fuchsia-100/60">
+            {activeListedTasks.length > 0
+              ? `${activeListedTasks.length} open now · ${restingListedTaskCount} resting`
+              : `Everything is resting. ${restingListedTaskCount} return tomorrow.`}
+          </p>
+          <button
+            className="shrink-0 rounded-full border border-fuchsia-200/25 bg-fuchsia-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-fuchsia-50 transition hover:border-fuchsia-200/55 hover:bg-fuchsia-500/20"
+            onClick={() => setShowRestingTasks((current) => !current)}
+            type="button"
+          >
+            {showRestingTasks ? "Hide resting" : "Show all"}
+          </button>
+        </div>
+      )}
+
       <div className="court-grid court-grid--tasks mt-5 grid gap-3 md:grid-cols-2">
         {visibleTasks.map((task) => {
           const isTimeoutRisk = task.kind === "timeout-risk";
@@ -829,13 +869,21 @@ export function TaskList({
               task.lastResult && !task.lastResult.startsWith("Safe wins today:")
                 ? task.lastResult
                 : null;
+            // Each of the three sections rests on its own clock, so hide them
+            // independently rather than all-or-nothing with the host card.
+            const hideRiskSection = !showRestingTasks && isCoolingDown;
+            const hideWaitSection = !showRestingTasks && isWaitCoolingDown;
+            const hideIrlSection = !showRestingTasks && isIrlCoolingDown;
+            const showLeftColumn = !hideRiskSection || Boolean(waitTask && !hideWaitSection);
 
             return (
               <div
                 className="min-w-0 grid gap-3 md:col-span-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch"
                 key="risk-wheel-layout"
               >
+                {showLeftColumn && (
                 <div className="flex min-h-full min-w-0 flex-col gap-3">
+                {!hideRiskSection && (
           <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -934,8 +982,9 @@ export function TaskList({
                       </button>
                     </div>
                   </article>
+                )}
 
-                  {waitTask && (
+                  {waitTask && !hideWaitSection && (
           <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -971,8 +1020,9 @@ export function TaskList({
                     </article>
                   )}
                 </div>
+                )}
 
-                {irlTask && (
+                {irlTask && !hideIrlSection && (
           <article className="court-feature-card court-grid-card flex min-h-full flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
