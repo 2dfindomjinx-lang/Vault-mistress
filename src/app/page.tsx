@@ -1905,6 +1905,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [petTributeCode, setPetTributeCode] = useState<string | null>(null);
+  const [tributeCode, setTributeCode] = useState<string | null>(null);
+  const [showCoinCodeModal, setShowCoinCodeModal] = useState(false);
   const [totalDevotion, setTotalDevotion] = useState(0);
   const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
   const [seenShrineMemoryIds, setSeenShrineMemoryIds] = useState<string[]>([]);
@@ -4425,6 +4427,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setTributeCode(profile.tribute_code ?? null);
     setPetTributeCode(profile.pet_tribute_code ?? null);
     setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
@@ -4744,6 +4747,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setTributeCode(profile.tribute_code ?? null);
     setPetTributeCode(profile.pet_tribute_code ?? null);
     setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
@@ -11638,8 +11642,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const homeActions: HomeAction[] = [];
   if (readyTaskCount > 0) homeActions.push({ action: "Go", detail: `${readyTaskCount} task${readyTaskCount === 1 ? "" : "s"} ready for your attention.`, label: "Complete your assigned tasks", target: "tasks" });
   if (isPetUnlocked && nextPetTaxDueAt && new Date(nextPetTaxDueAt).getTime() <= Date.now()) homeActions.push({ action: "Pay", detail: `Weekly tax is due (${currentWeeklyTaxCost.toLocaleString()} coins).`, label: "Keep your pet status current", target: "pet" });
-  if (!lastLoyaltyAt || getGmt3DateKey(lastLoyaltyAt) !== todayKey) homeActions.push({ action: "Claim", detail: "Your daily loyalty check-in is waiting.", label: "Collect today's streak", target: "tasks" });
   if (Object.values(crateOpenCredits).some((count) => count > 0)) homeActions.push({ action: "Open", detail: "A granted case opening is waiting in your vault.", label: "Use your free case opening", target: "crates" });
+  const petThroneTask = petTaskState.find((task) => task.id === PET_THRONE_TASK_ID);
+  if (isPetUnlocked && petThroneTask?.status === "available") homeActions.push({ action: "Open", detail: "Your PT code is ready for a Throne tribute.", label: "Use your Throne Bonus code", target: "pet" });
   const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
   const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
   const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
@@ -11656,7 +11661,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         activePage={activePanel}
         coins={coins}
         items={dashboardNavItems}
-        onAddCoins={() => setAvatarMistressReply("Coin purchases are being prepared for the Court.")}
+        onAddCoins={() => setShowCoinCodeModal(true)}
         onCoinsChange={(nextCoins) => {
           setCoins(nextCoins);
           coinsRef.current = nextCoins;
@@ -11668,6 +11673,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           setActivePanel(page);
         }}
       >
+        {showCoinCodeModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl border border-pink-200/25 bg-[#180812] p-5 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div><p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Coin Add</p><h2 className="mt-2 text-2xl font-black text-white">Your payment code</h2></div>
+                <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowCoinCodeModal(false)} type="button">×</button>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-zinc-300">Paste this VM code into your Throne message for normal Coin Add credit and the regular give bonus.</p>
+              <div className="mt-4 rounded-2xl border border-pink-200/25 bg-black/40 px-4 py-4 text-center text-2xl font-black tracking-[0.18em] text-pink-100">{tributeCode ?? "VM-CODE-UNAVAILABLE"}</div>
+              <button className="mt-4 w-full rounded-2xl bg-pink-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50" disabled={!tributeCode} onClick={() => tributeCode && void navigator.clipboard?.writeText(tributeCode)} type="button">Copy code</button>
+            </div>
+          </div>
+        )}
         <TopLevelNav active="main" />
         <div className="relative isolate">
           {activePanel === "home" ? (
