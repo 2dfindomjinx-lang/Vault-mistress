@@ -1,4 +1,4 @@
-import { createVerify } from "node:crypto";
+import { verify as verifyEd25519 } from "node:crypto";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createUserNotification } from "@/lib/user-notifications";
 
@@ -10,9 +10,12 @@ const text = (...values: unknown[]) => values.find((value): value is string => t
 function verifySignature(rawBody: string, timestamp: string | null, signatureHex: string | null) {
   if (!timestamp || !/^\d+$/.test(timestamp) || !signatureHex || !/^[0-9a-f]{128}$/i.test(signatureHex)) return false;
   if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
-  const verifier = createVerify("Ed25519");
-  verifier.update(`${timestamp}.${rawBody}`);
-  return verifier.verify(THRONE_PUBLIC_KEY, Buffer.from(signatureHex, "hex"));
+  return verifyEd25519(
+    null,
+    Buffer.from(`${timestamp}.${rawBody}`, "utf8"),
+    THRONE_PUBLIC_KEY,
+    Buffer.from(signatureHex, "hex"),
+  );
 }
 
 export async function POST(request: Request) {
