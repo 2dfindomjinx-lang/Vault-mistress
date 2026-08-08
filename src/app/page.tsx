@@ -465,7 +465,7 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
 }
 
 const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, tribute_code, pet_tribute_code, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -703,7 +703,7 @@ const affectionCharacterStages = [
   },
   {
     id: "perfect-devotion",
-    image: "/character-stage-100.webp",
+    image: "/home-principessa-court.png",
     label: "Perfect Devotion",
     min: 100,
   },
@@ -1904,6 +1904,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [returnCard, setReturnCard] = useState<{ changes: Array<{ label: string; href: string }> } | null>(null);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
+  const [petTributeCode, setPetTributeCode] = useState<string | null>(null);
   const [totalDevotion, setTotalDevotion] = useState(0);
   const [shrineStatus, setShrineStatus] = useState<ShrineStatus | null>(null);
   const [seenShrineMemoryIds, setSeenShrineMemoryIds] = useState<string[]>([]);
@@ -4424,6 +4425,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setPetTributeCode(profile.pet_tribute_code ?? null);
     setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
     setUserLevel(profile.user_level ?? getUserLevelProgress(profile.user_xp ?? 0).level);
@@ -4742,6 +4744,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCoins(profile.coins);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
+    setPetTributeCode(profile.pet_tribute_code ?? null);
     setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
     setPetScore(profile.pet_score ?? 0);
@@ -11893,10 +11896,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 streak={loyaltyStreak}
               />
               <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-                <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
+                <section className="relative min-h-[18rem] overflow-hidden rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
+                  <Image alt="Principessa" className="pointer-events-none absolute right-0 top-0 h-full w-1/2 object-cover object-top opacity-45" fill sizes="50vw" src="/home-principessa-court.png" unoptimized />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#09040a] via-[#09040a]/80 to-transparent" />
+                  <div className="relative z-10 max-w-[58%]">
                   <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Affection Read</p>
                   <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
                   <p className="mt-4 text-sm leading-6 text-pink-50">{scriptedMessage}</p>
+                  </div>
                 </section>
                 {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
               </div>
@@ -12834,6 +12841,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               petReviewTaskCoinReward={PET_REVIEW_TASK_COIN_REWARD}
               petTaskCoinReward={eventPetTaskCoinReward}
               petScore={petScore}
+              petTributeCode={petTributeCode}
               petAffectionClaimed={petAffectionClaimed}
               storedRights={storedRights}
               rightExpirations={rightExpirations}

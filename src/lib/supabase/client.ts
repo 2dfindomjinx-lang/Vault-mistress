@@ -19,6 +19,8 @@ export type Profile = {
   coins: number;
   affection: number;
   tribute_total: number;
+  tribute_code?: string | null;
+  pet_tribute_code?: string | null;
   total_devotion?: number;
   lifetime_spent_coins?: number;
   shame_count: number;

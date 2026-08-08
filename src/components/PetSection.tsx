@@ -7,6 +7,7 @@ import {
   getPetThroneRewardBreakdown,
   PET_THRONE_AMOUNTS,
   PET_THRONE_TASK_ID,
+  PET_THRONE_URL,
 } from "@/lib/pet-throne";
 import {
   getWorshipComplimentPlaceholder,
@@ -631,6 +632,7 @@ export function PetSection({
   pendingPetActionIds = [],
   ownerLikeness,
   petScore,
+  petTributeCode,
   petDebtContract = null,
   petAffectionClaimed,
   petReviewTaskCoinReward,
@@ -693,6 +695,7 @@ export function PetSection({
   pendingPetActionIds?: string[];
   ownerLikeness: number;
   petScore: number;
+  petTributeCode?: string | null;
   petDebtContract?: PetDebtContract | null;
   petAffectionClaimed: boolean;
   petReviewTaskCoinReward: number;
@@ -736,6 +739,7 @@ export function PetSection({
   const [selectedThroneAmount, setSelectedThroneAmount] = useState<number>(PET_THRONE_AMOUNTS[0]);
   const [throneProofError, setThroneProofError] = useState("");
   const [throneProofImage, setThroneProofImage] = useState("");
+  const [showThroneCode, setShowThroneCode] = useState(false);
   const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
   const [debtAmount, setDebtAmount] = useState("");
   const [debtDuration, setDebtDuration] = useState("");
@@ -780,7 +784,7 @@ export function PetSection({
     ({
       id: PET_THRONE_TASK_ID,
       title: "Throne Bonus",
-      description: "Add your VM code to the Throne message. Verified gifts are credited automatically; use the proof form only if automation fails.",
+      description: "Add your PT code to the Throne message. Verified gifts are credited automatically; DM Principessa if automation fails.",
       reward: 0,
       kind: "throne-tribute",
       status: "available",
@@ -1331,6 +1335,28 @@ export function PetSection({
 
   return (
     <section className="court-feature-panel rounded-[1.5rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-3 shadow-[0_0_54px_rgba(190,18,60,0.18)] sm:rounded-[2rem] sm:p-4">
+      {showThroneCode && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-pink-200/25 bg-[#180812] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Throne Bonus</p>
+                <h3 className="mt-2 text-2xl font-black text-white">Use your Pet code</h3>
+              </div>
+              <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowThroneCode(false)} type="button">×</button>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">Paste this code in your Throne message. It automatically includes the regular give bonus and the Pet bonus.</p>
+            <div className="mt-4 rounded-2xl border border-pink-200/25 bg-black/40 px-4 py-4 text-center text-2xl font-black tracking-[0.18em] text-pink-100">
+              {petTributeCode ?? "PT-CODE-UNAVAILABLE"}
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button className="rounded-2xl bg-pink-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50" disabled={!petTributeCode} onClick={() => petTributeCode && void navigator.clipboard?.writeText(petTributeCode)} type="button">Copy code</button>
+              <a className="rounded-2xl border border-white/15 px-4 py-3 text-center text-sm font-black text-zinc-100 hover:border-pink-200/50" href={PET_THRONE_URL} rel="noopener noreferrer" target="_blank">Open Throne</a>
+            </div>
+            <p className="mt-3 text-xs text-zinc-500">If automation fails, DM Principessa with your receipt for manual credit.</p>
+          </div>
+        </div>
+      )}
       {isGuest && (
         <p className="mb-4 rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
           Guest mode: Pet progression is local-only for development testing.
@@ -1571,14 +1597,24 @@ export function PetSection({
                     </p>
                   )}
                   {task.actionUrl && (
-                    <a
-                      className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-sky-200/25 bg-sky-500/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-200/55 hover:bg-sky-500/20"
-                      href={task.actionUrl}
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      {task.actionLabel ?? "Open Link"}
-                    </a>
+                    task.kind === "throne-tribute" ? (
+                      <button
+                        className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-sky-200/25 bg-sky-500/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-200/55 hover:bg-sky-500/20"
+                        onClick={() => setShowThroneCode(true)}
+                        type="button"
+                      >
+                        Open Throne & Copy Code
+                      </button>
+                    ) : (
+                      <a
+                        className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-sky-200/25 bg-sky-500/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-200/55 hover:bg-sky-500/20"
+                        href={task.actionUrl}
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        {task.actionLabel ?? "Open Link"}
+                      </a>
+                    )
                   )}
                   {coolingDown && (
                     <p className="mt-2 text-xs text-yellow-100">
@@ -2290,7 +2326,7 @@ export function PetSection({
                         </p>
                       </div>
 
-                      <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
+                      <label className="hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
                         <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
                           Throne screenshot
                         </span>
@@ -2310,7 +2346,7 @@ export function PetSection({
                       )}
 
                       {throneProofImage && (
-                        <div className="overflow-hidden rounded-2xl border border-pink-200/15 bg-black/40">
+                        <div className="hidden overflow-hidden rounded-2xl border border-pink-200/15 bg-black/40">
                           {/* Keep the screenshot visible so users can verify what will be submitted. */}
                           <img
                             alt="Selected Throne proof"
@@ -2320,7 +2356,7 @@ export function PetSection({
                         </div>
                       )}
 
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="hidden grid gap-2 sm:grid-cols-2">
                         <button
                           className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                             coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
@@ -2607,7 +2643,7 @@ export function PetSection({
                     </p>
                   </div>
 
-                  <label className="block rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
+                  <label className="hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-sm text-zinc-300">
                     <span className="block text-xs uppercase tracking-[0.18em] text-zinc-500">
                       Throne screenshot
                     </span>
@@ -2628,7 +2664,7 @@ export function PetSection({
                   </label>
 
                   {throneProofImage && (
-                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/25">
+                    <div className="hidden overflow-hidden rounded-2xl border border-white/10 bg-black/25">
                       <Image
                         alt="Throne proof preview"
                         className="h-auto w-full"
@@ -2646,7 +2682,7 @@ export function PetSection({
                     </p>
                   )}
 
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="hidden grid gap-2 sm:grid-cols-2">
                     <button
                       className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                         throneCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""

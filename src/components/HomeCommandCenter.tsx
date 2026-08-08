@@ -1,6 +1,7 @@
 "use client";
 
 import type { DashboardPage } from "@/components/SidebarNav";
+import Image from "next/image";
 import { useState } from "react";
 
 export type HomeAction = {
@@ -81,16 +82,18 @@ export function HomeCommandCenter({
       </section>
 
       {actions.length > 0 ? (
-        <section className="relative overflow-hidden rounded-[1.5rem] border border-[#c89a55]/25 bg-[linear-gradient(145deg,rgba(74,22,12,.38),rgba(20,5,14,.76))] p-4 shadow-[0_0_34px_rgba(251,191,36,.08)]">
+        <section className="relative min-h-[12rem] overflow-hidden rounded-[1.5rem] border border-[#c89a55]/25 bg-[linear-gradient(110deg,rgba(45,10,22,.96),rgba(20,5,14,.76))] p-4 shadow-[0_0_34px_rgba(251,191,36,.08)]">
+          <Image alt="Principessa" className="pointer-events-none absolute right-0 top-0 h-full w-2/5 object-cover object-top opacity-55" fill sizes="40vw" src="/home-principessa-court.png" unoptimized />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#220914] via-[#220914]/90 to-transparent" />
           <div className="pointer-events-none absolute right-5 top-4 text-4xl text-amber-200/[.08]">♛</div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="relative z-10 flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-100/60">Court direction</p>
               <h2 className="mt-1 text-xl font-black text-white">What should you do now?</h2>
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/45">{actions.length} ready</span>
           </div>
-          <div className="mt-3 divide-y divide-white/[0.07]">
+          <div className="relative z-10 mt-3 divide-y divide-white/[0.07]">
             {actions.map((item) => (
               <div className="flex items-center justify-between gap-3 py-3" key={`${item.label}-${item.detail}`}>
                 <div className="min-w-0"><p className="truncate text-sm font-bold text-white">› {item.label}</p><p className="mt-0.5 truncate text-xs text-zinc-400">{item.detail}</p></div>
