@@ -217,10 +217,20 @@ type AdminTabKey =
   | "debt"
   | "events"
   | "irlTasks"
+  | "jigsaw"
   | "maxAffection"
   | "premiumTitle"
   | "petTasks"
   | "timeouts";
+
+type AdminJigsawLink = {
+  id: string;
+  sort_order: number;
+  label: string;
+  url: string;
+  coin_cost: number;
+  enabled: boolean;
+};
 
 function getAdminDebtCurrentInstallmentNumber(contract: Pick<AdminDebtContract, "duration_periods" | "paid_periods">) {
   return Math.min(contract.paid_periods + 1, contract.duration_periods);
@@ -324,6 +334,8 @@ export default function AdminPage() {
   const [premiumTitleConfig, setPremiumTitleConfig] = useState<AdminPremiumTitleConfig | null>(null);
   const [premiumTitlePool, setPremiumTitlePool] = useState<AdminPremiumTitlePoolEntry[]>([]);
   const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000", durationHours: "720" });
+  const [jigsawLinks, setJigsawLinks] = useState<AdminJigsawLink[]>([]);
+  const [jigsawForm, setJigsawForm] = useState({ label: "", url: "", coinCost: "2500" });
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
   const [announcementTitle, setAnnouncementTitle] = useState("Announcement");
   const [announcementBody, setAnnouncementBody] = useState(
@@ -818,6 +830,54 @@ export default function AdminPage() {
       setIsBusy(false);
     }
   };
+
+  const loadJigsawLinks = async () => {
+    if (!isAdmin) return;
+    try {
+      const response = await fetch("/api/admin/jigsaw-links", { cache: "no-store" });
+      const result = await response.json() as { links?: AdminJigsawLink[]; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Jigsaw links load failed.");
+      setJigsawLinks(result.links ?? []);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Jigsaw links load failed.");
+    }
+  };
+
+  const submitJigsawAction = async (body: Record<string, unknown>, successMessage: string) => {
+    setIsBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch("/api/admin/jigsaw-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Jigsaw link action failed.");
+      setStatus(successMessage);
+      await loadJigsawLinks();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Jigsaw link action failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const addJigsawLink = async () => {
+    await submitJigsawAction(
+      { action: "upsert", label: jigsawForm.label, url: jigsawForm.url, coinCost: jigsawForm.coinCost, enabled: true },
+      "Jigsaw link added.",
+    );
+    setJigsawForm({ label: "", url: "", coinCost: "2500" });
+  };
+
+  const saveJigsawLink = (entry: AdminJigsawLink) =>
+    submitJigsawAction(
+      { action: "upsert", id: entry.id, label: entry.label, url: entry.url, coinCost: entry.coin_cost, enabled: entry.enabled },
+      "Jigsaw link saved.",
+    );
+
+  const deleteJigsawLink = (id: string) => submitJigsawAction({ action: "delete", id }, "Jigsaw link deleted.");
 
   const renderEventCard = (event: AdminEvent) => {
     const isExpired = new Date(event.ends_at).getTime() <= adminNow;
@@ -1470,6 +1530,9 @@ export default function AdminPage() {
           void loadPremiumTitlePool();
         }
         break;
+      case "jigsaw":
+        void loadJigsawLinks();
+        break;
       case "timeouts":
         if (!loadedSections.timeouts && !loadingSections.timeouts) {
           void loadTimeouts();
@@ -1572,6 +1635,14 @@ export default function AdminPage() {
       description: "Change the active and next shop title without a deploy.",
       countLabel: loadedSections.premiumTitle && premiumTitleConfig ? "1" : "0",
       tone: "from-yellow-500/16 via-amber-500/10 to-transparent border-yellow-300/18",
+    },
+    {
+      key: "jigsaw",
+      label: "Jigsaws",
+      eyebrow: "Paid links",
+      description: "Curate the external jigsaw pool subs pay to unlock.",
+      countLabel: String(jigsawLinks.length),
+      tone: "from-sky-500/16 via-cyan-500/10 to-transparent border-sky-300/18",
     },
     {
       key: "timeouts",
@@ -2984,6 +3055,40 @@ export default function AdminPage() {
                   >
                     Add to pool
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "jigsaw" && (
+            <div className="mt-4 rounded-[1.5rem] border border-sky-200/20 bg-[#050208] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-sky-200/70">Jigsaw Pool</p>
+                  <p className="mt-1 text-xs text-zinc-500">Manage the external HTTPS links unlocked for 2,500 coins.</p>
+                </div>
+                <button className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200" disabled={isBusy} onClick={() => void loadJigsawLinks()} type="button">Refresh</button>
+              </div>
+              <div className="mt-4 space-y-2">
+                {jigsawLinks.map((entry) => (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3" key={entry.id}>
+                    <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" onChange={(event) => setJigsawLinks((links) => links.map((item) => item.id === entry.id ? { ...item, label: event.target.value } : item))} value={entry.label} />
+                    <input className="mt-2 w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" onChange={(event) => setJigsawLinks((links) => links.map((item) => item.id === entry.id ? { ...item, url: event.target.value } : item))} value={entry.url} />
+                    <div className="mt-2 flex items-center gap-2">
+                      <input className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} onChange={(event) => setJigsawLinks((links) => links.map((item) => item.id === entry.id ? { ...item, coin_cost: Number(event.target.value) } : item))} type="number" value={entry.coin_cost} />
+                      <button className="rounded-xl border border-sky-100/30 bg-sky-300/15 px-3 py-1.5 text-xs font-bold text-sky-50" disabled={isBusy} onClick={() => void saveJigsawLink(entry)} type="button">Save</button>
+                      <button className="rounded-xl border border-red-200/30 bg-red-400/10 px-3 py-1.5 text-xs font-bold text-red-100" disabled={isBusy} onClick={() => void deleteJigsawLink(entry.id)} type="button">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-300">Add jigsaw</p>
+                <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" onChange={(event) => setJigsawForm((form) => ({ ...form, label: event.target.value }))} placeholder="Label" value={jigsawForm.label} />
+                <input className="w-full rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" onChange={(event) => setJigsawForm((form) => ({ ...form, url: event.target.value }))} placeholder="https://..." value={jigsawForm.url} />
+                <div className="flex items-center gap-3">
+                  <input className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white" min={0} onChange={(event) => setJigsawForm((form) => ({ ...form, coinCost: event.target.value }))} type="number" value={jigsawForm.coinCost} />
+                  <button className="rounded-xl border border-sky-100/30 bg-sky-300/15 px-4 py-2 text-sm font-bold text-sky-50 disabled:opacity-50" disabled={isBusy || !jigsawForm.label.trim() || !jigsawForm.url.trim()} onClick={() => void addJigsawLink()} type="button">Add</button>
                 </div>
               </div>
             </div>

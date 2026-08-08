@@ -12,6 +12,7 @@ type ProfileRow = {
   id: string;
   last_loyalty_at: string | null;
   loyalty_streak: number | null;
+  streak_freezes: number | null;
 };
 
 function jsonError(message: string, status = 400) {
@@ -58,13 +59,21 @@ export async function POST() {
   const lastLoyaltyTime = profile.last_loyalty_at ? new Date(profile.last_loyalty_at).getTime() : 0;
   const streakExpired = !lastLoyaltyTime || Date.now() - lastLoyaltyTime > 48 * 60 * 60 * 1000;
   const nextLoyaltyAt = new Date().toISOString();
-  const nextLoyaltyStreak = streakExpired ? 1 : Math.max(1, (profile.loyalty_streak ?? 0) + 1);
+  const availableFreezes = Math.max(0, Math.floor(profile.streak_freezes ?? 0));
+  const usedFreeze = streakExpired && Boolean(profile.last_loyalty_at) && availableFreezes > 0;
+  const nextLoyaltyStreak = usedFreeze
+    ? Math.max(1, profile.loyalty_streak ?? 1)
+    : streakExpired
+      ? 1
+      : Math.max(1, (profile.loyalty_streak ?? 0) + 1);
+  const nextFreezes = usedFreeze ? availableFreezes - 1 : availableFreezes;
 
   let updateQuery = supabase
     .from("profiles")
     .update({
       last_loyalty_at: nextLoyaltyAt,
       loyalty_streak: nextLoyaltyStreak,
+      streak_freezes: nextFreezes,
       updated_at: nextLoyaltyAt,
     })
     .eq("id", authData.user.id);
@@ -72,6 +81,10 @@ export async function POST() {
   updateQuery = typeof profile.loyalty_streak === "number"
     ? updateQuery.eq("loyalty_streak", profile.loyalty_streak)
     : updateQuery.is("loyalty_streak", null);
+
+  updateQuery = typeof profile.streak_freezes === "number"
+    ? updateQuery.eq("streak_freezes", profile.streak_freezes)
+    : updateQuery.is("streak_freezes", null);
 
   updateQuery = profile.last_loyalty_at
     ? updateQuery.eq("last_loyalty_at", profile.last_loyalty_at)
@@ -85,5 +98,5 @@ export async function POST() {
     return jsonError(updateError?.message ?? "Loyalty update was stale or duplicated.", updateError ? 500 : 409);
   }
 
-  return Response.json({ profile: updatedProfile });
+  return Response.json({ profile: updatedProfile, streakFreezeUsed: usedFreeze, streakFreezesRemaining: nextFreezes });
 }

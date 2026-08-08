@@ -6,7 +6,8 @@ import { PET_THRONE_TASK_ID, PET_THRONE_URL } from "@/lib/pet-throne";
 import type { PetTaskItem } from "@/lib/types";
 import { getGmt3DayIndex } from "@/lib/time";
 
-export const PET_TASK_REWARD = 10;
+// Pet tasks award Pet Score directly; they no longer mint spendable coins.
+export const PET_TASK_REWARD = 250;
 export const PET_WEEKLY_TAX_REWARD = 20;
 export const PET_OWNERSHIP_OATH_REPEAT_COUNT = 25;
 export const PET_WORSHIP_MIN_AMOUNT = 500;
@@ -94,7 +95,7 @@ function basePetTasks(): PetTaskItem[] {
       id: PET_THRONE_TASK_ID,
       title: "Throne Bonus",
       description:
-        "Pick a Throne tribute amount, open the gift page, then upload the gift screen screenshot for approval.",
+        "Include your VM code in the Throne message and the tribute will be credited automatically. If automation fails, DM Principessa so the bonus can be added manually.",
       reward: PET_TASK_REWARD,
       actionLabel: "Open Throne",
       actionUrl: PET_THRONE_URL,

@@ -708,6 +708,7 @@ function ThroneDebtCard({
         <div className="mt-4 grid gap-3">
           <div className="court-inset-tile rounded-2xl border border-amber-200/15 bg-black/35 p-3">
             <div className="grid gap-2 text-sm text-amber-50 sm:grid-cols-2">
+              <span>Debt Code: <strong className="text-amber-100">{activeContract.debt_code ?? `TD-${activeContract.id.slice(0, 8).toUpperCase()}`}</strong></span>
               <span>Total Debt: ${activeContract.total_amount_usd.toFixed(2)}</span>
               <span>Paid: ${paidUsd.toFixed(2)}</span>
               <span>Remaining: ${remainingUsd.toFixed(2)}</span>

@@ -63,6 +63,7 @@ export type ThroneDebtPaymentReview = {
 };
 
 export type ThroneDebtContract = {
+  debt_code: string | null;
   admin_note: string | null;
   approved_at: string | null;
   approved_by_admin_id: string | null;

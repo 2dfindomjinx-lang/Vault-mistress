@@ -37,6 +37,7 @@ export type Profile = {
   last_owner_likeness_at?: string | null;
   last_pet_tax_at?: string | null;
   loyalty_streak: number;
+  streak_freezes?: number;
   last_loyalty_at: string | null;
   last_login_at?: string | null;
   timeout_until: string | null;

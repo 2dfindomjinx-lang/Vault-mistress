@@ -19,13 +19,11 @@ import { CourtHomeStage } from "@/components/CourtHomeStage";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
+import { HomeCommandCenter, type HomeAction, type HomeLeaderboardEntry } from "@/components/HomeCommandCenter";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
 import { NotificationBell } from "@/components/NotificationBell";
-import {
-  PetScoreLeaderboard,
-  type PetScoreLeaderboardEntry,
-} from "@/components/PetScoreLeaderboard";
+import type { PetScoreLeaderboardEntry } from "@/components/PetScoreLeaderboard";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import {
@@ -33,8 +31,6 @@ import {
   type RecentTribute,
   type TopInventory,
 } from "@/components/RecentTributesTicker";
-import { StatsPanel } from "@/components/StatsPanel";
-import { ProfileTaskCard } from "@/components/TitleCollection";
 import { TopLevelNav } from "@/components/TopLevelNav";
 import { getPanelForPath, getPathForPanel, type DashboardPage, type SidebarNavItem } from "@/components/SidebarNav";
 
@@ -56,7 +52,6 @@ const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((modul
 const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection), { loading: VaultPanelLoading });
 const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel), { loading: VaultPanelLoading });
 const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal), { loading: VaultPanelLoading });
-const PuzzleGame = dynamic(() => import("@/components/PuzzleGame").then((module) => module.PuzzleGame), { loading: VaultPanelLoading });
 const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
 const RunwayPanel = dynamic(() => import("@/components/RunwayPanel").then((module) => module.RunwayPanel), { loading: VaultPanelLoading });
 const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
@@ -83,7 +78,6 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
   ]),
   tasks: () => Promise.all([
     import("@/components/TaskList"),
-    import("@/components/PuzzleGame"),
   ]),
   tribute: () => import("@/components/TributePanel"),
 };
@@ -185,7 +179,7 @@ import {
   type CrateRarity,
 } from "@/lib/crates";
 import { JACKPOT_MIN_CONTRIBUTION, type LoyaltyJackpotState } from "@/lib/jackpot";
-import type { LeadershipEntry, ShameEntry } from "@/lib/leadership";
+import { getLeadershipRank, type LeadershipEntry, type ShameEntry } from "@/lib/leadership";
 import {
   HIGH_LOW_BET_ALLOWANCE,
   HIGH_LOW_PROFIT_LIMIT,
@@ -217,7 +211,7 @@ import {
   PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
-import { getTimeoutClearFee, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
+import { getTimeoutClearFee, PET_TASK_COIN_REWARD, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
   getGmt3DateKey,
@@ -477,15 +471,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_MIN_COST = 2500;
 const PET_WEEKLY_TAX_MAX_COST = 10000;
-const PET_TASK_COIN_REWARD = 200;
-const PET_REVIEW_TASK_COIN_REWARD = 250;
+const PET_REVIEW_TASK_COIN_REWARD = 0;
 const PET_WEEKLY_TAX_REWARD = PET_TASK_CONTENT_WEEKLY_TAX_REWARD;
 const PET_DAILY_CLICK_FLUSH_DELAY_MS = 2500;
 const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
-const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
+const PET_FAVOR_ROULETTE_COIN_REWARD = 0;
 const PET_OWNER_LIKENESS_DAILY_TASK_TARGET = 5;
 const IMAGE_DOWNLOAD_ALLOW_SELECTOR = "[data-allow-image-download]";
 const LOCAL_GUEST_USER_ID = "local-guest-user";
@@ -1905,6 +1898,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const weeklyTaxAutoAttemptRef = useRef<string | null>(null);
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
+  const [streakFreezes, setStreakFreezes] = useState(2);
+  const [isStreakRansomPending, setIsStreakRansomPending] = useState(false);
+  const [isCourtSealPending, setIsCourtSealPending] = useState(false);
+  const [returnCard, setReturnCard] = useState<{ changes: Array<{ label: string; href: string }> } | null>(null);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [totalDevotion, setTotalDevotion] = useState(0);
@@ -1972,6 +1969,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [petScoreLeaderboardLoading, setPetScoreLeaderboardLoading] = useState(false);
   const [petScoreLeaderboardError, setPetScoreLeaderboardError] = useState("");
   const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("all_time");
+  const [homeLeaderboardTab, setHomeLeaderboardTab] = useState<"devotion" | "pet" | "leadership" | "shame" | "inventory">("devotion");
   const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
   const [devotionCurrentUserEntry, setDevotionCurrentUserEntry] = useState<DevotionLeaderboardEntry | null>(null);
   const [devotionLoading, setDevotionLoading] = useState(false);
@@ -2042,6 +2040,19 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       setCommittedEquippedSlots(equippedAvatarSlots);
     }
   }, [equippedAvatarSlots, isAvatarActionPending]);
+
+  useEffect(() => {
+    if (!authBootstrapped || !isLoggedIn || isGuestMode || isPreviewMode) {
+      setReturnCard(null);
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/user/return-card", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ card?: { changes: Array<{ label: string; href: string }> } | null }>)
+      .then((result) => { if (!cancelled) setReturnCard(result.card ?? null); })
+      .catch(() => { if (!cancelled) setReturnCard(null); });
+    return () => { cancelled = true; };
+  }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode]);
 
   // Existing avatar customization from before the presets feature existed
   // should be perceived as "Preset 1" - back it up into slot 0 automatically
@@ -2154,7 +2165,9 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // works), since these are genuinely separate routes in the app directory.
   // pushState only changes the address bar; React state here is untouched.
   const [activePanel, setActivePanelState] = useState<DashboardPage>(initialPanel);
-  const [isPuzzleExpanded, setIsPuzzleExpanded] = useState(false);
+  const [isJigsawUnlocking, setIsJigsawUnlocking] = useState(false);
+  const [jigsawError, setJigsawError] = useState("");
+  const [jigsawLink, setJigsawLink] = useState<{ label: string; url: string } | null>(null);
   const setActivePanel = useCallback((page: DashboardPage) => {
     setActivePanelState(page);
     if (typeof window !== "undefined") {
@@ -4171,6 +4184,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
 
   useEffect(() => {
+    if (activePanel !== "home" || homeLeaderboardTab !== "devotion" || isGuestMode || isPreviewMode || !isLoggedIn) return;
+    void loadDevotionLeaderboard(devotionPeriod);
+  }, [activePanel, devotionPeriod, homeLeaderboardTab, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
+
+  useEffect(() => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setCommunityStatus(null);
@@ -4419,6 +4437,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    setStreakFreezes(profile.streak_freezes ?? 2);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
@@ -4730,6 +4749,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPetUnlockedAt(profile.pet_unlocked_at ?? null);
     setLastPetTaxAt(profile.last_pet_tax_at ?? null);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    setStreakFreezes(profile.streak_freezes ?? 2);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
     timeoutUntilRef.current = profile.timeout_until ?? null;
     timeoutReasonRef.current = profile.timeout_reason ?? null;
@@ -5527,7 +5547,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const response = await fetch("/api/user/loyalty", {
       method: "POST",
     });
-    const result = (await response.json()) as { error?: string; profile?: Profile };
+    const result = (await response.json()) as { error?: string; profile?: Profile; streakFreezeUsed?: boolean; streakFreezesRemaining?: number };
 
     console.info("Loyalty streak update result", { result, ok: response.ok });
 
@@ -5539,7 +5559,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const data = result.profile;
 
     setLoyaltyStreak(data.loyalty_streak ?? 0);
+    setStreakFreezes(result.streakFreezesRemaining ?? data.streak_freezes ?? 2);
     setLastLoyaltyAt(data.last_loyalty_at ?? null);
+    if (result.streakFreezeUsed) {
+      setAvatarMistressReply("Court protected your streak this time. One protection has been spent.");
+    }
     setTasks((current) =>
       current.map((entry) => {
         const bonus = STREAK_BONUSES.find((item) => item.id === entry.id);
@@ -5551,6 +5575,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
     return data as Profile;
   }, []);
+
+  const handleStreakRansom = async () => {
+    if (isStreakRansomPending) return;
+    setIsStreakRansomPending(true);
+    try {
+      const response = await fetch("/api/user/loyalty/ransom", { method: "POST" });
+      const result = (await response.json()) as { error?: string; profile?: Profile };
+      if (!response.ok || !result.profile) throw new Error(result.error ?? "Streak recovery failed.");
+      await applyProfile(result.profile);
+      setAvatarMistressReply(`Your streak was recovered for ${result.profile.coins} coins remaining.`);
+    } catch (error) {
+      setAuthError(describeError(error));
+    } finally {
+      setIsStreakRansomPending(false);
+    }
+  };
+
+  const handleCourtSeal = async () => {
+    if (isCourtSealPending) return;
+    setIsCourtSealPending(true);
+    try {
+      const response = await fetch("/api/user/court-seal", { method: "POST" });
+      const result = (await response.json()) as { error?: string; url?: string };
+      if (!response.ok || !result.url) throw new Error(result.error ?? "Court Seal could not be created.");
+      const shareUrl = `${window.location.origin}${result.url}`;
+      await navigator.clipboard?.writeText(shareUrl);
+      setAvatarMistressReply("Your Court Seal is ready. The link has been copied.");
+    } catch (error) {
+      setAvatarMistressReply(error instanceof Error ? error.message : "Court Seal could not be created.");
+    } finally {
+      setIsCourtSealPending(false);
+    }
+  };
 
   const persistProfileProgress = useCallback(async (
     nextProfile: Pick<Profile, "coins" | "affection"> &
@@ -8153,6 +8210,36 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   // isFinal marks the flush that happens when a drain session ends. The
   // "Most Drained Subs" table aggregates the whole coin_transactions ledger,
   // so it is refreshed only then - never on the periodic 5s syncs.
+  const handleJigsawUnlock = async () => {
+    if (blockIfTimedOut() || isJigsawUnlocking) return;
+
+    setIsJigsawUnlocking(true);
+    setJigsawError("");
+    try {
+      const response = await fetch("/api/user/jigsaw-unlock", { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        label?: string;
+        profile?: Profile;
+        url?: string;
+      } | null;
+
+      if (!response.ok || !payload?.url || !payload.profile) {
+        setJigsawError(payload?.error ?? "The jigsaw stayed locked. Try again.");
+        return;
+      }
+
+      applyProfileStats(payload.profile);
+      void loadCommunityStatus();
+      setJigsawLink({ label: payload.label ?? "Jigsaw", url: payload.url });
+    } catch (error) {
+      console.error("Failed to unlock jigsaw", error);
+      setJigsawError("The jigsaw stayed locked. Try again.");
+    } finally {
+      setIsJigsawUnlocking(false);
+    }
+  };
+
   const handleDrainSessionSync = async (amount: number, isFinal = false): Promise<boolean> => {
     if (amount <= 0) return true;
 
@@ -10855,12 +10942,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   }, [beginPetAction, blockIfTimedOut, finishPetAction, resyncAuthenticatedProfile, setAvatarMistressReply]);
 
-  const stats = {
-    coins,
-    affection,
-    loyaltyStreak,
-    tributeTotal,
-  };
   const equippableInventoryItems = useMemo(
     () => {
       const fromInv = crateInventory.filter((item) => item.quantity > 0 && isAvatarEquippableItem(item.item_id));
@@ -11031,7 +11112,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       key: "debt" as const,
       label: "Debt Contracts",
     },
-    { key: "devotion" as const, label: "Devotion" },
     {
       key: "collection" as const,
       label: "Gallery",
@@ -11328,7 +11408,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         ? [
             {
               label: "Rank",
-              value: selectedDevotionRank ? `#${selectedDevotionRank}` : "Unranked",
+              value: (
+                <div className="flex flex-col items-start gap-2">
+                  <span>{selectedDevotionRank ? `#${selectedDevotionRank}` : "Unranked"}</span>
+                  <button className="rounded-full border border-pink-300/25 bg-pink-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-pink-50 transition hover:border-pink-300/45 disabled:opacity-45" disabled={isCourtSealPending} onClick={handleCourtSeal} type="button">
+                    {isCourtSealPending ? "Sealing..." : "Seal this"}
+                  </button>
+                </div>
+              ),
               hint: "Current ladder",
             },
             { label: "Devotion", value: totalDevotion.toLocaleString(), hint: "All time prestige" },
@@ -11341,6 +11428,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               value: (
                 <div className="flex flex-col items-start gap-2">
                   <span>{loyaltyStreak} days</span>
+                  <span className="text-[10px] uppercase tracking-[0.12em] text-pink-100/55">{streakFreezes} protection{streakFreezes === 1 ? "" : "s"}</span>
+                  {lastLoyaltyAt && Date.now() - new Date(lastLoyaltyAt).getTime() > 48 * 60 * 60 * 1000 && Date.now() - new Date(lastLoyaltyAt).getTime() <= 96 * 60 * 60 * 1000 ? (
+                    <button
+                      className="rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-amber-50 transition hover:border-amber-300/45 hover:bg-amber-500/20 disabled:opacity-45"
+                      disabled={isStreakRansomPending}
+                      onClick={handleStreakRansom}
+                      type="button"
+                    >
+                      {isStreakRansomPending ? "Recovering..." : "Recover streak"}
+                    </button>
+                  ) : null}
                   {claimableLoyaltyBonuses.length > 0 ? (
                     <button
                       className="rounded-full border border-pink-300/25 bg-pink-500/10 px-3 py-1 text-xs font-black text-pink-50 transition hover:border-pink-300/45 hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-45"
@@ -11395,6 +11493,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         <p className="mt-2 text-xs text-red-50/80">
           {petTasksCompletedToday.length} pet tasks cleared, +{petCoinsEarnedToday.toLocaleString()} coins earned today.
         </p>
+      </div>
+    ) : activePanel === "home" && returnCard ? (
+      <div className="rounded-2xl border border-pink-300/15 bg-pink-500/10 px-3 py-2">
+        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/75">While you were away</div>
+        <div className="mt-2 grid gap-1 text-xs text-pink-50/85 sm:grid-cols-2">
+          {returnCard.changes.map((change) => <Link className="hover:text-white" href={change.href} key={`${change.href}-${change.label}`}>› {change.label}</Link>)}
+        </div>
       </div>
     ) : activePanel === "debt" ? (
       <div className="rounded-2xl border border-red-300/15 bg-red-500/10 px-3 py-2">
@@ -11525,6 +11630,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }
 
   const currentWeeklyTaxCost = getPetWeeklyTaxCost(coins);
+  const profileLeadership = getLeadershipRank(tributeTotal);
+  const readyTaskCount = tasks.filter((task) => !task.completed && !task.claimed && (!task.cooldownUntil || new Date(task.cooldownUntil).getTime() <= Date.now())).length;
+  const homeActions: HomeAction[] = [];
+  if (readyTaskCount > 0) homeActions.push({ action: "Go", detail: `${readyTaskCount} task${readyTaskCount === 1 ? "" : "s"} ready for your attention.`, label: "Complete your assigned tasks", target: "tasks" });
+  if (isPetUnlocked && nextPetTaxDueAt && new Date(nextPetTaxDueAt).getTime() <= Date.now()) homeActions.push({ action: "Pay", detail: `Weekly tax is due (${currentWeeklyTaxCost.toLocaleString()} coins).`, label: "Keep your pet status current", target: "pet" });
+  if (!lastLoyaltyAt || getGmt3DateKey(lastLoyaltyAt) !== todayKey) homeActions.push({ action: "Claim", detail: "Your daily loyalty check-in is waiting.", label: "Collect today's streak", target: "tasks" });
+  if (Object.values(crateOpenCredits).some((count) => count > 0)) homeActions.push({ action: "Open", detail: "A granted case opening is waiting in your vault.", label: "Use your free case opening", target: "crates" });
+  const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
+  const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
+  const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
+  const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
+  const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
 
   return (
     <main
@@ -11534,7 +11651,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <AppShell
         activePage={activePanel}
+        coins={coins}
         items={dashboardNavItems}
+        onAddCoins={() => setAvatarMistressReply("Coin purchases are being prepared for the Court.")}
         onCoinsChange={(nextCoins) => {
           setCoins(nextCoins);
           coinsRef.current = nextCoins;
@@ -11561,7 +11680,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               }}
             />
           ) : null}
-          {activePanel !== "home" ? <CourtChamberIntro page={activePanel} /> : null}
+          {activePanel !== "home" && activePanel !== "tribute" ? <CourtChamberIntro page={activePanel} /> : null}
           <div className="relative z-30 -mt-px lg:mx-5 lg:-mt-10 [&>header]:shadow-[0_-22px_58px_rgba(0,0,0,.82)]">
             <ProfileHeader
           actions={headerActions}
@@ -11750,54 +11869,43 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         <section className="court-panel-stage min-w-0 pb-10">
           {activePanel === "home" && (
             <div className="flex min-w-0 flex-col gap-6">
-              <HallOfFameSection
-                cards={hallOfFameCards}
-                isLoading={communityStatusLoading}
-                onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
-              />
               {communityStatusError ? (
                 <div className="rounded-[1.5rem] border border-red-300/18 bg-red-500/10 px-4 py-4 text-sm text-red-50/90">
                   {communityStatusError}
                 </div>
               ) : null}
-              <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-                <div className="flex min-w-0 flex-col gap-6">
-                  <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
-                    <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
-                      Affection Read
-                    </p>
-                    <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
-                    <p className="mt-4 text-sm leading-6 text-pink-50">
-                      {scriptedMessage}
-                    </p>
-                  </section>
-                  <ProfileTaskCard
-                    disabled={isTimeoutActive || isPreviewRestricted}
-                    isPending={pendingTaskActionIds.includes("rebrand-profile")}
-                    onRebrandProfile={handleRebrandProfile}
-                  />
-                  <PetScoreLeaderboard
-                    error={petScoreLeaderboardError}
-                    isLoading={petScoreLeaderboardLoading}
-                    leaders={petScoreLeaders}
-                  />
-                </div>
-
-                <div className="flex min-w-0 flex-col gap-6">
-                  {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
-                  <StatsPanel
-                    addressTerm={addressTerm}
-                    equippedTitleName={equippedTitle?.name}
-                    leadershipTop={leadershipTop}
-                    shameTop={shameTop}
-                    statValueStyle={equippedUsernameColor?.color ? { color: equippedUsernameColor.color } : undefined}
-                    stats={stats}
-                    topValuableInventories={topValuableInventories}
-                    username={effectiveDisplayName ?? username}
-                    usernameStyle={usernameStyle}
-                  />
-                </div>
+              <HomeCommandCenter
+                actions={homeActions}
+                coins={coins}
+                devotion={homeDevotionEntries}
+                devotionRank={selectedDevotionRank}
+                inventories={homeInventoryEntries}
+                leadership={homeLeadershipEntries}
+                onLeaderboardTabChange={setHomeLeaderboardTab}
+                onNavigate={(page) => {
+                  void preloadDashboardPanel(page);
+                  resetViewportScroll();
+                  setActivePanel(page);
+                }}
+                petScore={petScore}
+                petScoreLeaders={homePetEntries}
+                shame={homeShameEntries}
+                streak={loyaltyStreak}
+              />
+              <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+                <section className="rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
+                  <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Affection Read</p>
+                  <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
+                  <p className="mt-4 text-sm leading-6 text-pink-50">{scriptedMessage}</p>
+                </section>
+                {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
               </div>
+              <HallOfFameSection
+                cards={hallOfFameCards}
+                compact
+                isLoading={communityStatusLoading}
+                onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
+              />
             </div>
           )}
           {activePanel === "tribute" && (
@@ -11844,28 +11952,33 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "tasks" && (
             <div className="mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
-              <button
-                type="button"
-                onClick={() => setIsPuzzleExpanded((current) => !current)}
-                className="flex w-full items-center justify-between text-left"
-              >
-                <span className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">
-                  🧩 Puzzle {isPuzzleExpanded ? "▾" : "▸"}
-                </span>
-                <span className="text-xs text-zinc-400">{isPuzzleExpanded ? "Collapse" : "Expand"}</span>
-              </button>
-              {isPuzzleExpanded && (
-                <div className="mt-4">
-                  <PuzzleGame
-                    coins={coins}
-                    disabled={isTimeoutActive || isPreviewRestricted}
-                    onProfileUpdate={(profile) => {
-                      applyProfileStats(profile);
-                      void loadCommunityStatus();
-                    }}
-                  />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">🧩 Jigsaw</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Pay to have one of Principessa&apos;s jigsaws chosen for you. She picks which one.
+                  </p>
                 </div>
+                <button
+                  className="shrink-0 rounded-full border border-pink-200/25 bg-pink-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isTimeoutActive || isPreviewRestricted || isJigsawUnlocking}
+                  onClick={() => void handleJigsawUnlock()}
+                  type="button"
+                >
+                  {isJigsawUnlocking ? "Unlocking..." : "Unlock a jigsaw"}
+                </button>
+              </div>
+              {jigsawLink && (
+                <a
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-emerald-200/25 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-50 transition hover:border-emerald-200/55 hover:bg-emerald-500/20"
+                  href={jigsawLink.url}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Open &quot;{jigsawLink.label}&quot;
+                </a>
               )}
+              {jigsawError && <p className="mt-2 text-xs text-rose-200/80">{jigsawError}</p>}
             </div>
           )}
           {activePanel === "tasks" && (
@@ -12022,6 +12135,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 titles={addressAwareTitleItems}
                 onEquipTitle={handleEquipTitle}
               />
+
+              <section className="rounded-[1.5rem] border border-pink-200/15 bg-pink-500/[0.06] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div><p className="text-[10px] font-black uppercase tracking-[0.24em] text-pink-100/55">Leadership</p><h2 className="mt-1 text-2xl font-black text-white">{equippedTitle?.name ?? profileLeadership.currentRank.title}</h2></div>
+                  <span className="rounded-full border border-pink-200/20 bg-black/30 px-3 py-1 text-xs font-bold text-pink-100">{tributeTotal.toLocaleString()} prestige</span>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/50"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-rose-400" style={{ width: `${profileLeadership.progress}%` }} /></div>
+                <p className="mt-2 text-xs text-zinc-400">{profileLeadership.nextRank ? `${profileLeadership.remaining.toLocaleString()} more Tribute Total to reach ${profileLeadership.nextRank.title}.` : "Maximum leadership rank reached."}</p>
+              </section>
 
               <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.18))] p-5 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
                 <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">

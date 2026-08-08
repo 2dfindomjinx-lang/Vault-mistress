@@ -2,7 +2,7 @@ import { cosmeticItems, titleItems } from "@/lib/cosmetics";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 
 export const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, streak_freezes, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 export const visibleGalleryCosts = new Map<string, number>([
   ["common-velvet-arrival", 300],
@@ -59,6 +59,10 @@ export const RUNWAY_SUPER_VOTE_COIN_COST = 2_500;
 export const RUNWAY_SUPER_VOTE_OWNER_REWARD = 1_000;
 export const RUNWAY_SUPER_VOTE_POINT_VALUE = 10;
 export const RUNWAY_SUPER_VOTE_DAILY_LIMIT = 2;
+
+// Pet task completion rewards are Pet Score/Devotion, never spendable coins.
+// Keep this server-authoritative value shared by web and mobile review routes.
+export const PET_TASK_COIN_REWARD = 0;
 
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 150],

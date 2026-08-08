@@ -780,7 +780,7 @@ export function PetSection({
     ({
       id: PET_THRONE_TASK_ID,
       title: "Throne Bonus",
-      description: "Pick a Throne tribute amount, upload the gift screen, and submit it for review.",
+      description: "Add your VM code to the Throne message. Verified gifts are credited automatically; use the proof form only if automation fails.",
       reward: 0,
       kind: "throne-tribute",
       status: "available",
@@ -2286,7 +2286,7 @@ export function PetSection({
                           {formatPetThroneAmount(throneCoinEquivalent)}
                         </p>
                         <p className="mt-2 text-xs text-zinc-400">
-                          Pick the gift amount, open the Throne page, then upload the gift screen screenshot.
+                          Include your VM code in the Throne message for automatic credit. If it fails, DM Principessa with the receipt for manual credit.
                         </p>
                       </div>
 
@@ -2564,7 +2564,7 @@ export function PetSection({
                   </span>
                 </div>
                 <p className="mt-3 text-xs font-bold text-red-100">
-                  Admin approval adds the selected Throne payout with both bonuses only.
+                  Verified Throne gifts are credited automatically with both bonuses. If automation fails, DM Principessa with your receipt.
                 </p>
                 <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -2603,7 +2603,7 @@ export function PetSection({
                       Base {throneRewardBreakdown.baseCoinAmount.toLocaleString()} + give bonus {throneRewardBreakdown.giveBonusAmount.toLocaleString()} + task bonus {throneRewardBreakdown.taskBonusAmount.toLocaleString()}
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
-                      Pick the Throne amount, open the Throne page, then upload the gift screen screenshot.
+                      Include your VM code in the Throne message for automatic credit. Use the screenshot form only as a manual fallback.
                     </p>
                   </div>
 

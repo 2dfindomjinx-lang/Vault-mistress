@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     amount: -amount,
     balance_after: nextCoins,
     balance_before: profile.coins,
-    metadata: { category, compliment, imageKey },
+    metadata: { category, imageKey },
     reason: "tribute:pet-worship",
     user_id: userId,
   });

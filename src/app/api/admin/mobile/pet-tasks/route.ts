@@ -8,11 +8,11 @@ import {
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PET_TASK_COIN_REWARD } from "@/lib/server-game-rules";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const PET_TASK_COIN_REWARD = 250;
 const LARGE_THRONE_PENDING_AMOUNT = Number(process.env.ADMIN_SECURITY_LARGE_COIN_AMOUNT ?? 50000);
 
 async function listPetTasks(supabase: SupabaseClient) {

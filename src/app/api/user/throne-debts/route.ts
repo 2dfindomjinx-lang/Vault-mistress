@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   normalizeThroneDebtFrequency,
   type ThroneDebtContract,
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
     const { data: contract, error: insertError } = await supabase
       .from("throne_debts")
       .insert({
+        debt_code: `TD-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`,
         contract_length_weeks: validation.plan.contractLengthWeeks,
         installment_amount_usd: validation.plan.installmentAmountUsd,
         installment_count: validation.plan.installmentCount,

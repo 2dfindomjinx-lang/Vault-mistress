@@ -11,6 +11,7 @@ import { getProfileBorderFramePresentation } from "@/lib/profile-border-presenta
 
 type HallOfFameSectionProps = {
   cards: HallOfFameCardData[];
+  compact?: boolean;
   isLoading?: boolean;
   onSelectUser: (userId: string) => void;
 };
@@ -28,15 +29,16 @@ function getFramePresentation(card: HallOfFameCardData) {
 
 export function HallOfFameSection({
   cards,
+  compact = false,
   isLoading = false,
   onSelectUser,
 }: HallOfFameSectionProps) {
   return (
-    <section className="court-feature-panel overflow-hidden rounded-[2.25rem] border border-amber-200/20 bg-[linear-gradient(145deg,rgba(10,7,2,0.96),rgba(74,22,12,0.74),rgba(111,35,27,0.32))] p-5 shadow-[0_0_56px_rgba(251,191,36,0.12)]">
+    <section className={`court-feature-panel overflow-hidden border border-amber-200/20 bg-[linear-gradient(145deg,rgba(10,7,2,0.96),rgba(74,22,12,0.74),rgba(111,35,27,0.32))] shadow-[0_0_56px_rgba(251,191,36,0.12)] ${compact ? "rounded-[1.5rem] p-4" : "rounded-[2.25rem] p-5"}`}>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.34em] text-amber-200/72">Hall of Fame</p>
-          <h2 className="mt-2 text-3xl font-black text-white">Community Prestige</h2>
+          <h2 className={`${compact ? "text-2xl" : "text-3xl"} mt-2 font-black text-white`}>Community Prestige</h2>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-amber-50/72">
           Community highlights refresh automatically so visible support, devotion, streak discipline,
@@ -44,7 +46,7 @@ export function HallOfFameSection({
         </p>
       </div>
 
-      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className={`court-grid court-grid--shop mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 ${compact ? "max-h-[28rem] overflow-y-auto pr-1" : ""}`}>
         {isLoading && cards.length === 0 ? (
           <div className="rounded-[1.8rem] border border-white/10 bg-black/25 px-4 py-10 text-sm text-amber-50/75 md:col-span-2 2xl:col-span-4">
             Loading community honors...
@@ -60,7 +62,7 @@ export function HallOfFameSection({
 
             return (
               <button
-                className="court-grid-card court-grid-card--gold group rounded-[1.8rem] border border-amber-200/18 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(0,0,0,0.28),rgba(0,0,0,0.52))] p-4 text-left transition hover:border-amber-200/40 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(126,34,206,0.08),rgba(0,0,0,0.5))]"
+                className={`court-grid-card court-grid-card--gold group border border-amber-200/18 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(0,0,0,0.28),rgba(0,0,0,0.52))] text-left transition hover:border-amber-200/40 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(126,34,206,0.08),rgba(0,0,0,0.5))] ${compact ? "rounded-[1.25rem] p-3" : "rounded-[1.8rem] p-4"}`}
                 disabled={!winner}
                 key={card.id}
                 onClick={() => winner && onSelectUser(winner.userId)}
@@ -90,7 +92,7 @@ export function HallOfFameSection({
 
                 <div className="mt-4 flex items-center gap-4">
                   <ProfileBorderFrame
-                    className="h-20 w-20 shrink-0 rounded-[1.45rem]"
+                    className={`${compact ? "h-14 w-14 rounded-xl" : "h-20 w-20 rounded-[1.45rem]"} shrink-0`}
                     contentClassName="overflow-hidden rounded-[1.25rem] border border-white/12 bg-black/45"
                     presentation={frame}
                   >

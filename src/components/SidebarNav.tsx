@@ -53,7 +53,9 @@ export type SidebarNavItem = {
 
 type SidebarNavProps = {
   activePage: DashboardPage;
+  coins?: number;
   items: SidebarNavItem[];
+  onAddCoins?: () => void;
   onSelect: (page: DashboardPage) => void;
 };
 
@@ -82,7 +84,7 @@ Object.assign(navigationMeta, {
   devotion: { ...navigationMeta.devotion, code: "IX" },
 });
 
-export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
+export function SidebarNav({ activePage, coins = 0, items, onAddCoins, onSelect }: SidebarNavProps) {
   return (
     <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
@@ -98,6 +100,11 @@ export function SidebarNav({ activePage, items, onSelect }: SidebarNavProps) {
             <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-pink-200/35">You enter by her permission.</p>
           </div>
         </header>
+
+        <div className="flex items-center justify-between gap-3 border-b border-[#c89a55]/15 px-6 py-2.5">
+          <p className="truncate text-xs font-black text-pink-50"><span className="mr-1 text-amber-200/75">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/45">coins</span></p>
+          <button className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50" onClick={onAddCoins} type="button">+ Add</button>
+        </div>
 
         <nav className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-2">
           <p className="mb-2 px-3 text-[8px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>

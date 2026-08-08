@@ -77,6 +77,11 @@ export async function GET(request: Request) {
   const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
   let retention: unknown = null;
   if (!dryRun) {
+    const { error: snapshotError } = await supabase.rpc("capture_daily_court_snapshot", { p_snapshot_date: new Date().toISOString().slice(0, 10) });
+    if (snapshotError) console.warn("Court daily snapshot failed (apply return-card-and-seats.sql):", snapshotError.message);
+  }
+
+  if (!dryRun) {
     const { data, error } = await supabase.rpc("run_data_retention");
     if (error) return Response.json({ error: error.message }, { status: 500 });
     retention = data;

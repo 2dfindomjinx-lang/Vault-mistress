@@ -1,8 +1,9 @@
-// Puzzle now lives inside the Tasks panel (collapsible section) instead of
-// its own tab. This route stays so old /puzzle bookmarks land somewhere
-// sensible instead of 404ing.
-import Home from "../page";
+import { redirect } from "next/navigation";
 
+// The in-site puzzle was replaced by paid external jigsaw links, which live in
+// the Tasks panel. Redirecting (rather than rendering Home with initialPanel)
+// also fixes a latent bug: getPanelForPath("/puzzle") returned "home", so
+// Back-then-Forward on this URL used to flip it from Tasks to Home.
 export default function PuzzlePage() {
-  return <Home initialPanel="tasks" />;
+  redirect("/tasks");
 }
