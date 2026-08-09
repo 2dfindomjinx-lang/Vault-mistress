@@ -236,16 +236,18 @@ const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: 
       { item_id: "purple_crop_sweater", weight: 390 },
 	  { item_id: "pink_off_shoulder_sweater", weight: 370 },
 
-      // Rare %16
-      { item_id: "pink_garter_stockings", weight: 210 },
-      { item_id: "red_garter_stockings", weight: 200 },
-      { item_id: "white_off_shoulder_crop_top", weight: 185 },
-      { item_id: "blue_tartan_pleated_skirt", weight: 180 },
-      { item_id: "red_tartan_pleated_skirt", weight: 175 },
-      { item_id: "white_distressed_denim_shorts", weight: 170 },
-	  { item_id: "black_v_neck_crop_top", weight: 165 },
-	  { item_id: "red_off_shoulder_crop_top", weight: 160 },
-	  { item_id: "white_tie_front_shirt", weight: 155 },
+      // Rare %16 (band total 1600 - existing entries gave up 17 each, 19 from
+      // the last, to seat gyaru_shirt at 155 without moving the advertised %)
+      { item_id: "pink_garter_stockings", weight: 193 },
+      { item_id: "red_garter_stockings", weight: 183 },
+      { item_id: "white_off_shoulder_crop_top", weight: 168 },
+      { item_id: "blue_tartan_pleated_skirt", weight: 163 },
+      { item_id: "red_tartan_pleated_skirt", weight: 158 },
+      { item_id: "gyaru_shirt", weight: 155 },
+      { item_id: "white_distressed_denim_shorts", weight: 153 },
+	  { item_id: "black_v_neck_crop_top", weight: 148 },
+	  { item_id: "red_off_shoulder_crop_top", weight: 143 },
+	  { item_id: "white_tie_front_shirt", weight: 136 },
 
       // Epic %12
 	  { item_id: "white_garter_stockings", weight: 170 },
@@ -298,27 +300,31 @@ const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: 
       { item_id: "cat_croptop", weight: 260 },
       { item_id: "pink_camisole", weight: 240 },
 
-      // Rare 16%
-	  { item_id: "latex_gloves", weight: 200 },
-      { item_id: "pink_feather_tickler", weight: 190 },
-      { item_id: "ruler", weight: 180 },
-      { item_id: "white_sports_bra", weight: 170 },
-      { item_id: "white_sport_pants", weight: 160 },
-	  { item_id: "cat_short_shorts", weight: 155 },
-	  { item_id: "cat_thighhighs", weight: 150 },
-      { item_id: "cat_o_nine_tails", weight: 145 },
-      { item_id: "latex_leggings", weight: 135 },
-	  { item_id: "cute_dress", weight: 115 },
+      // Rare 16% (band total 1600 - each existing entry gave up 15 to seat
+      // pink_bandeau_top at 150, so the advertised 16% is unchanged)
+	  { item_id: "latex_gloves", weight: 185 },
+      { item_id: "pink_feather_tickler", weight: 175 },
+      { item_id: "ruler", weight: 165 },
+      { item_id: "white_sports_bra", weight: 155 },
+      { item_id: "pink_bandeau_top", weight: 150 },
+      { item_id: "white_sport_pants", weight: 145 },
+	  { item_id: "cat_short_shorts", weight: 140 },
+	  { item_id: "cat_thighhighs", weight: 135 },
+      { item_id: "cat_o_nine_tails", weight: 130 },
+      { item_id: "latex_leggings", weight: 120 },
+	  { item_id: "cute_dress", weight: 100 },
 
-      // Epic 9%
-	  { item_id: "cat_sneakers", weight: 140 },
-      { item_id: "spiked_collar", weight: 130 },
-	  { item_id: "pink_yoga_pants", weight: 120 },
-      { item_id: "blacked_leggings", weight: 115 },
-      { item_id: "cat_panties", weight: 110 },
-      { item_id: "fishnet_panties", weight: 105 },
-	  { item_id: "cat-bra", weight: 95 },
-      { item_id: "angel", weight: 85 },
+      // Epic 9% (band total 900 - each existing entry gave up 15 to seat
+      // jeans_with_red_thong at 120, so the advertised 9% is unchanged)
+	  { item_id: "cat_sneakers", weight: 125 },
+      { item_id: "jeans_with_red_thong", weight: 120 },
+      { item_id: "spiked_collar", weight: 115 },
+	  { item_id: "pink_yoga_pants", weight: 105 },
+      { item_id: "blacked_leggings", weight: 100 },
+      { item_id: "cat_panties", weight: 95 },
+      { item_id: "fishnet_panties", weight: 90 },
+	  { item_id: "cat-bra", weight: 80 },
+      { item_id: "angel", weight: 70 },
 
       // Legendary 2%
       { item_id: "dominatrix_boots", weight: 38 },
@@ -1515,6 +1521,40 @@ const BASE_SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabl
     rarity: "common",
     collection: "grunge",
     sell_value: 300,
+  },
+  // These three ship as .png rather than the default .webp, so image_url is
+  // set explicitly - getCrateItemImageUrl only auto-resolves .png for the
+  // "cosplay" collection.
+  "jeans_with_red_thong": {
+    name: "Jeans With Red Thong",
+    description: "Low-rise jeans worn just low enough to show the red thong underneath.",
+    image_url: "/crate-items/jeans_with_red_thong.png",
+    rarity: "epic",
+    collection: "grunge",
+    // Kitten Case epic band sits at 7000-8000 (cat_sneakers 7000,
+    // spiked_collar 7250, pink_yoga_pants 7500, blacked_leggings 7750).
+    sell_value: 7400,
+  },
+  "gyaru_shirt": {
+    name: "Gyaru Shirt",
+    description: "A loose gyaru-cut shirt, knotted high and worn off one shoulder.",
+    image_url: "/crate-items/gyaru_shirt.png",
+    rarity: "rare",
+    collection: "cosplay-wardrobe",
+    // Obedience Case rare band, just under black_v_neck_crop_top (4800) and
+    // white_distressed_denim_shorts (4750), which is why it carries a slightly
+    // higher drop weight than both.
+    sell_value: 4700,
+  },
+  "pink_bandeau_top": {
+    name: "Pink Bandeau Top",
+    description: "A strapless pink band that stays up on attitude alone.",
+    image_url: "/crate-items/pink_bandeau_top.png",
+    rarity: "rare",
+    collection: "pink",
+    // Kitten Case rare band sits at 2700-3100 (latex_gloves 2700,
+    // white_sports_bra 2850, white_sport_pants 2900, latex_leggings 3100).
+    sell_value: 2800,
   },
   "latex_leggings": {
     name: "Latex Leggings",

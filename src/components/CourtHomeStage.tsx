@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { CoinAmount } from "@/components/CoinAmount";
+import { MoneyIcon } from "@/components/MoneyIcon";
 import type { DashboardPage } from "@/components/SidebarNav";
 
 type CourtHomeStageProps = {
@@ -9,10 +10,11 @@ type CourtHomeStageProps = {
   coins: number;
   dailyMessage: string;
   displayName: string;
+  money?: number;
   onNavigate: (page: DashboardPage) => void;
 };
 
-export function CourtHomeStage({ affection, coins, dailyMessage, displayName, onNavigate }: CourtHomeStageProps) {
+export function CourtHomeStage({ affection, coins, dailyMessage, displayName, money = 0, onNavigate }: CourtHomeStageProps) {
   return (
     <section className="relative isolate min-h-[34rem] overflow-hidden border border-[#c89a55]/20 bg-[#090507] sm:min-h-[36rem] lg:min-h-[40rem]">
       <div className="pointer-events-none absolute inset-0 -z-30 bg-[radial-gradient(circle_at_74%_16%,rgba(190,24,93,.23),transparent_27%),linear-gradient(110deg,#080406_0%,#160811_51%,#070405_100%)]" />
@@ -36,7 +38,11 @@ export function CourtHomeStage({ affection, coins, dailyMessage, displayName, on
             </div>
             <button className="border-b border-[#c89a55]/12 p-4 text-left transition hover:bg-pink-500/[.08] sm:border-b-0 sm:border-r" onClick={() => onNavigate("tribute")} type="button">
               <p className="text-[8px] font-black uppercase tracking-[.22em] text-[#d7ad69]/45">Offer tribute</p>
-              <div className="mt-2 text-sm font-black text-[#ffe8bd]"><CoinAmount amount={coins} iconSize={16} label="" /></div>
+              <div className="mt-2 flex items-center gap-1.5 text-sm font-black text-[#fff0d2]">
+                <MoneyIcon height={15} />
+                {money.toLocaleString()}
+              </div>
+              <div className="mt-1 text-sm font-black text-[#ffe8bd]"><CoinAmount amount={coins} iconSize={15} label="" /></div>
             </button>
             <button className="p-4 text-left transition hover:bg-pink-500/[.08]" onClick={() => onNavigate("tasks")} type="button">
               <p className="text-[8px] font-black uppercase tracking-[.22em] text-[#d7ad69]/45">Earn approval</p>

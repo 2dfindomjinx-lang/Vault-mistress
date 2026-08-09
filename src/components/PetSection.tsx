@@ -17,6 +17,7 @@ import {
 } from "@/lib/pet-tasks-content";
 import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
+import { MoneyIcon } from "@/components/MoneyIcon";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const PET_RANKS = [
@@ -2323,7 +2324,7 @@ export function PetSection({
                           You Receive
                         </p>
                         <p className="mt-2 text-2xl font-black text-pink-50">
-                          ❖ {formatPetThroneAmount(throneMoneyAmount)}
+                          <MoneyIcon height={20} /> {formatPetThroneAmount(throneMoneyAmount)}
                         </p>
                         <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
                           Principessa Money
@@ -2643,7 +2644,7 @@ export function PetSection({
                       You Receive
                     </p>
                     <p className="mt-2 text-2xl font-black text-pink-50">
-                      ❖ {formatPetThroneAmount(throneMoneyAmount)}
+                      <MoneyIcon height={20} /> {formatPetThroneAmount(throneMoneyAmount)}
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
                       Principessa Money

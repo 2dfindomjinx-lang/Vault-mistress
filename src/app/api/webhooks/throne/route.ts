@@ -67,15 +67,20 @@ export async function POST(request: Request) {
     });
   }
 
-  // The site anchor is 1 USD = 1000 coins; price is supplied in cents.
-  // The RPC applies the same base/give/task-bonus formula as the Pet flow.
-  const coinsAwarded = Math.max(1, smallestCurrencyUnit * 10);
-  const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", { p_event_id: eventId, p_user_id: profile.id, p_coins: coinsAwarded, p_amount: amount, p_code: code });
+  // The tribute is paid in Principessa Money at a flat 1 USD = 1 PM. The coin
+  // figure is only the equivalent at base rate (1 PM = 1000 coins, price is in
+  // cents) and the RPC uses it purely for the coin-denominated things that hang
+  // off a tribute - tribute_total and the devotion scale. The old give/task
+  // bonuses are not applied here any more; they moved onto the PM -> Coin
+  // conversion, and paying them at both ends would double them.
+  const coinEquivalent = Math.max(1, smallestCurrencyUnit * 10);
+  const moneyAwarded = Math.floor(amount);
+  const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", { p_event_id: eventId, p_user_id: profile.id, p_coins: coinEquivalent, p_amount: amount, p_code: code });
   if (creditError) {
     await supabase.from("throne_webhook_events").update({ status: "failed", processed_at: new Date().toISOString() }).eq("event_id", eventId);
     try {
       await createUserNotification(supabase, {
-        body: "Your Throne tribute could not be credited automatically. DM Principessa with your Throne receipt so the Pet bonus can be added manually.",
+        body: "Your Throne tribute could not be credited automatically. DM Principessa with your Throne receipt so your Principessa Money can be added manually.",
         kind: "throne_automation_failed",
         metadata: { eventId, tributeCode: code, reason: creditError.message },
         title: "Throne Automation Needs Help",
@@ -87,5 +92,5 @@ export async function POST(request: Request) {
     return Response.json({ error: creditError.message }, { status: 409 });
   }
   await supabase.from("throne_webhook_events").update({ status: "credited", user_id: profile.id, processed_at: new Date().toISOString() }).eq("event_id", eventId);
-  return Response.json({ ok: true, matched: true, coinsAwarded, credit, petBonusAutomated: isPetBonusCode });
+  return Response.json({ ok: true, matched: true, moneyAwarded, coinEquivalent, credit, petBonusAutomated: isPetBonusCode });
 }

@@ -125,7 +125,7 @@ import {
   type TitleItem,
 } from "@/lib/cosmetics";
 import { PREMIUM_TITLE_ID, type PremiumTitleConfig } from "@/lib/premium-title";
-import type { MoneyShopEntry } from "@/lib/principessa-money";
+import { PM_TO_COIN_RATE, type MoneyShopEntry } from "@/lib/principessa-money";
 import {
   DEFAULT_SPEECH_AVATAR_ID,
   RANDOM_SPEECH_AVATAR_ID,
@@ -10940,8 +10940,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       disabled: !isPetUnlocked,
       badge: isPetUnlocked ? undefined : "Locked",
     },
-    { key: "shop" as const, label: "Shop" },
     { key: "moneyShop" as const, label: "Money Shop" },
+    { key: "shop" as const, label: "Shop" },
     { key: "crates" as const, label: "Cases" },
     {
       key: "debt" as const,
@@ -11509,10 +11509,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-3xl border border-pink-200/25 bg-[#180812] p-5 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
-                <div><p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Coin Add</p><h2 className="mt-2 text-2xl font-black text-white">Your payment code</h2></div>
+                <div><p className="text-xs uppercase tracking-[0.24em] text-[#d7ad69]/75">Money Add</p><h2 className="mt-2 text-2xl font-black text-white">Your payment code</h2></div>
                 <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowCoinCodeModal(false)} type="button">×</button>
               </div>
-              <p className="mt-4 text-sm leading-6 text-zinc-300">Paste this VM code into your Throne message for normal Coin Add credit and the regular give bonus.</p>
+              <p className="mt-4 text-sm leading-6 text-zinc-300">Paste this VM code into your Throne message and the tribute lands as Principessa Money, 1 USD = 1 Money.</p>
+              <p className="mt-2 text-xs leading-5 text-zinc-500">Money converts down to coins whenever you want — 1 Money = {PM_TO_COIN_RATE.toLocaleString()} coins, and converting 10 or more at once earns a bonus on top. Coins never convert back up.</p>
               <div className="mt-4 rounded-2xl border border-pink-200/25 bg-black/40 px-4 py-4 text-center text-2xl font-black tracking-[0.18em] text-pink-100">{tributeCode ?? "VM-CODE-UNAVAILABLE"}</div>
               <button className="mt-4 w-full rounded-2xl bg-pink-500 px-4 py-3 text-sm font-black text-white disabled:opacity-50" disabled={!tributeCode} onClick={() => tributeCode && void navigator.clipboard?.writeText(tributeCode)} type="button">Copy code</button>
             </div>
@@ -11526,6 +11527,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               dailyMessage={dailyMessage}
               displayName={effectiveDisplayName ?? username}
+              money={principessaMoney}
               onNavigate={(page) => {
                 void preloadDashboardPanel(page);
                 resetViewportScroll();

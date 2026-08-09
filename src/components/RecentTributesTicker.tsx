@@ -195,6 +195,28 @@ export function RecentTributesTicker({
 }) {
   const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
   const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
+  // All-time goal. Deliberately its own fetch rather than a prop: it is a
+  // single tiny public row, and threading it through page.tsx would couple this
+  // widget to the dashboard for no gain.
+  const [goal, setGoal] = useState<{ goalUsd: number; raisedUsd: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/tribute-goal")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { goalUsd?: number; raisedUsd?: number } | null) => {
+        if (cancelled || !payload || typeof payload.goalUsd !== "number") return;
+        setGoal({ goalUsd: payload.goalUsd, raisedUsd: Number(payload.raisedUsd ?? 0) });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const goalPercent = goal && goal.goalUsd > 0
+    ? Math.min(100, Math.round((goal.raisedUsd / goal.goalUsd) * 100))
+    : 0;
   const visibleTributes = useMemo(() => {
     // Simple rule for Recent Tributes section: always show the 5 most recent
     // (newest first). When a new tribute record arrives (new coin_transaction),
@@ -299,6 +321,25 @@ export function RecentTributesTicker({
           </div>
         </div>
         </div>
+      {goal && goal.goalUsd > 0 && (
+        <div className="rounded-[1.25rem] border border-yellow-200/15 bg-black/35 px-3 py-2.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-yellow-100/70">All-Time Tributed</p>
+            <p className="text-xs font-black text-yellow-50">
+              ${goal.raisedUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              <span className="ml-1 font-bold text-yellow-100/45">
+                / ${goal.goalUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+              </span>
+            </p>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/60">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#d97706,#fde68a)] transition-[width] duration-700"
+              style={{ width: `${Math.max(2, goalPercent)}%` }}
+            />
+          </div>
+        </div>
+      )}
       {topTributes.length > 0 && (
         <div className="rounded-[1.25rem] border border-yellow-200/15 bg-black/35 px-3 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { MoneyIcon } from "@/components/MoneyIcon";
 import {
   getMoneyConversionBreakdown,
   MONEY_CONVERSION_TIERS,
@@ -48,26 +49,15 @@ export function MoneyShopPanel({
     <section className="court-feature-panel rounded-[2rem] border border-[#c89a55]/25 bg-black/50 p-5 shadow-[0_0_44px_rgba(230,186,115,0.12)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-center gap-4">
-          {/* The banknote art ships as a square canvas with the note letterboxed
-              inside it, so it is cropped to the note here rather than shown as a
-              small square with black bars top and bottom. */}
-          <div className="relative hidden h-14 w-24 shrink-0 overflow-hidden rounded-lg border border-[#c89a55]/25 sm:block">
-            <Image
-              alt="Principessa Money"
-              className="scale-[1.72] object-contain"
-              fill
-              sizes="96px"
-              src="/principessa-money-icon.png"
-            />
-          </div>
+          <MoneyIcon className="hidden shrink-0 rounded-md sm:inline-block" height={52} />
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-[#d7ad69]/70">Paid in full</p>
             <h2 className="text-3xl font-black">Money Shop</h2>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="rounded-full border border-[#c89a55]/30 bg-[#e6ba73]/10 px-4 py-2 text-sm font-semibold text-[#fff0d2]">
-            ❖ {money.toLocaleString()} Money
+          <p className="flex items-center gap-2 rounded-full border border-[#c89a55]/30 bg-[#e6ba73]/10 px-4 py-2 text-sm font-semibold text-[#fff0d2]">
+            <MoneyIcon height={16} /> {money.toLocaleString()} Money
           </p>
           <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-50">
             ◉ {coins.toLocaleString()} Coins
@@ -218,9 +208,9 @@ export function MoneyShopPanel({
                     </p>
 
                     <div className="mt-auto pt-3">
-                      <p className="text-2xl font-black leading-none text-[#fff0d2]">❖ {item.pricePm.toLocaleString()}</p>
+                      <p className="flex items-center gap-1.5 text-2xl font-black leading-none text-[#fff0d2]"><MoneyIcon height={20} />{item.pricePm.toLocaleString()}</p>
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
-                        Returns ❖ {item.buybackPm.toLocaleString()}
+                        Returns <MoneyIcon height={11} /> {item.buybackPm.toLocaleString()}
                       </p>
                       <div className="mt-3 grid gap-1.5">
                         <button
@@ -238,7 +228,7 @@ export function MoneyShopPanel({
                             onClick={() => onSell(item.itemId)}
                             type="button"
                           >
-                            Return for ❖ {item.buybackPm.toLocaleString()}
+                            Return for <MoneyIcon height={12} /> {item.buybackPm.toLocaleString()}
                           </button>
                         ) : null}
                       </div>

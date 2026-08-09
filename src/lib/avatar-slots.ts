@@ -105,7 +105,9 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["black_strappy_harness_top", "top"],
   ["black_v_neck_crop_top", "top"],
   ["fireworks_crop_top", "top"],
+  ["gyaru_shirt", "top"],
   ["leather_jacket", "top"],
+  ["pink_bandeau_top", "top"],
   ["pink_off_shoulder_sweater", "top"],
   ["purple_crop_sweater", "top"],
   ["red_off_shoulder_crop_top", "top"],
@@ -153,6 +155,7 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   // --- New wardrobe batch (2026-07, round 3) ---
   ["cat_ears", "ears"],
   ["cat_collar", "collar"],
+  ["principessas-pet", "collar"],
   ["fishnet_choker", "collar"],
   ["spiked_collar", "collar"],
   ["latex_tape", "mouth"],
@@ -185,6 +188,7 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["pink_garter_stockings", "leggings"],
   ["red_garter_stockings", "leggings"],
   ["white_garter_stockings", "leggings"],
+  ["jeans_with_red_thong", "leggings"],
 ];
 
 AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {

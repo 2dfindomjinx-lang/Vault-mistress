@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { MoneyIcon } from "@/components/MoneyIcon";
 
 export type DashboardPage =
   | "home"
@@ -64,31 +65,29 @@ type SidebarNavProps = {
   onSelect: (page: DashboardPage) => void;
 };
 
+// Codes run I..XI in the order baseDashboardNavItems renders them in
+// src/app/page.tsx. Keep the two in sync when a row moves - the numeral is
+// decoration, but a sequence that visibly skips reads as a missing panel.
+//
+// This used to be a literal plus an Object.assign that rewrote most of the
+// codes afterwards. The override was unchecked against Record<DashboardPage>,
+// so a typo in it compiled clean and silently kept the stale number.
 const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   home: { code: "I", glyph: "◆" },
-  tribute: { code: "II", glyph: "♛" },
-  tasks: { code: "III", glyph: "✓" },
-  pet: { code: "IV", glyph: "♙" },
-  debt: { code: "V", glyph: "§" },
-  devotion: { code: "VI", glyph: "◇" },
+  runway: { code: "II", glyph: "▲" },
+  tribute: { code: "III", glyph: "♛" },
+  tasks: { code: "IV", glyph: "✓" },
+  pet: { code: "V", glyph: "♙" },
+  moneyShop: { code: "VI", glyph: "❖" },
   shop: { code: "VII", glyph: "✦" },
-  moneyShop: { code: "XII", glyph: "❖" },
   crates: { code: "VIII", glyph: "▣" },
-  runway: { code: "IX", glyph: "▲" },
+  debt: { code: "IX", glyph: "§" },
   collection: { code: "X", glyph: "◈" },
   profile: { code: "XI", glyph: "◐" },
+  // Not rendered as its own row today; kept so the Record stays exhaustive and
+  // /devotion keeps resolving.
+  devotion: { code: "XII", glyph: "◇" },
 };
-
-Object.assign(navigationMeta, {
-  runway: { ...navigationMeta.runway, code: "II" },
-  tribute: { ...navigationMeta.tribute, code: "III" },
-  tasks: { ...navigationMeta.tasks, code: "IV" },
-  pet: { ...navigationMeta.pet, code: "V" },
-  shop: { ...navigationMeta.shop, code: "VI" },
-  crates: { ...navigationMeta.crates, code: "VII" },
-  debt: { ...navigationMeta.debt, code: "VIII" },
-  devotion: { ...navigationMeta.devotion, code: "IX" },
-});
 
 export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney, onSelect }: SidebarNavProps) {
   return (
@@ -109,7 +108,7 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
 
         <div className="border-b border-[#c89a55]/15 px-6 py-2.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-xs font-black text-[#fff0d2]"><span className="mr-1 text-[#e6ba73]">❖</span>{money.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#d7ad69]/60">money</span></p>
+            <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-[#fff0d2]"><MoneyIcon height={14} />{money.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#d7ad69]/60">money</span></p>
             <button className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50" onClick={onAddMoney} type="button">+ Add</button>
           </div>
           <p className="mt-1 truncate text-[11px] font-bold text-pink-100/60"><span className="mr-1 text-amber-200/60">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/35">coins</span></p>

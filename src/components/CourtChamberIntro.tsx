@@ -4,15 +4,15 @@ import type { DashboardPage } from "@/components/SidebarNav";
 type ChamberPage = Exclude<DashboardPage, "home">;
 
 const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: string; description: string }> = {
-  tribute: { code: "II", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
-  tasks: { code: "III", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
-  pet: { code: "IV", eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
-  debt: { code: "V", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
-  devotion: { code: "VI", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
+  tribute: { code: "III", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
+  tasks: { code: "IV", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
+  pet: { code: "V", eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
+  debt: { code: "IX", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
+  devotion: { code: "XII", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
   shop: { code: "VII", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
-  moneyShop: { code: "XII", eyebrow: "No luck required", title: "Money Shop", description: "Principessa Money buys the Legendary outright. Coins never reach this counter." },
+  moneyShop: { code: "VI", eyebrow: "No luck required", title: "Money Shop", description: "Principessa Money buys the Legendary outright. Coins never reach this counter." },
   crates: { code: "VIII", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
-  runway: { code: "IX", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
+  runway: { code: "II", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
   collection: { code: "X", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
   profile: { code: "XI", eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
 };

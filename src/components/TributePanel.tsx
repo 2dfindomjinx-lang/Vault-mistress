@@ -971,26 +971,17 @@ export function TributePanel({
           onClick={() => setShowThroneCode(true)}
           type="button"
         >
-          Get Coins / Tribute on Throne
+          Get Money / Tribute on Throne
         </button>
         <p className="mt-4 text-sm leading-6 text-pink-50">
           Use the code shown in the payment popup inside your Throne gift message.
         </p>
         <p className="mt-2 text-sm leading-6 text-pink-50">
-          The matching code lets the webhook credit your coins automatically. 1 USD = 1000 coins.
+          The matching code credits Principessa Money automatically. 1 USD = 1 Money = 1,000 coins.
         </p>
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           If automation fails, DM @VMPrincipessa with your Throne receipt for manual help.
         </p>
-        <div className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-200/15 bg-black/35 shadow-[0_0_22px_rgba(217,70,239,0.1)]">
-          <Image
-            alt="Bonus coin reward tiers"
-            className="h-auto w-full"
-            height={1024}
-            src="/bonus-coin-rewards.webp"
-            width={1536}
-          />
-        </div>
       </div>
       {showThroneCode && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
@@ -999,11 +990,11 @@ export function TributePanel({
               <div><p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Throne payment</p><h3 className="mt-2 text-2xl font-black text-white">Choose your code</h3></div>
               <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowThroneCode(false)} type="button">×</button>
             </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-300">Use the normal code for Coin Add. Use the Pet code when you want the additional Throne Bonus.</p>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">Either code credits Principessa Money at 1 USD = 1 Money. The Pet code also files it as a Pet task, so it earns Devotion and counts toward your Throne titles.</p>
             <div className="mt-4 space-y-3">
               {[
-                ["Coin Add", tributeCode, "Base coins + regular give bonus"],
-                ["Pet Throne Bonus", petTributeCode, "Base coins + give bonus + Pet bonus"],
+                ["Money Add", tributeCode, "Principessa Money only"],
+                ["Pet Throne Bonus", petTributeCode, "Same Money + Devotion + Throne title progress"],
               ].map(([label, code, detail]) => (
                 <div className="rounded-2xl border border-pink-200/20 bg-black/35 p-3" key={label}>
                   <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-pink-100/70">{label}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div><button className="rounded-xl border border-pink-200/25 px-3 py-2 text-xs font-black text-pink-50 disabled:opacity-40" disabled={!code} onClick={() => code && void navigator.clipboard?.writeText(code)} type="button">Copy</button></div>
