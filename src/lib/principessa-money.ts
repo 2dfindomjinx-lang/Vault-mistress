@@ -43,11 +43,16 @@ export const MONEY_CONVERSION_TIERS = [10, 20, 50, 100].map((pmAmount) => ({
   pmAmount,
 }));
 
-// Guaranteed acquisition has to cost more than pulling the same item out of a
-// case, and more than the item is worth when liquidated. x2 on the coin sell
-// value does both: a 25,000-coin legendary lists at 50 PM, which is 50,000
-// coins of buying power for something that liquidates at 25,000.
-export const MONEY_SHOP_PRICE_MULTIPLIER = 2;
+// Guaranteed acquisition still has to cost more than the item is worth when
+// liquidated, but not punitively so - x1.5 on the coin sell value puts a
+// 25,000-coin legendary at 38 PM. Chasing that same specific legendary through
+// the Blessing Case runs ~333,000 coins on average, so the shop stays a clear
+// win for anyone paying, which is the point: it converts real money.
+//
+// The multiplier must stay above 1. At or below it, a PM purchase would be
+// worth more liquidated than it cost, and the shop would become a cheaper
+// PM -> Coin exchange than the conversion route.
+export const MONEY_SHOP_PRICE_MULTIPLIER = 1.5;
 
 export function getMoneyShopPrice(sellValueCoins: number) {
   const safeValue = Math.max(0, Math.floor(Number(sellValueCoins) || 0));
