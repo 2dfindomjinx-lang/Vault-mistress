@@ -11,6 +11,7 @@ export type DashboardPage =
   | "shop"
   | "collection"
   | "tribute"
+  | "moneyShop"
   | "profile";
 
 // Maps each dashboard panel to its own real URL (so refreshing / sharing a
@@ -23,6 +24,7 @@ export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
   debt: "/debt",
   devotion: "/devotion",
   shop: "/shop",
+  moneyShop: "/money-shop",
   crates: "/cases",
   runway: "/runway",
   collection: "/collection",
@@ -54,8 +56,11 @@ export type SidebarNavItem = {
 type SidebarNavProps = {
   activePage: DashboardPage;
   coins?: number;
+  // Principessa Money. "+ Add" now tops this up rather than coins: coins are no
+  // longer purchasable directly, you buy PM and convert it down.
+  money?: number;
   items: SidebarNavItem[];
-  onAddCoins?: () => void;
+  onAddMoney?: () => void;
   onSelect: (page: DashboardPage) => void;
 };
 
@@ -67,6 +72,7 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   debt: { code: "V", glyph: "§" },
   devotion: { code: "VI", glyph: "◇" },
   shop: { code: "VII", glyph: "✦" },
+  moneyShop: { code: "XII", glyph: "❖" },
   crates: { code: "VIII", glyph: "▣" },
   runway: { code: "IX", glyph: "▲" },
   collection: { code: "X", glyph: "◈" },
@@ -84,7 +90,7 @@ Object.assign(navigationMeta, {
   devotion: { ...navigationMeta.devotion, code: "IX" },
 });
 
-export function SidebarNav({ activePage, coins = 0, items, onAddCoins, onSelect }: SidebarNavProps) {
+export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney, onSelect }: SidebarNavProps) {
   return (
     <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
@@ -101,9 +107,12 @@ export function SidebarNav({ activePage, coins = 0, items, onAddCoins, onSelect 
           </div>
         </header>
 
-        <div className="flex items-center justify-between gap-3 border-b border-[#c89a55]/15 px-6 py-2.5">
-          <p className="truncate text-xs font-black text-pink-50"><span className="mr-1 text-amber-200/75">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/45">coins</span></p>
-          <button className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50" onClick={onAddCoins} type="button">+ Add</button>
+        <div className="border-b border-[#c89a55]/15 px-6 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-xs font-black text-[#fff0d2]"><span className="mr-1 text-[#e6ba73]">❖</span>{money.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#d7ad69]/60">money</span></p>
+            <button className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50" onClick={onAddMoney} type="button">+ Add</button>
+          </div>
+          <p className="mt-1 truncate text-[11px] font-bold text-pink-100/60"><span className="mr-1 text-amber-200/60">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/35">coins</span></p>
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-2">

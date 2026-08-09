@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { memo, useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
@@ -51,6 +51,72 @@ function getPalette(definition: ProfileFrameDecorationDefinition) {
     primary: definition.palette[0],
     secondary: definition.palette[1] ?? definition.palette[0],
     shadow: definition.shadow ?? definition.palette[0],
+  };
+}
+
+// Shared material layer for the frame ornaments. Before this everything was a
+// flat fill plus a flat stroke, which is why the corner/top/side/overlay pieces
+// read as clipart next to the rest of the UI. Nothing here does colour maths -
+// depth comes from white/black alpha stops layered over the item's own palette, so
+// it works for every palette including the non-hex ones withAlpha bails on.
+//
+// The ids are per-render (useId) because several ornaments - and several whole
+// avatars, e.g. a leaderboard - can share one document, and duplicate SVG
+// gradient ids silently make every copy use the first one's colours.
+function useOrnamentPaint(definition: ProfileFrameDecorationDefinition) {
+  const palette = getPalette(definition);
+  const uid = useId().replace(/:/g, "");
+  const ids = {
+    body: `ofb-${uid}`,
+    gem: `ofg-${uid}`,
+    glow: `ofl-${uid}`,
+    metal: `ofm-${uid}`,
+    sheen: `ofs-${uid}`,
+  };
+
+  const defs = (
+    <defs>
+      {/* Brushed metal: dark shoulders, bright belly, one hot specular band. */}
+      <linearGradient id={ids.metal} x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0%" stopColor={palette.metal} stopOpacity="0.42" />
+        <stop offset="30%" stopColor={palette.metal} stopOpacity="1" />
+        <stop offset="46%" stopColor="#ffffff" stopOpacity="0.82" />
+        <stop offset="60%" stopColor={palette.metal} stopOpacity="1" />
+        <stop offset="100%" stopColor={palette.metal} stopOpacity="0.38" />
+      </linearGradient>
+      {/* Gem: off-centre highlight, mid tone, dark rim - the classic 3-stop cabochon. */}
+      <radialGradient id={ids.gem} cx="34%" cy="26%" r="78%">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.92" />
+        <stop offset="24%" stopColor={palette.accent} stopOpacity="1" />
+        <stop offset="64%" stopColor={palette.secondary} stopOpacity="1" />
+        <stop offset="100%" stopColor={palette.shadow} stopOpacity="1" />
+      </radialGradient>
+      {/* Body: lit from above, falling into the item's own shadow colour. */}
+      <linearGradient id={ids.body} x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stopColor={palette.secondary} stopOpacity="1" />
+        <stop offset="52%" stopColor={palette.primary} stopOpacity="1" />
+        <stop offset="100%" stopColor={palette.shadow} stopOpacity="0.95" />
+      </linearGradient>
+      {/* Glass sheen laid over the top half of a solid shape. */}
+      <linearGradient id={ids.sheen} x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity="0.34" />
+        <stop offset="44%" stopColor="#ffffff" stopOpacity="0.06" />
+        <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
+      <filter height="220%" id={ids.glow} width="220%" x="-60%" y="-60%">
+        <feDropShadow dx="0" dy="1.1" floodColor={palette.shadow} floodOpacity="0.65" stdDeviation="1.5" />
+      </filter>
+    </defs>
+  );
+
+  return {
+    body: `url(#${ids.body})`,
+    defs,
+    gem: `url(#${ids.gem})`,
+    glow: `url(#${ids.glow})`,
+    metal: `url(#${ids.metal})`,
+    palette,
+    sheen: `url(#${ids.sheen})`,
   };
 }
 
@@ -460,31 +526,51 @@ function OperaRoseSwag({ definition }: { definition: ProfileFrameDecorationDefin
 }
 
 function CornerFiligree({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
 
   const renderCorner = (mirror = false) => (
-    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+    <g filter={paint.glow} transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      {/* Outer scroll, then an inner scroll offset inward so the metalwork
+          reads as two nested vines instead of one flat leaf. */}
       <path
         d="M11 249 C11 233 17 223 30 217 C25 226 25 233 29 240 C35 236 42 236 48 239 C38 241 31 248 27 256 C21 256 15 254 11 249 Z"
-        fill={withAlpha(palette.primary, "df")}
-        stroke={palette.metal}
+        fill={paint.body}
+        stroke={paint.metal}
         strokeLinejoin="round"
-        strokeWidth="1.7"
+        strokeWidth="1.9"
+      />
+      <path
+        d="M11 249 C11 233 17 223 30 217 C25 226 25 233 29 240 C35 236 42 236 48 239 C38 241 31 248 27 256 C21 256 15 254 11 249 Z"
+        fill={paint.sheen}
+      />
+      <path
+        d="M15 248 C16 236 21 228 31 223"
+        fill="none"
+        stroke={paint.metal}
+        strokeLinecap="round"
+        strokeWidth="1.5"
       />
       <path
         d="M17 250 C20 241 26 235 36 231"
         fill="none"
-        stroke={withAlpha(palette.accent, "c4")}
+        stroke={withAlpha(palette.accent, "d8")}
         strokeLinecap="round"
         strokeWidth="1.6"
       />
-      <circle cx="26" cy="245" fill={palette.metal} r="2.8" />
-      <path d="M32 243 C35 239 39 238 43 240" fill="none" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.4" />
+      {/* Trailing curls - cheap density that makes the corner feel worked. */}
+      <path d="M13 256 C17 252 21 251 25 253" fill="none" stroke={withAlpha(palette.metal, "aa")} strokeLinecap="round" strokeWidth="1.2" />
+      <path d="M32 243 C35 239 39 238 43 240" fill="none" stroke={paint.metal} strokeLinecap="round" strokeWidth="1.5" />
+      <path d="M41 236 C44 233 47 233 50 235" fill="none" stroke={withAlpha(palette.metal, "9a")} strokeLinecap="round" strokeWidth="1.1" />
+      <circle cx="26" cy="245" fill={paint.gem} r="3.2" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.8" />
+      <circle cx="25" cy="243.8" fill="#ffffff" fillOpacity="0.75" r="0.85" />
+      <circle cx="44" cy="239" fill={paint.gem} r="1.7" />
     </g>
   );
 
   return (
     <g>
+      {paint.defs}
       {renderCorner(false)}
       {renderCorner(true)}
     </g>
@@ -492,30 +578,42 @@ function CornerFiligree({ definition }: { definition: ProfileFrameDecorationDefi
 }
 
 function CornerClaws({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
 
   const renderCorner = (mirror = false) => (
-    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+    <g filter={paint.glow} transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      {/* Lacquer plate under the claw so the metal has something to grip. */}
       <path
         d="M8 246 L18 229 L35 221 L30 236 L42 243 L27 247 L18 260 Z"
-        fill={palette.primary}
-        stroke={palette.metal}
+        fill={paint.body}
+        stroke={paint.metal}
         strokeLinejoin="round"
-        strokeWidth="1.8"
+        strokeWidth="2"
       />
-      <path d="M18 232 L25 242 L18 252" fill="none" stroke={withAlpha(palette.accent, "c8")} strokeWidth="1.5" />
+      <path d="M8 246 L18 229 L35 221 L30 236 L42 243 L27 247 L18 260 Z" fill={paint.sheen} />
+      {/* Three separated talons instead of one zigzag stroke. */}
+      <path d="M16 231 L24 241" fill="none" stroke={paint.metal} strokeLinecap="round" strokeWidth="2.1" />
+      <path d="M13 243 L23 244" fill="none" stroke={paint.metal} strokeLinecap="round" strokeWidth="1.9" />
+      <path d="M17 255 L24 247" fill="none" stroke={paint.metal} strokeLinecap="round" strokeWidth="2.1" />
+      <path d="M18 232 L25 242 L18 252" fill="none" stroke={withAlpha(palette.accent, "88")} strokeWidth="1.1" />
+      {/* Marquise setting: dark bezel, faceted stone, cross glint. */}
       <path
-        d="M28 239 L34 244 L28 249 L22 244 Z"
-        fill={palette.secondary}
-        stroke={palette.metal}
-        strokeWidth="1.3"
+        d="M28 238 L35 244 L28 250 L21 244 Z"
+        fill={withAlpha(palette.shadow, "cc")}
+        stroke={paint.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.4"
       />
-      <circle cx="28" cy="244" fill={palette.accent} r="2.1" />
+      <path d="M28 240 L33 244 L28 248 L23 244 Z" fill={paint.gem} />
+      <path d="M28 240 L28 248 M23 244 L33 244" stroke="#ffffff" strokeOpacity="0.4" strokeWidth="0.6" />
+      <circle cx="26.4" cy="242.6" fill="#ffffff" fillOpacity="0.8" r="0.9" />
     </g>
   );
 
   return (
     <g>
+      {paint.defs}
       {renderCorner(false)}
       {renderCorner(true)}
     </g>
@@ -523,21 +621,46 @@ function CornerClaws({ definition }: { definition: ProfileFrameDecorationDefinit
 }
 
 function CornerRosettes({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
+
+  // A rosette is petals radiating from a centre, not two overlapping blobs.
+  const petals = (cx: number, cy: number, radius: number, count: number, phase: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const angle = phase + (index * 360) / count;
+      return (
+        <ellipse
+          cx={cx}
+          cy={cy - radius * 0.62}
+          fill={paint.body}
+          key={angle}
+          rx={radius * 0.42}
+          ry={radius * 0.66}
+          stroke={withAlpha(palette.metal, "77")}
+          strokeWidth="0.6"
+          transform={`rotate(${angle} ${cx} ${cy})`}
+        />
+      );
+    });
 
   const renderCorner = (mirror = false) => (
-    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
-      <ellipse cx="22" cy="247" fill={palette.primary} rx="8" ry="7.4" />
-      <ellipse cx="33" cy="239" fill={palette.secondary} rx="7.2" ry="6.7" />
-      <path d="M18 247 C21 243 24 243 26 247 C24 250 21 251 18 247 Z" fill={palette.accent} />
-      <path d="M30 239 C32 235 35 235 37 239 C35 242 32 243 30 239 Z" fill={palette.accent} />
-      <path d="M10 254 C13 248 18 247 24 249 C20 258 15 260 10 254 Z" fill={palette.metal} />
-      <path d="M29 249 C33 244 39 243 45 247 C39 255 34 256 29 249 Z" fill={withAlpha(palette.metal, "d2")} />
+    <g filter={paint.glow} transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      {/* Metal leaves sit behind so the petals overlap them. */}
+      <path d="M9 255 C13 248 19 246 25 249 C21 259 14 261 9 255 Z" fill={paint.metal} />
+      <path d="M28 250 C33 244 40 243 46 247 C40 256 34 257 28 250 Z" fill={paint.metal} opacity="0.82" />
+      <path d="M12 253 C16 250 20 249 24 250" fill="none" stroke="#ffffff" strokeOpacity="0.28" strokeWidth="0.7" />
+      {petals(22, 247, 8, 6, 0)}
+      <circle cx="22" cy="247" fill={paint.gem} r="3.4" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.9" />
+      <circle cx="20.9" cy="245.8" fill="#ffffff" fillOpacity="0.8" r="0.95" />
+      {petals(34, 238, 6.4, 5, 30)}
+      <circle cx="34" cy="238" fill={paint.gem} r="2.6" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.8" />
+      <circle cx="33.1" cy="237.1" fill="#ffffff" fillOpacity="0.72" r="0.75" />
     </g>
   );
 
   return (
     <g>
+      {paint.defs}
       {renderCorner(false)}
       {renderCorner(true)}
     </g>
@@ -545,30 +668,47 @@ function CornerRosettes({ definition }: { definition: ProfileFrameDecorationDefi
 }
 
 function CornerGems({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
 
   const renderCorner = (mirror = false) => (
-    <g transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+    <g filter={paint.glow} transform={mirror ? "translate(180 0) scale(-1 1)" : undefined}>
+      {/* Velvet backing plate. */}
       <path
         d="M11 249 L20 231 L38 225 L47 239 L35 252 L16 258 Z"
-        fill={withAlpha(palette.primary, "da")}
-        stroke={palette.metal}
+        fill={paint.body}
+        stroke={paint.metal}
         strokeLinejoin="round"
-        strokeWidth="1.7"
+        strokeWidth="1.9"
       />
+      <path d="M11 249 L20 231 L38 225 L47 239 L35 252 L16 258 Z" fill={paint.sheen} />
+      {/* Emerald-cut centre stone: bezel, table, step facets, glint. */}
       <path
-        d="M22 237 L30 232 L39 238 L34 247 L24 247 Z"
-        fill={palette.secondary}
-        stroke={withAlpha(palette.accent, "c8")}
-        strokeWidth="1.3"
+        d="M21 237 L30 231 L40 238 L35 248 L23 248 Z"
+        fill={withAlpha(palette.shadow, "d8")}
+        stroke={paint.metal}
+        strokeLinejoin="round"
+        strokeWidth="1.5"
       />
-      <circle cx="29" cy="240" fill={palette.accent} r="2.4" />
-      <path d="M17 259 L29 248 L40 250" fill="none" stroke={palette.metal} strokeLinecap="round" strokeWidth="1.5" />
+      <path d="M23 238 L30 233.5 L38 239 L33.5 246.5 L24.5 246.5 Z" fill={paint.gem} />
+      <path
+        d="M25.5 239.5 L30 236.5 L35.5 240 L33 244.5 L26.5 244.5 Z"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.32"
+        strokeWidth="0.7"
+      />
+      <circle cx="27" cy="238.6" fill="#ffffff" fillOpacity="0.85" r="1.1" />
+      {/* Two small accent stones on the rail. */}
+      <circle cx="17" cy="252" fill={paint.gem} r="2.1" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+      <circle cx="42" cy="243" fill={paint.gem} r="1.9" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+      <path d="M17 258 L29 249 L41 251" fill="none" stroke={paint.metal} strokeLinecap="round" strokeWidth="1.6" />
     </g>
   );
 
   return (
     <g>
+      {paint.defs}
       {renderCorner(false)}
       {renderCorner(true)}
     </g>
@@ -582,22 +722,37 @@ function TopTiara({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
   const s = previewMode === "shop" ? 0.92 : 1;
 
   return (
-    <g transform={`scale(${s})`}>
+    <g filter={paint.glow} transform={`scale(${s})`}>
+      {paint.defs}
+      {/* Band, then the five rising spires drawn as filled tapers rather than
+          a single polyline - a tiara is metal volume, not a wire. */}
       <path
         d="M-24 -4 C-16 -15 -8 -18 0 -18 C8 -18 16 -15 24 -4 L24 2 H-24 Z"
-        fill={palette.primary}
-        stroke={palette.metal}
+        fill={paint.body}
+        stroke={paint.metal}
         strokeLinejoin="round"
-        strokeWidth="1.7"
+        strokeWidth="1.8"
       />
-      <path d="M-20 -4 L-12 -18 L-5 -7 L0 -22 L5 -7 L12 -18 L20 -4" fill="none" stroke={palette.metal} strokeWidth="1.6" />
-      <circle cx="-12" cy="-17" fill={palette.accent} r="2.3" />
-      <circle cx="0" cy="-22" fill={palette.accent} r="2.8" />
-      <circle cx="12" cy="-17" fill={palette.accent} r="2.3" />
+      <path d="M-24 -4 C-16 -15 -8 -18 0 -18 C8 -18 16 -15 24 -4 L24 -1 H-24 Z" fill={paint.sheen} />
+      <path d="M-3.4 -7 L0 -24 L3.4 -7 Z" fill={paint.metal} stroke={withAlpha(palette.shadow, "88")} strokeWidth="0.6" />
+      <path d="M-14.6 -6 L-12 -19 L-9.4 -6 Z" fill={paint.metal} stroke={withAlpha(palette.shadow, "88")} strokeWidth="0.6" />
+      <path d="M9.4 -6 L12 -19 L14.6 -6 Z" fill={paint.metal} stroke={withAlpha(palette.shadow, "88")} strokeWidth="0.6" />
+      <path d="M-21.6 -4.5 L-19.5 -13 L-17.4 -4.5 Z" fill={paint.metal} opacity="0.9" />
+      <path d="M17.4 -4.5 L19.5 -13 L21.6 -4.5 Z" fill={paint.metal} opacity="0.9" />
+      {/* Crown stones. */}
+      <circle cx="0" cy="-24" fill={paint.gem} r="3" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.8" />
+      <circle cx="-1" cy="-25" fill="#ffffff" fillOpacity="0.85" r="0.9" />
+      <circle cx="-12" cy="-19" fill={paint.gem} r="2.4" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+      <circle cx="12" cy="-19" fill={paint.gem} r="2.4" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+      <circle cx="-19.5" cy="-13" fill={paint.gem} r="1.5" />
+      <circle cx="19.5" cy="-13" fill={paint.gem} r="1.5" />
+      {/* Pavé line along the band. */}
+      <path d="M-20 -3 H20" stroke="#ffffff" strokeOpacity="0.3" strokeDasharray="1 2.6" strokeLinecap="round" strokeWidth="1.1" />
     </g>
   );
 }
@@ -609,23 +764,47 @@ function TopMedallion({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
   const s = previewMode === "shop" ? 0.9 : 1;
 
+  // Pearl count is fixed - the medallion is small enough that more just reads
+  // as a fuzzy outline at profile-card size.
+  const pearls = Array.from({ length: 14 }, (_, index) => {
+    const angle = (index * 360) / 14 - 90;
+    const radians = (angle * Math.PI) / 180;
+    return { key: angle, x: Math.cos(radians) * 14.6, y: Math.sin(radians) * 14.6 - 11 };
+  });
+
   return (
-    <g transform={`scale(${s})`}>
-      <path d="M-16 -10 C-10 -20 -4 -24 0 -24 C4 -24 10 -20 16 -10" fill="none" stroke={palette.metal} strokeWidth="1.5" />
+    <g filter={paint.glow} transform={`scale(${s})`}>
+      {paint.defs}
+      <path d="M-16 -10 C-10 -20 -4 -24 0 -24 C4 -24 10 -20 16 -10" fill="none" stroke={paint.metal} strokeWidth="1.6" />
+      {pearls.map((pearl) => (
+        <circle cx={pearl.x} cy={pearl.y} fill={paint.metal} key={pearl.key} r="1.5" />
+      ))}
       <path
         d="M0 -25 C7 -25 13 -19 13 -10 C13 -3 7 2 0 3 C-7 2 -13 -3 -13 -10 C-13 -19 -7 -25 0 -25 Z"
-        fill={palette.primary}
-        stroke={palette.metal}
-        strokeWidth="1.8"
+        fill={paint.metal}
       />
       <path
-        d="M0 -18 C4.6 -18 8.4 -14.7 8.4 -10.2 C8.4 -5.4 4.7 -2.3 0 -0.2 C-4.7 -2.3 -8.4 -5.4 -8.4 -10.2 C-8.4 -14.7 -4.6 -18 0 -18 Z"
-        fill={palette.accent}
+        d="M0 -23.2 C6.1 -23.2 11.3 -17.9 11.3 -10 C11.3 -3.7 6.1 0.6 0 1.4 C-6.1 0.6 -11.3 -3.7 -11.3 -10 C-11.3 -17.9 -6.1 -23.2 0 -23.2 Z"
+        fill={paint.body}
       />
-      <circle cx="0" cy="-20.5" fill={palette.metal} r="2.3" />
+      {/* Inset heart, cut as a gem rather than a flat accent fill. */}
+      <path
+        d="M0 -18 C4.6 -18 8.4 -14.7 8.4 -10.2 C8.4 -5.4 4.7 -2.3 0 -0.2 C-4.7 -2.3 -8.4 -5.4 -8.4 -10.2 C-8.4 -14.7 -4.6 -18 0 -18 Z"
+        fill={paint.gem}
+        stroke={withAlpha(palette.metal, "aa")}
+        strokeWidth="0.8"
+      />
+      <path d="M-3.4 -14.6 C-1.6 -16 0.4 -15.7 1.4 -14.2" fill="none" stroke="#ffffff" strokeOpacity="0.72" strokeLinecap="round" strokeWidth="1.3" />
+      <path
+        d="M0 -25 C7 -25 13 -19 13 -10 C13 -6.6 11.6 -3.8 9.4 -1.8 C7 -8 3.8 -12 0 -14 C-3.8 -12 -7 -8 -9.4 -1.8 C-11.6 -3.8 -13 -6.6 -13 -10 C-13 -19 -7 -25 0 -25 Z"
+        fill={paint.sheen}
+      />
+      <circle cx="0" cy="-24.5" fill={paint.gem} r="2.6" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.8" />
+      <circle cx="-0.9" cy="-25.3" fill="#ffffff" fillOpacity="0.8" r="0.8" />
     </g>
   );
 }
@@ -637,17 +816,39 @@ function TopHalo({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
   const s = previewMode === "shop" ? 0.9 : 1;
 
+  // Spikes generated on a circle so they stay evenly radial - the old hand
+  // written star path was visibly lopsided.
+  const spikes = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * 360) / 12;
+    const long = index % 2 === 0;
+    return { key: angle, length: long ? 17 : 12.5, angle, width: long ? 2.6 : 1.8 };
+  });
+
   return (
-    <g transform={`scale(${s})`}>
-      <path
-        d="M0 -29 L4 -22 L11 -24 L9 -17 L16 -15 L10 -10 L15 -4 L7 -4 L5 3 L0 -3 L-5 3 L-7 -4 L-15 -4 L-10 -10 L-16 -15 L-9 -17 L-11 -24 L-4 -22 Z"
-        fill={palette.metal}
-      />
-      <circle cx="0" cy="-13" fill={palette.primary} r="9.5" stroke={palette.accent} strokeWidth="1.8" />
-      <circle cx="0" cy="-13" fill={palette.secondary} r="4.2" />
+    <g filter={paint.glow} transform={`scale(${s})`}>
+      {paint.defs}
+      <g transform="translate(0 -13)">
+        {spikes.map((spike) => (
+          <path
+            d={`M${-spike.width} 0 L0 ${-spike.length} L${spike.width} 0 Z`}
+            fill={paint.metal}
+            key={spike.key}
+            opacity={spike.width > 2 ? 1 : 0.72}
+            transform={`rotate(${spike.angle})`}
+          />
+        ))}
+        <circle cx="0" cy="0" fill={paint.metal} r="10.6" />
+        <circle cx="0" cy="0" fill={paint.body} r="9.2" />
+        {/* Engraved ring + centre cabochon. */}
+        <circle cx="0" cy="0" fill="none" r="6.8" stroke={withAlpha(palette.metal, "9a")} strokeWidth="0.9" />
+        <circle cx="0" cy="0" fill={paint.gem} r="4.6" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.9" />
+        <circle cx="-1.5" cy="-1.6" fill="#ffffff" fillOpacity="0.82" r="1.2" />
+        <path d="M-9.2 0 A9.2 9.2 0 0 1 9.2 0 Z" fill={paint.sheen} />
+      </g>
     </g>
   );
 }
@@ -659,35 +860,74 @@ function TopAigrette({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
   const s = previewMode === "shop" ? 0.92 : 1;
 
   return (
-    <g transform={`scale(${s})`}>
-      <path d="M0 1 L0 -8" stroke={palette.metal} strokeLinecap="round" strokeWidth="2" />
-      <path d="M0 -7 C-4 -15 -7 -22 -7 -31 C-1 -26 3 -20 4 -11" fill={palette.primary} />
-      <path d="M2 -8 C7 -16 10 -22 12 -30 C6 -25 2 -18 -1 -10" fill={palette.secondary} />
+    <g filter={paint.glow} transform={`scale(${s})`}>
+      {paint.defs}
+      {/* Feather spray: each plume gets a shaft so it reads as a feather
+          instead of a coloured smear. */}
+      <path d="M0 1 L0 -8" stroke={paint.metal} strokeLinecap="round" strokeWidth="2.2" />
       <path d="M-2 -6 C-8 -13 -13 -17 -17 -21 C-13 -12 -9 -7 -3 -4" fill={withAlpha(palette.accent, "cc")} />
-      <circle cx="0" cy="-4" fill={palette.metal} r="4.4" />
-      <circle cx="0" cy="-4" fill={palette.accent} r="2" />
+      <path d="M-3 -5 C-8 -11 -12 -15 -16 -19" fill="none" stroke={withAlpha(palette.metal, "88")} strokeLinecap="round" strokeWidth="0.7" />
+      <path d="M2 -8 C7 -16 10 -22 12 -30 C6 -25 2 -18 -1 -10" fill={palette.secondary} />
+      <path d="M1 -9 C5 -16 8 -22 11 -28" fill="none" stroke={withAlpha(palette.metal, "9a")} strokeLinecap="round" strokeWidth="0.8" />
+      <path d="M0 -7 C-4 -15 -7 -22 -7 -31 C-1 -26 3 -20 4 -11" fill={paint.body} />
+      <path d="M-0.5 -8 C-3 -16 -5 -22 -6 -29" fill="none" stroke={withAlpha(palette.metal, "aa")} strokeLinecap="round" strokeWidth="0.9" />
+      {/* Barb ticks - three per plume is enough at this size. */}
+      <path d="M-4 -14 L-7 -16 M-5.4 -19 L-8.4 -21 M-6.2 -24 L-9 -26" stroke={withAlpha(palette.metal, "77")} strokeLinecap="round" strokeWidth="0.6" />
+      <path d="M4 -14 L7.4 -16 M6 -19 L9.4 -21 M7.6 -24 L10.8 -26" stroke={withAlpha(palette.metal, "77")} strokeLinecap="round" strokeWidth="0.6" />
+      {/* Clasp holding the spray. */}
+      <ellipse cx="0" cy="-4" fill={paint.metal} rx="5.4" ry="4.8" />
+      <ellipse cx="0" cy="-4" fill={paint.gem} rx="2.8" ry="2.4" stroke={withAlpha(palette.metal, "cc")} strokeWidth="0.7" />
+      <circle cx="-0.9" cy="-4.8" fill="#ffffff" fillOpacity="0.8" r="0.75" />
     </g>
   );
 }
 
 function OverlayBeadVeil({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
-  const strands = [-50, -34, -18, 0, 18, 34, 50];
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
+  // Twice the strands, and each one is a real string of beads rather than a
+  // line with two dots stuck on the end.
+  const strands = [-56, -44, -32, -20, -8, 4, 16, 28, 40, 52];
 
   return (
-    <g opacity="0.9">
-      <path d="M-60 4 C-38 0 -16 -1 0 -1 C16 -1 38 0 60 4" fill="none" stroke={withAlpha(palette.metal, "c8")} strokeWidth="2" />
+    <g opacity="0.94">
+      {paint.defs}
+      <path d="M-62 4 C-38 -1 -16 -2 0 -2 C16 -2 38 -1 62 4" fill="none" stroke={paint.metal} strokeWidth="2.4" />
+      <path d="M-62 4 C-38 -1 -16 -2 0 -2 C16 -2 38 -1 62 4" fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="0.8" />
       {strands.map((x, index) => {
-        const height = 42 + (index % 2 === 0 ? 0 : 12);
+        // Alternating lengths with a slight curve toward the centre so the
+        // veil hangs instead of sitting as parallel bars.
+        const height = 34 + ((index * 7) % 22);
+        const drift = x * 0.06;
+        const beadCount = Math.max(3, Math.round(height / 9));
         return (
           <g key={x}>
-            <path d={`M${x} 6 V${height}`} fill="none" stroke={withAlpha(palette.primary, "be")} strokeLinecap="round" strokeWidth="1.4" />
-            <circle cx={x} cy={height - 14} fill={palette.secondary} r="2.6" />
-            <circle cx={x} cy={height} fill={palette.metal} r="3.2" />
+            <path
+              d={`M${x} 5 Q${x + drift} ${height * 0.55} ${x + drift * 2} ${height}`}
+              fill="none"
+              stroke={withAlpha(palette.metal, "9e")}
+              strokeLinecap="round"
+              strokeWidth="0.9"
+            />
+            {Array.from({ length: beadCount }, (_, beadIndex) => {
+              const t = (beadIndex + 1) / (beadCount + 1);
+              return (
+                <circle
+                  cx={x + drift * 2 * t}
+                  cy={5 + (height - 5) * t}
+                  fill={paint.gem}
+                  key={beadIndex}
+                  r={1.5 + t * 0.7}
+                />
+              );
+            })}
+            <circle cx={x + drift * 2} cy={height} fill={paint.gem} r="3.1" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+            <circle cx={x + drift * 2 - 0.9} cy={height - 1} fill="#ffffff" fillOpacity="0.7" r="0.8" />
           </g>
         );
       })}
@@ -696,40 +936,94 @@ function OverlayBeadVeil({ definition }: { definition: ProfileFrameDecorationDef
 }
 
 function OverlayChainCurtain({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
+  // Real links along each swag - a chain drawn as a plain stroke is the single
+  // biggest reason this one looked cheap.
+  const swagLinks = (from: number, to: number, sag: number, count: number, key: string) =>
+    Array.from({ length: count }, (_, index) => {
+      const t = (index + 0.5) / count;
+      const x = from + (to - from) * t;
+      const y = 9 + sag * 4 * t * (1 - t);
+      const tilt = (index % 2 === 0 ? 32 : -32) + (t - 0.5) * 40;
+      return (
+        <ellipse
+          cx={x}
+          cy={y}
+          fill="none"
+          key={`${key}-${index}`}
+          rx="2.6"
+          ry="1.5"
+          stroke={paint.metal}
+          strokeWidth="1.1"
+          transform={`rotate(${tilt} ${x} ${y})`}
+        />
+      );
+    });
 
   return (
-    <g opacity="0.88">
-      <circle cx="-58" cy="9" fill={palette.metal} r="3.8" />
-      <circle cx="58" cy="9" fill={palette.metal} r="3.8" />
-      <path d="M-58 9 C-44 24 -24 31 0 31 C24 31 44 24 58 9" fill="none" stroke={withAlpha(palette.metal, "d2")} strokeWidth="2.1" />
-      <path d="M-46 16 C-34 27 -18 35 0 35 C18 35 34 27 46 16" fill="none" stroke={withAlpha(palette.primary, "c4")} strokeWidth="1.6" />
-      <path d="M-58 9 C-53 30 -48 47 -42 60" fill="none" stroke={withAlpha(palette.secondary, "b8")} strokeWidth="1.5" />
-      <path d="M58 9 C53 30 48 47 42 60" fill="none" stroke={withAlpha(palette.secondary, "b8")} strokeWidth="1.5" />
-      <circle cx="-42" cy="60" fill={palette.accent} r="3.1" />
-      <circle cx="42" cy="60" fill={palette.accent} r="3.1" />
+    <g opacity="0.92">
+      {paint.defs}
+      {/* Anchor rosettes. */}
+      <circle cx="-58" cy="9" fill={paint.metal} r="4.4" />
+      <circle cx="-58" cy="9" fill={paint.gem} r="2.2" />
+      <circle cx="58" cy="9" fill={paint.metal} r="4.4" />
+      <circle cx="58" cy="9" fill={paint.gem} r="2.2" />
+      {swagLinks(-56, 56, 22, 20, "outer")}
+      {swagLinks(-44, 44, 30, 16, "inner")}
+      <path d="M-46 16 C-34 27 -18 35 0 35 C18 35 34 27 46 16" fill="none" stroke={withAlpha(palette.primary, "6a")} strokeWidth="1.1" />
+      {/* Side drops with graduated beads. */}
+      {[-1, 1].map((side) => (
+        <g key={side}>
+          <path d={`M${58 * side} 9 C${53 * side} 30 ${48 * side} 47 ${42 * side} 60`} fill="none" stroke={withAlpha(palette.metal, "9e")} strokeWidth="1.2" />
+          {[0.3, 0.55, 0.78].map((t) => (
+            <circle cx={(58 - 16 * t) * side} cy={9 + 51 * t} fill={paint.gem} key={t} r={1.4 + t} />
+          ))}
+          <circle cx={42 * side} cy="60" fill={paint.gem} r="3.4" stroke={withAlpha(palette.metal, "bb")} strokeWidth="0.7" />
+          <circle cx={42 * side - 1} cy="59" fill="#ffffff" fillOpacity="0.7" r="0.85" />
+        </g>
+      ))}
     </g>
   );
 }
 
 function OverlayCrystalFacet({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
 
-  return (
-    <g opacity="0.66">
+  // Crystal only reads as crystal when the facets have different brightnesses.
+  // One shell path plus internal facet polygons at varying opacity does that
+  // far better than two flat shapes with a seam drawn between them.
+  const shard = (mirror: boolean) => (
+    <g transform={mirror ? "scale(-1 1)" : undefined}>
       <path
         d="M-68 4 L-18 4 L-3 24 L-16 58 L-58 58 L-72 26 Z"
-        fill={withAlpha(palette.primary, "66")}
-        stroke={withAlpha(palette.metal, "84")}
-        strokeWidth="1.4"
+        fill={withAlpha(palette.primary, "5a")}
+        stroke={withAlpha(palette.metal, "9a")}
+        strokeLinejoin="round"
+        strokeWidth="1.5"
       />
+      <path d="M-68 4 L-18 4 L-35 30 L-72 26 Z" fill="#ffffff" fillOpacity="0.16" />
+      <path d="M-35 30 L-18 4 L-3 24 L-16 58 Z" fill={withAlpha(palette.secondary, "5e")} />
+      <path d="M-72 26 L-35 30 L-58 58 Z" fill={withAlpha(palette.shadow, "4e")} />
+      <path d="M-35 30 L-16 58 L-58 58 Z" fill="#ffffff" fillOpacity="0.07" />
       <path
-        d="M68 4 L18 4 L3 24 L16 58 L58 58 L72 26 Z"
-        fill={withAlpha(palette.secondary, "66")}
-        stroke={withAlpha(palette.metal, "84")}
-        strokeWidth="1.4"
+        d="M-18 4 L-35 30 L-16 58 M-72 26 L-35 30 M-58 58 L-35 30"
+        fill="none"
+        stroke={withAlpha(palette.accent, "80")}
+        strokeWidth="1"
       />
-      <path d="M-18 4 L-35 30 L-16 58 M18 4 L35 30 L16 58" fill="none" stroke={withAlpha(palette.accent, "90")} strokeWidth="1.2" />
+      {/* Two hard glints where facets meet. */}
+      <path d="M-60 8 L-46 6" stroke="#ffffff" strokeOpacity="0.5" strokeLinecap="round" strokeWidth="1.6" />
+      <path d="M-30 36 L-24 48" stroke="#ffffff" strokeOpacity="0.28" strokeLinecap="round" strokeWidth="1.1" />
+    </g>
+  );
+
+  return (
+    <g opacity="0.74">
+      {paint.defs}
+      {shard(false)}
+      {shard(true)}
     </g>
   );
 }
@@ -741,24 +1035,54 @@ function OverlayStageCanopy({
   definition: ProfileFrameDecorationDefinition;
   previewMode?: "default" | "shop";
 }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
   const depth = previewMode === "shop" ? 40 : 52;
+  const hem = depth * 0.32;
 
   return (
-    <g opacity="0.9">
+    <g opacity="0.94">
+      {paint.defs}
       <path
-        d={`M-70 5 C-44 0 -18 -3 0 -3 C18 -3 44 0 70 5 C56 ${depth * 0.15} 36 ${depth * 0.32} 0 ${depth * 0.32} C-36 ${depth * 0.32} -56 ${depth * 0.15} -70 5 Z`}
-        fill={withAlpha(palette.primary, "d0")}
-        stroke={palette.metal}
-        strokeWidth="1.7"
+        d={`M-70 5 C-44 0 -18 -3 0 -3 C18 -3 44 0 70 5 C56 ${depth * 0.15} 36 ${hem} 0 ${hem} C-36 ${hem} -56 ${depth * 0.15} -70 5 Z`}
+        fill={paint.body}
+        stroke={paint.metal}
+        strokeWidth="1.8"
       />
-      <path d="M-54 7 C-38 16 -22 20 0 20 C22 20 38 16 54 7" fill="none" stroke={withAlpha(palette.accent, "c2")} strokeWidth="1.7" />
-      <circle cx="-50" cy="10" fill={palette.metal} r="3.2" />
-      <circle cx="50" cy="10" fill={palette.metal} r="3.2" />
-      <path d={`M-50 13 V${depth}`} stroke={withAlpha(palette.metal, "d6")} strokeWidth="1.5" strokeLinecap="round" />
-      <path d={`M50 13 V${depth}`} stroke={withAlpha(palette.metal, "d6")} strokeWidth="1.5" strokeLinecap="round" />
-      <path d={`M-55 ${depth} L-50 ${depth + 11} L-45 ${depth} Z`} fill={palette.secondary} />
-      <path d={`M45 ${depth} L50 ${depth + 11} L55 ${depth} Z`} fill={palette.secondary} />
+      {/* Gathered pleats - the flat canopy had no fabric in it at all. */}
+      {[-56, -42, -28, -14, 0, 14, 28, 42, 56].map((x) => {
+        const t = 1 - Math.abs(x) / 70;
+        return (
+          <path
+            d={`M${x} ${-2 - t * 1.2} Q${x * 0.94} ${hem * 0.55} ${x * 0.86} ${hem * (0.62 + t * 0.38)}`}
+            fill="none"
+            key={x}
+            stroke="#ffffff"
+            strokeOpacity={x % 28 === 0 ? 0.2 : 0.1}
+            strokeLinecap="round"
+            strokeWidth="1.2"
+          />
+        );
+      })}
+      <path
+        d={`M-70 5 C-44 0 -18 -3 0 -3 C18 -3 44 0 70 5 C58 ${depth * 0.1} 40 ${hem * 0.5} 0 ${hem * 0.5} C-40 ${hem * 0.5} -58 ${depth * 0.1} -70 5 Z`}
+        fill={paint.sheen}
+      />
+      <path d="M-54 7 C-38 16 -22 20 0 20 C22 20 38 16 54 7" fill="none" stroke={paint.metal} strokeWidth="1.9" />
+      {/* Tiebacks with proper finials. */}
+      {[-1, 1].map((side) => (
+        <g key={side}>
+          <circle cx={50 * side} cy="10" fill={paint.metal} r="3.8" />
+          <circle cx={50 * side} cy="10" fill={paint.gem} r="1.9" />
+          <path d={`M${50 * side} 13 V${depth}`} stroke={paint.metal} strokeLinecap="round" strokeWidth="1.7" />
+          <path
+            d={`M${45 * side} ${depth} Q${50 * side} ${depth + 4} ${55 * side} ${depth} Q${50 * side} ${depth + 13} ${45 * side} ${depth} Z`}
+            fill={paint.gem}
+            stroke={withAlpha(palette.metal, "bb")}
+            strokeWidth="0.8"
+          />
+        </g>
+      ))}
     </g>
   );
 }
@@ -838,22 +1162,59 @@ function TopCrest({
 }
 
 function SideTassels({ definition }: { definition: ProfileFrameDecorationDefinition }) {
-  const palette = getPalette(definition);
+  const paint = useOrnamentPaint(definition);
+  const { palette } = paint;
 
-  const renderTassel = (x: number) => (
-    <g transform={`translate(${x} 86)`}>
-      <path d="M0 0 C2 40 3 88 1 130" fill="none" stroke={palette.primary} strokeWidth="2.2" />
-      <circle cx="0" cy="27" fill={palette.metal} r="3.2" />
-      <circle cx="1" cy="59" fill={palette.metal} r="2.8" />
-      <path d="M0 130 L-7 144 H7 Z" fill={palette.secondary} />
-      <path d="M-5 143 L-8 154 M0 143 L0 156 M5 143 L8 154" stroke={palette.accent} strokeWidth="1.5" />
+  // A tassel is a twisted cord, a carved head and a skirt of many threads.
+  // The old version was a line, two dots and three ticks.
+  const renderTassel = (x: number, mirror: boolean) => (
+    <g filter={paint.glow} transform={`translate(${x} 86)${mirror ? " scale(-1 1)" : ""}`}>
+      {/* Twisted cord: two offset strands reading as one rope. */}
+      <path d="M0 0 C2 40 3 88 1 128" fill="none" stroke={paint.metal} strokeWidth="2.6" />
+      <path
+        d="M0 0 C2 40 3 88 1 128"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.22"
+        strokeDasharray="3 5"
+        strokeWidth="2.6"
+      />
+      {/* Sliding beads. */}
+      {[27, 59, 92].map((cy, index) => (
+        <g key={cy}>
+          <ellipse cx={1 + index * 0.3} cy={cy} fill={paint.metal} rx={4 - index * 0.4} ry={3.2 - index * 0.3} />
+          <ellipse cx={1 + index * 0.3} cy={cy} fill={paint.gem} rx={2.1 - index * 0.2} ry={1.6 - index * 0.15} />
+        </g>
+      ))}
+      {/* Carved head with a collar ring. */}
+      <path d="M1 128 C-6 130 -8 136 -7.4 142 H9.4 C10 136 8 130 1 128 Z" fill={paint.body} stroke={paint.metal} strokeWidth="1.2" />
+      <path d="M1 128 C-6 130 -8 136 -7.4 142 H9.4 C10 136 8 130 1 128 Z" fill={paint.sheen} />
+      <path d="M-7.6 142 H9.6" stroke={paint.metal} strokeLinecap="round" strokeWidth="2.2" />
+      {/* Skirt: nine threads of varying length, tipped in metal. */}
+      {Array.from({ length: 9 }, (_, index) => {
+        const offset = (index - 4) * 2.1;
+        const length = 15 + Math.round(Math.cos((index - 4) * 0.42) * 6);
+        return (
+          <g key={index}>
+            <path
+              d={`M${1 + offset * 0.55} 143 Q${1 + offset} ${143 + length * 0.6} ${1 + offset * 1.25} ${143 + length}`}
+              fill="none"
+              stroke={index % 2 === 0 ? withAlpha(palette.primary, "e6") : withAlpha(palette.secondary, "d2")}
+              strokeLinecap="round"
+              strokeWidth="1.5"
+            />
+            <circle cx={1 + offset * 1.25} cy={143 + length} fill={paint.metal} r="1.1" />
+          </g>
+        );
+      })}
     </g>
   );
 
   return (
     <g>
-      {renderTassel(20)}
-      {renderTassel(160)}
+      {paint.defs}
+      {renderTassel(20, false)}
+      {renderTassel(160, true)}
     </g>
   );
 }

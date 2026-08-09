@@ -4,7 +4,38 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
+import { GMT3_OFFSET_MS } from "@/lib/time";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
+
+// Mirrors the clamp in src/app/api/admin/premium-title-pool/route.ts and the
+// CHECK constraint in supabase/premium-title-pool-duration.sql.
+const PREMIUM_TITLE_MIN_HOURS = 1;
+const PREMIUM_TITLE_MAX_HOURS = 8760;
+
+// The pool is a QUEUE, not a calendar: duration_hours says how long an entry
+// stays live once its turn comes up, not the date it ends on (see
+// src/app/api/premium-title/route.ts - it promotes the next entry and sets
+// expires_at = now + duration_hours). So the date picker below is purely a
+// calculator that turns "until this date" into hours, saving the admin from
+// doing 30*24 in their head. If the entry's turn arrives later than today it
+// still runs for that many hours from whenever it goes live.
+function premiumTitleHoursUntilDate(dateValue: string, nowMs: number) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  // Read the picked day as its 00:00 boundary in GMT+3, the day boundary the
+  // rest of the site already uses.
+  const targetMs = Date.UTC(year, month - 1, day) - GMT3_OFFSET_MS;
+  const hours = Math.ceil((targetMs - nowMs) / (60 * 60 * 1000));
+  return Math.min(PREMIUM_TITLE_MAX_HOURS, Math.max(PREMIUM_TITLE_MIN_HOURS, hours));
+}
+
+function describePremiumTitleDuration(hours: number) {
+  const safeHours = Math.max(0, Math.floor(Number(hours) || 0));
+  if (safeHours < 24) return `${safeHours} saat`;
+  const days = Math.floor(safeHours / 24);
+  const restHours = safeHours % 24;
+  return restHours === 0 ? `${days} gün` : `${days} gün ${restHours} saat`;
+}
 
 type ConsoleArgKind = "value" | "caseType" | "titleKey";
 
@@ -13,6 +44,7 @@ const CONSOLE_TITLE_KEY_VALUES = ["chosen", "femsub"];
 
 const CONSOLE_COMMANDS: Array<{ name: string; usage: string; args: ConsoleArgKind[] }> = [
   { name: "/give", usage: "/give amount @username", args: ["value", "value"] },
+  { name: "/money", usage: "/money amount @username [throneOrderId]", args: ["value", "value"] },
   { name: "/add", usage: "/add amount @username (Companion approval required)", args: ["value", "value"] },
   { name: "/drain", usage: "/drain amount @username", args: ["value", "value"] },
   { name: "/timeout", usage: "/timeout @username minutes", args: ["value", "value"] },
@@ -333,7 +365,10 @@ export default function AdminPage() {
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [premiumTitleConfig, setPremiumTitleConfig] = useState<AdminPremiumTitleConfig | null>(null);
   const [premiumTitlePool, setPremiumTitlePool] = useState<AdminPremiumTitlePoolEntry[]>([]);
-  const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000", durationHours: "720" });
+  // durationHours is what gets sent to the API; durationDate only drives the
+  // date picker's display so the two never have to be re-derived from a
+  // Date.now() call during render.
+  const [premiumTitlePoolForm, setPremiumTitlePoolForm] = useState({ name: "", description: "", price: "50000", durationHours: "720", durationDate: "" });
   const [jigsawLinks, setJigsawLinks] = useState<AdminJigsawLink[]>([]);
   const [jigsawForm, setJigsawForm] = useState({ label: "", url: "", coinCost: "2500" });
   const [eventTemplateKey, setEventTemplateKey] = useState(FIRST_DAY_EVENT_TEMPLATE.key);
@@ -753,7 +788,7 @@ export default function AdminPage() {
       });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Premium title pool entry add failed.");
-      setPremiumTitlePoolForm({ name: "", description: "", price: "50000", durationHours: "720" });
+      setPremiumTitlePoolForm({ name: "", description: "", price: "50000", durationHours: "720", durationDate: "" });
       setStatus("Premium title pool entry added.");
       await loadPremiumTitlePool();
     } catch (error) {
@@ -1222,11 +1257,25 @@ export default function AdminPage() {
 
     try {
       const trimmedCommand = command.trim();
-      const response = await fetch("/api/admin/give", {
-        body: JSON.stringify({ command: trimmedCommand }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
+      // Principessa Money has its own route: /api/admin/give is full of
+      // coin-specific give-bonus and devotion logic that must not run for the
+      // paid currency. Parsed here so the console still feels like one console.
+      const moneyMatch = trimmedCommand.match(/^\/money\s+(-?[1-9]\d*)\s+@?([A-Za-z0-9_.-]+)(?:\s+(\S+))?$/);
+      const response = moneyMatch
+        ? await fetch("/api/admin/money", {
+            body: JSON.stringify({
+              amount: Number(moneyMatch[1]),
+              sourceKey: moneyMatch[3] ?? null,
+              username: moneyMatch[2],
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          })
+        : await fetch("/api/admin/give", {
+            body: JSON.stringify({ command: trimmedCommand }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
       const result = (await response.json()) as { error?: string; message?: string; pending?: boolean; actionId?: string };
 
       if (!response.ok) {
@@ -2968,15 +3017,38 @@ export default function AdminPage() {
                                 />
                               </label>
                               <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
-                                Duration (hours)
+                                Bitiş tarihi
+                                {/* Uncontrolled on purpose: the stored value is
+                                    the hour count, and re-deriving a date from
+                                    it on every render would need Date.now()
+                                    during render. `key` clears the picker once
+                                    the entry is saved. */}
                                 <input
-                                  className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
-                                  min={1}
-                                  max={8760}
+                                  className="w-40 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                                  defaultValue=""
+                                  key={`${entry.id}:${entry.duration_hours}`}
+                                  onChange={(event) => {
+                                    if (!event.target.value) return;
+                                    const hours = premiumTitleHoursUntilDate(event.target.value, Date.now());
+                                    if (hours === null) return;
+                                    setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, duration_hours: hours } : item));
+                                  }}
+                                  type="date"
+                                />
+                              </label>
+                              <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                                Süre (saat)
+                                <input
+                                  className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                                  min={PREMIUM_TITLE_MIN_HOURS}
+                                  max={PREMIUM_TITLE_MAX_HOURS}
                                   onChange={(event) => setPremiumTitlePool((pool) => pool.map((item) => item.id === entry.id ? { ...item, duration_hours: Number(event.target.value) } : item))}
                                   type="number"
                                   value={entry.duration_hours}
                                 />
+                                <span className="text-[10px] normal-case tracking-normal text-zinc-600">
+                                  {describePremiumTitleDuration(entry.duration_hours)}
+                                </span>
                               </label>
                               <label className="flex items-center gap-2 text-xs text-zinc-300">
                                 <input
@@ -3037,12 +3109,29 @@ export default function AdminPage() {
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
-                    Duration (hours)
+                    Bitiş tarihi
                     <input
-                      className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
-                      min={1}
-                      max={8760}
-                      onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, durationHours: event.target.value }))}
+                      className="w-44 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                      onChange={(event) => {
+                        const nextDate = event.target.value;
+                        const hours = nextDate ? premiumTitleHoursUntilDate(nextDate, Date.now()) : null;
+                        setPremiumTitlePoolForm((form) => ({
+                          ...form,
+                          durationDate: nextDate,
+                          durationHours: hours === null ? form.durationHours : String(hours),
+                        }));
+                      }}
+                      type="date"
+                      value={premiumTitlePoolForm.durationDate}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                    Süre (saat)
+                    <input
+                      className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white normal-case tracking-normal"
+                      min={PREMIUM_TITLE_MIN_HOURS}
+                      max={PREMIUM_TITLE_MAX_HOURS}
+                      onChange={(event) => setPremiumTitlePoolForm((form) => ({ ...form, durationHours: event.target.value, durationDate: "" }))}
                       type="number"
                       value={premiumTitlePoolForm.durationHours}
                     />
@@ -3056,6 +3145,11 @@ export default function AdminPage() {
                     Add to pool
                   </button>
                 </div>
+                <p className="text-[11px] leading-5 text-zinc-500">
+                  Kaydedilen değer <strong className="text-zinc-300">{describePremiumTitleDuration(Number(premiumTitlePoolForm.durationHours))}</strong> ({premiumTitlePoolForm.durationHours} saat).
+                  Havuz bir sıra, takvim değil: bu süre başlığın <em>sırası geldiğinde</em> ne kadar canlı kalacağını belirler.
+                  Tarih seçmek sadece saati hesaplar (bugünden o güne, GMT+3 00:00). En fazla {PREMIUM_TITLE_MAX_HOURS} saat (1 yıl).
+                </p>
               </div>
             </div>
           )}

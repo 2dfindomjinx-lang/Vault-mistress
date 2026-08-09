@@ -29,24 +29,34 @@ export function getPetThroneGiveBonusPercent(baseCoinAmount: number) {
   return 0;
 }
 
+/**
+ * A Throne tribute now pays Principessa Money at a flat 1 USD = 1 PM. The
+ * give/task bonuses that used to be stacked here moved onto the PM -> Coin
+ * conversion (see getMoneyConversionBonusPercent in src/lib/principessa-money.ts)
+ * so the payout rate stays exactly 1:1 and the published rate stays true.
+ */
+export function getPetThroneMoneyAmount(amount: number) {
+  return Math.max(0, Math.floor(amount));
+}
+
 export function getPetThroneRewardBreakdown(amount: number) {
+  // Still reported in coins for the ledger, the milestone-title thresholds and
+  // the admin logs, all of which are coin-denominated historically. Bonuses are
+  // zero now; the coin equivalent is what the money converts down to at base rate.
   const baseCoinAmount = getPetThroneBaseCoinAmount(amount);
-  const giveBonusPercent = getPetThroneGiveBonusPercent(baseCoinAmount);
-  const giveBonusAmount = Math.floor(baseCoinAmount * giveBonusPercent);
-  const taskBonusAmount = Math.floor(baseCoinAmount * 0.25);
-  const totalCoinAmount = baseCoinAmount + giveBonusAmount + taskBonusAmount;
 
   return {
     baseCoinAmount,
-    giveBonusAmount,
-    giveBonusPercent,
-    taskBonusAmount,
-    totalCoinAmount,
+    giveBonusAmount: 0,
+    giveBonusPercent: 0,
+    moneyAmount: getPetThroneMoneyAmount(amount),
+    taskBonusAmount: 0,
+    totalCoinAmount: baseCoinAmount,
   };
 }
 
 export function getPetThroneReceiveAmount(amount: number) {
-  return getPetThroneRewardBreakdown(amount).totalCoinAmount;
+  return getPetThroneMoneyAmount(amount);
 }
 
 export function formatPetThroneAmount(amount: number) {

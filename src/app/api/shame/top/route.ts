@@ -17,7 +17,8 @@ export async function GET() {
   }
 
   const supabase = createPublicSupabaseClient();
-  const { data, error } = await supabase.rpc("get_public_shame_board", { p_limit: 3 });
+  // Home shows a Top 5. The RPC already clamps to 10, so no migration needed.
+  const { data, error } = await supabase.rpc("get_public_shame_board", { p_limit: 5 });
 
   if (error) {
     console.error("Failed to load public shame board", error);

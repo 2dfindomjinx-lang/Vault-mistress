@@ -107,13 +107,13 @@ export function HomeCommandCenter({
       <section className="relative overflow-hidden rounded-[1.5rem] border border-violet-200/20 bg-[linear-gradient(145deg,rgba(35,12,56,.42),rgba(5,3,8,.82))] p-4 shadow-[0_0_34px_rgba(168,85,247,.1)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-[10px] font-black uppercase tracking-[0.24em] text-violet-100/55">Court standings</p><h2 className="mt-1 text-xl font-black text-white">Leaderboard</h2></div>
-          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Top 3</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Top 5</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {tabs.map(([key, label]) => <button className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition ${tab === key ? "border-pink-300/45 bg-pink-500/20 text-pink-50" : "border-white/10 bg-white/[.03] text-zinc-500 hover:text-zinc-200"}`} key={key} onClick={() => selectTab(key)} type="button">{label}</button>)}
         </div>
         <div className="mt-3 space-y-1.5">
-          {entries.length > 0 ? entries.slice(0, 3).map((entry) => <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[.08] bg-white/[.03] px-3 py-2.5" key={`${entry.rank}-${entry.username ?? entry.name}`}><div className="min-w-0"><span className="mr-2 text-sm font-black text-pink-200/70">#{entry.rank}</span><span className="truncate text-sm font-bold text-white">{entry.name}</span>{entry.username ? <span className="ml-2 text-[10px] text-zinc-500">{entry.username}</span> : null}</div><span className="shrink-0 text-sm font-black text-pink-100">{entry.value}</span></div>) : <p className="rounded-xl border border-white/[.08] px-3 py-4 text-center text-xs text-zinc-500">No standings available yet.</p>}
+          {entries.length > 0 ? entries.slice(0, 5).map((entry) => <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[.08] bg-white/[.03] px-3 py-2.5" key={`${entry.rank}-${entry.username ?? entry.name}`}><div className="min-w-0"><span className="mr-2 text-sm font-black text-pink-200/70">#{entry.rank}</span><span className="truncate text-sm font-bold text-white">{entry.name}</span>{entry.username ? <span className="ml-2 text-[10px] text-zinc-500">{entry.username}</span> : null}</div><span className="shrink-0 text-sm font-black text-pink-100">{entry.value}</span></div>) : <p className="rounded-xl border border-white/[.08] px-3 py-4 text-center text-xs text-zinc-500">No standings available yet.</p>}
         </div>
       </section>
     </div>

@@ -22,7 +22,8 @@ export type UserNotificationKind =
   | "throne_debt_payment_rejected"
   | "throne_debt_rejected"
   | "throne_debt_timeout_applied"
-  | "throne_automation_failed";
+  | "throne_automation_failed"
+  | "throne_money_credited";
 
 export type UserNotificationRecord = {
   body: string;

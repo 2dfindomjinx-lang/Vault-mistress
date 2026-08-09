@@ -10,6 +10,7 @@ const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: s
   debt: { code: "V", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
   devotion: { code: "VI", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
   shop: { code: "VII", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
+  moneyShop: { code: "XII", eyebrow: "No luck required", title: "Money Shop", description: "Principessa Money buys the Legendary outright. Coins never reach this counter." },
   crates: { code: "VIII", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
   runway: { code: "IX", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
   collection: { code: "X", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
@@ -57,6 +58,12 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
   shop: {
     alt: "Principessa inspecting a court card beside luxury shopping bags",
     caption: "Buy carefully. She is still watching.",
+    imageClassName: "origin-bottom translate-y-[4%] scale-[1.01] object-bottom",
+    src: "/principessa-ui/generated/principessa-shop-bags.webp",
+  },
+  moneyShop: {
+    alt: "Principessa beside luxury shopping bags, holding the court card",
+    caption: "No spinning. Just pay.",
     imageClassName: "origin-bottom translate-y-[4%] scale-[1.01] object-bottom",
     src: "/principessa-ui/generated/principessa-shop-bags.webp",
   },

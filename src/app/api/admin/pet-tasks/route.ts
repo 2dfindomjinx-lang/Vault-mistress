@@ -3,19 +3,16 @@ import {
   getSupabaseAdminConfigErrors,
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
-import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { awardDevotion, DEVOTION_REWARD_REVIEW_TASK } from "@/lib/devotion";
-import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
+import { PM_TO_COIN_RATE } from "@/lib/principessa-money";
 import {
   getPetThroneRewardBreakdown,
   PET_THRONE_TASK_ID,
 } from "@/lib/pet-throne";
 import { createUserNotification } from "@/lib/user-notifications";
 import { PET_TASK_COIN_REWARD } from "@/lib/server-game-rules";
-
-const LARGE_THRONE_PENDING_AMOUNT = Number(process.env.ADMIN_SECURITY_LARGE_COIN_AMOUNT ?? 50000);
 
 async function listPetTasks(supabase: ReturnType<typeof createSupabaseAdminClient>) {
   const { data, error } = await supabase
@@ -140,7 +137,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, coins, pet_score")
+    .select("id, username, coins, pet_score, principessa_money")
     .eq("id", task.user_id)
     .maybeSingle();
 
@@ -176,14 +173,14 @@ export async function POST(request: Request) {
       : throneBaseCoinAmount + throneGiveBonusAmount + throneTaskBonusAmount;
   const coinRewardAmount = isThroneTask ? 0 : PET_TASK_COIN_REWARD;
   const nextCoins = previousCoins + coinRewardAmount;
-  const directThronePayoutCoins = previousCoins + throneTotalCoinAmount;
   const nextPetScore = Number(profile.pet_score ?? 0) + petScoreDelta;
-  const requiresThronePendingApproval =
-    isThroneTask &&
-    (
-      !isDirectCoinAdminUserId(admin.adminUser.id) ||
-      throneBaseCoinAmount >= LARGE_THRONE_PENDING_AMOUNT
-    );
+  // Throne now pays Principessa Money at 1 USD = 1 PM, credited immediately.
+  // The Companion App two-step approval was removed with it: the payout is no
+  // longer a free-form coin grant an admin types, it is a fixed function of the
+  // amount already recorded on the task, so there is nothing for a second
+  // device to sanity-check. The user still gets a notification when it lands.
+  const previousMoney = Math.max(0, Math.floor(Number(profile.principessa_money) || 0));
+  const throneMoneyAmount = throneBreakdown.moneyAmount;
   const profilePatch: {
     coins: number;
     pet_score: number;
@@ -214,188 +211,102 @@ export async function POST(request: Request) {
   }
 
   let transactionIds: string[] = [];
-  let pendingActionId: string | null = null;
+  const pendingActionId: string | null = null;
   let approvalMessage = `Pet task approved. +${petScoreDelta} Pet Score, +${PET_TASK_COIN_REWARD} coins.`;
 
-  if (requiresThronePendingApproval) {
-    try {
-      const pendingAction = await createPendingCoinAction({
-        requestedByUserId: admin.adminUser.id,
-        command: "give",
-        targetUserId: profile.id,
-        targetUsername: profile.username ?? "@unknown",
-        amount: throneBaseCoinAmount,
-        originalCommand: `/give ${throneBaseCoinAmount} @${profile.username} + /add ${throneTaskBonusAmount} @${profile.username}`,
-        reason: "throne_tribute",
-        metadata: {
-          extraAddAmount: throneTaskBonusAmount,
-          giveBonusAmount: throneGiveBonusAmount,
-          petTaskId: task.id,
-          petTaskKind: task.task_id,
-          source: "pet_throne_task",
-          throneAmount,
-          throneBaseCoinAmount,
-          throneTaskBonusAmount,
-          throneTotalCoinAmount,
-        },
-      });
-      pendingActionId = pendingAction.id;
-      approvalMessage = `Throne payout queued: ${throneBaseCoinAmount.toLocaleString()} base + ${throneGiveBonusAmount.toLocaleString()} give bonus + ${throneTaskBonusAmount.toLocaleString()} task bonus = ${throneTotalCoinAmount.toLocaleString()} coins.`;
-    } catch (pendingError) {
-      console.error("Admin pet throne approval queue failed", pendingError);
-      await supabase
-        .from("profiles")
-        .update({
-          coins: previousCoins,
-          pet_score: Number(profile.pet_score ?? 0),
-          updated_at: now,
-        })
-        .eq("id", profile.id)
-        .eq("coins", directThronePayoutCoins)
-        .eq("pet_score", nextPetScore);
-      return Response.json({ error: "Failed to queue Throne payout approval." }, { status: 500 });
-    }
-  } else if (isThroneTask) {
-    const finalCoins = previousCoins + throneTotalCoinAmount;
-    const { error: throneProfileUpdateError } = await supabase
+  if (isThroneTask) {
+    const nextMoney = previousMoney + throneMoneyAmount;
+    const { error: throneMoneyError } = await supabase
       .from("profiles")
-      .update({
-        coins: finalCoins,
-        updated_at: now,
-      })
+      .update({ principessa_money: nextMoney, updated_at: now })
       .eq("id", profile.id)
-      .eq("coins", previousCoins);
+      .eq("principessa_money", previousMoney);
 
-    if (throneProfileUpdateError) {
-      console.error("Admin pet throne profile payout update failed", throneProfileUpdateError);
+    if (throneMoneyError) {
+      console.error("Admin pet throne money payout update failed", throneMoneyError);
       await supabase
         .from("profiles")
-        .update({
-          coins: previousCoins,
-          pet_score: Number(profile.pet_score ?? 0),
-          updated_at: now,
-        })
+        .update({ coins: previousCoins, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
         .eq("id", profile.id)
         .eq("coins", nextCoins)
         .eq("pet_score", nextPetScore);
       return Response.json({ error: "Throne payout profile update failed." }, { status: 500 });
     }
 
-    const txRows = [
-      {
-        user_id: profile.id,
-        admin_user_id: admin.adminUser.id,
-        amount: throneBaseCoinAmount,
-        reason: "throne_tribute",
-        balance_before: previousCoins,
-        balance_after: previousCoins + throneBaseCoinAmount,
-        metadata: {
-          command: "give",
-          kind: "manual_coin_purchase",
-          petTaskId: task.id,
-          purchaseType: "reward",
-          requestedAmount: throneBaseCoinAmount,
-          source: "pet_task_admin_approval",
-          target_username_snapshot: profile.username,
-          tributeTotalChanged: false,
-          verifiedAdminUserId: admin.adminUser.id,
-        },
+    const { error: moneyLedgerError } = await supabase.from("money_transactions").insert({
+      amount: throneMoneyAmount,
+      balance_after: nextMoney,
+      balance_before: previousMoney,
+      metadata: {
+        adminUserId: admin.adminUser.id,
+        coinEquivalent: throneBaseCoinAmount,
+        petTaskId: task.id,
+        source: "pet_task_admin_approval",
+        throneAmount,
+        usernameSnapshot: profile.username,
       },
-      ...(throneGiveBonusAmount > 0
-        ? [{
-            user_id: profile.id,
-            admin_user_id: admin.adminUser.id,
-            amount: throneGiveBonusAmount,
-            reason: "give_bonus",
-            balance_before: previousCoins + throneBaseCoinAmount,
-            balance_after: previousCoins + throneBaseCoinAmount + throneGiveBonusAmount,
-            metadata: {
-              baseAmount: throneBaseCoinAmount,
-              bonusPercent: throneBaseCoinAmount > 0 ? throneGiveBonusAmount / throneBaseCoinAmount : 0,
-              command: "give",
-              kind: "admin_give_bonus",
-              petTaskId: task.id,
-              source: "pet_task_admin_approval",
-              verifiedAdminUserId: admin.adminUser.id,
-            },
-          }]
-        : []),
-      ...(throneTaskBonusAmount > 0
-        ? [{
-            user_id: profile.id,
-            admin_user_id: admin.adminUser.id,
-            amount: throneTaskBonusAmount,
-            reason: "admin_add",
-            balance_before: previousCoins + throneBaseCoinAmount + throneGiveBonusAmount,
-            balance_after: finalCoins,
-            metadata: {
-              baseAmount: throneBaseCoinAmount,
-              command: "add",
-              kind: "pet_throne_task_bonus",
-              petTaskId: task.id,
-              source: "pet_task_admin_approval",
-              target_username_snapshot: profile.username,
-              verifiedAdminUserId: admin.adminUser.id,
-            },
-          }]
-        : []),
-    ];
+      reason: "throne_tribute",
+      // One credit per reviewed task row: re-approving the same submission
+      // cannot mint a second payout.
+      source_key: `pet-throne:${task.id}`,
+      user_id: profile.id,
+    });
 
-    const { data: insertedTransactions, error: transactionError } = await supabase
-      .from("coin_transactions")
-      .insert(txRows)
-      .select("id");
-
-    if (transactionError) {
-      console.error("Admin pet throne transaction insert failed", transactionError);
+    if (moneyLedgerError) {
+      const isDuplicate = moneyLedgerError.code === "23505";
       await supabase
         .from("profiles")
-        .update({
-          coins: previousCoins,
-          pet_score: Number(profile.pet_score ?? 0),
-          updated_at: now,
-        })
+        .update({ coins: previousCoins, principessa_money: previousMoney, pet_score: Number(profile.pet_score ?? 0), updated_at: now })
         .eq("id", profile.id)
-        .eq("coins", finalCoins)
-        .eq("pet_score", nextPetScore);
-      return Response.json({ error: "Throne payout logging failed." }, { status: 500 });
+        .eq("principessa_money", nextMoney);
+      console.error("Admin pet throne money ledger insert failed", moneyLedgerError);
+      return Response.json(
+        { error: isDuplicate ? "This Throne submission was already paid out." : "Throne payout logging failed." },
+        { status: isDuplicate ? 409 : 500 },
+      );
     }
 
-    transactionIds = (insertedTransactions ?? []).map((entry) => String(entry.id));
-
     try {
-      if (transactionIds[0]) {
-        await awardDevotion(supabase, {
-          amount: Math.floor(throneBaseCoinAmount * 0.01),
-          metadata: {
-            baseAmount: throneBaseCoinAmount,
-            command: "give",
-            petTaskId: task.id,
-            transactionId: transactionIds[0],
-          },
-          source: "admin_give",
-          sourceKey: `admin-give:${transactionIds[0]}`,
-          userId: profile.id,
-        });
-      }
+      await awardDevotion(supabase, {
+        amount: Math.floor(throneBaseCoinAmount * 0.01),
+        metadata: { coinEquivalent: throneBaseCoinAmount, petTaskId: task.id, throneAmount },
+        source: "admin_give",
+        sourceKey: `pet-throne-devotion:${task.id}`,
+        userId: profile.id,
+      });
     } catch (devotionError) {
       console.error("Admin pet throne devotion award failed", devotionError);
     }
 
-    const { data: giftRows, error: giftTotalError } = await supabase
-      .from("coin_transactions")
-      .select("amount")
-      .eq("user_id", profile.id)
-      .in("reason", ["throne_tribute", "live_gift"]);
+    // Milestone titles are keyed on a coin-denominated lifetime gift total.
+    // Historical tributes still live in coin_transactions, new ones in
+    // money_transactions, so both are counted - PM at its base coin rate.
+    const [{ data: giftRows, error: giftTotalError }, { data: moneyGiftRows, error: moneyGiftError }] = await Promise.all([
+      supabase.from("coin_transactions").select("amount").eq("user_id", profile.id).in("reason", ["throne_tribute", "live_gift"]),
+      supabase.from("money_transactions").select("amount").eq("user_id", profile.id).eq("reason", "throne_tribute"),
+    ]);
 
-    if (giftTotalError) {
-      console.error("Admin pet throne title milestone lookup failed", giftTotalError);
+    if (giftTotalError || moneyGiftError) {
+      console.error("Admin pet throne title milestone lookup failed", giftTotalError ?? moneyGiftError);
     } else {
-      const giftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
-      await syncThroneMilestoneTitles(supabase, profile.id, giftTotal);
+      const coinGiftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
+      const moneyGiftTotal = (moneyGiftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
+      await syncThroneMilestoneTitles(supabase, profile.id, coinGiftTotal + moneyGiftTotal * PM_TO_COIN_RATE);
     }
 
-    approvalMessage = `Throne payout added: ${throneBaseCoinAmount.toLocaleString()} base + ${throneGiveBonusAmount.toLocaleString()} give bonus + ${throneTaskBonusAmount.toLocaleString()} task bonus = ${throneTotalCoinAmount.toLocaleString()} coins.`;
+    try {
+      await createUserNotification(supabase, {
+        body: `${throneMoneyAmount.toLocaleString()} Principessa Money landed in your balance. Convert it to coins whenever you want.`,
+        kind: "throne_money_credited",
+        metadata: { moneyAmount: throneMoneyAmount, petTaskId: task.id, throneAmount },
+        title: "Throne tribute credited",
+        userId: profile.id,
+      });
+    } catch (notificationError) {
+      console.error("Admin pet throne notification failed", notificationError);
+    }
+
+    approvalMessage = `Throne payout added: ${throneMoneyAmount.toLocaleString()} Principessa Money (= ${throneBaseCoinAmount.toLocaleString()} coins at base rate).`;
   } else {
     const { data: transaction, error: transactionError } = await supabase.from("coin_transactions").insert({
       user_id: profile.id,
@@ -493,7 +404,7 @@ export async function POST(request: Request) {
         updated_at: now,
       })
       .eq("id", profile.id)
-      .eq("coins", isThroneTask && transactionIds.length > 0 ? directThronePayoutCoins : nextCoins)
+      .eq("coins", nextCoins)
       .eq("pet_score", nextPetScore);
 
     if (rollbackProfileError) {
@@ -535,7 +446,7 @@ export async function POST(request: Request) {
         updated_at: now,
       })
       .eq("id", profile.id)
-      .eq("coins", isThroneTask && transactionIds.length > 0 ? directThronePayoutCoins : nextCoins)
+      .eq("coins", nextCoins)
       .eq("pet_score", nextPetScore);
 
     if (rollbackProfileError) {

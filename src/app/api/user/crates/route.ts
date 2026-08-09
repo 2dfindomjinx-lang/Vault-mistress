@@ -1009,7 +1009,7 @@ export async function POST(request: Request) {
     // Verify current ownership quantity
     const { data: invRow, error: invErr } = await supabase
       .from("user_crate_inventory")
-      .select("quantity")
+      .select("quantity, pm_quantity")
       .eq("user_id", userId)
       .eq("item_id", itemId)
       .eq("variant", variant)
@@ -1017,6 +1017,21 @@ export async function POST(request: Request) {
 
     if (invErr || !invRow || invRow.quantity < qtyToSell) {
       return jsonError("You do not own enough of this item.", 422);
+    }
+
+    // Copies bought with Principessa Money are excluded from the coin sell
+    // path on purpose: they buy back to PM at 70% via /api/user/money-shop.
+    // Letting them liquidate for coins here would make the shop a cheaper,
+    // unmetered PM -> Coin exchange that bypasses the conversion route.
+    const pmQuantity = Math.max(0, Number(invRow.pm_quantity) || 0);
+    const coinSellableQuantity = Math.max(0, invRow.quantity - pmQuantity);
+    if (coinSellableQuantity < qtyToSell) {
+      return jsonError(
+        pmQuantity > 0
+          ? "Shop-bought copies return Principessa Money, not coins. Sell them from the Money Shop."
+          : "You do not own enough of this item.",
+        422,
+      );
     }
 
     // Get current coins

@@ -841,6 +841,10 @@ export function PetSection({
   const throneFailed = throneTask.status === "failed";
   const throneActionPending = isPetActionPending(throneTask.id);
   const throneRewardBreakdown = getPetThroneRewardBreakdown(selectedThroneAmount);
+  // Throne pays Principessa Money at 1 USD = 1 PM. The coin figure is only
+  // shown as "what this converts down to", and the old give/task bonuses now
+  // live on the PM -> Coin conversion instead of the payout.
+  const throneMoneyAmount = throneRewardBreakdown.moneyAmount;
   const throneCoinEquivalent = throneRewardBreakdown.totalCoinAmount;
   const regularTasks = tasks.filter(
     (task) =>
@@ -2319,7 +2323,13 @@ export function PetSection({
                           You Receive
                         </p>
                         <p className="mt-2 text-2xl font-black text-pink-50">
-                          {formatPetThroneAmount(throneCoinEquivalent)}
+                          ❖ {formatPetThroneAmount(throneMoneyAmount)}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
+                          Principessa Money
+                        </p>
+                        <p className="mt-2 text-xs text-zinc-400">
+                          Converts to {throneCoinEquivalent.toLocaleString()} coins at base rate, more if you convert 10 or more at once.
                         </p>
                         <p className="mt-2 text-xs text-zinc-400">
                           Include your VM code in the Throne message for automatic credit. If it fails, DM Principessa with the receipt for manual credit.
@@ -2633,13 +2643,13 @@ export function PetSection({
                       You Receive
                     </p>
                     <p className="mt-2 text-2xl font-black text-pink-50">
-                      {formatPetThroneAmount(throneCoinEquivalent)}
+                      ❖ {formatPetThroneAmount(throneMoneyAmount)}
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
-                      Coin equivalent
+                      Principessa Money
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
-                      Base {throneRewardBreakdown.baseCoinAmount.toLocaleString()} + give bonus {throneRewardBreakdown.giveBonusAmount.toLocaleString()} + task bonus {throneRewardBreakdown.taskBonusAmount.toLocaleString()}
+                      1 USD = 1 Money. Converts to {throneCoinEquivalent.toLocaleString()} coins at base rate; converting 10 or more at once earns a bonus on top.
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
                       Include your VM code in the Throne message for automatic credit. Use the screenshot form only as a manual fallback.

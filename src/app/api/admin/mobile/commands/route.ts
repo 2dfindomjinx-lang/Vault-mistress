@@ -5,6 +5,7 @@ import { CRATE_TYPES } from "@/lib/crates";
 import { awardDevotion } from "@/lib/devotion";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
+import { LARGE_MONEY_GRANT_AMOUNT } from "@/lib/principessa-money";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +53,15 @@ export async function POST(request: Request) {
   const timeoutRemoveMatch = command.match(/^\/timeout\s+remove\s+(@[A-Za-z0-9_.-]+)$/);
   const titleMatch = command.match(/^\/title\s+(@[A-Za-z0-9_.-]+)(?:\s+([A-Za-z-]+))?$/);
   const keyMatch = command.match(/^\/key\s+(@[A-Za-z0-9_.-]+)\s+([A-Za-z_]+)\s+([1-9]\d*)$/);
+  // Principessa Money. Negative amounts are allowed (claw-back), and the
+  // optional third token is a Throne order id used as an idempotency key.
+  // Has its own approval gate further down - it is not folded into the
+  // /give + /add one because it pays out of a different balance.
+  const moneyMatch = command.match(/^\/money\s+(-?[1-9]\d*)\s+(@[A-Za-z0-9_.-]+)(?:\s+(\S+))?$/);
 
-  if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch && !keyMatch) {
+  if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch && !keyMatch && !moneyMatch) {
     return Response.json(
-      { error: "Use /give 500 @username, /add 500 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, /title @username [chosen|femsub], or /key @username case_name amount" },
+      { error: "Use /give 500 @username, /add 500 @username, /money 25 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, /title @username [chosen|femsub], or /key @username case_name amount" },
       { status: 400 },
     );
   }
@@ -89,11 +95,12 @@ export async function POST(request: Request) {
     timeoutRemoveMatch?.[1] ??
     titleMatch?.[1] ??
     keyMatch?.[1] ??
+    moneyMatch?.[2] ??
     ""
-  ).toLowerCase();
+  ).replace(/^@/, "").toLowerCase();
   const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
-    .select("id, username, twitter_handle, coins")
+    .select("id, username, twitter_handle, coins, principessa_money")
     .eq("username", username)
     .maybeSingle();
 
@@ -123,6 +130,101 @@ export async function POST(request: Request) {
       console.error("Mobile: failed to queue pending", e);
       return Response.json({ error: "Failed to queue for approval." }, { status: 500 });
     }
+  }
+
+  if (moneyMatch) {
+    const moneyAmount = Number(moneyMatch[1]);
+    const sourceKey = moneyMatch[3]?.trim() || null;
+
+    // Same two-step gate as /give and /add. A hand-typed amount can slip a
+    // digit; the Throne task payout cannot, which is why that one stays direct.
+    if (!isDirectCoinAdminUserId(admin.adminUser.id) || Math.abs(moneyAmount) >= LARGE_MONEY_GRANT_AMOUNT) {
+      try {
+        const pending = await createPendingCoinAction({
+          amount: moneyAmount,
+          command: "money",
+          metadata: { sourceKey },
+          originalCommand: command,
+          requestedByUserId: admin.adminUser.id,
+          targetUserId: profile.id,
+          targetUsername: profile.username,
+        });
+        return Response.json({
+          actionId: pending.id,
+          message: `/money ${moneyAmount} @${profile.username} requires Companion App approval.`,
+          pending: true,
+        });
+      } catch (pendingError) {
+        console.error("Mobile: failed to queue pending money grant", pendingError);
+        return Response.json({ error: "Failed to queue for approval." }, { status: 500 });
+      }
+    }
+
+    const previousMoney = Math.max(0, Math.floor(Number(profile.principessa_money) || 0));
+    const nextMoney = previousMoney + moneyAmount;
+
+    if (nextMoney < 0) {
+      return Response.json(
+        { error: `@${profile.username} only has ${previousMoney.toLocaleString()} Money.` },
+        { status: 422 },
+      );
+    }
+
+    // Ledger first when an order id is supplied: the partial unique index on
+    // money_transactions.source_key is what makes a re-submitted payment a
+    // no-op instead of a second credit.
+    if (sourceKey) {
+      const { error: duplicateError } = await admin.supabase.from("money_transactions").insert({
+        amount: moneyAmount,
+        balance_after: nextMoney,
+        balance_before: previousMoney,
+        metadata: { adminUserId: admin.adminUser.id, source: "mobile_console" },
+        reason: "admin:money-grant",
+        source_key: sourceKey,
+        user_id: profile.id,
+      });
+
+      if (duplicateError) {
+        const isDuplicate = duplicateError.code === "23505";
+        return Response.json(
+          { error: isDuplicate ? `This payment (${sourceKey}) was already credited.` : duplicateError.message },
+          { status: isDuplicate ? 409 : 500 },
+        );
+      }
+    }
+
+    const { data: updated, error: moneyError } = await admin.supabase
+      .from("profiles")
+      .update({ principessa_money: nextMoney, updated_at: new Date().toISOString() })
+      .eq("id", profile.id)
+      .eq("principessa_money", previousMoney)
+      .select("id")
+      .maybeSingle();
+
+    if (moneyError || !updated) {
+      if (sourceKey) {
+        await admin.supabase.from("money_transactions").delete().eq("source_key", sourceKey);
+      }
+      return Response.json(
+        { error: moneyError?.message ?? "Balance changed, try again." },
+        { status: moneyError ? 500 : 409 },
+      );
+    }
+
+    if (!sourceKey) {
+      await admin.supabase.from("money_transactions").insert({
+        amount: moneyAmount,
+        balance_after: nextMoney,
+        balance_before: previousMoney,
+        metadata: { adminUserId: admin.adminUser.id, source: "mobile_console" },
+        reason: "admin:money-grant",
+        user_id: profile.id,
+      });
+    }
+
+    return Response.json({
+      message: `${moneyAmount > 0 ? "+" : ""}${moneyAmount.toLocaleString()} Money → @${profile.username} (now ${nextMoney.toLocaleString()}).`,
+    });
   }
 
   if (timeoutMatch) {

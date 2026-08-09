@@ -154,6 +154,15 @@ export async function POST(request: Request) {
   const targetId = claimed.target_user_id;
   const claimedMetadata = (claimed.metadata ?? {}) as Record<string, unknown>;
   const claimedSource = typeof claimedMetadata.source === "string" ? claimedMetadata.source : "";
+  // LEGACY DRAIN ONLY. Throne pet-task payouts no longer queue for approval -
+  // they credit Principessa Money immediately and notify the user instead (see
+  // src/app/api/admin/pet-tasks/route.ts). Nothing creates these fields any
+  // more, so this branch, extraAddAmount and adminPetTaskLogId below exist
+  // purely to pay out rows that were already sitting in pending_admin_actions
+  // when that change shipped. Safe to delete once this returns zero:
+  //   select count(*) from pending_admin_actions
+  //   where status = 'pending' and metadata->>'source' = 'pet_throne_task';
+  // /add and /give approvals are NOT affected and must keep working.
   const isPetTaskReward = Boolean(
     claimedMetadata.petTaskId
     || claimedMetadata.adminPetTaskLogId
@@ -164,6 +173,94 @@ export async function POST(request: Request) {
     Number(claimedMetadata.extraAddAmount ?? 0),
   );
   const targetSnap = claimed.target_username_snapshot || "unknown";
+
+  // Principessa Money runs on its own balance and its own ledger, so it gets
+  // its own execution path rather than being squeezed through the coin one.
+  // No give bonus, no devotion, no milestone titles: this is the record of a
+  // payment that already happened, not a reward.
+  if (cmd === "money") {
+    if (!Number.isFinite(amount) || amount === 0) {
+      return Response.json({ ok: true, executed: false, note: "invalid money payload" });
+    }
+
+    const { data: moneyProfile, error: moneyProfileError } = await supabase
+      .from("profiles")
+      .select("id, username, principessa_money")
+      .eq("id", targetId)
+      .maybeSingle();
+
+    if (moneyProfileError || !moneyProfile) {
+      return Response.json({ error: "Target profile not found at execution time." }, { status: 500 });
+    }
+
+    const previousMoney = Math.max(0, Math.floor(Number(moneyProfile.principessa_money) || 0));
+    const nextMoney = previousMoney + amount;
+    if (nextMoney < 0) {
+      return Response.json(
+        { error: `@${moneyProfile.username} only has ${previousMoney.toLocaleString()} Money.` },
+        { status: 422 },
+      );
+    }
+
+    const sourceKey = typeof claimedMetadata.sourceKey === "string" && claimedMetadata.sourceKey.trim()
+      ? claimedMetadata.sourceKey.trim()
+      : null;
+
+    if (sourceKey) {
+      const { error: duplicateError } = await supabase.from("money_transactions").insert({
+        amount,
+        balance_after: nextMoney,
+        balance_before: previousMoney,
+        metadata: { approvedByUserId: approverId, pendingActionId: claimed.id, source: "approved_admin_action" },
+        reason: "admin:money-grant",
+        source_key: sourceKey,
+        user_id: targetId,
+      });
+
+      if (duplicateError) {
+        const isDuplicate = duplicateError.code === "23505";
+        return Response.json(
+          { error: isDuplicate ? `This payment (${sourceKey}) was already credited.` : duplicateError.message },
+          { status: isDuplicate ? 409 : 500 },
+        );
+      }
+    }
+
+    const { data: moneyUpdated, error: moneyUpdateError } = await supabase
+      .from("profiles")
+      .update({ principessa_money: nextMoney, updated_at: new Date().toISOString() })
+      .eq("id", targetId)
+      .eq("principessa_money", previousMoney)
+      .select("id")
+      .maybeSingle();
+
+    if (moneyUpdateError || !moneyUpdated) {
+      if (sourceKey) {
+        await supabase.from("money_transactions").delete().eq("source_key", sourceKey);
+      }
+      return Response.json(
+        { error: moneyUpdateError?.message ?? "Balance changed, try again." },
+        { status: moneyUpdateError ? 500 : 409 },
+      );
+    }
+
+    if (!sourceKey) {
+      await supabase.from("money_transactions").insert({
+        amount,
+        balance_after: nextMoney,
+        balance_before: previousMoney,
+        metadata: { approvedByUserId: approverId, pendingActionId: claimed.id, source: "approved_admin_action" },
+        reason: "admin:money-grant",
+        user_id: targetId,
+      });
+    }
+
+    return Response.json({
+      executed: true,
+      message: `Approved: ${amount > 0 ? "+" : ""}${amount.toLocaleString()} Money to ${moneyProfile.username} (now ${nextMoney.toLocaleString()}).`,
+      ok: true,
+    });
+  }
 
   if (!["add", "give"].includes(cmd) || !amount || amount <= 0) {
     // non-coin or bad, just mark done

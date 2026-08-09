@@ -17,6 +17,8 @@ export type Profile = {
   // email is intentionally not populated for regular client usage (security).
   // It may exist in the DB but must never be returned to non-admin clients.
   coins: number;
+  /** Principessa Money - paid-only currency, see src/lib/principessa-money.ts. */
+  principessa_money?: number;
   affection: number;
   tribute_total: number;
   tribute_code?: string | null;

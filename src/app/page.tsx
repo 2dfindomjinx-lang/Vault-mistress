@@ -52,6 +52,7 @@ const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((modul
 const PetSection = dynamic(() => import("@/components/PetSection").then((module) => module.PetSection), { loading: VaultPanelLoading });
 const ProfileHeaderCustomizationPanel = dynamic(() => import("@/components/ProfileHeaderCustomizationPanel").then((module) => module.ProfileHeaderCustomizationPanel), { loading: VaultPanelLoading });
 const PublicProfileModal = dynamic(() => import("@/components/PublicProfileModal").then((module) => module.PublicProfileModal), { loading: VaultPanelLoading });
+const MoneyShopPanel = dynamic(() => import("@/components/MoneyShopPanel").then((module) => module.MoneyShopPanel), { loading: VaultPanelLoading });
 const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
 const RunwayPanel = dynamic(() => import("@/components/RunwayPanel").then((module) => module.RunwayPanel), { loading: VaultPanelLoading });
 const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
@@ -63,6 +64,7 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
   crates: () => import("@/components/CratesPanel"),
   debt: () => import("@/components/DebtSection"),
   devotion: () => import("@/components/DevotionLeaderboard"),
+  moneyShop: () => import("@/components/MoneyShopPanel"),
   pet: () => import("@/components/PetSection"),
   runway: () => Promise.all([
     import("@/components/RunwayPanel"),
@@ -123,6 +125,7 @@ import {
   type TitleItem,
 } from "@/lib/cosmetics";
 import { PREMIUM_TITLE_ID, type PremiumTitleConfig } from "@/lib/premium-title";
+import type { MoneyShopEntry } from "@/lib/principessa-money";
 import {
   DEFAULT_SPEECH_AVATAR_ID,
   RANDOM_SPEECH_AVATAR_ID,
@@ -1836,6 +1839,14 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [addressTerm, setAddressTerm] = useState<AddressTerm>(DEFAULT_ADDRESS_TERM);
   const [isSavingAddressTerm, setIsSavingAddressTerm] = useState(false);
   const [coins, setCoins] = useState(100);
+  // Principessa Money. Paid-only: nothing in the client may ever increase this
+  // except a server response, and there is no coin -> money route at all.
+  const [principessaMoney, setPrincipessaMoney] = useState(0);
+  const [moneyShopItems, setMoneyShopItems] = useState<MoneyShopEntry[]>([]);
+  const [moneyShopLoading, setMoneyShopLoading] = useState(false);
+  const [moneyShopError, setMoneyShopError] = useState("");
+  const [moneyShopPendingItemId, setMoneyShopPendingItemId] = useState<string | null>(null);
+  const [moneyConverting, setMoneyConverting] = useState(false);
   const coinsRef = useRef(coins);
   const weeklyTaxAutoCollectingRef = useRef(false);
   const weeklyTaxAutoAttemptRef = useRef<string | null>(null);
@@ -2235,6 +2246,37 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     if (!authBootstrapped) return;
     loadDrainLeaderboard();
   }, [authBootstrapped, loadDrainLeaderboard]);
+
+  const loadMoneyShop = useCallback(async () => {
+    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+      setMoneyShopItems([]);
+      return;
+    }
+
+    setMoneyShopLoading(true);
+    try {
+      const response = await fetch("/api/user/money-shop", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as { error?: string; items?: MoneyShopEntry[] } | null;
+      if (!response.ok || !payload?.items) {
+        throw new Error(payload?.error ?? "Failed to load the Money Shop.");
+      }
+      setMoneyShopItems(payload.items);
+      setMoneyShopError("");
+    } catch (error) {
+      setMoneyShopItems([]);
+      setMoneyShopError(error instanceof Error ? error.message : "Failed to load the Money Shop.");
+    } finally {
+      setMoneyShopLoading(false);
+    }
+  }, [isGuestMode, isLoggedIn, isPreviewMode]);
+
+  // Panel-scoped: the catalogue is a per-user join against inventory, so there
+  // is no reason to pay for it on every route the way the drain board does.
+  useEffect(() => {
+    if (activePanel !== "moneyShop") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadMoneyShop flips its own in-flight flag before awaiting; this is a fetch-on-panel-open, not derived state
+    void loadMoneyShop();
+  }, [activePanel, loadMoneyShop]);
   const addressAwareTitleItems = useMemo(
     () => getTitleItemsForAddressTerm(addressTerm).map((title) =>
       title.id === PREMIUM_TITLE_ID && premiumTitleConfig
@@ -4223,6 +4265,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void refreshDisplayName(profile.id);
     }
     setCoins(profile.coins);
+    setPrincipessaMoney(profile.principessa_money ?? 0);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setTributeCode(profile.tribute_code ?? null);
@@ -4543,6 +4586,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void refreshDisplayName(profile.id);
     }
     setCoins(profile.coins);
+    setPrincipessaMoney(profile.principessa_money ?? 0);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setTributeCode(profile.tribute_code ?? null);
@@ -4576,6 +4620,53 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setIsLoggedIn(true);
     // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
   }, [refreshDisplayName]);
+
+  const handleMoneyConvert = useCallback(async (amount: number) => {
+    setMoneyConverting(true);
+    try {
+      const response = await fetch("/api/user/money/convert", {
+        body: JSON.stringify({ amount }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { breakdown?: { totalCoins: number }; error?: string; profile?: Profile }
+        | null;
+      if (!response.ok || !payload?.profile) {
+        throw new Error(payload?.error ?? "Conversion failed.");
+      }
+      applyProfileStats(payload.profile);
+      coinsRef.current = payload.profile.coins;
+      setMoneyShopError("");
+    } catch (error) {
+      setMoneyShopError(error instanceof Error ? error.message : "Conversion failed.");
+    } finally {
+      setMoneyConverting(false);
+    }
+  }, [applyProfileStats]);
+
+  const handleMoneyShopAction = useCallback(async (itemId: string, action: "buy" | "sell") => {
+    setMoneyShopPendingItemId(itemId);
+    try {
+      const response = await fetch("/api/user/money-shop", {
+        body: JSON.stringify({ action, itemId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; profile?: Profile } | null;
+      if (!response.ok || !payload?.profile) {
+        throw new Error(payload?.error ?? "That did not go through.");
+      }
+      applyProfileStats(payload.profile);
+      setMoneyShopError("");
+      // Refresh so ownedFromShop (and therefore the Return button) is accurate.
+      await loadMoneyShop();
+    } catch (error) {
+      setMoneyShopError(error instanceof Error ? error.message : "That did not go through.");
+    } finally {
+      setMoneyShopPendingItemId(null);
+    }
+  }, [applyProfileStats, loadMoneyShop]);
 
   const collectDuePetWeeklyTax = useCallback(async () => {
     if (
@@ -10850,6 +10941,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       badge: isPetUnlocked ? undefined : "Locked",
     },
     { key: "shop" as const, label: "Shop" },
+    { key: "moneyShop" as const, label: "Money Shop" },
     { key: "crates" as const, label: "Cases" },
     {
       key: "debt" as const,
@@ -11375,17 +11467,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const currentWeeklyTaxCost = getPetWeeklyTaxCost(coins);
   const profileLeadership = getLeadershipRank(tributeTotal);
   const readyTaskCount = tasks.filter((task) => !task.completed && !task.claimed && (!task.cooldownUntil || new Date(task.cooldownUntil).getTime() <= Date.now())).length;
+  // Copy is written in Principessa's voice on purpose - this block is the first
+  // thing a returning user reads, and "Complete your assigned tasks" reads like
+  // a project tracker instead of a court. Keep it second person, cold, terse.
   const homeActions: HomeAction[] = [];
-  if (readyTaskCount > 0) homeActions.push({ action: "Go", detail: `${readyTaskCount} task${readyTaskCount === 1 ? "" : "s"} ready for your attention.`, label: "Complete your assigned tasks", target: "tasks" });
-  if (isPetUnlocked && nextPetTaxDueAt && new Date(nextPetTaxDueAt).getTime() <= Date.now()) homeActions.push({ action: "Pay", detail: `Weekly tax is due (${currentWeeklyTaxCost.toLocaleString()} coins).`, label: "Keep your pet status current", target: "pet" });
-  if (Object.values(crateOpenCredits).some((count) => count > 0)) homeActions.push({ action: "Open", detail: "A granted case opening is waiting in your vault.", label: "Use your free case opening", target: "crates" });
+  if (readyTaskCount > 0) homeActions.push({ action: "Obey", detail: `${readyTaskCount} of them, still untouched.`, label: "She has already told you what to do", target: "tasks" });
+  if (isPetUnlocked && nextPetTaxDueAt && new Date(nextPetTaxDueAt).getTime() <= Date.now()) homeActions.push({ action: "Pay", detail: `${currentWeeklyTaxCost.toLocaleString()} coins. Being late is remembered.`, label: "Your weekly tax is overdue", target: "pet" });
+  if (Object.values(crateOpenCredits).some((count) => count > 0)) homeActions.push({ action: "Open", detail: "She decides what is inside. You do not.", label: "Something in your vault is still sealed", target: "crates" });
   const petThroneTask = petTaskState.find((task) => task.id === PET_THRONE_TASK_ID);
-  if (isPetUnlocked && petThroneTask?.status === "available") homeActions.push({ action: "Open", detail: "Your PT code is ready for a Throne tribute.", label: "Use your Throne Bonus code", target: "pet" });
-  const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
-  const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 3).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
-  const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
-  const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
-  const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 3).map((entry, index) => ({ name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
+  if (isPetUnlocked && petThroneTask?.status === "available") homeActions.push({ action: "Tribute", detail: "Send it on Throne, then bring her the proof.", label: "Your tribute code is unused", target: "pet" });
+  const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
+  const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
+  const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
+  const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
+  const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
 
   return (
     <main
@@ -11397,7 +11492,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         activePage={activePanel}
         coins={coins}
         items={dashboardNavItems}
-        onAddCoins={() => setShowCoinCodeModal(true)}
+        money={principessaMoney}
+        onAddMoney={() => setShowCoinCodeModal(true)}
         onCoinsChange={(nextCoins) => {
           setCoins(nextCoins);
           coinsRef.current = nextCoins;
@@ -11830,6 +11926,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               ownedItems={crateInventory}
               liveEquippedSlots={equippedAvatarSlots}
               liveEquippedFullSetId={equippedFullSetId}
+            />
+          )}
+          {activePanel === "moneyShop" && (
+            <MoneyShopPanel
+              coins={coins}
+              disabled={isTimeoutActive || isPreviewRestricted}
+              error={moneyShopError}
+              isConverting={moneyConverting}
+              isLoading={moneyShopLoading}
+              items={moneyShopItems}
+              money={principessaMoney}
+              pendingItemId={moneyShopPendingItemId}
+              onAddMoney={() => setShowCoinCodeModal(true)}
+              onBuy={(itemId) => void handleMoneyShopAction(itemId, "buy")}
+              onConvert={(amount) => void handleMoneyConvert(amount)}
+              onSell={(itemId) => void handleMoneyShopAction(itemId, "sell")}
             />
           )}
           {activePanel === "shop" && (
