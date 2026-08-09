@@ -39,16 +39,37 @@ export async function POST(request: Request) {
     return Response.json({ error: "Amount must be a non-zero whole number." }, { status: 400 });
   }
 
-  const rawUsername = (body?.username ?? "").trim().replace(/^@/, "");
-  if (!rawUsername) {
+  const rawUsername = (body?.username ?? "").trim().replace(/^@+/, "");
+  const normalizedUsername = rawUsername.toLowerCase();
+  if (!normalizedUsername) {
     return Response.json({ error: "Username is required." }, { status: 400 });
   }
 
-  const { data: profile, error: profileError } = await admin.supabase
+  // Username is the canonical identity. Keep twitter_handle as a fallback for
+  // older profiles, some of which stored the handle with a leading @.
+  const profileColumns = "id, username, twitter_handle, principessa_money";
+  const usernameLookup = await admin.supabase
     .from("profiles")
-    .select("id, username, twitter_handle, principessa_money")
-    .or(`username.ilike.${rawUsername},twitter_handle.ilike.${rawUsername}`)
+    .select(profileColumns)
+    .ilike("username", normalizedUsername)
     .maybeSingle();
+
+  let profile = usernameLookup.data;
+  let profileError = usernameLookup.error;
+
+  if (!profile && !profileError) {
+    const twitterLookup = await admin.supabase
+      .from("profiles")
+      .select(profileColumns)
+      .or(`twitter_handle.ilike.${normalizedUsername},twitter_handle.ilike.@${normalizedUsername}`)
+      .limit(2);
+
+    profileError = twitterLookup.error;
+    profile = twitterLookup.data?.length === 1 ? twitterLookup.data[0] : null;
+    if (!profile && !profileError && (twitterLookup.data?.length ?? 0) > 1) {
+      return Response.json({ error: `Multiple users match @${rawUsername}; use the exact username.` }, { status: 409 });
+    }
+  }
 
   if (profileError) {
     return Response.json({ error: profileError.message }, { status: 500 });
