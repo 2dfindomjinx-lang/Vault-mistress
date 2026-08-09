@@ -117,13 +117,15 @@ async function consumeCrateOpenGrants(
     }
 
     const nextRemaining = previousRemaining - used;
-    const { error: updateError } = await supabase
+    const { data: updatedGrant, error: updateError } = await supabase
       .from("user_crate_open_grants")
       .update({ remaining_opens: nextRemaining, updated_at: new Date().toISOString() })
       .eq("id", row.id)
-      .eq("remaining_opens", previousRemaining);
+      .eq("remaining_opens", previousRemaining)
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updatedGrant) {
       console.error("[crates] open grant consume update failed", updateError);
       throw new Error("Could not use free case keys.");
     }
@@ -147,7 +149,8 @@ async function restoreCrateOpenGrants(
       supabase
         .from("user_crate_open_grants")
         .update({ remaining_opens: entry.previousRemaining, updated_at: new Date().toISOString() })
-        .eq("id", entry.id),
+        .eq("id", entry.id)
+        .eq("remaining_opens", entry.previousRemaining - entry.used),
     ),
   );
 }
@@ -400,7 +403,7 @@ async function openCrateBatch(
   const nextCoins = profile.coins - finalBatchCost;
   const nowIso = new Date().toISOString();
 
-  const { error: coinUpdateErr } = await supabase
+  const { data: updatedProfile, error: coinUpdateErr } = await supabase
     .from("profiles")
     .update({
       coins: nextCoins,
@@ -409,9 +412,11 @@ async function openCrateBatch(
       updated_at: nowIso,
     })
     .eq("id", userId)
-    .eq("coins", profile.coins);
+    .eq("coins", profile.coins)
+    .select("id")
+    .maybeSingle();
 
-  if (coinUpdateErr) {
+  if (coinUpdateErr || !updatedProfile) {
     console.error("[crates] batch coin deduction failed", coinUpdateErr);
     await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Crate purchase failed (balance changed).", 409);
@@ -424,7 +429,7 @@ async function openCrateBatch(
 
   if (existingInventory.error) {
     console.error("[crates] batch inventory read failed", existingInventory.error);
-    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
     await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Failed to load inventory.", 500);
   }
@@ -463,7 +468,15 @@ async function openCrateBatch(
 
   if (invFailure?.error) {
     console.error("[crates] batch inventory upsert failed", invFailure.error);
-    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await Promise.all(Array.from(batchCounts.entries()).map(async ([key]) => {
+      const [itemId, variant] = key.split(":");
+      const previousQty = inventoryMap.get(key) ?? 0;
+      const query = previousQty > 0
+        ? supabase.from("user_crate_inventory").update({ quantity: previousQty }).eq("user_id", userId).eq("item_id", itemId).eq("variant", variant)
+        : supabase.from("user_crate_inventory").delete().eq("user_id", userId).eq("item_id", itemId).eq("variant", variant);
+      await query;
+    }));
+    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
     await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Failed to grant item. Coins refunded.", 500);
   }
@@ -486,7 +499,15 @@ async function openCrateBatch(
 
   if (txInsert.error) {
     console.error("[crates] batch open transaction logging failed", txInsert.error);
-    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId);
+    await Promise.all(Array.from(batchCounts.entries()).map(async ([key]) => {
+      const [itemId, variant] = key.split(":");
+      const previousQty = inventoryMap.get(key) ?? 0;
+      const query = previousQty > 0
+        ? supabase.from("user_crate_inventory").update({ quantity: previousQty }).eq("user_id", userId).eq("item_id", itemId).eq("variant", variant)
+        : supabase.from("user_crate_inventory").delete().eq("user_id", userId).eq("item_id", itemId).eq("variant", variant);
+      await query;
+    }));
+    await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
     await restoreCrateOpenGrants(supabase, consumedGrants);
     return jsonError("Crate purchase logging failed.", 500);
   }
@@ -848,13 +869,15 @@ export async function POST(request: Request) {
     const nextCoins = profile.coins - finalOpenCost;
 
     // Atomic: update coins + inventory quantity + tx + history
-    const { error: coinUpdateErr } = await supabase
+    const { data: updatedProfile, error: coinUpdateErr } = await supabase
       .from("profiles")
       .update({ coins: nextCoins, updated_at: new Date().toISOString() })
       .eq("id", userId)
-      .eq("coins", profile.coins); // optimistic / race protection
+      .eq("coins", profile.coins) // optimistic / race protection
+      .select("id")
+      .maybeSingle();
 
-    if (coinUpdateErr) {
+    if (coinUpdateErr || !updatedProfile) {
       console.error("[crates] coin deduction failed", coinUpdateErr);
       await restoreCrateOpenGrants(supabase, consumedGrants);
       return jsonError("Crate purchase failed (balance changed).", 409);
@@ -889,7 +912,7 @@ export async function POST(request: Request) {
     if (invErr) {
       console.error("[crates] inventory upsert failed after coin charge", invErr);
       // Best effort refund
-      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
+      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId).eq("coins", nextCoins);
       await restoreCrateOpenGrants(supabase, consumedGrants);
       return jsonError("Failed to grant item. Coins refunded.", 500);
     }
@@ -913,7 +936,7 @@ export async function POST(request: Request) {
 
     if (txErr) {
       console.error("[crates] open transaction logging failed", txErr);
-      await supabase.from("profiles").update({ coins: profile.coins, updated_at: new Date().toISOString() }).eq("id", userId);
+      await supabase.from("profiles").update({ coins: profile.coins, updated_at: new Date().toISOString() }).eq("id", userId).eq("coins", nextCoins);
       await restoreCrateOpenGrants(supabase, consumedGrants);
       if (previousInventoryQty > 0) {
         const { error: restoreInvErr } = await supabase
@@ -1048,32 +1071,52 @@ export async function POST(request: Request) {
     const newQty = invRow.quantity - qtyToSell;
 
     // Update coins
-    const { error: coinErr } = await supabase
+    const { data: updatedProfile, error: coinErr } = await supabase
       .from("profiles")
       .update({ coins: nextCoins, updated_at: new Date().toISOString() })
       .eq("id", userId)
-      .eq("coins", profile.coins);
+      .eq("coins", profile.coins)
+      .select("id")
+      .maybeSingle();
 
-    if (coinErr) {
+    if (coinErr || !updatedProfile) {
       console.error("[crates] sell coin update failed", coinErr);
       return jsonError("Sale failed.", 500);
     }
 
     // Update or delete inventory row
+    let inventoryChanged = false;
     if (newQty > 0) {
-      await supabase
+      const { data: updatedInventory, error: inventoryError } = await supabase
         .from("user_crate_inventory")
         .update({ quantity: newQty })
         .eq("user_id", userId)
         .eq("item_id", itemId)
-        .eq("variant", variant);
+        .eq("variant", variant)
+        .eq("quantity", invRow.quantity)
+        .select("item_id")
+        .maybeSingle();
+      inventoryChanged = !inventoryError && Boolean(updatedInventory);
     } else {
-      await supabase
+      const { data: deletedInventory, error: inventoryError } = await supabase
         .from("user_crate_inventory")
         .delete()
         .eq("user_id", userId)
         .eq("item_id", itemId)
-        .eq("variant", variant);
+        .eq("variant", variant)
+        .eq("quantity", invRow.quantity)
+        .select("item_id")
+        .maybeSingle();
+      inventoryChanged = !inventoryError && Boolean(deletedInventory);
+    }
+
+    if (!inventoryChanged) {
+      await supabase
+        .from("profiles")
+        .update({ coins: profile.coins, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("coins", nextCoins);
+      return jsonError("Sale collided with another inventory update.", 409);
     }
 
     // Positive coin transaction for the sale
@@ -1196,13 +1239,15 @@ export async function POST(request: Request) {
     const nextCoins = profile.coins + totalSellValue;
 
     // Single coin update with race protection
-    const { error: coinErr } = await supabase
+    const { data: updatedProfile, error: coinErr } = await supabase
       .from("profiles")
       .update({ coins: nextCoins, updated_at: new Date().toISOString() })
       .eq("id", userId)
-      .eq("coins", profile.coins);
+      .eq("coins", profile.coins)
+      .select("id")
+      .maybeSingle();
 
-    if (coinErr) {
+    if (coinErr || !updatedProfile) {
       console.error("[crates] sell_all coin update failed", coinErr);
       return jsonError("Sale failed (balance changed).", 409);
     }
@@ -1215,15 +1260,22 @@ export async function POST(request: Request) {
           .delete()
           .eq("user_id", userId)
           .eq("item_id", detail.item_id)
-          .eq("variant", detail.variant),
+          .eq("variant", detail.variant)
+          .eq("quantity", detail.quantity)
+          .select("item_id")
+          .maybeSingle(),
       ),
     );
 
-    const deleteFailure = deleteResults.find((result) => result.error);
-    if (deleteFailure?.error) {
+    const deleteFailure = deleteResults.find((result) => result.error || !result.data);
+    if (deleteFailure) {
       console.error("[crates] sell_all inventory delete failed", deleteFailure.error);
+      await Promise.all(sellDetails.map((detail) => supabase.from("user_crate_inventory").upsert(
+        { user_id: userId, item_id: detail.item_id, variant: detail.variant, quantity: detail.quantity },
+        { onConflict: "user_id,item_id,variant" },
+      )));
       // Best effort refund
-      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId);
+      await supabase.from("profiles").update({ coins: profile.coins }).eq("id", userId).eq("coins", nextCoins);
       return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
     }
 

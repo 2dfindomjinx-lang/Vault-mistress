@@ -179,6 +179,7 @@ export function MoneyShopPanel({
             {items.map((item) => {
               const isPending = pendingItemId === item.itemId;
               const canAfford = money >= item.pricePm;
+              const ownsInInventory = item.ownedInInventory > 0;
 
               return (
                 <article
@@ -203,6 +204,11 @@ export function MoneyShopPanel({
 
                   <div className="flex flex-1 flex-col p-3">
                     <p className="truncate text-sm font-black text-white">{item.name}</p>
+                    {ownsInInventory ? (
+                      <p className="mt-1 text-[11px] font-semibold leading-4 text-emerald-200/80">
+                        You already own this item in your inventory.
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-[11px] text-zinc-500">
                       Sells for {item.sellValueCoins.toLocaleString()} coins from a case
                     </p>

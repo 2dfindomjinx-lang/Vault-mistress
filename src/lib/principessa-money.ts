@@ -90,4 +90,5 @@ export type MoneyShopEntry = {
   pricePm: number;
   buybackPm: number;
   ownedFromShop: number;
+  ownedInInventory: number;
 };

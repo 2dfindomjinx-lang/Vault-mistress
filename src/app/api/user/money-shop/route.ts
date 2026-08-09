@@ -50,12 +50,14 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data: inventory } = await supabase
     .from("user_crate_inventory")
-    .select("item_id, pm_quantity")
+    .select("item_id, quantity, pm_quantity")
     .eq("user_id", userId);
 
   const ownedFromShop = new Map<string, number>();
-  for (const row of (inventory ?? []) as Array<{ item_id: string; pm_quantity: number | null }>) {
+  const ownedInInventory = new Map<string, number>();
+  for (const row of (inventory ?? []) as Array<{ item_id: string; quantity: number | null; pm_quantity: number | null }>) {
     ownedFromShop.set(row.item_id, Math.max(0, Number(row.pm_quantity) || 0));
+    ownedInInventory.set(row.item_id, Math.max(0, Number(row.quantity) || 0));
   }
 
   const entries: MoneyShopEntry[] = ALL_LEGENDARY_ITEM_IDS.map((itemId) => getShopItem(itemId))
@@ -71,6 +73,7 @@ export async function GET() {
         pricePm,
         rarity: item.rarity,
         sellValueCoins: item.sell_value,
+        ownedInInventory: ownedInInventory.get(item.item_id) ?? 0,
       };
     })
     .sort((left, right) => left.pricePm - right.pricePm || left.name.localeCompare(right.name));
@@ -87,7 +90,10 @@ export async function POST(request: Request) {
   if (!userId) return jsonError("Authentication required.", 401);
 
   const body = (await request.json().catch(() => null)) as { action?: string; itemId?: string } | null;
-  const action = body?.action === "sell" ? "sell" : "buy";
+  if (body?.action !== "buy" && body?.action !== "sell") {
+    return jsonError("Invalid Money Shop action.", 422);
+  }
+  const action = body.action;
   const itemId = typeof body?.itemId === "string" ? body.itemId : "";
   const item = getShopItem(itemId);
   if (!item) return jsonError("That item is not sold here.", 404);
@@ -174,7 +180,7 @@ export async function POST(request: Request) {
       return jsonError(updateError?.message ?? "Balance changed, try again.", updateError ? 500 : 409);
     }
 
-    await supabase.from("money_transactions").insert({
+    const { error: transactionError } = await supabase.from("money_transactions").insert({
       amount: refundPm,
       balance_after: nextMoney,
       balance_before: money,
@@ -182,6 +188,19 @@ export async function POST(request: Request) {
       reason: "money-shop:buyback",
       user_id: userId,
     });
+
+    if (transactionError) {
+      await supabase
+        .from("profiles")
+        .update({ principessa_money: money, updated_at: new Date().toISOString() })
+        .eq("id", userId)
+        .eq("principessa_money", nextMoney);
+      await supabase.from("user_crate_inventory").upsert(
+        { item_id: itemId, pm_quantity: currentPmQuantity, quantity: currentQuantity, user_id: userId, variant: "normal" },
+        { onConflict: "user_id,item_id,variant" },
+      );
+      return jsonError("Buyback logging failed; nothing was changed.", 500);
+    }
 
     return Response.json({ profile: updatedProfile, refundPm });
   }
@@ -223,7 +242,7 @@ export async function POST(request: Request) {
     return jsonError("Purchase failed, nothing was charged.", 500);
   }
 
-  await supabase.from("money_transactions").insert({
+  const { error: transactionError } = await supabase.from("money_transactions").insert({
     amount: -pricePm,
     balance_after: nextMoney,
     balance_before: money,
@@ -231,6 +250,19 @@ export async function POST(request: Request) {
     reason: "money-shop:purchase",
     user_id: userId,
   });
+
+  if (transactionError) {
+    await supabase
+      .from("profiles")
+      .update({ principessa_money: money, updated_at: new Date().toISOString() })
+      .eq("id", userId)
+      .eq("principessa_money", nextMoney);
+    await supabase.from("user_crate_inventory").upsert(
+      { item_id: itemId, pm_quantity: currentPmQuantity, quantity: currentQuantity, user_id: userId, variant: "normal" },
+      { onConflict: "user_id,item_id,variant" },
+    );
+    return jsonError("Purchase logging failed; nothing was changed.", 500);
+  }
 
   return Response.json({ pricePm, profile: updatedProfile });
 }

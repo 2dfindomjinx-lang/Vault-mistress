@@ -2247,13 +2247,18 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     loadDrainLeaderboard();
   }, [authBootstrapped, loadDrainLeaderboard]);
 
-  const loadMoneyShop = useCallback(async () => {
+  // `silent` is for the post-purchase reconcile: it keeps the catalogue on
+  // screen instead of swapping it for the "Loading the vault..." placeholder,
+  // and leaves the existing items alone if the background refresh fails. The
+  // grid has already been patched locally by then, so a flash and a blank-out
+  // are both pure noise there.
+  const loadMoneyShop = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (isGuestMode || isPreviewMode || !isLoggedIn) {
       setMoneyShopItems([]);
       return;
     }
 
-    setMoneyShopLoading(true);
+    if (!silent) setMoneyShopLoading(true);
     try {
       const response = await fetch("/api/user/money-shop", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as { error?: string; items?: MoneyShopEntry[] } | null;
@@ -2263,10 +2268,14 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       setMoneyShopItems(payload.items);
       setMoneyShopError("");
     } catch (error) {
+      if (silent) {
+        console.warn("Money Shop background refresh failed", error);
+        return;
+      }
       setMoneyShopItems([]);
       setMoneyShopError(error instanceof Error ? error.message : "Failed to load the Money Shop.");
     } finally {
-      setMoneyShopLoading(false);
+      if (!silent) setMoneyShopLoading(false);
     }
   }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
@@ -4589,8 +4598,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setPrincipessaMoney(profile.principessa_money ?? 0);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
-    setTributeCode(profile.tribute_code ?? null);
-    setPetTributeCode(profile.pet_tribute_code ?? null);
+    // Callers hand us a row selected with `profileSelect`, which does NOT carry
+    // either tribute code. Coercing the absent key to null wiped them out of
+    // state after any coin/money action, so the Throne modal fell back to
+    // "VM-CODE-UNAVAILABLE" until a full profile reload. Only a key that is
+    // actually present is allowed to overwrite them.
+    if (profile.tribute_code !== undefined) setTributeCode(profile.tribute_code);
+    if (profile.pet_tribute_code !== undefined) setPetTributeCode(profile.pet_tribute_code);
     setTotalDevotion(profile.total_devotion ?? 0);
     setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
     setPetScore(profile.pet_score ?? 0);
@@ -4659,8 +4673,25 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }
       applyProfileStats(payload.profile);
       setMoneyShopError("");
-      // Refresh so ownedFromShop (and therefore the Return button) is accurate.
-      await loadMoneyShop();
+      // The server mutation is exactly +-1 on this one item, so patch that card
+      // in place. A full refetch here re-rendered the whole catalogue through
+      // its loading placeholder, which read as the page reloading itself after
+      // every purchase.
+      const delta = action === "buy" ? 1 : -1;
+      setMoneyShopItems((current) =>
+        current.map((entry) =>
+          entry.itemId === itemId
+            ? {
+                ...entry,
+                ownedFromShop: Math.max(0, entry.ownedFromShop + delta),
+                ownedInInventory: Math.max(0, entry.ownedInInventory + delta),
+              }
+            : entry,
+        ),
+      );
+      // Reconcile against the server without the flash, in case another tab or
+      // a case opening moved the same item's inventory row underneath us.
+      void loadMoneyShop({ silent: true });
     } catch (error) {
       setMoneyShopError(error instanceof Error ? error.message : "That did not go through.");
     } finally {

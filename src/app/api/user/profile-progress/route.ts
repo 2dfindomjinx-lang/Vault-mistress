@@ -190,7 +190,6 @@ export async function POST(request: Request) {
   let cooldownRow: CooldownTaskRow | null = null;
   const isRewardReason =
     reason === "beg" ||
-    reason === "reward:case-opening" ||
     reason.includes("timeout-risk") ||
     reason.includes("wait-obediently") ||
     reason.startsWith("reward:task:") ||
@@ -271,9 +270,7 @@ export async function POST(request: Request) {
     let taskId =
       reason === "beg"
         ? "beg"
-        : reason === "reward:case-opening"
-          ? "case-opening"
-          : reason.replace("task:", "").replace("reward:task:", "");
+        : reason.replace("task:", "").replace("reward:task:", "");
     if (reason === "streak_bonus") {
       taskId = stringFromMetadata(metadata, "taskId") ?? "";
     }
@@ -471,11 +468,9 @@ export async function POST(request: Request) {
     const taskSourceId =
       reason === "beg"
         ? "beg"
-        : reason === "reward:case-opening"
-          ? "case-opening"
-          : reason === "streak_bonus"
-            ? stringFromMetadata(metadata, "taskId") ?? "streak-bonus"
-            : reason.replace("task:", "").replace("reward:task:", "");
+        : reason === "streak_bonus"
+          ? stringFromMetadata(metadata, "taskId") ?? "streak-bonus"
+          : reason.replace("task:", "").replace("reward:task:", "");
 
     try {
       await awardDevotion(supabase, {

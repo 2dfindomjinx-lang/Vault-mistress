@@ -197,8 +197,10 @@ export async function POST(request: Request) {
     .from("profiles")
     .update({ coins: nextCoins, pet_score: nextPetScore })
     .eq("id", profile.id)
+    .eq("coins", profile.coins)
+    .eq("pet_score", profile.pet_score)
     .select("id, coins, pet_score")
-    .single();
+    .maybeSingle();
 
   if (profileUpdateError || !updatedProfile) {
     console.error("[pet-daily-click] profile update failed", {
@@ -235,7 +237,9 @@ export async function POST(request: Request) {
       const { error: rollbackProfileError } = await supabase
         .from("profiles")
         .update({ coins: profile.coins, pet_score: profile.pet_score })
-        .eq("id", profile.id);
+        .eq("id", profile.id)
+        .eq("coins", nextCoins)
+        .eq("pet_score", nextPetScore);
 
       if (rollbackProfileError) {
         console.error("[pet-daily-click] profile rollback failed", {
