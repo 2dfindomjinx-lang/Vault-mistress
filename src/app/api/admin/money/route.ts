@@ -39,43 +39,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Amount must be a non-zero whole number." }, { status: 400 });
   }
 
-  const rawUsername = (body?.username ?? "").trim().replace(/^@+/, "");
-  const normalizedUsername = rawUsername.toLowerCase();
+  const rawUsername = (body?.username ?? "").trim();
+  const normalizedUsername = rawUsername.toLowerCase().replace(/^@+/, "");
+  const profileUsername = `@${normalizedUsername}`;
   if (!normalizedUsername) {
     return Response.json({ error: "Username is required." }, { status: 400 });
   }
 
-  // Username is the canonical identity. Keep twitter_handle as a fallback for
-  // older profiles, some of which stored the handle with a leading @.
-  const profileColumns = "id, username, twitter_handle, principessa_money";
-  const usernameLookup = await admin.supabase
+  // Keep this identical to the working /give and /add commands: username is
+  // the canonical profile key and is stored with its leading @.
+  const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
-    .select(profileColumns)
-    .ilike("username", normalizedUsername)
+    .select("id, username, twitter_handle, principessa_money")
+    .eq("username", profileUsername)
     .maybeSingle();
-
-  let profile = usernameLookup.data;
-  let profileError = usernameLookup.error;
-
-  if (!profile && !profileError) {
-    const twitterLookup = await admin.supabase
-      .from("profiles")
-      .select(profileColumns)
-      .or(`twitter_handle.ilike.${normalizedUsername},twitter_handle.ilike.@${normalizedUsername}`)
-      .limit(2);
-
-    profileError = twitterLookup.error;
-    profile = twitterLookup.data?.length === 1 ? twitterLookup.data[0] : null;
-    if (!profile && !profileError && (twitterLookup.data?.length ?? 0) > 1) {
-      return Response.json({ error: `Multiple users match @${rawUsername}; use the exact username.` }, { status: 409 });
-    }
-  }
 
   if (profileError) {
     return Response.json({ error: profileError.message }, { status: 500 });
   }
   if (!profile) {
-    return Response.json({ error: `No user matches @${rawUsername}.` }, { status: 404 });
+    return Response.json({ error: `No user matches ${profileUsername}.` }, { status: 404 });
   }
 
   const previousMoney = Math.max(0, Math.floor(Number(profile.principessa_money) || 0));
