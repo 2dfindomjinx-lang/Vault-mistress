@@ -48,7 +48,11 @@ export type SoundDefinition = {
 
 const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   gameplayEnabled: true,
-  masterVolume: 0.7,
+  // Raised from 0.7. Every cue is now attenuated to a common -30.5 LUFS base
+  // (see the registry note), so the headroom that used to be spent hiding the
+  // loudest asset belongs to the master control instead. Anyone with a stored
+  // setting keeps it - this only affects a fresh browser.
+  masterVolume: 1,
   uiEnabled: true,
 };
 const SOUND_SETTINGS_STORAGE_KEY = "vault:sound-settings";
@@ -56,33 +60,71 @@ const SOUND_SETTINGS_STORAGE_KEY = "vault:sound-settings";
 /** Upper bound on simultaneous elements per source, so a stuck loop cannot pile up. */
 const MAX_VOICES_PER_SOURCE = 4;
 
-// Volumes are set against each other by ear, not by peak level: the sustained
-// low cues (error, task_fail) measure louder in RMS than the bells at the same
-// peak, so they are pulled down here rather than re-rendered quieter.
+// LEVELS ARE MEASURED, NOT GUESSED.
+//
+// The assets come from two sources - some generated, some hand-made - and at
+// unity gain they spanned 25dB, from -38.5 to -12.7 LUFS. No master-volume
+// slider can rescue that: the setting that makes the quiet cues audible makes
+// the loud ones painful. That is what "perfect ses ayari imkansiz" was.
+//
+// Each `volume` below is therefore computed, not chosen:
+//
+//   volume = 10 ^ ((BASE_LUFS + offset - measuredLufs) / 20)
+//
+// `measuredLufs` is ITU-R BS.1770 K-weighted loudness over the loudest 300ms
+// window. Integrated loudness is the wrong measure for one-shots - it averages
+// in the decay tail and reports a long ringing bell as quiet.
+//
+// BASE_LUFS is -30.5. It is set by the quietest asset that cannot be re-encoded
+// (affection-level-up.mp3 at -29.2): every other cue has to come DOWN to meet
+// it, because HTMLAudioElement.volume caps at 1.0 and cannot push anything up.
+// debt-contract-signed.wav was 8dB below even that, so its PCM was rescaled
+// with scripts/normalize-sound-asset.mjs rather than left unreachable.
+//
+// `offset` is the only judgement call: how loud a cue SHOULD be relative to the
+// others. Matching everything to the same number would be its own mistake - a
+// reel tick and a legendary pull are not equally important.
+//
+// To retune: re-measure, do not nudge by ear. Nudging by ear is how the 25dB
+// spread happened.
+//
+//   asset                        measured   offset   volume
+//   button-click.wav              -21.9dB    -5dB     0.21
+//   crate-reel-tick.mp3           -24.0dB    -7dB     0.21
+//   error.wav                     -16.2dB    -2dB     0.15
+//   task-completion.wav           -15.2dB     0dB     0.17
+//   task-fail.wav                 -15.1dB    -2dB     0.14
+//   tribute-sent.wav              -15.1dB    +1dB     0.19
+//   cosmetic-purchased.wav        -13.2dB    -1dB     0.12
+//   debt-contract-signed.wav      -30.5dB     0dB     1.00  (rescaled asset)
+//   gallery-unlock.mp3            -26.5dB    +1dB     0.71
+//   affection-level-up.mp3        -29.2dB    +1dB     0.97
+//   random-event-activation.mp3   -23.1dB     0dB     0.43
+//   crate-reveal.mp3              -13.8dB    -1dB     0.13
+//   crate-legendary-reveal.mp3    -12.7dB    +3dB     0.18
 const soundRegistry: Record<SoundEventName, SoundDefinition> = {
-  button_click: { category: "ui", src: "/sounds/button-click.wav", volume: 0.45, minIntervalMs: 45, polyphonic: true },
-  // Original hand-made asset, kept by preference. Not produced by
-  // scripts/generate-sounds.mjs - do not "fix" the extension to .wav.
-  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.3, minIntervalMs: 28, polyphonic: true },
-  error: { category: "ui", src: "/sounds/error.wav", volume: 0.5, minIntervalMs: 450 },
+  // Quietest things in the app: they fire constantly and must never draw
+  // attention to themselves.
+  button_click: { category: "ui", src: "/sounds/button-click.wav", volume: 0.21, minIntervalMs: 45, polyphonic: true },
+  // Original hand-made asset. Not produced by scripts/generate-sounds.mjs - do
+  // not "fix" the extension to .wav.
+  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.21, minIntervalMs: 28, polyphonic: true },
+  error: { category: "ui", src: "/sounds/error.wav", volume: 0.15, minIntervalMs: 450 },
 
-  task_completion: { category: "gameplay", src: "/sounds/task-completion.wav", volume: 0.7, minIntervalMs: 180 },
-  task_fail: { category: "gameplay", src: "/sounds/task-fail.wav", volume: 0.55, minIntervalMs: 400 },
-  tribute_sent: { category: "gameplay", src: "/sounds/tribute-sent.wav", volume: 0.8 },
-  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav", volume: 0.7, minIntervalMs: 180 },
+  task_completion: { category: "gameplay", src: "/sounds/task-completion.wav", volume: 0.17, minIntervalMs: 180 },
+  task_fail: { category: "gameplay", src: "/sounds/task-fail.wav", volume: 0.14, minIntervalMs: 400 },
+  tribute_sent: { category: "gameplay", src: "/sounds/tribute-sent.wav", volume: 0.19 },
+  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav", volume: 0.12, minIntervalMs: 180 },
 
-  // Everything below keeps its ORIGINAL hand-made asset, by preference. They
-  // are not produced by scripts/generate-sounds.mjs and several are .mp3 - do
-  // not "tidy" the extensions to match the generated ones above.
-  //
-  // Their levels are the originals too, so they sound exactly as they did
-  // before the palette work.
-  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav", volume: 0.65 },
-  gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3" },
-  affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3" },
-  random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3" },
-  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.5 },
-  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 0.6 },
+  // Everything below keeps its ORIGINAL hand-made asset, by preference. Several
+  // are .mp3 - do not "tidy" the extensions to match the generated ones above.
+  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav", volume: 1 },
+  gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3", volume: 0.71 },
+  affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3", volume: 0.97 },
+  random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3", volume: 0.43 },
+  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.13 },
+  // Loudest cue in the app by design, and now by only 3dB rather than by luck.
+  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 0.18 },
 };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
