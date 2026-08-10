@@ -221,27 +221,6 @@ type AdminPremiumTitlePoolEntry = {
   enabled: boolean;
 };
 
-type CaseOpening = {
-  id: string;
-  crateName: string;
-  itemName: string;
-  itemRarity: string;
-  itemChancePercent: number | null;
-  itemSellValue: number | null;
-  openedAt: string;
-};
-
-type CaseOpener = {
-  id: string;
-  username: string;
-  avatarUrl: string | null;
-  usernameStyle?: { color?: string; textShadow?: string };
-  lastOpenedAt: string;
-  totalOpens: number;
-  totalCoinsWon: number;
-  recentOpenings: CaseOpening[];
-};
-
 type ThroneEventRow = {
   eventId: string;
   status: string;
@@ -257,7 +236,6 @@ type ThroneEventRow = {
 
 type AdminTabKey =
   | "announcements"
-  | "caseOpeners"
   | "console"
   | "debt"
   | "events"
@@ -301,7 +279,6 @@ function getAdminDebtRemainingBalance(
 
 type AdminLoadKey =
   | "announcements"
-  | "caseOpeners"
   | "debt"
   | "events"
   | "throneEvents"
@@ -394,18 +371,18 @@ export default function AdminPage() {
   const [announcementDays, setAnnouncementDays] = useState("3");
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
-  const [caseOpeners, setCaseOpeners] = useState<CaseOpener[]>([]);
   const [throneCredited, setThroneCredited] = useState<ThroneEventRow[]>([]);
   const [throneUnmatched, setThroneUnmatched] = useState<ThroneEventRow[]>([]);
   const [throneUnmatchedTotalUsd, setThroneUnmatchedTotalUsd] = useState(0);
-  const [expandedCaseOpenerId, setExpandedCaseOpenerId] = useState<string | null>(null);
+  const [throneIgnored, setThroneIgnored] = useState<ThroneEventRow[]>([]);
+  const [showThroneIgnored, setShowThroneIgnored] = useState(false);
+  const [throneEventPendingId, setThroneEventPendingId] = useState<string | null>(null);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [defneMessage, setDefneMessage] = useState("Admin ledger ready. Be precise.");
   const [busyRequestCount, setBusyRequestCount] = useState(0);
   const [loadingSections, setLoadingSections] = useState<Record<AdminLoadKey, boolean>>({
     announcements: false,
-    caseOpeners: false,
     debt: false,
     events: false,
     irlTasks: false,
@@ -418,7 +395,6 @@ export default function AdminPage() {
   });
   const [loadedSections, setLoadedSections] = useState<Record<AdminLoadKey, boolean>>({
     announcements: false,
-    caseOpeners: false,
     debt: false,
     events: false,
     irlTasks: false,
@@ -557,36 +533,6 @@ export default function AdminPage() {
     }
   };
 
-  const loadCaseOpeners = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
-    if (!isAdmin) {
-      return;
-    }
-
-    setSectionLoading("caseOpeners", true);
-    if (!keepStatus) {
-      setStatus("");
-    }
-
-    try {
-      const response = await fetch("/api/recent-case-openings", { cache: "no-store" });
-      const result = (await response.json()) as {
-        error?: string;
-        openers?: CaseOpener[];
-      };
-
-      if (!response.ok) {
-        throw new Error(result.error ?? "Recent case openers failed.");
-      }
-
-      setCaseOpeners(result.openers ?? []);
-      markSectionLoaded("caseOpeners");
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Recent case openers failed.");
-    } finally {
-      setSectionLoading("caseOpeners", false);
-    }
-  };
-
   const loadThroneEvents = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
     if (!isAdmin) {
       return;
@@ -602,6 +548,7 @@ export default function AdminPage() {
       const result = (await response.json()) as {
         credited?: ThroneEventRow[];
         error?: string;
+        ignored?: ThroneEventRow[];
         unmatched?: ThroneEventRow[];
         unmatchedTotalUsd?: number;
       };
@@ -611,6 +558,7 @@ export default function AdminPage() {
       }
 
       setThroneCredited(result.credited ?? []);
+      setThroneIgnored(result.ignored ?? []);
       setThroneUnmatched(result.unmatched ?? []);
       setThroneUnmatchedTotalUsd(Number(result.unmatchedTotalUsd ?? 0));
       markSectionLoaded("throneEvents");
@@ -618,6 +566,37 @@ export default function AdminPage() {
       setStatus(error instanceof Error ? error.message : "Throne events failed to load.");
     } finally {
       setSectionLoading("throneEvents", false);
+    }
+  };
+
+  const handleThroneEventAction = async (eventId: string, action: "ignore" | "restore") => {
+    if (!isAdmin || throneEventPendingId) {
+      return;
+    }
+
+    if (action === "ignore" && !window.confirm("Dismiss this payment from the queue? It stops counting toward the tribute goal and the birthday cake.")) {
+      return;
+    }
+
+    setThroneEventPendingId(eventId);
+    try {
+      const response = await fetch("/api/admin/throne-events", {
+        body: JSON.stringify({ action, eventId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Throne event update failed.");
+      }
+
+      setStatus(result.message ?? "Throne event updated.");
+      await loadThroneEvents({ keepStatus: true });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Throne event update failed.");
+    } finally {
+      setThroneEventPendingId(null);
     }
   };
 
@@ -1599,11 +1578,6 @@ export default function AdminPage() {
           void loadIrlTasks();
         }
         break;
-      case "caseOpeners":
-        if (!loadedSections.caseOpeners && !loadingSections.caseOpeners) {
-          void loadCaseOpeners();
-        }
-        break;
       case "throneEvents":
         if (!loadedSections.throneEvents && !loadingSections.throneEvents) {
           void loadThroneEvents();
@@ -1682,7 +1656,7 @@ export default function AdminPage() {
   const adminTabs = [
     {
       key: "console",
-      label: "Command Console",
+      label: "Console",
       eyebrow: "Direct actions",
       description: "Run manual commands and privileged adjustments.",
       countLabel: command.trim() ? "1" : "0",
@@ -1690,19 +1664,11 @@ export default function AdminPage() {
     },
     {
       key: "throneEvents",
-      label: "Throne Automation",
+      label: "Throne",
       eyebrow: "Webhook feed",
       description: "Credited tributes and payments the automation could not attribute.",
       countLabel: loadedSections.throneEvents ? String(throneUnmatched.length) : "0",
       tone: "from-amber-500/16 via-orange-500/10 to-transparent border-amber-300/18",
-    },
-    {
-      key: "caseOpeners",
-      label: "Case Openers",
-      eyebrow: "Recent activity",
-      description: "Track the latest case-opening momentum.",
-      countLabel: loadedSections.caseOpeners ? String(caseOpeners.length) : "0",
-      tone: "from-cyan-500/16 via-sky-500/10 to-transparent border-cyan-300/18",
     },
     {
       key: "irlTasks",
@@ -1722,7 +1688,7 @@ export default function AdminPage() {
     },
     {
       key: "debt",
-      label: "Debt Contracts",
+      label: "Debts",
       eyebrow: "Risk control",
       description: "Manage normal and evil debt flows in one place.",
       countLabel: loadedSections.debt ? String(liveDebtCount) : "0",
@@ -1746,7 +1712,7 @@ export default function AdminPage() {
     },
     {
       key: "premiumTitle",
-      label: "Premium Title",
+      label: "Title",
       eyebrow: "Rotating offer",
       description: "Change the active and next shop title without a deploy.",
       countLabel: loadedSections.premiumTitle && premiumTitleConfig ? "1" : "0",
@@ -1754,7 +1720,7 @@ export default function AdminPage() {
     },
     {
       key: "jigsaw",
-      label: "Jigsaws",
+      label: "Puzzle",
       eyebrow: "Paid links",
       description: "Curate the external jigsaw pool subs pay to unlock.",
       countLabel: String(jigsawLinks.length),
@@ -1762,7 +1728,7 @@ export default function AdminPage() {
     },
     {
       key: "timeouts",
-      label: "Active Timeouts",
+      label: "Timeouts",
       eyebrow: "Discipline",
       description: "Adjust or clear currently timed-out users.",
       countLabel: loadedSections.timeouts ? String(activeTimeoutCount) : "0",
@@ -1859,25 +1825,27 @@ export default function AdminPage() {
         </div>
 
         <div className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0a12]/95 px-4 py-2 backdrop-blur">
-          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+          {/* Wraps instead of scrolling. The labels are short enough now that
+              a second row is cheaper than a horizontal scrollbar hiding tabs. */}
+          <div className="flex flex-wrap gap-2">
                   {adminTabs.map((tab) => {
                     const isActive = activeTab === tab.key;
 
                     return (
                       <button
-                        className={`shrink-0 rounded-md border px-2.5 py-1 text-left transition ${
+                        className={`shrink-0 rounded-lg border px-3.5 py-2 text-left transition ${
                           isActive
-                            ? "border-pink-300/35 bg-pink-500/16 text-white"
-                            : "border-white/8 bg-white/[0.03] text-zinc-300 hover:border-white/14 hover:text-white"
+                            ? "border-pink-300/40 bg-pink-500/16 text-white shadow-[0_0_16px_rgba(236,72,153,0.18)]"
+                            : "border-white/8 bg-white/[0.03] text-zinc-300 hover:border-white/16 hover:text-white"
                         }`}
                         key={tab.key}
                         onClick={() => openAdminTab(tab.key)}
                         type="button"
                       >
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-black leading-none">{tab.label}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-[13px] font-black leading-none">{tab.label}</span>
                           <span
-                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.1em] ${
                               isActive ? "bg-white/10 text-pink-50" : "bg-black/25 text-zinc-400"
                             }`}
                           >
@@ -2043,11 +2011,21 @@ export default function AdminPage() {
                           ) : (
                             <p className="mt-2 text-xs italic text-zinc-600">No message was sent with this gift.</p>
                           )}
-                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-600">
-                            <span>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}</span>
-                            {event.eventType ? <span>{event.eventType}</span> : null}
-                            {event.username ? <span className="text-zinc-400">@{event.username}</span> : null}
-                            <span className="font-mono">{event.eventId}</span>
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-600">
+                              <span>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}</span>
+                              {event.eventType ? <span>{event.eventType}</span> : null}
+                              {event.username ? <span className="text-zinc-400">@{event.username}</span> : null}
+                              <span className="font-mono">{event.eventId}</span>
+                            </div>
+                            <button
+                              className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled={throneEventPendingId !== null}
+                              onClick={() => void handleThroneEventAction(event.eventId, "ignore")}
+                              type="button"
+                            >
+                              {throneEventPendingId === event.eventId ? "Working" : "Dismiss"}
+                            </button>
                           </div>
                         </div>
                       ))
@@ -2060,6 +2038,47 @@ export default function AdminPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Dismissed events stay recoverable - a misclick here would
+                    otherwise quietly remove real revenue from the goal. */}
+                {throneIgnored.length > 0 ? (
+                  <div className="mt-3 border-t border-white/[0.06] pt-3">
+                    <button
+                      className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-200"
+                      onClick={() => setShowThroneIgnored((current) => !current)}
+                      type="button"
+                    >
+                      {showThroneIgnored ? "Hide" : "Show"} dismissed ({throneIgnored.length})
+                    </button>
+
+                    {showThroneIgnored ? (
+                      <div className="mt-2 grid gap-1.5">
+                        {throneIgnored.map((event) => (
+                          <div
+                            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-white/[0.06] bg-black/30 px-3 py-2"
+                            key={event.eventId}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-zinc-400">
+                                ${event.amountUsd.toFixed(2)}
+                                {event.message ? <span className="ml-2 font-normal text-zinc-600">{event.message}</span> : null}
+                              </p>
+                              <p className="mt-0.5 font-mono text-[9px] text-zinc-700">{event.eventId}</p>
+                            </div>
+                            <button
+                              className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 transition hover:border-white/25 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled={throneEventPendingId !== null}
+                              onClick={() => void handleThroneEventAction(event.eventId, "restore")}
+                              type="button"
+                            >
+                              {throneEventPendingId === event.eventId ? "Working" : "Restore"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-[1.5rem] border border-emerald-200/20 bg-[#03060a] p-4 shadow-[inset_0_0_24px_rgba(16,185,129,0.06)]">
@@ -2102,129 +2121,6 @@ export default function AdminPage() {
                       </p>
                     )}
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "caseOpeners" && (
-            <div className="mt-4 rounded-[1.5rem] border border-cyan-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(34,211,238,0.08)]">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-cyan-200/70">
-                    Recent Case Openers - Last 24h
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Sorted by the latest user to open a case in the last 24 hours. Click a user to expand their recent openings.
-                  </p>
-                </div>
-                <button
-                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
-                  disabled={isBusy}
-                  onClick={() => void loadCaseOpeners()}
-                  type="button"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              <div className="mt-4 max-h-[36rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
-                <div className="grid gap-3">
-                  {caseOpeners.length > 0 ? (
-                    caseOpeners.map((opener) => {
-                      const expanded = expandedCaseOpenerId === opener.id;
-
-                      return (
-                        <article
-                          className="rounded-2xl border border-cyan-200/15 bg-black/35 p-3"
-                          key={opener.id}
-                        >
-                          <button
-                            className="flex w-full items-center justify-between gap-3 text-left"
-                            onClick={() => setExpandedCaseOpenerId(expanded ? null : opener.id)}
-                            type="button"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-white">
-                                {opener.username}
-                              </p>
-                              <p className="mt-1 text-xs text-zinc-500">
-                                Last open {new Date(opener.lastOpenedAt).toLocaleString()}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <span className="rounded-full border border-cyan-200/20 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-50">
-                                {opener.totalOpens} opens - {opener.totalCoinsWon.toLocaleString()} coins won
-                              </span>
-                              <span className="text-cyan-100">{expanded ? "-" : "+"}</span>
-                            </div>
-                          </button>
-
-                          {expanded && (
-                            <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-black text-white">
-                                    {opener.username}
-                                  </p>
-                                  <p className="mt-1 text-xs text-zinc-500">
-                                    Latest case opening history
-                                  </p>
-                                </div>
-                                <p className="text-xs font-bold text-cyan-100">
-                                  {opener.totalCoinsWon.toLocaleString()} coins won
-                                </p>
-                              </div>
-
-                              <div className="mt-3 space-y-2">
-                                {opener.recentOpenings.map((opening) => (
-                                  <div
-                                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2"
-                                    key={opening.id}
-                                  >
-                                    <div className="min-w-0">
-                                      <p className="truncate text-sm font-black text-white">
-                                        {opening.crateName}
-                                      </p>
-                                      <p className="truncate text-xs text-zinc-500">
-                                        {opening.itemName}
-                                      </p>
-                                      <p className="mt-1 text-[11px] text-zinc-400">
-                                        Chance{" "}
-                                        <span className="font-bold text-cyan-100">
-                                          {opening.itemChancePercent === null
-                                            ? "n/a"
-                                            : `${opening.itemChancePercent.toFixed(2)}%`}
-                                        </span>{" "}
-                                        - Value{" "}
-                                        <span className="font-bold text-amber-100">
-                                          {opening.itemSellValue === null
-                                            ? "n/a"
-                                            : `${opening.itemSellValue.toLocaleString()} coins`}
-                                        </span>
-                                      </p>
-                                    </div>
-                                    <div className="shrink-0 text-right">
-                                      <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
-                                        {opening.itemRarity}
-                                      </p>
-                                      <p className="text-[11px] text-zinc-500">
-                                        {new Date(opening.openedAt).toLocaleString()}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
-                      No recent case openers yet.
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
