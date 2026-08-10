@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { CoinAmount } from "@/components/CoinAmount";
+import { MoneyIcon } from "@/components/MoneyIcon";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { DEFAULT_TRIBUTE_AVATAR_SRC } from "@/lib/avatar-fallbacks";
 import { getDisplayNameOrUsername } from "@/lib/display-name";
@@ -83,24 +83,36 @@ function getRelativeTime(createdAt: string) {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
+// Glow tiers, in PRINCIPESSA MONEY.
+//
+// The board used to report coin-equivalent, so these were 1000x and the ladder
+// worked out to $1 / $5 / $10 / $20 / $30. Nearly every tribute cleared the
+// bottom rung, which made the glow mean almost nothing.
+//
+// Every threshold is now an amount the site actually offers (PET_THRONE_AMOUNTS
+// in src/lib/pet-throne.ts, and the $15 birthday candle), so a tier change
+// always lines up with a real decision the sender made rather than an arbitrary
+// number. Under 5 PM there is no glow at all.
+const GLOW_TIERS_PM = { faint: 5, pink: 15, purple: 25, gold: 50, radiant: 100 };
+
 function getGlowClass(amount: number) {
-  if (amount >= 30000) {
+  if (amount >= GLOW_TIERS_PM.radiant) {
     return "border-yellow-200/70 bg-[linear-gradient(135deg,rgba(250,204,21,0.24),rgba(236,72,153,0.24),rgba(0,0,0,0.7))] shadow-[0_0_30px_rgba(250,204,21,0.32)]";
   }
 
-  if (amount >= 20000) {
+  if (amount >= GLOW_TIERS_PM.gold) {
     return "border-yellow-200/50 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.18),rgba(0,0,0,0.68))] shadow-[0_0_24px_rgba(250,204,21,0.24)]";
   }
 
-  if (amount >= 10000) {
+  if (amount >= GLOW_TIERS_PM.purple) {
     return "border-fuchsia-200/45 bg-[linear-gradient(135deg,rgba(168,85,247,0.22),rgba(236,72,153,0.18),rgba(0,0,0,0.68))] shadow-[0_0_22px_rgba(217,70,239,0.25)]";
   }
 
-  if (amount >= 5000) {
+  if (amount >= GLOW_TIERS_PM.pink) {
     return "border-pink-200/40 bg-pink-500/14 shadow-[0_0_18px_rgba(236,72,153,0.22)]";
   }
 
-  if (amount >= 1000) {
+  if (amount >= GLOW_TIERS_PM.faint) {
     return "border-pink-200/25 bg-pink-500/10 shadow-[0_0_14px_rgba(236,72,153,0.16)]";
   }
 
@@ -370,8 +382,10 @@ export function RecentTributesTicker({
                       secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
                       username={tribute.rawUsername ?? tribute.username}
                     />
-                    <p className="text-[11px] font-bold text-yellow-50">
-                      <CoinAmount amount={tribute.amount} iconSize={14} label="Total" />
+                    <p className="flex items-center gap-1 text-[11px] font-bold text-yellow-50">
+                      <MoneyIcon height={12} />
+                      {tribute.amount.toLocaleString()}
+                      <span className="font-semibold text-zinc-400">Total</span>
                     </p>
                   </div>
                 </div>
@@ -526,8 +540,9 @@ function TributeCard({
           secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
           username={tribute.rawUsername ?? tribute.username}
         />
-        <p className="text-xs font-bold text-pink-100">
-          <CoinAmount amount={tribute.amount} iconSize={15} label="Principessa Coins" prefix="+" />
+        <p className="flex items-center gap-1.5 text-xs font-bold text-pink-100">
+          <MoneyIcon height={13} />+{tribute.amount.toLocaleString()}
+          <span className="font-semibold text-zinc-400">Principessa Money</span>
         </p>
         <p className="text-[11px] text-zinc-400">
           {getRelativeTime(tribute.createdAt)}
