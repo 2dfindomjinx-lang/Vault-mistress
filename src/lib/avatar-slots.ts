@@ -80,10 +80,6 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   // Mouth (new category - facial accessories)
   ["ballgag", "mouth"],
   // Hands (new category - mitts/gloves)
-  ["white-pawmitts", "hands"],
-  ["classic-pawmitts", "hands"],
-  ["gorgeous-pawmitts", "hands"],
-  ["shiny_pawmitts", "hands"],
   // Toys (equippable in slots but intentionally not rendered visually on the avatar)
   // (ballgag moved to mouth)
   ["classic-buttplug", "toy"],

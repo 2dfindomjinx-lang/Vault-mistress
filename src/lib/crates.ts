@@ -64,16 +64,14 @@ const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: 
       // Total weight = 10000
 
       // Common %45
-	  { item_id: "classic-pawmitts", weight: 450 },
-	  { item_id: "pet-tag", weight: 450 },
-	  { item_id: "white-pawmitts", weight: 450 },
-      { item_id: "classic-collar", weight: 450 },
-      { item_id: "classic-ears", weight: 450 },
-      { item_id: "classic-tail", weight: 450 },
-	  { item_id: "boxer", weight: 450 },
-      { item_id: "classic-blindfold", weight: 450 },
-	  { item_id: "classic-bra", weight: 450 },
-	  { item_id: "ballgag", weight: 450 },
+	  { item_id: "pet-tag", weight: 563 },
+      { item_id: "classic-collar", weight: 563 },
+      { item_id: "classic-ears", weight: 563 },
+      { item_id: "classic-tail", weight: 563 },
+	  { item_id: "boxer", weight: 562 },
+      { item_id: "classic-blindfold", weight: 562 },
+	  { item_id: "classic-bra", weight: 562 },
+	  { item_id: "ballgag", weight: 562 },
 
       // Uncommon %25 (rebalanced 2026-07 to fold in cute/pink additions)
 	  { item_id: "cute_choker", weight: 342 },
@@ -101,22 +99,20 @@ const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: 
 	  { item_id: "cute-miniskirt", weight: 136 },
 
       // Epic %12.5 (rebalanced 2026-07 to fold in pink additions; latex moved to Premium Case)
-	  { item_id: "gorgeous-pawmitts", weight: 230 },
-	  { item_id: "gorgeous-highheels", weight: 198 },
-	  { item_id: "pink_highheels", weight: 198 },
-	  { item_id: "gorgeous-panties", weight: 156 },
-      { item_id: "pink_panties", weight: 156 },
-      { item_id: "gorgeous-bra", weight: 125 },
-      { item_id: "gorgeous-thighhighs", weight: 104 },
-	  { item_id: "gorgeous-buttplug", weight: 83 },
+	  { item_id: "gorgeous-highheels", weight: 243 },
+	  { item_id: "pink_highheels", weight: 243 },
+	  { item_id: "gorgeous-panties", weight: 191 },
+      { item_id: "pink_panties", weight: 191 },
+      { item_id: "gorgeous-bra", weight: 153 },
+      { item_id: "gorgeous-thighhighs", weight: 127 },
+	  { item_id: "gorgeous-buttplug", weight: 102 },
 
       // Legendary %0.5
-	  { item_id: "shiny-highheels", weight: 20 },
+	  { item_id: "shiny-highheels", weight: 21 },
 	  { item_id: "shiny-bra", weight: 12 },
       { item_id: "shiny-panties", weight: 6 },
       { item_id: "shiny-skirt", weight: 5 },
       { item_id: "shiny-thighhighs", weight: 5 },
-      { item_id: "shiny_pawmitts", weight: 1 },
       { item_id: "principessas-pet", weight: 1 },
     ],
   },
@@ -132,16 +128,14 @@ const BASE_CRATE_TYPES: Record<string, Omit<CrateType, "crate_type"> & { drops: 
       // Total weight = 100000
 
       // Common
-      { item_id: "boxer", weight: 9950 },
-      { item_id: "classic-collar", weight: 9950 },
-      { item_id: "classic-ears", weight: 9950 },
-      { item_id: "classic-tail", weight: 9950 },
-      { item_id: "white-pawmitts", weight: 9950 },
-	  { item_id: "ballgag", weight: 9950 },
-	  { item_id: "pet-tag", weight: 9950 },
-	  { item_id: "classic-bra", weight: 9950 },
-      { item_id: "classic-blindfold", weight: 9950 },
-      { item_id: "classic-pawmitts", weight: 9950 },
+      { item_id: "boxer", weight: 12438 },
+      { item_id: "classic-collar", weight: 12438 },
+      { item_id: "classic-ears", weight: 12438 },
+      { item_id: "classic-tail", weight: 12438 },
+	  { item_id: "ballgag", weight: 12437 },
+	  { item_id: "pet-tag", weight: 12437 },
+	  { item_id: "classic-bra", weight: 12437 },
+      { item_id: "classic-blindfold", weight: 12437 },
 
       // Legendary 500
 	  { item_id: "shiny-bra", weight: 90 },
@@ -418,25 +412,11 @@ const BASE_SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabl
     collection: "classic",
     sell_value: 100,
   },
-  "white-pawmitts": {
-    name: "White Pawmitts",
-    description: "Soft white paw mitts. No more using your hands properly.",
-    rarity: "common",
-    collection: "pet",
-    sell_value: 100,
-  },
   "classic-blindfold": {
     name: "Classic Blindfold",
     description: "A simple blindfold. Helps you focus on other sensations.",
     rarity: "common",
     collection: "classic",
-    sell_value: 100,
-  },
-  "classic-pawmitts": {
-    name: "Classic Pawmitts",
-    description: "Basic paw mitts to keep those hands out of trouble.",
-    rarity: "common",
-    collection: "pet",
     sell_value: 100,
   },
   "pet-tag": {
@@ -740,13 +720,6 @@ const BASE_SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabl
     collection: "gorgeous",
     sell_value: 4500,
   },
-  "gorgeous-pawmitts": {
-    name: "Gorgeous Pawmitts",
-    description: "Luxury paw mitts. No more fingers for you.",
-    rarity: "epic",
-    collection: "gorgeous",
-    sell_value: 3000,
-  },
   "gorgeous-bunnysuit": {
     name: "Gorgeous Bunnysuit",
     description: "Luxurious iridescent purple bunny suit with gem accents. High-class humiliation.",
@@ -825,13 +798,6 @@ const BASE_SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "enabl
     rarity: "legendary",
     collection: "shiny",
     sell_value: 25000,
-  },
-  "shiny_pawmitts": {
-    name: "Shiny Pawmitts",
-    description: "Ultra glossy paw mitts. You look expensive and useless.",
-    rarity: "legendary",
-    collection: "shiny",
-    sell_value: 20000,
   },
   "principessas-pet": {
     name: "Principessa's Pet",
