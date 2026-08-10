@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { GMT3_OFFSET_MS } from "@/lib/time";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
 
@@ -2979,7 +2980,12 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="text-sm font-black text-white">{announcement.title}</p>
-                            <p className="mt-1 text-sm leading-6 text-zinc-300">{announcement.body}</p>
+                            {/* Same renderer the users get, so this list shows
+                                what will actually be clickable rather than a
+                                plain-text approximation of it. */}
+                            <p className="mt-1 text-sm leading-6 text-zinc-300">
+                              <LinkifiedText text={announcement.body} />
+                            </p>
                             <p className="mt-1 text-xs text-zinc-500">
                               {new Date(announcement.starts_at).toLocaleString()} - {new Date(announcement.ends_at).toLocaleString()}
                             </p>

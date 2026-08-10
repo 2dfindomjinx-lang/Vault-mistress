@@ -16,6 +16,7 @@ import { AppShell } from "@/components/AppShell";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CourtChamberIntro } from "@/components/CourtChamberIntro";
 import { CourtHomeStage } from "@/components/CourtHomeStage";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
@@ -11627,7 +11628,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 {accountAnnouncement?.title}
               </p>
               <p className="mt-1 text-sm leading-6 text-pink-50">
-                {accountAnnouncement?.body}
+                <LinkifiedText text={accountAnnouncement?.body ?? ""} />
               </p>
             </section>
           )}
