@@ -242,12 +242,26 @@ type CaseOpener = {
   recentOpenings: CaseOpening[];
 };
 
+type ThroneEventRow = {
+  eventId: string;
+  status: string;
+  occurredAt: string | null;
+  amountUsd: number;
+  eventType: string | null;
+  message: string | null;
+  attributionCode: string | null;
+  userId: string | null;
+  username: string | null;
+  moneyAwarded: number | null;
+};
+
 type AdminTabKey =
   | "announcements"
   | "caseOpeners"
   | "console"
   | "debt"
   | "events"
+  | "throneEvents"
   | "irlTasks"
   | "jigsaw"
   | "maxAffection"
@@ -290,6 +304,7 @@ type AdminLoadKey =
   | "caseOpeners"
   | "debt"
   | "events"
+  | "throneEvents"
   | "irlTasks"
   | "maxAffection"
   | "premiumTitle"
@@ -380,6 +395,9 @@ export default function AdminPage() {
   const [timedOutUsers, setTimedOutUsers] = useState<TimedOutUser[]>([]);
   const [maxAffectionUsers, setMaxAffectionUsers] = useState<MaxAffectionUser[]>([]);
   const [caseOpeners, setCaseOpeners] = useState<CaseOpener[]>([]);
+  const [throneCredited, setThroneCredited] = useState<ThroneEventRow[]>([]);
+  const [throneUnmatched, setThroneUnmatched] = useState<ThroneEventRow[]>([]);
+  const [throneUnmatchedTotalUsd, setThroneUnmatchedTotalUsd] = useState(0);
   const [expandedCaseOpenerId, setExpandedCaseOpenerId] = useState<string | null>(null);
   const [timeoutInputs, setTimeoutInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -395,6 +413,7 @@ export default function AdminPage() {
     premiumTitle: false,
     petTaskLogs: false,
     petTasks: false,
+    throneEvents: false,
     timeouts: false,
   });
   const [loadedSections, setLoadedSections] = useState<Record<AdminLoadKey, boolean>>({
@@ -407,6 +426,7 @@ export default function AdminPage() {
     premiumTitle: false,
     petTaskLogs: false,
     petTasks: false,
+    throneEvents: false,
     timeouts: false,
   });
   const [adminNow, setAdminNow] = useState(() => Date.now());
@@ -564,6 +584,40 @@ export default function AdminPage() {
       setStatus(error instanceof Error ? error.message : "Recent case openers failed.");
     } finally {
       setSectionLoading("caseOpeners", false);
+    }
+  };
+
+  const loadThroneEvents = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setSectionLoading("throneEvents", true);
+    if (!keepStatus) {
+      setStatus("");
+    }
+
+    try {
+      const response = await fetch("/api/admin/throne-events", { cache: "no-store" });
+      const result = (await response.json()) as {
+        credited?: ThroneEventRow[];
+        error?: string;
+        unmatched?: ThroneEventRow[];
+        unmatchedTotalUsd?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Throne events failed to load.");
+      }
+
+      setThroneCredited(result.credited ?? []);
+      setThroneUnmatched(result.unmatched ?? []);
+      setThroneUnmatchedTotalUsd(Number(result.unmatchedTotalUsd ?? 0));
+      markSectionLoaded("throneEvents");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Throne events failed to load.");
+    } finally {
+      setSectionLoading("throneEvents", false);
     }
   };
 
@@ -1550,6 +1604,11 @@ export default function AdminPage() {
           void loadCaseOpeners();
         }
         break;
+      case "throneEvents":
+        if (!loadedSections.throneEvents && !loadingSections.throneEvents) {
+          void loadThroneEvents();
+        }
+        break;
       case "petTasks":
         if (!loadedSections.petTasks && !loadingSections.petTasks) {
           void loadPetTasks();
@@ -1628,6 +1687,14 @@ export default function AdminPage() {
       description: "Run manual commands and privileged adjustments.",
       countLabel: command.trim() ? "1" : "0",
       tone: "from-fuchsia-500/16 via-pink-500/10 to-transparent border-fuchsia-300/18",
+    },
+    {
+      key: "throneEvents",
+      label: "Throne Automation",
+      eyebrow: "Webhook feed",
+      description: "Credited tributes and payments the automation could not attribute.",
+      countLabel: loadedSections.throneEvents ? String(throneUnmatched.length) : "0",
+      tone: "from-amber-500/16 via-orange-500/10 to-transparent border-amber-300/18",
     },
     {
       key: "caseOpeners",
@@ -1911,6 +1978,131 @@ export default function AdminPage() {
                 >
                   {isBusy ? "Running" : "Run"}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "throneEvents" && (
+            <div className="mt-4 grid gap-4">
+              {/* Unattributed first: this half is a work queue, the other half
+                  is just a receipt log. */}
+              <div className="rounded-[1.5rem] border border-amber-200/25 bg-[#080304] p-4 shadow-[inset_0_0_24px_rgba(245,158,11,0.08)]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-amber-200/80">
+                      Needs You - Unattributed Payments
+                    </p>
+                    <p className="mt-1 max-w-xl text-xs text-zinc-500">
+                      Real Throne payments the automation could not hand to an account: no tribute code in
+                      the message, an unknown code, or a credit that failed. Read the message, work out who
+                      sent it, then credit them with{" "}
+                      <span className="font-black text-amber-200/80">/money</span>.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-2xl font-black leading-none text-amber-100">
+                        ${throneUnmatchedTotalUsd.toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-amber-200/50">
+                        Unattributed
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
+                      disabled={isBusy || loadingSections.throneEvents}
+                      onClick={() => void loadThroneEvents()}
+                      type="button"
+                    >
+                      {loadingSections.throneEvents ? "Loading" : "Refresh"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-4 max-h-[26rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                  <div className="grid gap-2">
+                    {throneUnmatched.length > 0 ? (
+                      throneUnmatched.map((event) => (
+                        <div className="rounded-2xl border border-amber-200/15 bg-black/40 p-3" key={event.eventId}>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-lg font-black text-amber-100">${event.amountUsd.toFixed(2)}</span>
+                            <span
+                              className={
+                                event.status === "failed"
+                                  ? "rounded-full border border-rose-300/35 bg-rose-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-rose-100"
+                                  : "rounded-full border border-amber-300/35 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-100"
+                              }
+                            >
+                              {event.status === "failed" ? "Credit failed" : "No match"}
+                            </span>
+                          </div>
+                          {event.message ? (
+                            <p className="mt-2 break-words rounded-xl bg-white/[0.04] px-3 py-2 text-xs leading-5 text-zinc-200">
+                              {event.message}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-xs italic text-zinc-600">No message was sent with this gift.</p>
+                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-600">
+                            <span>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}</span>
+                            {event.eventType ? <span>{event.eventType}</span> : null}
+                            {event.username ? <span className="text-zinc-400">@{event.username}</span> : null}
+                            <span className="font-mono">{event.eventId}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 px-3 py-6 text-center text-sm text-zinc-600">
+                        {loadedSections.throneEvents
+                          ? "Nothing waiting. Every payment found its owner."
+                          : "Loading Throne events..."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-emerald-200/20 bg-[#03060a] p-4 shadow-[inset_0_0_24px_rgba(16,185,129,0.06)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-emerald-200/70">Credited Automatically</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Tributes the webhook matched and paid out with no admin action.
+                </p>
+
+                <div className="mt-4 max-h-[26rem] overflow-y-auto pr-1 [scrollbar-width:thin]">
+                  <div className="grid gap-2">
+                    {throneCredited.length > 0 ? (
+                      throneCredited.map((event) => (
+                        <div
+                          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-emerald-200/10 bg-black/35 px-3 py-2.5"
+                          key={event.eventId}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-emerald-50">@{event.username ?? "unknown"}</p>
+                            <p className="mt-0.5 text-[10px] text-zinc-600">
+                              {event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}
+                              {event.attributionCode ? ` - ${event.attributionCode}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-emerald-100">${event.amountUsd.toFixed(2)}</p>
+                            {event.moneyAwarded !== null ? (
+                              <p className="mt-0.5 text-[10px] text-zinc-500">
+                                {event.moneyAwarded.toLocaleString()} Money paid
+                                {event.moneyAwarded > Math.floor(event.amountUsd) ? " (pet bonus)" : ""}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-2xl border border-white/10 px-3 py-6 text-center text-sm text-zinc-600">
+                        {loadedSections.throneEvents
+                          ? "No automated credits recorded yet."
+                          : "Loading Throne events..."}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
-import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
+import { syncThroneMilestoneTitlesFromLedgers } from "@/lib/admin-pet-task-logs";
 import { awardDevotion, DEVOTION_REWARD_REVIEW_TASK } from "@/lib/devotion";
 import {
   getPetThroneRewardBreakdown,
@@ -7,7 +7,6 @@ import {
 } from "@/lib/pet-throne";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PET_TASK_COIN_REWARD } from "@/lib/server-game-rules";
-import { PM_TO_COIN_RATE } from "@/lib/principessa-money";
 import { createUserNotification } from "@/lib/user-notifications";
 
 export const dynamic = "force-dynamic";
@@ -69,7 +68,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
-    .select("id, username, coins, pet_score, principessa_money")
+    .select("id, username, coins, pet_score, principessa_money, pet_unlocked_at")
     .eq("id", task.user_id)
     .maybeSingle();
   if (profileError || !profile) {
@@ -81,7 +80,10 @@ export async function POST(request: Request) {
   const isThroneTask = task.task_id === PET_THRONE_TASK_ID;
   const petScoreDelta = isThroneTask ? 0 : Number(task.reward_score ?? 0);
   const throneAmount = typeof taskMetadata.throneAmount === "number" ? taskMetadata.throneAmount : 0;
-  const throneBreakdown = getPetThroneRewardBreakdown(throneAmount);
+  // Mirrors the webhook RPC and the desktop admin route: the Throne bonus is
+  // Pet-track only, and approving from the phone is not a bypass.
+  const earnsThroneBonus = isThroneTask && Boolean(profile.pet_unlocked_at);
+  const throneBreakdown = getPetThroneRewardBreakdown(throneAmount, earnsThroneBonus);
   const throneBaseCoinAmount =
     typeof taskMetadata.throneBaseCoinAmount === "number"
       ? Math.max(0, Math.floor(taskMetadata.throneBaseCoinAmount))
@@ -189,13 +191,9 @@ export async function POST(request: Request) {
       console.error("Mobile pet throne devotion award failed", devotionError);
     }
 
-    const [{ data: giftRows }, { data: moneyGiftRows }] = await Promise.all([
-      admin.supabase.from("coin_transactions").select("amount").eq("user_id", profile.id).in("reason", ["throne_tribute", "live_gift"]),
-      admin.supabase.from("money_transactions").select("amount").eq("user_id", profile.id).eq("reason", "throne_tribute"),
-    ]);
-    const coinGiftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
-    const moneyGiftTotal = (moneyGiftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
-    await syncThroneMilestoneTitles(admin.supabase, profile.id, coinGiftTotal + moneyGiftTotal * PM_TO_COIN_RATE);
+    // Shared with the webhook and the desktop admin route - one implementation,
+    // so approving from the phone cannot produce a different lifetime total.
+    await syncThroneMilestoneTitlesFromLedgers(admin.supabase, profile.id);
 
     try {
       await createUserNotification(admin.supabase, {

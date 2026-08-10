@@ -841,11 +841,16 @@ export function PetSection({
   const throneApproved = throneTask.status === "approved";
   const throneFailed = throneTask.status === "failed";
   const throneActionPending = isPetActionPending(throneTask.id);
-  const throneRewardBreakdown = getPetThroneRewardBreakdown(selectedThroneAmount);
-  // Throne pays Principessa Money at 1 USD = 1 PM. The coin figure is only
-  // shown as "what this converts down to", and the old give/task bonuses now
-  // live on the PM -> Coin conversion instead of the payout.
+  // Always the pet rate here: page.tsx renders this section behind
+  // `activePanel === "pet" && isPetUnlocked`, so every viewer of this quote has
+  // the Pet track unlocked and earns the Throne bonus.
+  const throneRewardBreakdown = getPetThroneRewardBreakdown(selectedThroneAmount, true);
+  // Throne pays Principessa Money at 1 USD = 1 PM plus the Pet Throne bonus,
+  // rounded up to a whole PM. The coin figure below is only shown as "what this
+  // converts down to"; the tiered give ladder lives on the PM -> Coin
+  // conversion now, not on the payout.
   const throneMoneyAmount = throneRewardBreakdown.moneyAmount;
+  const throneMoneyBonusAmount = throneRewardBreakdown.moneyBonusAmount;
   const throneCoinEquivalent = throneRewardBreakdown.totalCoinAmount;
   const regularTasks = tasks.filter(
     (task) =>
@@ -2329,11 +2334,17 @@ export function PetSection({
                         <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
                           Principessa Money
                         </p>
+                        {throneMoneyBonusAmount > 0 ? (
+                          <p className="mt-2 text-xs font-bold text-amber-200/80">
+                            Includes +{formatPetThroneAmount(throneMoneyBonusAmount)} Pet Throne bonus
+                            ({Math.round(throneRewardBreakdown.taskBonusPercent * 100)}%, rounded up).
+                          </p>
+                        ) : null}
                         <p className="mt-2 text-xs text-zinc-400">
                           Converts to {throneCoinEquivalent.toLocaleString()} coins at base rate, more if you convert 10 or more at once.
                         </p>
                         <p className="mt-2 text-xs text-zinc-400">
-                          Include your VM code in the Throne message for automatic credit. If it fails, DM Principessa with the receipt for manual credit.
+                          Include your PT code in the Throne message for automatic credit and the Pet bonus. If it fails, DM Principessa with the receipt for manual credit.
                         </p>
                       </div>
 
@@ -2649,11 +2660,17 @@ export function PetSection({
                     <p className="mt-1 text-xs uppercase tracking-[0.16em] text-pink-100/65">
                       Principessa Money
                     </p>
+                    {throneMoneyBonusAmount > 0 ? (
+                      <p className="mt-2 text-xs font-bold text-amber-200/80">
+                        1 USD = 1 Money, plus your {Math.round(throneRewardBreakdown.taskBonusPercent * 100)}% Pet
+                        Throne bonus (+{formatPetThroneAmount(throneMoneyBonusAmount)}, rounded up).
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-xs text-zinc-400">
-                      1 USD = 1 Money. Converts to {throneCoinEquivalent.toLocaleString()} coins at base rate; converting 10 or more at once earns a bonus on top.
+                      Converts to {throneCoinEquivalent.toLocaleString()} coins at base rate; converting 10 or more at once earns a bonus on top.
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
-                      Include your VM code in the Throne message for automatic credit. Use the screenshot form only as a manual fallback.
+                      Include your PT code in the Throne message for automatic credit and the Pet bonus. Use the screenshot form only as a manual fallback.
                     </p>
                   </div>
 

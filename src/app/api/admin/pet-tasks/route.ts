@@ -5,8 +5,7 @@ import {
 } from "@/lib/supabase/admin";
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { awardDevotion, DEVOTION_REWARD_REVIEW_TASK } from "@/lib/devotion";
-import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
-import { PM_TO_COIN_RATE } from "@/lib/principessa-money";
+import { syncThroneMilestoneTitlesFromLedgers } from "@/lib/admin-pet-task-logs";
 import {
   getPetThroneRewardBreakdown,
   PET_THRONE_TASK_ID,
@@ -137,7 +136,7 @@ export async function POST(request: Request) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, coins, pet_score, principessa_money")
+    .select("id, username, coins, pet_score, principessa_money, pet_unlocked_at")
     .eq("id", task.user_id)
     .maybeSingle();
 
@@ -154,7 +153,11 @@ export async function POST(request: Request) {
   const isThroneTask = task.task_id === PET_THRONE_TASK_ID;
   const petScoreDelta = isThroneTask ? 0 : Number(task.reward_score ?? 0);
   const throneAmount = typeof taskMetadata.throneAmount === "number" ? taskMetadata.throneAmount : 0;
-  const throneBreakdown = getPetThroneRewardBreakdown(throneAmount);
+  // Same rule the webhook RPC enforces: the Throne bonus belongs to the Pet
+  // track, so an unlocked pet earns it and anyone else gets the plain rate.
+  // Approving by hand must not be a way around that check.
+  const earnsThroneBonus = isThroneTask && Boolean(profile.pet_unlocked_at);
+  const throneBreakdown = getPetThroneRewardBreakdown(throneAmount, earnsThroneBonus);
   const throneBaseCoinAmount =
     typeof taskMetadata.throneBaseCoinAmount === "number"
       ? Math.max(0, Math.floor(taskMetadata.throneBaseCoinAmount))
@@ -278,21 +281,9 @@ export async function POST(request: Request) {
       console.error("Admin pet throne devotion award failed", devotionError);
     }
 
-    // Milestone titles are keyed on a coin-denominated lifetime gift total.
-    // Historical tributes still live in coin_transactions, new ones in
-    // money_transactions, so both are counted - PM at its base coin rate.
-    const [{ data: giftRows, error: giftTotalError }, { data: moneyGiftRows, error: moneyGiftError }] = await Promise.all([
-      supabase.from("coin_transactions").select("amount").eq("user_id", profile.id).in("reason", ["throne_tribute", "live_gift"]),
-      supabase.from("money_transactions").select("amount").eq("user_id", profile.id).eq("reason", "throne_tribute"),
-    ]);
-
-    if (giftTotalError || moneyGiftError) {
-      console.error("Admin pet throne title milestone lookup failed", giftTotalError ?? moneyGiftError);
-    } else {
-      const coinGiftTotal = (giftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
-      const moneyGiftTotal = (moneyGiftRows ?? []).reduce((sum, row) => sum + Math.max(0, Number(row.amount ?? 0)), 0);
-      await syncThroneMilestoneTitles(supabase, profile.id, coinGiftTotal + moneyGiftTotal * PM_TO_COIN_RATE);
-    }
+    // Same helper the webhook uses, so the manual and automated paths can never
+    // compute a different lifetime total for the same user.
+    await syncThroneMilestoneTitlesFromLedgers(supabase, profile.id);
 
     try {
       await createUserNotification(supabase, {

@@ -1,3 +1,4 @@
+import { PM_TO_COIN_RATE } from "@/lib/principessa-money";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const ADMIN_PET_TASK_LOG_RETENTION_HOURS = 24;
@@ -126,4 +127,55 @@ export async function syncThroneMilestoneTitles(
   }
 
   return effectiveGiftTotal;
+}
+
+/**
+ * Recompute a user's lifetime Throne gift total from the ledgers and resync
+ * their milestone titles.
+ *
+ * Every caller that credits a Throne tribute needs this exact pair of queries,
+ * and three of them had it copy-pasted. Having one implementation is what stops
+ * the automated path and the manual path from drifting into different totals.
+ *
+ * The Money leg counts `money_transactions.amount`, which is what was actually
+ * awarded - Pet Throne bonus included. That is deliberate: the bonus is part of
+ * what the pet earned, so it counts toward the titles too.
+ */
+export async function syncThroneMilestoneTitlesFromLedgers(
+  supabase: SupabaseClient,
+  userId: string,
+) {
+  const [{ data: coinRows, error: coinError }, { data: moneyRows, error: moneyError }] =
+    await Promise.all([
+      supabase
+        .from("coin_transactions")
+        .select("amount")
+        .eq("user_id", userId)
+        .in("reason", ["throne_tribute", "live_gift"]),
+      supabase
+        .from("money_transactions")
+        .select("amount")
+        .eq("user_id", userId)
+        .eq("reason", "throne_tribute"),
+    ]);
+
+  if (coinError || moneyError) {
+    console.error("Throne milestone ledger lookup failed", coinError ?? moneyError);
+    return null;
+  }
+
+  const coinGiftTotal = (coinRows ?? []).reduce(
+    (sum, row) => sum + Math.max(0, Number(row.amount ?? 0)),
+    0,
+  );
+  const moneyGiftTotal = (moneyRows ?? []).reduce(
+    (sum, row) => sum + Math.max(0, Number(row.amount ?? 0)),
+    0,
+  );
+
+  return syncThroneMilestoneTitles(
+    supabase,
+    userId,
+    coinGiftTotal + moneyGiftTotal * PM_TO_COIN_RATE,
+  );
 }

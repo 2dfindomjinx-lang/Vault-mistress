@@ -11817,6 +11817,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               tributeCode={tributeCode}
               petTributeCode={petTributeCode}
+              isPetUnlocked={isPetUnlocked}
               disabled={isTimeoutActive || isPreviewRestricted}
               hideAffectionOffer={affection >= 100}
               pending={pendingTaskActionIds.some((id) => id.startsWith("tribute:"))}

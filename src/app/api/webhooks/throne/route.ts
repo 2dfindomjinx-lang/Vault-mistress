@@ -1,4 +1,6 @@
 import { verify as verifyEd25519 } from "node:crypto";
+import { syncThroneMilestoneTitlesFromLedgers } from "@/lib/admin-pet-task-logs";
+import { PET_THRONE_TASK_BONUS_PERCENT } from "@/lib/pet-throne";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createUserNotification } from "@/lib/user-notifications";
 
@@ -110,8 +112,18 @@ export async function POST(request: Request) {
   // bonuses are not applied here any more; they moved onto the PM -> Coin
   // conversion, and paying them at both ends would double them.
   const coinEquivalent = Math.max(1, smallestCurrencyUnit * 10);
-  const moneyAwarded = Math.floor(amount);
-  const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", { p_event_id: eventId, p_user_id: profile.id, p_coins: coinEquivalent, p_amount: amount, p_code: code });
+  // The RPC is the authority on the payout: only it knows whether the sender
+  // has actually unlocked the Pet track, which is what decides between the
+  // plain rate and base + PET_THRONE_TASK_BONUS_PERCENT rounded up. The figure
+  // echoed back below comes from the RPC result, never from this guess.
+  const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", {
+    p_amount: amount,
+    p_code: code,
+    p_coins: coinEquivalent,
+    p_event_id: eventId,
+    p_pet_bonus_percent: PET_THRONE_TASK_BONUS_PERCENT,
+    p_user_id: profile.id,
+  });
   if (creditError) {
     await supabase.from("throne_webhook_events").update({ status: "failed", processed_at: new Date().toISOString() }).eq("event_id", eventId);
     try {
@@ -127,6 +139,16 @@ export async function POST(request: Request) {
     }
     return Response.json({ error: creditError.message }, { status: 409 });
   }
+  // Milestone titles used to move only when an admin approved something by
+  // hand, which meant a fully automated payer never got one. The ledgers always
+  // had the data - nothing recomputed from them. Failure is logged, never
+  // fatal: the money is already credited and the next sync catches up.
+  try {
+    await syncThroneMilestoneTitlesFromLedgers(supabase, profile.id);
+  } catch (titleError) {
+    console.error("Throne milestone title sync failed", { eventId, titleError });
+  }
+
   const { error: creditedEventError } = await supabase
     .from("throne_webhook_events")
     .update({ attribution_code: code, processed_at: new Date().toISOString(), status: "credited", user_id: profile.id })
@@ -135,5 +157,16 @@ export async function POST(request: Request) {
     console.error("Credited Throne event finalization failed", { error: creditedEventError, eventId });
     return Response.json({ error: "Tribute was credited but its event could not be finalized." }, { status: 500 });
   }
-  return Response.json({ ok: true, matched: true, moneyAwarded, coinEquivalent, credit, petBonusAutomated: isPetBonusCode });
+  const creditResult = (credit ?? {}) as { awarded?: number; bonusAwarded?: number; petTaskApproved?: boolean };
+  return Response.json({
+    ok: true,
+    matched: true,
+    moneyAwarded: Number(creditResult.awarded ?? 0),
+    moneyBonusAwarded: Number(creditResult.bonusAwarded ?? 0),
+    coinEquivalent,
+    credit,
+    // Whether the PT- code actually earned the pet branch, not merely whether
+    // one was used - a non-pet sending PT- lands on the plain flow.
+    petBonusAutomated: Boolean(creditResult.petTaskApproved),
+  });
 }

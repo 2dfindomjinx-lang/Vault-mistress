@@ -50,6 +50,10 @@ type TributePanelProps = {
   coins: number;
   tributeCode?: string | null;
   petTributeCode?: string | null;
+  // Gates the Pet code row in the Throne popup. The server enforces the same
+  // rule independently (credit_throne_tribute ignores a PT- code from a
+  // non-pet), so this is presentation, not the security boundary.
+  isPetUnlocked?: boolean;
   disabled?: boolean;
   hideAffectionOffer?: boolean;
   pending?: boolean;
@@ -107,6 +111,7 @@ export function TributePanel({
   coins,
   tributeCode = null,
   petTributeCode = null,
+  isPetUnlocked = false,
   disabled = false,
   hideAffectionOffer = false,
   pending = false,
@@ -1006,12 +1011,24 @@ export function TributePanel({
               <div><p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">Throne payment</p><h3 className="mt-2 text-2xl font-black text-white">Choose your code</h3></div>
               <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowThroneCode(false)} type="button">×</button>
             </div>
-            <p className="mt-4 text-sm leading-6 text-zinc-300">Either code credits Principessa Money at 1 USD = 1 Money. The Pet code also files it as a Pet task, so it earns Devotion and counts toward your Throne titles.</p>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">
+              {isPetUnlocked
+                ? "Either code credits Principessa Money at 1 USD = 1 Money. The Pet code also files it as a Pet task, so it counts toward your Throne titles."
+                : "Put this code in your Throne gift message and Principessa Money is credited automatically at 1 USD = 1 Money."}
+            </p>
             <div className="mt-4 space-y-3">
-              {[
-                ["Money Add", tributeCode, "Principessa Money only"],
-                ["Pet Throne Bonus", petTributeCode, "Same Money + Devotion + Throne title progress"],
-              ].map(([label, code, detail]) => (
+              {(
+                [
+                  ["Money Add", tributeCode, "Principessa Money only"],
+                  // The Pet code row is hidden until the Pet track is unlocked.
+                  // Every profile has a PT- code seeded whether or not its owner
+                  // is a pet, so showing it to everyone advertised a shortcut
+                  // into Pet-track progress nobody had earned.
+                  ...(isPetUnlocked
+                    ? [["Pet Throne Bonus", petTributeCode, "Same Money + Throne title progress"] as const]
+                    : []),
+                ] as ReadonlyArray<readonly [string, string | null, string]>
+              ).map(([label, code, detail]) => (
                 <div className="rounded-2xl border border-pink-200/20 bg-black/35 p-3" key={label}>
                   <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-pink-100/70">{label}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div><button className="rounded-xl border border-pink-200/25 px-3 py-2 text-xs font-black text-pink-50 disabled:opacity-40" disabled={!code} onClick={() => code && void navigator.clipboard?.writeText(code)} type="button">Copy</button></div>
                   <p className="mt-3 rounded-xl bg-black/40 px-3 py-2 text-center font-black tracking-[0.18em] text-pink-50">{code ?? "Code unavailable"}</p>
