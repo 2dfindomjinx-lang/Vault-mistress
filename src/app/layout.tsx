@@ -13,14 +13,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vault Mistress",
-  description: "SFW anime companion gallery unlock prototype.",
+  metadataBase: new URL("https://vault-mistress.vercel.app"),
+  title: {
+    default: "Vault Mistress · Principessa's Court",
+    template: "%s · Vault Mistress",
+  },
+  description: "Enter Principessa's Court: devotion, loyalty, challenges, collections, and rewards under her command.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
       { url: "/icon.png", type: "image/png" },
     ],
     shortcut: "/favicon.ico",
+  },
+  openGraph: {
+    description: "Enter Principessa's Court: devotion, loyalty, challenges, collections, and rewards under her command.",
+    images: [
+      {
+        alt: "Vault Mistress — Enter Principessa's Court",
+        height: 630,
+        url: "/social/vault-mistress-og.png",
+        width: 1200,
+      },
+    ],
+    siteName: "Vault Mistress",
+    title: "Vault Mistress · Principessa's Court",
+    type: "website",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    description: "Enter Principessa's Court: devotion, loyalty, challenges, collections, and rewards under her command.",
+    images: ["/social/vault-mistress-og.png"],
+    title: "Vault Mistress · Principessa's Court",
   },
 };
 

@@ -21,7 +21,8 @@ function verifySignature(rawBody: string, timestamp: string | null, signatureHex
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) return Response.json({ error: "Supabase is not configured." }, { status: 500 });
   const rawBody = await request.text();
-  if (!verifySignature(rawBody, request.headers.get("x-signature-timestamp"), request.headers.get("x-signature-ed25519"))) {
+  const signatureTimestamp = request.headers.get("x-signature-timestamp");
+  if (!verifySignature(rawBody, signatureTimestamp, request.headers.get("x-signature-ed25519"))) {
     return Response.json({ error: "Invalid Throne signature." }, { status: 401 });
   }
 
@@ -40,25 +41,60 @@ export async function POST(request: Request) {
   }
   const amount = smallestCurrencyUnit / 100;
   const supabase = createSupabaseAdminClient();
-  const { data: inserted, error: insertError } = await supabase.from("throne_webhook_events").insert({ event_id: eventId, payload }).select("event_id").maybeSingle();
-  if (insertError?.code === "23505") return Response.json({ ok: true, duplicate: true });
-  if (insertError || !inserted) return Response.json({ error: insertError?.message ?? "Could not record webhook." }, { status: 500 });
+  // The signed header is controlled by Throne and already constrained to a
+  // five-minute acceptance window above. Keep it separate from created_at,
+  // which is merely when Postgres happened to receive the insert.
+  const occurredAt = new Date(Number(signatureTimestamp) * 1000).toISOString();
+  const { data: inserted, error: insertError } = await supabase
+    .from("throne_webhook_events")
+    .insert({ event_id: eventId, occurred_at: occurredAt, payload })
+    .select("event_id")
+    .maybeSingle();
+  if (insertError?.code === "23505") {
+    const { data: existing, error: existingError } = await supabase
+      .from("throne_webhook_events")
+      .select("status")
+      .eq("event_id", eventId)
+      .maybeSingle();
+    if (existingError || !existing) {
+      return Response.json({ error: "Could not verify duplicate webhook state." }, { status: 500 });
+    }
+    if (["credited", "unmatched", "ignored"].includes(existing.status)) {
+      return Response.json({ ok: true, duplicate: true });
+    }
+    // A previous delivery can die after inserting but before crediting. Resume
+    // received/failed rows; the money RPC has its own source-key idempotency.
+  } else if (insertError || !inserted) {
+    return Response.json({ error: "Could not record webhook." }, { status: 500 });
+  }
 
   const code = message.match(/\b(?:VM|PT)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
   const isPetBonusCode = Boolean(code?.startsWith("PT-"));
-  const gifterUsername = text(data.gifter_username).replace(/^@/, "");
   const profile = code
     ? (await supabase
         .from("profiles")
         .select("id, username")
         .ilike(isPetBonusCode ? "pet_tribute_code" : "tribute_code", code)
         .maybeSingle()).data
-    : gifterUsername
-      ? (await supabase.from("profiles").select("id, username").ilike("username", gifterUsername).maybeSingle()).data
-      : null;
+    : null;
   if (!profile) {
-    await supabase.from("throne_webhook_events").update({ status: "unmatched", processed_at: new Date().toISOString() }).eq("event_id", eventId);
-    await supabase.from("tribute_claims").insert({ event_id: eventId, amount, message });
+    const { error: claimError } = await supabase
+      .from("tribute_claims")
+      .upsert({ event_id: eventId, amount, message }, { ignoreDuplicates: true, onConflict: "event_id" });
+    if (claimError) {
+      console.error("Unmatched Throne claim persistence failed", { claimError, eventId });
+      return Response.json({ error: "Could not queue unmatched tribute." }, { status: 500 });
+    }
+    // Finalize only after the claim exists. If this update fails, a webhook
+    // retry sees a resumable event and safely upserts the same claim again.
+    const { error: unmatchedError } = await supabase
+      .from("throne_webhook_events")
+      .update({ status: "unmatched", processed_at: new Date().toISOString() })
+      .eq("event_id", eventId);
+    if (unmatchedError) {
+      console.error("Unmatched Throne event finalization failed", { eventId, unmatchedError });
+      return Response.json({ error: "Could not finalize unmatched tribute." }, { status: 500 });
+    }
     return Response.json({
       ok: true,
       matched: false,
@@ -91,6 +127,13 @@ export async function POST(request: Request) {
     }
     return Response.json({ error: creditError.message }, { status: 409 });
   }
-  await supabase.from("throne_webhook_events").update({ status: "credited", user_id: profile.id, processed_at: new Date().toISOString() }).eq("event_id", eventId);
+  const { error: creditedEventError } = await supabase
+    .from("throne_webhook_events")
+    .update({ attribution_code: code, processed_at: new Date().toISOString(), status: "credited", user_id: profile.id })
+    .eq("event_id", eventId);
+  if (creditedEventError) {
+    console.error("Credited Throne event finalization failed", { error: creditedEventError, eventId });
+    return Response.json({ error: "Tribute was credited but its event could not be finalized." }, { status: 500 });
+  }
   return Response.json({ ok: true, matched: true, moneyAwarded, coinEquivalent, credit, petBonusAutomated: isPetBonusCode });
 }

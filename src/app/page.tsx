@@ -160,6 +160,7 @@ import {
   type ClickGameStatus,
   type ClickGameWinHistoryEntry,
 } from "@/lib/click-game";
+import { COURT_SEAL_BOARD_COPY, type CourtSealBoard } from "@/lib/court-seal-shared";
 import {
   getGlobalPrincipessaProgressPercent,
   getGlobalPrincipessaXpRequirement,
@@ -1854,7 +1855,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [streakFreezes, setStreakFreezes] = useState(2);
   const [isStreakRansomPending, setIsStreakRansomPending] = useState(false);
-  const [isCourtSealPending, setIsCourtSealPending] = useState(false);
+  const [courtSealPendingBoard, setCourtSealPendingBoard] = useState<CourtSealBoard | null>(null);
   const [returnCard, setReturnCard] = useState<{ changes: Array<{ label: string; href: string }> } | null>(null);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
@@ -5519,20 +5520,24 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleCourtSeal = async () => {
-    if (isCourtSealPending) return;
-    setIsCourtSealPending(true);
+  const handleCourtSeal = async (board: CourtSealBoard) => {
+    if (courtSealPendingBoard) return;
+    setCourtSealPendingBoard(board);
     try {
-      const response = await fetch("/api/user/court-seal", { method: "POST" });
+      const response = await fetch("/api/user/court-seal", {
+        body: JSON.stringify({ board }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
       const result = (await response.json()) as { error?: string; url?: string };
       if (!response.ok || !result.url) throw new Error(result.error ?? "Court Seal could not be created.");
       const shareUrl = `${window.location.origin}${result.url}`;
       await navigator.clipboard?.writeText(shareUrl);
-      setAvatarMistressReply("Your Court Seal is ready. The link has been copied.");
+      setAvatarMistressReply(`${COURT_SEAL_BOARD_COPY[board].shareLabel} Court Seal copied. Share it on X.`);
     } catch (error) {
       setAvatarMistressReply(error instanceof Error ? error.message : "Court Seal could not be created.");
     } finally {
-      setIsCourtSealPending(false);
+      setCourtSealPendingBoard(null);
     }
   };
 
@@ -11277,8 +11282,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               value: (
                 <div className="flex flex-col items-start gap-2">
                   <span>{selectedDevotionRank ? `#${selectedDevotionRank}` : "Unranked"}</span>
-                  <button className="rounded-full border border-pink-300/25 bg-pink-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-pink-50 transition hover:border-pink-300/45 disabled:opacity-45" disabled={isCourtSealPending} onClick={handleCourtSeal} type="button">
-                    {isCourtSealPending ? "Sealing..." : "Seal this"}
+                  <button className="rounded-full border border-pink-300/25 bg-pink-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-pink-50 transition hover:border-pink-300/45 disabled:opacity-45" disabled={Boolean(courtSealPendingBoard)} onClick={() => void handleCourtSeal("devotion")} type="button">
+                    {courtSealPendingBoard === "devotion" ? "Sealing..." : "Seal rank"}
                   </button>
                 </div>
               ),
@@ -11295,6 +11300,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 <div className="flex flex-col items-start gap-2">
                   <span>{loyaltyStreak} days</span>
                   <span className="text-[10px] uppercase tracking-[0.12em] text-pink-100/55">{streakFreezes} protection{streakFreezes === 1 ? "" : "s"}</span>
+                  <button
+                    className="rounded-full border border-violet-300/25 bg-violet-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-violet-50 transition hover:border-violet-300/45 disabled:opacity-45"
+                    disabled={Boolean(courtSealPendingBoard)}
+                    onClick={() => void handleCourtSeal("streak")}
+                    type="button"
+                  >
+                    {courtSealPendingBoard === "streak" ? "Sealing..." : "Seal streak"}
+                  </button>
                   {lastLoyaltyAt && Date.now() - new Date(lastLoyaltyAt).getTime() > 48 * 60 * 60 * 1000 && Date.now() - new Date(lastLoyaltyAt).getTime() <= 96 * 60 * 60 * 1000 ? (
                     <button
                       className="rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-amber-50 transition hover:border-amber-300/45 hover:bg-amber-500/20 disabled:opacity-45"
@@ -11812,12 +11825,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onShrinePurchase={handleShrinePurchase}
               onTribute={handleTribute}
               clickGame={clickGameStatus}
-              clickGameLeaderboard={clickGameLeaderboard}
+               clickGameLeaderboard={clickGameLeaderboard}
+               clickSealDisabled={Boolean(courtSealPendingBoard)}
+               clickSealPending={courtSealPendingBoard === "click"}
               clickGameTogglePending={pendingTaskActionIds.includes("click-game-toggle")}
               onClickGameStart={handleClickGameStart}
               onClickGameStop={handleClickGameStop}
               onClickGameReset={handleClickGameReset}
-              onClickGameClick={handleClickGameClick}
+               onClickGameClick={handleClickGameClick}
+               onCreateClickSeal={() => void handleCourtSeal("click")}
               clickGameVisible={CLICK_GAME_ENABLED}
               onClickGameCategoryChange={setClickGameCategory}
               clickGameStatusCategory={clickGameStatusCategory}

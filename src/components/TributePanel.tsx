@@ -59,11 +59,14 @@ type TributePanelProps = {
   onTribute: (amount: number) => void;
   clickGame?: ClickGameStatus | null;
   clickGameLeaderboard?: ClickGameLeaderboardData | null;
+  clickSealDisabled?: boolean;
+  clickSealPending?: boolean;
   clickGameTogglePending?: boolean;
   onClickGameStart?: () => void;
   onClickGameStop?: () => void;
   onClickGameReset?: () => void;
   onClickGameClick?: (count: number, categoryId: ClickGameCategoryId) => void | Promise<void>;
+  onCreateClickSeal?: () => void;
   clickGameVisible?: boolean;
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
   clickGameStatusCategory?: ClickGameCategoryId | null;
@@ -113,11 +116,14 @@ export function TributePanel({
   onTribute,
   clickGame = null,
   clickGameLeaderboard = null,
+  clickSealDisabled = false,
+  clickSealPending = false,
   clickGameTogglePending = false,
   onClickGameStart,
   onClickGameStop,
   onClickGameReset,
   onClickGameClick,
+  onCreateClickSeal,
   clickGameVisible = false,
   onClickGameCategoryChange,
   clickGameStatusCategory = null,
@@ -925,7 +931,17 @@ export function TributePanel({
 
             <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">This Week&apos;s Cash Cows</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">This Week&apos;s Cash Cows</p>
+                  <button
+                    className="shrink-0 rounded-full border border-amber-200/25 bg-amber-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-400/20 disabled:opacity-45"
+                    disabled={clickSealDisabled}
+                    onClick={onCreateClickSeal}
+                    type="button"
+                  >
+                    {clickSealPending ? "Sealing..." : "Seal my rank"}
+                  </button>
+                </div>
                 <div className="mt-2 grid gap-1.5">
                   {(clickGameLeaderboard?.leaders ?? []).length > 0 ? (
                     clickGameLeaderboard!.leaders.map((entry) => (

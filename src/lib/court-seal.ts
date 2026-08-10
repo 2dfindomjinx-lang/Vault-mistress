@@ -1,14 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { CourtSealPayload } from "@/lib/court-seal-shared";
 
-export type CourtSealPayload = {
-  board: "devotion" | "streak" | "click";
-  rank?: number;
-  streak?: number;
-  createdAt: number;
-};
+export type { CourtSealBoard, CourtSealPayload } from "@/lib/court-seal-shared";
 
 function getSecret() {
-  return process.env.COURT_SEAL_SECRET ?? process.env.CRON_SECRET ?? "";
+  return process.env.COURT_SEAL_SECRET ?? "";
 }
 
 function encode(value: string) {
@@ -31,7 +27,9 @@ export function createCourtSealToken(payload: CourtSealPayload) {
 
 export function verifyCourtSealToken(token: string): CourtSealPayload | null {
   if (!getSecret()) return null;
-  const [encoded, signature] = token.split(".");
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [encoded, signature] = parts;
   if (!encoded || !signature) return null;
   const expected = sign(encoded);
   const actualBuffer = Buffer.from(signature);
@@ -40,9 +38,16 @@ export function verifyCourtSealToken(token: string): CourtSealPayload | null {
   try {
     const payload = JSON.parse(decode(encoded)) as CourtSealPayload;
     if (!payload || !["devotion", "streak", "click"].includes(payload.board)) return null;
-    if (!Number.isInteger(payload.createdAt) || Date.now() - payload.createdAt > 1000 * 60 * 60 * 24 * 365) return null;
+    if (
+      !Number.isInteger(payload.createdAt) ||
+      payload.createdAt > Date.now() + 1000 * 60 * 5 ||
+      Date.now() - payload.createdAt > 1000 * 60 * 60 * 24 * 365
+    ) return null;
     if (payload.rank !== undefined && (!Number.isInteger(payload.rank) || payload.rank < 1)) return null;
     if (payload.streak !== undefined && (!Number.isInteger(payload.streak) || payload.streak < 0)) return null;
+    if (payload.clicks !== undefined && (!Number.isInteger(payload.clicks) || payload.clicks < 0)) return null;
+    if (payload.board === "streak" && payload.streak === undefined) return null;
+    if (payload.board === "click" && payload.clicks === undefined) return null;
     return payload;
   } catch {
     return null;
