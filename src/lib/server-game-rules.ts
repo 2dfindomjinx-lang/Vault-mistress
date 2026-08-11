@@ -54,6 +54,17 @@ export const TIMEOUT_CLEAR_FEE_PER_HOUR = 100;
 // plpgsql cannot import this file, so this is the single source of truth.
 export const RUNWAY_VOTE_COIN_REWARD = 50;
 export const RUNWAY_DAILY_REWARDED_VOTE_LIMIT = 5;
+// How long after submitting before a user may replace their Voting Avatar.
+// Was 3 days, which starved the pool: with a small user base almost nobody had
+// an unrated candidate left to vote on, so the daily 5 rewarded votes could not
+// be completed and the page felt dead. One day matches the daily vote cycle.
+export const RUNWAY_SUBMIT_COOLDOWN_HOURS = 24;
+// How long a house-generated outfit stays in the pool before the daily
+// retention job deletes it outright, rating history and all. They are filler,
+// not submissions, and deleting rather than archiving is deliberate: a viewer
+// is never shown a row they already rated, so a kept row could never come
+// back, while a deleted one can be regenerated as a fresh candidate later.
+export const RUNWAY_GENERATED_OUTFIT_TTL_DAYS = 7;
 // Kept in sync with the database RPC, which pins these values defensively.
 export const RUNWAY_SUPER_VOTE_COIN_COST = 2_500;
 export const RUNWAY_SUPER_VOTE_OWNER_REWARD = 1_000;

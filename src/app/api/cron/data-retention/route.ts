@@ -2,6 +2,7 @@ import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supa
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import { CLICK_GAME_DAILY_REDUCTION } from "@/lib/click-game";
 import { getGmt3DateKey } from "@/lib/time";
+import { RUNWAY_GENERATED_OUTFIT_TTL_DAYS } from "@/lib/server-game-rules";
 
 export const maxDuration = 300;
 
@@ -100,16 +101,36 @@ export async function GET(request: Request) {
     const tokensCutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
     const skipsCutoff = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [receiptsResult, tokensResult, skipsResult] = await Promise.all([
+    // House-generated outfits are disposable filler, not submissions. They are
+    // dropped on age alone, ratings included: keeping the rated ones would mean
+    // the same outfit could never be offered again, since a viewer who already
+    // rated a row is never shown it twice. Deleting the row lets an identical
+    // combination come back later as a fresh candidate.
+    //
+    // The cascade takes their votes and tokens with them. That loses no money
+    // trail - the coin reward is recorded in coin_transactions, which is not
+    // linked to the avatar row - and a viewer holding a token for one of these
+    // simply gets a new candidate on their next request.
+    const generatedCutoff = new Date(
+      now - RUNWAY_GENERATED_OUTFIT_TTL_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const [receiptsResult, tokensResult, skipsResult, generatedResult] = await Promise.all([
       supabase.from("runway_action_receipts").delete().lt("created_at", receiptsCutoff),
       // Every token's TTL is capped at 600s, so anything issued over a day
       // ago is guaranteed expired (consumed or not) - safe to drop outright.
       supabase.from("runway_candidate_tokens").delete().lt("issued_at", tokensCutoff),
       supabase.from("avatar_feed_skips").delete().lt("created_at", skipsCutoff),
+      supabase
+        .from("voting_avatars")
+        .delete()
+        .eq("is_generated", true)
+        .lt("created_at", generatedCutoff),
     ]);
     if (receiptsResult.error) console.warn("Runway receipts prune failed", receiptsResult.error);
     if (tokensResult.error) console.warn("Runway candidate token prune failed", tokensResult.error);
     if (skipsResult.error) console.warn("Runway skip history prune failed", skipsResult.error);
+    if (generatedResult.error) console.warn("Runway generated outfit prune failed", generatedResult.error);
   }
 
   if (!dryRun) {

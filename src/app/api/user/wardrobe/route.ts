@@ -346,12 +346,21 @@ export async function POST(request: Request) {
 
   if (action === "set-equipped") {
     const slots = (body as any)?.equippedSlots || {};
+    // Already-worn items are reserved out of the inventory, so an inventory-only
+    // check would drop them here - and this handler writes equipped_avatar_slots
+    // without returning anything to the inventory, so a dropped item would be
+    // gone from both places. Anything currently equipped counts as owned.
+    const reservedItemIds = new Set<string>(
+      Object.values(currentSlots).filter((value): value is string => typeof value === "string" && value.length > 0),
+    );
+    if (currentFullSetId) reservedItemIds.add(currentFullSetId);
+
     // harden: only set items the user actually owns
     const cleaned: EquippedAvatarSlots = {};
     for (const [s, iid] of Object.entries(slots as Record<string, string>)) {
       if (!iid || typeof iid !== "string") continue;
-      if (iid === "classic") {
-        // default item always allowed
+      if (iid === "classic" || reservedItemIds.has(iid)) {
+        // default item always allowed; reserved items are held, not missing
         (cleaned as any)[s] = iid;
         continue;
       }

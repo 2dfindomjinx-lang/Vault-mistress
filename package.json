@@ -11,7 +11,8 @@
     "test:security": "node scripts/admin-security-checks.mjs && node scripts/security-integration-tests.mjs",
     "test:security:http": "node scripts/security-integration-tests.mjs",
     "test:linkify": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/linkify-check.mjs",
-    "test:slots": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/avatar-slot-check.mjs"
+    "test:slots": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/avatar-slot-check.mjs",
+    "test:outfits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/runway-outfit-check.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",

@@ -1708,7 +1708,7 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     sell_value: 125,
   },
   "bbc_owned_tshirt": {
-    name: "Owned Tee",
+    name: "BBC Owned T-shirt",
     description: "Printed across the chest. You picked it out yourself.",
     rarity: "common",
     collection: "blacked",
@@ -1974,14 +1974,14 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     sell_value: 16000,
   },
   "spider_man_cosplay": {
-    name: "Spider Cosplay",
+    name: "Spider Man Cosplay",
     description: "Skin-tight webbing from neck to toe.",
     rarity: "legendary",
     collection: "cosplay",
     sell_value: 17000,
   },
   "venom_cosplay": {
-    name: "Symbiote Cosplay",
+    name: "Venom Cosplay",
     description: "Black, wet-looking, and far too tight.",
     rarity: "legendary",
     collection: "cosplay",

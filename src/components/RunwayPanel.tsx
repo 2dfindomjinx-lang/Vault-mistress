@@ -45,6 +45,11 @@ type Candidate = {
   superVotesUsedToday: number;
   submittedAt: string;
   existingRating: number | null;
+  // House-generated filler, shown when the real pool has nothing left to rate.
+  // Marked in the UI so nobody thinks they are judging another user's work.
+  isGenerated?: boolean;
+  generatedKind?: "smart" | "random" | null;
+  generatedTheme?: string | null;
 };
 
 type LeaderboardEntry = {
@@ -344,9 +349,20 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
                 />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-black text-white">{candidate.username}</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-base font-black text-white">{candidate.username}</p>
+                  {candidate.isGenerated && (
+                    <span className="shrink-0 rounded-full border border-cyan-200/30 bg-cyan-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                      House outfit
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-zinc-400">
-                  Submitted {new Date(candidate.submittedAt).toLocaleDateString()}
+                  {candidate.isGenerated
+                    ? candidate.generatedKind === "random"
+                      ? "Thrown together at random"
+                      : `Styled by the house${candidate.generatedTheme ? ` · ${candidate.generatedTheme}` : ""}`
+                    : `Submitted ${new Date(candidate.submittedAt).toLocaleDateString()}`}
                 </p>
                 <p className="mt-1 text-xs text-pink-100/80">
                   {candidate.totalPoints} points · {candidate.ratingCount} votes
