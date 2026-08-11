@@ -92,22 +92,27 @@ export function isEventCompatibleWithActiveEvents(
 }
 
 export const EVENT_TEMPLATES: EventTemplate[] = [
-  {
-    key: "lucky-key",
-    name: "Lucky Key",
-    description: "All cases are 40% cheaper while this event is active.",
-    effect: { type: "crate_cost_discount", multiplier: 0.6, crateEventKey: "lucky_key" },
-  },
+  // Golden = the price, Lucky = the odds. The two were named the other way
+  // round until the names were swapped to match what they actually do.
   {
     key: "golden-key",
     name: "Golden Key",
-    description: "Blessing Case common items drop to 9.90% each, with the missing chance added evenly to legendary items. Principessa Case common drops by 4% and Epic rises by 4%. Premium Case common drops by 2%, Epic rises by 1.5%, and Legendary rises by 0.5%.",
-    effect: { type: "crate_drop_adjustment", multiplier: 1, crateEventKey: "golden_key" },
+    description:
+      "Cases cost less to open. The cut is per case: 25% off Principessa and Kitten, 20% off Premium and Couture, 15% off Obedience, 5% off Cosplay. Cheaper cases get the deeper discount; the guaranteed-legendary Cosplay Case barely moves.",
+    effect: { type: "crate_cost_discount", multiplier: 0.6, crateEventKey: "golden_key" },
+  },
+  {
+    key: "lucky-key",
+    name: "Lucky Key",
+    description:
+      "Drop odds shift toward better items: common falls about 4 points and epic rises about 4 in every case, and Premium also gains legendary. Because the shifted weight leaves the pool, the untouched tiers rise too. Worth roughly 8-16% more value per open. Cosplay Case is unaffected - it is a single guaranteed-legendary tier with nothing to shift between.",
+    effect: { type: "crate_drop_adjustment", multiplier: 1, crateEventKey: "lucky_key" },
   },
   {
     key: "free-key",
     name: "Free Key",
-    description: "Each case gets one free open for the day while this event is active.",
+    description:
+      "Each case gets one free open for the day, except the Cosplay Case - a free open there is a free guaranteed legendary, worth far more than a free open anywhere else.",
     effect: { type: "crate_free_open", multiplier: 1, crateEventKey: "free_key" },
   },
   {

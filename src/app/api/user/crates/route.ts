@@ -292,7 +292,7 @@ async function openCrateBatch(
 
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("coins, principessa_case_bad_luck_count, blessing_case_legendary_pity_count")
+    .select("coins, principessa_case_bad_luck_count")
     .eq("id", userId)
     .single();
 
@@ -354,11 +354,9 @@ async function openCrateBatch(
 
   const results: Array<{ item_id: string; variant: string }> = [];
   let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
-  let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
 
   for (let i = 0; i < quantity; i += 1) {
     const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
-    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 249;
 
     let rolled = weightedRandom(possibleDrops);
     if (!rolled) {
@@ -371,9 +369,6 @@ async function openCrateBatch(
         const epicOnly = possibleDrops.filter((drop) => SAMPLE_CRATE_ITEMS[drop.item_id]?.rarity === "epic");
         rolled = weightedRandom(epicOnly.length ? epicOnly : possibleDrops) ?? rolled;
       }
-    } else if (isBlessingPity) {
-      const legendaryOnly = possibleDrops.filter((drop) => SAMPLE_CRATE_ITEMS[drop.item_id]?.rarity === "legendary");
-      rolled = weightedRandom(legendaryOnly.length ? legendaryOnly : possibleDrops) ?? rolled;
     }
 
     results.push({
@@ -387,10 +382,6 @@ async function openCrateBatch(
         resultRarity === "rare" || resultRarity === "epic" || resultRarity === "legendary"
           ? 0
           : principessaBadLuck + 1;
-    }
-
-    if (crateType === "blessing_case") {
-      blessingPity = resultRarity === "legendary" ? 0 : blessingPity + 1;
     }
   }
 
@@ -408,7 +399,6 @@ async function openCrateBatch(
     .update({
       coins: nextCoins,
       principessa_case_bad_luck_count: principessaBadLuck,
-      blessing_case_legendary_pity_count: blessingPity,
       updated_at: nowIso,
     })
     .eq("id", userId)
@@ -551,7 +541,6 @@ async function openCrateBatch(
     free_open_applied: finalPricing.eventFreeApplied,
     pity: {
       principessa_bad_luck: principessaBadLuck,
-      blessing_legendary_pity: blessingPity,
     },
   });
 }
@@ -631,7 +620,7 @@ export async function GET() {
   // Pity counters for display (server side only for logic)
   const { data: pityProfile } = await supabase
     .from("profiles")
-    .select("principessa_case_bad_luck_count, blessing_case_legendary_pity_count")
+    .select("principessa_case_bad_luck_count")
     .eq("id", userId)
     .single();
 
@@ -675,7 +664,6 @@ export async function GET() {
     inventory,
     pity: {
       principessa_bad_luck: pityProfile?.principessa_case_bad_luck_count ?? 0,
-      blessing_legendary_pity: pityProfile?.blessing_case_legendary_pity_count ?? 0,
     },
     free_opens_used_today: freeOpensUsedToday,
     crate_open_credits: crateOpenCredits,
@@ -726,7 +714,7 @@ export async function POST(request: Request) {
     // Get current coins (for validation + tx) + pity counters
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
-      .select("coins, principessa_case_bad_luck_count, blessing_case_legendary_pity_count")
+      .select("coins, principessa_case_bad_luck_count")
       .eq("id", userId)
       .single();
 
@@ -736,8 +724,7 @@ export async function POST(request: Request) {
     }
 
     let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
-    let blessingPity = profile.blessing_case_legendary_pity_count ?? 0;
-    const activeEvents = await getActiveEvents(supabase);
+      const activeEvents = await getActiveEvents(supabase);
     const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
     const grantPreview = await getCrateOpenCredits(supabase, userId);
     const pricing = getCrateBatchPricing(
@@ -791,7 +778,6 @@ export async function POST(request: Request) {
 
     let rolled;
     const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
-    const isBlessingPity = crateType === "blessing_case" && blessingPity >= 249;
 
     if (isPrincipessaPity) {
       // Bad luck protection: 
@@ -812,13 +798,6 @@ export async function POST(request: Request) {
         });
         rolled = weightedRandom(epicOnly.length ? epicOnly : possibleDrops);
       }
-    } else if (isBlessingPity) {
-      // Legendary guarantee: force legendary only
-      const legOnly = possibleDrops.filter((d) => {
-        const def = SAMPLE_CRATE_ITEMS[d.item_id];
-        return def && def.rarity === "legendary";
-      });
-      rolled = weightedRandom(legOnly.length ? legOnly : possibleDrops);
     } else {
       rolled = weightedRandom(possibleDrops);
     }
@@ -974,7 +953,6 @@ export async function POST(request: Request) {
 
     // Update pity counters (server only)
     let updatedBadLuck = principessaBadLuck;
-    let updatedBlessPity = blessingPity;
     const resultRarity = wonItemDef.rarity;
 
     if (crateType === "principessa_case") {
@@ -982,15 +960,9 @@ export async function POST(request: Request) {
         ? 0
         : (principessaBadLuck + 1);
     }
-    if (crateType === "blessing_case") {
-      updatedBlessPity = (resultRarity === "legendary")
-        ? 0
-        : (blessingPity + 1);
-    }
 
     await supabase.from("profiles").update({
       principessa_case_bad_luck_count: updatedBadLuck,
-      blessing_case_legendary_pity_count: updatedBlessPity,
     }).eq("id", userId);
 
     return Response.json({
@@ -1012,9 +984,19 @@ export async function POST(request: Request) {
       free_open_applied: finalPricing.eventFreeApplied,
       pity: {
         principessa_bad_luck: updatedBadLuck,
-        blessing_legendary_pity: updatedBlessPity,
       },
     });
+  }
+
+  // One bucket for every sell variant. The per-row conflict guards make a
+  // double sale fail rather than pay out, but they only work if the attacker
+  // cannot fire the racing requests by the hundred, and no legitimate client
+  // sells faster than this.
+  if (action === "sell" || action === "sell_all" || action === "sell_many" || action === "sell_duplicates") {
+    const sellRateLimit = await checkRateLimit(supabase, `crate-sell:${userId}`, 20, 60);
+    if (!sellRateLimit.allowed) {
+      return rateLimitResponse(sellRateLimit.retryAfterSeconds);
+    }
   }
 
   if (action === "sell") {
@@ -1457,6 +1439,10 @@ export async function POST(request: Request) {
       const currentQty = inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0;
       const nextQty = currentQty - detail.quantity;
 
+      // The quantity match is the only thing standing between this and a
+      // double sell: ownership was checked against a snapshot read before the
+      // coins moved, so a concurrent sale of the same row would otherwise be
+      // paid for twice and decremented once.
       const mutation = nextQty > 0
         ? supabase
             .from("user_crate_inventory")
@@ -1464,15 +1450,21 @@ export async function POST(request: Request) {
             .eq("user_id", userId)
             .eq("item_id", detail.item_id)
             .eq("variant", detail.variant)
+            .eq("quantity", currentQty)
+            .select("item_id")
+            .maybeSingle()
         : supabase
             .from("user_crate_inventory")
             .delete()
             .eq("user_id", userId)
             .eq("item_id", detail.item_id)
-            .eq("variant", detail.variant);
+            .eq("variant", detail.variant)
+            .eq("quantity", currentQty)
+            .select("item_id")
+            .maybeSingle();
 
-      const { error: invUpdateErr } = await mutation;
-      if (invUpdateErr) {
+      const { data: mutatedRow, error: invUpdateErr } = await mutation;
+      if (invUpdateErr || !mutatedRow) {
         console.error("[crates] sell_many inventory mutation failed", invUpdateErr);
         await supabase.from("profiles").update({ coins: profile.coins, updated_at: nowIso }).eq("id", userId).eq("coins", nextCoins);
         await Promise.all(
@@ -1490,7 +1482,11 @@ export async function POST(request: Request) {
               ),
           ),
         );
-        return jsonError("Failed to clear inventory after sale. Coins refunded.", 500);
+        // No error but no row means the quantity moved under us - a conflict,
+        // not a failure, so it gets the same 409 the coin CAS returns.
+        return invUpdateErr
+          ? jsonError("Failed to clear inventory after sale. Coins refunded.", 500)
+          : jsonError("Sale failed (inventory changed).", 409);
       }
 
       appliedDetails.push(detail);
@@ -1647,14 +1643,19 @@ export async function POST(request: Request) {
       const currentQty = inventoryMap.get(buildInventoryKey(detail.item_id, detail.variant)) ?? 0;
       const nextQty = Math.max(1, currentQty - detail.quantity);
 
-      const { error: invUpdateErr } = await supabase
+      // Same conflict guard as sell_many: ownership came from a snapshot taken
+      // before the coins moved, so the row has to still hold that quantity.
+      const { data: mutatedRow, error: invUpdateErr } = await supabase
         .from("user_crate_inventory")
         .update({ quantity: nextQty })
         .eq("user_id", userId)
         .eq("item_id", detail.item_id)
-        .eq("variant", detail.variant);
+        .eq("variant", detail.variant)
+        .eq("quantity", currentQty)
+        .select("item_id")
+        .maybeSingle();
 
-      if (invUpdateErr) {
+      if (invUpdateErr || !mutatedRow) {
         console.error("[crates] sell_duplicates inventory mutation failed", invUpdateErr);
         await supabase
           .from("profiles")
@@ -1676,7 +1677,9 @@ export async function POST(request: Request) {
               ),
           ),
         );
-        return jsonError("Failed to clear duplicates after sale. Coins refunded.", 500);
+        return invUpdateErr
+          ? jsonError("Failed to clear duplicates after sale. Coins refunded.", 500)
+          : jsonError("Sale failed (inventory changed).", 409);
       }
 
       appliedDetails.push(detail);

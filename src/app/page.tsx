@@ -1894,9 +1894,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // Crate system V1 (collectibles + coin sink) - integrated inside Cosmetics panel
   const [availableCrates, setAvailableCrates] = useState<CrateDefinition[]>([]);
   const [crateInventory, setCrateInventory] = useState<CrateInventoryItem[]>([]);
-  const [pityStats, setPityStats] = useState<{ principessa_bad_luck: number; blessing_legendary_pity: number }>({
+  const [pityStats, setPityStats] = useState<{ principessa_bad_luck: number }>({
     principessa_bad_luck: 0,
-    blessing_legendary_pity: 0,
   });
   const [crateFreeOpensUsedToday, setCrateFreeOpensUsedToday] = useState<Record<string, boolean>>({});
   const [crateOpenCredits, setCrateOpenCredits] = useState<Record<string, number>>({});
@@ -3516,7 +3515,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setCrateInventory(seededInventory);
       setCrateFreeOpensUsedToday({});
       setCrateOpenCredits({});
-      setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+      setPityStats({ principessa_bad_luck: 0 });
       return;
     }
 
@@ -3530,7 +3529,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         free_opens_used_today?: Record<string, boolean>;
         pity?: {
           principessa_bad_luck?: number;
-          blessing_legendary_pity?: number;
         };
       };
 
@@ -3545,7 +3543,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       if (result.pity) {
         setPityStats({
           principessa_bad_luck: result.pity.principessa_bad_luck ?? 0,
-          blessing_legendary_pity: result.pity.blessing_legendary_pity ?? 0,
         });
       }
     } catch (error) {
@@ -3572,7 +3569,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         free_open_applied?: boolean;
         pity?: {
           principessa_bad_luck?: number;
-          blessing_legendary_pity?: number;
         };
       };
 
@@ -3590,7 +3586,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       if (payload.pity) {
         setPityStats({
           principessa_bad_luck: payload.pity.principessa_bad_luck ?? pityStats.principessa_bad_luck,
-          blessing_legendary_pity: payload.pity.blessing_legendary_pity ?? pityStats.blessing_legendary_pity,
         });
       }
       if (payload.free_open_applied) {
@@ -7847,7 +7842,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setCrateInventory(seededInventory);
     setCrateFreeOpensUsedToday({});
     setCrateOpenCredits({});
-    setPityStats({ principessa_bad_luck: 0, blessing_legendary_pity: 0 });
+    setPityStats({ principessa_bad_luck: 0 });
   }, [setAuthError]);
 
   const handleEnterPreviewMode = useCallback(() => {
@@ -11953,6 +11948,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onSellAll={handleSellAllCrateItems}
                 onSellDuplicates={handleSellDuplicateCrateItems}
                 onSellWonItems={handleSellWonCrateItems}
+                onNotice={setSpeechBubbleReply}
                 pityStats={pityStats}
                 onCrateOpen={() => {
                   const avatarId = resolveSpeechAvatarIdForMessage();

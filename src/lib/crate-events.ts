@@ -15,14 +15,18 @@ function getActiveCrateEvents(activeEvents: Array<{ effect: EventEffect }>) {
   );
 }
 
-// Lucky Key: discount varies per crate instead of one flat rate. Cheaper/lower-stakes
+// Golden Key: discount varies per crate instead of one flat rate. Cheaper/lower-stakes
 // cases get a bigger cut; the guaranteed-legendary Cosplay Case barely moves since a
 // big discount there would make near-guaranteed legendaries too cheap.
-const LUCKY_KEY_CRATE_MULTIPLIERS: Record<string, number> = {
-  blessing_case: 0.6, // 40% off
+//
+// Every crate must be listed. A missing entry silently falls through to the
+// event's own multiplier (0.6 = 40% off), which is a deeper discount than any
+// crate is meant to get and pushes that crate's EV above its cost.
+const GOLDEN_KEY_CRATE_MULTIPLIERS: Record<string, number> = {
   principessa_case: 0.75, // 25% off
   premium_case: 0.8, // 20% off
   cat_case: 0.75, // 25% off
+  couture_case: 0.8, // 20% off
   cosplay_case: 0.85, // 15% off
   cosplay_pure_case: 0.95, // 5% off
 };
@@ -36,7 +40,7 @@ export function getCrateCostMultiplier(
       return multiplier;
     }
 
-    const perCrateMultiplier = crateType ? LUCKY_KEY_CRATE_MULTIPLIERS[crateType] : undefined;
+    const perCrateMultiplier = crateType ? GOLDEN_KEY_CRATE_MULTIPLIERS[crateType] : undefined;
     return multiplier * (perCrateMultiplier ?? event.effect.multiplier ?? 1);
   }, 1);
 }
@@ -187,12 +191,6 @@ export function getAdjustedCrateDrops(
     return baseDrops;
   }
 
-  if (crateType === "blessing_case") {
-    return adjustDropWeightsByRarity(crateType, {
-      common: Math.round(baseTotal * 0.99),
-      legendary: Math.round(baseTotal * 0.01),
-    });
-  }
 
   if (crateType === "principessa_case") {
     return adjustDropWeightsByRarity(crateType, {
@@ -201,11 +199,15 @@ export function getAdjustedCrateDrops(
     });
   }
 
+  // These are absolute shares, not deltas, so they have to be revisited
+  // whenever the crate's own bands move. Premium's targets were written when
+  // its common band was 12% (making 10% a 2-point nudge); the band later grew
+  // to 34% and the untouched target turned into a 24-point cliff.
   if (crateType === "premium_case") {
     return adjustDropWeightsByRarity(crateType, {
-      common: Math.round(baseTotal * 0.1),
-      epic: Math.round(baseTotal * 0.165),
-      legendary: Math.round(baseTotal * 0.035),
+      common: Math.round(baseTotal * 0.3),
+      epic: Math.round(baseTotal * 0.18),
+      legendary: Math.round(baseTotal * 0.04),
     });
   }
 
@@ -220,6 +222,13 @@ export function getAdjustedCrateDrops(
     return adjustDropWeightsByRarity(crateType, {
       common: Math.round(baseTotal * 0.42),
       epic: Math.round(baseTotal * 0.13),
+    });
+  }
+
+  if (crateType === "couture_case") {
+    return adjustDropWeightsByRarity(crateType, {
+      common: Math.round(baseTotal * 0.4),
+      epic: Math.round(baseTotal * 0.15),
     });
   }
 

@@ -139,13 +139,6 @@ function addTail(out, { start = 0, gain = 0.22, delays = [0.037, 0.053, 0.071], 
   }
 }
 
-/** Soft saturation - tames peaks and adds a little warmth instead of clipping. */
-function saturate(out, amount = 1.4) {
-  for (let i = 0; i < out.length; i++) {
-    out[i] = Math.tanh(out[i] * amount) / Math.tanh(amount);
-  }
-}
-
 /**
  * Cascaded one-pole lowpass. Two poles give a 12dB/octave slope, which is what
  * actually removes fizz - a single pole at 6dB leaves far too much of the
@@ -221,16 +214,6 @@ function writeWav(name, samples) {
 // ------------------------------------------------------------------ palette
 
 const sounds = {
-  // A wooden "tock", not a click. No noise burst at all: the noise transient
-  // was what made the first version sting, and a pitched body carries the same
-  // information without any 4-8kHz content.
-  "button-click.wav": () => {
-    const out = buffer(0.075);
-    addTone(out, { duration: 0.07, freqStart: 520, freqEnd: 380, gain: 0.9, decayRate: 55, attackSec: 0.004 });
-    addTone(out, { duration: 0.05, freqStart: 1040, gain: 0.16, decayRate: 90, attackSec: 0.004 });
-    return finish(out, 0.34, 0.02, { cutoffHz: 2200, fadeInSec: 0.004 });
-  },
-
   // NOT GENERATED - crate_reel_tick and debt_contract_signed keep their
   // original hand-made assets (crate-reel-tick.mp3, debt-contract-signed.wav).
   // They are deliberately absent from this map so re-running the script cannot
@@ -287,7 +270,7 @@ const sounds = {
   // NOT GENERATED - the cues below keep their original hand-made assets and
   // are absent from this map on purpose, so re-running the script can never
   // overwrite them:
-  //   crate_reel_tick, debt_contract_signed, gallery_unlock,
+  //   button_click, crate_reel_tick, debt_contract_signed, gallery_unlock,
   //   affection_level_up, random_event_activation, crate_reveal,
   //   crate_legendary_reveal
   // Their paths (and extensions - several are .mp3) live in the registry in

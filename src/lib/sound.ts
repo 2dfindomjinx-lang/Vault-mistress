@@ -1,9 +1,10 @@
 // Sound playback for the court.
 //
-// The audio itself is generated, not sourced - see scripts/generate-sounds.mjs
-// for the synthesis and the reasoning. Everything is short 16-bit mono WAV so
-// there is no decode stall and no multi-megabyte music bed hiding behind a UI
-// cue.
+// The palette is mixed on purpose: five cues are generated (see
+// scripts/generate-sounds.mjs for the synthesis and the reasoning) and the rest
+// are hand-made assets kept by preference. Formats differ too - some .wav, some
+// .mp3, mono and stereo - so never assume an extension from a neighbour. The
+// registry below is the only source of truth for paths.
 
 export type SoundEventName =
   | "button_click"
@@ -89,7 +90,7 @@ const MAX_VOICES_PER_SOURCE = 4;
 // spread happened.
 //
 //   asset                        measured   offset   volume
-//   button-click.wav              -21.9dB    -5dB     0.21
+//   button-click.mp3              -30.3dB    -5dB     0.55  (replaced asset)
 //   crate-reel-tick.mp3           -24.0dB    -7dB     0.21
 //   error.wav                     -16.2dB    -2dB     0.15
 //   task-completion.wav           -15.2dB     0dB     0.17
@@ -105,7 +106,16 @@ const MAX_VOICES_PER_SOURCE = 4;
 const soundRegistry: Record<SoundEventName, SoundDefinition> = {
   // Quietest things in the app: they fire constantly and must never draw
   // attention to themselves.
-  button_click: { category: "ui", src: "/sounds/button-click.wav", volume: 0.21, minIntervalMs: 45, polyphonic: true },
+  // Replaced by hand with an .mp3, so it is no longer generated. It measures
+  // 8.4dB quieter at source than the file it replaced, hence 0.55 where the
+  // old one needed 0.21 - leaving that number alone would have made the click
+  // almost inaudible.
+  //
+  // The file is 1.10s long but only ~0.30s of it is audible; the rest is
+  // silent padding. That is harmless for overlap, but each clone stays held
+  // until `ended` fires, so rapid clicking reaches MAX_VOICES_PER_SOURCE
+  // sooner and falls back to restarting the primary voice.
+  button_click: { category: "ui", src: "/sounds/button-click.mp3", volume: 0.55, minIntervalMs: 45, polyphonic: true },
   // Original hand-made asset. Not produced by scripts/generate-sounds.mjs - do
   // not "fix" the extension to .wav.
   crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.21, minIntervalMs: 28, polyphonic: true },
@@ -214,7 +224,9 @@ export function unlockSoundPlayback() {
   hydrateSoundSettings();
   playbackUnlocked = true;
 
-  const primer = getPrimaryVoice("/sounds/button-click.wav");
+  // Primed with the click because it is the smallest asset, not because the
+  // event matters - keep this in step with button_click's src in the registry.
+  const primer = getPrimaryVoice("/sounds/button-click.mp3");
   if (!primer) return;
   primer.muted = true;
   void primer

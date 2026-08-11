@@ -40,7 +40,7 @@ function describePremiumTitleDuration(hours: number) {
 
 type ConsoleArgKind = "value" | "caseType" | "titleKey";
 
-const CONSOLE_CASE_TYPE_VALUES = ["principessa_case", "blessing_case", "premium_case"];
+const CONSOLE_CASE_TYPE_VALUES = ["principessa_case", "premium_case"];
 const CONSOLE_TITLE_KEY_VALUES = ["chosen", "femsub"];
 
 const CONSOLE_COMMANDS: Array<{ name: string; usage: string; args: ConsoleArgKind[] }> = [
@@ -51,7 +51,7 @@ const CONSOLE_COMMANDS: Array<{ name: string; usage: string; args: ConsoleArgKin
   { name: "/timeout", usage: "/timeout @username minutes", args: ["value", "value"] },
   { name: "/timeout remove", usage: "/timeout remove @username", args: ["value"] },
   { name: "/title", usage: "/title @username [chosen|femsub]", args: ["value", "titleKey"] },
-  { name: "/key", usage: "/key @username [principessa_case|blessing_case|premium_case] amount", args: ["value", "caseType", "value"] },
+  { name: "/key", usage: "/key @username [principessa_case|premium_case] amount", args: ["value", "caseType", "value"] },
 ];
 
 function getMatchedConsoleCommand(input: string) {
@@ -1867,7 +1867,7 @@ export default function AdminPage() {
                 Command Console
               </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub], /key @username [principessa_case|blessing_case|premium_case] amount
+                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub], /key @username [principessa_case|premium_case] amount
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="relative flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
@@ -2899,6 +2899,17 @@ export default function AdminPage() {
                     Create + Activate
                   </button>
                 </div>
+                {/* What the picked template actually does, so the effect does
+                    not have to be remembered from its name alone. */}
+                {(() => {
+                  const selected = [FIRST_DAY_EVENT_TEMPLATE, ...EVENT_TEMPLATES].find(
+                    (template) => template.key === eventTemplateKey,
+                  );
+                  if (!selected) return null;
+                  return (
+                    <p className="mt-3 text-xs leading-5 text-yellow-100/70">{selected.description}</p>
+                  );
+                })()}
               </div>
 
               <div className="mt-4 grid gap-3">

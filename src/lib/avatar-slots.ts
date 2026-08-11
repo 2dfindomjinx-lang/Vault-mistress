@@ -1,6 +1,7 @@
 import { SAMPLE_CRATE_ITEMS, getCrateItemImageUrl } from "@/lib/crates";
 
 export type AvatarSlot =
+  | "tattoo"
   | "ears"
   | "mouth"
   | "blindfold"
@@ -11,6 +12,7 @@ export type AvatarSlot =
   | "leggings"
   | "thighhighs"
   | "shoes"
+  | "fullLegs"
   | "fullBody"
   | "toy";
 
@@ -171,7 +173,9 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["blacked_bra", "top"],
   ["blacked_leggings", "leggings"],
   ["bimbo_collar", "collar"],
-  ["qos_tattoo", "mouth"],
+  // Moved out of `mouth` when the tattoo slot was added; the matching data
+  // migration is supabase/couture-case-and-tattoo-slot.sql.
+  ["qos_tattoo", "tattoo"],
   ["slingshot_swimsuit", "fullBody"],
   ["white_fingerless_sports_gloves", "hands"],
   ["white_sneakers", "shoes"],
@@ -185,6 +189,52 @@ const AVATAR_SLOT_ASSIGNMENTS: Array<[string, AvatarSlot]> = [
   ["red_garter_stockings", "leggings"],
   ["white_garter_stockings", "leggings"],
   ["jeans_with_red_thong", "leggings"],
+
+  // --- New wardrobe batch (2026-08) ---
+  ["maid_headband", "ears"],
+  ["pearl_drop_earrings", "ears"],
+  ["cow_ears", "ears"],
+  ["bat_hairpins", "ears"],
+  ["smokey_eyes", "blindfold"],
+  ["ahegao_eyes", "blindfold"],
+  ["beach_bangles", "hands"],
+  ["black_nails", "hands"],
+  ["lace_gloves", "hands"],
+  ["black_platform_boots", "shoes"],
+  ["strappy_sandals", "shoes"],
+  ["ballet_heels", "shoes"],
+  ["barcode_tattoo", "tattoo"],
+  ["owned_tattoo", "tattoo"],
+  ["qos_leg_tattoo", "tattoo"],
+  ["womb_tattoo", "tattoo"],
+  ["bbc_owned_tshirt", "top"],
+  ["black_lace_bra", "top"],
+  ["cute_crop_camisole", "top"],
+  ["gold_bra", "top"],
+  ["pink_satin_bra", "top"],
+  ["summer_tie_bikini_top", "top"],
+  ["white_lace_bra", "top"],
+  ["cow_print_bra", "top"],
+  ["nipple_pasties", "top"],
+  ["shredded_fishnet_top", "top"],
+  ["black_lace_panties", "bottom"],
+  ["cute_high_waist_skirt", "bottom"],
+  ["gold_micro_thong", "bottom"],
+  ["black_mini_skirt", "bottom"],
+  ["cow_print_panties", "bottom"],
+  ["green_sarong", "bottom"],
+  ["summer_tie_side_panties", "bottom"],
+  ["crotch_pasties", "bottom"],
+  ["white_lace_panties", "bottom"],
+  ["ripped_denim_thong", "bottom"],
+  ["cow_bell_collar", "collar"],
+  ["fangs", "mouth"],
+  ["wine_lipstick", "mouth"],
+  ["tongue_out", "mouth"],
+  ["shibari_harness_with_black_bikini", "fullBody"],
+  ["gothic_lolita_dress", "fullBody"],
+  ["cow_legs", "fullLegs"],
+  ["victorian_boots", "fullLegs"],
 ];
 
 AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
@@ -219,6 +269,7 @@ export const AVATAR_IMAGE_WIDTH = 512;
 export const AVATAR_IMAGE_HEIGHT = 1536;
 
 export const AVATAR_SLOT_ORDER: AvatarSlot[] = [
+  "tattoo",
   "ears",
   "blindfold",
   "mouth",
@@ -230,10 +281,12 @@ export const AVATAR_SLOT_ORDER: AvatarSlot[] = [
   "bottom",
   "thighhighs",
   "shoes",
+  "fullLegs",
   "toy",
 ];
 
 export const SLOT_LABELS: Record<AvatarSlot, string> = {
+  tattoo: "Tattoo",
   ears: "Ears",
   blindfold: "Eye",
   mouth: "Mouth",
@@ -245,13 +298,25 @@ export const SLOT_LABELS: Record<AvatarSlot, string> = {
   leggings: "Leggings",
   thighhighs: "Thighhighs",
   shoes: "Shoes",
+  fullLegs: "Legs & Feet",
   toy: "Toy",
 };
 
+// First entry renders first, so it sits at the BOTTOM of the stack.
+//
+// `tattoo` therefore leads: ink is on the skin, not on top of clothing, so it
+// has to go straight onto the base model before anything can cover it. It is
+// the only slot that conflicts with nothing - everything else layers over it.
+//
+// `fullLegs` sits with the other legwear (below `bottom`, so a skirt still
+// covers its top edge). It never coexists with shoes/thighhighs/leggings, so
+// its exact position among them is only about what a future overlap would do.
 const RENDER_LAYER_ORDER: Array<Exclude<AvatarSlot, "toy">> = [
+  "tattoo",
   "thighhighs",
   "leggings",
   "shoes",
+  "fullLegs",
   "bottom",
   "top",
   "fullBody",
@@ -268,10 +333,12 @@ const SLOT_FOLDER_MAP: Record<Exclude<AvatarSlot, "toy">, string> = {
   collar: "collar",
   ears: "ears",
   fullBody: "fullbody",
+  fullLegs: "fulllegs",
   hands: "hands",
   leggings: "leggings",
   mouth: "mouth",
   shoes: "shoes",
+  tattoo: "tattoo",
   thighhighs: "thighhighs",
   top: "tops",
 };
@@ -332,6 +399,17 @@ export function normalizeEquipment(equipped: EquippedAvatarSlots): EquippedAvata
     delete normalized.thighhighs;
   }
 
+  // `fullLegs` is one piece covering legs AND feet - thigh boots, hooves, a
+  // fin. It cannot share the body with anything that dresses either part.
+  //
+  // It deliberately does NOT clear `bottom`: a skirt over thigh-high boots is
+  // a normal outfit, which is exactly what separates this from `leggings`.
+  if (normalized.fullLegs) {
+    delete normalized.thighhighs;
+    delete normalized.leggings;
+    delete normalized.shoes;
+  }
+
   return normalized;
 }
 
@@ -366,6 +444,17 @@ export function equipAvatarItem(
 
   if (slot === "bottom" || slot === "thighhighs") {
     delete next.leggings;
+  }
+
+  // Both directions, or the exclusion only holds when equipped in one order.
+  if (slot === "fullLegs") {
+    delete next.thighhighs;
+    delete next.leggings;
+    delete next.shoes;
+  }
+
+  if (slot === "thighhighs" || slot === "leggings" || slot === "shoes") {
+    delete next.fullLegs;
   }
 
   return normalizeEquipment(next);
@@ -429,6 +518,14 @@ export const FULL_SET_ITEM_IDS: string[] = [
   "grunge_girl",
   "ponyplay",
   "succubus",
+
+  // --- 2026-08 batch ---
+  "sexy_officer_cosplay",
+  "witch_cosplay",
+  "jiangshi_cosplay",
+  "nezuko_cosplay",
+  "spider_man_cosplay",
+  "venom_cosplay",
 ];
 
 export function isFullSetItem(itemId: string): boolean {

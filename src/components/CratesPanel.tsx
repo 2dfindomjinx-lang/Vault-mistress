@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
@@ -63,6 +63,10 @@ type CratesPanelProps = {
   onSellItem: (itemId: string, variant: string, quantity?: number) => Promise<{ success: boolean; newCoins?: number; error?: string }>;
   onSellAll?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
   onSellDuplicates?: () => Promise<{ success: boolean; newCoins?: number; totalValue?: number; itemCount?: number; error?: string }>;
+  // Surfaces a failure through the speech bubble. The text is shown verbatim -
+  // these messages tell the user what to do instead ("sell it from the Money
+  // Shop"), so they must not be swapped for a persona line.
+  onNotice?: (message: string) => void;
   onSellWonItems?: (items: Array<{ itemId: string; variant: string; quantity: number }>) => Promise<{
     success: boolean;
     newCoins?: number;
@@ -70,7 +74,7 @@ type CratesPanelProps = {
     itemCount?: number;
     error?: string;
   }>;
-  pityStats?: { principessa_bad_luck?: number; blessing_legendary_pity?: number };
+  pityStats?: { principessa_bad_luck?: number };
   activeEvents?: RandomEvent[];
   crateOpenCredits?: Record<string, number>;
   freeOpensUsedToday?: Record<string, boolean>;
@@ -124,7 +128,8 @@ export function CratesPanel({
   onSellAll,
   onSellDuplicates,
   onSellWonItems,
-  pityStats = { principessa_bad_luck: 0, blessing_legendary_pity: 0 },
+  onNotice,
+  pityStats = { principessa_bad_luck: 0 },
   activeEvents = [],
   crateOpenCredits = {},
   freeOpensUsedToday = {},
@@ -132,6 +137,19 @@ export function CratesPanel({
   onCrateResult,
   pending = false,
 }: CratesPanelProps) {
+  // Falls back to a blocking dialog only if the host forgot to wire onNotice -
+  // losing the reason a sale failed is worse than an ugly popup.
+  const notice = useCallback(
+    (message: string) => {
+      if (onNotice) {
+        onNotice(message);
+        return;
+      }
+      window.alert(message);
+    },
+    [onNotice],
+  );
+
   const [isOpening, setIsOpening] = useState(false);
   const [openingCrate, setOpeningCrate] = useState<string | null>(null);
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
@@ -280,7 +298,6 @@ export function CratesPanel({
   // roughly reflect the real drop ratios (commons appear a lot, legendaries rarely).
   // Progressive near-miss bias: early = mostly low tier, late = tension with
   // occasional higher tier teases.
-  // For blessing_case: legendary near-misses more frequent (high tension due to low base rate).
   // For premium_case: legendary near-misses *extremely* frequent (almost every open has 1-2 box kenarda leg tease).
   //   This is PURELY VISUAL / animation only. Does not affect real drop rates or results at all
   //   (server already decided the winner before building the sequence).
@@ -313,18 +330,16 @@ export function CratesPanel({
       // Base pick always respects real drop weights/ratios
       let chosen: WonItem = pickWeighted();
 
-      const isBlessing = crateType === 'blessing_case';
       const isPremium = crateType === 'premium_case';
 
       // Progressive near-miss / drama layer:
       // Early: mostly pool ratios (common/uncommon heavy).
       // Late: tension via near-miss teases.
-      // For blessing_case: legendary near-misses more frequent.
       // For premium_case: legendary near-misses extremely frequent (neredeyse her açışta, 1-2 box kenarda).
       //   Pure visual only — real result already decided server-side, no drop rate impact.
       // For regular: majority epic/rare misses, minority legendary.
       // Very late still teases the actual winner sometimes.
-      const boostMult = isPremium ? 1.2 : (isBlessing ? 1.2 : 0.95);
+      const boostMult = isPremium ? 1.2 : 0.95;
       const boostChance = Math.max(0, (p - 0.45) * boostMult);
 
       if (Math.random() < boostChance) {
@@ -340,15 +355,6 @@ export function CratesPanel({
             targetTiers = ["legendary", "epic"];
           } else {
             targetTiers = ["epic", "rare"];
-          }
-        } else if (isBlessing) {
-          // Blessing case: legendary misses more frequent, especially mid-late
-          if (p > 0.65 && r < 0.38) {
-            targetTiers = ["legendary"];
-          } else if (r < 0.55) {
-            targetTiers = ["epic", "rare", "legendary"];
-          } else {
-            targetTiers = ["rare", "uncommon"];
           }
         } else {
           if (p > 0.78 && r < 0.12) {
@@ -369,7 +375,7 @@ export function CratesPanel({
 
         if (candidates.length > 0) {
           // Prefer the actual winner in very late phase for the final tease
-          const preferWinnerChance = isBlessing ? 0.55 : 0.5;
+          const preferWinnerChance = 0.5;
           if (p > 0.78 && Math.random() < preferWinnerChance) {
             const winMatch = candidates.find((it: any) => it.item_id === winner.item_id);
             if (winMatch) {
@@ -384,9 +390,8 @@ export function CratesPanel({
       }
 
       // Occasional winner near-miss tease in the final slowdown (classic CS feel)
-      // For blessing_case: higher frequency so legendary misses feel more common
       // For premium_case: much higher to create extra tension / near-miss drama
-      const winnerTeaseChance = isPremium ? 0.5 : (isBlessing ? 0.32 : 0.18);
+      const winnerTeaseChance = isPremium ? 0.5 : 0.18;
       if (p > 0.65 && p < 0.82 && Math.random() < winnerTeaseChance) {
         chosen = winner;
       }
@@ -463,7 +468,7 @@ export function CratesPanel({
     const res = await onOpenCrate(crate.crate_type, qty);
     if (!(res.success && res.result)) {
       const msg = res?.error || "Case open failed.";
-      alert(msg);
+      notice(msg);
       return;
     }
 
@@ -703,11 +708,13 @@ export function CratesPanel({
         emitSoundEvent("cosmetic_purchased");
         // Parent component should refetch or update state
       } else {
-        alert("Sale failed. You may no longer own this item.");
+        // The server explains why - a Money Shop copy has to be returned for PM,
+        // not coins - and that instruction is the whole point of the message.
+        notice(res.error || "Sale failed. You may no longer own this item.");
       }
     } catch (e) {
       console.error("Sell error", e);
-      alert("Failed to sell item.");
+      notice("Failed to sell item.");
     } finally {
       setSellPending(null);
     }
@@ -718,7 +725,7 @@ export function CratesPanel({
 
     const sellableWonItems = wonItems.filter((item) => item.item_id !== "classic" && item.rarity !== "legendary");
     if (sellableWonItems.length === 0) {
-      alert("There are no sellable won items. Legendary items stay locked and must be sold one by one.");
+      notice("There are no sellable won items. Legendary items stay locked and must be sold one by one.");
       return;
     }
 
@@ -747,7 +754,7 @@ export function CratesPanel({
       : ({ success: false } as const);
 
     if (!res.success) {
-      alert(("error" in res && res.error) || "Sale failed. You may no longer own some of these items.");
+      notice(("error" in res && res.error) || "Sale failed. You may no longer own some of these items.");
       return;
     }
 
@@ -774,11 +781,11 @@ export function CratesPanel({
         // Play one purchase sound for the bulk operation
         emitSoundEvent("cosmetic_purchased");
       } else {
-        alert(res?.error || "Sale failed. You may no longer own some of these items.");
+        notice(res?.error || "Sale failed. You may no longer own some of these items.");
       }
     } catch (e) {
       console.error("Sell all error", e);
-      alert("Failed to sell all items.");
+      notice("Failed to sell all items.");
     } finally {
       setSellPending(null);
     }
@@ -799,11 +806,11 @@ export function CratesPanel({
       if (res.success) {
         emitSoundEvent("cosmetic_purchased");
       } else {
-        alert(res?.error || "Duplicate sale failed.");
+        notice(res?.error || "Duplicate sale failed.");
       }
     } catch (e) {
       console.error("Sell duplicates error", e);
-      alert("Failed to sell duplicate items.");
+      notice("Failed to sell duplicate items.");
     } finally {
       setSellPending(null);
     }
@@ -896,9 +903,7 @@ export function CratesPanel({
             const protectionLabel =
               crate.crate_type === "principessa_case"
                 ? `Bad Luck Protection: ${pityStats.principessa_bad_luck ?? 0}/4`
-                : crate.crate_type === "blessing_case"
-                  ? `Legendary Pity: ${pityStats.blessing_legendary_pity ?? 0}/250`
-                  : "Protection: None";
+                : "Protection: None";
 
             return (
               <div key={crate.crate_type} className="court-grid-card court-grid-card--violet w-full p-2">
@@ -954,7 +959,7 @@ export function CratesPanel({
                           )}
                           {!freeOpenAvailable && grantedOpenCount === 0 && displayCost < crate.cost && (
                             <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
-                              Lucky Key
+                              Golden Key
                             </div>
                           )}
                         </div>
@@ -976,8 +981,6 @@ export function CratesPanel({
                         <div className="mt-3 min-h-[18px] text-center text-[9px] whitespace-nowrap text-white/55">
                           {crate.crate_type === "principessa_case" ? (
                             <span className="text-amber-400/80">{protectionLabel}</span>
-                          ) : crate.crate_type === "blessing_case" ? (
-                            <span className="text-violet-400/80">{protectionLabel}</span>
                           ) : (
                             protectionLabel
                           )}
