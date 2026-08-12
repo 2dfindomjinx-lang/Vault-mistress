@@ -9,6 +9,7 @@ import {
   SAMPLE_CRATE_ITEMS,
   getCrateIconUrl,
   getCrateItemImageUrl,
+  isBulkSellProtectedRarity,
   type CrateItem,
   type CrateRarity,
   type UserCrateInventoryItem,
@@ -1201,7 +1202,7 @@ export async function POST(request: Request) {
           itemDef &&
             itemDef.sell_value > 0 &&
             itemDef.item_id !== "classic" &&
-            itemDef.rarity !== "legendary" &&
+            !isBulkSellProtectedRarity(itemDef.rarity) &&
             row.quantity > 0,
         );
       })
@@ -1377,7 +1378,7 @@ export async function POST(request: Request) {
       const [itemId, variant] = key.split(":");
       const itemDef = await getItemDefinition(supabase, itemId);
 
-      if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic" || itemDef.rarity === "legendary") {
+      if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic" || isBulkSellProtectedRarity(itemDef.rarity)) {
         return jsonError("This item cannot be sold or has no value.", 422);
       }
 
@@ -1581,7 +1582,7 @@ export async function POST(request: Request) {
       }
 
       const itemDef = await getItemDefinition(supabase, row.item_id);
-      if (!itemDef || itemDef.sell_value <= 0 || itemDef.rarity === "legendary") {
+      if (!itemDef || itemDef.sell_value <= 0 || isBulkSellProtectedRarity(itemDef.rarity)) {
         continue;
       }
 

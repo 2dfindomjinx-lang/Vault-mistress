@@ -10,6 +10,7 @@ import {
 } from "@/lib/profile-frame-cosmetics";
 import { avatarBackgroundCosmeticItems } from "@/lib/avatar-background-cosmetics";
 import { DEFAULT_SPEECH_AVATAR_ID, RANDOM_SPEECH_AVATAR_ID } from "@/lib/speech-bubble-types";
+import { PLUSH_ITEM_ID } from "@/lib/birthday-plush";
 
 export type CosmeticType =
   | "speech-avatar"
@@ -69,7 +70,7 @@ export type TitleItem = {
   id: string;
   name: string;
   description: string;
-  source: "progression" | "shop" | "throne" | "admin" | "pet" | "crate" | "inventory" | "click_game";
+  source: "progression" | "shop" | "throne" | "admin" | "pet" | "crate" | "inventory" | "click_game" | "item";
   minTribute?: number;
   minThroneCoins?: number;
   minPetScore?: number;
@@ -77,7 +78,27 @@ export type TitleItem = {
   minInventoryValue?: number;
   requiresAllLegendaries?: boolean;
   price?: number;
+  /**
+   * Held only while this item is in the player's inventory. Unlike every other
+   * source, a title like this is NEVER written to user_titles - the whole point
+   * is that selling the item takes the title with it, and a persisted row would
+   * survive the sale.
+   */
+  requiresItemId?: string;
 };
+
+/** Titles that exist only while a specific item is owned. */
+export function getItemGatedTitleIds(ownedItemIds: Iterable<string>): string[] {
+  const owned = new Set(ownedItemIds);
+  return titleItems
+    .filter((title) => title.requiresItemId && owned.has(title.requiresItemId))
+    .map((title) => title.id);
+}
+
+/** Every title that is gated on an item, whether or not it is currently held. */
+export function getAllItemGatedTitleIds(): string[] {
+  return titleItems.filter((title) => title.requiresItemId).map((title) => title.id);
+}
 
 export const permanentCosmeticItems: CosmeticItem[] = [
   {
@@ -714,6 +735,13 @@ export const titleItems: TitleItem[] = [
     name: "Principessa's Clickslut",
     description: "Won the weekly Click Game leaderboard at least once.",
     source: "click_game",
+  },
+  {
+    id: "birthday-2026-plush-keeper",
+    name: "Principessa's Plush Toy",
+    description: "Held for as long as her birthday plush stays in your inventory. Sell it and the title goes with it.",
+    source: "item",
+    requiresItemId: PLUSH_ITEM_ID,
   },
 ];
 

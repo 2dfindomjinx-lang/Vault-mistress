@@ -123,6 +123,8 @@ import {
   getSpendBadge,
   getUnlockedCrateTitleIds,
   getUnlockedInventoryTitleIds,
+  getItemGatedTitleIds,
+  getAllItemGatedTitleIds,
   getUnlockedPetTitleIds,
   permanentCosmeticItems,
   titleItems,
@@ -220,6 +222,7 @@ import {
   PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
+import { ownsPlush } from "@/lib/birthday-plush";
 import { getTimeoutClearFee, PET_TASK_COIN_REWARD, roundRewardToNearestFive, RUNWAY_DAILY_REWARDED_VOTE_LIMIT, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
@@ -2387,6 +2390,9 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const equippedTitle =
     addressAwareTitleItems.find((title) => title.id === equippedTitleId) ??
     addressAwareTitleItems.find((title) => title.id === getDefaultTitleId(tributeTotal));
+  // Read live rather than stored: the ornament, the title and the stipend all
+  // have to vanish the moment the plush leaves the inventory.
+  const ownsBirthdayPlush = ownsPlush(crateInventory);
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -4424,8 +4430,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } else {
       const titleRows = (titleData ?? []) as UserTitleRow[];
       const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
+      // Item-gated titles are merged in here but never written to user_titles,
+      // and any stored row for one is ignored. Persisting them would defeat the
+      // rule they exist for: sell the item, lose the title.
+      const itemGatedHeld = getItemGatedTitleIds(
+        crateInventory.filter((item) => (item.quantity ?? 0) > 0).map((item) => item.item_id),
+      );
+      const allItemGated = new Set(getAllItemGatedTitleIds());
       const ownedTitles = Array.from(
-        new Set([fallbackTitle, ...autoTitleIds, ...titleRows.map((entry) => entry.title_id)]),
+        new Set([
+          fallbackTitle,
+          ...autoTitleIds,
+          ...titleRows.map((entry) => entry.title_id).filter((id) => !allItemGated.has(id)),
+          ...itemGatedHeld,
+        ]),
       );
       const equippedTitle = titleRows.find((entry) => entry.equipped)?.title_id ?? fallbackTitle;
 
@@ -11663,6 +11681,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           coins={coins}
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
+          hasPlushOrnament={ownsBirthdayPlush}
           equippedAvatarSlots={equippedAvatarSlots}
           equippedFullSetId={equippedFullSetId}
           equippedCosmeticIds={effectiveEquippedCosmeticIds}
@@ -12037,7 +12056,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 }}
                 onCrateResult={(item) => {
                   const avatarId = resolveSpeechAvatarIdForMessage();
-                  const rarityKey = `crate_result_${item.rarity}` as const;
+                  // Ultimate items are never in a drop table, so this callback
+                  // cannot receive one - but the rarity union includes it, so
+                  // it is folded into legendary rather than inventing a message
+                  // pool that would never be read.
+                  const speechRarity = item.rarity === "ultimate" ? "legendary" : item.rarity;
+                  const rarityKey = `crate_result_${speechRarity}` as const;
                   // Direct set ensures the specific crate_result_rarity category is used (random pick from its pool).
                   // Avoids re-classification that was forcing "general" for equipped speech avatars.
                   const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);

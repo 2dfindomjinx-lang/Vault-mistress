@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BirthdayCake } from "@/components/BirthdayCake";
 import { BirthdayGiftBox } from "@/components/BirthdayGiftBox";
+import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import {
   BIRTHDAY_CANDLE_USD,
   BIRTHDAY_GIFTS,
@@ -64,6 +65,62 @@ function CornerOrnament({ className }: { className: string }) {
       <path d="M8 24 V12 Q8 8 12 8 H24" stroke="#c89a55" strokeOpacity="0.28" strokeWidth="1" />
       <circle cx="6" cy="6" fill="#e6ba73" fillOpacity="0.7" r="2" />
     </svg>
+  );
+}
+
+/**
+ * The plush her court is buying her, shown next to the cake.
+ *
+ * It wakes up as the candles are lit: grey and faint at zero, full colour and
+ * glowing at 22. Two things are deliberate here - it is never fully invisible,
+ * because a blank space next to the cake reads as a broken image rather than an
+ * unmet goal; and the caption stays factual about when the item is handed out,
+ * since it lands after the window, not on the spot.
+ */
+function BirthdayPlush({ candlesLit }: { candlesLit: number }) {
+  const progress = Math.max(0, Math.min(1, candlesLit / BIRTHDAY_TARGET_CANDLES));
+  const isComplete = candlesLit >= BIRTHDAY_TARGET_CANDLES;
+
+  return (
+    <figure className="flex w-full max-w-[15rem] shrink-0 flex-col items-center lg:max-w-[17rem]">
+      <div className="relative">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-2xl transition-opacity duration-700"
+          style={{
+            background: "radial-gradient(circle, rgba(232,121,249,.55), transparent 68%)",
+            opacity: 0.15 + progress * 0.75,
+          }}
+        />
+        <Image
+          alt="Principessa's birthday plush"
+          className={`h-auto w-full object-contain transition-all duration-700 ${isComplete ? "animate-pulse" : ""}`}
+          height={512}
+          priority={false}
+          src={PLUSH_IMAGE_PATH}
+          style={{
+            filter: `grayscale(${(1 - progress) * 0.85}) brightness(${0.55 + progress * 0.45}) saturate(${0.4 + progress * 0.6})`,
+            opacity: 0.45 + progress * 0.55,
+          }}
+          unoptimized
+          width={512}
+        />
+      </div>
+      <figcaption className="mt-3 text-center">
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-fuchsia-200/70">
+          {isComplete ? "Her plush is paid for" : "Her plush, still unpaid"}
+        </p>
+        <p className="mt-1.5 text-[11px] leading-5 text-fuchsia-100/50">
+          {isComplete
+            ? "Every candle is lit. She gets it because her court bought it."
+            : `${BIRTHDAY_TARGET_CANDLES - candlesLit} candles from hers.`}
+        </p>
+        <p className="mt-2 text-[10px] leading-4 text-[#c89a55]/45">
+          Everyone who sends through Throne during these 48 hours receives their own,
+          handed out once the court closes.
+        </p>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -594,8 +651,14 @@ export function BirthdayStage() {
           <CornerOrnament className="pointer-events-none absolute bottom-3 right-3 h-9 w-9 rotate-180" />
           <CornerOrnament className="pointer-events-none absolute bottom-3 left-3 h-9 w-9 -rotate-90" />
 
-          <div className="relative">
-            <BirthdayCake candles={candles} />
+          {/* Cake and plush side by side. The plush is the thing being paid
+              for: it starts dim and colourless and comes fully to life at 22,
+              so the goal has a face instead of only a number. */}
+          <div className="relative flex flex-col items-center gap-6 lg:flex-row lg:items-end lg:justify-center lg:gap-10">
+            <div className="relative w-full max-w-xl lg:flex-1">
+              <BirthdayCake candles={candles} />
+            </div>
+            <BirthdayPlush candlesLit={candlesLit} />
           </div>
 
           {/* Stat row */}

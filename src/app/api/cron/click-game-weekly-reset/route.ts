@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { CLICK_GAME_CHAMPION_TITLE_ID } from "@/lib/click-game";
+import { PLUSH_ITEM_ID, PLUSH_WEEKLY_COIN_REWARD } from "@/lib/birthday-plush";
 
 // Dedicated cron (vercel.json: "0 0 * * 1") so the Click Game weekly champion
 // is determined at exactly UTC Monday 00:00, independent of whatever time the
@@ -24,5 +25,17 @@ export async function GET(request: Request) {
   });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ result: data });
+
+  // The birthday plush pays its holders once a week. It rides on this cron
+  // rather than a third one because it wants the same Monday boundary, and it
+  // is keyed on p_week_start so a retry or a double fire cannot pay twice.
+  const { data: stipend, error: stipendError } = await supabase.rpc("run_plush_weekly_stipend", {
+    p_week_start: weekStart,
+    p_item_id: PLUSH_ITEM_ID,
+    p_amount: PLUSH_WEEKLY_COIN_REWARD,
+  });
+
+  if (stipendError) console.warn("Plush weekly stipend failed", stipendError);
+
+  return Response.json({ result: data, plushStipend: stipendError ? null : stipend });
 }

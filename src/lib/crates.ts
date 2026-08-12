@@ -3,7 +3,10 @@ export type CrateRarity =
   | "uncommon"
   | "rare"
   | "epic"
-  | "legendary";
+  | "legendary"
+  // Above legendary and deliberately unreachable through any crate. Reserved
+  // for pieces handed out for taking part in something, not for opening cases.
+  | "ultimate";
 
 export type CrateItem = {
   item_id: string;
@@ -44,9 +47,27 @@ export const RARITY_COLORS: Record<CrateRarity, string> = {
   rare: "border-sky-400 text-sky-300 bg-sky-950/60",
   epic: "border-violet-400 text-violet-300 bg-violet-950/60",
   legendary: "border-amber-300 text-amber-200 bg-amber-950/70",
+  ultimate: "border-fuchsia-300 text-fuchsia-100 bg-fuchsia-950/70",
 };
 
-export const RARITY_ORDER: CrateRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+export const RARITY_ORDER: CrateRarity[] = ["common", "uncommon", "rare", "epic", "legendary", "ultimate"];
+
+/**
+ * Rarities that cannot be liquidated in bulk. Legendaries have always been
+ * excluded from sell_all / sell_many / sell_duplicates - that exclusion is what
+ * stops a Money Shop copy bought with Principessa Money from being laundered
+ * back into coins, since the shop only ever sells legendaries.
+ *
+ * Ultimate items inherit the same treatment. Keeping the rule in one place
+ * means a new rarity cannot silently fall through into the bulk paths, which is
+ * exactly what would have happened here: those paths test for the literal
+ * string "legendary".
+ */
+export const BULK_SELL_PROTECTED_RARITIES: readonly CrateRarity[] = ["legendary", "ultimate"];
+
+export function isBulkSellProtectedRarity(rarity: string | null | undefined): boolean {
+  return BULK_SELL_PROTECTED_RARITIES.includes(rarity as CrateRarity);
+}
 
 // V1: Server-side crate definitions + weighted drops.
 // These can (and should) later be moved to DB tables for full admin configurability.
@@ -1986,6 +2007,18 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
     rarity: "legendary",
     collection: "cosplay",
     sell_value: 15000,
+  },
+
+  // Ultimate. Deliberately absent from every drop table - the only way to hold
+  // one is to have been at her 2026 birthday court. image_url is explicit
+  // because the resolver defaults to .webp and this asset is a .png.
+  "fatass_principessa_plush": {
+    name: "Fatass Principessa Plush",
+    description: "Made for her birthday and handed only to the court that showed up for it. Keep it close.",
+    rarity: "ultimate",
+    collection: "birthday",
+    sell_value: 25000,
+    image_url: "/crate-items/fatass_principessa_plush.png",
   },
 };
 
