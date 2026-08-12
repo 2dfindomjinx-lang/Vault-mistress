@@ -29,6 +29,11 @@ export const BIRTHDAY_STARTS_AT = "2026-08-13T14:00:00+03:00";
 export const BIRTHDAY_ENDS_AT = "2026-08-15T14:00:00+03:00";
 export const BIRTHDAY_DAY = "2026-08-14T00:00:00+03:00";
 
+// Applied only to the base Principessa Money earned from a signed Throne
+// payment inside the birthday window. Existing Pet/conversion bonuses keep
+// their own bases and are never multiplied by this event.
+export const BIRTHDAY_MONEY_BONUS_PERCENT = 0.5;
+
 // One candle per $15. 22 candles = $330 for a full cake.
 //
 // The rate is deliberately well below the $50 first floated: all-time Throne

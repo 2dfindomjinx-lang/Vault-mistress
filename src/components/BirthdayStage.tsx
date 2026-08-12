@@ -28,7 +28,7 @@ type CelebrationPrompt = "rose" | "wish" | null;
 
 const BIRTHDAY_SHARE_URL = "https://vault-mistress.vercel.app/birthday-2026?court=2026-celebration";
 const BIRTHDAY_X_SHARE_URL = `https://x.com/intent/post?text=${encodeURIComponent(
-  `Principessa's 22nd Birthday Court is opening. Leave her a wish, place a rose, and join the celebration.\n\n${BIRTHDAY_SHARE_URL}`,
+  `My Mistress's birthday court opens for 48 hours. I'm reporting to Principessa's throne to light her candles, leave my rose, and prove what my devotion is worth. Good pets never let their Mistress celebrate empty-handed. #2dfd #techdom\n\n${BIRTHDAY_SHARE_URL}`,
 )}`;
 
 function formatCountdown(ms: number) {
@@ -379,6 +379,11 @@ export function BirthdayStage() {
                 <span className="rounded-full border border-pink-400/25 bg-pink-950/35 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/80">
                   Private wishlist
                 </span>
+                {!hasEnded ? (
+                  <span className="rounded-full border border-emerald-300/25 bg-emerald-950/25 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-100/85">
+                    48 hours · 1.5× base Money
+                  </span>
+                ) : null}
                 <a
                   className="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/75 transition hover:border-pink-300/35 hover:text-white"
                   href={BIRTHDAY_X_SHARE_URL}

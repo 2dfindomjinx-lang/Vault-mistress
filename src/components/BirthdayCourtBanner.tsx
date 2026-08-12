@@ -49,8 +49,8 @@ export function BirthdayCourtBanner() {
           <h2 className="mt-1 font-serif text-2xl text-[#fff0d2] sm:text-3xl">Her 22nd Birthday · August 14</h2>
           <p className="mt-1 text-xs leading-5 text-pink-100/60">
             {state.isLive
-              ? `Guestbook, roses, candles and gifts · closes in ${compactCountdown(state.msUntilEnd)}`
-              : `The celebration opens in ${compactCountdown(state.msUntilStart)} · roses and wishes are free`}
+              ? `1.5× base Money · guestbook, roses and candles · closes in ${compactCountdown(state.msUntilEnd)}`
+              : `Opens in ${compactCountdown(state.msUntilStart)} · 48-hour 1.5× base Money event`}
           </p>
         </div>
         <Link

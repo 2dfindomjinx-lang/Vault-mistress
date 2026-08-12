@@ -1,5 +1,6 @@
 import { verify as verifyEd25519 } from "node:crypto";
 import { syncThroneMilestoneTitlesFromLedgers } from "@/lib/admin-pet-task-logs";
+import { BIRTHDAY_MONEY_BONUS_PERCENT, getBirthdayWindowState } from "@/lib/birthday";
 import { PET_THRONE_TASK_BONUS_PERCENT } from "@/lib/pet-throne";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createUserNotification } from "@/lib/user-notifications";
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   // The signed header is controlled by Throne and already constrained to a
   // five-minute acceptance window above. Keep it separate from created_at,
   // which is merely when Postgres happened to receive the insert.
-  const occurredAt = new Date(Number(signatureTimestamp) * 1000).toISOString();
+  let occurredAt = new Date(Number(signatureTimestamp) * 1000).toISOString();
   const { data: inserted, error: insertError } = await supabase
     .from("throne_webhook_events")
     .insert({ event_id: eventId, occurred_at: occurredAt, payload })
@@ -55,11 +56,14 @@ export async function POST(request: Request) {
   if (insertError?.code === "23505") {
     const { data: existing, error: existingError } = await supabase
       .from("throne_webhook_events")
-      .select("status")
+      .select("occurred_at, status")
       .eq("event_id", eventId)
       .maybeSingle();
     if (existingError || !existing) {
       return Response.json({ error: "Could not verify duplicate webhook state." }, { status: 500 });
+    }
+    if (typeof existing.occurred_at === "string" && existing.occurred_at) {
+      occurredAt = existing.occurred_at;
     }
     if (["credited", "unmatched", "ignored"].includes(existing.status)) {
       return Response.json({ ok: true, duplicate: true });
@@ -112,12 +116,19 @@ export async function POST(request: Request) {
   // bonuses are not applied here any more; they moved onto the PM -> Coin
   // conversion, and paying them at both ends would double them.
   const coinEquivalent = Math.max(1, smallestCurrencyUnit * 10);
+  // Use Throne's signed occurrence time, not delivery/processing time. A retry
+  // after the court closes must retain the reward earned inside the window,
+  // and a late delivery cannot manufacture eligibility.
+  const birthdayMoneyBonusPercent = getBirthdayWindowState(occurredAt).isLive
+    ? BIRTHDAY_MONEY_BONUS_PERCENT
+    : 0;
   // The RPC is the authority on the payout: only it knows whether the sender
   // has actually unlocked the Pet track, which is what decides between the
   // plain rate and base + PET_THRONE_TASK_BONUS_PERCENT rounded up. The figure
   // echoed back below comes from the RPC result, never from this guess.
   const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", {
     p_amount: amount,
+    p_birthday_bonus_percent: birthdayMoneyBonusPercent,
     p_code: code,
     p_coins: coinEquivalent,
     p_event_id: eventId,
@@ -157,12 +168,20 @@ export async function POST(request: Request) {
     console.error("Credited Throne event finalization failed", { error: creditedEventError, eventId });
     return Response.json({ error: "Tribute was credited but its event could not be finalized." }, { status: 500 });
   }
-  const creditResult = (credit ?? {}) as { awarded?: number; bonusAwarded?: number; petTaskApproved?: boolean };
+  const creditResult = (credit ?? {}) as {
+    awarded?: number;
+    birthdayBonusAwarded?: number;
+    bonusAwarded?: number;
+    petBonusAwarded?: number;
+    petTaskApproved?: boolean;
+  };
   return Response.json({
     ok: true,
     matched: true,
     moneyAwarded: Number(creditResult.awarded ?? 0),
     moneyBonusAwarded: Number(creditResult.bonusAwarded ?? 0),
+    moneyBirthdayBonusAwarded: Number(creditResult.birthdayBonusAwarded ?? 0),
+    moneyPetBonusAwarded: Number(creditResult.petBonusAwarded ?? 0),
     coinEquivalent,
     credit,
     // Whether the PT- code actually earned the pet branch, not merely whether
