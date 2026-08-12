@@ -465,7 +465,7 @@ export function BirthdayStage() {
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200/45">roses at her throne</p>
               <button
                 className="mt-5 w-full rounded-2xl border border-rose-300/30 bg-rose-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-rose-50 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={hasEnded || celebrationPending !== null || Boolean(celebration?.hasLeftRose)}
+                disabled={!isLive || celebrationPending !== null || Boolean(celebration?.hasLeftRose)}
                 onClick={() => void submitCelebration("rose")}
                 type="button"
               >
@@ -475,7 +475,9 @@ export function BirthdayStage() {
                     ? "Your rose is here"
                     : hasEnded
                       ? "The rose court is sealed"
-                      : "Place my rose"}
+                      : isLive
+                        ? "Place my rose"
+                        : "Roses open with the court"}
               </button>
             </div>
           </div>
@@ -498,7 +500,7 @@ export function BirthdayStage() {
               </p>
               <textarea
                 className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm leading-6 text-pink-50 outline-none transition placeholder:text-zinc-700 focus:border-pink-300/40"
-                disabled={hasEnded || celebrationPending !== null}
+                disabled={!isLive || celebrationPending !== null}
                 maxLength={BIRTHDAY_WISH_MAX_LENGTH}
                 onChange={(event) => setWishDraft(event.target.value)}
                 placeholder="Write something worthy of her guestbook..."
@@ -510,7 +512,7 @@ export function BirthdayStage() {
               </div>
               <button
                 className="mt-4 w-full rounded-2xl bg-[linear-gradient(100deg,#9d174d,#db2777)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_12px_32px_rgba(190,24,93,.22)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={hasEnded || celebrationPending !== null || !wishDraft.trim()}
+                disabled={!isLive || celebrationPending !== null || !wishDraft.trim()}
                 type="submit"
               >
                 {celebrationPending === "wish"
@@ -519,7 +521,9 @@ export function BirthdayStage() {
                     ? "Update my wish"
                     : hasEnded
                       ? "The guestbook is sealed"
-                      : "Sign the guestbook"}
+                      : isLive
+                        ? "Sign the guestbook"
+                        : "Guestbook opens with the court"}
               </button>
               {celebrationError ? <p className="mt-3 text-xs leading-5 text-rose-200/75">{celebrationError}</p> : null}
             </form>

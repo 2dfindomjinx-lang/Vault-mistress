@@ -143,8 +143,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as { action?: unknown; message?: unknown; wishId?: unknown } | null;
   const action = body?.action;
   if (action !== "rose" && action !== "wish" && action !== "hide") return jsonError("Invalid celebration action.", 400);
-  if (action !== "hide" && getBirthdayWindowState().hasEnded) {
-    return jsonError("The birthday court is no longer accepting new entries.", 409, "BIRTHDAY_CLOSED");
+  if (action !== "hide" && !getBirthdayWindowState().isLive) {
+    return jsonError("The birthday court is not accepting new entries.", 409, "BIRTHDAY_CLOSED");
   }
   if (action === "hide" && !isTrustedAdminUserId(userId)) {
     return jsonError("Admin access required.", 403);
