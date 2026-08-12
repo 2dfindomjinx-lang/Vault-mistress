@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { RUNWAY_SUBMIT_COOLDOWN_HOURS } from "@/lib/server-game-rules";
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -60,8 +61,13 @@ export async function GET() {
     rank = typeof viewerRow?.rank === "number" ? viewerRow.rank : null;
   }
 
+  // Same window submit_voting_avatar enforces. It used to be a 7-day literal
+  // here while the RPC allowed 3 days, and now 24 hours - so the panel kept the
+  // button disabled long after the server would have accepted a new look, and
+  // nobody could replace their entry.
   const activatedAtMs = new Date(avatar.activated_at as string).getTime();
-  const nextEligibleAt = new Date(activatedAtMs + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const cooldownMs = RUNWAY_SUBMIT_COOLDOWN_HOURS * 60 * 60 * 1000;
+  const nextEligibleAt = new Date(activatedAtMs + cooldownMs).toISOString();
 
   return Response.json({
     canAddMultipleAvatars,
@@ -80,7 +86,7 @@ export async function GET() {
       activatedAt: avatar.activated_at,
       rank,
       nextEligibleAt,
-      canResubmit: canAddMultipleAvatars || Date.now() >= activatedAtMs + 7 * 24 * 60 * 60 * 1000,
+      canResubmit: canAddMultipleAvatars || Date.now() >= activatedAtMs + cooldownMs,
     },
   });
 }
