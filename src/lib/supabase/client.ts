@@ -43,6 +43,10 @@ export type Profile = {
   loyalty_streak: number;
   streak_freezes?: number;
   last_loyalty_at: string | null;
+  // Read on the home page to tell whether the daily rewarded Runway votes are
+  // still unspent, without loading the Runway panel's own state.
+  runway_rewarded_votes_today?: number | null;
+  runway_rewarded_votes_date?: string | null;
   last_login_at?: string | null;
   timeout_until: string | null;
   timeout_reason?: string | null;

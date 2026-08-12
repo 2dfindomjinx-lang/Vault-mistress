@@ -32,7 +32,7 @@ export const metadata: Metadata = {
       {
         alt: "Vault Mistress — Enter Principessa's Court",
         height: 630,
-        url: "/social/vault-mistress-og.png",
+        url: "/social/vault-mistress-og.png?v=20260812-celebration",
         width: 1200,
       },
     ],
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description: "Enter Principessa's Court: devotion, loyalty, challenges, collections, and rewards under her command.",
-    images: ["/social/vault-mistress-og.png"],
+    images: ["/social/vault-mistress-og.png?v=20260812-celebration"],
     title: "Vault Mistress · Principessa's Court",
   },
 };

@@ -18,7 +18,18 @@ import {
   resolveSupporterLabel,
   type BirthdayProgress,
 } from "@/lib/birthday";
+import {
+  BIRTHDAY_WISH_MAX_LENGTH,
+  type BirthdayCelebration,
+} from "@/lib/birthday-celebration";
 import { PET_THRONE_URL } from "@/lib/pet-throne";
+
+type CelebrationPrompt = "rose" | "wish" | null;
+
+const BIRTHDAY_SHARE_URL = "https://vault-mistress.vercel.app/birthday-2026?court=2026-celebration";
+const BIRTHDAY_X_SHARE_URL = `https://x.com/intent/post?text=${encodeURIComponent(
+  `Principessa's 22nd Birthday Court is opening. Leave her a wish, place a rose, and join the celebration.\n\n${BIRTHDAY_SHARE_URL}`,
+)}`;
 
 function formatCountdown(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -76,6 +87,11 @@ export function BirthdayStage() {
   const [tributeCodeError, setTributeCodeError] = useState("");
   const [tributeCodeStatus, setTributeCodeStatus] = useState<TributeCodeStatus>("idle");
   const [codeCopied, setCodeCopied] = useState(false);
+  const [celebration, setCelebration] = useState<BirthdayCelebration | null>(null);
+  const [celebrationError, setCelebrationError] = useState("");
+  const [celebrationPending, setCelebrationPending] = useState<"rose" | "wish" | null>(null);
+  const [wishDraft, setWishDraft] = useState("");
+  const [supportPrompt, setSupportPrompt] = useState<CelebrationPrompt>(null);
   // Held in state rather than read during render: Date.now() in a render body
   // is impure and would make the countdown depend on when React happens to
   // re-render. The interval below is the only thing that advances it.
@@ -103,6 +119,76 @@ export function BirthdayStage() {
       setLoadFailureCode(failureCode);
     }
   }, []);
+
+  const loadCelebration = useCallback(async () => {
+    try {
+      const response = await fetch("/api/birthday/celebration", { cache: "no-store" });
+      const payload = (await response.json().catch(() => null)) as
+        | { celebration?: BirthdayCelebration; error?: string }
+        | null;
+      if (!response.ok || !payload?.celebration) throw new Error(payload?.error ?? "Celebration could not be loaded.");
+      setCelebration(payload.celebration);
+      setWishDraft(payload.celebration.myWish?.message ?? "");
+      setCelebrationError("");
+    } catch (error) {
+      console.warn("Birthday celebration load failed", error);
+      setCelebrationError("The guestbook is temporarily unavailable.");
+    }
+  }, []);
+
+  const submitCelebration = async (action: "rose" | "wish") => {
+    if (celebrationPending) return;
+    setCelebrationPending(action);
+    setCelebrationError("");
+    try {
+      const response = await fetch("/api/birthday/celebration", {
+        body: JSON.stringify({ action, message: action === "wish" ? wishDraft : undefined }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { celebration?: BirthdayCelebration; code?: string; error?: string }
+        | null;
+      if (!response.ok || !payload?.celebration) {
+        if (payload?.code === "AUTH_REQUIRED") throw new Error("Sign in to Vault Mistress first, then return to the court.");
+        throw new Error(payload?.error ?? "Your birthday entry could not be saved.");
+      }
+      setCelebration(payload.celebration);
+      setWishDraft(payload.celebration.myWish?.message ?? wishDraft);
+
+      const storageKey = `birthday-2026-support-prompt:${action}`;
+      if (!window.sessionStorage.getItem(storageKey)) {
+        window.sessionStorage.setItem(storageKey, "shown");
+        setSupportPrompt(action);
+      }
+    } catch (error) {
+      setCelebrationError(error instanceof Error ? error.message : "Your birthday entry could not be saved.");
+    } finally {
+      setCelebrationPending(null);
+    }
+  };
+
+  const hideBirthdayWish = async (wishId: string) => {
+    if (!celebration?.canModerate || celebrationPending) return;
+    setCelebrationPending("wish");
+    setCelebrationError("");
+    try {
+      const response = await fetch("/api/birthday/celebration", {
+        body: JSON.stringify({ action: "hide", wishId }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { celebration?: BirthdayCelebration; error?: string }
+        | null;
+      if (!response.ok || !payload?.celebration) throw new Error(payload?.error ?? "Wish could not be hidden.");
+      setCelebration(payload.celebration);
+    } catch (error) {
+      setCelebrationError(error instanceof Error ? error.message : "Wish could not be hidden.");
+    } finally {
+      setCelebrationPending(null);
+    }
+  };
 
   const requestTributeCode = async () => {
     setTributeCodeStatus("loading");
@@ -149,6 +235,11 @@ export function BirthdayStage() {
     }, BIRTHDAY_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [loadProgress]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount against an external system
+    void loadCelebration();
+  }, [loadCelebration]);
 
   useEffect(() => {
     // The clock has to start after hydration, not in a useState initializer:
@@ -274,7 +365,7 @@ export function BirthdayStage() {
                   </>
                 ) : (
                   <>
-                    One night belongs entirely to her. Enter her court, light one of{" "}
+                    One night belongs entirely to her. Leave a wish, place a rose, light one of{" "}
                     <span className="font-black text-[#fff0d2]">{BIRTHDAY_TARGET_CANDLES} candles</span>, or choose a
                     present from Principessa&apos;s private wishlist.
                   </>
@@ -288,6 +379,14 @@ export function BirthdayStage() {
                 <span className="rounded-full border border-pink-400/25 bg-pink-950/35 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/80">
                   Private wishlist
                 </span>
+                <a
+                  className="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/75 transition hover:border-pink-300/35 hover:text-white"
+                  href={BIRTHDAY_X_SHARE_URL}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Share invitation on X
+                </a>
               </div>
             </div>
           </div>
@@ -334,8 +433,137 @@ export function BirthdayStage() {
           </section>
         ) : null}
 
+        {/* ------------------------------------------- celebration, not checkout */}
+        <section className="relative mt-14 overflow-hidden rounded-[2.5rem] border border-[#e6ba73]/22 bg-[radial-gradient(circle_at_75%_0%,rgba(190,24,93,.2),transparent_42%),linear-gradient(145deg,rgba(29,9,20,.94),rgba(7,4,6,.98))] px-5 py-9 shadow-[0_28px_90px_rgba(0,0,0,.45)] sm:px-10 sm:py-12">
+          <span className="pointer-events-none absolute inset-2 rounded-[2.15rem] border border-[#e6ba73]/10" />
+          <div className="relative grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#e6ba73]/60">A letter from the throne</p>
+              <h2 className="mt-3 font-serif text-4xl leading-tight text-[#fff0d2]">You came to celebrate me.</h2>
+              <div className="mt-5 space-y-4 font-serif text-lg italic leading-8 text-pink-100/75">
+                <p>
+                  You were invited here for more than a transaction. Leave your devotion in writing, place a rose at my
+                  throne, and let my court remember that you were present.
+                </p>
+                <p>
+                  If you choose to make the night brighter, do it because you understand what it means to celebrate your
+                  Principessa properly.
+                </p>
+              </div>
+              <p className="mt-5 text-right font-serif text-xl text-[#e6ba73]">— Principessa</p>
+            </div>
+
+            <div className="rounded-[2rem] border border-rose-300/20 bg-black/30 p-5 text-center sm:p-7">
+              <div aria-hidden className={`mx-auto text-6xl transition duration-500 ${celebration?.hasLeftRose ? "scale-110 drop-shadow-[0_0_22px_rgba(244,63,94,.65)]" : "opacity-75 grayscale-[.2]"}`}>
+                🌹
+              </div>
+              <p className="mt-3 font-serif text-3xl text-rose-100">Offer Her a Rose</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">
+                Free. One rose from each member of her court, preserved here after the birthday ends.
+              </p>
+              <p className="mt-5 font-serif text-4xl text-rose-200">{(celebration?.roseCount ?? 0).toLocaleString()}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200/45">roses at her throne</p>
+              <button
+                className="mt-5 w-full rounded-2xl border border-rose-300/30 bg-rose-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-rose-50 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={hasEnded || celebrationPending !== null || Boolean(celebration?.hasLeftRose)}
+                onClick={() => void submitCelebration("rose")}
+                type="button"
+              >
+                {celebrationPending === "rose"
+                  ? "Placing your rose..."
+                  : celebration?.hasLeftRose
+                    ? "Your rose is here"
+                    : hasEnded
+                      ? "The rose court is sealed"
+                      : "Place my rose"}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-14" id="birthday-guestbook">
+          <SectionRule label="The birthday guestbook" />
+          <div className="mt-7 grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
+            <form
+              className="rounded-[2rem] border border-pink-300/18 bg-[linear-gradient(145deg,rgba(42,10,29,.75),rgba(7,4,6,.94))] p-5 sm:p-7"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submitCelebration("wish");
+              }}
+            >
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/50">Your place in the memory</p>
+              <h2 className="mt-3 font-serif text-3xl text-[#fff0d2]">Leave Principessa a birthday wish</h2>
+              <p className="mt-2 text-xs leading-5 text-zinc-500">
+                One message per account. You may edit it while the court is open. Links and HTML are not accepted.
+              </p>
+              <textarea
+                className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm leading-6 text-pink-50 outline-none transition placeholder:text-zinc-700 focus:border-pink-300/40"
+                disabled={hasEnded || celebrationPending !== null}
+                maxLength={BIRTHDAY_WISH_MAX_LENGTH}
+                onChange={(event) => setWishDraft(event.target.value)}
+                placeholder="Write something worthy of her guestbook..."
+                value={wishDraft}
+              />
+              <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-600">
+                <span>{celebration?.myWish ? "Editing your sealed message" : "Signed with your Court identity"}</span>
+                <span>{wishDraft.length}/{BIRTHDAY_WISH_MAX_LENGTH}</span>
+              </div>
+              <button
+                className="mt-4 w-full rounded-2xl bg-[linear-gradient(100deg,#9d174d,#db2777)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_12px_32px_rgba(190,24,93,.22)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={hasEnded || celebrationPending !== null || !wishDraft.trim()}
+                type="submit"
+              >
+                {celebrationPending === "wish"
+                  ? "Sealing your words..."
+                  : celebration?.myWish
+                    ? "Update my wish"
+                    : hasEnded
+                      ? "The guestbook is sealed"
+                      : "Sign the guestbook"}
+              </button>
+              {celebrationError ? <p className="mt-3 text-xs leading-5 text-rose-200/75">{celebrationError}</p> : null}
+            </form>
+
+            <div className="rounded-[2rem] border border-[#e6ba73]/15 bg-black/25 p-4 sm:p-6">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#e6ba73]/45">Messages from her court</p>
+                  <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">Birthday wishes</h3>
+                </div>
+                <p className="font-serif text-3xl text-pink-200">{celebration?.wishCount ?? 0}</p>
+              </div>
+              {(celebration?.wishes ?? []).length ? (
+                <ul className="mt-5 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+                  {celebration!.wishes.map((wish) => (
+                    <li className={`rounded-2xl border px-4 py-3 ${wish.isMine ? "border-pink-300/30 bg-pink-500/10" : "border-white/[0.07] bg-white/[0.025]"}`} key={wish.id}>
+                      <p className="text-sm leading-6 text-pink-50/85">“{wish.message}”</p>
+                      <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#e6ba73]/55">
+                        {wish.displayName || wish.username || "A member of her court"}{wish.isMine ? " · You" : ""}
+                      </p>
+                      {celebration?.canModerate ? (
+                        <button
+                          className="mt-2 text-[9px] font-black uppercase tracking-[0.12em] text-rose-300/55 transition hover:text-rose-200 disabled:opacity-40"
+                          disabled={celebrationPending !== null}
+                          onClick={() => void hideBirthdayWish(wish.id)}
+                          type="button"
+                        >
+                          Hide wish
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-5 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-sm text-zinc-600">
+                  Her guestbook is waiting for its first message.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* ----------------------------------------------------- cake stage */}
-        <div className="mt-14">
+        <div className="mt-14" id="candle-ritual">
           <SectionRule label="The candle ritual" />
           <p className="mx-auto mt-4 max-w-xl text-center text-sm leading-6 text-zinc-500">
             {hasEnded ? (
@@ -510,7 +738,7 @@ export function BirthdayStage() {
         </section>
 
         {/* ------------------------------------------------------- gift tiers */}
-        <section className="relative mt-20 overflow-hidden rounded-[2.5rem] border border-pink-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(190,24,93,.24),transparent_43%),linear-gradient(180deg,rgba(38,8,24,.92),rgba(6,3,5,.98))] px-5 py-10 shadow-[0_30px_100px_rgba(0,0,0,.55)] sm:px-8 sm:py-12">
+        <section className="relative mt-20 overflow-hidden rounded-[2.5rem] border border-pink-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(190,24,93,.24),transparent_43%),linear-gradient(180deg,rgba(38,8,24,.92),rgba(6,3,5,.98))] px-5 py-10 shadow-[0_30px_100px_rgba(0,0,0,.55)] sm:px-8 sm:py-12" id="birthday-wishlist">
           <span className="pointer-events-none absolute inset-2 rounded-[2.15rem] border border-pink-200/[0.07]" />
           <div className="relative text-center">
             <p className="text-[9px] font-black uppercase tracking-[0.38em] text-pink-300/55">Entirely separate</p>
@@ -633,6 +861,46 @@ export function BirthdayStage() {
           </p>
         </footer>
       </div>
+
+      {supportPrompt ? (
+        <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-[1.75rem] border border-[#e6ba73]/30 bg-[linear-gradient(145deg,rgba(43,10,28,.98),rgba(8,4,7,.98))] p-5 shadow-[0_24px_90px_rgba(0,0,0,.72)] backdrop-blur-xl">
+          <button
+            aria-label="Close"
+            className="absolute right-4 top-3 text-xl text-zinc-500 transition hover:text-white"
+            onClick={() => setSupportPrompt(null)}
+            type="button"
+          >
+            ×
+          </button>
+          <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#e6ba73]/60">Principessa noticed</p>
+          <p className="mt-2 font-serif text-2xl text-[#fff0d2]">
+            {supportPrompt === "rose" ? "A rose is a lovely beginning." : "Your words will remain in her court."}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-zinc-400">
+            {supportPrompt === "rose"
+              ? isLive
+                ? "If you want to leave more than a flower, one birthday flame is waiting for your name."
+                : "If you want to leave more than a flower, her birthday wishlist is waiting."
+              : "If those words are sincere, you may place something tangible beside them. No obligation—only an invitation."}
+          </p>
+          <div className="mt-4 flex gap-2">
+            <a
+              className="flex-1 rounded-xl bg-[linear-gradient(100deg,#be185d,#e6ba73)] px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white"
+              href={supportPrompt === "rose" && isLive ? "#candle-ritual" : "#birthday-wishlist"}
+              onClick={() => setSupportPrompt(null)}
+            >
+              {supportPrompt === "rose" && isLive ? "See the candle ritual" : "View her wishlist"}
+            </a>
+            <button
+              className="rounded-xl border border-white/10 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400"
+              onClick={() => setSupportPrompt(null)}
+              type="button"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
