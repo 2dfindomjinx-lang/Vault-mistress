@@ -14,13 +14,13 @@ export const PLUSH_IMAGE_PATH = "/crate-items/fatass_principessa_plush.png";
 export const PLUSH_TITLE_ID = "birthday-2026-plush-keeper";
 
 /** Coins paid to every holder, once per week, by the Monday cron. */
-export const PLUSH_WEEKLY_COIN_REWARD = 500;
+export const PLUSH_WEEKLY_COIN_REWARD = 1_000;
 
 /**
- * Sell value is 25,000. At 500 a week the stipend alone passes that inside a
- * year, before counting the title and the ornament - so holding is the better
- * play on any horizon longer than a few months, without the item ever being
- * made unsellable.
+ * Sell value is 25,000. At 1,000 a week the stipend alone passes that in about
+ * six months, before counting the title and the ornament - so holding is the
+ * better play on any horizon past half a year, without the item ever being made
+ * unsellable.
  */
 export const PLUSH_SELL_VALUE = 25_000;
 

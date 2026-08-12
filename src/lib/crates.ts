@@ -2013,8 +2013,8 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
   // one is to have been at her 2026 birthday court. image_url is explicit
   // because the resolver defaults to .webp and this asset is a .png.
   "fatass_principessa_plush": {
-    name: "Fatass Principessa Plush",
-    description: "Made for her birthday and handed only to the court that showed up for it. Keep it close.",
+    name: "Fatass Plush",
+    description: "Principessa herself, stitched fat and soft for her birthday. Handed only to the court that showed up for it.",
     rarity: "ultimate",
     collection: "birthday",
     sell_value: 25000,
