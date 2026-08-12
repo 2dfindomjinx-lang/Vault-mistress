@@ -42,20 +42,42 @@ async function equipTitle(
     return "Invalid title.";
   }
 
-  const { data: ownedTitle, error: ownedError } = await supabase
-    .from("user_titles")
-    .select("title_id")
-    .eq("user_id", userId)
-    .eq("title_id", titleId)
-    .maybeSingle();
+  // Item-gated titles are never written to user_titles as a grant - holding
+  // them is holding the item, and a stored grant would survive selling it. So
+  // ownership for those is read from the inventory instead; checking
+  // user_titles would reject them every time.
+  if (title.requiresItemId) {
+    const { data: inventoryRow, error: inventoryError } = await supabase
+      .from("user_crate_inventory")
+      .select("quantity")
+      .eq("user_id", userId)
+      .eq("item_id", title.requiresItemId)
+      .maybeSingle();
 
-  if (ownedError) {
-    console.error("[titles] ownership lookup failed", ownedError);
-    return "Title ownership check failed.";
-  }
+    if (inventoryError) {
+      console.error("[titles] item-gated ownership lookup failed", inventoryError);
+      return "Title ownership check failed.";
+    }
 
-  if (!ownedTitle) {
-    return "Title is not owned.";
+    if (!inventoryRow || Number(inventoryRow.quantity ?? 0) <= 0) {
+      return "Title is not owned.";
+    }
+  } else {
+    const { data: ownedTitle, error: ownedError } = await supabase
+      .from("user_titles")
+      .select("title_id")
+      .eq("user_id", userId)
+      .eq("title_id", titleId)
+      .maybeSingle();
+
+    if (ownedError) {
+      console.error("[titles] ownership lookup failed", ownedError);
+      return "Title ownership check failed.";
+    }
+
+    if (!ownedTitle) {
+      return "Title is not owned.";
+    }
   }
 
   const { error: equipError } = await supabase.from("user_titles").upsert(

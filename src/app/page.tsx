@@ -2407,6 +2407,20 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     const held = getItemGatedTitleIds(ownedInventoryItemIds);
     return held.length === 0 ? ownedTitleIds : Array.from(new Set([...ownedTitleIds, ...held]));
   }, [ownedInventoryItemIds, ownedTitleIds]);
+
+  // The other half of letting applyProfile keep an unverified item-gated title:
+  // once the inventory has actually loaded, an equipped title whose item is no
+  // longer held is taken off. This is what makes selling the plush remove the
+  // title rather than leaving it worn but unearned.
+  useEffect(() => {
+    if (!equippedTitleId || crateInventory.length === 0) return;
+    const itemGated = new Set(getAllItemGatedTitleIds());
+    if (!itemGated.has(equippedTitleId)) return;
+    if (ownedTitleIdsWithItemGrants.includes(equippedTitleId)) return;
+
+    setEquippedTitleId(getDefaultTitleId(tributeTotal));
+    setIsTitleManuallySelected(false);
+  }, [crateInventory.length, equippedTitleId, ownedTitleIdsWithItemGrants, tributeTotal]);
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -4460,7 +4474,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       const equippedTitle = titleRows.find((entry) => entry.equipped)?.title_id ?? fallbackTitle;
 
       setOwnedTitleIds(ownedTitles);
-      setEquippedTitleId(ownedTitles.includes(equippedTitle) ? equippedTitle : fallbackTitle);
+      // An item-gated title is allowed through without being in ownedTitles -
+      // the inventory it depends on has not loaded yet, so it cannot be checked
+      // here. The effect below drops it once the inventory is in and the item
+      // turns out to be gone; rejecting it now would silently unequip a title
+      // the user really does hold, every single load.
+      const equippedIsValid = ownedTitles.includes(equippedTitle) || allItemGated.has(equippedTitle);
+      setEquippedTitleId(equippedIsValid ? equippedTitle : fallbackTitle);
       setIsTitleManuallySelected(equippedTitle !== fallbackTitle);
     }
 
