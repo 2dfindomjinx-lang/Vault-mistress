@@ -124,6 +124,7 @@ import {
   getUnlockedCrateTitleIds,
   getUnlockedInventoryTitleIds,
   getItemGatedTitleIds,
+  isCosmeticUnlocked,
   getAllItemGatedTitleIds,
   getUnlockedPetTitleIds,
   permanentCosmeticItems,
@@ -2390,9 +2391,22 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const equippedTitle =
     addressAwareTitleItems.find((title) => title.id === equippedTitleId) ??
     addressAwareTitleItems.find((title) => title.id === getDefaultTitleId(tributeTotal));
-  // Read live rather than stored: the ornament, the title and the stipend all
-  // have to vanish the moment the plush leaves the inventory.
-  const ownsBirthdayPlush = ownsPlush(crateInventory);
+  // Item-gated titles and cosmetics both resolve from here. Read live from the
+  // inventory rather than from anything stored, so selling an item takes what
+  // it granted with it on the next load.
+  const ownedInventoryItemIds = useMemo(
+    () => new Set(crateInventory.filter((item) => (item.quantity ?? 0) > 0).map((item) => item.item_id)),
+    [crateInventory],
+  );
+
+  // Folded in here rather than in applyProfile: that runs once, when the
+  // profile lands, and the crate inventory arrives from a separate request that
+  // usually finishes later - so resolving them there read an empty inventory
+  // and the title never appeared at all.
+  const ownedTitleIdsWithItemGrants = useMemo(() => {
+    const held = getItemGatedTitleIds(ownedInventoryItemIds);
+    return held.length === 0 ? ownedTitleIds : Array.from(new Set([...ownedTitleIds, ...held]));
+  }, [ownedInventoryItemIds, ownedTitleIds]);
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -4430,19 +4444,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } else {
       const titleRows = (titleData ?? []) as UserTitleRow[];
       const fallbackTitle = getDefaultTitleId(profile.tribute_total ?? 0);
-      // Item-gated titles are merged in here but never written to user_titles,
-      // and any stored row for one is ignored. Persisting them would defeat the
-      // rule they exist for: sell the item, lose the title.
-      const itemGatedHeld = getItemGatedTitleIds(
-        crateInventory.filter((item) => (item.quantity ?? 0) > 0).map((item) => item.item_id),
-      );
+      // Item-gated titles are resolved from the live inventory instead
+      // (ownedTitleIdsWithItemGrants) - this runs before the inventory has
+      // loaded. Any stored row for one is dropped here as well: persisting it
+      // would defeat the rule they exist for, that selling the item takes the
+      // title with it.
       const allItemGated = new Set(getAllItemGatedTitleIds());
       const ownedTitles = Array.from(
         new Set([
           fallbackTitle,
           ...autoTitleIds,
           ...titleRows.map((entry) => entry.title_id).filter((id) => !allItemGated.has(id)),
-          ...itemGatedHeld,
         ]),
       );
       const equippedTitle = titleRows.find((entry) => entry.equipped)?.title_id ?? fallbackTitle;
@@ -8385,7 +8397,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (item.price <= 0 || ownedCosmeticIds.includes(item.id)) {
+    // Item-gated cosmetics have price 0 but must NOT be free to everyone -
+    // isCosmeticUnlocked checks the inventory for them instead.
+    if (isCosmeticUnlocked(item, ownedCosmeticIds, ownedInventoryItemIds)) {
       await handleEquipCosmetic(item);
       return;
     }
@@ -8476,7 +8490,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       item.type === "speech-avatar" &&
       item.id === eventSpeechAvatarId &&
       Boolean(speechAvatarEvent);
-    const ownsCosmetic = ownedCosmeticIds.includes(item.id) || item.price <= 0;
+    const ownsCosmetic = isCosmeticUnlocked(item, ownedCosmeticIds, ownedInventoryItemIds);
 
     if (!ownsCosmetic && item.price > 0 && !hasTemporaryEventAccess) {
       return;
@@ -8590,7 +8604,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (ownedTitleIds.includes(title.id)) {
+    if (ownedTitleIdsWithItemGrants.includes(title.id)) {
       await handleEquipTitle(title);
       return;
     }
@@ -8663,7 +8677,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (!ownedTitleIds.includes(title.id)) {
+    if (!ownedTitleIdsWithItemGrants.includes(title.id)) {
       return;
     }
 
@@ -10880,8 +10894,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       PROFILE_HEADER_COSMETIC_TYPE_ORDER.includes(item.type),
     );
 
-    return headerItems.filter((item) => ownedCosmeticIds.includes(item.id));
-  }, [ownedCosmeticIds]);
+    // Item-gated pieces are unlocked by the inventory, not by a purchase, so
+    // they need the fuller check - a plain ownedCosmeticIds lookup would never
+    // find them.
+    return headerItems.filter((item) =>
+      isCosmeticUnlocked(item, ownedCosmeticIds, ownedInventoryItemIds),
+    );
+  }, [ownedCosmeticIds, ownedInventoryItemIds]);
   const profileHeaderCosmeticsByType = useMemo(() => {
     const grouped = new Map<CosmeticType, CosmeticItem[]>();
 
@@ -11681,7 +11700,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           coins={coins}
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
-          hasPlushOrnament={ownsBirthdayPlush}
           equippedAvatarSlots={equippedAvatarSlots}
           equippedFullSetId={equippedFullSetId}
           equippedCosmeticIds={effectiveEquippedCosmeticIds}
@@ -12118,7 +12136,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 equippedCosmeticIds={effectiveEquippedCosmeticIds}
                 eventSpeechAvatarId={eventSpeechAvatarId}
                 ownedCosmeticIds={ownedCosmeticIds}
-                ownedTitleIds={ownedTitleIds}
+                ownedTitleIds={ownedTitleIdsWithItemGrants}
                 pendingCosmeticIds={pendingTaskActionIds
                   .filter((id) => id.startsWith("cosmetic:"))
                   .map((id) => id.slice("cosmetic:".length))}
@@ -12151,7 +12169,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 equippedTitleId={equippedTitleId}
                 layout="horizontal"
-                ownedTitleIds={ownedTitleIds}
+                ownedTitleIds={ownedTitleIdsWithItemGrants}
                 titles={addressAwareTitleItems}
                 onEquipTitle={handleEquipTitle}
               />

@@ -32,6 +32,7 @@ export type ProfileFrameDecorationMotif =
   | "side-bunny-pair"
   | "side-fox-pair"
   | "side-bear-pair"
+  | "side-plush-pair"
   | "particles-hearts"
   | "particles-petals"
   | "particles-dust"
@@ -67,11 +68,17 @@ export type ProfileFrameDecorationDefinition = {
   metal?: string;
   shadow?: string;
   attachment?: ProfileFrameAttachment;
+  /**
+   * Granted by holding an item instead of being bought. Carried through to the
+   * CosmeticItem so the shop can skip it and the owned-list can read it from
+   * the inventory.
+   */
+  requiresItemId?: string;
 };
 
 export type ProfileFrameCatalogItem = Pick<
   ProfileFrameDecorationDefinition,
-  "description" | "id" | "name" | "price" | "type"
+  "description" | "id" | "name" | "price" | "requiresItemId" | "type"
 >;
 
 const FRAME_ANCHOR_POSITIONS: Record<FrameAttachmentAnchor, { x: number; y: number }> = {
@@ -116,6 +123,21 @@ const definition = (
 ): ProfileFrameDecorationDefinition => item;
 
 export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition[] = [
+  // Not for sale. Held only while the birthday plush is in the inventory, and
+  // equipped or removed from the Profile header cosmetics panel like any other
+  // side pair - so wanting the plush does not force you into wearing its title.
+  definition({
+    id: "frame-side-principessa-plush",
+    name: "Her Plush Pair",
+    description: "Two of her birthday plush sitting either side of the frame. Yours while you keep the plush.",
+    type: "profile-frame-side",
+    price: 0,
+    motif: "side-plush-pair",
+    palette: ["#f0abfc", "#fbcfe8", "#fff1f2"],
+    metal: "#f5d0fe",
+    shadow: "#a21caf",
+    requiresItemId: "fatass_principessa_plush",
+  }),
   definition({
     id: "frame-bottom-satin-noir",
     name: "Satin Noir Medallion",
@@ -811,11 +833,12 @@ export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition
 
 export const rotatingProfileFrameCosmeticItems: ProfileFrameCatalogItem[] =
   profileFrameDecorationDefinitions.map(
-    ({ description, id, name, price, type }) => ({
+    ({ description, id, name, price, requiresItemId, type }) => ({
       description,
       id,
       name,
       price,
+      requiresItemId,
       type,
     }),
   );

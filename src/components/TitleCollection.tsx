@@ -49,6 +49,12 @@ function describeTitleUnlock(title: TitleItem) {
     return `Reach ${formatCoins(title.minInventoryValue)} in total case inventory value.`;
   }
 
+  if (title.source === "item") {
+    // The only title that can be lost, so say so rather than listing the
+    // generic set of unlock routes - none of which apply here.
+    return "Held only while you own the item it comes with. Sell the item and the title goes too.";
+  }
+
   return "Unlock through progression, shop purchases, Throne tribute, cases, inventory milestones, or admin rewards.";
 }
 

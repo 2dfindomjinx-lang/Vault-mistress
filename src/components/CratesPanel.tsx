@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CrateRarity } from "@/lib/crates";
+import { isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
   getRarityColor,
@@ -110,7 +110,7 @@ function CrateResultIconFrame({ item }: { item: WonItem }) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-4xl">
-            {item.rarity === "legendary" ? "👑" : "📦"}
+            {item.rarity === "ultimate" ? "🧸" : item.rarity === "legendary" ? "👑" : "📦"}
           </div>
         )}
       </div>
@@ -276,7 +276,7 @@ export function CratesPanel({
   const duplicateInventoryValue = useMemo(() => {
     return inventory.reduce((sum, item) => {
       const duplicateCount = Math.max(0, (item.quantity || 0) - 1);
-      const isProtected = item.item_id === "classic" || item.rarity === "legendary";
+      const isProtected = item.item_id === "classic" || isBulkSellProtectedRarity(item.rarity);
       if (isProtected || item.sell_value <= 0) {
         return sum;
       }
@@ -287,7 +287,7 @@ export function CratesPanel({
 
   const duplicateStackCount = useMemo(() => {
     return inventory.reduce((sum, item) => {
-      const isProtected = item.item_id === "classic" || item.rarity === "legendary";
+      const isProtected = item.item_id === "classic" || isBulkSellProtectedRarity(item.rarity);
       return sum + (!isProtected && (item.quantity || 0) > 1 && item.sell_value > 0 ? 1 : 0);
     }, 0);
   }, [inventory]);
@@ -693,7 +693,7 @@ export function CratesPanel({
     if (item.item_id === "classic") return;
 
     // Only show confirmation for Legendary items
-    if (item.rarity === "legendary") {
+    if (isBulkSellProtectedRarity(item.rarity)) {
       const confirmSell = window.confirm(
         `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?`
       );
@@ -1173,7 +1173,7 @@ export function CratesPanel({
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-black/70 text-3xl" aria-hidden>
-                            {item.rarity === "legendary" ? "👑" : "📦"}
+                            {item.rarity === "ultimate" ? "🧸" : item.rarity === "legendary" ? "👑" : "📦"}
                           </div>
                         )}
                       </div>
@@ -1426,7 +1426,7 @@ export function CratesPanel({
                     <div key={idx} className="flex flex-col items-center text-xs border border-white/10 rounded p-2.5 bg-black/20 w-40">
                       {(() => {
                         const isLockedItem = item.item_id === "classic";
-                        const isLegendary = item.rarity === "legendary";
+                        const isLegendary = isBulkSellProtectedRarity(item.rarity);
                         const isSellBlocked = isLockedItem;
 
                         return (
@@ -1436,7 +1436,7 @@ export function CratesPanel({
                           <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover" />
                         ) : (
                           <div className="flex h-14 w-14 items-center justify-center bg-black/70 text-3xl">
-                            {item.rarity === "legendary" ? "👑" : "📦"}
+                            {item.rarity === "ultimate" ? "🧸" : item.rarity === "legendary" ? "👑" : "📦"}
                           </div>
                         )}
                       </div>
@@ -1499,7 +1499,7 @@ export function CratesPanel({
                     if (item.item_id === "classic") {
                       return;
                     }
-                    if (item.rarity === "legendary") {
+                    if (isBulkSellProtectedRarity(item.rarity)) {
                       const confirmSell = window.confirm(
                         `Sell "${item.name}" for ${item.sell_value} coins?`
                       );

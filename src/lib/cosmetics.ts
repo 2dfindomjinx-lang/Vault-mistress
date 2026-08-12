@@ -41,7 +41,36 @@ export type CosmeticItem = {
   isArchived?: boolean;
   /** Speech avatars locked to male/female subs. Omit or "all" for everyone. */
   audience?: CosmeticAudience;
+  /**
+   * Available only while this item is in the player's inventory. Never sold,
+   * never stored as a purchase - ownership is read from the inventory every
+   * time, so selling the item removes the cosmetic too.
+   */
+  requiresItemId?: string;
 };
+
+/**
+ * Whether a cosmetic is available to equip.
+ *
+ * Item-gated cosmetics ignore purchase history entirely: they are held exactly
+ * as long as the item is. Everything else keeps the old rule, where a zero
+ * price means it was never locked in the first place.
+ */
+export function isCosmeticUnlocked(
+  item: CosmeticItem,
+  ownedCosmeticIds: readonly string[],
+  ownedItemIds: ReadonlySet<string>,
+): boolean {
+  if (item.requiresItemId) {
+    return ownedItemIds.has(item.requiresItemId);
+  }
+  return item.price <= 0 || ownedCosmeticIds.includes(item.id);
+}
+
+/** Cosmetics that can never be bought, because an item grants them. */
+export function isItemGatedCosmetic(item: CosmeticItem): boolean {
+  return Boolean(item.requiresItemId);
+}
 
 export type SpendBadgeTierId = "bronze" | "silver" | "gold" | "emerald" | "diamond";
 

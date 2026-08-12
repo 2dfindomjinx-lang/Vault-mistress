@@ -11,6 +11,7 @@ import {
   type CosmeticType,
 } from "@/lib/cosmetics";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
+import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import {
   getProfileFrameDecorationDefinition,
   isProfileFrameCosmeticType,
@@ -1286,7 +1287,31 @@ function PeekingAnimal({
   );
 }
 
+/**
+ * The one side pair that is a photograph rather than drawn shapes: the plush
+ * itself, mirrored on the right so the two face inward like the SVG pairs do.
+ */
+function SidePlushPair() {
+  return (
+    <g>
+      <image height="70" href={PLUSH_IMAGE_PATH} width="70" x="-10" y="186" />
+      <image
+        height="70"
+        href={PLUSH_IMAGE_PATH}
+        transform="scale(-1 1)"
+        width="70"
+        x="-190"
+        y="186"
+      />
+    </g>
+  );
+}
+
 function SideAnimals({ definition }: { definition: ProfileFrameDecorationDefinition }) {
+  if (definition.motif === "side-plush-pair") {
+    return <SidePlushPair />;
+  }
+
   const palette = getPalette(definition);
   const animalKind = definition.motif as
     | "side-bear-pair"

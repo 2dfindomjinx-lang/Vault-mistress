@@ -9,27 +9,11 @@ import { ProfileFrameOrnaments } from "@/components/ProfileFrameOrnaments";
 import { ADDRESS_TERM_LABELS, ADDRESS_TERM_VALUES, type AddressTerm } from "@/lib/address-term";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
 import { getCosmeticItem, type CosmeticType, type SpendBadge } from "@/lib/cosmetics";
-import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import type { ProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
 
 type ProfileHeaderStat = { label: string; value: ReactNode; hint?: string };
 
-/** One of the twin plushes sitting either side of the name. */
-function PlushOrnament({ side }: { side: "left" | "right" }) {
-  return (
-    <Image
-      alt=""
-      aria-hidden
-      className={`h-9 w-9 shrink-0 object-contain drop-shadow-[0_0_10px_rgba(232,121,249,.45)] sm:h-11 sm:w-11 ${side === "right" ? "-scale-x-100" : ""}`}
-      height={44}
-      src={PLUSH_IMAGE_PATH}
-      title="Principessa's Plush Toy"
-      unoptimized
-      width={44}
-    />
-  );
-}
 
 type ProfileHeaderProps = {
   avatarSrc: string;
@@ -37,8 +21,6 @@ type ProfileHeaderProps = {
   coins: number;
   currentTitle?: string;
   displayName?: string | null;
-  /** True while the birthday plush is in the player's inventory. */
-  hasPlushOrnament?: boolean;
   equippedAvatarSlots?: EquippedAvatarSlots;
   equippedFullSetId?: string | null;
   hasUncensoredAvatar?: boolean;
@@ -87,7 +69,6 @@ export function ProfileHeader({
   spendBadge,
   equippedCosmeticIds,
   displayName,
-  hasPlushOrnament = false,
   hasDisplayNameChangeRight = false,
   isEditingDisplayName = false,
   displayNameEditInput = "",
@@ -156,12 +137,7 @@ export function ProfileHeader({
               <p className="text-[9px] font-black uppercase tracking-[.34em] text-[#d7ad69]/55">{pageLabel}</p>
               {!isEditingDisplayName ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {/* Flanks the name only while the plush is actually held; the
-                      parent reads it live from the inventory, so it disappears
-                      the moment the item is sold. */}
-                  {hasPlushOrnament ? <PlushOrnament side="left" /> : null}
                   <h2 className="truncate font-serif text-3xl text-[#fff0d2] sm:text-4xl" style={usernameStyle}>{visibleName}</h2>
-                  {hasPlushOrnament ? <PlushOrnament side="right" /> : null}
                   {spendBadge?.isEarned ? <span className="inline-flex h-8 w-8 items-center justify-center border border-[#c89a55]/20 bg-black/30" title={spendBadge.tooltip}><Image alt="" className="h-6 w-6 object-contain" height={24} src={spendBadge.imagePath} width={24} /></span> : null}
                   {hasDisplayNameChangeRight && onStartDisplayNameEdit ? <button className="text-sm text-pink-300/60 transition hover:text-pink-200" onClick={onStartDisplayNameEdit} title="Change Display Name" type="button">✎</button> : null}
                 </div>
