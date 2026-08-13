@@ -78,7 +78,7 @@ type PreparedUpload = {
 };
 
 const dateTime = (value: string) =>
-  new Intl.DateTimeFormat("tr-TR", {
+  new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -94,15 +94,15 @@ const devicePresence = (device: Device) => {
     ? Math.max(0, (Date.now() - new Date(seenAt).getTime()) / DAY_MS)
     : 0;
   if (ageDays >= 14) {
-    return { hidden: true, label: "Muhtemelen kaldırıldı" };
+    return { hidden: true, label: "Likely removed" };
   }
   if (ageDays >= 7) {
-    return { hidden: true, label: "Uzun süredir görülmedi" };
+    return { hidden: true, label: "Not seen in a while" };
   }
   if (ageDays >= 3) {
-    return { hidden: false, label: "Pasif" };
+    return { hidden: false, label: "Idle" };
   }
-  return { hidden: false, label: "Aktif" };
+  return { hidden: false, label: "Active" };
 };
 
 export default function WallpaperAdminPage() {
@@ -151,12 +151,12 @@ export default function WallpaperAdminPage() {
 
   const targetTitle =
     target === "global"
-      ? "Tüm cihazlar"
-      : selectedDevice?.owner_name || selectedDevice?.bound_device_label || "Seçili cihaz";
+      ? "All devices"
+      : selectedDevice?.owner_name || selectedDevice?.bound_device_label || "Selected device";
   const targetDescription =
     target === "global"
-      ? `${visibleDeviceCount} görünür · ${devices.length} toplam bağlı cihaz`
-      : `${selectedDevice?.bound_device_label || "Bilinmeyen cihaz"} · ${selectedDevice?.activation_code || ""} · Favori kink: ${selectedDevice?.favorite_kink || "Seçilmedi"}`;
+      ? `${visibleDeviceCount} visible · ${devices.length} bound devices in total`
+      : `${selectedDevice?.bound_device_label || "Unknown device"} · ${selectedDevice?.activation_code || ""} · Favourite kink: ${selectedDevice?.favorite_kink || "Not chosen"}`;
 
   const applyState = (result: AdminState) => {
     setDevices(result.devices ?? []);
@@ -171,7 +171,7 @@ export default function WallpaperAdminPage() {
     fetch("/api/admin/wallpapers", { cache: "no-store" })
       .then(async (response) => {
         const result = (await response.json()) as AdminState;
-        if (!response.ok) throw new Error(result.error ?? "Panel verileri alınamadı.");
+        if (!response.ok) throw new Error(result.error ?? "Panel data could not be loaded.");
         if (!cancelled) {
           setDevices(result.devices ?? []);
           setAssignments(result.assignments ?? []);
@@ -182,7 +182,7 @@ export default function WallpaperAdminPage() {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setStatus(error instanceof Error ? error.message : "Panel verileri alınamadı.");
+          setStatus(error instanceof Error ? error.message : "Panel data could not be loaded.");
         }
       })
       .finally(() => {
@@ -207,15 +207,15 @@ export default function WallpaperAdminPage() {
 
   const refresh = async () => {
     setIsBusy(true);
-    setStatus("Veriler yenileniyor…");
+    setStatus("Refreshing…");
     try {
       const response = await fetch("/api/admin/wallpapers", { cache: "no-store" });
       const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Panel verileri alınamadı.");
+      if (!response.ok) throw new Error(result.error ?? "Panel data could not be loaded.");
       applyState(result);
-      setStatus("Panel güncellendi.");
+      setStatus("Panel refreshed.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Panel verileri alınamadı.");
+      setStatus(error instanceof Error ? error.message : "Panel data could not be loaded.");
     } finally {
       setIsBusy(false);
     }
@@ -223,35 +223,35 @@ export default function WallpaperAdminPage() {
 
   const uploadAndAssign = async () => {
     if (!file) {
-      setStatus("Önce bir görsel seç.");
+      setStatus("Pick an image first.");
       return;
     }
 
     setIsBusy(true);
-    setStatus("Görsel kırpılıyor…");
+    setStatus("Cropping the image…");
     try {
       const croppedBlob = await cropWallpaperImage(file, cropPanX, cropPanY, cropZoom);
 
-      setStatus("Yükleme hazırlanıyor…");
+      setStatus("Preparing the upload…");
       const prepareResponse = await fetch("/api/admin/wallpapers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "prepare-upload", contentType: croppedBlob.type }),
       });
       const prepared = (await prepareResponse.json()) as PreparedUpload;
-      if (!prepareResponse.ok) throw new Error(prepared.error ?? "Yükleme hazırlanamadı.");
+      if (!prepareResponse.ok) throw new Error(prepared.error ?? "The upload could not be prepared.");
 
-      setStatus("Görsel R2'ye yükleniyor…");
+      setStatus("Uploading to R2…");
       const uploadResponse = await fetch(prepared.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": croppedBlob.type },
         body: croppedBlob,
       });
       if (!uploadResponse.ok) {
-        throw new Error(`R2 yüklemesi HTTP ${uploadResponse.status} hatası verdi.`);
+        throw new Error(`The R2 upload returned HTTP ${uploadResponse.status}.`);
       }
 
-      setStatus("Duvar kâğıdı uygulanıyor…");
+      setStatus("Applying the wallpaper…");
       const assignResponse = await fetch("/api/admin/wallpapers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -264,7 +264,7 @@ export default function WallpaperAdminPage() {
         }),
       });
       const assigned = (await assignResponse.json()) as AdminState;
-      if (!assignResponse.ok) throw new Error(assigned.error ?? "Duvar kâğıdı uygulanamadı.");
+      if (!assignResponse.ok) throw new Error(assigned.error ?? "The wallpaper could not be applied.");
 
       applyState(assigned);
       setFile(null);
@@ -273,9 +273,9 @@ export default function WallpaperAdminPage() {
       setCropZoom(WALLPAPER_MIN_ZOOM);
       const input = document.getElementById("wallpaper-file") as HTMLInputElement | null;
       if (input) input.value = "";
-      setStatus(`${targetTitle} için yeni duvar kâğıdı uygulandı.`);
+      setStatus(`${targetTitle} now has the new wallpaper.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Duvar kâğıdı yüklenemedi.");
+      setStatus(error instanceof Error ? error.message : "The wallpaper could not be uploaded.");
     } finally {
       setIsBusy(false);
     }
@@ -283,7 +283,7 @@ export default function WallpaperAdminPage() {
 
   const reuseWallpaper = async (asset: WallpaperAsset) => {
     setIsBusy(true);
-    setStatus("Kütüphanedeki görsel uygulanıyor…");
+    setStatus("Applying the image from the library…");
     try {
       const response = await fetch("/api/admin/wallpapers", {
         method: "POST",
@@ -295,11 +295,11 @@ export default function WallpaperAdminPage() {
         }),
       });
       const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Görsel yeniden uygulanamadı.");
+      if (!response.ok) throw new Error(result.error ?? "The image could not be reapplied.");
       applyState(result);
-      setStatus(`${targetTitle} için kütüphanedeki görsel uygulandı.`);
+      setStatus(`${targetTitle} now uses the image from the library.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Görsel yeniden uygulanamadı.");
+      setStatus(error instanceof Error ? error.message : "The image could not be reapplied.");
     } finally {
       setIsBusy(false);
     }
@@ -311,7 +311,7 @@ export default function WallpaperAdminPage() {
     }
 
     setIsBusy(true);
-    setStatus("Varsayılan duvar kâğıdına döndürülüyor…");
+    setStatus("Reverting to the default wallpaper…");
     try {
       const response = await fetch("/api/admin/wallpapers", {
         method: "POST",
@@ -319,11 +319,11 @@ export default function WallpaperAdminPage() {
         body: JSON.stringify({ action: "reset-to-default", activationId: target }),
       });
       const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Varsayılana döndürülemedi.");
+      if (!response.ok) throw new Error(result.error ?? "Could not revert to the default.");
       applyState(result);
-      setStatus(`${targetTitle} artık varsayılan (global) duvar kâğıdını kullanıyor.`);
+      setStatus(`${targetTitle} now uses the default (global) wallpaper.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Varsayılana döndürülemedi.");
+      setStatus(error instanceof Error ? error.message : "Could not revert to the default.");
     } finally {
       setIsBusy(false);
     }
@@ -331,12 +331,12 @@ export default function WallpaperAdminPage() {
 
   const updateLiveMessage = async (action: "send-message" | "clear-message") => {
     if (action === "send-message" && !liveMessage.trim()) {
-      setStatus("Önce bir mesaj yaz.");
+      setStatus("Write a message first.");
       return;
     }
 
     setIsBusy(true);
-    setStatus(action === "send-message" ? "Mesaj gönderiliyor…" : "Mesaj kaldırılıyor…");
+    setStatus(action === "send-message" ? "Sending the message…" : "Removing the message…");
     try {
       const response = await fetch("/api/admin/wallpapers", {
         method: "POST",
@@ -348,12 +348,12 @@ export default function WallpaperAdminPage() {
         }),
       });
       const result = (await response.json()) as AdminState;
-      if (!response.ok) throw new Error(result.error ?? "Mesaj işlemi başarısız oldu.");
+      if (!response.ok) throw new Error(result.error ?? "The message action failed.");
       applyState(result);
       if (action === "send-message") setLiveMessage("");
-      setStatus(action === "send-message" ? "Canlı mesaj gönderildi." : "Canlı mesaj kaldırıldı.");
+      setStatus(action === "send-message" ? "Live message sent." : "Live message removed.");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Mesaj işlemi başarısız oldu.");
+      setStatus(error instanceof Error ? error.message : "The message action failed.");
     } finally {
       setIsBusy(false);
     }
@@ -371,15 +371,15 @@ export default function WallpaperAdminPage() {
               <h1 className="mt-1 text-lg font-semibold tracking-tight">Wallpaper Control</h1>
             </div>
 
-            <nav className="min-h-0 flex-1 p-3 lg:overflow-y-auto" aria-label="Cihazlar">
+            <nav className="min-h-0 flex-1 p-3 lg:overflow-y-auto" aria-label="Devices">
               <p className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-zinc-600">
-                Cihazlar
+                Devices
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
                 <TargetButton
                   active={target === "global"}
-                  label="Tüm cihazlar"
-                  meta={`${visibleDeviceCount} görünür cihaz`}
+                  label="All devices"
+                  meta={`${visibleDeviceCount} devices visible`}
                   onClick={() => setTarget("global")}
                 />
                 {listedDevices.map((device) => {
@@ -388,7 +388,7 @@ export default function WallpaperAdminPage() {
                     <TargetButton
                       active={target === device.id}
                       key={device.id}
-                      label={device.owner_name || device.bound_device_label || "İsimsiz cihaz"}
+                      label={device.owner_name || device.bound_device_label || "Unnamed device"}
                       meta={`${device.bound_device_label || shortCode(device.activation_code)} · ${presence.label}${device.favorite_kink ? ` · ${device.favorite_kink}` : ""}`}
                       onClick={() => setTarget(device.id)}
                     />
@@ -402,13 +402,18 @@ export default function WallpaperAdminPage() {
                   type="button"
                 >
                   {showHiddenDevices
-                    ? "Gizlenen cihazları kapat"
-                    : `Gizlenen cihazları göster (${hiddenDeviceCount})`}
+                    ? "Hide dormant devices"
+                    : `Show dormant devices (${hiddenDeviceCount})`}
                 </button>
               )}
             </nav>
 
             <div className="hidden border-t border-white/[0.07] p-3 lg:grid lg:gap-1">
+              {/* Every other admin sub-page offers a way back to the site
+                  itself, not just to the console. This one was missing it. */}
+              <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/">
+                Dashboard
+              </Link>
               <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/admin">
                 Admin Console
               </Link>
@@ -416,7 +421,7 @@ export default function WallpaperAdminPage() {
                 Analytics
               </Link>
               <Link className="rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white" href="/admin/app-licenses">
-                Aktivasyon kodları
+                Activation Codes
               </Link>
             </div>
           </div>
@@ -455,11 +460,11 @@ export default function WallpaperAdminPage() {
               <article className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111114]">
                 <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
                   <div>
-                    <p className="text-sm font-semibold">Aktif duvar kâğıdı</p>
+                    <p className="text-sm font-semibold">Active wallpaper</p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {!directAssignment && target !== "global" && effectiveAssignment
-                        ? "Global duvar kâğıdı kullanılıyor"
-                        : "Bu hedefe doğrudan atanmış"}
+                        ? "Using the global wallpaper"
+                        : "Assigned directly to this target"}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -470,7 +475,7 @@ export default function WallpaperAdminPage() {
                         onClick={() => void resetToDefaultWallpaper()}
                         type="button"
                       >
-                        Varsayılana döndür
+                        Revert to default
                       </button>
                     )}
                     {effectiveAssignment && (
@@ -484,38 +489,38 @@ export default function WallpaperAdminPage() {
                   <div className="relative min-h-64 flex-1 overflow-hidden bg-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      alt="Aktif duvar kâğıdı"
+                      alt="Active wallpaper"
                       className="h-full w-full object-cover"
                       src={wallpaperImageSrc(effectiveAssignment.id)}
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-5 pb-4 pt-16">
                       <p className="text-xs text-zinc-300">
-                        {dateTime(effectiveAssignment.created_at)} tarihinde atandı
+                        {dateTime(effectiveAssignment.created_at)}
                       </p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex min-h-64 flex-1 items-center justify-center bg-white/[0.015] px-6 text-center text-sm text-zinc-600">
-                    Bu hedef için henüz bir duvar kâğıdı yok.
+                    No wallpaper has been set for this target yet.
                   </div>
                 )}
               </article>
 
               <div className="grid gap-5">
                 <article className="rounded-2xl border border-white/[0.08] bg-[#111114] p-5">
-                  <p className="text-sm font-semibold">Yeni görsel yükle</p>
+                  <p className="text-sm font-semibold">Upload a new image</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    JPG, PNG veya WebP seç (kare görseller de olur). Görsel {targetTitle} için uygulanır.
+                    Pick a JPG, PNG or WebP (square works too). It will be applied to {targetTitle}.
                   </p>
                   <label
                     className="mt-4 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-4 text-center transition hover:border-pink-400/30 hover:bg-pink-400/[0.03]"
                     htmlFor="wallpaper-file"
                   >
                     <span className="text-sm font-medium text-zinc-300">
-                      {file ? file.name : "Görsel seç"}
+                      {file ? file.name : "Choose an image"}
                     </span>
                     <span className="mt-1 text-xs text-zinc-600">
-                      {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "Dosyayı buradan seçebilirsin"}
+                      {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "Select a file here"}
                     </span>
                   </label>
                   <input
@@ -552,7 +557,7 @@ export default function WallpaperAdminPage() {
                     onClick={() => void uploadAndAssign()}
                     type="button"
                   >
-                    Yükle ve uygula
+                    Upload and apply
                   </button>
                 </article>
 
@@ -561,11 +566,11 @@ export default function WallpaperAdminPage() {
                     <div>
                       <p className="text-sm font-semibold">Live Chat</p>
                       <p className="mt-1 text-xs text-zinc-500">
-                        Mesaj geçmişi saklanır; sub seçili cihazdan cevap verebilir.
+                        Message history is kept; the sub can reply from the selected device.
                       </p>
                     </div>
                     <span className="rounded-full bg-sky-400/10 px-2 py-1 text-[10px] font-semibold text-sky-300">
-                      {visibleMessages.length} mesaj
+                      {visibleMessages.length} messages
                     </span>
                   </div>
                   <div className="mt-4 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-white/[0.07] bg-black/20 p-3">
@@ -592,12 +597,12 @@ export default function WallpaperAdminPage() {
                         </div>
                       ))
                     ) : (
-                      <p className="py-8 text-center text-xs text-zinc-600">Henüz mesaj yok.</p>
+                      <p className="py-8 text-center text-xs text-zinc-600">No messages yet.</p>
                     )}
                   </div>
                   {target === "global" && (
                     <div className="mt-3 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-3 py-2 text-[10px] leading-4 text-amber-200/70">
-                      Global mesaj tüm cihazlara gider. Sub cevaplarını görmek için soldan cihaz seç.
+                      A global message goes to every device. Pick a device on the left to read a sub&rsquo;s replies.
                     </div>
                   )}
                   <textarea
@@ -605,7 +610,7 @@ export default function WallpaperAdminPage() {
                     disabled={isBusy}
                     maxLength={240}
                     onChange={(event) => setLiveMessage(event.target.value)}
-                    placeholder={target === "global" ? "Tüm cihazlara mesaj yaz…" : "Sub'a cevap yaz…"}
+                    placeholder={target === "global" ? "Write to every device…" : "Reply to the sub…"}
                     value={liveMessage}
                   />
                   <div className="mt-2 flex items-center justify-between gap-3">
@@ -616,7 +621,7 @@ export default function WallpaperAdminPage() {
                       onClick={() => void updateLiveMessage("send-message")}
                       type="button"
                     >
-                      Gönder
+                      Send
                     </button>
                   </div>
                 </article>
@@ -626,12 +631,12 @@ export default function WallpaperAdminPage() {
             <section className="mt-5 rounded-2xl border border-white/[0.08] bg-[#111114]">
               <div className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.07] px-5 py-4">
                 <div>
-                  <h3 className="text-sm font-semibold">Görsel kütüphanesi</h3>
+                  <h3 className="text-sm font-semibold">Image library</h3>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Daha önce yüklenen R2 görsellerini tekrar yüklemeden kullan.
+                    Reuse an image already in R2 without uploading it again.
                   </p>
                 </div>
-                <span className="text-xs text-zinc-600">{library.length} görsel</span>
+                <span className="text-xs text-zinc-600">{library.length} images</span>
               </div>
               {library.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
@@ -664,7 +669,7 @@ export default function WallpaperAdminPage() {
                             onClick={() => void reuseWallpaper(asset)}
                             type="button"
                           >
-                            {isActive ? "Kullanılıyor" : "Bu görseli kullan"}
+                            {isActive ? "In use" : "Use this image"}
                           </button>
                         </div>
                       </article>
@@ -673,7 +678,7 @@ export default function WallpaperAdminPage() {
                 </div>
               ) : (
                 <p className="px-5 py-10 text-center text-sm text-zinc-600">
-                  İlk görselini yüklediğinde burada görünecek.
+                  Your first upload will show up here.
                 </p>
               )}
             </section>
@@ -683,10 +688,10 @@ export default function WallpaperAdminPage() {
                 <div>
                   <h3 className="text-sm font-semibold">Son hareketler</h3>
                   <p className="mt-1 text-xs text-zinc-500">
-                    {target === "global" ? "Tüm cihazların" : "Seçili cihazın"} duvar kâğıdı değişiklikleri
+                    Wallpaper changes for {target === "global" ? "all devices" : "the selected device"}
                   </p>
                 </div>
-                <span className="text-xs text-zinc-600">{visibleEvents.length} kayıt</span>
+                <span className="text-xs text-zinc-600">{visibleEvents.length} entries</span>
               </div>
               <div className="divide-y divide-white/[0.06] px-5">
                 {visibleEvents.length > 0 ? (
@@ -696,10 +701,10 @@ export default function WallpaperAdminPage() {
                       <article className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between" key={event.id}>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-zinc-200">
-                            {device?.owner_name || device?.bound_device_label || "Bilinmeyen cihaz"}
+                            {device?.owner_name || device?.bound_device_label || "Unknown device"}
                           </p>
                           <p className="mt-1 text-xs text-zinc-500">
-                            {event.changed_scopes.join(" ve ")} duvar kâğıdı değiştirildi
+                            {event.changed_scopes.join(" and ")} wallpaper changed
                           </p>
                         </div>
                         <div className="shrink-0 text-left sm:text-right">
@@ -712,7 +717,7 @@ export default function WallpaperAdminPage() {
                     );
                   })
                 ) : (
-                  <p className="py-10 text-center text-sm text-zinc-600">Henüz raporlanan bir değişiklik yok.</p>
+                  <p className="py-10 text-center text-sm text-zinc-600">No changes have been reported yet.</p>
                 )}
               </div>
             </section>
@@ -720,7 +725,7 @@ export default function WallpaperAdminPage() {
             <div className="mt-5 flex gap-4 px-1 text-xs text-zinc-600 lg:hidden">
               <Link className="hover:text-zinc-300" href="/admin">Admin paneli</Link>
               <Link className="hover:text-zinc-300" href="/admin/analytics">Analytics</Link>
-              <Link className="hover:text-zinc-300" href="/admin/app-licenses">Aktivasyon kodları</Link>
+              <Link className="hover:text-zinc-300" href="/admin/app-licenses">Activation Codes</Link>
             </div>
           </div>
         </section>

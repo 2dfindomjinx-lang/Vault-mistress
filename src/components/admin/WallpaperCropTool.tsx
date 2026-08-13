@@ -151,7 +151,7 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          alt="Kırpma önizlemesi"
+          alt="Crop preview"
           className="pointer-events-none absolute left-0 top-0 max-w-none"
           draggable={false}
           onLoad={(event) => {
@@ -181,7 +181,7 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
           −
         </button>
         <input
-          aria-label="Yakınlaştırma"
+          aria-label="Zoom"
           className="w-full accent-fuchsia-400"
           max={WALLPAPER_MAX_ZOOM}
           min={WALLPAPER_MIN_ZOOM}
@@ -204,8 +204,8 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
       <div className="flex items-center gap-2">
         <p className="text-[10px] text-zinc-500">
           {canDragX || canDragY
-            ? "Sürükle · tekerlek veya iki parmakla yakınlaştır."
-            : "Görsel hedef orana tam uyuyor. Yakınlaştırarak bir bölümünü seçebilirsin."}
+            ? "Drag to move · scroll or pinch to zoom."
+            : "The image already matches the target ratio. Zoom in to pick a section of it."}
         </p>
         {isZoomed ? (
           <button
@@ -216,7 +216,7 @@ export function WallpaperCropTool({ file, panX, panY, zoom, onPanChange, onZoomC
             }}
             type="button"
           >
-            Sıfırla
+            Reset
           </button>
         ) : null}
       </div>

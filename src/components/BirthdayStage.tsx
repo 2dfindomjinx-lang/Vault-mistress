@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BirthdayCake } from "@/components/BirthdayCake";
 import { BirthdayGiftBox } from "@/components/BirthdayGiftBox";
+import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import {
   BIRTHDAY_CANDLE_USD,
@@ -755,6 +756,7 @@ export function BirthdayStage() {
                       Get your personal VM code, copy it, then paste it into the message field on Throne. Without a valid
                       code, the candle stays anonymous.
                     </p>
+                    <ThronePublicMessageNotice className="mt-3 max-w-xl" />
                   </div>
 
                   {tributeCodeStatus !== "ready" ? (

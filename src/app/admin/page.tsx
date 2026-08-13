@@ -43,15 +43,66 @@ type ConsoleArgKind = "value" | "caseType" | "titleKey";
 const CONSOLE_CASE_TYPE_VALUES = ["principessa_case", "premium_case"];
 const CONSOLE_TITLE_KEY_VALUES = ["chosen", "femsub"];
 
-const CONSOLE_COMMANDS: Array<{ name: string; usage: string; args: ConsoleArgKind[] }> = [
-  { name: "/give", usage: "/give amount @username", args: ["value", "value"] },
-  { name: "/money", usage: "/money amount @username [throneOrderId]", args: ["value", "value"] },
-  { name: "/add", usage: "/add amount @username (Companion approval required)", args: ["value", "value"] },
-  { name: "/drain", usage: "/drain amount @username", args: ["value", "value"] },
-  { name: "/timeout", usage: "/timeout @username minutes", args: ["value", "value"] },
-  { name: "/timeout remove", usage: "/timeout remove @username", args: ["value"] },
-  { name: "/title", usage: "/title @username [chosen|femsub]", args: ["value", "titleKey"] },
-  { name: "/key", usage: "/key @username [principessa_case|premium_case] amount", args: ["value", "caseType", "value"] },
+const CONSOLE_COMMANDS: Array<{
+  name: string;
+  usage: string;
+  description: string;
+  args: ConsoleArgKind[];
+}> = [
+  {
+    name: "/give",
+    usage: "/give amount @username",
+    description: "Coins as a tribute. Pays the give bonus and devotion, and shows in Recent Tributes.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/money",
+    usage: "/money amount @username [throneOrderId]",
+    description: "Principessa Money for a Throne payment that failed to match. Shows in Recent Tributes. Pass the Throne event id so a repeat cannot double-credit.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/moneysilent",
+    usage: "/moneysilent amount @username [sourceKey]",
+    description: "Principessa Money that is NOT a tribute — compensation, a correction, a bonus paid by hand. Hidden from Recent Tributes.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/add",
+    usage: "/add amount @username",
+    description: "Coins with no bonus and no devotion. Always needs Companion App approval.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/drain",
+    usage: "/drain amount @username",
+    description: "Takes coins away. The amount is what gets removed, not the balance left behind.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/timeout",
+    usage: "/timeout @username minutes",
+    description: "Locks the account out of everything for the given number of minutes.",
+    args: ["value", "value"],
+  },
+  {
+    name: "/timeout remove",
+    usage: "/timeout remove @username",
+    description: "Ends an active timeout immediately, with no fee charged.",
+    args: ["value"],
+  },
+  {
+    name: "/title",
+    usage: "/title @username [chosen|femsub]",
+    description: "Grants one of the two admin-only titles. Stays with the account permanently.",
+    args: ["value", "titleKey"],
+  },
+  {
+    name: "/key",
+    usage: "/key @username [principessa_case|premium_case] amount",
+    description: "Free case openings. Spent on the named case only, and they never expire.",
+    args: ["value", "caseType", "value"],
+  },
 ];
 
 function getMatchedConsoleCommand(input: string) {
@@ -1294,13 +1345,19 @@ export default function AdminPage() {
       // Principessa Money has its own route: /api/admin/give is full of
       // coin-specific give-bonus and devotion logic that must not run for the
       // paid currency. Parsed here so the console still feels like one console.
-      const moneyMatch = trimmedCommand.match(/^\/money\s+(-?[1-9]\d*)\s+@?([A-Za-z0-9_.-]+)(?:\s+(\S+))?$/);
+      // Both spellings hit the same route and the same approval rules; the only
+      // difference is whether the ledger row is written as a public tribute
+      // (Recent Tributes shows it) or a silent grant (it does not).
+      const moneyMatch = trimmedCommand.match(
+        /^\/money(silent)?\s+(-?[1-9]\d*)\s+@?([A-Za-z0-9_.-]+)(?:\s+(\S+))?$/,
+      );
       const response = moneyMatch
         ? await fetch("/api/admin/money", {
             body: JSON.stringify({
-              amount: Number(moneyMatch[1]),
-              sourceKey: moneyMatch[3] ?? null,
-              username: moneyMatch[2],
+              amount: Number(moneyMatch[2]),
+              sourceKey: moneyMatch[4] ?? null,
+              username: moneyMatch[3],
+              visibility: moneyMatch[1] ? "silent" : "public",
             }),
             headers: { "Content-Type": "application/json" },
             method: "POST",
@@ -1366,7 +1423,7 @@ export default function AdminPage() {
     ? command.length > 1 && command.startsWith("/")
       ? CONSOLE_COMMANDS.filter(
           (entry) => entry.name.length > command.length && entry.name.toLowerCase().startsWith(command.toLowerCase()),
-        ).map((entry) => ({ kind: "command", value: entry.name, hint: entry.usage }))
+        ).map((entry) => ({ kind: "command", value: entry.name, hint: entry.description }))
       : []
     : (() => {
         const rest = command.slice(matchedConsoleCommand.name.length + 1);
@@ -1937,6 +1994,17 @@ export default function AdminPage() {
                         Tab to complete - ↑↓ to select
                       </li>
                     </ul>
+                  ) : null}
+
+                  {/* The completion dropdown only lists commands LONGER than
+                      what is typed, so it vanishes the moment a command name is
+                      complete - exactly when the usage line becomes useful.
+                      This stays put for as long as the command is recognised. */}
+                  {matchedConsoleCommand ? (
+                    <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2">
+                      <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
+                    </div>
                   ) : null}
                 </label>
                 <button

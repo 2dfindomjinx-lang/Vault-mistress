@@ -7,6 +7,11 @@ import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 import { LARGE_MONEY_GRANT_AMOUNT } from "@/lib/principessa-money";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  getMoneyGrantMetadata,
+  getMoneyGrantReason,
+  type MoneyGrantVisibility,
+} from "@/lib/money-grant-ledger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,11 +62,13 @@ export async function POST(request: Request) {
   // optional third token is a Throne order id used as an idempotency key.
   // Has its own approval gate further down - it is not folded into the
   // /give + /add one because it pays out of a different balance.
-  const moneyMatch = command.match(/^\/money\s+(-?[1-9]\d*)\s+(@[A-Za-z0-9_.-]+)(?:\s+(\S+))?$/);
+  // /moneysilent is the same grant with a different ledger reason, so that the
+  // public Recent Tributes ticker skips it. See src/lib/money-grant-ledger.ts.
+  const moneyMatch = command.match(/^\/money(silent)?\s+(-?[1-9]\d*)\s+(@[A-Za-z0-9_.-]+)(?:\s+(\S+))?$/);
 
   if (!giveMatch && !addMatch && !drainMatch && !timeoutMatch && !timeoutRemoveMatch && !titleMatch && !keyMatch && !moneyMatch) {
     return Response.json(
-      { error: "Use /give 500 @username, /add 500 @username, /money 25 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, /title @username [chosen|femsub], or /key @username case_name amount" },
+      { error: "Use /give 500 @username, /add 500 @username, /money 25 @username, /moneysilent 25 @username, /drain 500 @username, /timeout @username 30, /timeout remove @username, /title @username [chosen|femsub], or /key @username case_name amount" },
       { status: 400 },
     );
   }
@@ -133,8 +140,9 @@ export async function POST(request: Request) {
   }
 
   if (moneyMatch) {
-    const moneyAmount = Number(moneyMatch[1]);
-    const sourceKey = moneyMatch[3]?.trim() || null;
+    const moneyVisibility: MoneyGrantVisibility = moneyMatch[1] ? "silent" : "public";
+    const moneyAmount = Number(moneyMatch[2]);
+    const sourceKey = moneyMatch[4]?.trim() || null;
 
     // Same two-step gate as /give and /add. A hand-typed amount can slip a
     // digit; the Throne task payout cannot, which is why that one stays direct.
@@ -143,7 +151,9 @@ export async function POST(request: Request) {
         const pending = await createPendingCoinAction({
           amount: moneyAmount,
           command: "money",
-          metadata: { sourceKey },
+          // Without this the approved grant would fall back to public and a
+          // silent one would surface on the ticker after approval.
+          metadata: { sourceKey, visibility: moneyVisibility },
           originalCommand: command,
           requestedByUserId: admin.adminUser.id,
           targetUserId: profile.id,
@@ -178,8 +188,12 @@ export async function POST(request: Request) {
         amount: moneyAmount,
         balance_after: nextMoney,
         balance_before: previousMoney,
-        metadata: { adminUserId: admin.adminUser.id, source: "mobile_console" },
-        reason: "admin:money-grant",
+        metadata: {
+          adminUserId: admin.adminUser.id,
+          source: "mobile_console",
+          ...getMoneyGrantMetadata(moneyVisibility, moneyAmount),
+        },
+        reason: getMoneyGrantReason(moneyVisibility),
         source_key: sourceKey,
         user_id: profile.id,
       });
@@ -216,8 +230,12 @@ export async function POST(request: Request) {
         amount: moneyAmount,
         balance_after: nextMoney,
         balance_before: previousMoney,
-        metadata: { adminUserId: admin.adminUser.id, source: "mobile_console" },
-        reason: "admin:money-grant",
+        metadata: {
+          adminUserId: admin.adminUser.id,
+          source: "mobile_console",
+          ...getMoneyGrantMetadata(moneyVisibility, moneyAmount),
+        },
+        reason: getMoneyGrantReason(moneyVisibility),
         user_id: profile.id,
       });
     }

@@ -2,6 +2,11 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isDirectCoinAdminUserId } from "@/lib/admin-identity";
 import { createPendingCoinAction } from "@/lib/pending-admin-actions";
 import { LARGE_MONEY_GRANT_AMOUNT } from "@/lib/principessa-money";
+import {
+  getMoneyGrantMetadata,
+  getMoneyGrantReason,
+  parseMoneyGrantVisibility,
+} from "@/lib/money-grant-ledger";
 import { requireAdminProfile } from "@/lib/admin-guard";
 import { getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 
@@ -31,8 +36,12 @@ export async function POST(request: Request) {
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
 
   const body = (await request.json().catch(() => null)) as
-    | { amount?: number; note?: string; sourceKey?: string; username?: string }
+    | { amount?: number; note?: string; sourceKey?: string; username?: string; visibility?: string }
     | null;
+
+  // Defaults to public: /money is for crediting a Throne payment that really
+  // happened, and those belong on the ticker. /moneysilent opts out.
+  const visibility = parseMoneyGrantVisibility(body?.visibility);
 
   const amount = Math.trunc(Number(body?.amount));
   if (!Number.isFinite(amount) || amount === 0) {
@@ -82,8 +91,8 @@ export async function POST(request: Request) {
       const pending = await createPendingCoinAction({
         amount,
         command: "money",
-        metadata: { sourceKey },
-        originalCommand: `/money ${amount} @${profile.username}${sourceKey ? ` ${sourceKey}` : ""}`,
+        metadata: { sourceKey, visibility },
+        originalCommand: `/${visibility === "silent" ? "moneysilent" : "money"} ${amount} @${profile.username}${sourceKey ? ` ${sourceKey}` : ""}`,
         requestedByUserId: admin.adminUser.id,
         targetUserId: profile.id,
         targetUsername: profile.username,
@@ -107,8 +116,12 @@ export async function POST(request: Request) {
       amount,
       balance_after: nextMoney,
       balance_before: previousMoney,
-      metadata: { adminId: admin.adminUser.id, note: body?.note ?? null },
-      reason: "admin:money-grant",
+      metadata: {
+        adminId: admin.adminUser.id,
+        note: body?.note ?? null,
+        ...getMoneyGrantMetadata(visibility, amount),
+      },
+      reason: getMoneyGrantReason(visibility),
       source_key: sourceKey,
       user_id: profile.id,
     });
@@ -145,8 +158,12 @@ export async function POST(request: Request) {
       amount,
       balance_after: nextMoney,
       balance_before: previousMoney,
-      metadata: { adminId: admin.adminUser.id, note: body?.note ?? null },
-      reason: "admin:money-grant",
+      metadata: {
+        adminId: admin.adminUser.id,
+        note: body?.note ?? null,
+        ...getMoneyGrantMetadata(visibility, amount),
+      },
+      reason: getMoneyGrantReason(visibility),
       user_id: profile.id,
     });
   }

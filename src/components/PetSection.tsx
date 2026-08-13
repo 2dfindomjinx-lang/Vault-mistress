@@ -19,6 +19,7 @@ import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { emitSoundEvent } from "@/lib/sound";
 import { MoneyIcon } from "@/components/MoneyIcon";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
+import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 
 const PET_RANKS = [
   { min: 0, title: "Unclaimed Stray" },
@@ -1356,6 +1357,7 @@ export function PetSection({
               <button className="text-2xl text-zinc-400 hover:text-white" onClick={() => setShowThroneCode(false)} type="button">×</button>
             </div>
             <p className="mt-4 text-sm leading-6 text-zinc-300">Paste this code in your Throne message. It automatically includes the regular give bonus and the Pet bonus.</p>
+            <ThronePublicMessageNotice className="mt-3" />
             <div className="mt-4 rounded-2xl border border-pink-200/25 bg-black/40 px-4 py-4 text-center text-2xl font-black tracking-[0.18em] text-pink-100">
               {petTributeCode ?? "PT-CODE-UNAVAILABLE"}
             </div>

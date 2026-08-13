@@ -38,6 +38,7 @@ import {
   type ClickGameStatus,
   type ClickGameWinHistoryEntry,
 } from "@/lib/click-game";
+import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 
 type ClickGameLeaderboardData = {
   leaders: ClickGameLeaderboardEntry[];
@@ -1000,6 +1001,7 @@ export function TributePanel({
         <p className="mt-2 text-sm leading-6 text-pink-50">
           The matching code credits Principessa Money automatically. 1 USD = 1 Money = 1,000 coins.
         </p>
+        <ThronePublicMessageNotice className="mt-3" />
         <p className="mt-2 text-xs leading-5 text-zinc-500">
           If automation fails, DM @VMPrincipessa with your Throne receipt for manual help.
         </p>

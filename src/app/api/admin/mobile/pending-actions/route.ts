@@ -3,6 +3,7 @@ import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
 import { awardDevotion } from "@/lib/devotion";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
+import { getMoneyGrantMetadata, getMoneyGrantReason, parseMoneyGrantVisibility } from "@/lib/money-grant-ledger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -202,6 +203,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // Carried through the approval queue so an approved /moneysilent stays
+    // silent - the reason is decided here, not at request time.
+    const moneyVisibility = parseMoneyGrantVisibility(claimedMetadata.visibility);
     const sourceKey = typeof claimedMetadata.sourceKey === "string" && claimedMetadata.sourceKey.trim()
       ? claimedMetadata.sourceKey.trim()
       : null;
@@ -211,8 +215,13 @@ export async function POST(request: Request) {
         amount,
         balance_after: nextMoney,
         balance_before: previousMoney,
-        metadata: { approvedByUserId: approverId, pendingActionId: claimed.id, source: "approved_admin_action" },
-        reason: "admin:money-grant",
+        metadata: {
+          approvedByUserId: approverId,
+          pendingActionId: claimed.id,
+          source: "approved_admin_action",
+          ...getMoneyGrantMetadata(moneyVisibility, amount),
+        },
+        reason: getMoneyGrantReason(moneyVisibility),
         source_key: sourceKey,
         user_id: targetId,
       });
@@ -249,8 +258,13 @@ export async function POST(request: Request) {
         amount,
         balance_after: nextMoney,
         balance_before: previousMoney,
-        metadata: { approvedByUserId: approverId, pendingActionId: claimed.id, source: "approved_admin_action" },
-        reason: "admin:money-grant",
+        metadata: {
+          approvedByUserId: approverId,
+          pendingActionId: claimed.id,
+          source: "approved_admin_action",
+          ...getMoneyGrantMetadata(moneyVisibility, amount),
+        },
+        reason: getMoneyGrantReason(moneyVisibility),
         user_id: targetId,
       });
     }
