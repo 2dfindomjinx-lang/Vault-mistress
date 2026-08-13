@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     const nextMoney = previousMoney + amount;
     if (nextMoney < 0) {
       return Response.json(
-        { error: `@${moneyProfile.username} only has ${previousMoney.toLocaleString()} Money.` },
+        { error: `${moneyProfile.username} only has ${previousMoney.toLocaleString()} Money.` },
         { status: 422 },
       );
     }

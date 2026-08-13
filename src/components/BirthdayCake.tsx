@@ -174,8 +174,20 @@ export function BirthdayCake({ candles }: { candles: BirthdayCandle[] }) {
           </filter>
         </defs>
 
-        {/* Ambient candlelight washing over the whole cake, scaled by progress */}
-        <ellipse cx={VIEW_WIDTH / 2} cy="300" fill="url(#vm-ambient)" opacity={0.25 + warmth * 0.75} rx="300" ry="180" />
+        {/* Ambient candlelight. Both the reach and the strength scale with
+            progress: at 0.25 base opacity and a fixed 300x180 radius, two lit
+            candles still washed the entire cake and made the cake look nearly
+            as warm as a full one. Two flames now light a small pool near the
+            top tier, and the glow grows out to cover the cake as the holders
+            fill. */}
+        <ellipse
+          cx={VIEW_WIDTH / 2}
+          cy="300"
+          fill="url(#vm-ambient)"
+          opacity={0.06 + warmth * 0.84}
+          rx={130 + warmth * 170}
+          ry={78 + warmth * 102}
+        />
 
         {/* Pedestal plate */}
         <ellipse cx={VIEW_WIDTH / 2} cy={PLATE_Y + 16} fill="#0d0709" rx="300" ry="26" />

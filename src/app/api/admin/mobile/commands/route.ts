@@ -94,7 +94,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const username = (
+  // moneyMatch group 1 is the optional "silent", 2 is the amount and 3 is the
+  // handle - reading [2] here looked up a profile named "25".
+  //
+  // profiles.username is stored WITH its leading @ (see profile-bootstrap and
+  // /api/admin/money), so the handle is normalised back to that form instead of
+  // being stripped, which matched nothing.
+  const username = `@${(
     giveMatch?.[2] ??
     addMatch?.[2] ??
     drainMatch?.[2] ??
@@ -102,9 +108,9 @@ export async function POST(request: Request) {
     timeoutRemoveMatch?.[1] ??
     titleMatch?.[1] ??
     keyMatch?.[1] ??
-    moneyMatch?.[2] ??
+    moneyMatch?.[3] ??
     ""
-  ).replace(/^@/, "").toLowerCase();
+  ).replace(/^@+/, "").toLowerCase()}`;
   const { data: profile, error: profileError } = await admin.supabase
     .from("profiles")
     .select("id, username, twitter_handle, coins, principessa_money")
@@ -131,7 +137,7 @@ export async function POST(request: Request) {
       return Response.json({
         pending: true,
         actionId: pending.id,
-        message: `/${cmd} ${coinAmount} @${profile.username} requires Companion App approval.`,
+        message: `/${cmd} ${coinAmount} ${profile.username} requires Companion App approval.`,
       });
     } catch (e) {
       console.error("Mobile: failed to queue pending", e);
@@ -161,7 +167,7 @@ export async function POST(request: Request) {
         });
         return Response.json({
           actionId: pending.id,
-          message: `/money ${moneyAmount} @${profile.username} requires Companion App approval.`,
+          message: `/money ${moneyAmount} ${profile.username} requires Companion App approval.`,
           pending: true,
         });
       } catch (pendingError) {
@@ -175,7 +181,7 @@ export async function POST(request: Request) {
 
     if (nextMoney < 0) {
       return Response.json(
-        { error: `@${profile.username} only has ${previousMoney.toLocaleString()} Money.` },
+        { error: `${profile.username} only has ${previousMoney.toLocaleString()} Money.` },
         { status: 422 },
       );
     }
@@ -241,7 +247,7 @@ export async function POST(request: Request) {
     }
 
     return Response.json({
-      message: `${moneyAmount > 0 ? "+" : ""}${moneyAmount.toLocaleString()} Money → @${profile.username} (now ${nextMoney.toLocaleString()}).`,
+      message: `${moneyAmount > 0 ? "+" : ""}${moneyAmount.toLocaleString()} Money → ${profile.username} (now ${nextMoney.toLocaleString()}).`,
     });
   }
 

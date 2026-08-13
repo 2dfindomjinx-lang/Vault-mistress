@@ -70,11 +70,16 @@ export async function POST(request: Request) {
     return Response.json({ error: `No user matches ${profileUsername}.` }, { status: 404 });
   }
 
+  // profiles.username is stored WITH its leading @ (see profile-bootstrap), so
+  // every message below interpolates it bare. Prefixing another @ is what
+  // produced "@@andreww_170" in the console output.
+  const displayUsername = String(profile.username ?? profileUsername);
+
   const previousMoney = Math.max(0, Math.floor(Number(profile.principessa_money) || 0));
   const nextMoney = previousMoney + amount;
   if (nextMoney < 0) {
     return Response.json(
-      { error: `@${profile.username} only has ${previousMoney.toLocaleString()} Money.` },
+      { error: `${displayUsername} only has ${previousMoney.toLocaleString()} Money.` },
       { status: 422 },
     );
   }
@@ -92,7 +97,7 @@ export async function POST(request: Request) {
         amount,
         command: "money",
         metadata: { sourceKey, visibility },
-        originalCommand: `/${visibility === "silent" ? "moneysilent" : "money"} ${amount} @${profile.username}${sourceKey ? ` ${sourceKey}` : ""}`,
+        originalCommand: `/${visibility === "silent" ? "moneysilent" : "money"} ${amount} ${displayUsername}${sourceKey ? ` ${sourceKey}` : ""}`,
         requestedByUserId: admin.adminUser.id,
         targetUserId: profile.id,
         targetUsername: profile.username,
@@ -100,7 +105,7 @@ export async function POST(request: Request) {
 
       return Response.json({
         actionId: pending.id,
-        message: `/money ${amount} @${profile.username} requires Companion App approval.`,
+        message: `/money ${amount} ${displayUsername} requires Companion App approval.`,
         pending: true,
       });
     } catch (pendingError) {
@@ -170,7 +175,7 @@ export async function POST(request: Request) {
 
   return Response.json({
     balance: nextMoney,
-    message: `${amount > 0 ? "+" : ""}${amount.toLocaleString()} Money → @${profile.username} (now ${nextMoney.toLocaleString()}).`,
+    message: `${amount > 0 ? "+" : ""}${amount.toLocaleString()} Money → ${displayUsername} (now ${nextMoney.toLocaleString()}).`,
     username: profile.username,
   });
 }

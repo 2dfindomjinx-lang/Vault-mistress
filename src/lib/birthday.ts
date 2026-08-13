@@ -196,6 +196,18 @@ export function buildCandleSlots(progress: BirthdayProgress | null): BirthdayCan
 
 export function resolveSupporterLabel(candle: BirthdayCandle) {
   if (!BIRTHDAY_SHOW_SUPPORTER_NAMES) return "Lit";
-  const name = candle.displayName?.trim() || candle.username?.trim();
-  return name ? `@${name}` : "Anonymous";
+  const displayName = candle.displayName?.trim();
+  if (displayName) return displayName;
+  // profiles.username is stored with its leading @ already, so re-adding one
+  // printed "@@handle" for anyone without a display name.
+  const username = candle.username?.trim();
+  return username ? `@${username.replace(/^@+/, "")}` : "Anonymous";
+}
+
+// Shown in the unlit slots of the roll call. The next holder in line gets the
+// direct invitation; the rest stay quiet so the eye lands on the one that is
+// actually up for grabs. Rotating several phrasings was tried first and read
+// as a machine cycling through synonyms.
+export function resolveEmptyCandleInvite(candleIndex: number, candlesLit: number) {
+  return candleIndex === candlesLit + 1 ? "Your name could be here" : "Unclaimed";
 }

@@ -1923,8 +1923,12 @@ export default function AdminPage() {
               <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
                 Command Console
               </p>
+              {/* This used to be a hand-maintained wall of usage strings that
+                  had already drifted (no /money, stale case list). The typed
+                  CONSOLE_COMMANDS list drives the completion dropdown and the
+                  hint bar below the input, so there is one source of truth. */}
               <p className="mt-2 text-xs text-zinc-500">
-                Available commands: /give amount @username, /add amount @username (Companion approval required), /drain amount @username, /timeout @username minutes, /timeout remove @username, /title @username [chosen|femsub], /key @username [principessa_case|premium_case] amount
+                Type <span className="font-mono text-fuchsia-200/80">/</span> to list every command. Tab completes, ↑↓ selects.
               </p>
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="relative flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
@@ -1995,17 +1999,6 @@ export default function AdminPage() {
                       </li>
                     </ul>
                   ) : null}
-
-                  {/* The completion dropdown only lists commands LONGER than
-                      what is typed, so it vanishes the moment a command name is
-                      complete - exactly when the usage line becomes useful.
-                      This stays put for as long as the command is recognised. */}
-                  {matchedConsoleCommand ? (
-                    <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2">
-                      <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
-                      <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
-                    </div>
-                  ) : null}
                 </label>
                 <button
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_0_24px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -2016,6 +2009,19 @@ export default function AdminPage() {
                   {isBusy ? "Running" : "Run"}
                 </button>
               </div>
+
+              {/* Below the row, not inside the input's flex label - as a sibling
+                  of the field it stole most of the typing width. The completion
+                  dropdown only lists commands LONGER than what is typed, so it
+                  vanishes the moment a command name is complete, exactly when
+                  the usage line becomes useful. This stays for as long as the
+                  command is recognised. */}
+              {matchedConsoleCommand ? (
+                <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-2.5">
+                  <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
+                </div>
+              ) : null}
             </div>
           )}
 

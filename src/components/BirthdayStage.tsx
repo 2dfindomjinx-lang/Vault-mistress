@@ -17,6 +17,7 @@ import {
   formatUsd,
   getBirthdayWindowState,
   getRemainingToNextCandle,
+  resolveEmptyCandleInvite,
   resolveSupporterLabel,
   type BirthdayProgress,
 } from "@/lib/birthday";
@@ -329,7 +330,7 @@ export function BirthdayStage() {
   const giftsEnabled = actionsReady && !hasEnded;
   const countdownMs = windowState ? (isLive ? windowState.msUntilEnd : windowState.msUntilStart) : 0;
   const countdown = windowState ? formatCountdown(countdownMs) : null;
-  const litCandles = candles.filter((candle) => candle.litAt);
+  const candleUsd = progress?.candleUsd || BIRTHDAY_CANDLE_USD;
 
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#070406] px-4 py-12 text-zinc-200 sm:px-8">
@@ -811,6 +812,62 @@ export function BirthdayStage() {
           ) : null}
         </section>
 
+        {/* -------------------------------------------------------- roll call */}
+        {/* Sits above the wishlist, not at the very bottom of the page: it is
+            the strongest argument for sending, so it should be read before the
+            gift cards rather than after them.
+
+            Every slot is listed, lit or not. An empty holder carrying "your
+            name could be here" is the point of the section - a list of only
+            the taken ones tells a visitor nothing about what is still open. */}
+        <section className="mt-14">
+          <SectionRule label="Who lit them" />
+          <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
+            {hasEnded
+              ? "The 2026 roll call is sealed. Empty holders stayed empty."
+              : `${BIRTHDAY_TARGET_CANDLES - candlesLit} of ${BIRTHDAY_TARGET_CANDLES} holders are still dark. Every ${formatUsd(candleUsd)} takes one.`}
+          </p>
+          <ul className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {candles.map((candle) => {
+              const isLit = Boolean(candle.litAt);
+              const isNextUp = !isLit && candle.index === candlesLit + 1 && !hasEnded;
+              return (
+                <li
+                  className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${
+                    isLit
+                      ? "border-[#c89a55]/15 bg-[linear-gradient(120deg,rgba(28,10,18,.7),rgba(6,3,5,.85))]"
+                      : isNextUp
+                        ? "border-dashed border-[#c89a55]/35 bg-[#c89a55]/[0.04]"
+                        : "border-dashed border-white/[0.07] bg-black/20"
+                  }`}
+                  key={candle.index}
+                >
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border font-serif text-sm tabular-nums ${
+                      isLit
+                        ? "border-[#c89a55]/30 bg-black/60 text-[#fff0d2] shadow-[0_0_14px_rgba(230,186,115,.25)]"
+                        : "border-white/[0.08] bg-black/40 text-zinc-700"
+                    }`}
+                  >
+                    {candle.index}
+                  </span>
+                  <span
+                    className={`min-w-0 flex-1 truncate text-sm ${
+                      isLit
+                        ? "font-bold text-pink-100"
+                        : isNextUp
+                          ? "italic text-[#e6ba73]/80"
+                          : "italic text-zinc-600"
+                    }`}
+                  >
+                    {isLit ? resolveSupporterLabel(candle) : resolveEmptyCandleInvite(candle.index, candlesLit)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
         {/* ------------------------------------------------------- gift tiers */}
         <section className="relative mt-20 overflow-hidden rounded-[2.5rem] border border-pink-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(190,24,93,.24),transparent_43%),linear-gradient(180deg,rgba(38,8,24,.92),rgba(6,3,5,.98))] px-5 py-10 shadow-[0_30px_100px_rgba(0,0,0,.55)] sm:px-8 sm:py-12" id="birthday-wishlist">
           <span className="pointer-events-none absolute inset-2 rounded-[2.15rem] border border-pink-200/[0.07]" />
@@ -896,33 +953,6 @@ export function BirthdayStage() {
           </p>
         </section>
 
-        {/* -------------------------------------------------------- roll call */}
-        <section className="mt-14">
-          <SectionRule label="Who lit them" />
-          {litCandles.length === 0 ? (
-            <p className="mt-6 rounded-[1.5rem] border border-white/[0.07] bg-black/25 px-4 py-10 text-center text-sm text-zinc-600">
-              {hasEnded
-                ? "The 2026 court closed without a recorded candle. The empty cake remains part of its memory."
-                : "The cake is still dark. Nobody has lit a candle yet."}
-            </p>
-          ) : (
-            <ul className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {litCandles.map((candle) => (
-                <li
-                  className="flex items-center gap-3 rounded-2xl border border-[#c89a55]/15 bg-[linear-gradient(120deg,rgba(28,10,18,.7),rgba(6,3,5,.85))] px-3 py-2.5"
-                  key={candle.index}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#c89a55]/30 bg-black/60 font-serif text-sm text-[#fff0d2] shadow-[0_0_14px_rgba(230,186,115,.25)]">
-                    {candle.index}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-pink-100">
-                    {resolveSupporterLabel(candle)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
 
         <footer className="mt-16 space-y-2 text-center">
           <p className="text-[10px] uppercase tracking-[0.28em] text-zinc-700">

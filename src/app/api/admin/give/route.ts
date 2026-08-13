@@ -153,7 +153,7 @@ export async function POST(request: Request) {
       return Response.json({
         pending: true,
         actionId: pending.id,
-        message: `/${cmd} ${amount} @${profile.username} queued for Companion App approval (expires in ~5 min).`,
+        message: `/${cmd} ${amount} ${profile.username} queued for Companion App approval (expires in ~5 min).`,
         command: cmd,
         username: profile.username,
         amount,
