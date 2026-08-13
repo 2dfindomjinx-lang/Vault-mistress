@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   BIRTHDAY_CANDLE_USD,
   BIRTHDAY_ENDS_AT,
@@ -14,15 +13,7 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-
-function requestFingerprint(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const address = request.headers.get("cf-connecting-ip")?.trim()
-    || request.headers.get("x-real-ip")?.trim()
-    || forwardedFor
-    || "unknown";
-  return createHash("sha256").update(address).digest("hex").slice(0, 24);
-}
+import { requestFingerprint } from "@/lib/request-fingerprint";
 
 // Public on purpose - /birthday-2026 is a shareable link that must render for
 // someone who has never logged in, so there is no auth check here. The RPC

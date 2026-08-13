@@ -34,14 +34,14 @@ export const BIRTHDAY_DAY = "2026-08-14T00:00:00+03:00";
 // their own bases and are never multiplied by this event.
 export const BIRTHDAY_MONEY_BONUS_PERCENT = 0.5;
 
-// One candle per $15. 22 candles = $330 for a full cake.
+// One candle per $10. 22 candles = $220 for a full cake.
 //
 // The rate is deliberately well below the $50 first floated: all-time Throne
 // earnings are ~$1,753 accumulated over months, so a week at $50/candle would
 // realistically light 2-6 candles. A visibly empty cake reads as "nobody
-// cared", which is the opposite of what the page is for. At $15 the cake fills
+// cared", which is the opposite of what the page is for. At $10 the cake fills
 // fast enough to feel alive while the full 22 stays a genuine stretch.
-export const BIRTHDAY_CANDLE_USD = 15;
+export const BIRTHDAY_CANDLE_USD = 10;
 export const BIRTHDAY_TARGET_CANDLES = 22;
 export const BIRTHDAY_TARGET_USD = BIRTHDAY_CANDLE_USD * BIRTHDAY_TARGET_CANDLES;
 

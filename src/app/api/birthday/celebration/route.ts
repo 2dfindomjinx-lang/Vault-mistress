@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import {
   BIRTHDAY_WISH_MAX_LENGTH,
@@ -8,6 +7,7 @@ import {
 } from "@/lib/birthday-celebration";
 import { getBirthdayWindowState } from "@/lib/birthday";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { requestFingerprint } from "@/lib/request-fingerprint";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -23,11 +23,6 @@ type ProfileRow = {
   id: string;
   username: string | null;
 };
-
-function fingerprint(request: Request) {
-  const value = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? "unknown";
-  return createHash("sha256").update(value.split(",")[0].trim()).digest("hex").slice(0, 24);
-}
 
 function jsonError(error: string, status: number, code?: string) {
   return Response.json({ code, error }, { status });
@@ -122,7 +117,7 @@ async function loadCelebration(userId: string | null): Promise<BirthdayCelebrati
 export async function GET(request: Request) {
   if (!isSupabaseAdminConfigured) return jsonError("Birthday celebration is unavailable.", 503);
   const supabase = createSupabaseAdminClient();
-  const rate = await checkRateLimit(supabase, `birthday-celebration-read:${fingerprint(request)}`, 120, 60);
+  const rate = await checkRateLimit(supabase, `birthday-celebration-read:${requestFingerprint(request)}`, 120, 60);
   if (!rate.allowed) return rateLimitResponse(rate.retryAfterSeconds);
 
   try {
