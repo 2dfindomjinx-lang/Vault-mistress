@@ -8,6 +8,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { formatHandle } from "@/lib/username";
 
 const CHAT_HIGHLIGHT_COST = 2000;
 const CHAT_MAX_LENGTH = 250;
@@ -359,7 +360,7 @@ export async function POST(request: Request) {
 
   if (!isAdmin) {
     await sendAdminMobileChatPushOnce({
-      body: `${currentProfile.display_name?.trim() || `@${currentProfile.username}`}: ${message}`,
+      body: `${currentProfile.display_name?.trim() || formatHandle(currentProfile.username)}: ${message}`,
       title: "New Live Chat message",
     }).catch((error) => console.error("Live Chat mobile push failed", error));
   }

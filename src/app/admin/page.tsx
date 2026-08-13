@@ -6,6 +6,7 @@ import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { GMT3_OFFSET_MS } from "@/lib/time";
+import { formatHandle } from "@/lib/username";
 import type { ThroneDebtContract } from "@/lib/throne-debt";
 
 // Mirrors the clamp in src/app/api/admin/premium-title-pool/route.ts and the
@@ -2090,7 +2091,7 @@ export default function AdminPage() {
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-600">
                               <span>{event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}</span>
                               {event.eventType ? <span>{event.eventType}</span> : null}
-                              {event.username ? <span className="text-zinc-400">@{event.username}</span> : null}
+                              {event.username ? <span className="text-zinc-400">{formatHandle(event.username)}</span> : null}
                               <span className="font-mono">{event.eventId}</span>
                             </div>
                             <button
@@ -2171,7 +2172,7 @@ export default function AdminPage() {
                           key={event.eventId}
                         >
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-emerald-50">@{event.username ?? "unknown"}</p>
+                            <p className="truncate text-sm font-black text-emerald-50">{formatHandle(event.username)}</p>
                             <p className="mt-0.5 text-[10px] text-zinc-600">
                               {event.occurredAt ? new Date(event.occurredAt).toLocaleString() : "Unknown time"}
                               {event.attributionCode ? ` - ${event.attributionCode}` : ""}

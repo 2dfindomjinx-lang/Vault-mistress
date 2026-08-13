@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
+import { formatHandle } from "@/lib/username";
 
 // "money" grants Principessa Money rather than coins. It shares this queue so
 // the Companion App keeps one approval surface, but the executor pays it out of
@@ -38,7 +39,7 @@ export async function createPendingCoinAction(params: {
             ? "throne_tribute"
             : "admin_add"),
       metadata: {
-        originalCommand: params.originalCommand ?? `/${params.command} ${params.amount} @${params.targetUsername}`,
+        originalCommand: params.originalCommand ?? `/${params.command} ${params.amount} ${formatHandle(params.targetUsername)}`,
         requestedAt: nowIso,
         ...(params.metadata ?? {}),
       },
@@ -56,7 +57,7 @@ export async function createPendingCoinAction(params: {
   // Notify companion app immediately
   await sendAdminMobilePush({
     title: "Pending Vault Action",
-    body: `/${params.command} ${params.amount}${params.command === "money" ? " Money" : ""} @${params.targetUsername} — approve in Companion App`,
+    body: `/${params.command} ${params.amount}${params.command === "money" ? " Money" : ""} ${formatHandle(params.targetUsername)} — approve in Companion App`,
     type: "admin",
     important: true,
   }).catch((e) => console.warn("Pending push failed (non-fatal)", e));

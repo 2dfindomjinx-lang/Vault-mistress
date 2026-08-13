@@ -1,3 +1,5 @@
+import { formatHandle } from "@/lib/username";
+
 // Birthday cake event - a public, no-login page at /birthday-2026 that fills a cake
 // with candles as Throne tributes land during the birthday window.
 //
@@ -194,14 +196,28 @@ export function buildCandleSlots(progress: BirthdayProgress | null): BirthdayCan
   });
 }
 
-export function resolveSupporterLabel(candle: BirthdayCandle) {
-  if (!BIRTHDAY_SHOW_SUPPORTER_NAMES) return "Lit";
+// The roll call prints both lines when it has them: a display name is what
+// someone chose to be called, the handle is how the rest of the court finds
+// them. Falling back to one line when there is no display name keeps the row
+// from carrying an empty second line.
+export function resolveSupporterIdentity(candle: BirthdayCandle): {
+  primary: string;
+  secondary: string | null;
+} {
+  if (!BIRTHDAY_SHOW_SUPPORTER_NAMES) return { primary: "Lit", secondary: null };
   const displayName = candle.displayName?.trim();
-  if (displayName) return displayName;
-  // profiles.username is stored with its leading @ already, so re-adding one
-  // printed "@@handle" for anyone without a display name.
   const username = candle.username?.trim();
-  return username ? `@${username.replace(/^@+/, "")}` : "Anonymous";
+  const handle = username ? formatHandle(username) : null;
+  if (displayName) return { primary: displayName, secondary: handle };
+  if (handle) return { primary: handle, secondary: null };
+  return { primary: "Anonymous", secondary: null };
+}
+
+// Single line, for the cake's screen-reader roster where the two-line layout
+// of the roll call has nothing to hang on.
+export function resolveSupporterLabel(candle: BirthdayCandle) {
+  const { primary, secondary } = resolveSupporterIdentity(candle);
+  return secondary ? `${primary} (${secondary})` : primary;
 }
 
 // Shown in the unlit slots of the roll call. The next holder in line gets the

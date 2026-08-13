@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { BirthdayCake } from "@/components/BirthdayCake";
 import { BirthdayGiftBox } from "@/components/BirthdayGiftBox";
+import { BirthdaySliceModal } from "@/components/BirthdaySliceModal";
 import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import {
@@ -18,7 +19,7 @@ import {
   getBirthdayWindowState,
   getRemainingToNextCandle,
   resolveEmptyCandleInvite,
-  resolveSupporterLabel,
+  resolveSupporterIdentity,
   type BirthdayProgress,
 } from "@/lib/birthday";
 import {
@@ -82,6 +83,12 @@ function CornerOrnament({ className }: { className: string }) {
 function BirthdayPlush({ candlesLit }: { candlesLit: number }) {
   const progress = Math.max(0, Math.min(1, candlesLit / BIRTHDAY_TARGET_CANDLES));
   const isComplete = candlesLit >= BIRTHDAY_TARGET_CANDLES;
+  // Colour rises from the feet up, in step with the candles. The previous
+  // version simply brightened the whole plush, which is a mood, not a measure:
+  // nobody can tell 6 candles from 9 by how grey something looks, and there is
+  // no landmark to read progress against. A fill line has both - it sits at a
+  // definite height, and each candle moves it by a visible 1/22.
+  const filledPercent = progress * 100;
 
   return (
     <figure className="flex w-full max-w-[15rem] shrink-0 flex-col items-center lg:max-w-[17rem]">
@@ -91,22 +98,44 @@ function BirthdayPlush({ candlesLit }: { candlesLit: number }) {
           className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-2xl transition-opacity duration-700"
           style={{
             background: "radial-gradient(circle, rgba(232,121,249,.55), transparent 68%)",
-            opacity: 0.15 + progress * 0.75,
+            opacity: 0.12 + progress * 0.7,
           }}
         />
+        {/* Unpaid body. Never fully invisible: a blank space next to the cake
+            reads as a broken image rather than an unmet goal. */}
         <Image
           alt="Principessa's birthday plush"
-          className={`h-auto w-full object-contain transition-all duration-700 ${isComplete ? "animate-pulse" : ""}`}
+          className="h-auto w-full object-contain"
           height={512}
           priority={false}
           src={PLUSH_IMAGE_PATH}
-          style={{
-            filter: `grayscale(${(1 - progress) * 0.85}) brightness(${0.55 + progress * 0.45}) saturate(${0.4 + progress * 0.6})`,
-            opacity: 0.45 + progress * 0.55,
-          }}
+          style={{ filter: "grayscale(1) brightness(0.42)", opacity: 0.55 }}
           unoptimized
           width={512}
         />
+        {/* The paid part, revealed bottom-up. aria-hidden because the figure
+            already carries one accessible name. */}
+        <Image
+          alt=""
+          aria-hidden
+          className={`absolute inset-0 h-auto w-full object-contain transition-[clip-path] duration-700 ${
+            isComplete ? "animate-pulse" : ""
+          }`}
+          height={512}
+          priority={false}
+          src={PLUSH_IMAGE_PATH}
+          style={{ clipPath: `inset(${100 - filledPercent}% 0 0 0)` }}
+          unoptimized
+          width={512}
+        />
+        {/* Waterline, so the boundary reads as a level rather than a crop. */}
+        {progress > 0 && !isComplete ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-[14%] h-px bg-[linear-gradient(90deg,transparent,rgba(230,186,115,.8),transparent)] transition-[bottom] duration-700"
+            style={{ bottom: `${filledPercent}%` }}
+          />
+        ) : null}
       </div>
       <figcaption className="mt-3 text-center">
         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-fuchsia-200/70">
@@ -334,6 +363,14 @@ export function BirthdayStage() {
 
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#070406] px-4 py-12 text-zinc-200 sm:px-8">
+      {/* `ready` waits for the celebration payload: opening before it lands
+          would tell someone who already left a rose to go leave one. */}
+      <BirthdaySliceModal
+        hasLeftRose={Boolean(celebration?.hasLeftRose)}
+        isLive={isLive}
+        onGoToRose={() => document.getElementById("birthday-rose")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        ready={celebration !== null}
+      />
       <style>{`
         @keyframes vm-ember-rise {
           0%   { transform: translateY(12vh) scale(0.7); opacity: 0; }
@@ -517,7 +554,7 @@ export function BirthdayStage() {
               <p className="mt-5 text-right font-serif text-xl text-[#e6ba73]">— Principessa</p>
             </div>
 
-            <div className="rounded-[2rem] border border-rose-300/20 bg-black/30 p-5 text-center sm:p-7">
+            <div className="rounded-[2rem] border border-rose-300/20 bg-black/30 p-5 text-center sm:p-7" id="birthday-rose">
               <div aria-hidden className={`mx-auto text-6xl transition duration-500 ${celebration?.hasLeftRose ? "scale-110 drop-shadow-[0_0_22px_rgba(244,63,94,.65)]" : "opacity-75 grayscale-[.2]"}`}>
                 🌹
               </div>
@@ -851,17 +888,29 @@ export function BirthdayStage() {
                   >
                     {candle.index}
                   </span>
-                  <span
-                    className={`min-w-0 flex-1 truncate text-sm ${
-                      isLit
-                        ? "font-bold text-pink-100"
-                        : isNextUp
-                          ? "italic text-[#e6ba73]/80"
-                          : "italic text-zinc-600"
-                    }`}
-                  >
-                    {isLit ? resolveSupporterLabel(candle) : resolveEmptyCandleInvite(candle.index, candlesLit)}
-                  </span>
+                  {isLit ? (
+                    (() => {
+                      const { primary, secondary } = resolveSupporterIdentity(candle);
+                      return (
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-pink-100">{primary}</span>
+                          {/* Only when a display name is what sits above it -
+                              otherwise the handle is already the first line. */}
+                          {secondary ? (
+                            <span className="block truncate text-[11px] leading-4 text-[#c89a55]/60">{secondary}</span>
+                          ) : null}
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm italic ${
+                        isNextUp ? "text-[#e6ba73]/80" : "text-zinc-600"
+                      }`}
+                    >
+                      {resolveEmptyCandleInvite(candle.index, candlesLit)}
+                    </span>
+                  )}
                 </li>
               );
             })}

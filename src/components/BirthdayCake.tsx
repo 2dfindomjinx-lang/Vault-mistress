@@ -44,6 +44,20 @@ export function BirthdayCake({ candles }: { candles: BirthdayCandle[] }) {
   // cake bathed in candlelight at 22. This is the main "it is filling up"
   // signal beyond the candles themselves.
   const warmth = Math.min(1, litCount / BIRTHDAY_TARGET_CANDLES);
+  // A single flame throws roughly this much light; the pool never gets tighter
+  // than that however few candles are burning.
+  const SINGLE_FLAME_REACH = 105;
+  const glow =
+    litCount > 0
+      ? (() => {
+          const firstX = getCandleX(1);
+          const lastX = getCandleX(Math.min(litCount, BIRTHDAY_TARGET_CANDLES));
+          return {
+            cx: (firstX + lastX) / 2,
+            rx: (lastX - firstX) / 2 + SINGLE_FLAME_REACH,
+          };
+        })()
+      : { cx: VIEW_WIDTH / 2, rx: SINGLE_FLAME_REACH };
 
   return (
     <div className="relative w-full">
@@ -174,18 +188,19 @@ export function BirthdayCake({ candles }: { candles: BirthdayCandle[] }) {
           </filter>
         </defs>
 
-        {/* Ambient candlelight. Both the reach and the strength scale with
-            progress: at 0.25 base opacity and a fixed 300x180 radius, two lit
-            candles still washed the entire cake and made the cake look nearly
-            as warm as a full one. Two flames now light a small pool near the
-            top tier, and the glow grows out to cover the cake as the holders
-            fill. */}
+        {/* Ambient candlelight, anchored to the flames that actually exist.
+            Two earlier versions were wrong in the same way: a fixed 300x180
+            ellipse at 0.25 opacity washed the whole cake from the first
+            candle, and centring the growing pool on VIEW_WIDTH/2 lit the
+            middle of the cake while the only burning candles were at the far
+            left. Holders fill left to right, so the light now sits on the
+            midpoint of the lit run and widens with it. */}
         <ellipse
-          cx={VIEW_WIDTH / 2}
+          cx={glow.cx}
           cy="300"
           fill="url(#vm-ambient)"
-          opacity={0.06 + warmth * 0.84}
-          rx={130 + warmth * 170}
+          opacity={0.1 + warmth * 0.8}
+          rx={glow.rx}
           ry={78 + warmth * 102}
         />
 
