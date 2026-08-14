@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { PET_TASK_COIN_REWARD, profileSelect } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -9,7 +9,6 @@ import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
 import { getGmt3DateKey } from "@/lib/time";
 
 const PET_WEEKLY_TAX_REWARD = 20;
-const PET_TASK_COIN_REWARD = 200;
 const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 
 type Body = {

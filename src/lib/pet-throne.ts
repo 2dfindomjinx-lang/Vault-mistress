@@ -5,6 +5,21 @@ export const PET_THRONE_AMOUNTS = [1, 5, 10, 15, 25, 50, 75, 100, 250, 500] as c
 export const PET_THRONE_URL =
   process.env.NEXT_PUBLIC_PET_THRONE_URL?.trim() || "https://throne.com/principessa2dfd";
 
+// Pet Score recorded on the Throne tribute task row. A paid tribute is worth
+// more than a free daily task, but the old flat 250 was 25x the daily reward
+// and bore no relation to what was actually sent. Base plus a tenth of the
+// dollar figure, rounded up so a $5 tribute still clears the base.
+//
+// Mirrored in supabase/throne-webhook-money.sql, which is what actually writes
+// the row - keep the two in step.
+export const PET_THRONE_TASK_SCORE_BASE = 10;
+export const PET_THRONE_TASK_SCORE_PERCENT = 0.1;
+
+export function getPetThroneTaskScore(amountUsd: number) {
+  const amount = Math.max(0, Number(amountUsd) || 0);
+  return Math.ceil(PET_THRONE_TASK_SCORE_BASE + amount * PET_THRONE_TASK_SCORE_PERCENT);
+}
+
 export function getPetThroneBaseCoinAmount(amount: number) {
   return Math.max(0, Math.round(amount * 1000));
 }

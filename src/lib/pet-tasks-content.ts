@@ -7,7 +7,7 @@ import type { PetTaskItem } from "@/lib/types";
 import { getGmt3DayIndex } from "@/lib/time";
 
 // Pet tasks award Pet Score directly; they no longer mint spendable coins.
-export const PET_TASK_REWARD = 250;
+export const PET_TASK_REWARD = 10;
 export const PET_WEEKLY_TAX_REWARD = 20;
 export const PET_OWNERSHIP_OATH_REPEAT_COUNT = 25;
 export const PET_WORSHIP_MIN_AMOUNT = 500;

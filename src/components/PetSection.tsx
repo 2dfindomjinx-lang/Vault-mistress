@@ -7,6 +7,7 @@ import {
   getPetThroneRewardBreakdown,
   PET_THRONE_AMOUNTS,
   PET_THRONE_TASK_ID,
+  PET_THRONE_TASK_SCORE_BASE,
   PET_THRONE_URL,
 } from "@/lib/pet-throne";
 import {
@@ -1594,7 +1595,7 @@ export function PetSection({
                     {task.kind === "review"
                       ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
                       : task.kind === "throne-tribute"
-                        ? "Admin approval only adds the selected Throne payout with both bonuses."
+                        ? `Recorded reward: +${PET_THRONE_TASK_SCORE_BASE} Pet Score plus a tenth of what you send, rounded up. Admin approval only adds the selected Throne payout with both bonuses.`
                       : task.kind === "high-low"
                         ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
                       : task.kind === "worship"

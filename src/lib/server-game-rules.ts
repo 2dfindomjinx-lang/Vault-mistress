@@ -71,9 +71,15 @@ export const RUNWAY_SUPER_VOTE_OWNER_REWARD = 1_000;
 export const RUNWAY_SUPER_VOTE_POINT_VALUE = 10;
 export const RUNWAY_SUPER_VOTE_DAILY_LIMIT = 2;
 
-// Pet task completion rewards are Pet Score/Devotion, never spendable coins.
-// Keep this server-authoritative value shared by web and mobile review routes.
-export const PET_TASK_COIN_REWARD = 0;
+// Coins paid when a pet task is approved. Server-authoritative and shared by
+// the web and mobile review routes AND by the pet-profile-patch validator -
+// import it, never re-declare it locally.
+//
+// This was briefly 0 (and PET_TASK_REWARD briefly 250) in 1.14, which swapped
+// the two rewards by accident: the coin payer was zeroed while the validator in
+// /api/user/pet-profile-patch still whitelisted 200, so the change was never
+// coherent. Pet tasks pay coins.
+export const PET_TASK_COIN_REWARD = 200;
 
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 150],
