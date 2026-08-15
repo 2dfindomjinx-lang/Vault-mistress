@@ -5,9 +5,10 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
+// Shared with the client and the reward validator on purpose - these three
+// copies drifted apart in 1.14 and broke every pet task for five days.
+import { PET_TASK_REWARD as DEFAULT_PET_TASK_REWARD, PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
 
-const DEFAULT_PET_TASK_REWARD = 10;
-const PET_WEEKLY_TAX_REWARD = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const allowedTaskIds = new Set([

@@ -48,7 +48,7 @@ export async function POST() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("tribute_code")
+    .select("candle_code")
     .eq("id", authData.user.id)
     .maybeSingle();
 
@@ -65,26 +65,28 @@ export async function POST() {
       { status: 404 },
     );
   }
-  if (profile.tribute_code) {
+  if (profile.candle_code) {
     return Response.json(
-      { tributeCode: String(profile.tribute_code).toUpperCase() },
+      { tributeCode: String(profile.candle_code).toUpperCase() },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   }
 
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt += 1) {
-    const tributeCode = `VM-${randomBytes(4).toString("hex").toUpperCase()}`;
+    // CK-, not VM-: this button hands out the code that lights candles.
+    // The VM- money code is issued separately and is not interchangeable.
+    const tributeCode = `CK-${randomBytes(3).toString("hex").toUpperCase()}`;
     const { data: updated, error: updateError } = await supabase
       .from("profiles")
-      .update({ tribute_code: tributeCode, updated_at: new Date().toISOString() })
+      .update({ candle_code: tributeCode, updated_at: new Date().toISOString() })
       .eq("id", authData.user.id)
-      .is("tribute_code", null)
-      .select("tribute_code")
+      .is("candle_code", null)
+      .select("candle_code")
       .maybeSingle();
 
-    if (updated?.tribute_code) {
+    if (updated?.candle_code) {
       return Response.json(
-        { tributeCode: String(updated.tribute_code).toUpperCase() },
+        { tributeCode: String(updated.candle_code).toUpperCase() },
         { headers: { "Cache-Control": "private, no-store" } },
       );
     }
@@ -102,12 +104,12 @@ export async function POST() {
     // Another request may have filled the code between our read and update.
     const { data: refreshed } = await supabase
       .from("profiles")
-      .select("tribute_code")
+      .select("candle_code")
       .eq("id", authData.user.id)
       .maybeSingle();
-    if (refreshed?.tribute_code) {
+    if (refreshed?.candle_code) {
       return Response.json(
-        { tributeCode: String(refreshed.tribute_code).toUpperCase() },
+        { tributeCode: String(refreshed.candle_code).toUpperCase() },
         { headers: { "Cache-Control": "private, no-store" } },
       );
     }

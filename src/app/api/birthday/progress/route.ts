@@ -1,6 +1,6 @@
 import {
   BIRTHDAY_CANDLE_USD,
-  BIRTHDAY_ENDS_AT,
+  BIRTHDAY_CANDLES_END_AT,
   BIRTHDAY_SHOW_SUPPORTER_NAMES,
   BIRTHDAY_STARTS_AT,
   BIRTHDAY_TARGET_CANDLES,
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase.rpc("get_public_birthday_progress", {
     p_candle_usd: BIRTHDAY_CANDLE_USD,
-    p_ends_at: BIRTHDAY_ENDS_AT,
+    p_ends_at: BIRTHDAY_CANDLES_END_AT,
     p_starts_at: BIRTHDAY_STARTS_AT,
     p_target_candles: BIRTHDAY_TARGET_CANDLES,
   });

@@ -224,7 +224,7 @@ import {
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
 import { ownsPlush } from "@/lib/birthday-plush";
-import { getTimeoutClearFee, PET_TASK_COIN_REWARD, roundRewardToNearestFive, RUNWAY_DAILY_REWARDED_VOTE_LIMIT, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
+import { getTimeoutClearFee, PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, roundRewardToNearestFive, RUNWAY_DAILY_REWARDED_VOTE_LIMIT, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
   getGmt3DateKey,
@@ -491,7 +491,6 @@ const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
-const PET_FAVOR_ROULETTE_COIN_REWARD = 0;
 const PET_OWNER_LIKENESS_DAILY_TASK_TARGET = 5;
 const IMAGE_DOWNLOAD_ALLOW_SELECTOR = "[data-allow-image-download]";
 const LOCAL_GUEST_USER_ID = "local-guest-user";

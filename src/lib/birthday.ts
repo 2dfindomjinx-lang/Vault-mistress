@@ -29,12 +29,27 @@ import { formatHandle } from "@/lib/username";
 // Nothing else changes - the SQL takes the window as a parameter.
 export const BIRTHDAY_STARTS_AT = "2026-08-13T14:00:00+03:00";
 export const BIRTHDAY_ENDS_AT = "2026-08-15T14:00:00+03:00";
+
+// Candles outlived the court. The 48-hour window above still decides the 1.5x
+// Money bonus and the free rose/guestbook actions, but the cake itself stays
+// lightable until all 22 holders are taken - which is a condition, not a date.
+// This bound exists only because the counting query needs an upper limit; the
+// real stop is candlesLit reaching BIRTHDAY_TARGET_CANDLES.
+export const BIRTHDAY_CANDLES_END_AT = "2027-08-13T14:00:00+03:00";
 export const BIRTHDAY_DAY = "2026-08-14T00:00:00+03:00";
 
 // Applied only to the base Principessa Money earned from a signed Throne
 // payment inside the birthday window. Existing Pet/conversion bonuses keep
 // their own bases and are never multiplied by this event.
 export const BIRTHDAY_MONEY_BONUS_PERCENT = 0.5;
+
+// A payment sent with the CK- candle code pays this fraction of the usual
+// Money. It is a price, not a penalty: the sender is buying a flame on the
+// cake rather than balance, and the halved rate is what keeps a candle worth
+// less than a plain tribute of the same size. tribute_total and Devotion still
+// run off the real dollar figure - what someone gave is a fact.
+// Mirrored by p_candle_money_percent in supabase/throne-webhook-money.sql.
+export const BIRTHDAY_CANDLE_CODE_MONEY_PERCENT = 0.5;
 
 // One candle per $10. 22 candles = $220 for a full cake.
 //
@@ -224,6 +239,10 @@ export function resolveSupporterLabel(candle: BirthdayCandle) {
 // direct invitation; the rest stay quiet so the eye lands on the one that is
 // actually up for grabs. Rotating several phrasings was tried first and read
 // as a machine cycling through synonyms.
-export function resolveEmptyCandleInvite(candleIndex: number, candlesLit: number) {
+//
+// Once the court is closed there is no next holder, and "your name could be
+// here" becomes an offer nobody can take.
+export function resolveEmptyCandleInvite(candleIndex: number, candlesLit: number, hasEnded = false) {
+  if (hasEnded) return "Nobody";
   return candleIndex === candlesLit + 1 ? "Your name could be here" : "Unclaimed";
 }

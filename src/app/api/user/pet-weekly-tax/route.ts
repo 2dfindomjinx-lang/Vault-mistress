@@ -1,4 +1,5 @@
 import { profileSelect } from "@/lib/server-game-rules";
+import { PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -10,7 +11,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_MIN_COST = 2500;
 const PET_WEEKLY_TAX_MAX_COST = 10000;
-const PET_WEEKLY_TAX_REWARD = 20;
 const PET_WEEKLY_TAX_TASK_ID = "pet-weekly-throne-tax";
 
 type ProfileRow = {

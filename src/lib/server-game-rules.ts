@@ -81,6 +81,11 @@ export const RUNWAY_SUPER_VOTE_DAILY_LIMIT = 2;
 // coherent. Pet tasks pay coins.
 export const PET_TASK_COIN_REWARD = 200;
 
+// Favor Roulette pays more than a plain pet task because the outcome is a
+// gamble - the point of the card is that you might walk away with nothing.
+// Zeroed by the same 1.14 mistake while the validator kept whitelisting 500.
+export const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
+
 const baseTaskRewards = new Map<string, number>([
   ["daily-login", 150],
   ["streak-bonus-1", 50],

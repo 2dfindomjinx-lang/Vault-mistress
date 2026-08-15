@@ -1,4 +1,7 @@
-import { PET_TASK_COIN_REWARD, profileSelect } from "@/lib/server-game-rules";
+import { PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, profileSelect } from "@/lib/server-game-rules";
+// Same constants the client rewards from. Re-declaring them here is what let
+// 1.14 move one side without the other and break every pet task for five days.
+import { PET_TASK_REWARD, PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -8,8 +11,6 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
 import { getGmt3DateKey } from "@/lib/time";
 
-const PET_WEEKLY_TAX_REWARD = 20;
-const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 
 type Body = {
   metadata?: Record<string, unknown>;
@@ -114,7 +115,7 @@ function validatePatch(
   const coinDelta = nextCoins - current.coins;
   const petScoreDelta = nextPetScore - current.pet_score;
   const tributeDelta = nextTributeTotal - current.tribute_total;
-  const rewardPetScoreDelta = 10;
+  const rewardPetScoreDelta = PET_TASK_REWARD;
 
   if (
     !Number.isInteger(nextCoins) ||

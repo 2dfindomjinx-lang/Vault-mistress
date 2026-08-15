@@ -1931,6 +1931,19 @@ export default function AdminPage() {
               <p className="mt-2 text-xs text-zinc-500">
                 Type <span className="font-mono text-fuchsia-200/80">/</span> to list every command. Tab completes, ↑↓ selects.
               </p>
+              {/* ABOVE the input, not below it. The completion dropdown is
+                  absolutely positioned off the field and opens downward, so a
+                  hint sitting underneath was covered by the dropdown at exactly
+                  the moment it was needed - while typing the arguments. It also
+                  cannot live inside the input's flex label; as a sibling of the
+                  field it stole most of the typing width. */}
+              {matchedConsoleCommand ? (
+                <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-2.5">
+                  <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
+                  <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
+                </div>
+              ) : null}
+
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="relative flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
                   <span className="text-fuchsia-300">&gt;</span>
@@ -2011,18 +2024,6 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* Below the row, not inside the input's flex label - as a sibling
-                  of the field it stole most of the typing width. The completion
-                  dropdown only lists commands LONGER than what is typed, so it
-                  vanishes the moment a command name is complete, exactly when
-                  the usage line becomes useful. This stays for as long as the
-                  command is recognised. */}
-              {matchedConsoleCommand ? (
-                <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-2.5">
-                  <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
-                  <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
-                </div>
-              ) : null}
             </div>
           )}
 

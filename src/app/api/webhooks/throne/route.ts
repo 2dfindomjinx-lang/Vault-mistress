@@ -1,6 +1,6 @@
 import { verify as verifyEd25519 } from "node:crypto";
 import { syncThroneMilestoneTitlesFromLedgers } from "@/lib/admin-pet-task-logs";
-import { BIRTHDAY_MONEY_BONUS_PERCENT, getBirthdayWindowState } from "@/lib/birthday";
+import { BIRTHDAY_CANDLE_CODE_MONEY_PERCENT, BIRTHDAY_MONEY_BONUS_PERCENT, getBirthdayWindowState } from "@/lib/birthday";
 import { PET_THRONE_TASK_BONUS_PERCENT } from "@/lib/pet-throne";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createUserNotification } from "@/lib/user-notifications";
@@ -74,13 +74,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Could not record webhook." }, { status: 500 });
   }
 
-  const code = message.match(/\b(?:VM|PT)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
+  // CK- is the candle code. It identifies the sender exactly like VM- does
+  // and credits Money on the same terms; the only difference is that the
+  // birthday cake counts an event whose attribution_code starts with CK-
+  // and ignores every other payment, so lighting a candle is now opt-in.
+  // See supabase/birthday-candles-open.sql.
+  const code = message.match(/\b(?:VM|PT|CK)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
   const isPetBonusCode = Boolean(code?.startsWith("PT-"));
+  const isCandleCode = Boolean(code?.startsWith("CK-"));
+  const codeColumn = isPetBonusCode ? "pet_tribute_code" : isCandleCode ? "candle_code" : "tribute_code";
   const profile = code
     ? (await supabase
         .from("profiles")
         .select("id, username")
-        .ilike(isPetBonusCode ? "pet_tribute_code" : "tribute_code", code)
+        .ilike(codeColumn, code)
         .maybeSingle()).data
     : null;
   if (!profile) {
@@ -129,6 +136,8 @@ export async function POST(request: Request) {
   const { data: credit, error: creditError } = await supabase.rpc("credit_throne_tribute", {
     p_amount: amount,
     p_birthday_bonus_percent: birthdayMoneyBonusPercent,
+    // Only bites when the code actually starts with CK-; the RPC decides.
+    p_candle_money_percent: BIRTHDAY_CANDLE_CODE_MONEY_PERCENT,
     p_code: code,
     p_coins: coinEquivalent,
     p_event_id: eventId,

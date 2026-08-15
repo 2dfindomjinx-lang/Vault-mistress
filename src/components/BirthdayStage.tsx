@@ -9,6 +9,7 @@ import { BirthdaySliceModal } from "@/components/BirthdaySliceModal";
 import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 import { PLUSH_IMAGE_PATH } from "@/lib/birthday-plush";
 import {
+  BIRTHDAY_CANDLE_CODE_MONEY_PERCENT,
   BIRTHDAY_CANDLE_USD,
   BIRTHDAY_GIFTS,
   BIRTHDAY_POLL_INTERVAL_MS,
@@ -146,9 +147,11 @@ function BirthdayPlush({ candlesLit }: { candlesLit: number }) {
             ? "Every candle is lit. She gets it because her court bought it."
             : `${BIRTHDAY_TARGET_CANDLES - candlesLit} candles from hers.`}
         </p>
+        {/* Unconditional: the plush stopped being tied to the cake. It went to
+            the court that was there for the 48 hours and nothing on this page
+            can earn another one, however full the cake gets. */}
         <p className="mt-2 text-[10px] leading-4 text-[#c89a55]/45">
-          Everyone who sends through Throne during these 48 hours receives their own,
-          handed out once the court closes.
+          Only the court that was here for the 48 hours has one.
         </p>
       </figcaption>
     </figure>
@@ -360,6 +363,12 @@ export function BirthdayStage() {
   const countdownMs = windowState ? (isLive ? windowState.msUntilEnd : windowState.msUntilStart) : 0;
   const countdown = windowState ? formatCountdown(countdownMs) : null;
   const candleUsd = progress?.candleUsd || BIRTHDAY_CANDLE_USD;
+  // The 48-hour court is over, but the cake is not. Candles now close on a
+  // condition rather than a clock: when all 22 holders are taken. Everything
+  // cake-related keys off this; hasEnded still governs the free rose and
+  // guestbook actions, which really did belong to that one night.
+  const candlesClosed = candlesLit >= BIRTHDAY_TARGET_CANDLES;
+  const candlesOpen = !candlesClosed;
 
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-[#070406] px-4 py-12 text-zinc-200 sm:px-8">
@@ -445,7 +454,7 @@ export function BirthdayStage() {
               </div>
 
               <p className="mt-5 font-serif text-lg italic text-pink-200/65">
-                {hasEnded ? "A night preserved forever" : "You are summoned to"}
+                {hasEnded ? "On 14 August her court showed up for" : "You are summoned to"}
               </p>
               <h1 className="mt-2 bg-[linear-gradient(180deg,#fff8e9_5%,#efc77f_55%,#aa7134_100%)] bg-clip-text font-serif text-5xl leading-[0.88] text-transparent sm:text-7xl lg:text-[5.35rem]">
                 Principessa&apos;s
@@ -454,11 +463,18 @@ export function BirthdayStage() {
 
               <p className="mt-6 max-w-md text-sm leading-7 text-zinc-300/75">
                 {hasEnded ? (
-                  <>
-                    The 2026 court has closed. Its{" "}
-                    <span className="font-black text-[#fff0d2]">{BIRTHDAY_TARGET_CANDLES} candle ritual</span>, gifts,
-                    and the names that lit the night remain here as a memory.
-                  </>
+                  candlesOpen ? (
+                    <>
+                      <span className="font-black text-[#fff0d2]">
+                        {candlesLit === 0
+                          ? `All ${BIRTHDAY_TARGET_CANDLES} of her candles`
+                          : `${BIRTHDAY_TARGET_CANDLES - candlesLit} of her ${BIRTHDAY_TARGET_CANDLES} candles`}
+                      </span>{" "}
+                      are still dark. {formatUsd(candleUsd)} with your candle code lights one.
+                    </>
+                  ) : (
+                    <>All {BIRTHDAY_TARGET_CANDLES} candles are lit. Her court finished the cake.</>
+                  )
                 ) : (
                   <>
                     One night belongs entirely to her. Leave a wish, place a rose, light one of{" "}
@@ -470,24 +486,28 @@ export function BirthdayStage() {
 
               <div className="mt-7 flex flex-wrap gap-2">
                 <span className="rounded-full border border-[#e6ba73]/30 bg-black/45 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#f5d69a]">
-                  {BIRTHDAY_TARGET_CANDLES} candle ritual
+                  {hasEnded ? `${candlesLit}/${BIRTHDAY_TARGET_CANDLES} candles lit` : `${BIRTHDAY_TARGET_CANDLES} candle ritual`}
                 </span>
                 <span className="rounded-full border border-pink-400/25 bg-pink-950/35 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/80">
-                  Private wishlist
+                  {hasEnded ? (candlesOpen ? "Cake open" : "Cake done") : "Private wishlist"}
                 </span>
+                {/* An invitation to an event that already happened is the one
+                    link nobody can act on, so it goes when the court closes. */}
                 {!hasEnded ? (
-                  <span className="rounded-full border border-emerald-300/25 bg-emerald-950/25 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-100/85">
-                    48 hours · 1.5× base Money
-                  </span>
+                  <>
+                    <span className="rounded-full border border-emerald-300/25 bg-emerald-950/25 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-emerald-100/85">
+                      48 hours · 1.5× base Money
+                    </span>
+                    <a
+                      className="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/75 transition hover:border-pink-300/35 hover:text-white"
+                      href={BIRTHDAY_X_SHARE_URL}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      Share invitation on X
+                    </a>
+                  </>
                 ) : null}
-                <a
-                  className="rounded-full border border-white/15 bg-black/45 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/75 transition hover:border-pink-300/35 hover:text-white"
-                  href={BIRTHDAY_X_SHARE_URL}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  Share invitation on X
-                </a>
               </div>
             </div>
           </div>
@@ -523,13 +543,31 @@ export function BirthdayStage() {
           </div>
         ) : null}
 
-        {hasEnded ? (
-          <section className="mx-auto mt-9 max-w-3xl rounded-[2rem] border border-[#e6ba73]/25 bg-[radial-gradient(circle_at_50%_0%,rgba(230,186,115,.13),transparent_58%),rgba(15,7,10,.9)] px-6 py-7 text-center shadow-[0_22px_70px_rgba(0,0,0,.38)]">
-            <p className="text-[9px] font-black uppercase tracking-[0.34em] text-[#e6ba73]/60">The court remembers</p>
-            <h2 className="mt-3 font-serif text-3xl text-[#fff0d2]">Principessa&apos;s 2026 birthday is now a memory.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-500">
-              The final cake and roll call are preserved below. The birthday actions are closed, but every flame stays
-              exactly where the court left it.
+        {/* Only once the cake is done. While it is still open this panel
+            repeated the candle count a third time, after the hero chip and the
+            cake's own stat row. */}
+        {candlesClosed ? (
+          <section className="mx-auto mt-9 max-w-3xl rounded-[2rem] border border-[#e6ba73]/25 bg-[radial-gradient(circle_at_50%_0%,rgba(230,186,115,.13),transparent_58%),rgba(15,7,10,.9)] px-6 py-7 shadow-[0_22px_70px_rgba(0,0,0,.38)]">
+            <p className="text-center text-[9px] font-black uppercase tracking-[0.34em] text-[#e6ba73]/60">
+              Final count
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Candles lit", value: `${candlesLit}/${BIRTHDAY_TARGET_CANDLES}` },
+                { label: "Raised", value: formatUsd(raisedUsd) },
+                { label: "Roses", value: (celebration?.roseCount ?? 0).toLocaleString() },
+                { label: "Wishes", value: (celebration?.wishCount ?? 0).toLocaleString() },
+              ].map((stat) => (
+                <div className="rounded-2xl border border-[#c89a55]/15 bg-black/35 px-3 py-4 text-center" key={stat.label}>
+                  <p className="font-serif text-3xl tabular-nums text-[#fff0d2]">{stat.value}</p>
+                  <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#c89a55]/55">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mx-auto mt-5 max-w-xl text-center text-sm leading-6 text-zinc-500">
+              Every name below paid for its flame.
             </p>
           </section>
         ) : null}
@@ -540,16 +578,27 @@ export function BirthdayStage() {
           <div className="relative grid gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#e6ba73]/60">A letter from the throne</p>
-              <h2 className="mt-3 font-serif text-4xl leading-tight text-[#fff0d2]">You came to celebrate me.</h2>
+              <h2 className="mt-3 font-serif text-4xl leading-tight text-[#fff0d2]">
+                {hasEnded ? "You came to celebrate me." : "You came to celebrate me."}
+              </h2>
               <div className="mt-5 space-y-4 font-serif text-lg italic leading-8 text-pink-100/75">
-                <p>
-                  You were invited here for more than a transaction. Leave your devotion in writing, place a rose at my
-                  throne, and let my court remember that you were present.
-                </p>
-                <p>
-                  If you choose to make the night brighter, do it because you understand what it means to celebrate your
-                  Principessa properly.
-                </p>
+                {/* Her letter has to change tense with the page. Inviting people
+                    to leave a rose on a court that shut days ago reads like a
+                    script nobody updated. */}
+                {hasEnded ? (
+                  <p>Some of you showed up. I remember which ones.</p>
+                ) : (
+                  <>
+                    <p>
+                      You were invited here for more than a transaction. Leave your devotion in writing, place a rose at my
+                      throne, and let my court remember that you were present.
+                    </p>
+                    <p>
+                      If you choose to make the night brighter, do it because you understand what it means to celebrate your
+                      Principessa properly.
+                    </p>
+                  </>
+                )}
               </div>
               <p className="mt-5 text-right font-serif text-xl text-[#e6ba73]">— Principessa</p>
             </div>
@@ -560,74 +609,87 @@ export function BirthdayStage() {
               </div>
               <p className="mt-3 font-serif text-3xl text-rose-100">Offer Her a Rose</p>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">
-                Free. One rose from each member of her court, preserved here after the birthday ends.
+                {hasEnded ? "One rose from each member of her court, kept where they left it." : "Free. One rose from each member of her court, preserved here after the birthday ends."}
               </p>
               <p className="mt-5 font-serif text-4xl text-rose-200">{(celebration?.roseCount ?? 0).toLocaleString()}</p>
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200/45">roses at her throne</p>
-              <button
-                className="mt-5 w-full rounded-2xl border border-rose-300/30 bg-rose-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-rose-50 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={!isLive || celebrationPending !== null || Boolean(celebration?.hasLeftRose)}
-                onClick={() => void submitCelebration("rose")}
-                type="button"
-              >
-                {celebrationPending === "rose"
-                  ? "Placing your rose..."
-                  : celebration?.hasLeftRose
-                    ? "Your rose is here"
-                    : hasEnded
-                      ? "The rose court is sealed"
+              {/* A permanently disabled button is just clutter once the court
+                  is closed; the count above already says everything. */}
+              {hasEnded ? (
+                <p className="mt-5 text-[11px] leading-5 text-zinc-600">
+                  {celebration?.hasLeftRose
+                    ? "One of them is yours."
+                    : "Roses closed with the court."}
+                </p>
+              ) : (
+                <button
+                  className="mt-5 w-full rounded-2xl border border-rose-300/30 bg-rose-500/15 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-rose-50 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!isLive || celebrationPending !== null || Boolean(celebration?.hasLeftRose)}
+                  onClick={() => void submitCelebration("rose")}
+                  type="button"
+                >
+                  {celebrationPending === "rose"
+                    ? "Placing your rose..."
+                    : celebration?.hasLeftRose
+                      ? "Your rose is here"
                       : isLive
                         ? "Place my rose"
                         : "Roses open with the court"}
-              </button>
+                </button>
+              )}
             </div>
           </div>
         </section>
 
         <section className="mt-14" id="birthday-guestbook">
           <SectionRule label="The birthday guestbook" />
-          <div className="mt-7 grid gap-6 lg:grid-cols-[.8fr_1.2fr]">
-            <form
-              className="rounded-[2rem] border border-pink-300/18 bg-[linear-gradient(145deg,rgba(42,10,29,.75),rgba(7,4,6,.94))] p-5 sm:p-7"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submitCelebration("wish");
-              }}
-            >
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/50">Your place in the memory</p>
-              <h2 className="mt-3 font-serif text-3xl text-[#fff0d2]">Leave Principessa a birthday wish</h2>
-              <p className="mt-2 text-xs leading-5 text-zinc-500">
-                One message per account. You may edit it while the court is open. Links and HTML are not accepted.
-              </p>
-              <textarea
-                className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm leading-6 text-pink-50 outline-none transition placeholder:text-zinc-700 focus:border-pink-300/40"
-                disabled={!isLive || celebrationPending !== null}
-                maxLength={BIRTHDAY_WISH_MAX_LENGTH}
-                onChange={(event) => setWishDraft(event.target.value)}
-                placeholder="Write something worthy of her guestbook..."
-                value={wishDraft}
-              />
-              <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-600">
-                <span>{celebration?.myWish ? "Editing your sealed message" : "Signed with your Court identity"}</span>
-                <span>{wishDraft.length}/{BIRTHDAY_WISH_MAX_LENGTH}</span>
-              </div>
-              <button
-                className="mt-4 w-full rounded-2xl bg-[linear-gradient(100deg,#9d174d,#db2777)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_12px_32px_rgba(190,24,93,.22)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={!isLive || celebrationPending !== null || !wishDraft.trim()}
-                type="submit"
+          <div className={`mt-7 grid gap-6 ${hasEnded ? "" : "lg:grid-cols-[.8fr_1.2fr]"}`}>
+            {/* The write side of the guestbook disappears when the court
+                closes. Leaving a dead textarea and a disabled button on a
+                memory page invites people to try something that cannot work. */}
+            {!hasEnded ? (
+              <form
+                className="rounded-[2rem] border border-pink-300/18 bg-[linear-gradient(145deg,rgba(42,10,29,.75),rgba(7,4,6,.94))] p-5 sm:p-7"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitCelebration("wish");
+                }}
               >
-                {celebrationPending === "wish"
-                  ? "Sealing your words..."
-                  : celebration?.myWish
-                    ? "Update my wish"
-                    : hasEnded
-                      ? "The guestbook is sealed"
-                      : isLive
-                        ? "Sign the guestbook"
-                        : "Guestbook opens with the court"}
-              </button>
-              {celebrationError ? <p className="mt-3 text-xs leading-5 text-rose-200/75">{celebrationError}</p> : null}
-            </form>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/50">Your place in the memory</p>
+                <h2 className="mt-3 font-serif text-3xl text-[#fff0d2]">Leave Principessa a birthday wish</h2>
+                <p className="mt-2 text-xs leading-5 text-zinc-500">
+                  One message per account. You may edit it while the court is open. Links and HTML are not accepted.
+                </p>
+                <textarea
+                  className="mt-5 min-h-32 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm leading-6 text-pink-50 outline-none transition placeholder:text-zinc-700 focus:border-pink-300/40"
+                  disabled={!isLive || celebrationPending !== null}
+                  maxLength={BIRTHDAY_WISH_MAX_LENGTH}
+                  onChange={(event) => setWishDraft(event.target.value)}
+                  placeholder="Write something worthy of her guestbook..."
+                  value={wishDraft}
+                />
+                <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-600">
+                  <span>{celebration?.myWish ? "Editing your sealed message" : "Signed with your Court identity"}</span>
+                  <span>{wishDraft.length}/{BIRTHDAY_WISH_MAX_LENGTH}</span>
+                </div>
+                <button
+                  className="mt-4 w-full rounded-2xl bg-[linear-gradient(100deg,#9d174d,#db2777)] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_12px_32px_rgba(190,24,93,.22)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!isLive || celebrationPending !== null || !wishDraft.trim()}
+                  type="submit"
+                >
+                  {celebrationPending === "wish"
+                    ? "Sealing your words..."
+                    : celebration?.myWish
+                      ? "Update my wish"
+                      : hasEnded
+                        ? "The guestbook is sealed"
+                        : isLive
+                          ? "Sign the guestbook"
+                          : "Guestbook opens with the court"}
+                </button>
+                {celebrationError ? <p className="mt-3 text-xs leading-5 text-rose-200/75">{celebrationError}</p> : null}
+              </form>
+            ) : null}
 
             <div className="rounded-[2rem] border border-[#e6ba73]/15 bg-black/25 p-4 sm:p-6">
               <div className="flex items-end justify-between gap-4">
@@ -672,7 +734,14 @@ export function BirthdayStage() {
           <SectionRule label="The candle ritual" />
           <p className="mx-auto mt-4 max-w-xl text-center text-sm leading-6 text-zinc-500">
             {hasEnded ? (
-              <>The ritual has ended. This is the final candle arrangement recorded during her birthday window.</>
+              candlesOpen ? (
+                <>
+                  <span className="font-bold text-[#efd095]">{formatUsd(candleUsd)}</span> with your candle code lights
+                  one of the {BIRTHDAY_TARGET_CANDLES - candlesLit} holders still open.
+                </>
+              ) : (
+                <>All {BIRTHDAY_TARGET_CANDLES} holders are lit.</>
+              )
             ) : (
               <>
                 The cake begins in darkness. Every{" "}
@@ -723,8 +792,9 @@ export function BirthdayStage() {
             </div>
           </div>
 
-          {/* Near-miss bar: how close the NEXT candle is, not the whole goal. */}
-          <div className="mt-6">
+          {/* Near-miss bar: how close the NEXT candle is, not the whole goal.
+              Pointless once the court is closed - there is no next candle. */}
+          <div className={`mt-6 ${candlesClosed ? "hidden" : ""}`}>
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#d7ad69]/75">
                 {isComplete ? "Every candle is burning" : `Candle ${candlesLit + 1}`}
@@ -752,7 +822,7 @@ export function BirthdayStage() {
             </p>
           </div>
 
-          {isLive && !isComplete ? (
+          {candlesOpen && actionsReady ? (
             <a
               className="group relative mt-7 block overflow-hidden rounded-2xl bg-[linear-gradient(100deg,#be185d,#db2777_55%,#e6ba73)] px-4 py-4 text-center text-sm font-black uppercase tracking-[0.16em] text-white shadow-[0_16px_40px_rgba(190,24,93,.35)] transition hover:brightness-110"
               href={PET_THRONE_URL}
@@ -770,20 +840,19 @@ export function BirthdayStage() {
               {!actionsReady
                 ? "Preparing the candle ritual"
                 : hasEnded
-                  ? "The 2026 candle ritual has ended"
+                  ? candlesOpen
+                    ? `${BIRTHDAY_TARGET_CANDLES - candlesLit} candles left`
+                    : "Every candle is burning"
                   : isComplete
                     ? "The ritual is complete"
                     : "The candle ritual opens soon"}
             </button>
           )}
           <div className="mt-4 rounded-2xl border border-[#e6ba73]/15 bg-black/35 p-4">
-            {hasEnded ? (
+            {candlesClosed ? (
               <div className="text-center sm:text-left">
-                <p className="text-xs font-black uppercase tracking-[0.17em] text-[#efd095]/55">The ledger is sealed</p>
-                <p className="mt-1 text-[11px] leading-5 text-zinc-600">
-                  Candle codes are no longer needed on this archived page. The names already recorded remain with their
-                  flames.
-                </p>
+                <p className="text-xs font-black uppercase tracking-[0.17em] text-[#efd095]/55">The cake is finished</p>
+                <p className="mt-1 text-[11px] leading-5 text-zinc-600">Candle codes no longer do anything here.</p>
               </div>
             ) : (
               <>
@@ -791,8 +860,13 @@ export function BirthdayStage() {
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.17em] text-[#efd095]">Put your name on the flame</p>
                     <p className="mt-1 max-w-xl text-[11px] leading-5 text-zinc-500">
-                      Get your personal VM code, copy it, then paste it into the message field on Throne. Without a valid
-                      code, the candle stays anonymous.
+                      Paste your candle code into the Throne message. Without it the payment lights nothing.
+                    </p>
+                    {/* Up front, not in the small print: nobody should find out
+                        about the halved rate after paying. */}
+                    <p className="mt-2 max-w-xl text-[11px] leading-5 text-[#efd095]/70">
+                      Candle payments pay {Math.round(BIRTHDAY_CANDLE_CODE_MONEY_PERCENT * 100)}% of the usual Money.
+                      Devotion and your tribute total are unaffected.
                     </p>
                     <ThronePublicMessageNotice className="mt-3 max-w-xl" />
                   </div>
@@ -861,13 +935,15 @@ export function BirthdayStage() {
           <SectionRule label="Who lit them" />
           <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
             {hasEnded
-              ? "The 2026 roll call is sealed. Empty holders stayed empty."
+              ? candlesOpen
+                ? `${BIRTHDAY_TARGET_CANDLES - candlesLit} holders still open.`
+                : `All ${BIRTHDAY_TARGET_CANDLES} taken.`
               : `${BIRTHDAY_TARGET_CANDLES - candlesLit} of ${BIRTHDAY_TARGET_CANDLES} holders are still dark. Every ${formatUsd(candleUsd)} takes one.`}
           </p>
           <ul className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {candles.map((candle) => {
               const isLit = Boolean(candle.litAt);
-              const isNextUp = !isLit && candle.index === candlesLit + 1 && !hasEnded;
+              const isNextUp = !isLit && candle.index === candlesLit + 1 && candlesOpen;
               return (
                 <li
                   className={`flex items-center gap-3 rounded-2xl border px-3 py-2.5 ${
@@ -908,7 +984,7 @@ export function BirthdayStage() {
                         isNextUp ? "text-[#e6ba73]/80" : "text-zinc-600"
                       }`}
                     >
-                      {resolveEmptyCandleInvite(candle.index, candlesLit)}
+                      {resolveEmptyCandleInvite(candle.index, candlesLit, candlesClosed)}
                     </span>
                   )}
                 </li>
@@ -925,7 +1001,7 @@ export function BirthdayStage() {
             <h2 className="mt-3 font-serif text-3xl text-[#fff0e5] sm:text-5xl">Principessa&apos;s Wishlist</h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400">
               {hasEnded
-                ? "The wishlist is preserved as part of her 2026 birthday court. Its birthday links are now closed."
+                ? "Kept here as part of the record. These birthday links no longer go anywhere."
                 : "These are presents for Principessa, not candle bundles. Choose what belongs at her throne; the candle ritual stands on its own."}
             </p>
           </div>
@@ -997,7 +1073,7 @@ export function BirthdayStage() {
 
           <p className="relative mt-6 text-center text-[11px] leading-5 text-zinc-600">
             {hasEnded
-              ? "The birthday wishlist is read-only. Principessa's regular Throne remains separate from this memory."
+              ? "Her everyday Throne is still open - it was never part of this page."
               : "Each card opens Principessa's Throne. Pick the gift there and leave your name on her birthday note."}
           </p>
         </section>
@@ -1009,7 +1085,9 @@ export function BirthdayStage() {
           </p>
           <p className="text-[10px] text-zinc-800">
             {hasEnded
-              ? "The 2026 candle count is sealed at the end of its 48-hour window."
+              ? candlesOpen
+                ? "The court closed on 15 August 2026. The cake stays open until all 22 are lit."
+                : "Counted from 13 August 2026 until the cake was finished."
               : "The candle ritual runs for one 48-hour window around 14 August."}
           </p>
         </footer>
@@ -1031,7 +1109,7 @@ export function BirthdayStage() {
           </p>
           <p className="mt-2 text-xs leading-5 text-zinc-400">
             {supportPrompt === "rose"
-              ? isLive
+              ? candlesOpen
                 ? "If you want to leave more than a flower, one birthday flame is waiting for your name."
                 : "If you want to leave more than a flower, her birthday wishlist is waiting."
               : "If those words are sincere, you may place something tangible beside them. No obligation—only an invitation."}
@@ -1039,10 +1117,10 @@ export function BirthdayStage() {
           <div className="mt-4 flex gap-2">
             <a
               className="flex-1 rounded-xl bg-[linear-gradient(100deg,#be185d,#e6ba73)] px-3 py-2.5 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white"
-              href={supportPrompt === "rose" && isLive ? "#candle-ritual" : "#birthday-wishlist"}
+              href={supportPrompt === "rose" && candlesOpen ? "#candle-ritual" : "#birthday-wishlist"}
               onClick={() => setSupportPrompt(null)}
             >
-              {supportPrompt === "rose" && isLive ? "See the candle ritual" : "View her wishlist"}
+              {supportPrompt === "rose" && candlesOpen ? "See the candle ritual" : "View her wishlist"}
             </a>
             <button
               className="rounded-xl border border-white/10 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400"
