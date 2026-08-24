@@ -110,7 +110,7 @@ function getMovementStageImage(progress: number) {
 const TASK_VISUALS: Partial<Record<TaskItem["id"], { glyph: string; label: string }>> = {
   "daily-login": { glyph: "♛", label: "Daily audience" },
   "typing-accuracy": { glyph: "✒", label: "Precision trial" },
-  "number-pick": { glyph: "❖", label: "Five sealed numbers" },
+  "number-pick": { glyph: "❖", label: "Three sealed numbers" },
   "case-opening": { glyph: "▣", label: "Animated vault case" },
 };
 
@@ -175,7 +175,7 @@ type TaskListProps = {
   onMovementProgress: (progress: number) => void;
   onMovementStart: () => void;
   onCooldownAttempt?: (message: string) => void;
-  onTimeoutRisk: (multiplier: number) => void;
+  onTimeoutRisk: (multiplier: number) => Promise<"safe" | "timeout" | null> | void;
   onTimeoutRiskMultiplierChange: (direction: "up" | "down") => void;
   onTypingProgress: (value: string) => void;
   timeoutRiskChance: number;
@@ -188,6 +188,49 @@ type TaskListProps = {
   onWaitObedientlyStart: () => void;
   isFreeFridaySpinAvailable?: boolean;
 };
+
+
+// The Risk My Freedom coin. Spins while the server decides, then lands on the
+// face the ledger actually recorded - never on a guess. Shared by the grid
+// card and the expanded card so the two can never drift apart.
+function RiskCoin({ state }: { state: "idle" | "spin" | "safe" | "timeout" }) {
+  return (
+    <div className="mb-3 flex flex-col items-center" style={{ perspective: "640px" }}>
+      <style>{`
+        @keyframes vm-risk-coin-spin {
+          from { transform: rotateX(0deg); }
+          to   { transform: rotateX(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .vm-risk-coin { animation: none !important; transition: none !important; }
+        }
+      `}</style>
+      <div
+        className="vm-risk-coin relative h-20 w-20 [transform-style:preserve-3d]"
+        style={
+          state === "spin"
+            ? { animation: "vm-risk-coin-spin 0.24s linear infinite" }
+            : {
+                transform: state === "timeout" ? "rotateX(1980deg)" : state === "safe" ? "rotateX(1800deg)" : "rotateX(0deg)",
+                transition: state === "idle" ? "none" : "transform 900ms cubic-bezier(0.22, 0.9, 0.32, 1)",
+              }
+        }
+      >
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full border-2 border-yellow-200/60 bg-[radial-gradient(circle_at_35%_30%,#fde68a,#b45309_78%)] text-black [backface-visibility:hidden]">
+          <span className="text-3xl leading-none">♛</span>
+          <span className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em]">Free</span>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full border-2 border-rose-300/50 bg-[radial-gradient(circle_at_35%_30%,#4c0519,#180207_78%)] text-rose-100 [backface-visibility:hidden] [transform:rotateX(180deg)]">
+          <span className="text-3xl leading-none">⛓</span>
+          <span className="mt-0.5 text-[8px] font-black uppercase tracking-[0.16em]">Timeout</span>
+        </div>
+      </div>
+      <p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-yellow-100/50">
+        {state === "spin" ? "In the air..." : state === "safe" ? "She let you keep it" : state === "timeout" ? "She took your freedom" : "Her coin decides"}
+      </p>
+    </div>
+  );
+}
 
 export function TaskList({
   addressTerm = DEFAULT_ADDRESS_TERM,
@@ -235,6 +278,9 @@ export function TaskList({
     30_000,
   );
   const [typingValue, setTypingValue] = useState("");
+  // Risk My Freedom coin. "spin" while the server decides, then the coin lands
+  // on the face the ledger actually recorded - never on a guess.
+  const [riskFlip, setRiskFlip] = useState<"idle" | "spin" | "safe" | "timeout">("idle");
   const [stake, setStake] = useState(10);
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
@@ -806,6 +852,7 @@ export function TaskList({
                           </button>
                         </div>
                       </div>
+                      <RiskCoin state={riskFlip} />
                       <p className="text-sm leading-6 text-zinc-300">
                         Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
                         to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout,{" "}
@@ -853,7 +900,18 @@ export function TaskList({
                             return;
                           }
 
-                          onTimeoutRisk(task.timeoutRiskMultiplier ?? 1);
+                          const runRiskFlip = async () => {
+                            if (riskFlip !== "idle") return;
+                            setRiskFlip("spin");
+                            const outcome = await Promise.resolve(onTimeoutRisk(task.timeoutRiskMultiplier ?? 1));
+                            if (outcome === "safe" || outcome === "timeout") {
+                              setRiskFlip(outcome);
+                              window.setTimeout(() => setRiskFlip("idle"), 2_400);
+                            } else {
+                              setRiskFlip("idle");
+                            }
+                          };
+                          void runRiskFlip();
                         }}
                         type="button"
                       >
@@ -1474,6 +1532,7 @@ export function TaskList({
 
               {task.kind === "timeout-risk" && (
                 <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
+                  <RiskCoin state={riskFlip} />
                   <p className="text-sm leading-6 text-zinc-300">
                     Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
                     to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
@@ -1519,7 +1578,18 @@ export function TaskList({
                         return;
                       }
 
-                      onTimeoutRisk(task.timeoutRiskMultiplier ?? 1);
+                      const runRiskFlip = async () => {
+                            if (riskFlip !== "idle") return;
+                            setRiskFlip("spin");
+                            const outcome = await Promise.resolve(onTimeoutRisk(task.timeoutRiskMultiplier ?? 1));
+                            if (outcome === "safe" || outcome === "timeout") {
+                              setRiskFlip(outcome);
+                              window.setTimeout(() => setRiskFlip("idle"), 2_400);
+                            } else {
+                              setRiskFlip("idle");
+                            }
+                          };
+                      void runRiskFlip();
                     }}
                     type="button"
                   >

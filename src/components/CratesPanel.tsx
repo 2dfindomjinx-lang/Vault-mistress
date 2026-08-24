@@ -212,6 +212,19 @@ export function CratesPanel({
   const reelPanelRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // The transform ref is initialised before the viewport is measured (default
+  // 680px), so without this the strip's first paint sat at one position and
+  // the slide primed from another. While nothing is spinning, follow the
+  // measured centre.
+  useEffect(() => {
+    if (!isOpening && wonItems.length === 0) {
+      const transform = `translate3d(${reelCenterOffset}px, 0, 0)`;
+      horizontalReelTransformRef.current = transform;
+      if (stripRef.current) stripRef.current.style.transform = transform;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the measured centre matters here
+  }, [reelCenterOffset]);
+
   const setHorizontalReelTransform = (x: number) => {
     const transform = `translate3d(${x}px, 0, 0)`;
     horizontalReelTransformRef.current = transform;
@@ -264,18 +277,30 @@ export function CratesPanel({
     return () => window.clearTimeout(timer);
   }, [isMobile, isOpening, wonItems.length]);
 
+  // The server answers before the reel stops, so live inventory numbers would
+  // spoil the reveal (value and duplicate count jump the moment the response
+  // lands). Everything display-facing reads this snapshot, frozen at the
+  // moment an open starts and released when the reveal is on screen.
+  const [frozenInventory, setFrozenInventory] = useState<CrateInventoryItem[] | null>(null);
+  const displayInventory = frozenInventory ?? inventory;
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- releases the reveal snapshot when the open ends
+    if (!isOpening) setFrozenInventory(null);
+  }, [isOpening]);
+
   // Total sell value of current inventory (for display when viewing Inventory)
   const inventoryValue = useMemo(() => {
-    return inventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
-  }, [inventory]);
+    return displayInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
+  }, [displayInventory]);
 
   // Total number of items (sum of quantities) to display next to value
   const totalItemCount = useMemo(() => {
-    return inventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  }, [inventory]);
+    return displayInventory.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }, [displayInventory]);
 
   const duplicateInventoryValue = useMemo(() => {
-    return inventory.reduce((sum, item) => {
+    return displayInventory.reduce((sum, item) => {
       const duplicateCount = Math.max(0, (item.quantity || 0) - 1);
       const isProtected = item.item_id === "classic" || isBulkSellProtectedRarity(item.rarity);
       if (isProtected || item.sell_value <= 0) {
@@ -284,14 +309,14 @@ export function CratesPanel({
 
       return sum + duplicateCount * (item.sell_value || 0);
     }, 0);
-  }, [inventory]);
+  }, [displayInventory]);
 
   const duplicateStackCount = useMemo(() => {
-    return inventory.reduce((sum, item) => {
+    return displayInventory.reduce((sum, item) => {
       const isProtected = item.item_id === "classic" || isBulkSellProtectedRarity(item.rarity);
       return sum + (!isProtected && (item.quantity || 0) > 1 && item.sell_value > 0 ? 1 : 0);
     }, 0);
-  }, [inventory]);
+  }, [displayInventory]);
 
   // Build a long ordered "tape" of items for the classic sliding reel.
   // Uses ONLY the actual items from this crate's drop pool (the 39 real ones).
@@ -417,6 +442,10 @@ export function CratesPanel({
   const openCrate = async (crate: CrateDefinition, qty: number = 1) => {
     const batchCost = getBatchOpenCost(crate, qty);
     if (disabled || pending || isOpening || coins < batchCost) return;
+
+    // Freeze the display numbers BEFORE the request: the spoiler was the
+    // response updating them mid-slide.
+    setFrozenInventory(inventory);
 
     if (onCrateOpen) onCrateOpen();
 

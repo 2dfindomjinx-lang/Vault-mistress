@@ -40,9 +40,9 @@ const GAME_CARD_COPY: Record<CourtGameId, { eyebrow: string; glyph: string; summ
     summary: "Turn over the court seals and match every royal pair with as few mistakes as possible.",
   },
   "royal-guard": {
-    eyebrow: "Protect her court",
+    eyebrow: "Eighteen waves",
     glyph: "⚔",
-    summary: "Strike incoming threats and keep your hands off Principessa’s royal symbols.",
+    summary: "Threats charge at Principessa. Cut them down before they reach her — and let her gifts through untouched.",
   },
 };
 
@@ -127,6 +127,30 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     }
   }, [guestMode]);
 
+  // A dead run consumes the day. Fire-and-forget on purpose: the lockout is
+  // also enforced server-side (a session started today cannot be restarted),
+  // so a lost request only delays the cooldown label, never the rule.
+  const failGame = useCallback((gameId: CourtGameId, sessionId: string) => {
+    if (guestMode) {
+      setGuestClaimed((current) => (current.includes(gameId) ? current : [...current, gameId]));
+      return;
+    }
+    void fetch("/api/user/court-games", {
+      body: JSON.stringify({ action: "fail", gameId, sessionId }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as { cooldownUntil?: string } | null;
+        if (payload?.cooldownUntil) {
+          setStatuses((current) => current.map((status) => status.gameId === gameId
+            ? { ...status, cooldownUntil: payload.cooldownUntil ?? null }
+            : status));
+        }
+      })
+      .catch(() => undefined);
+  }, [guestMode]);
+
   const finishGame = useCallback(async (gameId: CourtGameId, sessionId: string, metrics: CourtGameMetrics) => {
     setError("");
     if (guestMode) {
@@ -162,6 +186,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
         disabled,
         onClose: () => setActiveGame(null),
         onComplete: (metrics: CourtGameMetrics) => finishGame(activeGame.gameId, activeGame.sessionId, metrics),
+        onFail: () => failGame(activeGame.gameId, activeGame.sessionId),
       }
     : null;
 
@@ -224,6 +249,7 @@ type MiniGameProps = {
   disabled: boolean;
   onClose: () => void;
   onComplete: (metrics: CourtGameMetrics) => Promise<number>;
+  onFail: () => void;
 };
 
 type SaysRound = {
@@ -234,19 +260,48 @@ type SaysRound = {
   timeMs: number;
 };
 
-const SAYS_ROUNDS: readonly SaysRound[] = [
+// A pool, not a script. Eight rounds are drawn fresh each run - with the fixed
+// list of eight, three days of play memorised the whole game and it stopped
+// being a listening test. Traps borrow every voice of authority EXCEPT the one
+// that counts: only “Principessa Says” is real.
+const SAYS_OBEY_POOL: readonly SaysRound[] = [
   { action: "kneel", command: "Principessa Says: Kneel.", shouldObey: true, timeMs: 4_500 },
-  { action: "bow", command: "Bow for Principessa.", shouldObey: false, timeMs: 4_000 },
-  { action: "type", command: "Principessa Says: Type “Meow, Principessa.”", expectedText: "Meow, Principessa.", shouldObey: true, timeMs: 7_000 },
-  { action: "type", command: "Principessa wants you to type “Woof!”", expectedText: "Woof!", shouldObey: false, timeMs: 5_000 },
   { action: "bow", command: "Principessa Says: Bow.", shouldObey: true, timeMs: 4_000 },
   { action: "still", command: "Principessa Says: Do not move.", shouldObey: true, timeMs: 4_000 },
+  { action: "still", command: "Principessa Says: Freeze. Eyes down.", shouldObey: true, timeMs: 4_500 },
+  { action: "kneel", command: "Principessa Says: On your knees. Now.", shouldObey: true, timeMs: 4_000 },
+  { action: "bow", command: "Principessa Says: Lower your head.", shouldObey: true, timeMs: 4_000 },
+  { action: "still", command: "Principessa Says: Hold still until I allow otherwise.", shouldObey: true, timeMs: 5_000 },
+  { action: "kneel", command: "Principessa Says: Kneel and be grateful.", shouldObey: true, timeMs: 4_500 },
+  { action: "type", command: "Principessa Says: Type “Meow, Principessa.”", expectedText: "Meow, Principessa.", shouldObey: true, timeMs: 7_000 },
   { action: "type", command: "Principessa Says: Type “Woof! Woof!”", expectedText: "Woof! Woof!", shouldObey: true, timeMs: 7_000 },
-  { action: "kneel", command: "Kneel. Principessa is watching.", shouldObey: false, timeMs: 4_000 },
+  { action: "type", command: "Principessa Says: Type “I belong to her.”", expectedText: "I belong to her.", shouldObey: true, timeMs: 8_000 },
+  { action: "type", command: "Principessa Says: Type “Thank you.”", expectedText: "Thank you.", shouldObey: true, timeMs: 6_000 },
+  { action: "type", command: "Principessa Says: Type “Yes, Principessa.”", expectedText: "Yes, Principessa.", shouldObey: true, timeMs: 7_000 },
+  { action: "bow", command: "Principessa Says: Bow. Deeper.", shouldObey: true, timeMs: 4_000 },
 ];
 
-function PrincipessaSays({ disabled, onClose, onComplete }: MiniGameProps) {
-  const [rounds] = useState(() => shuffled(SAYS_ROUNDS));
+const SAYS_TRAP_POOL: readonly SaysRound[] = [
+  { action: "bow", command: "Bow for Principessa.", shouldObey: false, timeMs: 4_000 },
+  { action: "kneel", command: "Kneel. Principessa is watching.", shouldObey: false, timeMs: 4_000 },
+  { action: "type", command: "Principessa wants you to type “Woof!”", expectedText: "Woof!", shouldObey: false, timeMs: 5_000 },
+  { action: "kneel", command: "The court commands: Kneel.", shouldObey: false, timeMs: 4_000 },
+  { action: "bow", command: "Your Mistress expects a bow.", shouldObey: false, timeMs: 4_000 },
+  { action: "type", command: "Type “Yes, Principessa.” if you are loyal.", expectedText: "Yes, Principessa.", shouldObey: false, timeMs: 5_500 },
+  { action: "kneel", command: "Principessa said to kneel, did she not?", shouldObey: false, timeMs: 4_000 },
+  { action: "bow", command: "Everyone is bowing. Join them.", shouldObey: false, timeMs: 4_000 },
+  { action: "still", command: "Quick! Do something before time runs out!", shouldObey: false, timeMs: 4_000 },
+  { action: "type", command: "Prove yourself. Type “I obey.”", expectedText: "I obey.", shouldObey: false, timeMs: 5_000 },
+];
+
+// Five real orders, three traps, shuffled together. Always eight, because the
+// server refuses any other round count.
+function drawSaysRounds() {
+  return shuffled([...shuffled(SAYS_OBEY_POOL).slice(0, 5), ...shuffled(SAYS_TRAP_POOL).slice(0, 3)]);
+}
+
+function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
+  const [rounds] = useState(() => drawSaysRounds());
   const [roundIndex, setRoundIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [mistakes, setMistakes] = useState(0);
@@ -283,6 +338,7 @@ function PrincipessaSays({ disabled, onClose, onComplete }: MiniGameProps) {
 
       if (nextScore < COURT_GAME_RULES["principessa-says"].requiredScore) {
         setResult("failed");
+        onFail();
         return;
       }
 
@@ -296,7 +352,7 @@ function PrincipessaSays({ disabled, onClose, onComplete }: MiniGameProps) {
         .catch(() => setResult("failed"))
         .finally(() => setSaving(false));
     }, 550);
-  }, [mistakes, onComplete, result, roundIndex, rounds, score]);
+  }, [mistakes, onComplete, onFail, result, roundIndex, rounds, score]);
 
   useEffect(() => {
     resolveRoundRef.current = resolveRound;
@@ -374,7 +430,9 @@ function PrincipessaSays({ disabled, onClose, onComplete }: MiniGameProps) {
 
 const CROWN_SYMBOLS = ["♛", "♦", "♥", "✦", "⚜", "◈"] as const;
 
-function CrownMatch({ disabled, onClose, onComplete }: MiniGameProps) {
+// Crown Match takes no onFail: matching pairs cannot be lost by play, only
+// abandoned - and abandonment is the server's business, not this component's.
+function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFail">) {
   const [cards] = useState(() => shuffled(CROWN_SYMBOLS.flatMap((symbol) => [symbol, symbol])).map((symbol, index) => ({ id: index, symbol })));
   const [open, setOpen] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
@@ -450,33 +508,50 @@ function CrownMatch({ disabled, onClose, onComplete }: MiniGameProps) {
 type GuardTarget = { glyph: string; label: string; threat: boolean };
 const GUARD_THREATS: readonly GuardTarget[] = [
   { glyph: "☠", label: "Intruder", threat: true },
-  { glyph: "⚡", label: "Sabotage", threat: true },
-  { glyph: "✖", label: "Threat", threat: true },
+  { glyph: "⚡", label: "Saboteur", threat: true },
+  { glyph: "✖", label: "Stalker", threat: true },
 ];
-const GUARD_ROYALS: readonly GuardTarget[] = [
-  { glyph: "♛", label: "Her Crown", threat: false },
-  { glyph: "♥", label: "Her Favor", threat: false },
-  { glyph: "✦", label: "Royal Seal", threat: false },
+const GUARD_GIFTS: readonly GuardTarget[] = [
+  { glyph: "💐", label: "Bouquet", threat: false },
+  { glyph: "💎", label: "Jewel", threat: false },
+  { glyph: "✉", label: "Love letter", threat: false },
 ];
 
-function RoyalGuard({ disabled, onClose, onComplete }: MiniGameProps) {
-  const [targets] = useState(() => Array.from({ length: 18 }, (_, index) => {
-    const pool = index % 3 === 0 ? GUARD_ROYALS : Math.random() > 0.46 ? GUARD_THREATS : GUARD_ROYALS;
+// Waves get faster in thirds. The first third is deliberately slow enough to
+// learn the rule while playing it - the old version gave 720ms flat from wave
+// one, which is why first-timers failed before understanding the game.
+function guardWaveDuration(index: number) {
+  if (index < 6) return 1_700;
+  if (index < 12) return 1_250;
+  return 900;
+}
+
+function drawGuardTargets() {
+  return Array.from({ length: 18 }, (_, index) => {
+    const pool = index % 3 === 0 ? GUARD_GIFTS : Math.random() > 0.46 ? GUARD_THREATS : GUARD_GIFTS;
     return pool[Math.floor(Math.random() * pool.length)];
-  }));
+  });
+}
+
+function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
+  const [phase, setPhase] = useState<"intro" | "play">("intro");
+  const [targets] = useState(drawGuardTargets);
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [locked, setLocked] = useState(false);
+  const [outcome, setOutcome] = useState<"blocked" | "letPass" | "struckGift" | "reachedHer" | null>(null);
   const [reward, setReward] = useState(0);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const target = targets[index];
+  const duration = guardWaveDuration(index);
   const resolveRef = useRef<(hit: boolean) => void>(() => undefined);
 
   const finish = useCallback((nextScore: number, nextMistakes: number) => {
     if (nextScore < COURT_GAME_RULES["royal-guard"].requiredScore) {
       setFailed(true);
+      onFail();
       return;
     }
     setSaving(true);
@@ -484,58 +559,117 @@ function RoyalGuard({ disabled, onClose, onComplete }: MiniGameProps) {
       .then(setReward)
       .catch(() => setFailed(true))
       .finally(() => setSaving(false));
-  }, [onComplete, targets.length]);
+  }, [onComplete, onFail, targets.length]);
 
   const resolveTarget = useCallback((hit: boolean) => {
-    if (locked || saving || !target) return;
+    if (locked || saving || !target || phase !== "play") return;
     setLocked(true);
     const correct = target.threat ? hit : !hit;
+    // Four different endings, because "wrong" alone taught nobody anything:
+    // the message says exactly what happened to her.
+    setOutcome(target.threat ? (hit ? "blocked" : "reachedHer") : hit ? "struckGift" : "letPass");
     const nextScore = score + (correct ? 1 : 0);
     const nextMistakes = mistakes + (correct ? 0 : 1);
     setScore(nextScore);
     setMistakes(nextMistakes);
     emitSoundEvent(correct ? "button_click" : "task_fail");
     window.setTimeout(() => {
+      setOutcome(null);
       if (index >= targets.length - 1) {
         finish(nextScore, nextMistakes);
       } else {
         setIndex((value) => value + 1);
         setLocked(false);
       }
-    }, 180);
-  }, [finish, index, locked, mistakes, saving, score, target, targets.length]);
+    }, 460);
+  }, [finish, index, locked, mistakes, phase, saving, score, target, targets.length]);
   useEffect(() => {
     resolveRef.current = resolveTarget;
   }, [resolveTarget]);
 
+  // The travel timer IS the wave: when it expires the target has reached her.
   useEffect(() => {
-    if (failed || reward || saving) return;
-    const timer = window.setTimeout(() => resolveRef.current(false), 720);
+    if (phase !== "play" || failed || reward || saving || locked) return;
+    const timer = window.setTimeout(() => resolveRef.current(false), duration);
     return () => window.clearTimeout(timer);
-  }, [failed, index, reward, saving]);
+  }, [duration, failed, index, locked, phase, reward, saving]);
+
+  const outcomeCopy: Record<NonNullable<typeof outcome>, { text: string; tone: "good" | "bad" }> = {
+    blocked: { text: "Cut down before it reached her.", tone: "good" },
+    letPass: { text: "Her gift arrived untouched.", tone: "good" },
+    reachedHer: { text: "It reached her. You were too slow.", tone: "bad" },
+    struckGift: { text: "You destroyed her gift.", tone: "bad" },
+  };
 
   return (
-    <GameStageShell onClose={onClose} title="Royal Guard" subtitle="Strike threats. Never strike her crown, favor or seal.">
+    <GameStageShell onClose={onClose} title="Royal Guard" subtitle="Everything on the carpet is walking toward her.">
       {reward > 0 || failed ? (
         <GameResult failed={failed} onClose={onClose} reward={reward} score={`${score}/${targets.length}`} />
+      ) : phase === "intro" ? (
+        <div className="court-command-pop mx-auto max-w-xl rounded-[1.75rem] border border-pink-200/20 bg-black/40 p-6 text-center">
+          <div className="text-5xl">⚔</div>
+          <h4 className="mt-3 font-serif text-2xl text-[#fff0d2]">You stand between them and her.</h4>
+          <div className="mt-5 grid gap-2 text-left text-sm leading-6 text-zinc-300">
+            <p className="rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-2.5">
+              <span className="mr-2">☠ ⚡ ✖</span> Threats — <span className="font-black text-rose-100">strike them</span> before they reach her.
+            </p>
+            <p className="rounded-2xl border border-[#d7ad69]/25 bg-amber-500/10 px-4 py-2.5">
+              <span className="mr-2">💐 💎 ✉</span> Gifts from her court — <span className="font-black text-[#ffe3a4]">do not touch</span>, let them arrive.
+            </p>
+          </div>
+          <p className="mt-4 text-xs text-zinc-500">18 waves. They walk faster as you go. One attempt today.</p>
+          <button
+            className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-8 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25"
+            onClick={() => setPhase("play")}
+            type="button"
+          >
+            Take your post
+          </button>
+        </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <PrincipessaStageImage mood={mistakes > 0 ? "wrong" : null} />
-          <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
-            <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60"><span>Wave {index + 1}/{targets.length}</span><span>{score} guarded</span></div>
-            <div className="relative mt-4 flex min-h-64 items-center justify-center overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_center,rgba(190,24,93,.22),rgba(0,0,0,.75))]">
-              <div className="court-guard-sweep absolute inset-y-0 w-20 bg-gradient-to-r from-transparent via-pink-300/10 to-transparent" />
-              <button
-                className={`court-guard-target relative flex h-36 w-36 flex-col items-center justify-center rounded-full border-2 ${target.threat ? "border-rose-300/55 bg-rose-950/70 text-rose-100" : "border-[#d7ad69]/55 bg-amber-950/50 text-[#ffe3a4]"}`}
-                disabled={disabled || locked || saving}
-                key={index}
-                onClick={() => resolveTarget(true)}
-                type="button"
-              >
-                <span className="text-6xl">{target.glyph}</span><span className="mt-2 text-[10px] font-black uppercase tracking-[.18em]">{target.label}</span>
-              </button>
+          <PrincipessaStageImage mood={outcome ? (outcomeCopy[outcome].tone === "good" ? "correct" : "wrong") : null} />
+          <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
+            <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60">
+              <span>Wave {index + 1}/{targets.length}</span><span>{score} guarded · {mistakes} failed</span>
             </div>
-            <p className="mt-3 text-center text-xs text-zinc-500">Threats must be clicked before they pass. Royal symbols must pass untouched.</p>
+            {/* Her end of the carpet is on the LEFT, beside her portrait, and
+                every target walks toward it. The travel is the timer. */}
+            <div className="relative mt-4 h-44 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(90deg,rgba(190,24,93,.28),rgba(0,0,0,.75)_38%)]">
+              <style>{`
+                @keyframes vm-guard-approach {
+                  from { left: calc(100% - 7.5rem); }
+                  to   { left: 0.75rem; }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .vm-guard-walker { animation-duration: 0.001ms !important; }
+                }
+              `}</style>
+              <div className="absolute inset-y-0 left-0 flex w-16 flex-col items-center justify-center border-r border-pink-200/20 bg-pink-950/40">
+                <span className="text-3xl">♛</span>
+                <span className="mt-1 text-[8px] font-black uppercase tracking-[.16em] text-pink-100/70">Her</span>
+              </div>
+              {outcome ? (
+                <p className={`absolute inset-x-16 top-1/2 -translate-y-1/2 text-center text-sm font-black ${outcomeCopy[outcome].tone === "good" ? "text-emerald-200" : "text-rose-200"}`}>
+                  {outcomeCopy[outcome].text}
+                </p>
+              ) : (
+                <button
+                  className={`vm-guard-walker absolute top-1/2 flex h-28 w-28 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 ${target.threat ? "border-rose-300/60 bg-rose-950/80 text-rose-100" : "border-[#d7ad69]/60 bg-amber-950/60 text-[#ffe3a4]"}`}
+                  disabled={disabled || locked || saving}
+                  key={index}
+                  onClick={() => resolveTarget(true)}
+                  style={{ animation: `vm-guard-approach ${duration}ms linear forwards` }}
+                  type="button"
+                >
+                  <span className="text-5xl">{target.glyph}</span>
+                  <span className="mt-1 text-[9px] font-black uppercase tracking-[.14em]">{target.label}</span>
+                </button>
+              )}
+            </div>
+            <p className="mt-3 text-center text-xs text-zinc-500">
+              Strike <span className="text-rose-200">☠ ⚡ ✖</span> — let <span className="text-[#ffe3a4]">💐 💎 ✉</span> reach her.
+            </p>
           </div>
         </div>
       )}
@@ -574,7 +708,7 @@ function GameResult({ failed, onClose, reward, score }: { failed: boolean; onClo
       <div className="text-5xl">{failed ? "✕" : "♛"}</div>
       <h4 className="mt-3 font-serif text-3xl text-white">{failed ? "Principessa is not impressed" : "Principessa approves"}</h4>
       <p className="mt-2 text-sm text-zinc-300">Score: {score}</p>
-      <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward. Try the game again." : `+${reward} Principessa Coins`}</p>
+      <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward. The court reopens tomorrow." : `+${reward} Principessa Coins`}</p>
       <button className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-6 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25" onClick={onClose} type="button">Back to Games</button>
     </div>
   );

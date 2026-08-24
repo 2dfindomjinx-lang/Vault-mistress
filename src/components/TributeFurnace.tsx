@@ -24,8 +24,10 @@ import {
 
 type BurnPhase = "idle" | "burning" | "ash" | "crumbling";
 
-const BURN_MS = 1400;
-const ASH_HOLD_MS = 900;
+// Slow on purpose: burning real money deserves a long exhale, not a progress
+// blip. The fuel number drains digit by digit across the burn.
+const BURN_MS = 3400;
+const ASH_HOLD_MS = 1100;
 const CRUMBLE_MS = 900;
 
 function Slot({
@@ -66,6 +68,8 @@ export function TributeFurnace({
 }) {
   const [amount, setAmount] = useState("");
   const [phase, setPhase] = useState<BurnPhase>("idle");
+  const [burningAmount, setBurningAmount] = useState<number | null>(null);
+  const [burnProgress, setBurnProgress] = useState(0);
   const [pendingConfirm, setPendingConfirm] = useState(false);
   const [leaders, setLeaders] = useState<FurnaceLeaderboardEntry[]>([]);
   const [shareError, setShareError] = useState("");
@@ -114,6 +118,8 @@ export function TributeFurnace({
     if (!isValid || isBurning || disabled) return;
     setPendingConfirm(false);
     setPhase("burning");
+    setBurningAmount(parsed);
+    setBurnProgress(0);
 
     // The bar starts filling on the click and the request runs underneath it,
     // so a fast server costs BURN_MS rather than BURN_MS plus a round trip.
@@ -130,10 +136,24 @@ export function TributeFurnace({
     void loadLeaders();
 
     const remaining = Math.max(0, BURN_MS - (Date.now() - startedAt));
+    // Drain the fuel number over the rest of the burn.
+    const drainStart = Date.now();
+    const drain = window.setInterval(() => {
+      setBurnProgress(Math.min(1, (Date.now() - drainStart) / Math.max(1, remaining)));
+    }, 90);
+    timers.current.push(drain as unknown as number);
     timers.current.push(
-      window.setTimeout(() => setPhase("ash"), remaining),
+      window.setTimeout(() => {
+        window.clearInterval(drain);
+        setBurnProgress(1);
+        setPhase("ash");
+      }, remaining),
       window.setTimeout(() => setPhase("crumbling"), remaining + ASH_HOLD_MS),
-      window.setTimeout(() => setPhase("idle"), remaining + ASH_HOLD_MS + CRUMBLE_MS),
+      window.setTimeout(() => {
+        setPhase("idle");
+        setBurningAmount(null);
+        setBurnProgress(0);
+      }, remaining + ASH_HOLD_MS + CRUMBLE_MS),
     );
   };
 
@@ -175,7 +195,11 @@ export function TributeFurnace({
 
       <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6">
         <Slot label="Fuel">
-          {isValid && phase === "idle" ? (
+          {phase === "burning" && burningAmount !== null ? (
+            <span className="font-serif text-xl tabular-nums text-[#ffb46a]">
+              {Math.max(0, Math.ceil(burningAmount * (1 - burnProgress)))}
+            </span>
+          ) : isValid && phase === "idle" ? (
             <span className="font-serif text-xl tabular-nums text-[#ffe2ad]">{parsed}</span>
           ) : (
             <span className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-700">Empty</span>

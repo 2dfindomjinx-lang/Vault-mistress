@@ -3,6 +3,7 @@ import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   generateNumberPickOptions,
   getActiveEventMultipliers,
+  NUMBER_PICK_OPTION_COUNT,
   getDailyResetCooldownUntil,
   getMetadataNumber,
   getMetadataNumberArray,
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
 
   const storedOptions = validateNumberPickOptions(metadata.options);
   const submittedOptions = validateNumberPickOptions(body?.options);
-  const options = storedOptions && storedOptions.length === 5
+  const options = storedOptions && storedOptions.length === NUMBER_PICK_OPTION_COUNT
     ? storedOptions
     : submittedOptions ?? generateNumberPickOptions();
 

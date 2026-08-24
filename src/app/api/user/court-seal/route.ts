@@ -1,4 +1,4 @@
-import { createCourtSealToken } from "@/lib/court-seal";
+import { createCourtSealToken, storeSealSlug } from "@/lib/court-seal";
 import { COURT_SEAL_BOARDS, getCourtSealShareText, type CourtSealBoard, type CourtSealPayload } from "@/lib/court-seal-shared";
 import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 import { formatHandle } from "@/lib/username";
@@ -158,9 +158,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const token = createCourtSealToken(payload);
+    // Short slug first - /s/a3k9x2mf shares cleanly. The signed token is the
+    // fallback for the window before the court_seals migration has run.
+    const slug = await storeSealSlug(payload, data.user.id);
+    const path = slug ? `/s/${slug}` : `/s/${createCourtSealToken(payload)}`;
     return Response.json(
-      { board, shareText: getCourtSealShareText(payload), url: `/s/${token}` },
+      { board, shareText: getCourtSealShareText(payload), url: path },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (sealError) {

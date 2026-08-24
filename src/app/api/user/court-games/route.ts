@@ -9,10 +9,11 @@ import {
   isSupabaseAdminConfigured,
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getDailyGmt3CooldownUntil } from "@/lib/time";
 
 type GameActionBody = {
-  action?: "complete" | "start";
+  action?: "complete" | "fail" | "start";
   gameId?: string;
   metrics?: CourtGameMetrics;
   sessionId?: string;
@@ -118,13 +119,18 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as GameActionBody | null;
-  if (!body || !isCourtGameId(body.gameId) || (body.action !== "start" && body.action !== "complete")) {
+  if (!body || !isCourtGameId(body.gameId) || !["complete", "fail", "start"].includes(body.action ?? "")) {
     return jsonError("Invalid court game action.");
   }
 
   const gameId = body.gameId;
   const rules = COURT_GAME_RULES[gameId];
   const supabase = createSupabaseAdminClient();
+
+  // The reward side is gated by the daily cooldown, but bare "start" calls
+  // used to write an upsert with no limit at all.
+  const rateLimit = await checkRateLimit(supabase, `court-games:${user.id}`, 30, 60);
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   const { data: taskData, error: taskReadError } = await supabase
     .from("user_tasks")
     .select("task_id, completed_at, claimed_at, reward_coins, metadata")
@@ -150,6 +156,18 @@ export async function POST(request: Request) {
       previousSessionId &&
       previousStartedMs > 0 &&
       Date.now() - previousStartedMs < ACTIVE_SESSION_MAX_AGE_MS;
+
+    // ONE ATTEMPT PER DAY, and abandoning is not a loophole. A session started
+    // earlier today that can no longer be resumed is a consumed attempt -
+    // otherwise "close the tab before the last round" turns every game into
+    // retry-until-perfect, which is exactly what the daily design forbids.
+    const sessionStartedToday = getDailyGmt3CooldownUntil(previousStartedAt);
+    if (!hasReusableSession && sessionStartedToday) {
+      return Response.json(
+        { cooldownUntil: sessionStartedToday, error: "You had your attempt today. Return tomorrow." },
+        { status: 429 },
+      );
+    }
 
     const sessionId = hasReusableSession ? previousSessionId : randomUUID();
     const sessionStartedAt = hasReusableSession ? previousStartedAt : new Date().toISOString();
@@ -177,6 +195,29 @@ export async function POST(request: Request) {
     }
 
     return Response.json({ gameId, sessionId, sessionStartedAt });
+  }
+
+  // A reported failure consumes the day. The honest client calls this the
+  // moment a run dies; the same-day session block above backstops anyone who
+  // simply refuses to report.
+  if (body.action === "fail") {
+    const failSessionId = metadataString(existingTask?.metadata, "sessionId");
+    if (!failSessionId || !body.sessionId || failSessionId !== body.sessionId) {
+      return jsonError("Game session is missing or expired.", 409);
+    }
+    const now = new Date().toISOString();
+    const { error: failError } = await supabase
+      .from("user_tasks")
+      .update({
+        claimed_at: now,
+        completed_at: null,
+        metadata: { ...(existingTask?.metadata ?? {}), failedAt: now, status: "failed" },
+        reward_coins: 0,
+      })
+      .eq("user_id", user.id)
+      .eq("task_id", gameId);
+    if (failError) return jsonError(failError.message, 500);
+    return Response.json({ cooldownUntil: getDailyGmt3CooldownUntil(now), failed: true, gameId });
   }
 
   const metricsError = validateMetrics(gameId, body.metrics);

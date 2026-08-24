@@ -12,6 +12,7 @@ export type DashboardPage =
   | "shop"
   | "collection"
   | "tribute"
+  | "wheels"
   | "moneyShop"
   | "profile";
 
@@ -21,6 +22,7 @@ export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
   home: "/",
   tribute: "/tribute",
   tasks: "/games",
+  wheels: "/wheels",
   pet: "/pet",
   debt: "/debt",
   devotion: "/devotion",
@@ -78,16 +80,17 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   runway: { code: "II", glyph: "▲" },
   tribute: { code: "III", glyph: "♛" },
   tasks: { code: "IV", glyph: "♠" },
-  pet: { code: "V", glyph: "♙" },
-  moneyShop: { code: "VI", glyph: "❖" },
-  shop: { code: "VII", glyph: "✦" },
-  crates: { code: "VIII", glyph: "▣" },
-  debt: { code: "IX", glyph: "§" },
-  collection: { code: "X", glyph: "◈" },
-  profile: { code: "XI", glyph: "◐" },
+  wheels: { code: "V", glyph: "◎" },
+  pet: { code: "VI", glyph: "♙" },
+  moneyShop: { code: "VII", glyph: "❖" },
+  shop: { code: "VIII", glyph: "✦" },
+  crates: { code: "IX", glyph: "▣" },
+  debt: { code: "X", glyph: "§" },
+  collection: { code: "XI", glyph: "◈" },
+  profile: { code: "XII", glyph: "◐" },
   // Not rendered as its own row today; kept so the Record stays exhaustive and
   // /devotion keeps resolving.
-  devotion: { code: "XII", glyph: "◇" },
+  devotion: { code: "XIII", glyph: "◇" },
 };
 
 export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney, onSelect }: SidebarNavProps) {

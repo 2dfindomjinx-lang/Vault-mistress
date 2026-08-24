@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-// The login screen's proof of life: a slow vertical loop of real events from
-// the last month. Every row is genuine - the feed would rather run short than
-// invent a name, because one spotted fake costs more than an empty list.
+// The login screen's proof of life: real entries from the last month, shown
+// as a dated ledger. Every row is genuine - the feed would rather run short
+// than invent a name, because one spotted fake costs more than an empty list.
 //
-// No timestamps on purpose. "2 minutes ago" reads as alive but "6 days ago"
-// reads as dead, so the rows simply exist and the loop supplies the motion.
+// It USED to be an undated auto-scrolling marquee, and that presentation made
+// true data read as fabricated: motion with no dates is exactly how fake
+// tickers look. A still list with real ages reads like a record.
 
 type PublicActivityEvent = {
   kind: "tribute" | "crate" | "burn" | "join";
@@ -25,10 +26,21 @@ const KIND_STYLE: Record<PublicActivityEvent["kind"], { dot: string; accent: str
   tribute: { accent: "text-[#ffe2ad]", dot: "bg-[#e6ba73]" },
 };
 
-function FeedRow({ event, hidden = false }: { event: PublicActivityEvent; hidden?: boolean }) {
+// Coarse on purpose: "2h" is believable, "2m 41s" is trying too hard.
+function relativeAge(at: string, now: number) {
+  const ms = now - new Date(at).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "now";
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function FeedRow({ event, now }: { event: PublicActivityEvent; now: number }) {
   const style = KIND_STYLE[event.kind];
   return (
-    <li aria-hidden={hidden || undefined} className="flex items-center gap-2.5 py-1.5">
+    <li className="flex items-center gap-2.5 border-b border-white/[0.05] py-2 last:border-b-0">
       <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}`} />
       <span className="min-w-0 flex-1 truncate text-xs text-zinc-400">{event.text}</span>
       {event.accent ? (
@@ -36,12 +48,17 @@ function FeedRow({ event, hidden = false }: { event: PublicActivityEvent; hidden
           {event.accent}
         </span>
       ) : null}
+      <span className="w-8 shrink-0 text-right text-[10px] tabular-nums text-zinc-600">
+        {relativeAge(event.at, now)}
+      </span>
     </li>
   );
 }
 
 export function CourtActivityFeed({ className = "" }: { className?: string }) {
   const [events, setEvents] = useState<PublicActivityEvent[]>([]);
+  // Frozen at mount: the ages are day-grained social proof, not a clock.
+  const [now] = useState(() => Date.now());
   const [stats, setStats] = useState<PublicActivityStats | null>(null);
 
   useEffect(() => {
@@ -66,55 +83,17 @@ export function CourtActivityFeed({ className = "" }: { className?: string }) {
 
   if (events.length === 0) return null;
 
-  // Below this the loop would visibly repeat every few seconds, which reads as
-  // a trick. A short list is shown standing still instead.
-  const loops = events.length >= 6;
-  // Slow enough to read, scaled so a longer list does not scroll faster.
-  const durationSeconds = events.length * 2.4;
-
   return (
     <div className={className}>
-      <style>{`
-        @keyframes vm-court-feed-scroll {
-          from { transform: translateY(0); }
-          to   { transform: translateY(-50%); }
-        }
-        .vm-court-feed:hover .vm-court-feed-track { animation-play-state: paused; }
-        @media (prefers-reduced-motion: reduce) {
-          .vm-court-feed-track { animation: none !important; }
-        }
-      `}</style>
-
       <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/60">
-        The court, this month
+        From her ledger — last 30 days
       </p>
 
-      <div
-        className="vm-court-feed relative mt-3 h-44 overflow-hidden"
-        style={{
-          maskImage: "linear-gradient(180deg, transparent, black 14%, black 86%, transparent)",
-          WebkitMaskImage: "linear-gradient(180deg, transparent, black 14%, black 86%, transparent)",
-        }}
-      >
-        <ul
-          className="vm-court-feed-track"
-          style={
-            loops
-              ? { animation: `vm-court-feed-scroll ${durationSeconds}s linear infinite` }
-              : undefined
-          }
-        >
-          {events.map((event, index) => (
-            <FeedRow event={event} key={`a-${index}`} />
-          ))}
-          {/* Second copy makes the -50% translate land exactly on frame one,
-              so the loop has no visible seam. aria-hidden per row - it is the
-              same list twice, and li must stay a direct child of ul. */}
-          {loops
-            ? events.map((event, index) => <FeedRow event={event} hidden key={`b-${index}`} />)
-            : null}
-        </ul>
-      </div>
+      <ul className="mt-3">
+        {events.slice(0, 8).map((event, index) => (
+          <FeedRow event={event} key={index} now={now} />
+        ))}
+      </ul>
 
       {stats ? (
         <div className="mt-4 flex gap-2">

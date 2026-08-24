@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { verifyCourtSealToken } from "@/lib/court-seal";
+import { resolveSealPayload } from "@/lib/court-seal";
 import {
   COURT_SEAL_BOARD_COPY,
   getCourtSealMetric,
@@ -11,7 +11,7 @@ import { notFound } from "next/navigation";
 type CourtSealPageProps = { params: Promise<{ token: string }> };
 
 export async function generateMetadata({ params }: CourtSealPageProps): Promise<Metadata> {
-  const payload = verifyCourtSealToken((await params).token);
+  const payload = await resolveSealPayload((await params).token);
   if (!payload) return { robots: { follow: false, index: false }, title: "Invalid Court Seal" };
   const copy = COURT_SEAL_BOARD_COPY[payload.board];
   const description = `${getCourtSealMetric(payload)} · ${getCourtSealSecondary(payload)}`;
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: CourtSealPageProps): Promise<
 
 export default async function CourtSealPage({ params }: CourtSealPageProps) {
   const { token } = await params;
-  const payload = verifyCourtSealToken(token);
+  const payload = await resolveSealPayload(token);
   if (!payload) notFound();
 
   const copy = COURT_SEAL_BOARD_COPY[payload.board];

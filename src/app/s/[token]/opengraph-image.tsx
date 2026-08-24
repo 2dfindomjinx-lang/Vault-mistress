@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
-import { verifyCourtSealToken } from "@/lib/court-seal";
+import { resolveSealPayload } from "@/lib/court-seal";
 import {
   COURT_SEAL_BOARD_COPY,
   getCourtSealMetric,
@@ -15,7 +15,7 @@ export const size = { height: 630, width: 1200 };
 export const contentType = "image/png";
 
 export default async function OpenGraphImage({ params }: { params: Promise<{ token: string }> }) {
-  const payload = verifyCourtSealToken((await params).token);
+  const payload = await resolveSealPayload((await params).token);
   if (!payload) return new Response("Not found", { status: 404 });
 
   const copy = COURT_SEAL_BOARD_COPY[payload.board];

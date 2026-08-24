@@ -79,9 +79,77 @@ export async function POST(request: Request) {
   // birthday cake counts an event whose attribution_code starts with CK-
   // and ignores every other payment, so lighting a candle is now opt-in.
   // See supabase/birthday-candles-open.sql.
-  const code = message.match(/\b(?:VM|PT|CK)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
+  const code = message.match(/\b(?:VM|PT|CK|WL)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
   const isPetBonusCode = Boolean(code?.startsWith("PT-"));
   const isCandleCode = Boolean(code?.startsWith("CK-"));
+  const isWheelCode = Boolean(code?.startsWith("WL-"));
+
+  // WL- is a wheel debt payment, and it deliberately does NOT flow into
+  // credit_throne_tribute: paying a wheel order must not hand the debtor the
+  // same dollars back as Principessa Money. The RPC accumulates the payment
+  // against the spin (partials reduce the debt), counts the real dollars in
+  // tribute_total and devotion, and nothing else.
+  if (isWheelCode && code) {
+    const { data: wheelResult, error: wheelError } = await supabase.rpc("apply_wheel_throne_payment", {
+      p_amount_usd: amount,
+      p_event_id: eventId,
+      p_pay_code: code,
+    });
+
+    const wheel = (wheelResult ?? {}) as {
+      error?: string;
+      remaining?: number;
+      status?: string;
+      userId?: string;
+    };
+
+    if (wheelError || wheel.error) {
+      // Unknown or waived code: keep the payment visible to the admin instead
+      // of silently dropping real money - same path as an unmatched tribute.
+      console.error("Wheel payment could not be applied", { code, eventId, wheel, wheelError });
+      const { error: claimError } = await supabase
+        .from("tribute_claims")
+        .upsert({ event_id: eventId, amount, message }, { ignoreDuplicates: true, onConflict: "event_id" });
+      if (claimError) {
+        return Response.json({ error: "Could not queue unmatched wheel payment." }, { status: 500 });
+      }
+      await supabase
+        .from("throne_webhook_events")
+        .update({ status: "unmatched", processed_at: new Date().toISOString() })
+        .eq("event_id", eventId);
+      return Response.json({ manualActionRequired: true, matched: false, ok: true });
+    }
+
+    await supabase
+      .from("throne_webhook_events")
+      .update({
+        attribution_code: code,
+        processed_at: new Date().toISOString(),
+        status: "credited",
+        user_id: wheel.userId ?? null,
+      })
+      .eq("event_id", eventId);
+
+    if (wheel.userId) {
+      try {
+        await createUserNotification(supabase, {
+          body:
+            wheel.status === "paid"
+              ? "Your wheel debt is settled. She noticed."
+              : `Payment received. $${(wheel.remaining ?? 0).toLocaleString()} of your wheel debt remains.`,
+          kind: "wheel_payment_received",
+          metadata: { code, eventId, remaining: wheel.remaining ?? 0, status: wheel.status },
+          title: wheel.status === "paid" ? "Wheel debt paid" : "Wheel debt reduced",
+          userId: wheel.userId,
+        });
+      } catch (notificationError) {
+        console.error("Wheel payment notification failed", notificationError);
+      }
+    }
+
+    return Response.json({ ok: true, wheel: { remaining: wheel.remaining ?? 0, status: wheel.status } });
+  }
+
   const codeColumn = isPetBonusCode ? "pet_tribute_code" : isCandleCode ? "candle_code" : "tribute_code";
   const profile = code
     ? (await supabase

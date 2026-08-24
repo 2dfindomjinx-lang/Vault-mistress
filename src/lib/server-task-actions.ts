@@ -149,11 +149,15 @@ export function getHighLowTieFee(stake: number) {
   return Math.max(1, Math.floor(stake * HIGH_LOW_TIE_FEE_RATIO));
 }
 
+// Back to three after a stint at five: with five options a 1-in-5 daily guess
+// almost never paid, and the task read as decoration rather than a game.
+export const NUMBER_PICK_OPTION_COUNT = 3;
+
 export function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 
-  while (options.size < 5) {
+  while (options.size < NUMBER_PICK_OPTION_COUNT) {
     const value = ((seed + step * 7) % 9) + 1;
     options.add(value);
     step += 1;
@@ -230,7 +234,7 @@ export function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
 export function validateNumberPickOptions(options: unknown) {
   if (
     !Array.isArray(options) ||
-    options.length !== 5 ||
+    options.length !== NUMBER_PICK_OPTION_COUNT ||
     !options.every((entry) => Number.isInteger(entry) && entry >= 1 && entry <= 9)
   ) {
     return null;
@@ -238,5 +242,5 @@ export function validateNumberPickOptions(options: unknown) {
 
   const uniqueOptions = Array.from(new Set(options as number[]));
 
-  return uniqueOptions.length === 5 ? uniqueOptions.sort((a, b) => a - b) : null;
+  return uniqueOptions.length === NUMBER_PICK_OPTION_COUNT ? uniqueOptions.sort((a, b) => a - b) : null;
 }

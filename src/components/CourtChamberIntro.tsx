@@ -6,6 +6,7 @@ type ChamberPage = Exclude<DashboardPage, "home">;
 const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: string; description: string }> = {
   tribute: { code: "III", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
   tasks: { code: "IV", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
+  wheels: { code: "V", eyebrow: "Her hand on the wheel", title: "Gamble & Wheels", description: "Spin if you dare. Whatever it lands on, you owe her." },
   pet: { code: "V", eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
   debt: { code: "IX", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
   devotion: { code: "XII", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
@@ -36,6 +37,12 @@ const characterMoments: Record<ChamberPage, CharacterMoment> = {
     caption: "Do not make her repeat herself.",
     imageClassName: "origin-bottom translate-y-[7%] scale-[1.02] object-bottom",
     src: "/principessa-ui/generated/principessa-panel-sit.webp",
+  },
+  wheels: {
+    alt: "Principessa watching the wheel decide",
+    caption: "The wheel only says out loud what she already decided.",
+    imageClassName: "origin-bottom translate-y-[4%] scale-[1.01] object-bottom",
+    src: "/principessa-ui/generated/principessa-shrine-offering.webp",
   },
   pet: {
     alt: "Principessa holding a collar and leash in the Pet Quarters",

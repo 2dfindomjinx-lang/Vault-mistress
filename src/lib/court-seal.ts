@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { COURT_SEAL_BOARDS, type CourtSealPayload } from "@/lib/court-seal-shared";
 
 export type { CourtSealBoard, CourtSealPayload } from "@/lib/court-seal-shared";
@@ -54,3 +55,39 @@ export function verifyCourtSealToken(token: string): CourtSealPayload | null {
   }
 }
 
+// ---------------------------------------------------------------- short slugs
+// A seal link used to carry its whole signed payload in the path, which read
+// as line noise on X. New seals are stored rows behind an 8-char slug; the
+// signed-token form stays verifiable so old links never die.
+
+const SLUG_PATTERN = /^[a-z0-9]{8}$/;
+
+export function generateSealSlug() {
+  return randomBytes(6).toString("base64url").toLowerCase().replace(/[^a-z0-9]/g, "").padEnd(8, "0").slice(0, 8);
+}
+
+export async function storeSealSlug(payload: CourtSealPayload, userId: string | null): Promise<string | null> {
+  if (!isSupabaseAdminConfigured) return null;
+  const supabase = createSupabaseAdminClient();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const slug = generateSealSlug();
+    const { error } = await supabase.from("court_seals").insert({ payload, slug, user_id: userId });
+    if (!error) return slug;
+    // 23505 = slug collision, retry; anything else (e.g. table not migrated
+    // yet) falls back to the signed-token URL so minting never breaks.
+    if (error.code !== "23505") return null;
+  }
+  return null;
+}
+
+export async function resolveSealPayload(tokenOrSlug: string): Promise<CourtSealPayload | null> {
+  if (SLUG_PATTERN.test(tokenOrSlug)) {
+    if (!isSupabaseAdminConfigured) return null;
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase.from("court_seals").select("payload").eq("slug", tokenOrSlug).maybeSingle();
+    const payload = (data?.payload ?? null) as CourtSealPayload | null;
+    if (!payload || !COURT_SEAL_BOARDS.includes(payload.board)) return null;
+    return payload;
+  }
+  return verifyCourtSealToken(tokenOrSlug);
+}

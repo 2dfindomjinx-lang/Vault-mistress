@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+import { WheelSpinsPanel } from "@/components/admin/WheelSpinsPanel";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { GMT3_OFFSET_MS } from "@/lib/time";
@@ -289,6 +290,7 @@ type ThroneEventRow = {
 
 type AdminTabKey =
   | "announcements"
+  | "wheelSpins"
   | "console"
   | "debt"
   | "events"
@@ -1730,6 +1732,14 @@ export default function AdminPage() {
       tone: "from-amber-500/16 via-orange-500/10 to-transparent border-amber-300/18",
     },
     {
+      key: "wheelSpins",
+      label: "Wheels",
+      eyebrow: "Spin ledger",
+      description: "Who spun what, and whether she has been paid.",
+      countLabel: "•",
+      tone: "from-pink-500/16 via-rose-500/10 to-transparent border-pink-300/18",
+    },
+    {
       key: "irlTasks",
       label: "IRL Tasks",
       eyebrow: "Manual review",
@@ -2203,6 +2213,7 @@ export default function AdminPage() {
             </div>
           )}
 
+          {activeTab === "wheelSpins" && <WheelSpinsPanel />}
           {activeTab === "irlTasks" && (
             <div className="mt-4 rounded-[1.5rem] border border-pink-200/20 bg-[#050208] p-4 shadow-[inset_0_0_24px_rgba(236,72,153,0.08)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

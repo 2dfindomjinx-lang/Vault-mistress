@@ -14,6 +14,7 @@ import {
 } from "@/lib/address-term";
 import { AppShell } from "@/components/AppShell";
 import { BirthdayCourtBanner } from "@/components/BirthdayCourtBanner";
+import { DuelCallBanner } from "@/components/DuelCallBanner";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CourtChamberIntro } from "@/components/CourtChamberIntro";
 import { CourtHomeStage } from "@/components/CourtHomeStage";
@@ -49,6 +50,9 @@ function VaultPanelLoading() {
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
 const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
+const FindomWheels = dynamic(() => import("@/components/FindomWheels").then((module) => module.FindomWheels), { loading: VaultPanelLoading });
+const TributeDuels = dynamic(() => import("@/components/TributeDuels").then((module) => module.TributeDuels), { loading: VaultPanelLoading });
+const GambleHall = dynamic(() => import("@/components/GambleHall").then((module) => module.GambleHall), { loading: VaultPanelLoading });
 const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection), { loading: VaultPanelLoading });
 const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard), { loading: VaultPanelLoading });
 const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid), { loading: VaultPanelLoading });
@@ -198,6 +202,7 @@ import {
   HIGH_LOW_BET_ALLOWANCE,
   HIGH_LOW_PROFIT_LIMIT,
   HIGH_LOW_REPLAY_COOLDOWN_MS,
+  NUMBER_PICK_OPTION_COUNT,
   getHighLowBetAllowance,
   getHighLowTieFee,
   isHighLowLocked,
@@ -1390,7 +1395,7 @@ function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 
-  while (options.size < 5) {
+  while (options.size < NUMBER_PICK_OPTION_COUNT) {
     const value = ((seed + step * 7) % 9) + 1;
     options.add(value);
     step += 1;
@@ -1517,7 +1522,7 @@ function buildTasksFromRows(
 	  const metadata = cooldownUntil ? row?.metadata : {};
 
       const storedOptions = getTaskMetadataNumberArray(metadata, "options");
-      const options = storedOptions?.length === 5 ? storedOptions : generateNumberPickOptions();
+      const options = storedOptions?.length === NUMBER_PICK_OPTION_COUNT ? storedOptions : generateNumberPickOptions();
 	  const selected = getTaskMetadataNumber(metadata, "selected", Number.NaN);
 	  const correct = getTaskMetadataNumber(metadata, "correct", Number.NaN);
 	  const attemptsRemaining = getTaskMetadataNumber(metadata, "attemptsRemaining", 1);
@@ -1759,7 +1764,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
 
   useEffect(() => {
     if (!authBootstrapped || (!isLoggedIn && !isPreviewMode && !isGuestMode)) return;
-    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "crates", "runway", "collection", "profile", "pet", "debt"];
+    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "wheels", "crates", "runway", "collection", "profile", "pet", "debt"];
     let cancelled = false;
     let idleId: number | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -6709,7 +6714,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const options =
-      task.numberPickOptions && task.numberPickOptions.length === 5
+      task.numberPickOptions && task.numberPickOptions.length === NUMBER_PICK_OPTION_COUNT
         ? task.numberPickOptions
         : generateNumberPickOptions();
 
@@ -7030,13 +7035,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     );
   }, []);
 
-  const handleTimeoutRisk = async (multiplier: number) => {
+  // Returns how the flip landed so the coin animation in TaskList can land
+  // on the matching face. Null means the flip never happened (blocked, limit
+  // reached, or the request failed) and the coin resets without a verdict.
+  const handleTimeoutRisk = async (multiplier: number): Promise<"safe" | "timeout" | null> => {
     if (blockIfTimedOut()) {
-      return;
+      return null;
     }
 
-    if (!authUserId || !Number.isInteger(multiplier) || multiplier < 1 || multiplier > 2) {
-      return;
+    // Guest mode has its own full simulation below, but this guard used to
+    // demand a real user id first - so in preview the button silently did
+    // nothing and the simulation was unreachable.
+    if ((!authUserId && !isGuestMode) || !Number.isInteger(multiplier) || multiplier < 1 || multiplier > 2) {
+      return null;
     }
 
     const nowMs = Date.now();
@@ -7045,13 +7056,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       : null;
     if (timeoutRiskProjectedDays > MAX_TIMEOUT_DAYS) {
       setAvatarMistressReply("Maximum timeout reached. The risk table refuses you.");
-      return;
+      return null;
     }
 
     const actionId = "timeout-risk";
 
     if (!beginTaskAction(actionId)) {
-      return;
+      return null;
     }
 
     try {
@@ -7063,7 +7074,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         if (currentSafeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
           setAvatarMistressReply("You already survived twice today. The risk table is closed.");
-          return;
+          return null;
         }
 
         if (hitTimeout) {
@@ -7092,7 +7103,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           );
           setAvatarMistressReply(`Bad roll. ${timeoutMs / (60 * 60 * 1000)} hours of timeout have been added.`);
           emitSoundEvent("task_fail");
-          return;
+          return "timeout";
         }
 
         const nextSafeWins = currentSafeWins + 1;
@@ -7116,7 +7127,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         );
         setAvatarMistressReply(`Safe roll. ${rewardCoins} coins added.`);
         emitSoundEvent("task_completion");
-        return;
+        return "safe";
       }
 
       const response = await fetch("/api/user/task-actions/timeout-risk", {
@@ -7172,7 +7183,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           getTaskMetadataString(payload.task.metadata, "lastResult") ?? "Bad roll. Timeout has been added.",
         );
         emitSoundEvent("task_fail");
-        return;
+        return "timeout";
       }
 
       setTasks((current) =>
@@ -7194,6 +7205,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       );
       setAvatarMistressReply(`Safe roll. ${payload.rewardCoins ?? eventSafeReward * nextMultiplier} coins added.`);
       emitSoundEvent("task_completion");
+      return "safe";
     } catch (error) {
       console.error("Failed to complete timeout-risk task", error);
       emitSoundEvent("error");
@@ -7202,6 +7214,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       void resyncAuthenticatedProfile("Failed timeout-risk").catch((resyncError) => {
         console.error("[profile-resync] failed after timeout-risk error", resyncError);
       });
+      return null;
     } finally {
       finishTaskAction(actionId);
     }
@@ -11035,6 +11048,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "runway" as const, label: "Runway" },
     { key: "tribute" as const, label: "Shrine of Principessa" },
     { key: "tasks" as const, label: "Games" },
+    { key: "wheels" as const, label: "Gamble & Wheels" },
     {
       key: "pet" as const,
       label: "Principessa's Pets",
@@ -11693,6 +11707,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         )}
         <TopLevelNav active="main" />
         <BirthdayCourtBanner />
+        <DuelCallBanner />
         <div className="relative isolate">
           {activePanel === "home" ? (
             <CourtHomeStage
@@ -11987,6 +12002,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onItemHover={(itemId) => markShrineMemoriesSeen([itemId])}
               onUnlock={handleUnlock}
             />
+          )}
+          {activePanel === "wheels" && (
+            <div className="grid gap-4">
+              <GambleHall
+                disabled={isTimeoutActive || isPreviewRestricted}
+                onProfile={(profile) => applyProfileStats(profile as Profile)}
+              />
+              <FindomWheels
+                disabled={isTimeoutActive || isPreviewRestricted}
+                onProfile={(profile) => applyProfileStats(profile as Profile)}
+              />
+              <TributeDuels
+                disabled={isTimeoutActive || isPreviewRestricted}
+                onProfile={(profile) => applyProfileStats(profile as Profile)}
+              />
+            </div>
           )}
           {activePanel === "tasks" && (
             <div className="mb-4">
