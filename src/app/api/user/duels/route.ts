@@ -8,12 +8,12 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-// Tribute Duels. Coin stake in, a timed window of REAL Throne tributes, blind
-// until the deadline, winner takes the pot. No duel code exists: totals are
+// Tribute Duels. Opening a lobby costs one fixed Coin fee; the duel itself is
+// a timed window of REAL Throne tributes, blind until the deadline. No duel code exists: totals are
 // computed from the events already attributed to each participant, which is
 // why one user can hold only one live duel at a time.
 
-export const DUEL_MIN_STAKE = 2_500;
+export const DUEL_LOBBY_FEE = 2_500;
 const FINALIZE_GRACE_MS = 5 * 60 * 1000;
 
 type DuelRow = {
@@ -102,7 +102,7 @@ export async function GET() {
     isMyChallenge: row.challenger_id === user.id,
     opponent: row.opponent_id ? nameById.get(row.opponent_id) ?? "unknown" : null,
     opponentTotalUsd: row.opponent_total_usd === null ? null : Number(row.opponent_total_usd),
-    stakeCoins: row.stake_coins,
+    lobbyFeeCoins: row.stake_coins,
     status: row.status,
     winner: row.winner_id ? nameById.get(row.winner_id) ?? "unknown" : null,
     wonByMe: row.winner_id === user.id,
@@ -110,7 +110,7 @@ export async function GET() {
 
   return Response.json({
     duels,
-    minStake: DUEL_MIN_STAKE,
+    lobbyFee: DUEL_LOBBY_FEE,
     myLiveDuel: duels.find((duel) => duel.isMine && (duel.status === "open" || duel.status === "active")) ?? null,
   });
 }
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
   if (!user) return jsonError("Authentication required.", 401);
 
   const body = (await request.json().catch(() => null)) as
-    | { action?: "accept" | "cancel" | "create"; duelId?: string; durationHours?: number; stake?: number }
+    | { action?: "accept" | "cancel" | "create"; duelId?: string; durationHours?: number }
     | null;
 
   const supabase = createSupabaseAdminClient();
@@ -136,14 +136,10 @@ export async function POST(request: Request) {
   };
 
   if (body?.action === "create") {
-    const stake = Math.floor(Number(body.stake));
     const duration = Math.floor(Number(body.durationHours ?? 24));
-    if (!Number.isInteger(stake) || stake < DUEL_MIN_STAKE) {
-      return jsonError(`The minimum stake is ${DUEL_MIN_STAKE.toLocaleString()} coins.`);
-    }
     const { data, error } = await supabase.rpc("create_tribute_duel", {
       p_duration_hours: duration,
-      p_stake: stake,
+      p_stake: DUEL_LOBBY_FEE,
       p_user_id: user.id,
     });
     if (error) {
@@ -153,7 +149,7 @@ export async function POST(request: Request) {
     const result = (data ?? {}) as { coins?: number; duelId?: string; error?: string };
     if (result.error === "already_in_duel") return jsonError("You already have a live duel. Finish it first.", 409);
     if (result.error === "insufficient_coins") {
-      return jsonError(`Staking costs ${stake.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
+      return jsonError(`Opening a lobby costs ${DUEL_LOBBY_FEE.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
     }
     if (result.error) return jsonError("The duel could not be created.");
     return respondWithProfile({ created: true, duelId: result.duelId });
@@ -169,16 +165,10 @@ export async function POST(request: Request) {
       console.error("[duels] accept failed", error);
       return jsonError("The duel could not be accepted.", 500);
     }
-    const result = (data ?? {}) as { coins?: number; deadline?: string; error?: string; stake?: number };
+    const result = (data ?? {}) as { deadline?: string; error?: string };
     if (result.error === "already_in_duel") return jsonError("You already have a live duel. Finish it first.", 409);
     if (result.error === "own_duel") return jsonError("You cannot duel yourself.", 409);
     if (result.error === "duel_not_open") return jsonError("Someone else got there first.", 409);
-    if (result.error === "insufficient_coins") {
-      return jsonError(
-        `Matching the stake costs ${(result.stake ?? 0).toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`,
-        402,
-      );
-    }
     if (result.error) return jsonError("The duel could not be accepted.");
     return respondWithProfile({ accepted: true, deadline: result.deadline ?? null });
   }

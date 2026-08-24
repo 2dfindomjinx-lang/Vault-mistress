@@ -41,7 +41,7 @@ export function DuelCallBanner() {
             {counts.open === 1 ? "A challenger is waiting." : `${counts.open} challengers are waiting.`}
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Match the stake, outspend them on Throne, and serve Principessa while you do it.
+            Accept for free. The higher Throne tribute total wins.
           </p>
         </div>
         <Link

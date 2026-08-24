@@ -3,16 +3,19 @@ import { profileSelect } from "@/lib/server-game-rules";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
   crawlWinProbabilities,
+  DICE_PAYOUT_MULTIPLIER,
   diceSum,
   DOUBLE_OR_NOTHING_CHANCE,
   drawCrawlOdds,
+  EUROPEAN_ROULETTE_ORDER,
   isGambleGameId,
   isValidBet,
   MINES_GRID,
   MINES_OPTIONS,
   PLINKO_MULTIPLIERS,
   PLINKO_ROWS,
-  ROULETTE_RINGS,
+  ROULETTE_BETS,
+  rouletteBetWins,
   rollSlotReel,
   sampleCrashPoint,
   slotsPayoutMultiplier,
@@ -107,7 +110,8 @@ export async function POST(request: Request) {
         game?: string;
         lane?: number;
         mines?: number;
-        ring?: string;
+        requestedMultiplier?: number;
+        rouletteBet?: string;
         roundId?: string;
       }
     | null;
@@ -124,7 +128,7 @@ export async function POST(request: Request) {
 
   const finishWithProfile = async (extra: Record<string, unknown>) => {
     const { data: profileData } = await supabase.from("profiles").select(profileSelect).eq("id", user.id).single();
-    return Response.json({ ...extra, profile: profileData ?? null });
+    return Response.json({ ...extra, profile: profileData ?? null, serverNowMs: Date.now() });
   };
 
   const bet = Math.floor(Number(body.bet));
@@ -147,7 +151,7 @@ export async function POST(request: Request) {
     const mine: [number, number] = [randomInt(1, 7), randomInt(1, 7)];
     const hers: [number, number] = [randomInt(1, 7), randomInt(1, 7)];
     const win = diceSum(mine) > diceSum(hers);
-    const payout = win ? bet * 2 : 0;
+    const payout = win ? Math.floor(bet * DICE_PAYOUT_MULTIPLIER) : 0;
 
     const opened = await playRound(supabase, user.id, "dice", bet, { hers, mine, win }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
@@ -157,14 +161,22 @@ export async function POST(request: Request) {
   // --------------------------------------------------------------- roulette
   if (body.action === "roulette") {
     if (!isValidBet(bet)) return jsonError("Bets run 100 to 5,000 coins.");
-    const ring = ROULETTE_RINGS.find((entry) => entry.id === body.ring);
-    if (!ring) return jsonError("Pick a ring.");
-    const win = roll() < ring.winChance;
-    const payout = win ? Math.floor(bet * ring.multiplier) : 0;
+    const rouletteBet = ROULETTE_BETS.find((entry) => entry.id === body.rouletteBet);
+    if (!rouletteBet) return jsonError("Choose a roulette bet.");
+    const number = EUROPEAN_ROULETTE_ORDER[randomInt(0, EUROPEAN_ROULETTE_ORDER.length)];
+    const win = rouletteBetWins(rouletteBet.id, number);
+    const payout = win ? Math.floor(bet * rouletteBet.multiplier) : 0;
 
-    const opened = await playRound(supabase, user.id, "roulette", bet, { ring: ring.id, win }, payout);
+    const opened = await playRound(
+      supabase,
+      user.id,
+      "roulette",
+      bet,
+      { bet: rouletteBet.id, multiplier: rouletteBet.multiplier, number, win },
+      payout,
+    );
     if (opened.error || !opened.roundId) return openError(opened);
-    return finishWithProfile({ payout, ring: ring.id, roundId: opened.roundId, win });
+    return finishWithProfile({ number, payout, rouletteBet: rouletteBet.id, roundId: opened.roundId, win });
   }
 
   // ----------------------------------------------------------------- plinko
@@ -250,7 +262,7 @@ export async function POST(request: Request) {
     if (!isValidBet(bet)) return jsonError("Bets run 100 to 5,000 coins.");
     const mineCount = Math.floor(Number(body.mines));
     if (!MINES_OPTIONS.includes(mineCount as (typeof MINES_OPTIONS)[number])) {
-      return jsonError("Mine count must be 5, 8 or 12.");
+      return jsonError("Mine count must be 7, 10 or 15.");
     }
     const cells = Array.from({ length: MINES_GRID }, (_, index) => index);
     for (let index = cells.length - 1; index > 0; index -= 1) {
@@ -307,18 +319,16 @@ export async function POST(request: Request) {
   if (body.action === "crash-open") {
     if (!isValidBet(bet)) return jsonError("Bets run 100 to 5,000 coins.");
     const crashPoint = sampleCrashPoint(roll());
-    const opened = await openRound(supabase, user.id, "crash", bet, { crashPoint });
+    // Give the response time to reach the browser before the round clock starts.
+    // This prevents network/database latency from consuming an invisible part
+    // of Her Patience before the player can see or control it.
+    const startsAtMs = Date.now() + 2_000;
+    const opened = await openRound(supabase, user.id, "crash", bet, {
+      crashPoint,
+      startsAt: new Date(startsAtMs).toISOString(),
+    });
     if (opened.error || !opened.roundId) return openError(opened);
-    // The crash point stays server-side; the client only learns it when the
-    // round ends, one way or the other. elapsedMs lets the display sync its
-    // clock to the round's real start (the DB row's created_at).
-    const { data: createdRow } = await supabase
-      .from("gamble_rounds")
-      .select("created_at")
-      .eq("id", opened.roundId)
-      .single();
-    const elapsedMs = createdRow ? Math.max(0, Date.now() - new Date(createdRow.created_at).getTime()) : 0;
-    return finishWithProfile({ elapsedMs, roundId: opened.roundId });
+    return finishWithProfile({ roundId: opened.roundId, startsAtMs });
   }
 
   // The client polls this while the round runs. The moment the server clock
@@ -338,8 +348,10 @@ export async function POST(request: Request) {
 
   if (body.action === "crash-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
+    const requestedMultiplier = Number(body.requestedMultiplier);
     const { data, error } = await supabase.rpc("gamble_crash_cashout", {
       p_round_id: body.roundId,
+      p_requested_multiplier: Number.isFinite(requestedMultiplier) ? requestedMultiplier : null,
       p_user_id: user.id,
     });
     if (error) return jsonError("The cashout failed.", 500);

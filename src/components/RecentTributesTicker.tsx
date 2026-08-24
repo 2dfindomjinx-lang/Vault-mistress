@@ -169,11 +169,8 @@ function TributeAvatar({
   src?: string | null;
 }) {
   const normalizedSrc = src?.trim() ? src.trim() : DEFAULT_TRIBUTE_AVATAR_SRC;
-  const [resolvedSrc, setResolvedSrc] = useState(normalizedSrc);
-
-  useEffect(() => {
-    setResolvedSrc(normalizedSrc);
-  }, [normalizedSrc]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const resolvedSrc = failedSrc === normalizedSrc ? DEFAULT_TRIBUTE_AVATAR_SRC : normalizedSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -182,7 +179,7 @@ function TributeAvatar({
       className={className}
       onError={() => {
         if (resolvedSrc !== DEFAULT_TRIBUTE_AVATAR_SRC) {
-          setResolvedSrc(DEFAULT_TRIBUTE_AVATAR_SRC);
+          setFailedSrc(normalizedSrc);
         }
       }}
       src={resolvedSrc}
@@ -195,14 +192,12 @@ export function RecentTributesTicker({
   usernameStyle,
   topTributes = [],
   tributes,
-  topValuableInventories = [],
   showRecentOpenings = true,
 }: {
   currentUsername?: string;
   usernameStyle?: CSSProperties;
   topTributes?: RecentTribute[];
   tributes: RecentTribute[];
-  topValuableInventories?: TopInventory[];
   showRecentOpenings?: boolean;
 }) {
   const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
@@ -242,11 +237,7 @@ export function RecentTributesTicker({
   const displayTributes = visibleTributes;
 
   useEffect(() => {
-    if (!showRecentOpenings) {
-      setRecentCaseOpenings([]);
-      setRecentCaseOpeningsError("");
-      return;
-    }
+    if (!showRecentOpenings) return;
 
     let mounted = true;
 
@@ -298,23 +289,18 @@ export function RecentTributesTicker({
   }, [showRecentOpenings]);
 
   return (
-    <section className="space-y-3">
-      <div className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/40 px-3 py-3 shadow-[0_0_34px_rgba(217,70,239,0.1)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-fuchsia-200/70">
-              Recent Tributes
-            </p>
-            <p className="mt-1 text-xs text-pink-100/60">
-              Live Throne coin grants
-            </p>
-          </div>
-          <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
+    <section className="space-y-2">
+      <div className="rounded-[1.25rem] border border-fuchsia-200/15 bg-black/40 px-2.5 py-2 shadow-[0_0_28px_rgba(217,70,239,0.08)] backdrop-blur">
+        <div className="mb-1.5 flex items-center justify-between gap-3 px-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-fuchsia-200/70">
+            Recent Tributes
+          </p>
+          <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-pink-100">
             Live
           </span>
         </div>
         <div className="overflow-hidden">
-          <div className="flex touch-pan-x gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex touch-pan-x gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {displayTributes.length > 0 ? (
               displayTributes.map((tribute, index) => (
                 <TributeCard
@@ -326,7 +312,7 @@ export function RecentTributesTicker({
                 />
               ))
             ) : (
-              <p className="min-w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-zinc-400">
+              <p className="min-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-zinc-400">
                 No recent tributes yet.
               </p>
             )}
@@ -353,24 +339,24 @@ export function RecentTributesTicker({
         </div>
       )}
       {topTributes.length > 0 && (
-        <div className="rounded-[1.25rem] border border-yellow-200/15 bg-black/35 px-3 py-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-100/75">
+        <div className="rounded-[1.1rem] border border-yellow-200/15 bg-black/35 px-2.5 py-2">
+          <div className="flex items-center gap-2">
+            <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.18em] text-yellow-100/70">
               All-Time Throne Top 3
             </p>
-            <div className="flex touch-pan-x gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-0 flex-1 touch-pan-x gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {topTributes.map((tribute, index) => (
                 <div
-                  className={`flex min-w-[180px] items-center gap-2 rounded-xl border px-3 py-2 ${getGlowClass(tribute.amount)}`}
+                  className={`flex min-w-[145px] items-center gap-1.5 rounded-lg border px-2 py-1.5 ${getGlowClass(tribute.amount)}`}
                   key={tribute.id}
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-yellow-100/25 bg-yellow-300/10 text-xs font-black text-yellow-50">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-yellow-100/25 bg-yellow-300/10 text-[10px] font-black text-yellow-50">
                     #{index + 1}
                   </span>
                   <div className="min-w-0">
                     <DisplayNameWithUsername
                       displayName={tribute.displayName}
-                      primaryClassName="truncate text-xs font-black text-white"
+                      primaryClassName="truncate text-[11px] font-black text-white"
                       primaryStyle={
                         tribute.usernameStyle ??
                         (tribute.rawUsername === currentUsername ||
@@ -379,13 +365,12 @@ export function RecentTributesTicker({
                           ? usernameStyle
                           : undefined)
                       }
-                      secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+                      secondaryClassName="hidden"
                       username={tribute.rawUsername ?? tribute.username}
                     />
-                    <p className="flex items-center gap-1 text-[11px] font-bold text-yellow-50">
-                      <MoneyIcon height={12} />
+                    <p className="flex items-center gap-1 text-[10px] font-bold text-yellow-50">
+                      <MoneyIcon height={11} />
                       {tribute.amount.toLocaleString()}
-                      <span className="font-semibold text-zinc-400">Total</span>
                     </p>
                   </div>
                 </div>
@@ -523,29 +508,26 @@ function TributeCard({
 
   return (
     <article
-      className={`flex min-w-[210px] items-center gap-3 rounded-2xl border px-3 py-2 transition ${getGlowClass(tribute.amount)} ${
+      className={`flex min-w-[180px] items-center gap-2 rounded-xl border px-2.5 py-1.5 transition ${getGlowClass(tribute.amount)} ${
         isNewest ? "animate-tribute-slide-in" : ""
       }`}
     >
       <TributeAvatar
         alt={`${displayUsername} avatar`}
-        className="h-10 w-10 rounded-full border border-pink-200/25 object-cover"
+        className="h-8 w-8 rounded-full border border-pink-200/25 object-cover"
         src={tribute.avatarUrl}
       />
       <div className="min-w-0">
         <DisplayNameWithUsername
           displayName={tribute.displayName}
-          primaryClassName="truncate text-sm font-black text-white"
+          primaryClassName="truncate text-xs font-black text-white"
           primaryStyle={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
-          secondaryClassName="truncate text-[10px] font-semibold text-zinc-400"
+          secondaryClassName="hidden"
           username={tribute.rawUsername ?? tribute.username}
         />
-        <p className="flex items-center gap-1.5 text-xs font-bold text-pink-100">
-          <MoneyIcon height={13} />+{tribute.amount.toLocaleString()}
-          <span className="font-semibold text-zinc-400">Principessa Money</span>
-        </p>
-        <p className="text-[11px] text-zinc-400">
-          {getRelativeTime(tribute.createdAt)}
+        <p className="flex items-center gap-1 text-[10px] font-bold text-pink-100">
+          <MoneyIcon height={11} />+{tribute.amount.toLocaleString()}
+          <span className="font-semibold text-zinc-500">· {getRelativeTime(tribute.createdAt)}</span>
         </p>
       </div>
     </article>

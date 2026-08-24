@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { emitSoundEvent } from "@/lib/sound";
 
-// Tribute Duels: stake coins, then outspend a rival on Throne inside a blind
-// window. Totals stay hidden until the deadline; the reveal is public, amounts
-// and all. A tie - including two cowards sending nothing - burns the pot.
+// Tribute Duels: a fixed Coin fee opens the lobby, then real Throne tributes
+// decide the blind contest. Accepting is free and there is no Coin pot.
 
 type Duel = {
   acceptedAt: string | null;
@@ -19,7 +18,7 @@ type Duel = {
   isMyChallenge: boolean;
   opponent: string | null;
   opponentTotalUsd: number | null;
-  stakeCoins: number;
+  lobbyFeeCoins: number;
   status: string;
   winner: string | null;
   wonByMe: boolean;
@@ -27,7 +26,7 @@ type Duel = {
 
 type DuelState = {
   duels: Duel[];
-  minStake: number;
+  lobbyFee: number;
   myLiveDuel: Duel | null;
 };
 
@@ -50,7 +49,6 @@ export function TributeDuels({
   const [state, setState] = useState<DuelState | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [stakeInput, setStakeInput] = useState("2500");
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -103,8 +101,7 @@ export function TributeDuels({
     }
   };
 
-  const minStake = state?.minStake ?? 2_500;
-  const stake = Math.floor(Number(stakeInput)) || 0;
+  const lobbyFee = state?.lobbyFee ?? 2_500;
   const live = state?.myLiveDuel ?? null;
   const openDuels = (state?.duels ?? []).filter((duel) => duel.status === "open");
   const activeDuels = (state?.duels ?? []).filter((duel) => duel.status === "active");
@@ -118,8 +115,7 @@ export function TributeDuels({
           <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Sub versus sub</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-white [text-shadow:0_0_24px_rgba(245,158,11,.22)]">Tribute Duels</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-            Stake coins, then outspend your rival on Throne before the clock runs out. Neither of you sees the
-            other&apos;s total until the reveal. She profits either way.
+            Outspend your rival on Throne before the reveal. Lobby fee: {lobbyFee.toLocaleString()} coins.
           </p>
         </div>
       </div>
@@ -137,15 +133,15 @@ export function TributeDuels({
             <>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/60">Your open challenge</p>
               <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">
-                {live.stakeCoins.toLocaleString()} coins on the table
+                Waiting for an opponent
               </h3>
               <p className="mt-2 text-xs leading-5 text-zinc-500">
-                Waiting for someone brave enough to match it. The {live.durationHours}h window starts when they do.
+                The {live.durationHours}h tribute window starts when someone accepts.
               </p>
               <button
                 className="mt-4 rounded-2xl border border-white/15 px-5 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 transition hover:border-rose-300/40 hover:text-rose-100 disabled:opacity-40"
                 disabled={pending}
-                onClick={() => void act({ action: "cancel", duelId: live.id }, "Withdraw the challenge? Your stake returns.")}
+                onClick={() => void act({ action: "cancel", duelId: live.id }, "Close this lobby? The opening fee is not refunded.")}
                 type="button"
               >
                 Withdraw
@@ -159,7 +155,7 @@ export function TributeDuels({
               </h3>
               <p className="mt-2 text-xs leading-5 text-zinc-500">
                 Every Throne tribute credited to your account before the deadline counts. You cannot see their total.
-                They cannot see yours. Pot: {(live.stakeCoins * 2).toLocaleString()} coins.
+                They cannot see yours.
               </p>
               {live.deadline ? (
                 <p className="mt-3 inline-block rounded-full border border-[#c89a55]/25 bg-black/40 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#ffe2ad]">
@@ -172,22 +168,18 @@ export function TributeDuels({
       ) : (
         <div className="mt-5 rounded-[1.75rem] border border-white/10 bg-white/[.04] p-5">
           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">Open a challenge</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/50 px-3 py-2.5 text-center font-serif text-lg tabular-nums text-[#ffe2ad] outline-none placeholder:font-sans placeholder:text-sm placeholder:text-zinc-700 focus:border-[#c89a55]/45"
-              disabled={disabled || pending}
-              inputMode="numeric"
-              onChange={(event) => setStakeInput(event.target.value.replace(/[^0-9]/g, ""))}
-              placeholder={`Stake (min ${minStake.toLocaleString()})`}
-              value={stakeInput}
-            />
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-4 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Fixed lobby fee</p>
+              <p className="mt-0.5 font-serif text-lg text-[#ffe2ad]">{lobbyFee.toLocaleString()} coins</p>
+            </div>
             <button
               className="shrink-0 rounded-xl border border-pink-200/25 bg-pink-500/15 px-6 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-pink-50 transition enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={disabled || pending || stake < minStake}
+              disabled={disabled || pending}
               onClick={() =>
                 void act(
-                  { action: "create", durationHours: 24, stake },
-                  `Stake ${stake.toLocaleString()} coins? If nobody tributes, the pot burns.`,
+                  { action: "create", durationHours: 24 },
+                  `Open a duel lobby for ${lobbyFee.toLocaleString()} coins?`,
                 )
               }
               type="button"
@@ -196,7 +188,7 @@ export function TributeDuels({
             </button>
           </div>
           <p className="mt-2 text-[11px] leading-5 text-zinc-600">
-            24-hour window. Winner takes the pot. A tie — or two silent wallets — hands everything to her.
+            The duel is decided only by Throne tribute totals. Accepting is free.
           </p>
         </div>
       )}
@@ -219,7 +211,7 @@ export function TributeDuels({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-black text-pink-50">{duel.challenger}</p>
                     <p className="text-[10px] text-zinc-600">
-                      {duel.stakeCoins.toLocaleString()} coins · {duel.durationHours}h window
+                      {duel.durationHours}h tribute window
                     </p>
                   </div>
                   {duel.isMyChallenge ? (
@@ -231,7 +223,7 @@ export function TributeDuels({
                       onClick={() =>
                         void act(
                           { action: "accept", duelId: duel.id },
-                          `Match ${duel.stakeCoins.toLocaleString()} coins against ${duel.challenger}? The window starts immediately.`,
+                          `Enter a ${duel.durationHours}h tribute duel against ${duel.challenger}?`,
                         )
                       }
                       type="button"
@@ -290,8 +282,8 @@ export function TributeDuels({
                   </div>
                   <p className="mt-1 text-center text-[10px] text-zinc-600">
                     {duel.winner
-                      ? `${duel.winner} took ${(duel.stakeCoins * 2).toLocaleString()} coins`
-                      : "Tie. She kept the pot."}
+                      ? `${duel.winner} won the tribute duel`
+                      : "Tie. No winner."}
                   </p>
                 </div>
               ))

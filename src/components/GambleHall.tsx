@@ -7,6 +7,7 @@ import {
   CRAWL_LANES,
   crashMultiplierAt,
   DOUBLE_OR_NOTHING_CHANCE,
+  EUROPEAN_ROULETTE_ORDER,
   GAMBLE_MAX_BET,
   GAMBLE_MIN_BET,
   MINES_GRID,
@@ -14,8 +15,10 @@ import {
   minesMultiplier,
   PLINKO_MULTIPLIERS,
   PLINKO_ROWS,
-  ROULETTE_RINGS,
+  ROULETTE_BETS,
+  ROULETTE_RED_NUMBERS,
   SLOT_SYMBOLS,
+  type RouletteBetId,
 } from "@/lib/gamble";
 
 // The Gamble Hall. Seven tables stacked in one column, one shared bet, one
@@ -74,7 +77,7 @@ function DoubleBanner({
             onClick={() => void play()}
             type="button"
           >
-            {state === "pending" ? "Flipping..." : `Double it — ${Math.round(DOUBLE_OR_NOTHING_CHANCE * 100)}%. She keeps the rest.`}
+            {state === "pending" ? "Flipping..." : `Double — ${Math.round(DOUBLE_OR_NOTHING_CHANCE * 100)}%`}
           </button>
           <button className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 hover:text-zinc-300" onClick={onDone} type="button">
             Keep {payout.toLocaleString()}
@@ -146,10 +149,19 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
   const timers = useRef<number[]>([]);
+  const reelSound = useRef<number | null>(null);
+
+  const stopReelSound = () => {
+    if (reelSound.current !== null) window.clearInterval(reelSound.current);
+    reelSound.current = null;
+  };
 
   useEffect(() => {
     const captured = timers.current;
-    return () => captured.forEach((id) => window.clearTimeout(id));
+    return () => {
+      captured.forEach((id) => window.clearTimeout(id));
+      if (reelSound.current !== null) window.clearInterval(reelSound.current);
+    };
   }, []);
 
   const buildStrip = (finalIndex: number, reel: number) => {
@@ -165,6 +177,8 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setWin(null);
       setPhase("waiting");
       emitSoundEvent("crate_reel_tick");
+      stopReelSound();
+      reelSound.current = window.setInterval(() => emitSoundEvent("crate_reel_tick"), 85);
       try {
         const result = await callGamble({ action: "slots", bet });
         if (result.profile && onProfile) onProfile(result.profile);
@@ -172,11 +186,10 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
         setStrips(landed.map((symbolIndex, reel) => buildStrip(symbolIndex, reel)));
         setSpinKey((key) => key + 1);
         setPhase("sliding");
-        REEL_DURATIONS.forEach((duration) => {
-          timers.current.push(window.setTimeout(() => emitSoundEvent("crate_reel_tick"), duration));
-        });
         timers.current.push(
           window.setTimeout(() => {
+            stopReelSound();
+            emitSoundEvent("crate_reel_tick");
             setReels(landed);
             setPhase("idle");
             const payout = Number(result.payout) || 0;
@@ -191,6 +204,7 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
           }, REEL_DURATIONS[2] + 80),
         );
       } catch (error) {
+        stopReelSound();
         setPhase("idle");
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
       }
@@ -363,7 +377,7 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
       <style>{`
         @keyframes vm-die-land { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
       `}</style>
-      <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">Ties are hers. That is the whole edge.</p>
+      <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">Ties belong to Principessa.</p>
       <button className="vm-table-button" disabled={busy || rolling} onClick={play} type="button">
         {rolling ? "Rolling..." : `Roll — ${bet.toLocaleString()} coins`}
       </button>
@@ -374,24 +388,14 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
 }
 
 // ------------------------------------------------------------- Court Roulette
-// A classic wheel: 24 slices, the gold ones are your ring, and the wheel
-// spins under a fixed pointer until it dies on a slice that matches the
-// server's verdict. Which gold slice is theatre; win or lose is not.
-const ROULETTE_SEGMENTS = 24;
-const RING_SEGMENT_COUNTS: Record<string, number> = { inner: 3, middle: 7, outer: 14 };
-
-function rouletteWinSet(ringId: string) {
-  const count = RING_SEGMENT_COUNTS[ringId] ?? 12;
-  const set = new Set<number>();
-  for (let index = 0; index < count; index += 1) {
-    set.add(Math.round((index * ROULETTE_SEGMENTS) / count) % ROULETTE_SEGMENTS);
-  }
-  return set;
-}
+// European roulette: the server returns the exact 0-36 landing number and the
+// wheel animates to that pocket. Bet names and colours follow the real table.
+const ROULETTE_SEGMENT_DEGREES = 360 / EUROPEAN_ROULETTE_ORDER.length;
 
 function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
-  const [ring, setRing] = useState<string>("outer");
+  const [rouletteBet, setRouletteBet] = useState<RouletteBetId>("red");
   const [rotation, setRotation] = useState(0);
+  const [landedNumber, setLandedNumber] = useState<number | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
@@ -402,26 +406,23 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
     return () => captured.forEach((id) => window.clearTimeout(id));
   }, []);
 
-  const winSet = rouletteWinSet(ring);
-  const gradientStops: string[] = [];
-  for (let index = 0; index < ROULETTE_SEGMENTS; index += 1) {
-    const color = winSet.has(index) ? "#c89a55" : index % 2 ? "#170912" : "#26121e";
-    gradientStops.push(`${color} ${index * 15}deg ${(index + 1) * 15}deg`);
-  }
+  const gradientStops = EUROPEAN_ROULETTE_ORDER.map((number, index) => {
+    const color = number === 0 ? "#12633f" : ROULETTE_RED_NUMBERS.has(number) ? "#9f1734" : "#120d12";
+    return `${color} ${index * ROULETTE_SEGMENT_DEGREES}deg ${(index + 1) * ROULETTE_SEGMENT_DEGREES}deg`;
+  });
 
   const play = () =>
     onPlay(async () => {
       setLine(null);
       setWin(null);
+      setLandedNumber(null);
       setSpinning(true);
       try {
-        const result = await callGamble({ action: "roulette", bet, ring });
+        const result = await callGamble({ action: "roulette", bet, rouletteBet });
         if (result.profile && onProfile) onProfile(result.profile);
-        const pool = Array.from({ length: ROULETTE_SEGMENTS }, (_, index) => index).filter((index) =>
-          result.win ? winSet.has(index) : !winSet.has(index),
-        );
-        const target = pool[Math.floor(Math.random() * pool.length)];
-        const targetAngle = target * 15 + 7.5;
+        const number = Number(result.number);
+        const target = EUROPEAN_ROULETTE_ORDER.indexOf(number as (typeof EUROPEAN_ROULETTE_ORDER)[number]);
+        const targetAngle = target * ROULETTE_SEGMENT_DEGREES + ROULETTE_SEGMENT_DEGREES / 2;
         setRotation((previous) => {
           const delta = (((-targetAngle - previous) % 360) + 360) % 360;
           return previous + 4 * 360 + delta;
@@ -430,13 +431,14 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
         timers.current.push(
           window.setTimeout(() => {
             setSpinning(false);
+            setLandedNumber(number);
             const payout = Number(result.payout) || 0;
             if (result.win) {
-              setLine({ text: `The ball died on your ring. +${payout.toLocaleString()} coins`, tone: "win" });
+              setLine({ text: `${number} — +${payout.toLocaleString()} coins`, tone: "win" });
               setWin({ payout, roundId: String(result.roundId) });
               emitSoundEvent("task_completion");
             } else {
-              setLine({ text: "The ball died on her side. She keeps it.", tone: "lose" });
+              setLine({ text: `${number} — lost.`, tone: "lose" });
               emitSoundEvent("task_fail");
             }
           }, 3_400),
@@ -456,32 +458,42 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
         </div>
         {/* Wheel */}
         <div
-          className="h-full w-full rounded-full border-4 border-[#c89a55]/40 shadow-[inset_0_0_24px_rgba(0,0,0,.7)]"
+          className="relative h-full w-full rounded-full border-4 border-[#c89a55]/40 shadow-[inset_0_0_24px_rgba(0,0,0,.7)]"
           style={{
             background: `conic-gradient(from 0deg, ${gradientStops.join(",")})`,
             transform: `rotate(${rotation}deg)`,
             transition: spinning ? "transform 3300ms cubic-bezier(0.12, 0.62, 0.1, 1)" : "none",
           }}
-        />
+        >
+          {EUROPEAN_ROULETTE_ORDER.map((number, index) => (
+            <span
+              className="absolute left-1/2 top-1/2 origin-center text-[7px] font-black text-white/80"
+              key={number}
+              style={{ transform: `translate(-50%, -50%) rotate(${index * ROULETTE_SEGMENT_DEGREES + ROULETTE_SEGMENT_DEGREES / 2}deg) translateY(-96px)` }}
+            >
+              {number}
+            </span>
+          ))}
+        </div>
         {/* Hub */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c89a55]/40 bg-[#0b0409] text-2xl shadow-[0_0_18px_rgba(0,0,0,.8)]">
-          👑
+          {landedNumber ?? "•"}
         </div>
       </div>
       <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-[#c89a55]/60">
-        Gold slices are your ring. The pointer decides.
+        European wheel · 0–36
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2">
-        {ROULETTE_RINGS.map((entry) => (
+        {ROULETTE_BETS.map((entry) => (
           <button
-            className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition disabled:opacity-50 ${ring === entry.id ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"}`}
+            className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition disabled:opacity-50 ${rouletteBet === entry.id ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"}`}
             disabled={spinning}
             key={entry.id}
-            onClick={() => setRing(entry.id)}
+            onClick={() => setRouletteBet(entry.id)}
             type="button"
           >
             {entry.label}
-            <span className="block text-zinc-500">{entry.multiplier}x · {Math.round(entry.winChance * 100)}%</span>
+            <span className="block text-zinc-500">{entry.multiplier}x</span>
           </button>
         ))}
       </div>
@@ -500,15 +512,17 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
 const PLINKO_BUCKET_W = 100 / PLINKO_MULTIPLIERS.length;
 
 function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
-  const [ball, setBall] = useState<{ step: number; x: number } | null>(null);
+  const [ball, setBall] = useState<{ x: number; y: number } | null>(null);
+  const [trail, setTrail] = useState<Array<{ x: number; y: number }>>([]);
   const [landed, setLanded] = useState<number | null>(null);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
-  const timers = useRef<number[]>([]);
+  const frame = useRef<number | null>(null);
 
   useEffect(() => {
-    const captured = timers.current;
-    return () => captured.forEach((id) => window.clearTimeout(id));
+    return () => {
+      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+    };
   }, []);
 
   const play = () =>
@@ -516,40 +530,68 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setLine(null);
       setWin(null);
       setLanded(null);
+      setTrail([]);
+      setBall({ x: 50, y: 2 });
       try {
         const result = await callGamble({ action: "plinko", bet });
         if (result.profile && onProfile) onProfile(result.profile);
         const path = result.path as number[];
-        setBall({ step: 0, x: 0 });
-        let x = 0;
+        let offset = 0;
+        const points = [{ x: 50, y: 2 }];
         path.forEach((step, row) => {
-          timers.current.push(
-            window.setTimeout(() => {
-              x += step === 1 ? 1 : -1;
-              setBall({ step: row + 1, x });
-              emitSoundEvent("crate_reel_tick");
-            }, 170 * (row + 1)),
-          );
+          offset += step === 1 ? 1 : -1;
+          points.push({
+            x: 50 + (offset * PLINKO_BUCKET_W) / 2,
+            y: 7 + ((row + 1) / PLINKO_ROWS) * 84,
+          });
         });
-        timers.current.push(
-          window.setTimeout(() => {
-            setBall(null);
-            setLanded(Number(result.bucket));
-            const payout = Number(result.payout) || 0;
-            if (payout > bet) {
-              setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
-              setWin({ payout, roundId: String(result.roundId) });
-              emitSoundEvent("task_completion");
-            } else if (payout > 0) {
-              setLine({ text: `${result.multiplier}x — ${payout.toLocaleString()} back. The centre grinds.`, tone: "lose" });
-            } else {
-              setLine({ text: "Swallowed whole.", tone: "lose" });
-              emitSoundEvent("task_fail");
-            }
-          }, 170 * (path.length + 1) + 180),
-        );
+        points.push({ x: points.at(-1)?.x ?? 50, y: 98 });
+
+        const hopMs = 155;
+        const startedAt = performance.now();
+        let lastPeg = -1;
+        const finish = () => {
+          setBall(null);
+          setLanded(Number(result.bucket));
+          const payout = Number(result.payout) || 0;
+          if (payout > bet) {
+            setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
+            setWin({ payout, roundId: String(result.roundId) });
+            emitSoundEvent("task_completion");
+          } else if (payout > 0) {
+            setLine({ text: `${result.multiplier}x — ${payout.toLocaleString()} back.`, tone: "lose" });
+          } else {
+            setLine({ text: "Lost.", tone: "lose" });
+            emitSoundEvent("task_fail");
+          }
+        };
+        const animate = (now: number) => {
+          const raw = Math.min(points.length - 1, (now - startedAt) / hopMs);
+          const segment = Math.min(points.length - 2, Math.floor(raw));
+          const local = Math.min(1, raw - segment);
+          const from = points[segment];
+          const to = points[segment + 1];
+          const current = {
+            x: from.x + (to.x - from.x) * local,
+            y: from.y + (to.y - from.y) * local - Math.sin(local * Math.PI) * 1.8,
+          };
+          setBall(current);
+          setTrail([...points.slice(0, segment + 1), current]);
+          if (segment !== lastPeg && segment > 0) {
+            lastPeg = segment;
+            emitSoundEvent("crate_reel_tick");
+          }
+          if (raw < points.length - 1) {
+            frame.current = window.requestAnimationFrame(animate);
+          } else {
+            frame.current = null;
+            finish();
+          }
+        };
+        frame.current = window.requestAnimationFrame(animate);
       } catch (error) {
         setBall(null);
+        setTrail([]);
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
       }
     });
@@ -558,6 +600,11 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
     <div>
       <div className="mx-auto w-full max-w-xl">
         <div className="relative h-64 w-full overflow-hidden rounded-t-2xl border border-b-0 border-white/10 bg-black/40">
+          {trail.length > 1 ? (
+            <svg aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+              <polyline fill="none" points={trail.map((point) => `${point.x},${point.y}`).join(" ")} stroke="rgba(255,226,173,.2)" strokeDasharray="1.2 1.8" strokeWidth="0.45" />
+            </svg>
+          ) : null}
           {Array.from({ length: PLINKO_ROWS }, (_, row) =>
             Array.from({ length: row + 2 }, (_, peg) => (
               <span
@@ -572,10 +619,10 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
           )}
           {ball ? (
             <span
-              className="absolute h-3 w-3 -translate-x-1/2 rounded-full bg-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.9)] transition-all duration-150 ease-in"
+              className="absolute h-3 w-3 -translate-x-1/2 rounded-full bg-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.9)]"
               style={{
-                left: `${50 + (ball.x * PLINKO_BUCKET_W) / 2}%`,
-                top: `${(ball.step / PLINKO_ROWS) * 92}%`,
+                left: `${ball.x}%`,
+                top: `${ball.y}%`,
               }}
             />
           ) : null}
@@ -755,6 +802,7 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [roundId, setRoundId] = useState<string | null>(null);
   const [display, setDisplay] = useState(1);
   const [crashed, setCrashed] = useState(false);
+  const [cashingOut, setCashingOut] = useState(false);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
   const startedAt = useRef<number | null>(null);
@@ -775,6 +823,7 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const bust = useCallback((crashPoint: number) => {
     stopLoops();
     setRoundId(null);
+    setCashingOut(false);
     setDisplay(crashPoint);
     setCrashed(true);
     setLine({ text: `Too slow. Her patience ran out at ${crashPoint.toFixed(2)}x.`, tone: "lose" });
@@ -786,12 +835,17 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setLine(null);
       setWin(null);
       setCrashed(false);
+      setCashingOut(false);
       try {
+        const requestStartedAt = Date.now();
         const result = await callGamble({ action: "crash-open", bet });
+        const responseReceivedAt = Date.now();
         if (result.profile && onProfile) onProfile(result.profile);
         const id = String(result.roundId);
         setRoundId(id);
-        startedAt.current = Date.now() - (Number(result.elapsedMs) || 0);
+        const serverNowMs = Number(result.serverNowMs) || responseReceivedAt;
+        const clockOffset = serverNowMs - (requestStartedAt + responseReceivedAt) / 2;
+        startedAt.current = (Number(result.startsAtMs) || serverNowMs) - clockOffset;
         setDisplay(1);
         const tick = () => {
           if (startedAt.current === null) return;
@@ -822,21 +876,26 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const cashout = async () => {
     if (!roundId) return;
     const id = roundId;
+    const requestedMultiplier = display;
     stopLoops();
-    setRoundId(null);
+    setCashingOut(true);
     try {
-      const result = await callGamble({ action: "crash-cashout", roundId: id });
+      const result = await callGamble({ action: "crash-cashout", requestedMultiplier, roundId: id });
       if (result.profile && onProfile) onProfile(result.profile);
       const payout = Number(result.payout) || 0;
       if (result.survived) {
+        setRoundId(null);
+        setCashingOut(false);
         setDisplay(Number(result.multiplier) || 1);
-        setLine({ text: `Out at ${result.multiplier}x — +${payout.toLocaleString()} coins. She crashed at ${result.crashPoint}x.`, tone: "win" });
+        setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
         setWin({ payout, roundId: id });
         emitSoundEvent("task_completion");
       } else {
         bust(Number(result.crashPoint) || 1);
       }
     } catch (error) {
+      setRoundId(null);
+      setCashingOut(false);
       setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
     }
   };
@@ -849,15 +908,16 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
         </span>
       </div>
       <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">
-        Cash out before her patience runs out. It can run out at 1.00x.
+        Cash out before the crash.
       </p>
       {roundId ? (
         <button
           className="vm-table-button !border-emerald-300/40 !bg-emerald-500/15 !text-emerald-100"
+          disabled={cashingOut}
           onClick={() => void cashout()}
           type="button"
         >
-          Cash out at {display.toFixed(2)}x
+          {cashingOut ? "Cashing out..." : `Cash out at ${display.toFixed(2)}x`}
         </button>
       ) : (
         <button className="vm-table-button" disabled={busy} onClick={open} type="button">
@@ -993,7 +1053,7 @@ function CrawlTable({ bet, busy, onPlay, onProfile }: TableProps) {
         </button>
       ) : raceId ? (
         <p className="mt-3 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">
-          Odds are pinned. Pick a collar to bet {bet.toLocaleString()} coins.
+          Pick a collar · {bet.toLocaleString()} coins
         </p>
       ) : null}
       {line ? <ResultLine {...line} /> : null}
@@ -1026,13 +1086,13 @@ type TablePresentation = {
 };
 
 const TABLE_PRESENTATIONS: readonly TablePresentation[] = [
-  { art: "/gamble/principessa-reels-dice.webp", blurb: "Three reels. Pairs pay small, her portrait pays 180x.", edge: "House keeps ~12%", id: "slots", kicker: "The curtain rises", objectPosition: "68% center", symbol: "🎰", tag: "Popular", title: "Her Reels", tone: "pink" },
-  { art: "/gamble/principessa-reels-dice.webp", blurb: "Two dice each. Higher sum takes the round.", edge: "Ties are hers", id: "dice", kicker: "Challenge her", objectPosition: "22% center", symbol: "🎲", tag: "Hot", title: "Her Dice", tone: "violet" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "Pick a ring. Gold slices are yours if she allows it.", edge: "House keeps 10%", id: "roulette", kicker: "Pick a ring", objectPosition: "42% 68%", symbol: "◎", tag: "Classic", title: "Court Roulette", tone: "amber" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "Twelve rows of pegs. The rim pays; the centre grinds.", edge: "House keeps ~10%", id: "plinko", kicker: "Drop for her", objectPosition: "18% 70%", symbol: "◆", tag: "Live", title: "Royal Plinko", tone: "cyan" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "Open her jewelry box and leave before you find a trap.", edge: "5% per box", id: "mines", kicker: "Take what you dare", objectPosition: "76% center", symbol: "💎", tag: "Risk", title: "The Jewelry Box", tone: "emerald" },
-  { art: "/gamble/principessa-casino-hero.webp", blurb: "The multiplier climbs until her patience runs out.", edge: "House keeps 6%", id: "crash", kicker: "Test her patience", objectPosition: "68% center", symbol: "♥", tag: "Push", title: "Her Patience", tone: "rose" },
-  { art: "/gamble/principessa-casino-hero.webp", blurb: "Four collared pets crawl toward the throne. Back one.", edge: "House keeps 10%", id: "crawl", kicker: "The court watches", objectPosition: "91% center", symbol: "♛", tag: "Court", title: "The Crawl", tone: "violet" },
+  { art: "/gamble/principessa-reels-dice.webp", blurb: "Three reels. Match her symbols.", edge: "RTP 81.7%", id: "slots", kicker: "The curtain rises", objectPosition: "68% center", symbol: "🎰", tag: "Popular", title: "Her Reels", tone: "pink" },
+  { art: "/gamble/principessa-reels-dice.webp", blurb: "Roll higher than Principessa.", edge: "RTP 81.6%", id: "dice", kicker: "Challenge her", objectPosition: "22% center", symbol: "🎲", tag: "Hot", title: "Her Dice", tone: "violet" },
+  { art: "/gamble/principessa-risk-table.webp", blurb: "European roulette. Choose your bet.", edge: "RTP 81.7%", id: "roulette", kicker: "Place your bet", objectPosition: "42% 68%", symbol: "◎", tag: "Classic", title: "Court Roulette", tone: "amber" },
+  { art: "/gamble/principessa-risk-table.webp", blurb: "Drop through twelve rows of pegs.", edge: "RTP 81.4%", id: "plinko", kicker: "Drop for her", objectPosition: "18% 70%", symbol: "◆", tag: "Live", title: "Royal Plinko", tone: "cyan" },
+  { art: "/gamble/principessa-risk-table.webp", blurb: "Find gems. Avoid the traps.", edge: "RTP 82%", id: "mines", kicker: "Take what you dare", objectPosition: "76% center", symbol: "💎", tag: "Risk", title: "The Jewelry Box", tone: "emerald" },
+  { art: "/gamble/principessa-casino-hero.webp", blurb: "Cash out before the crash.", edge: "RTP 82%", id: "crash", kicker: "Test her patience", objectPosition: "68% center", symbol: "♥", tag: "Push", title: "Her Patience", tone: "rose" },
+  { art: "/gamble/principessa-casino-hero.webp", blurb: "Back one collar to reach her first.", edge: "RTP 82%", id: "crawl", kicker: "The court watches", objectPosition: "91% center", symbol: "♛", tag: "Court", title: "The Crawl", tone: "violet" },
 ] as const;
 
 function TableCard({
@@ -1133,16 +1193,16 @@ export function GambleHall({ disabled = false, onProfile }: HallProps) {
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-pink-200/70">The hall is rigged. It says so.</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-pink-200/70">Principessa&apos;s casino</p>
           <h2 className="mt-1 font-serif text-4xl font-semibold text-white [text-shadow:0_0_28px_rgba(236,72,153,.3)]">Gamble Hall</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-pink-50/55">
-            Coins in, coins out, and every table prints her cut before you play. There is no daily loss ceiling.
+            Seven games. One shared stake. Maximum RTP: 82%.
           </p>
         </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-[.28em] text-pink-100/65">Choose tonight&apos;s table</p>
+        <p className="text-[10px] font-black uppercase tracking-[.28em] text-pink-100/65">Choose a table</p>
         <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/30">7 games · one shared stake</p>
       </div>
 
