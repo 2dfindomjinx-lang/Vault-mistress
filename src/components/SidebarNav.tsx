@@ -1,20 +1,8 @@
 import Image from "next/image";
 import { MoneyIcon } from "@/components/MoneyIcon";
+import { DASHBOARD_PAGE_CODES, type DashboardPage } from "@/lib/dashboard-navigation";
 
-export type DashboardPage =
-  | "home"
-  | "tasks"
-  | "devotion"
-  | "pet"
-  | "debt"
-  | "crates"
-  | "runway"
-  | "shop"
-  | "collection"
-  | "tribute"
-  | "wheels"
-  | "moneyShop"
-  | "profile";
+export type { DashboardPage } from "@/lib/dashboard-navigation";
 
 // Maps each dashboard panel to its own real URL (so refreshing / sharing a
 // link lands back on the same panel instead of always resetting to home).
@@ -68,7 +56,7 @@ type SidebarNavProps = {
   onSelect: (page: DashboardPage) => void;
 };
 
-// Codes run I..XI in the order baseDashboardNavItems renders them in
+// Codes run I..XIII in the order baseDashboardNavItems renders them in
 // src/app/page.tsx. Keep the two in sync when a row moves - the numeral is
 // decoration, but a sequence that visibly skips reads as a missing panel.
 //
@@ -76,26 +64,26 @@ type SidebarNavProps = {
 // codes afterwards. The override was unchecked against Record<DashboardPage>,
 // so a typo in it compiled clean and silently kept the stale number.
 const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
-  home: { code: "I", glyph: "◆" },
-  runway: { code: "II", glyph: "▲" },
-  tribute: { code: "III", glyph: "♛" },
-  tasks: { code: "IV", glyph: "♠" },
-  wheels: { code: "V", glyph: "◎" },
-  pet: { code: "VI", glyph: "♙" },
-  moneyShop: { code: "VII", glyph: "❖" },
-  shop: { code: "VIII", glyph: "✦" },
-  crates: { code: "IX", glyph: "▣" },
-  debt: { code: "X", glyph: "§" },
-  collection: { code: "XI", glyph: "◈" },
-  profile: { code: "XII", glyph: "◐" },
+  home: { code: DASHBOARD_PAGE_CODES.home, glyph: "◆" },
+  runway: { code: DASHBOARD_PAGE_CODES.runway, glyph: "▲" },
+  tribute: { code: DASHBOARD_PAGE_CODES.tribute, glyph: "♛" },
+  tasks: { code: DASHBOARD_PAGE_CODES.tasks, glyph: "♠" },
+  wheels: { code: DASHBOARD_PAGE_CODES.wheels, glyph: "◎" },
+  pet: { code: DASHBOARD_PAGE_CODES.pet, glyph: "♙" },
+  moneyShop: { code: DASHBOARD_PAGE_CODES.moneyShop, glyph: "❖" },
+  shop: { code: DASHBOARD_PAGE_CODES.shop, glyph: "✦" },
+  crates: { code: DASHBOARD_PAGE_CODES.crates, glyph: "▣" },
+  debt: { code: DASHBOARD_PAGE_CODES.debt, glyph: "§" },
+  collection: { code: DASHBOARD_PAGE_CODES.collection, glyph: "◈" },
+  profile: { code: DASHBOARD_PAGE_CODES.profile, glyph: "◐" },
   // Not rendered as its own row today; kept so the Record stays exhaustive and
   // /devotion keeps resolving.
-  devotion: { code: "XIII", glyph: "◇" },
+  devotion: { code: DASHBOARD_PAGE_CODES.devotion, glyph: "◇" },
 };
 
 export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney, onSelect }: SidebarNavProps) {
   return (
-    <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
+    <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:h-dvh lg:max-h-dvh lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
 
       <div className="relative hidden h-full flex-col lg:flex">
@@ -118,7 +106,7 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
           <p className="mt-1 truncate text-[11px] font-bold text-pink-100/60"><span className="mr-1 text-amber-200/60">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/35">coins</span></p>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-4 py-2">
+        <nav className="court-scrollbar flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overflow-x-hidden px-4 py-2">
           <p className="mb-2 px-3 text-[8px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>
           {items.map((item) => {
             const meta = navigationMeta[item.key];

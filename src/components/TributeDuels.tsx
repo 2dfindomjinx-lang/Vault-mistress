@@ -111,11 +111,12 @@ export function TributeDuels({
   const revealed = (state?.duels ?? []).filter((duel) => duel.status === "revealed").slice(0, 6);
 
   return (
-    <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-[#d7ad69]/20 bg-[radial-gradient(circle_at_85%_0%,rgba(190,24,93,.2),transparent_36%),linear-gradient(145deg,rgba(17,6,13,.98),rgba(3,2,4,.98))] p-5">
+    <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-amber-300/25 bg-[radial-gradient(circle_at_8%_0%,rgba(245,158,11,.19),transparent_32%),radial-gradient(circle_at_88%_8%,rgba(236,72,153,.28),transparent_34%),linear-gradient(145deg,rgba(31,8,19,.98),rgba(4,2,7,.98))] p-5 shadow-[0_24px_80px_rgba(109,35,8,.18)]">
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/75 to-transparent" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Sub versus sub</p>
-          <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Tribute Duels</h2>
+          <h2 className="mt-1 font-serif text-3xl font-semibold text-white [text-shadow:0_0_24px_rgba(245,158,11,.22)]">Tribute Duels</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
             Stake coins, then outspend your rival on Throne before the clock runs out. Neither of you sees the
             other&apos;s total until the reveal. She profits either way.

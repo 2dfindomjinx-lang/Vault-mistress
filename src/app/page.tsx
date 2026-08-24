@@ -21,6 +21,7 @@ import { CourtHomeStage } from "@/components/CourtHomeStage";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
+import { GambleWheelsLobby } from "@/components/GambleWheelsLobby";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
 import { HomeCommandCenter, type HomeAction, type HomeLeaderboardEntry } from "@/components/HomeCommandCenter";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
@@ -11723,7 +11724,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               }}
             />
           ) : null}
-          {activePanel !== "home" && activePanel !== "tribute" ? <CourtChamberIntro page={activePanel} /> : null}
+          {activePanel !== "home" && activePanel !== "tribute" && activePanel !== "wheels" ? <CourtChamberIntro page={activePanel} /> : null}
           <div className="relative z-30 -mt-px lg:mx-5 lg:-mt-10 [&>header]:shadow-[0_-22px_58px_rgba(0,0,0,.82)]">
             <ProfileHeader
           actions={headerActions}
@@ -12004,7 +12005,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
           {activePanel === "wheels" && (
-            <div className="grid gap-4">
+            <GambleWheelsLobby>
               <GambleHall
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
@@ -12017,7 +12018,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
               />
-            </div>
+            </GambleWheelsLobby>
           )}
           {activePanel === "tasks" && (
             <div className="mb-4">

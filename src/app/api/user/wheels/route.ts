@@ -56,18 +56,29 @@ export async function GET() {
   if (!user) return jsonError("Authentication required.", 401);
 
   const supabase = createSupabaseAdminClient();
-  const [spinsResult, profileResult] = await Promise.all([
+  const [spinsResult, unpaidResult, profileResult] = await Promise.all([
     supabase
       .from("wheel_spins")
       .select("id, wheel_id, kind, segment_label, amount, pay_code, amount_owed_usd, amount_paid_usd, status, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(12),
+    supabase
+      .from("wheel_spins")
+      .select("id, wheel_id, kind, segment_label, amount, pay_code, amount_owed_usd, amount_paid_usd, status, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "unpaid")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from("profiles").select("principessa_money, chastity_until").eq("id", user.id).single(),
   ]);
 
-  if (spinsResult.error || profileResult.error || !profileResult.data) {
-    return jsonError(spinsResult.error?.message ?? profileResult.error?.message ?? "Wheel state unavailable.", 500);
+  if (spinsResult.error || unpaidResult.error || profileResult.error || !profileResult.data) {
+    return jsonError(
+      spinsResult.error?.message ?? unpaidResult.error?.message ?? profileResult.error?.message ?? "Wheel state unavailable.",
+      500,
+    );
   }
 
   const spins = ((spinsResult.data ?? []) as SpinRow[]).map(toRecord);
@@ -77,7 +88,7 @@ export async function GET() {
     chastityUntil: profile.chastity_until,
     money: Math.max(0, Number(profile.principessa_money) || 0),
     spins,
-    unpaidSpin: spins.find((spin) => spin.status === "unpaid") ?? null,
+    unpaidSpin: unpaidResult.data ? toRecord(unpaidResult.data as SpinRow) : null,
   });
 }
 

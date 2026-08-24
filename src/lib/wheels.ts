@@ -134,6 +134,63 @@ export function pickWheelSegmentIndex(wheelId: WheelId, roll: number): number {
   return segments.length - 1;
 }
 
+export type WheelVisualSlice = WheelSegment & { segmentIndex: number };
+
+// A physical-looking wheel needs repeated equal-size slices, not one equal
+// slice per unique result. Twenty-four slices keep labels readable while the
+// number of appearances tracks the real weights. Exact percentages remain in
+// the legend; this array only decides where the already-rolled result lands.
+export function buildWheelVisualSlices(wheelId: WheelId, targetSlices = 24): WheelVisualSlice[] {
+  const segments = WHEELS[wheelId].segments;
+  const sliceCount = Math.max(segments.length, Math.floor(targetSlices));
+  const totalWeight = segments.reduce((sum, segment) => sum + segment.weight, 0);
+  const rawCounts = segments.map((segment) => (segment.weight / totalWeight) * sliceCount);
+  const counts = rawCounts.map(Math.floor);
+  let assigned = counts.reduce((sum, count) => sum + count, 0);
+
+  const remainderOrder = rawCounts
+    .map((count, index) => ({ fraction: count - Math.floor(count), index }))
+    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
+  for (let cursor = 0; assigned < sliceCount; cursor += 1) {
+    counts[remainderOrder[cursor % remainderOrder.length].index] += 1;
+    assigned += 1;
+  }
+
+  // Even the rarest result gets a visible slice. Borrow it from the most
+  // common result so every possible outcome exists on the face.
+  for (let index = 0; index < counts.length; index += 1) {
+    if (counts[index] > 0) continue;
+    let donor = 0;
+    for (let candidate = 1; candidate < counts.length; candidate += 1) {
+      if (counts[candidate] > counts[donor]) donor = candidate;
+    }
+    if (counts[donor] > 1) {
+      counts[donor] -= 1;
+      counts[index] = 1;
+    }
+  }
+
+  // Smooth weighted round-robin spreads duplicates around the wheel instead
+  // of merging them into one misleadingly wide block.
+  const scores = counts.map(() => 0);
+  const used = counts.map(() => 0);
+  const slices: WheelVisualSlice[] = [];
+  for (let position = 0; position < sliceCount; position += 1) {
+    let selected = -1;
+    for (let index = 0; index < counts.length; index += 1) {
+      if (used[index] >= counts[index]) continue;
+      scores[index] += counts[index];
+      if (selected === -1 || scores[index] > scores[selected]) selected = index;
+    }
+    if (selected === -1) break;
+    scores[selected] -= sliceCount;
+    used[selected] += 1;
+    slices.push({ ...segments[selected], segmentIndex: selected });
+  }
+
+  return slices;
+}
+
 export type WheelSpinRecord = {
   id: string;
   wheelId: WheelId;

@@ -2,17 +2,14 @@ import { randomInt } from "node:crypto";
 import { profileSelect } from "@/lib/server-game-rules";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
-  crashMultiplierAt,
   crawlWinProbabilities,
   diceSum,
   DOUBLE_OR_NOTHING_CHANCE,
   drawCrawlOdds,
-  GAMBLE_DAILY_LOSS_CAP,
   isGambleGameId,
   isValidBet,
   MINES_GRID,
   MINES_OPTIONS,
-  minesMultiplier,
   PLINKO_MULTIPLIERS,
   PLINKO_ROWS,
   ROULETTE_RINGS,
@@ -56,7 +53,9 @@ async function openRound(
 ) {
   const { data, error } = await supabase.rpc("gamble_open_round", {
     p_game: game,
-    p_loss_cap: GAMBLE_DAILY_LOSS_CAP,
+    // Kept in the deployed RPC signature for backwards compatibility. Zero is
+    // intentional: the hall no longer enforces a daily loss ceiling.
+    p_loss_cap: 0,
     p_state: state,
     p_user_id: userId,
     p_wager: wager,
@@ -65,28 +64,30 @@ async function openRound(
   return (data ?? {}) as { coins?: number; error?: string; roundId?: string };
 }
 
-async function settleRound(
+async function playRound(
   supabase: SupabaseAdmin,
   userId: string,
-  roundId: string,
+  game: string,
+  wager: number,
+  state: Record<string, unknown>,
   payout: number,
-  patch: Record<string, unknown> = {},
+  sourceRoundId: string | null = null,
 ) {
-  const { data, error } = await supabase.rpc("gamble_settle_round", {
+  const { data, error } = await supabase.rpc("gamble_play_round", {
+    p_game: game,
     p_payout: payout,
-    p_round_id: roundId,
-    p_state_patch: patch,
+    p_source_round_id: sourceRoundId,
+    p_state: state,
     p_user_id: userId,
+    p_wager: wager,
   });
   if (error) throw new Error(error.message);
-  return (data ?? {}) as { coins?: number; error?: string; payout?: number };
+  return (data ?? {}) as { coins?: number; error?: string; payout?: number; roundId?: string };
 }
 
 function openError(result: { error?: string }) {
   if (result.error === "insufficient_coins") return jsonError("Not enough coins for that bet.", 402);
-  if (result.error === "loss_cap") {
-    return jsonError(`You have lost ${GAMBLE_DAILY_LOSS_CAP.toLocaleString()} coins today. The hall is closed to you until tomorrow.`, 429);
-  }
+  if (result.error === "race_closed") return jsonError("That race sheet is gone. Draw a new one.", 409);
   if (result.error === "invalid_bet") return jsonError("Bets run 100 to 5,000 coins.");
   return jsonError("The table refused the bet.");
 }
@@ -113,7 +114,12 @@ export async function POST(request: Request) {
   if (!body?.action) return jsonError("Invalid gamble action.");
 
   const supabase = createSupabaseAdminClient();
-  const limit = await checkRateLimit(supabase, `gamble:${user.id}`, 30, 60);
+  // crash-status is a read-only poll fired every ~650ms while Her Patience
+  // runs, so it gets its own generous bucket instead of eating the play limit.
+  const isStatusPoll = body.action === "crash-status";
+  const limit = isStatusPoll
+    ? await checkRateLimit(supabase, `gamble-status:${user.id}`, 150, 60)
+    : await checkRateLimit(supabase, `gamble:${user.id}`, 30, 60);
   if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
   const finishWithProfile = async (extra: Record<string, unknown>) => {
@@ -130,9 +136,8 @@ export async function POST(request: Request) {
     const multiplier = slotsPayoutMultiplier(reels);
     const payout = Math.floor(bet * multiplier);
 
-    const opened = await openRound(supabase, user.id, "slots", bet, { reels });
+    const opened = await playRound(supabase, user.id, "slots", bet, { multiplier, reels }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
-    await settleRound(supabase, user.id, opened.roundId, payout, { multiplier });
     return finishWithProfile({ multiplier, payout, reels, roundId: opened.roundId });
   }
 
@@ -144,9 +149,8 @@ export async function POST(request: Request) {
     const win = diceSum(mine) > diceSum(hers);
     const payout = win ? bet * 2 : 0;
 
-    const opened = await openRound(supabase, user.id, "dice", bet, { hers, mine });
+    const opened = await playRound(supabase, user.id, "dice", bet, { hers, mine, win }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
-    await settleRound(supabase, user.id, opened.roundId, payout, { win });
     return finishWithProfile({ hers, mine, payout, roundId: opened.roundId, win });
   }
 
@@ -158,9 +162,8 @@ export async function POST(request: Request) {
     const win = roll() < ring.winChance;
     const payout = win ? Math.floor(bet * ring.multiplier) : 0;
 
-    const opened = await openRound(supabase, user.id, "roulette", bet, { ring: ring.id });
+    const opened = await playRound(supabase, user.id, "roulette", bet, { ring: ring.id, win }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
-    await settleRound(supabase, user.id, opened.roundId, payout, { win });
     return finishWithProfile({ payout, ring: ring.id, roundId: opened.roundId, win });
   }
 
@@ -173,9 +176,8 @@ export async function POST(request: Request) {
     const multiplier = PLINKO_MULTIPLIERS[bucket];
     const payout = Math.floor(bet * multiplier);
 
-    const opened = await openRound(supabase, user.id, "plinko", bet, { bucket, path });
+    const opened = await playRound(supabase, user.id, "plinko", bet, { bucket, multiplier, path }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
-    await settleRound(supabase, user.id, opened.roundId, payout, { multiplier });
     return finishWithProfile({ bucket, multiplier, path, payout, roundId: opened.roundId });
   }
 
@@ -186,14 +188,13 @@ export async function POST(request: Request) {
     const odds = drawCrawlOdds([roll(), roll(), roll(), roll()]);
     const { data, error } = await supabase.rpc("gamble_open_round", {
       p_game: "crawl",
-      p_loss_cap: GAMBLE_DAILY_LOSS_CAP,
+      p_loss_cap: 0,
       p_state: { odds },
       p_user_id: user.id,
       p_wager: 0,
     });
     if (error) return jsonError("The race could not be drawn.", 500);
     const result = (data ?? {}) as { error?: string; roundId?: string };
-    if (result.error === "loss_cap") return openError(result);
     if (result.error || !result.roundId) return jsonError("The race could not be drawn.");
     return Response.json({ odds, raceId: result.roundId });
   }
@@ -231,17 +232,16 @@ export async function POST(request: Request) {
     const win = winner === lane;
     const payout = win ? Math.floor(bet * odds[lane]) : 0;
 
-    // The race sheet round stays a zero-wager record; the bet is its own
-    // round so the daily cap sees the real number.
-    const opened = await openRound(supabase, user.id, "crawl", bet, { lane, odds, raceId: raceRow.id });
+    const opened = await playRound(
+      supabase,
+      user.id,
+      "crawl",
+      bet,
+      { lane, odds, raceId: raceRow.id, win, winner },
+      payout,
+      raceRow.id,
+    );
     if (opened.error || !opened.roundId) return openError(opened);
-    await settleRound(supabase, user.id, opened.roundId, payout, { win, winner });
-    await supabase.rpc("gamble_settle_round", {
-      p_payout: 0,
-      p_round_id: raceRow.id,
-      p_state_patch: { bet: true },
-      p_user_id: user.id,
-    });
     return finishWithProfile({ odds, payout, roundId: opened.roundId, win, winner });
   }
 
@@ -269,53 +269,38 @@ export async function POST(request: Request) {
     if (typeof body.roundId !== "string" || !Number.isInteger(cell) || cell < 0 || cell >= MINES_GRID) {
       return jsonError("Invalid pick.");
     }
-    const { data: roundRow } = await supabase
-      .from("gamble_rounds")
-      .select("id, wager, state, status")
-      .eq("id", body.roundId)
-      .eq("user_id", user.id)
-      .eq("game", "mines")
-      .maybeSingle();
-    const state = (roundRow?.state ?? {}) as { mineCount?: number; mines?: number[]; picks?: number[] };
-    if (!roundRow || roundRow.status !== "open" || !Array.isArray(state.mines)) {
-      return jsonError("That round is over.", 409);
-    }
-    const picks = Array.isArray(state.picks) ? state.picks : [];
-    if (picks.includes(cell)) return jsonError("Already opened.");
-
-    if (state.mines.includes(cell)) {
-      await settleRound(supabase, user.id, roundRow.id, 0, { bust: cell, picks });
-      return finishWithProfile({ bust: true, mines: state.mines, payout: 0 });
-    }
-
-    const nextPicks = [...picks, cell];
-    const multiplier = minesMultiplier(state.mineCount ?? 5, nextPicks.length);
-    await supabase.rpc("gamble_patch_round", {
-      p_round_id: roundRow.id,
-      p_state_patch: { picks: nextPicks },
+    const { data, error } = await supabase.rpc("gamble_mines_pick", {
+      p_cell: cell,
+      p_round_id: body.roundId,
       p_user_id: user.id,
     });
-    return Response.json({ bust: false, multiplier, picks: nextPicks });
+    if (error) return jsonError("The box would not open.", 500);
+    const result = (data ?? {}) as {
+      bust?: boolean;
+      error?: string;
+      mines?: number[];
+      multiplier?: number;
+      payout?: number;
+      picks?: number[];
+    };
+    if (result.error === "already_opened") return jsonError("Already opened.", 409);
+    if (result.error === "round_closed") return jsonError("That round is over.", 409);
+    if (result.error) return jsonError("The box would not open.");
+    return result.bust ? finishWithProfile(result) : Response.json(result);
   }
 
   if (body.action === "mines-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
-    const { data: roundRow } = await supabase
-      .from("gamble_rounds")
-      .select("id, wager, state, status")
-      .eq("id", body.roundId)
-      .eq("user_id", user.id)
-      .eq("game", "mines")
-      .maybeSingle();
-    const state = (roundRow?.state ?? {}) as { mineCount?: number; picks?: number[] };
-    const picks = Array.isArray(state.picks) ? state.picks : [];
-    if (!roundRow || roundRow.status !== "open") return jsonError("That round is over.", 409);
-    if (picks.length === 0) return jsonError("Open at least one box first.");
-
-    const multiplier = minesMultiplier(state.mineCount ?? 5, picks.length);
-    const payout = Math.floor(roundRow.wager * multiplier);
-    await settleRound(supabase, user.id, roundRow.id, payout, { cashedOut: true });
-    return finishWithProfile({ multiplier, payout, roundId: roundRow.id });
+    const { data, error } = await supabase.rpc("gamble_mines_cashout", {
+      p_round_id: body.roundId,
+      p_user_id: user.id,
+    });
+    if (error) return jsonError("The cashout failed.", 500);
+    const result = (data ?? {}) as { error?: string; multiplier?: number; payout?: number; roundId?: string };
+    if (result.error === "no_picks") return jsonError("Open at least one box first.");
+    if (result.error === "round_closed") return jsonError("That round is over.", 409);
+    if (result.error) return jsonError("The cashout failed.");
+    return finishWithProfile(result);
   }
 
   // ------------------------------------------------------------------ crash
@@ -325,32 +310,49 @@ export async function POST(request: Request) {
     const opened = await openRound(supabase, user.id, "crash", bet, { crashPoint });
     if (opened.error || !opened.roundId) return openError(opened);
     // The crash point stays server-side; the client only learns it when the
-    // round ends, one way or the other.
-    return finishWithProfile({ roundId: opened.roundId, startedAt: new Date().toISOString() });
+    // round ends, one way or the other. elapsedMs lets the display sync its
+    // clock to the round's real start (the DB row's created_at).
+    const { data: createdRow } = await supabase
+      .from("gamble_rounds")
+      .select("created_at")
+      .eq("id", opened.roundId)
+      .single();
+    const elapsedMs = createdRow ? Math.max(0, Date.now() - new Date(createdRow.created_at).getTime()) : 0;
+    return finishWithProfile({ elapsedMs, roundId: opened.roundId });
+  }
+
+  // The client polls this while the round runs. The moment the server clock
+  // has passed the crash point, the round settles at zero and the truth is
+  // revealed - so the display can never keep climbing past a bust.
+  if (body.action === "crash-status") {
+    if (typeof body.roundId !== "string") return jsonError("Missing round.");
+    const { data, error } = await supabase.rpc("gamble_crash_status", {
+      p_round_id: body.roundId,
+      p_user_id: user.id,
+    });
+    if (error) return jsonError("The round status is unavailable.", 500);
+    const result = (data ?? {}) as { crashPoint?: number; crashed?: boolean; elapsedMs?: number; error?: string };
+    if (result.error) return jsonError("That round is over.", 409);
+    return Response.json(result);
   }
 
   if (body.action === "crash-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
-    const { data: roundRow } = await supabase
-      .from("gamble_rounds")
-      .select("id, wager, state, status, created_at")
-      .eq("id", body.roundId)
-      .eq("user_id", user.id)
-      .eq("game", "crash")
-      .maybeSingle();
-    const state = (roundRow?.state ?? {}) as { crashPoint?: number };
-    if (!roundRow || roundRow.status !== "open" || typeof state.crashPoint !== "number") {
-      return jsonError("That round is over.", 409);
-    }
-
-    // Server clock only: the multiplier is a pure function of elapsed time,
-    // so nothing the client sends can move it.
-    const elapsed = Date.now() - new Date(roundRow.created_at).getTime();
-    const atCashout = crashMultiplierAt(elapsed);
-    const survived = atCashout < state.crashPoint;
-    const payout = survived ? Math.floor(roundRow.wager * atCashout) : 0;
-    await settleRound(supabase, user.id, roundRow.id, payout, { atCashout, survived });
-    return finishWithProfile({ crashPoint: state.crashPoint, multiplier: atCashout, payout, survived });
+    const { data, error } = await supabase.rpc("gamble_crash_cashout", {
+      p_round_id: body.roundId,
+      p_user_id: user.id,
+    });
+    if (error) return jsonError("The cashout failed.", 500);
+    const result = (data ?? {}) as {
+      crashPoint?: number;
+      error?: string;
+      multiplier?: number;
+      payout?: number;
+      survived?: boolean;
+    };
+    if (result.error === "round_closed") return jsonError("That round is over.", 409);
+    if (result.error) return jsonError("The cashout failed.");
+    return finishWithProfile(result);
   }
 
   // ------------------------------------------------------------------ double
@@ -365,6 +367,9 @@ export async function POST(request: Request) {
     if (error) return jsonError("The double could not be played.", 500);
     const result = (data ?? {}) as { error?: string; payout?: number; won?: boolean };
     if (result.error === "not_doublable") return jsonError("Nothing on that round to double.", 409);
+    if (result.error === "payout_unavailable") {
+      return jsonError("Keep the full winnings in your coin balance if you want to risk them.", 409);
+    }
     if (result.error) return jsonError("The double could not be played.");
     return finishWithProfile({ payout: result.payout ?? 0, won: result.won === true });
   }

@@ -1,21 +1,21 @@
 import Image from "next/image";
-import type { DashboardPage } from "@/components/SidebarNav";
+import { DASHBOARD_PAGE_CODES, type DashboardPage } from "@/lib/dashboard-navigation";
 
 type ChamberPage = Exclude<DashboardPage, "home">;
 
 const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: string; description: string }> = {
-  tribute: { code: "III", eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
-  tasks: { code: "IV", eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
-  wheels: { code: "V", eyebrow: "Her hand on the wheel", title: "Gamble & Wheels", description: "Spin if you dare. Whatever it lands on, you owe her." },
-  pet: { code: "V", eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
-  debt: { code: "IX", eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
-  devotion: { code: "XII", eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
-  shop: { code: "VII", eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
-  moneyShop: { code: "VI", eyebrow: "No luck required", title: "Money Shop", description: "Principessa Money buys the Legendary outright. Coins never reach this counter." },
-  crates: { code: "VIII", eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
-  runway: { code: "II", eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
-  collection: { code: "X", eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
-  profile: { code: "XI", eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
+  tribute: { code: DASHBOARD_PAGE_CODES.tribute, eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
+  tasks: { code: DASHBOARD_PAGE_CODES.tasks, eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
+  wheels: { code: DASHBOARD_PAGE_CODES.wheels, eyebrow: "Her hand on the wheel", title: "Gamble & Wheels", description: "Spin if you dare. Whatever it lands on, you owe her." },
+  pet: { code: DASHBOARD_PAGE_CODES.pet, eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
+  debt: { code: DASHBOARD_PAGE_CODES.debt, eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
+  devotion: { code: DASHBOARD_PAGE_CODES.devotion, eyebrow: "Attention must be earned", title: "Your Devotion", description: "Your rank reflects what you have actually given her—not what you claim." },
+  shop: { code: DASHBOARD_PAGE_CODES.shop, eyebrow: "Spend for her approval", title: "Principessa's Shop", description: "Use your coins on privileges, cosmetics and whatever she allows you to keep." },
+  moneyShop: { code: DASHBOARD_PAGE_CODES.moneyShop, eyebrow: "No luck required", title: "Money Shop", description: "Principessa Money buys the Legendary outright. Coins never reach this counter." },
+  crates: { code: DASHBOARD_PAGE_CODES.crates, eyebrow: "Feeling lucky?", title: "Open a Case", description: "Take your chance. Principessa still decides what the result is worth." },
+  runway: { code: DASHBOARD_PAGE_CODES.runway, eyebrow: "Let her see you dressed", title: "The Runway", description: "Submit your look, vote on others, and see who she'd actually notice." },
+  collection: { code: DASHBOARD_PAGE_CODES.collection, eyebrow: "What she lets you keep", title: "Your Gallery", description: "The moments and rewards Principessa has allowed you to keep." },
+  profile: { code: DASHBOARD_PAGE_CODES.profile, eyebrow: "This is how she sees you", title: "Your Profile", description: "Your name, titles, devotion and everything you have done for her." },
 };
 
 type CharacterMoment = {

@@ -16,10 +16,6 @@ export type GambleGameId = (typeof GAMBLE_GAME_IDS)[number];
 
 export const GAMBLE_MIN_BET = 100;
 export const GAMBLE_MAX_BET = 5_000;
-// Net coins a player may lose per GMT+3 day across every table. A cap keeps
-// the hall a habit instead of a single ruinous night - sustainable drainage
-// beats a one-time wipeout.
-export const GAMBLE_DAILY_LOSS_CAP = 25_000;
 // Double or Nothing: printed on the button, because the whole design language
 // of the hall is an announced rig.
 export const DOUBLE_OR_NOTHING_CHANCE = 0.35;
