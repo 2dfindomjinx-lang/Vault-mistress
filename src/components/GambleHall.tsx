@@ -1141,24 +1141,6 @@ export function GambleHall({ disabled = false, onProfile }: HallProps) {
         </div>
       </div>
 
-      {/* Shared bet */}
-      <div className="mt-5 flex flex-wrap items-center gap-1.5 rounded-2xl border border-white/10 bg-black/25 p-3">
-        <span className="mr-1 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/50">Table bet</span>
-        {BET_CHIPS.map((chip) => (
-          <button
-            className={`rounded-full border px-3 py-1.5 text-xs font-black tabular-nums transition ${bet === chip ? "border-pink-200/65 bg-pink-500/25 text-white shadow-[0_0_20px_rgba(236,72,153,.24)]" : "border-white/10 bg-black/30 text-white/40 hover:border-pink-200/30 hover:text-pink-100"}`}
-            key={chip}
-            onClick={() => setBet(chip)}
-            type="button"
-          >
-            {chip.toLocaleString()}
-          </button>
-        ))}
-        <span className="ml-1 text-[9px] text-zinc-700">
-          {GAMBLE_MIN_BET}–{GAMBLE_MAX_BET.toLocaleString()} per round
-        </span>
-      </div>
-
       <div className="mt-5 flex items-center justify-between gap-3">
         <p className="text-[10px] font-black uppercase tracking-[.28em] text-pink-100/65">Choose tonight&apos;s table</p>
         <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/30">7 games · one shared stake</p>
@@ -1210,7 +1192,25 @@ export function GambleHall({ disabled = false, onProfile }: HallProps) {
       </div>
 
       <div className="mt-5 scroll-mt-24" id={`table-${activeTable}`}>
-        <TableCard game={activeGame}>{renderActiveTable()}</TableCard>
+        <TableCard game={activeGame}>
+          <div className="sticky top-2 z-20 mb-5 flex flex-wrap items-center gap-1.5 rounded-2xl border border-pink-200/20 bg-[#120712]/90 p-3 shadow-[0_16px_35px_rgba(0,0,0,.28)] backdrop-blur-xl">
+            <span className="mr-1 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/60">Table bet</span>
+            {BET_CHIPS.map((chip) => (
+              <button
+                className={`rounded-full border px-3 py-1.5 text-xs font-black tabular-nums transition ${bet === chip ? "border-pink-200/65 bg-pink-500/25 text-white shadow-[0_0_20px_rgba(236,72,153,.24)]" : "border-white/10 bg-black/30 text-white/45 hover:border-pink-200/30 hover:text-pink-100"}`}
+                key={chip}
+                onClick={() => setBet(chip)}
+                type="button"
+              >
+                {chip.toLocaleString()}
+              </button>
+            ))}
+            <span className="ml-1 text-[9px] text-zinc-600">
+              {GAMBLE_MIN_BET}–{GAMBLE_MAX_BET.toLocaleString()} per round
+            </span>
+          </div>
+          {renderActiveTable()}
+        </TableCard>
       </div>
     </section>
   );

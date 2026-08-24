@@ -31,11 +31,12 @@ type SpinResult = {
 
 const SPIN_MS = 4_200;
 const FULL_TURNS = 5;
-const WHEEL_CARD_META: Record<WheelId, { kicker: string; objectPosition: string; tag: string }> = {
-  broke: { kicker: "A smaller surrender", objectPosition: "78% center", tag: "Entry" },
-  principessa: { kicker: "Her signature verdict", objectPosition: "32% center", tag: "Popular" },
-  luxury: { kicker: "Nothing modest here", objectPosition: "58% center", tag: "High stakes" },
-  chastity: { kicker: "The counter obeys", objectPosition: "92% center", tag: "Time" },
+const WHEEL_IMAGE_POSITION = "50% center";
+const WHEEL_CARD_META: Record<WheelId, { kicker: string; tag: string }> = {
+  broke: { kicker: "A smaller surrender", tag: "Entry" },
+  principessa: { kicker: "Her signature verdict", tag: "Popular" },
+  luxury: { kicker: "Nothing modest here", tag: "High stakes" },
+  chastity: { kicker: "The counter obeys", tag: "Time" },
 };
 
 function formatChastityRemaining(until: string, now: number) {
@@ -431,7 +432,7 @@ export function FindomWheels({
                 quality={75}
                 sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                 src="/gamble/principessa-wheel-chamber.webp"
-                style={{ objectPosition: meta.objectPosition }}
+                style={{ objectPosition: WHEEL_IMAGE_POSITION }}
               />
               <span className="absolute inset-0 bg-[linear-gradient(0deg,rgba(5,2,8,.98),rgba(7,2,10,.62)_44%,transparent_83%)]" />
               <span className="absolute left-4 top-4 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em] text-white/75 backdrop-blur">{meta.tag}</span>
@@ -450,7 +451,7 @@ export function FindomWheels({
 
       <article className="mt-5 overflow-hidden rounded-[1.8rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,.07),rgba(0,0,0,.28))] shadow-[0_24px_70px_rgba(0,0,0,.35)]">
         <div className="grid lg:grid-cols-[minmax(0,.9fr)_minmax(22rem,1.1fr)]">
-          <div className="relative min-h-72 overflow-hidden border-b border-white/10 lg:min-h-full lg:border-b-0 lg:border-r">
+          <div className="relative h-80 overflow-hidden border-b border-white/10 sm:h-96 lg:h-[30rem] lg:border-b-0 lg:border-r">
             <Image
               alt={`${activeWheel.title} presented by Principessa`}
               className="object-cover"
@@ -458,7 +459,7 @@ export function FindomWheels({
               quality={75}
               sizes="(min-width: 1024px) 40vw, 100vw"
               src="/gamble/principessa-wheel-chamber.webp"
-              style={{ objectPosition: WHEEL_CARD_META[selectedWheel].objectPosition }}
+              style={{ objectPosition: WHEEL_IMAGE_POSITION }}
             />
             <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(6,2,9,.96),rgba(7,2,10,.28)_72%),linear-gradient(90deg,rgba(6,2,9,.42),transparent)]" />
             <div className="absolute inset-x-6 bottom-6">

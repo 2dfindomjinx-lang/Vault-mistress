@@ -87,34 +87,34 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
 
       <div className="relative hidden h-full flex-col lg:flex">
-        <header className="relative min-h-[150px] overflow-hidden border-b border-[#c89a55]/15 px-6 pb-4 pt-5">
-          <div className="absolute -right-11 -top-12 h-52 w-52 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
+        <header className="relative h-[136px] shrink-0 overflow-hidden border-b border-[#c89a55]/15 px-6 pb-3 pt-4">
+          <div className="absolute -right-9 -top-11 h-48 w-48 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
             <Image alt="Principessa watching over the court" className="object-cover object-center" fill priority sizes="208px" src="/principessa-ui/principessa-gaze.webp" />
           </div>
           <div className="relative z-10">
             <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#d7ad69]/65">Private domain</p>
-            <h1 className="mt-3 max-w-[9rem] font-serif text-3xl leading-[.92] text-[#fff0d2]">Principessa&apos;s Court</h1>
-            <p className="mt-4 text-[10px] uppercase tracking-[0.18em] text-pink-200/35">You enter by her permission.</p>
+            <h1 className="mt-2 max-w-[9rem] font-serif text-[28px] leading-[.92] text-[#fff0d2]">Principessa&apos;s Court</h1>
+            <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-pink-200/35">You enter by her permission.</p>
           </div>
         </header>
 
-        <div className="border-b border-[#c89a55]/15 px-6 py-2.5">
+        <div className="shrink-0 border-b border-[#c89a55]/15 px-6 py-2">
           <div className="flex items-center justify-between gap-3">
             <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-[#fff0d2]"><MoneyIcon height={14} />{money.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#d7ad69]/60">money</span></p>
             <button className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50" onClick={onAddMoney} type="button">+ Add</button>
           </div>
-          <p className="mt-1 truncate text-[11px] font-bold text-pink-100/60"><span className="mr-1 text-amber-200/60">◉</span>{coins.toLocaleString()} <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-200/35">coins</span></p>
+          <p className="mt-0.5 truncate text-[10px] font-bold text-pink-100/60"><span className="mr-1 text-amber-200/60">◉</span>{coins.toLocaleString()} <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-pink-200/35">coins</span></p>
         </div>
 
-        <nav className="court-scrollbar flex min-h-0 flex-1 flex-col justify-start overflow-y-auto overflow-x-hidden px-4 py-2">
-          <p className="mb-2 px-3 text-[8px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>
+        <nav className="flex min-h-0 flex-1 flex-col justify-start overflow-hidden px-4 py-1.5">
+          <p className="mb-1 px-3 text-[7px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>
           {items.map((item) => {
             const meta = navigationMeta[item.key];
             const isActive = activePage === item.key;
             return (
               <div key={item.key}>
                 <button
-                  className={`group relative flex w-full items-center gap-3 border-y border-transparent px-3 py-1.5 text-left transition ${isActive ? "border-[#c89a55]/20 bg-[linear-gradient(90deg,rgba(190,24,93,.2),rgba(190,24,93,.025))] text-[#fff0d2]" : item.disabled ? "cursor-not-allowed text-zinc-700" : "text-zinc-500 hover:bg-white/[.025] hover:text-pink-100"}`}
+                  className={`group relative flex w-full items-center gap-2.5 border-y border-transparent px-3 py-1 text-left transition ${isActive ? "border-[#c89a55]/20 bg-[linear-gradient(90deg,rgba(190,24,93,.2),rgba(190,24,93,.025))] text-[#fff0d2]" : item.disabled ? "cursor-not-allowed text-zinc-700" : "text-zinc-500 hover:bg-white/[.025] hover:text-pink-100"}`}
                   disabled={item.disabled}
                   onClick={() => onSelect(item.key)}
                   onFocus={() => item.onHover?.()}
@@ -122,10 +122,10 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
                   type="button"
                 >
                   {isActive ? <span className="absolute inset-y-1 left-0 w-px bg-[#e6ba73] shadow-[0_0_10px_rgba(230,186,115,.75)]" /> : null}
-                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center border text-xs ${isActive ? "border-[#c89a55]/30 bg-black/35 text-pink-300" : "border-white/[.06] bg-black/20 text-zinc-700 group-hover:text-pink-300/70"}`}>{meta.glyph}</span>
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center border text-[10px] ${isActive ? "border-[#c89a55]/30 bg-black/35 text-pink-300" : "border-white/[.06] bg-black/20 text-zinc-700 group-hover:text-pink-300/70"}`}>{meta.glyph}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-[#c89a55]/35">{meta.code}</span>
-                    <span className="block truncate font-serif text-[15px]">{item.label}</span>
+                    <span className="block text-[7px] font-black uppercase leading-none tracking-[0.22em] text-[#c89a55]/35">{meta.code}</span>
+                    <span className="mt-0.5 block truncate font-serif text-[14px] leading-4">{item.label}</span>
                   </span>
                   {item.hasIndicator ? <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_9px_#fbbf24]" /> : null}
                   {item.badge ? <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700">{item.badge}</span> : null}
@@ -135,7 +135,7 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
           })}
         </nav>
 
-        <footer className="border-t border-[#c89a55]/12 px-6 py-4 text-[9px] uppercase tracking-[0.22em] text-zinc-700">
+        <footer className="shrink-0 border-t border-[#c89a55]/12 px-6 py-2.5 text-[8px] uppercase tracking-[0.22em] text-zinc-700">
           Her court. Her ledger. Her rules.
         </footer>
       </div>
