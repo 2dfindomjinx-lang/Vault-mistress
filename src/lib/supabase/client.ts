@@ -19,6 +19,7 @@ export type Profile = {
   coins: number;
   /** Principessa Money - paid-only currency, see src/lib/principessa-money.ts. */
   principessa_money?: number;
+  pm_burned_total?: number;
   affection: number;
   tribute_total: number;
   tribute_code?: string | null;

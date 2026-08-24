@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { CourtSealPayload } from "@/lib/court-seal-shared";
+import { COURT_SEAL_BOARDS, type CourtSealPayload } from "@/lib/court-seal-shared";
 
 export type { CourtSealBoard, CourtSealPayload } from "@/lib/court-seal-shared";
 
@@ -37,7 +37,7 @@ export function verifyCourtSealToken(token: string): CourtSealPayload | null {
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const payload = JSON.parse(decode(encoded)) as CourtSealPayload;
-    if (!payload || !["devotion", "streak", "click"].includes(payload.board)) return null;
+    if (!payload || !COURT_SEAL_BOARDS.includes(payload.board)) return null;
     if (
       !Number.isInteger(payload.createdAt) ||
       payload.createdAt > Date.now() + 1000 * 60 * 5 ||

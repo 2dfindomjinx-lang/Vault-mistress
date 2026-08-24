@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CourtActivityFeed } from "@/components/CourtActivityFeed";
 
 type LoginScreenProps = {
   error?: string;
@@ -25,7 +26,12 @@ export function LoginScreen({
           <div className="absolute -bottom-40 right-[-6%] h-[92%] w-[55%]"><Image alt="Principessa awaiting entry to her court" className="object-contain object-bottom drop-shadow-[-20px_20px_36px_rgba(0,0,0,.8)]" fill priority sizes="42vw" src="/principessa-ui/principessa-court-model.webp" /></div>
           <div className="relative z-10 flex h-full max-w-xl flex-col justify-between p-12">
             <div><p className="text-[9px] font-black uppercase tracking-[.4em] text-[#d7ad69]/70">Private domain</p><h1 className="mt-5 font-serif text-7xl leading-[.86] text-[#fff0d2]">The court is already watching.</h1></div>
-            <p className="max-w-sm border-l border-pink-400/30 pl-4 font-serif text-lg italic leading-8 text-pink-100/45">Enter only if you are ready to be measured by her standards.</p>
+            <div>
+              {/* Proof of life for someone deciding whether to sign in: real
+                  activity from the last month, looping slowly. */}
+              <CourtActivityFeed className="max-w-sm" />
+              <p className="mt-8 max-w-sm border-l border-pink-400/30 pl-4 font-serif text-lg italic leading-8 text-pink-100/45">Enter only if you are ready to be measured by her standards.</p>
+            </div>
           </div>
         </section>
 
@@ -59,6 +65,10 @@ export function LoginScreen({
             {error}
           </p>
         )}
+
+        <div className="lg:hidden">
+          <CourtActivityFeed className="mt-6 border-t border-[#c89a55]/10 pt-5" />
+        </div>
 
         <p className="mt-5 border-t border-[#c89a55]/10 pt-4 text-[10px] leading-5 text-zinc-700">
           Passwords are not collected by this app. X account data is handled by

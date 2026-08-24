@@ -15,6 +15,7 @@ import { getAdjustedCrateDrops, getCrateCostMultiplier, hasFreeCrateOpen } from 
 import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
+import { postSealToX } from "@/lib/share-seal";
 
 export type CrateDefinition = {
   crate_type: string;
@@ -1492,6 +1493,22 @@ export function CratesPanel({
               </div>
 
               <div className="mt-3 flex justify-center gap-3">
+              {/* Rare pulls are worth bragging about; commons are not. The
+                  seal route re-verifies the pull against crate_opens, so this
+                  is display gating only. */}
+              {wonItems.length === 1 && wonItems[0] && ["epic", "legendary", "ultimate"].includes(wonItems[0].rarity) && (
+                <button
+                  className="rounded-2xl border border-fuchsia-300/40 bg-fuchsia-500/15 px-3 py-2 text-sm font-bold text-fuchsia-100 transition hover:bg-fuchsia-500/25"
+                  onClick={() => {
+                    void postSealToX("crate", { itemId: wonItems[0].item_id }).then((message) => {
+                      if (message) notice(message);
+                    });
+                  }}
+                  type="button"
+                >
+                  Post pull on X
+                </button>
+              )}
               {wonItems.length === 1 && wonItems[0] && (
                 <button
                   onClick={async () => {

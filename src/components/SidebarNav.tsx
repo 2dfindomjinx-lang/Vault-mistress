@@ -20,7 +20,7 @@ export type DashboardPage =
 export const DASHBOARD_PANEL_PATHS: Record<DashboardPage, string> = {
   home: "/",
   tribute: "/tribute",
-  tasks: "/tasks",
+  tasks: "/games",
   pet: "/pet",
   debt: "/debt",
   devotion: "/devotion",
@@ -38,6 +38,7 @@ const PATH_TO_PANEL: Partial<Record<string, DashboardPage>> = Object.fromEntries
 
 export function getPanelForPath(pathname: string | null | undefined): DashboardPage {
   if (!pathname) return "home";
+  if (pathname === "/tasks") return "tasks";
   return PATH_TO_PANEL[pathname] ?? "home";
 }
 
@@ -76,7 +77,7 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   home: { code: "I", glyph: "◆" },
   runway: { code: "II", glyph: "▲" },
   tribute: { code: "III", glyph: "♛" },
-  tasks: { code: "IV", glyph: "✓" },
+  tasks: { code: "IV", glyph: "♠" },
   pet: { code: "V", glyph: "♙" },
   moneyShop: { code: "VI", glyph: "❖" },
   shop: { code: "VII", glyph: "✦" },

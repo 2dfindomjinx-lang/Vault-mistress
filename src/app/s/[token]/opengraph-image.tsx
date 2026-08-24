@@ -1,4 +1,7 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
+import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 import { verifyCourtSealToken } from "@/lib/court-seal";
 import {
   COURT_SEAL_BOARD_COPY,
@@ -18,6 +21,23 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ tok
   const copy = COURT_SEAL_BOARD_COPY[payload.board];
   const metric = getCourtSealMetric(payload);
   const secondary = getCourtSealSecondary(payload);
+
+  // Crate receipts get the item's own icon. Read from the public dir and
+  // embedded as a data URI - the CSP-safe way to put a local file into satori.
+  // Any failure just means a text-only card, never a broken image.
+  let itemIcon: string | null = null;
+  if (payload.board === "crate" && payload.itemId) {
+    const imageUrl = SAMPLE_CRATE_ITEMS[payload.itemId]?.image_url;
+    if (imageUrl && !imageUrl.includes("..")) {
+      try {
+        const file = await readFile(path.join(process.cwd(), "public", imageUrl));
+        const mime = imageUrl.endsWith(".webp") ? "image/webp" : "image/png";
+        itemIcon = `data:${mime};base64,${file.toString("base64")}`;
+      } catch {
+        itemIcon = null;
+      }
+    }
+  }
 
   return new ImageResponse(
     <div
@@ -49,8 +69,20 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ tok
           width: "100%",
         }}
       >
-        <div style={{ color: copy.accent, display: "flex", fontSize: 24, fontWeight: 700, letterSpacing: 7 }}>
-          {copy.eyebrow}
+        <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between" }}>
+          <div style={{ color: copy.accent, display: "flex", fontSize: 24, fontWeight: 700, letterSpacing: 7 }}>
+            {copy.eyebrow}
+          </div>
+          {itemIcon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              height={150}
+              src={itemIcon}
+              style={{ filter: "drop-shadow(0 10px 24px rgba(0,0,0,0.6))", objectFit: "contain" }}
+              width={150}
+            />
+          ) : null}
         </div>
         <div style={{ display: "flex", fontSize: 68, fontWeight: 800, marginTop: 30 }}>
           {copy.title}

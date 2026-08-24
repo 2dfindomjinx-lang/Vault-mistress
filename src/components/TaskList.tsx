@@ -11,11 +11,9 @@ import {
 } from "@/lib/irl-task-wheel";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 import { emitSoundEvent } from "@/lib/sound";
-import type { MechanicsState, TaskItem } from "@/lib/types";
+import type { TaskItem } from "@/lib/types";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
-const SACRIFICE_COST = 250;
-const SUPPORT_COST = 2500;
 const CLICKABLE_COOLDOWN_BUTTON_CLASS =
   "cursor-not-allowed border-pink-400/35 bg-pink-950/55 text-zinc-500 shadow-none hover:border-pink-400/35 hover:bg-pink-950/55";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-70";
@@ -109,6 +107,13 @@ function getMovementStageImage(progress: number) {
   return MOVEMENT_STAGE_IMAGES.find((image) => progress >= image.min)?.src ?? MOVEMENT_STAGE_IMAGES[0].src;
 }
 
+const TASK_VISUALS: Partial<Record<TaskItem["id"], { glyph: string; label: string }>> = {
+  "daily-login": { glyph: "♛", label: "Daily audience" },
+  "typing-accuracy": { glyph: "✒", label: "Precision trial" },
+  "number-pick": { glyph: "❖", label: "Five sealed numbers" },
+  "case-opening": { glyph: "▣", label: "Animated vault case" },
+};
+
 function getMovementLastResult(task: TaskItem) {
   if (task.movementOutcome === "success") {
     return "Last result: completed successfully.";
@@ -143,7 +148,6 @@ type TaskListProps = {
   addressTerm?: AddressTerm;
   coins: number;
   disabled?: boolean;
-  mechanics: MechanicsState;
   tasks: TaskItem[];
   pendingTaskActionIds?: string[];
   currentUsername?: string;
@@ -156,7 +160,6 @@ type TaskListProps = {
   userLevelProgressPercent: number;
   userXpIntoLevel: number;
   userXpRequiredForNext: number | null;
-  onBeg: () => void;
   onClaim: (taskId: string) => void;
   onCaseOpen: () => Promise<number | null> | number | null;
   // Called once the reel animation actually lands on the reward, not when
@@ -172,8 +175,6 @@ type TaskListProps = {
   onMovementProgress: (progress: number) => void;
   onMovementStart: () => void;
   onCooldownAttempt?: (message: string) => void;
-  onSacrifice: () => void;
-  onSupport: () => void;
   onTimeoutRisk: (multiplier: number) => void;
   onTimeoutRiskMultiplierChange: (direction: "up" | "down") => void;
   onTypingProgress: (value: string) => void;
@@ -197,8 +198,6 @@ export function TaskList({
   globalPrincipessaProgressPercent,
   globalPrincipessaRequirement,
   globalPrincipessaXp,
-  mechanics,
-  onBeg,
   onClaim,
   onCaseOpen,
   onCaseOpenRevealed,
@@ -212,8 +211,6 @@ export function TaskList({
   onMovementStart,
   onCooldownAttempt,
   pendingTaskActionIds = [],
-  onSacrifice,
-  onSupport,
   onTimeoutRisk,
   onTimeoutRiskMultiplierChange,
   onTypingProgress,
@@ -648,57 +645,13 @@ export function TaskList({
       <div className="court-section-heading" data-mark="III">
         <div>
         <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">
-          Standing orders
+          Daily rewards
         </p>
-        <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Assignments & Trials</h2>
+        <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Classic Games</h2>
         </div>
       </div>
 
-      <div className="court-grid court-grid--tasks mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <MechanicCard
-          actionLabel="Beg"
-          cooldownUntil={mechanics.begCooldownUntil}
-          description="Ask for a tiny mercy. Most pleas are ignored; rarely, the vault drops 75 coins."
-          disabled={disabled || isTaskActionPending("beg")}
-          onAction={onBeg}
-          onCooldownAttempt={handleCooldownAttempt}
-          title="Beg"
-          now={now}
-          formatRemaining={formatRemaining}
-        />
-        <MechanicCard
-          actionLabel={
-            mechanics.sacrificeComplete
-              ? "Collection Complete"
-              : `Sacrifice ${SACRIFICE_COST} Coins`
-          }
-          cooldownUntil={mechanics.sacrificeCooldownUntil}
-          description={`Burn ${SACRIFICE_COST} coins for a 50% chance to unlock a hidden Sacrifice Collection image. ${mechanics.sacrificeUnlockedCount}/${mechanics.sacrificeTotal} unlocked.`}
-          disabled={disabled || isTaskActionPending("sacrifice") || mechanics.sacrificeComplete || coins < SACRIFICE_COST}
-          lastResult={mechanics.sacrificeLastResult}
-          onCooldownAttempt={handleCooldownAttempt}
-          onAction={onSacrifice}
-          title="Sacrifice"
-          now={now}
-          formatRemaining={formatRemaining}
-        />
-        <MechanicCard
-          actionLabel={`Support ${SUPPORT_COST} Coins`}
-          description={
-            mechanics.supportUnlocked
-              ? `Spend ${SUPPORT_COST} coins for a special dialogue moment. More rewards can be attached later.`
-              : "Unlock every normal and Sacrifice Collection image to open this endgame mechanic."
-          }
-          disabled={disabled || isTaskActionPending("support") || !mechanics.supportUnlocked || coins < SUPPORT_COST}
-          lastResult={mechanics.supportLastResult}
-          onAction={onSupport}
-          title="Support"
-          now={now}
-          formatRemaining={formatRemaining}
-        />
-      </div>
-
-      <article className="court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
+      <article className="level-drain-game-card court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
         <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
               <div className="mx-auto flex w-full max-w-[18rem] flex-col gap-2">
                 <div className="relative aspect-[3/2] w-full overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
@@ -740,7 +693,7 @@ export function TaskList({
                   </span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
-                  <div className="h-full rounded-full bg-pink-400" style={{ width: `${userLevelProgressPercent}%` }} />
+                  <div className="level-drain-progress h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#f9a8d4,#ec4899)]" style={{ width: `${userLevelProgressPercent}%` }} />
                 </div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
@@ -753,7 +706,7 @@ export function TaskList({
                   </span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
-                  <div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${globalPrincipessaProgressPercent}%` }} />
+                  <div className="level-drain-progress h-full rounded-full bg-[linear-gradient(90deg,#d946ef,#f5d0fe,#d946ef)]" style={{ width: `${globalPrincipessaProgressPercent}%` }} />
                 </div>
               </div>
             </div>
@@ -814,7 +767,7 @@ export function TaskList({
                 key="risk-wheel-layout"
               >
                 <div className="flex min-h-full min-w-0 flex-col gap-3">
-          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+          <article className="court-risk-card court-feature-card court-grid-card overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-black text-white">{task.title}</h3>
@@ -951,7 +904,7 @@ export function TaskList({
                 </div>
 
                 {irlTask && (
-          <article className="court-feature-card court-grid-card flex min-h-full flex-col rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
+          <article className="court-wheel-card court-feature-card court-grid-card flex min-h-full flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-lg font-black text-white">{irlTask.title}</h3>
@@ -1091,7 +1044,7 @@ export function TaskList({
 
           return (
             <article
-              className={`court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
+              className={`court-game-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
                 task.kind === "movement" &&
                 (movementLocalActive || task.movementState === "active" || task.movementState === "fake_hope")
                   ? "md:col-span-2"
@@ -1099,6 +1052,15 @@ export function TaskList({
               }`}
               key={task.id}
             >
+              {TASK_VISUALS[task.id] && (
+                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#d7ad69]/15 bg-[linear-gradient(110deg,rgba(190,24,93,.14),rgba(0,0,0,.18))] px-3 py-2.5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d7ad69]/25 bg-black/35 text-xl text-[#efc880]">{TASK_VISUALS[task.id]?.glyph}</span>
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[.2em] text-[#d7ad69]/55">{TASK_VISUALS[task.id]?.label}</p>
+                    <p className="mt-0.5 text-xs text-pink-100/60">Principessa is watching your result.</p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-black text-white">{task.title}</h3>
@@ -2151,83 +2113,4 @@ function WaitObedientlyPanel({
     </div>
   );
 }
-
-function MechanicCard({
-  actionLabel,
-  cooldownUntil,
-  description,
-  disabled = false,
-  formatRemaining,
-  lastResult,
-  now,
-  onAction,
-  onCooldownAttempt,
-  title,
-}: {
-  actionLabel: string;
-  cooldownUntil?: string | null;
-  description: string;
-  disabled?: boolean;
-  formatRemaining: (milliseconds: number) => string;
-  lastResult?: string | null;
-  now: number;
-  onAction: () => void;
-  onCooldownAttempt?: (message: string) => void;
-  title: string;
-}) {
-  const cooldownRemaining = cooldownUntil
-    ? new Date(cooldownUntil).getTime() - now
-    : 0;
-  const isCoolingDown = cooldownRemaining > 0;
-
-  return (
-          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(145deg,rgba(236,72,153,0.1),rgba(0,0,0,0.35))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-black text-white">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>
-        </div>
-        {isCoolingDown && (
-          <span className="rounded-full bg-yellow-400/15 px-3 py-1 text-xs font-bold text-yellow-100">
-            Cooldown
-          </span>
-        )}
-      </div>
-      {isCoolingDown && (
-        <p className="mt-3 text-sm font-semibold text-pink-100">
-          Available in {formatRemaining(cooldownRemaining)}
-        </p>
-      )}
-      {lastResult && (
-        <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-pink-50">
-          {lastResult}
-        </p>
-      )}
-      <button
-        aria-disabled={isCoolingDown || undefined}
-        className={`mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
-          isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
-        }`}
-        disabled={disabled}
-        onClick={() => {
-          emitSoundEvent("button_click");
-          if (isCoolingDown) {
-            onCooldownAttempt?.(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
-            return;
-          }
-
-          onAction();
-        }}
-        type="button"
-      >
-        {isCoolingDown ? (
-          <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
-        ) : (
-          actionLabel
-        )}
-      </button>
-    </article>
-  );
-}
-
 

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { MoneyIcon } from "@/components/MoneyIcon";
+import { TributeFurnace } from "@/components/TributeFurnace";
 import {
   getMoneyConversionBreakdown,
   MONEY_CONVERSION_TIERS,
@@ -20,21 +21,29 @@ type MoneyShopPanelProps = {
   money: number;
   pendingItemId?: string | null;
   isConverting?: boolean;
+  burnedTotal?: number;
+  isBurning?: boolean;
+  burnError?: string;
   onAddMoney?: () => void;
+  onBurn?: (amount: number) => Promise<boolean>;
   onBuy: (itemId: string) => void;
   onConvert: (amount: number) => void;
   onSell: (itemId: string) => void;
 };
 
 export function MoneyShopPanel({
+  burnError = "",
+  burnedTotal = 0,
   coins,
   disabled = false,
   error = "",
+  isBurning = false,
   isConverting = false,
   isLoading = false,
   items,
   money,
   onAddMoney,
+  onBurn,
   onBuy,
   onConvert,
   onSell,
@@ -153,6 +162,21 @@ export function MoneyShopPanel({
           </p>
         </div>
       </div>
+
+      {/* Sits with the converter on purpose: this is the screen where someone
+          decides what their Money is for, and burning it is the other answer. */}
+      {onBurn ? (
+        <div className="mt-6">
+          <TributeFurnace
+            burnedTotal={burnedTotal}
+            disabled={disabled}
+            error={burnError}
+            isBurning={isBurning}
+            money={money}
+            onBurn={onBurn}
+          />
+        </div>
+      ) : null}
 
       {/* Legendary catalogue */}
       <div className="mt-6">

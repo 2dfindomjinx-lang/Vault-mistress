@@ -5,6 +5,168 @@
   --foreground: #fff7fb;
 }
 
+@keyframes court-game-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-7px) scale(1.01); }
+}
+
+@keyframes court-game-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes court-command-pop {
+  0% { opacity: 0; transform: translateY(8px) scale(.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes court-guard-arrival {
+  0% { opacity: 0; transform: translateY(-65px) scale(.68); }
+  28% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(42px) scale(1); }
+}
+
+@keyframes court-guard-sweep {
+  from { transform: translateX(-160%); }
+  to { transform: translateX(520%); }
+}
+
+@keyframes court-game-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes level-drain-pulse {
+  0%, 100% { box-shadow: 0 0 26px rgba(236,72,153,.12); }
+  50% { box-shadow: 0 0 48px rgba(217,70,239,.24); }
+}
+
+@keyframes level-drain-flow {
+  from { background-position: 0 0; }
+  to { background-position: 200% 0; }
+}
+
+@keyframes court-risk-glow {
+  0%, 100% { opacity: .3; transform: scale(.9); }
+  50% { opacity: .75; transform: scale(1.12); }
+}
+
+.court-game-orbit {
+  animation: court-game-orbit 20s linear infinite;
+  border-style: dashed;
+}
+
+.court-game-card::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.055) 50%, transparent 65%);
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-120%);
+  transition: transform .8s ease;
+}
+
+.court-game-card:hover::after {
+  transform: translateX(120%);
+}
+
+.court-command-pop {
+  animation: court-command-pop .24s ease-out both;
+}
+
+.court-principessa-float {
+  animation: court-game-float 4.8s ease-in-out infinite;
+}
+
+.court-game-shake {
+  animation: court-game-shake .24s ease-in-out;
+}
+
+.court-action-button {
+  align-items: center;
+  background: linear-gradient(145deg, rgba(190,24,93,.18), rgba(0,0,0,.4));
+  border: 1px solid rgba(251,207,232,.2);
+  border-radius: 1rem;
+  color: rgb(253 242 248);
+  display: flex;
+  font-size: .875rem;
+  font-weight: 900;
+  gap: .55rem;
+  justify-content: center;
+  padding: .85rem 1rem;
+  transition: border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+
+.court-action-button:hover:not(:disabled) {
+  border-color: rgba(251,207,232,.5);
+  transform: translateY(-1px);
+}
+
+.court-action-button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.court-match-card {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.court-match-card--open {
+  animation: court-command-pop .22s ease-out;
+  box-shadow: inset 0 0 22px rgba(236,72,153,.16), 0 0 16px rgba(215,173,105,.1);
+  transform: rotateY(0deg);
+}
+
+.court-guard-target {
+  animation: court-guard-arrival .72s linear both;
+  box-shadow: 0 0 35px rgba(244,63,94,.14);
+}
+
+.court-guard-sweep {
+  animation: court-guard-sweep 2.4s linear infinite;
+}
+
+.level-drain-game-card {
+  animation: level-drain-pulse 4s ease-in-out infinite;
+}
+
+.level-drain-game-card .level-drain-progress {
+  background-size: 200% 100%;
+  animation: level-drain-flow 3s linear infinite;
+}
+
+.court-risk-card::before,
+.court-wheel-card::before {
+  animation: court-risk-glow 3.2s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(250,204,21,.2), transparent 68%);
+  border-radius: 999px;
+  content: "";
+  height: 9rem;
+  pointer-events: none;
+  position: absolute;
+  right: -3rem;
+  top: -3rem;
+  width: 9rem;
+}
+
+.court-wheel-card::before {
+  background: radial-gradient(circle, rgba(217,70,239,.24), transparent 68%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .court-game-orbit,
+  .court-principessa-float,
+  .court-guard-target,
+  .court-guard-sweep,
+  .level-drain-game-card,
+  .level-drain-game-card .level-drain-progress,
+  .court-risk-card::before,
+  .court-wheel-card::before {
+    animation: none;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

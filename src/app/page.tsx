@@ -48,6 +48,7 @@ function VaultPanelLoading() {
 
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
+const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
 const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection), { loading: VaultPanelLoading });
 const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard), { loading: VaultPanelLoading });
 const GalleryGrid = dynamic(() => import("@/components/GalleryGrid").then((module) => module.GalleryGrid), { loading: VaultPanelLoading });
@@ -81,6 +82,7 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
     import("@/components/RotatingShop"),
   ]),
   tasks: () => Promise.all([
+    import("@/components/CourtGames"),
     import("@/components/TaskList"),
   ]),
   tribute: () => import("@/components/TributePanel"),
@@ -478,7 +480,7 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
 }
 
 const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, affection, tribute_total, tribute_code, pet_tribute_code, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, runway_rewarded_votes_today, runway_rewarded_votes_date, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, pm_burned_total, affection, tribute_total, tribute_code, pet_tribute_code, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, runway_rewarded_votes_today, runway_rewarded_votes_date, created_at, updated_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -554,14 +556,6 @@ const startingTasks: TaskItem[] = [
     claimed: false,
     kind: "claim",
   },
-  ...STREAK_BONUSES.map((bonus) => ({
-    id: bonus.id,
-    title: bonus.title,
-    reward: bonus.reward,
-    completed: false,
-    claimed: false,
-    kind: "claim" as const,
-  })),
   {
     id: "typing-accuracy",
     title: "Typing Accuracy",
@@ -602,40 +596,6 @@ const startingTasks: TaskItem[] = [
     completed: false,
     claimed: false,
     kind: "irl-wheel",
-  },
-  {
-    id: "wait-obediently",
-    title: "Wait Obediently",
-    reward: 100,
-    completed: false,
-    claimed: false,
-    kind: "wait-obediently",
-  },
-  {
-    id: "vertical-motion",
-    title: "Daily Edge",
-    reward: 100,
-    completed: false,
-    claimed: false,
-    kind: "movement",
-    movementProgress: 0,
-    movementState: "ready",
-  },
-  {
-    id: "affection",
-    title: "Reach 50 affection",
-    reward: 250,
-    completed: false,
-    claimed: false,
-    kind: "claim",
-  },
-  {
-    id: "affection-80",
-    title: "Reach 80 affection",
-    reward: 250,
-    completed: false,
-    claimed: false,
-    kind: "claim",
   },
 ];
 
@@ -1430,7 +1390,7 @@ function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 
-  while (options.size < 3) {
+  while (options.size < 5) {
     const value = ((seed + step * 7) % 9) + 1;
     options.add(value);
     step += 1;
@@ -1556,8 +1516,8 @@ function buildTasksFromRows(
     if (task.id === "number-pick") {
 	  const metadata = cooldownUntil ? row?.metadata : {};
 
-	  const options =
-		getTaskMetadataNumberArray(metadata, "options") ?? generateNumberPickOptions();
+      const storedOptions = getTaskMetadataNumberArray(metadata, "options");
+      const options = storedOptions?.length === 5 ? storedOptions : generateNumberPickOptions();
 	  const selected = getTaskMetadataNumber(metadata, "selected", Number.NaN);
 	  const correct = getTaskMetadataNumber(metadata, "correct", Number.NaN);
 	  const attemptsRemaining = getTaskMetadataNumber(metadata, "attemptsRemaining", 1);
@@ -1857,6 +1817,9 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [moneyShopError, setMoneyShopError] = useState("");
   const [moneyShopPendingItemId, setMoneyShopPendingItemId] = useState<string | null>(null);
   const [moneyConverting, setMoneyConverting] = useState(false);
+  const [furnaceBurning, setFurnaceBurning] = useState(false);
+  const [furnaceError, setFurnaceError] = useState("");
+  const [burnedTotal, setBurnedTotal] = useState(0);
   const coinsRef = useRef(coins);
   const weeklyTaxAutoCollectingRef = useRef(false);
   const weeklyTaxAutoAttemptRef = useRef<string | null>(null);
@@ -4315,6 +4278,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
     setCoins(profile.coins);
     setPrincipessaMoney(profile.principessa_money ?? 0);
+    setBurnedTotal(profile.pm_burned_total ?? 0);
     setAffection(profile.affection);
     setTributeTotal(profile.tribute_total ?? 0);
     setTributeCode(profile.tribute_code ?? null);
@@ -4716,6 +4680,34 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setMoneyShopError(error instanceof Error ? error.message : "Conversion failed.");
     } finally {
       setMoneyConverting(false);
+    }
+  }, [applyProfileStats]);
+
+  // Returns whether the burn landed: the furnace animation must not play its
+  // ash beat for a burn the server refused.
+  const handleFurnaceBurn = useCallback(async (amount: number) => {
+    setFurnaceBurning(true);
+    setFurnaceError("");
+    try {
+      const response = await fetch("/api/user/furnace", {
+        body: JSON.stringify({ amount }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { burnedTotal?: number; error?: string; profile?: Profile }
+        | null;
+      if (!response.ok || !payload?.profile) {
+        throw new Error(payload?.error ?? "The furnace would not take it.");
+      }
+      applyProfileStats(payload.profile);
+      setBurnedTotal(payload.burnedTotal ?? 0);
+      return true;
+    } catch (error) {
+      setFurnaceError(error instanceof Error ? error.message : "The furnace would not take it.");
+      return false;
+    } finally {
+      setFurnaceBurning(false);
     }
   }, [applyProfileStats]);
 
@@ -6717,7 +6709,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const options =
-      task.numberPickOptions && task.numberPickOptions.length === 3
+      task.numberPickOptions && task.numberPickOptions.length === 5
         ? task.numberPickOptions
         : generateNumberPickOptions();
 
@@ -10124,6 +10116,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAvatarMistressReply(`Case result: ${reward > 0 ? "+" : ""}${reward} coins.`);
   }, [setAvatarMistressReply]);
 
+  const handleCourtGameReward = useCallback((nextCoins: number, rewardCoins: number, gameTitle: string) => {
+    setCoins(nextCoins);
+    coinsRef.current = nextCoins;
+    setAvatarMistressReply(`${gameTitle} cleared. Principessa grants you ${rewardCoins} coins.`);
+    emitSoundEvent("task_completion");
+  }, [setAvatarMistressReply]);
+
   const handleCooldownAttempt = useCallback((message: string) => {
     const avatarId = resolveSpeechAvatarIdForMessage();
     setSpeechBubbleReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
@@ -11035,7 +11034,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { key: "home" as const, label: "Home" },
     { key: "runway" as const, label: "Runway" },
     { key: "tribute" as const, label: "Shrine of Principessa" },
-    { key: "tasks" as const, label: "Tasks" },
+    { key: "tasks" as const, label: "Games" },
     {
       key: "pet" as const,
       label: "Principessa's Pets",
@@ -11410,17 +11409,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     activePanel === "tasks" ? (
       <div className="rounded-2xl border border-emerald-300/15 bg-emerald-500/10 px-3 py-2">
         <div className="flex items-center justify-between gap-3 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100/75">
-          <span>Today&apos;s Task Progress</span>
+          <span>Today&apos;s Classic Games</span>
           <span>{tasksCompletedToday.length} done</span>
         </div>
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/35">
           <div
             className="h-full rounded-full bg-[linear-gradient(90deg,#34d399,#f472b6)] transition-[width]"
-            style={{ width: `${Math.min(100, (tasksCompletedToday.length / 8) * 100)}%` }}
+            style={{ width: `${Math.min(100, (tasksCompletedToday.length / startingTasks.length) * 100)}%` }}
           />
         </div>
         <p className="mt-2 text-xs text-emerald-50/80">
-          {tasksCompletedToday.length} tasks completed, +{taskCoinsEarnedToday.toLocaleString()} coins earned today.
+          {tasksCompletedToday.length} daily games cleared, +{taskCoinsEarnedToday.toLocaleString()} coins earned.
         </p>
       </div>
     ) : activePanel === "pet" ? (
@@ -11990,6 +11989,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
           {activePanel === "tasks" && (
+            <div className="mb-4">
+              <CourtGames
+                coins={coins}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                guestMode={isGuestMode}
+                onReward={handleCourtGameReward}
+              />
+            </div>
+          )}
+          {activePanel === "tasks" && (
             <div className="mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -12032,11 +12041,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               globalPrincipessaRequirement={globalPrincipessaRequirement}
               globalPrincipessaXp={globalPrincipessa.xp}
               currentUsername={effectiveDisplayName ?? username}
-              mechanics={displayMechanics}
               pendingTaskActionIds={pendingTaskActionIds}
               tasks={tasks}
               usernameStyle={usernameStyle}
-              onBeg={handleBeg}
               onClaim={handleClaimTask}
               onCooldownAttempt={handleCooldownAttempt}
               onLevelDrain={handleLevelDrain}
@@ -12048,8 +12055,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onMovementProgress={handleVerticalMotionProgress}
               onMovementStart={handleVerticalMotionStart}
               onNumberPick={handleNumberPick}
-              onSacrifice={handleSacrifice}
-              onSupport={handleSupport}
               onTimeoutRisk={handleTimeoutRisk}
               onTimeoutRiskMultiplierChange={handleTimeoutRiskMultiplierChange}
               onTypingProgress={handleTypingProgress}
@@ -12126,6 +12131,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               pendingItemId={moneyShopPendingItemId}
               onAddMoney={() => setShowCoinCodeModal(true)}
               onBuy={(itemId) => void handleMoneyShopAction(itemId, "buy")}
+              burnError={furnaceError}
+              burnedTotal={burnedTotal}
+              isBurning={furnaceBurning}
+              onBurn={handleFurnaceBurn}
               onConvert={(amount) => void handleMoneyConvert(amount)}
               onSell={(itemId) => void handleMoneyShopAction(itemId, "sell")}
             />

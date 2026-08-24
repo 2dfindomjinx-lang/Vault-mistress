@@ -153,7 +153,7 @@ export function generateNumberPickOptions(seed = getGmt3DayIndex()) {
   const options = new Set<number>();
   let step = 0;
 
-  while (options.size < 3) {
+  while (options.size < 5) {
     const value = ((seed + step * 7) % 9) + 1;
     options.add(value);
     step += 1;
@@ -230,7 +230,7 @@ export function isHighLowLocked(dailyBetTotal: number, dailyProfit = 0) {
 export function validateNumberPickOptions(options: unknown) {
   if (
     !Array.isArray(options) ||
-    options.length !== 3 ||
+    options.length !== 5 ||
     !options.every((entry) => Number.isInteger(entry) && entry >= 1 && entry <= 9)
   ) {
     return null;
@@ -238,5 +238,5 @@ export function validateNumberPickOptions(options: unknown) {
 
   const uniqueOptions = Array.from(new Set(options as number[]));
 
-  return uniqueOptions.length === 3 ? uniqueOptions.sort((a, b) => a - b) : null;
+  return uniqueOptions.length === 5 ? uniqueOptions.sort((a, b) => a - b) : null;
 }

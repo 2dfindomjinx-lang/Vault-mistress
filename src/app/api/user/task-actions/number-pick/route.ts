@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
   const storedOptions = validateNumberPickOptions(metadata.options);
   const submittedOptions = validateNumberPickOptions(body?.options);
-  const options = storedOptions && storedOptions.length === 3
+  const options = storedOptions && storedOptions.length === 5
     ? storedOptions
     : submittedOptions ?? generateNumberPickOptions();
 

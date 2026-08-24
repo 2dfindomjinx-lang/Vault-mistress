@@ -2,7 +2,7 @@ import { cosmeticItems, titleItems } from "@/lib/cosmetics";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 
 export const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, streak_freezes, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
+  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, pm_burned_total, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, streak_freezes, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
 export const visibleGalleryCosts = new Map<string, number>([
   ["common-velvet-arrival", 300],
@@ -97,6 +97,9 @@ const baseTaskRewards = new Map<string, number>([
   ["wait-obediently", 100],
   ["number-pick", 100],
   ["timeout-risk", 125],
+  ["principessa-says", 100],
+  ["crown-match", 100],
+  ["royal-guard", 100],
   ["beg", 50],
   ["affection", 250],
   ["affection-80", 250],
