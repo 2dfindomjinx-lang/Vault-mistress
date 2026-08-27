@@ -1,4 +1,5 @@
 import { formatHandle } from "@/lib/username";
+import { THRONE_ITEMS } from "@/lib/wheels";
 
 // Birthday cake event - a public, no-login page at /birthday-2026 that fills a cake
 // with candles as Throne tributes land during the birthday window.
@@ -90,8 +91,11 @@ export type BirthdayProgress = {
 // Throne for checkout, but the wishlist has its own language and visual section
 // so choosing a present does not feel like buying candle progress.
 //
-// Every card owns its exact Throne item URL. Keeping the URL required prevents
-// a wishlist card from silently falling back to the generic profile page.
+// Every card owns its exact Throne item URL, resolved from THRONE_ITEMS in
+// src/lib/wheels.ts - the single catalogue of live item links - so a wishlist
+// rebuild on Throne only ever needs that one map updated. Keeping the URL
+// required prevents a wishlist card from silently falling back to the generic
+// profile page.
 export type BirthdayGift = {
   id: string;
   name: string;
@@ -110,7 +114,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 10,
     accent: "#e6ba73",
     ribbon: "#be185d",
-    url: "https://throne.com/principessa2dfd/item/b3d608f2-cffa-4bc7-9a08-69b1fea22db6",
+    url: THRONE_ITEMS[10].url,
   },
   {
     id: "ribbon",
@@ -119,7 +123,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 25,
     accent: "#f0abfc",
     ribbon: "#a21caf",
-    url: "https://throne.com/principessa2dfd/item/448a7307-ecc9-414c-bb40-1616dca109ef",
+    url: THRONE_ITEMS[25].url,
   },
   {
     id: "indulgence",
@@ -128,7 +132,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 50,
     accent: "#7dd3fc",
     ribbon: "#0369a1",
-    url: "https://throne.com/principessa2dfd/item/5ff722de-06f2-47fa-9965-4cfa39f1ce90",
+    url: THRONE_ITEMS[50].url,
   },
   {
     id: "bouquet",
@@ -137,7 +141,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 75,
     accent: "#fda4af",
     ribbon: "#be123c",
-    url: "https://throne.com/principessa2dfd/item/3fa5b9bb-f12f-4453-9a83-246b9bd76bd5",
+    url: THRONE_ITEMS[75].url,
   },
   {
     id: "velvet-box",
@@ -146,7 +150,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 100,
     accent: "#fb7185",
     ribbon: "#7f1d1d",
-    url: "https://throne.com/principessa2dfd/item/b6af5dad-4bb4-4451-9919-4e78f06ecba3",
+    url: THRONE_ITEMS[100].url,
   },
   {
     id: "crown-jewel",
@@ -155,7 +159,7 @@ export const BIRTHDAY_GIFTS: BirthdayGift[] = [
     usd: 250,
     accent: "#fde68a",
     ribbon: "#b45309",
-    url: "https://throne.com/principessa2dfd/item/6de33cb3-2c10-4d38-8bb9-cbf1c433c9cf",
+    url: THRONE_ITEMS[250].url,
   },
 ];
 

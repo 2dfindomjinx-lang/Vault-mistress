@@ -79,10 +79,20 @@ export async function POST(request: Request) {
   // birthday cake counts an event whose attribution_code starts with CK-
   // and ignores every other payment, so lighting a candle is now opt-in.
   // See supabase/birthday-candles-open.sql.
-  const code = message.match(/\b(?:VM|PT|CK|WL)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
+  // P2- is the Principessa2DFD (Court site) code. It identifies the sender via
+  // profiles.court_tribute_code and credits Money/devotion exactly like VM-;
+  // the Court site reads the attribution to grant its own cosmetic flair.
+  // W1-/W2-/W3-/W4- are Court wheel KEY codes (court_wheel_keys) and WD- is a
+  // Court wheel DEBT settlement code (court_wheel_debts). Both credit Money
+  // like VM- for the row's owner; the Court unlocks/settles when the paid
+  // amount covers the price snapshotted on the row.
+  const code = message.match(/\b(?:VM|PT|CK|WL|P2|W1|W2|W3|W4|WD)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
   const isPetBonusCode = Boolean(code?.startsWith("PT-"));
   const isCandleCode = Boolean(code?.startsWith("CK-"));
   const isWheelCode = Boolean(code?.startsWith("WL-"));
+  const isCourtCode = Boolean(code?.startsWith("P2-"));
+  const isCourtWheelKeyCode = Boolean(code && /^W[1-4]-/.test(code));
+  const isCourtWheelDebtCode = Boolean(code?.startsWith("WD-"));
 
   // WL- is a wheel debt payment, and it deliberately does NOT flow into
   // credit_throne_tribute: paying a wheel order must not hand the debtor the
@@ -150,14 +160,51 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, wheel: { remaining: wheel.remaining ?? 0, status: wheel.status } });
   }
 
-  const codeColumn = isPetBonusCode ? "pet_tribute_code" : isCandleCode ? "candle_code" : "tribute_code";
-  const profile = code
-    ? (await supabase
-        .from("profiles")
-        .select("id, username")
-        .ilike(codeColumn, code)
-        .maybeSingle()).data
-    : null;
+  // Court wheel codes resolve to a user through their own tables, not a
+  // profiles column. The money still credits the row's owner via the shared
+  // path below; unlock/settle only happens when the amount covers the row's
+  // snapshotted price.
+  let courtWheelAction:
+    | { kind: "key" | "debt"; rowId: string; required: number; meets: boolean }
+    | null = null;
+  let profile: { id: string; username: string | null } | null = null;
+
+  if (code && (isCourtWheelKeyCode || isCourtWheelDebtCode)) {
+    if (isCourtWheelKeyCode) {
+      const { data: keyRow } = await supabase
+        .from("court_wheel_keys")
+        .select("id, user_id, price_usd, profiles!inner(id, username)")
+        .eq("code", code)
+        .eq("status", "active")
+        .maybeSingle();
+      if (keyRow) {
+        const owner = keyRow.profiles as unknown as { id: string; username: string | null };
+        profile = { id: owner.id, username: owner.username };
+        courtWheelAction = { kind: "key", rowId: keyRow.id, required: Number(keyRow.price_usd), meets: amount >= Number(keyRow.price_usd) };
+      }
+    } else {
+      const { data: debtRow } = await supabase
+        .from("court_wheel_debts")
+        .select("id, user_id, amount_usd, profiles!inner(id, username)")
+        .eq("code", code)
+        .eq("status", "unpaid")
+        .maybeSingle();
+      if (debtRow) {
+        const owner = debtRow.profiles as unknown as { id: string; username: string | null };
+        profile = { id: owner.id, username: owner.username };
+        courtWheelAction = { kind: "debt", rowId: debtRow.id, required: Number(debtRow.amount_usd), meets: amount >= Number(debtRow.amount_usd) };
+      }
+    }
+  } else {
+    const codeColumn = isPetBonusCode ? "pet_tribute_code" : isCandleCode ? "candle_code" : isCourtCode ? "court_tribute_code" : "tribute_code";
+    profile = code
+      ? (await supabase
+          .from("profiles")
+          .select("id, username")
+          .ilike(codeColumn, code)
+          .maybeSingle()).data
+      : null;
+  }
   if (!profile) {
     const { error: claimError } = await supabase
       .from("tribute_claims")
@@ -244,6 +291,25 @@ export async function POST(request: Request) {
   if (creditedEventError) {
     console.error("Credited Throne event finalization failed", { error: creditedEventError, eventId });
     return Response.json({ error: "Tribute was credited but its event could not be finalized." }, { status: 500 });
+  }
+
+  // Court wheel side-effects: unlock the spin / settle the debt only when the
+  // payment covered the snapshotted price. An underpayment stays credited to
+  // the owner as plain tribute; the row remains open for a sufficient payment.
+  if (courtWheelAction?.meets) {
+    // Guarded on the open status so only the FIRST sufficient payment settles
+    // the row. A duplicate payment still credited above as plain tribute —
+    // real money is never dropped — it just can't re-close or overwrite.
+    const table = courtWheelAction.kind === "key" ? "court_wheel_keys" : "court_wheel_debts";
+    const openStatus = courtWheelAction.kind === "key" ? "active" : "unpaid";
+    const patch =
+      courtWheelAction.kind === "key"
+        ? { status: "unlocked", paid_event_id: eventId, paid_amount: amount, updated_at: new Date().toISOString() }
+        : { status: "paid", paid_event_id: eventId, paid_amount: amount, paid_at: new Date().toISOString() };
+    const { error: wheelUpdateError } = await supabase.from(table).update(patch).eq("id", courtWheelAction.rowId).eq("status", openStatus);
+    if (wheelUpdateError) {
+      console.error("Court wheel row update failed", { eventId, courtWheelAction, wheelUpdateError });
+    }
   }
   const creditResult = (credit ?? {}) as {
     awarded?: number;

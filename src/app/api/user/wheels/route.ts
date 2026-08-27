@@ -111,6 +111,26 @@ export async function POST(request: Request) {
     if (!isWheelId(body.wheelId)) return jsonError("Unknown wheel.");
     const wheel = WHEELS[body.wheelId];
 
+    // Cross-site discipline: an unpaid wheel debt on Principessa2DFD (the
+    // Court site, court_wheel_debts in the shared DB) blocks spinning here
+    // too, exactly like a local unpaid spin. If the table does not exist yet
+    // the check is skipped rather than breaking the vault.
+    const courtDebtResult = await supabase
+      .from("court_wheel_debts")
+      .select("amount_usd, code")
+      .eq("user_id", user.id)
+      .eq("status", "unpaid")
+      .limit(1)
+      .maybeSingle();
+    if (courtDebtResult.error) {
+      console.warn("[wheels] court debt check unavailable", courtDebtResult.error.message);
+    } else if (courtDebtResult.data) {
+      return jsonError(
+        `You owe $${Number(courtDebtResult.data.amount_usd)} on the Principessa2DFD wheel (code ${courtDebtResult.data.code}). Pay that first.`,
+        409,
+      );
+    }
+
     // The outcome exists before the animation does. randomInt is crypto-backed
     // and unguessable; the client only ever receives the finished result.
     const segmentIndex = pickWheelSegmentIndex(wheel.id, randomInt(0, 1_000_000) / 1_000_000);

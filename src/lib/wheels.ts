@@ -21,18 +21,21 @@ export type WheelSegment = {
   throneUrl?: string;
 };
 
-// The full Throne catalogue, one entry per fixed-price item.
+// The full Throne catalogue, one entry per fixed-price item. This map is the
+// ONLY place Throne item URLs live (the birthday wishlist reads it too) - when
+// the wishlist is recreated on Throne, updating these ten lines fixes every
+// link on the site. Item ids current as of the 2026-08-27 wishlist rebuild.
 export const THRONE_ITEMS: Record<number, { name: string; url: string }> = {
-  1: { name: "Click Click Click", url: "https://throne.com/principessa2dfd/item/591d37f2-5212-4468-a3d4-c478d786310a" },
-  5: { name: "Little Treat", url: "https://throne.com/principessa2dfd/item/7e929c6d-70b9-49b4-9cbd-54867a4cbc76" },
-  10: { name: "Broke Puppies", url: "https://throne.com/principessa2dfd/item/b3d608f2-cffa-4bc7-9a08-69b1fea22db6" },
-  15: { name: "Vault Mistress", url: "https://throne.com/principessa2dfd/item/076cfe74-0112-4870-8b61-75474d126d26" },
-  25: { name: "Spoil Me", url: "https://throne.com/principessa2dfd/item/448a7307-ecc9-414c-bb40-1616dca109ef" },
-  50: { name: "Premium Spoil", url: "https://throne.com/principessa2dfd/item/5ff722de-06f2-47fa-9965-4cfa39f1ce90" },
-  75: { name: "Great Treatment", url: "https://throne.com/principessa2dfd/item/3fa5b9bb-f12f-4453-9a83-246b9bd76bd5" },
-  100: { name: "Goddess Level", url: "https://throne.com/principessa2dfd/item/b6af5dad-4bb4-4451-9919-4e78f06ecba3" },
-  250: { name: "Good Boy", url: "https://throne.com/principessa2dfd/item/6de33cb3-2c10-4d38-8bb9-cbf1c433c9cf" },
-  500: { name: "ATM", url: "https://throne.com/principessa2dfd/item/f20d9bbd-dbe7-4c23-961d-d7d4af0d6043" },
+  1: { name: "Click Click Click", url: "https://throne.com/principessa2dfd/item/180462b7-1de9-49e0-82ca-6cc370498fb5" },
+  5: { name: "Little Treat", url: "https://throne.com/principessa2dfd/item/a33b6eb0-938c-4823-810d-0c7b5ecb5ff4" },
+  10: { name: "Broke Puppies", url: "https://throne.com/principessa2dfd/item/7d6fc436-a338-468c-95cf-71e0f8f46be3" },
+  15: { name: "Vault Mistress", url: "https://throne.com/principessa2dfd/item/d1ea1dcd-abf9-415b-ab28-d8ce643d92d1" },
+  25: { name: "Spoil Me", url: "https://throne.com/principessa2dfd/item/a940071e-3499-423c-a7b6-42d6c73e4aaf" },
+  50: { name: "Premium Spoil", url: "https://throne.com/principessa2dfd/item/f2648ab6-0b19-4eec-b07c-d603d2ed44c0" },
+  75: { name: "Great Treatment", url: "https://throne.com/principessa2dfd/item/262ea593-7e6f-48ee-a83a-950fc7378dcf" },
+  100: { name: "Goddess Level", url: "https://throne.com/principessa2dfd/item/dc580a5a-47ea-45a5-ac0d-7938d5d52d9c" },
+  250: { name: "Good Boy", url: "https://throne.com/principessa2dfd/item/5c5b490c-acce-4f06-b230-d09559465999" },
+  500: { name: "ATM", url: "https://throne.com/principessa2dfd/item/35da1e52-0b5e-4d5b-995f-a82b9245244c" },
 };
 
 function moneySegment(amount: number, weight: number): WheelSegment {
