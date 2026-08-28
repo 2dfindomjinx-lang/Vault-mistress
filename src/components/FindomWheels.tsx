@@ -13,8 +13,17 @@ import { buildWheelVisualSlices, WHEEL_IDS, WHEELS, type WheelId, type WheelSpin
 // The outcome is decided server-side before one degree of rotation happens -
 // the wheel here is a renderer of a verdict, not a random number generator.
 
+type WheelDebtor = {
+  amountUsd: number;
+  createdAt: string;
+  label: string;
+  name: string;
+  spinId: string;
+};
+
 type WheelStatus = {
   chastityUntil: string | null;
+  debtors: WheelDebtor[];
   money: number;
   spins: WheelSpinRecord[];
   unpaidSpin: WheelSpinRecord | null;
@@ -503,6 +512,36 @@ export function FindomWheels({
           </div>
         </div>
       </article>
+
+      {status?.debtors?.length ? (
+        <article className="mt-4 rounded-[1.75rem] border border-amber-200/20 bg-black/35 p-5">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-200/70">The wheel remembers</p>
+          <h3 className="mt-1 font-serif text-lg text-amber-50">Open debts</h3>
+          <p className="mt-1 text-[11px] text-white/45">
+            Clear anyone&apos;s order from your own Principessa Money. It still counts as their tribute.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {status.debtors.map((debtor) => (
+              <li className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={debtor.spinId}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-white/85">{debtor.name}</p>
+                  <p className="truncate text-[10px] text-white/40">{debtor.label}</p>
+                </div>
+                <span className="font-serif text-base tabular-nums text-amber-100">{debtor.amountUsd.toLocaleString()} PM</span>
+                <button
+                  className="rounded-xl border border-amber-200/30 bg-amber-500/10 px-3 py-1.5 text-[11px] font-black text-amber-100 transition enabled:hover:border-amber-200/60 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={paying || disabled || (status?.money ?? 0) < debtor.amountUsd}
+                  onClick={() => void payWithPm(debtor.spinId)}
+                  type="button"
+                >
+                  {(status?.money ?? 0) < debtor.amountUsd ? "Not enough PM" : "Pay it"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {payError ? <p className="mt-2 text-[11px] font-bold text-rose-300">{payError}</p> : null}
+        </article>
+      ) : null}
     </section>
   );
 }

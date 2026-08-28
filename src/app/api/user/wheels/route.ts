@@ -56,7 +56,7 @@ export async function GET() {
   if (!user) return jsonError("Authentication required.", 401);
 
   const supabase = createSupabaseAdminClient();
-  const [spinsResult, unpaidResult, profileResult] = await Promise.all([
+  const [spinsResult, unpaidResult, profileResult, debtorsResult] = await Promise.all([
     supabase
       .from("wheel_spins")
       .select("id, wheel_id, kind, segment_label, amount, pay_code, amount_owed_usd, amount_paid_usd, status, created_at")
@@ -72,6 +72,10 @@ export async function GET() {
       .limit(1)
       .maybeSingle(),
     supabase.from("profiles").select("principessa_money, chastity_until").eq("id", user.id).single(),
+    // Everyone else's open debts. Any signed-in user can clear one from their
+    // own Principessa Money — the debtor keeps the tribute credit, the payer
+    // just covers it. Shared with Principessa2DFD through the same function.
+    supabase.rpc("get_court_wheel_debtors", { p_limit: 8 }),
   ]);
 
   if (spinsResult.error || unpaidResult.error || profileResult.error || !profileResult.data) {
@@ -84,8 +88,30 @@ export async function GET() {
   const spins = ((spinsResult.data ?? []) as SpinRow[]).map(toRecord);
   const profile = profileResult.data as { chastity_until: string | null; principessa_money: number };
 
+  type DebtorRow = {
+    spin_id: string;
+    username: string;
+    display_name: string | null;
+    amount_usd: number | string;
+    result_label: string;
+    created_at: string;
+  };
+  const debtors = debtorsResult.error
+    ? []
+    : ((debtorsResult.data ?? []) as DebtorRow[])
+        // Your own debt already has its own panel above the board.
+        .filter((row) => row.spin_id !== (unpaidResult.data as SpinRow | null)?.id)
+        .map((row) => ({
+          amountUsd: Number(row.amount_usd) || 0,
+          createdAt: row.created_at,
+          label: row.result_label,
+          name: row.display_name?.trim() || row.username,
+          spinId: row.spin_id,
+        }));
+
   return Response.json({
     chastityUntil: profile.chastity_until,
+    debtors,
     money: Math.max(0, Number(profile.principessa_money) || 0),
     spins,
     unpaidSpin: unpaidResult.data ? toRecord(unpaidResult.data as SpinRow) : null,
@@ -187,8 +213,8 @@ export async function POST(request: Request) {
     if (typeof body.spinId !== "string" || !body.spinId) return jsonError("Missing spin.");
 
     const { data, error } = await supabase.rpc("pay_wheel_spin_with_pm", {
+      p_payer_id: user.id,
       p_spin_id: body.spinId,
-      p_user_id: user.id,
     });
 
     if (error) {
