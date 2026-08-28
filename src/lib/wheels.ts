@@ -1,12 +1,16 @@
-// Findom wheels. A spin costs Principessa Money; the result is not a prize but
-// an ORDER - the exact Throne item the wheel landed on, to be sent with the
-// spin's WL- pay code. Chastity is the exception: its result is days, settled
+// Findom wheels, shared with Principessa2DFD through public.wheel_spins - both
+// sites MUST show the same wheels, so this table and the Court's copy in
+// lib/wheels.ts are kept identical.
+//
+// A spin costs Principessa Money; the result is not a prize but an ORDER, a
+// debt settled in PM by the debtor or by anyone else. Because settlement is in
+// PM rather than a fixed-price Throne product, amounts are free - a wheel may
+// land on $7 or $30. Chastity is the exception: its result is HOURS, applied
 // on the spot, no payment involved.
 //
-// Segments map 1:1 onto real Throne items because Throne does not accept
-// custom amounts - a wheel that lands on $12 would be an order nobody can
-// place. Weights are deliberately bottom-heavy: if $100 came up often, nobody
-// would pay their debt and every wheel would sit blocked on an unpaid spin.
+// Weights are per-wheel percentages (each wheel adds up to 100) and are
+// deliberately bottom-heavy: if the big numbers came up often nobody would
+// clear their debt and every wheel would sit blocked on an unpaid spin.
 
 export const WHEEL_IDS = ["broke", "principessa", "luxury", "chastity"] as const;
 export type WheelId = (typeof WHEEL_IDS)[number];
@@ -14,7 +18,7 @@ export type WheelId = (typeof WHEEL_IDS)[number];
 export type WheelKind = "money" | "chastity";
 
 export type WheelSegment = {
-  // USD for money wheels, days for the chastity wheel.
+  // USD for money wheels, HOURS for the chastity wheel.
   amount: number;
   label: string;
   weight: number;
@@ -26,21 +30,23 @@ export type WheelSegment = {
 // the wishlist is recreated on Throne, updating these ten lines fixes every
 // link on the site. Item ids current as of the 2026-08-27 wishlist rebuild.
 export const THRONE_ITEMS: Record<number, { name: string; url: string }> = {
-  1: { name: "Click Click Click", url: "https://throne.com/principessa2dfd/item/180462b7-1de9-49e0-82ca-6cc370498fb5" },
-  5: { name: "Little Treat", url: "https://throne.com/principessa2dfd/item/a33b6eb0-938c-4823-810d-0c7b5ecb5ff4" },
-  10: { name: "Broke Puppies", url: "https://throne.com/principessa2dfd/item/7d6fc436-a338-468c-95cf-71e0f8f46be3" },
-  15: { name: "Vault Mistress", url: "https://throne.com/principessa2dfd/item/d1ea1dcd-abf9-415b-ab28-d8ce643d92d1" },
-  25: { name: "Spoil Me", url: "https://throne.com/principessa2dfd/item/a940071e-3499-423c-a7b6-42d6c73e4aaf" },
-  50: { name: "Premium Spoil", url: "https://throne.com/principessa2dfd/item/f2648ab6-0b19-4eec-b07c-d603d2ed44c0" },
-  75: { name: "Great Treatment", url: "https://throne.com/principessa2dfd/item/262ea593-7e6f-48ee-a83a-950fc7378dcf" },
-  100: { name: "Goddess Level", url: "https://throne.com/principessa2dfd/item/dc580a5a-47ea-45a5-ac0d-7938d5d52d9c" },
-  250: { name: "Good Boy", url: "https://throne.com/principessa2dfd/item/5c5b490c-acce-4f06-b230-d09559465999" },
-  500: { name: "ATM", url: "https://throne.com/principessa2dfd/item/35da1e52-0b5e-4d5b-995f-a82b9245244c" },
+  1: { name: "Click Me", url: "https://throne.com/principessa2dfd/item/180462b7-1de9-49e0-82ca-6cc370498fb5" },
+  5: { name: "Broke Puppies 🐶", url: "https://throne.com/principessa2dfd/item/a33b6eb0-938c-4823-810d-0c7b5ecb5ff4" },
+  10: { name: "Sweet Start", url: "https://throne.com/principessa2dfd/item/7d6fc436-a338-468c-95cf-71e0f8f46be3" },
+  15: { name: "Little Treat", url: "https://throne.com/principessa2dfd/item/d1ea1dcd-abf9-415b-ab28-d8ce643d92d1" },
+  25: { name: "Charmed", url: "https://throne.com/principessa2dfd/item/a940071e-3499-423c-a7b6-42d6c73e4aaf" },
+  50: { name: "Kneel", url: "https://throne.com/principessa2dfd/item/f2648ab6-0b19-4eec-b07c-d603d2ed44c0" },
+  75: { name: "Pampered Princess", url: "https://throne.com/principessa2dfd/item/262ea593-7e6f-48ee-a83a-950fc7378dcf" },
+  100: { name: "Made Principessa's Day", url: "https://throne.com/principessa2dfd/item/dc580a5a-47ea-45a5-ac0d-7938d5d52d9c" },
+  250: { name: "Huge Drain", url: "https://throne.com/principessa2dfd/item/5c5b490c-acce-4f06-b230-d09559465999" },
+  500: { name: "Principessa's ATM", url: "https://throne.com/principessa2dfd/item/35da1e52-0b5e-4d5b-995f-a82b9245244c" },
 };
 
+// Debts are settled in Principessa Money, so a segment no longer has to line up
+// with a fixed-price Throne product - any amount is allowed and the label is
+// just the number. THRONE_ITEMS stays: the birthday wishlist still reads it.
 function moneySegment(amount: number, weight: number): WheelSegment {
-  const item = THRONE_ITEMS[amount];
-  return { amount, label: item.name, throneUrl: item.url, weight };
+  return { amount, label: `$${amount}`, weight };
 }
 
 export type WheelDefinition = {
@@ -62,10 +68,11 @@ export const WHEELS: Record<WheelId, WheelDefinition> = {
     spinCostPm: 1,
     accent: "#a1a1aa",
     segments: [
-      moneySegment(1, 40),
-      moneySegment(5, 30),
-      moneySegment(10, 20),
-      moneySegment(15, 10),
+      moneySegment(1, 24),
+      moneySegment(2, 28),
+      moneySegment(3, 28),
+      moneySegment(5, 17),
+      moneySegment(10, 3),
     ],
   },
   principessa: {
@@ -76,14 +83,14 @@ export const WHEELS: Record<WheelId, WheelDefinition> = {
     spinCostPm: 3,
     accent: "#ec4899",
     segments: [
-      moneySegment(1, 18),
-      moneySegment(5, 22),
-      moneySegment(10, 20),
-      moneySegment(15, 14),
-      moneySegment(25, 12),
-      moneySegment(50, 8),
-      moneySegment(75, 4),
-      moneySegment(100, 2),
+      moneySegment(1, 5),
+      moneySegment(3, 8),
+      moneySegment(5, 17),
+      moneySegment(7, 18),
+      moneySegment(10, 23),
+      moneySegment(15, 16),
+      moneySegment(20, 9),
+      moneySegment(25, 4),
     ],
   },
   luxury: {
@@ -94,28 +101,42 @@ export const WHEELS: Record<WheelId, WheelDefinition> = {
     spinCostPm: 5,
     accent: "#e6ba73",
     segments: [
-      moneySegment(25, 35),
-      moneySegment(50, 30),
-      moneySegment(75, 18),
-      moneySegment(100, 12),
-      moneySegment(250, 5),
+      moneySegment(5, 3),
+      moneySegment(7, 5),
+      moneySegment(10, 10),
+      moneySegment(15, 14),
+      moneySegment(20, 17),
+      moneySegment(25, 21),
+      moneySegment(30, 17),
+      moneySegment(40, 8),
+      moneySegment(50, 3),
+      moneySegment(75, 1),
+      moneySegment(100, 1),
     ],
   },
   chastity: {
     id: "chastity",
     title: "Chastity Wheel",
-    blurb: "Not money. Days. The counter runs whether you like the number or not.",
+    blurb: "Not money. Hours. The counter runs whether you like the number or not.",
     kind: "chastity",
     spinCostPm: 1,
     accent: "#a78bfa",
     segments: [
-      { amount: 1, label: "1 day", weight: 30 },
-      { amount: 2, label: "2 days", weight: 25 },
-      { amount: 3, label: "3 days", weight: 20 },
-      { amount: 5, label: "5 days", weight: 12 },
-      { amount: 7, label: "7 days", weight: 8 },
-      { amount: 10, label: "10 days", weight: 4 },
-      { amount: 14, label: "14 days", weight: 1 },
+      { amount: 4, label: "4h", weight: 3 },
+      { amount: 8, label: "8h", weight: 5 },
+      { amount: 12, label: "12h", weight: 7 },
+      { amount: 18, label: "18h", weight: 10 },
+      { amount: 24, label: "24h", weight: 15 },
+      { amount: 30, label: "30h", weight: 15 },
+      { amount: 36, label: "36h", weight: 13 },
+      { amount: 48, label: "48h", weight: 10 },
+      { amount: 60, label: "60h", weight: 7 },
+      { amount: 72, label: "72h", weight: 5 },
+      { amount: 90, label: "90h", weight: 3 },
+      { amount: 100, label: "100h", weight: 3 },
+      { amount: 120, label: "120h", weight: 2 },
+      { amount: 180, label: "180h", weight: 1 },
+      { amount: 240, label: "240h", weight: 1 },
     ],
   },
 };

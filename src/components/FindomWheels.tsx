@@ -402,7 +402,7 @@ export function FindomWheels({
           ) : (
             <section className="rounded-[1.75rem] border border-violet-300/25 bg-violet-950/30 p-5 text-center">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-violet-200/60">The wheel decided</p>
-              <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">+{result.segment.amount} days locked</h3>
+              <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">+{result.segment.amount}h locked</h3>
               <p className="mt-2 text-xs text-zinc-500">Added to your counter. It does not negotiate.</p>
             </section>
           )}
