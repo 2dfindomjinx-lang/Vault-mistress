@@ -6101,6 +6101,45 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     return data;
   }, [getEventTaskReward, isGuestMode, lastLoyaltyAt, loyaltyStreak, persistUserTask]);
 
+  // Principessa Money is one balance shared with Principessa2DFD, so it can
+  // change in a tab this page knows nothing about — a wheel spin or a settled
+  // debt over there, or a Throne tribute landing through the webhook. Watch our
+  // own profile row and pull the fresh stats in, with a tab-focus re-read as a
+  // fallback for when the realtime channel is unavailable.
+  useEffect(() => {
+    if (!authUserId || isGuestMode) return;
+
+    const pull = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(profileSelect)
+        .eq("id", authUserId)
+        .maybeSingle();
+      if (!error && data) applyProfileStats(data as Profile);
+    };
+
+    const channel = supabase
+      .channel(`vault-profile-${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${authUserId}` },
+        () => {
+          void pull();
+        },
+      )
+      .subscribe();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void pull();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [authUserId, isGuestMode, applyProfileStats]);
+
   useEffect(() => {
     loadProfileRef.current = loadProfile;
     updateLoyaltyForProfileRef.current = updateLoyaltyForProfile;
