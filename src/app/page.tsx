@@ -6135,8 +6135,21 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           throw new Error("Auth profile loader is not ready.");
         }
 
-        const profile = await withTimeout(profileLoader(user), `profile fetch ${source}`);
-        await withTimeout(loyaltyUpdater(profile), `loyalty update ${source}`);
+        // 20s budget with one silent retry: a slow mobile connection usually
+        // recovers on the second attempt, and the error screen should be the
+        // outcome of two real failures, not one unlucky packet.
+        const loadOnce = async () => {
+          const loaded = await withTimeout(profileLoader(user), `profile fetch ${source}`, 20_000);
+          await withTimeout(loyaltyUpdater(loaded), `loyalty update ${source}`, 20_000);
+          return loaded;
+        };
+        let profile: Awaited<ReturnType<typeof loadOnce>>;
+        try {
+          profile = await loadOnce();
+        } catch (firstError) {
+          console.warn("[auth-init] profile load failed once; retrying", { firstError, source });
+          profile = await loadOnce();
+        }
         authProfileLoadedRef.current = user.id;
         setHasHydratedInitialProfile(true);
         setIsProfileVerified(true);
@@ -6190,7 +6203,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         console.error("[auth-init] profile verification failed", initError);
         if (mounted && !previewModeRef.current) {
           setAuthError(describeError(initError));
-          void supabase.auth.signOut();
+          // Local scope only. A failed profile fetch here is usually a flaky
+          // connection or a transient 5xx - NOT proof the session is bad. The
+          // default global signOut was revoking every session the user had
+          // (other devices AND the sister site on the same Supabase project),
+          // which showed up as everyone "randomly" being logged out
+          // everywhere. Drop this device's copy and let the rest live.
+          void supabase.auth.signOut({ scope: "local" });
           clearAuthState();
           finishAuthLoad();
         }
@@ -7959,7 +7978,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleLogout = async () => {
     if (!isGuestMode) {
-      await supabase.auth.signOut();
+      // Local scope: log out THIS device only. The default (global) revokes
+      // every session the account has - the phone, the desktop, and the
+      // sister site sharing this Supabase project - which is not what a
+      // logout button promises.
+      await supabase.auth.signOut({ scope: "local" });
     }
     authProfileLoadInFlightRef.current = null;
     authProfileLoadedRef.current = null;
