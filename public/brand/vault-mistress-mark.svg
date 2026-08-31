@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Vault Mistress</title>
+  <desc id="desc">A crowned VM monogram inside a circular vault door with a keyhole.</desc>
+
+  <defs>
+    <mask id="ring-gaps">
+      <rect width="1024" height="1024" fill="white" />
+      <rect x="340" y="92" width="344" height="220" rx="28" fill="black" />
+      <rect x="430" y="800" width="164" height="132" rx="28" fill="black" />
+    </mask>
+  </defs>
+
+  <!-- Vault ring -->
+  <circle
+    cx="512"
+    cy="512"
+    r="376"
+    fill="none"
+    stroke="#C49A4A"
+    stroke-width="48"
+    mask="url(#ring-gaps)"
+  />
+  <circle cx="184" cy="512" r="18" fill="#C49A4A" />
+  <circle cx="840" cy="512" r="18" fill="#C49A4A" />
+  <circle cx="268" cy="744" r="18" fill="#C49A4A" />
+  <circle cx="756" cy="744" r="18" fill="#C49A4A" />
+
+  <!-- Crown integrated into the vault -->
+  <path
+    d="M338 314 310 174l116 82 86-164 86 164 116-82-28 140-58 82H396l-58-82Z"
+    fill="#C49A4A"
+  />
+  <path d="m512 152 36 58-36 58-36-58 36-58Z" fill="#D41467" />
+  <path d="M394 332h236l-24 52H418l-24-52Z" fill="#2A0B18" />
+
+  <!-- Interlocking VM monogram -->
+  <path
+    d="M286 398h114l112 206 112-206h114v330h-82V520L512 780 368 520v208h-82V398Z"
+    fill="#541126"
+    stroke="#C49A4A"
+    stroke-width="16"
+    stroke-linejoin="miter"
+  />
+  <path
+    d="M342 398h92l78 186 78-186h92L512 742 342 398Z"
+    fill="#C49A4A"
+  />
+
+  <!-- Keyhole seal -->
+  <circle cx="512" cy="826" r="58" fill="#2A0B18" stroke="#C49A4A" stroke-width="18" />
+  <circle cx="512" cy="810" r="22" fill="#D41467" />
+  <path d="m496 824-18 58h68l-18-58h-32Z" fill="#D41467" />
+</svg>

@@ -1,3 +1,5 @@
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   PRINCIPESSA_DISCIPLINE_APP_KEY,
   bindAppLicense,
@@ -26,7 +28,23 @@ type ActivationBody = {
   appVersion?: string;
 };
 
+// The only endpoint in the app that takes an activation code from an
+// unauthenticated caller, so it is the only place a code could be guessed at.
+// Guessing is not actually feasible - 32^16 is about 10^24 codes - but this is
+// also an open, unauthenticated route that hits the database on every call, and
+// codes are now a paid asset rather than something handed out by hand. A cap
+// per source address costs a legitimate activation nothing: a real install
+// redeems once, and a reinstall a handful of times.
+function clientKey(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for") ?? "";
+  const address = forwarded.split(",")[0]?.trim() || request.headers.get("x-real-ip")?.trim() || "unknown";
+  return `app-license-activate:${address}`;
+}
+
 export async function POST(request: Request) {
+  const limit = await checkRateLimit(createSupabaseAdminClient(), clientKey(request), 20, 60);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+
   const body = (await request.json()) as ActivationBody;
   const appKey = body.appKey?.trim() || PRINCIPESSA_DISCIPLINE_APP_KEY;
   const activationCode = normalizeLicenseCode(body.activationCode ?? "");

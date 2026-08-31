@@ -51,6 +51,10 @@ export type AppLicenseRow = {
   bound_at: string | null;
   last_validated_at: string | null;
   reset_count: number;
+  /** Set when the code was bought in the Court with Principessa Money. */
+  owner_user_id: string | null;
+  purchased_at: string | null;
+  purchase_price_pm: number | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -96,7 +100,7 @@ export async function listAppLicenses(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY) {
   const { data, error } = await supabase
     .from("app_activation_codes")
     .select(
-      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, owner_user_id, purchased_at, purchase_price_pm, created_at, updated_at",
     )
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
@@ -132,7 +136,7 @@ export async function findAppLicense(appKey: string, activationCode: string) {
   const { data, error } = await supabase
     .from("app_activation_codes")
     .select(
-      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, owner_user_id, purchased_at, purchase_price_pm, created_at, updated_at",
     )
     .eq("app_key", appKey)
     .eq("activation_code", normalizeLicenseCode(activationCode))
@@ -162,7 +166,7 @@ export async function insertAppLicense(input: {
         status: "active",
       })
       .select(
-        "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+        "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, owner_user_id, purchased_at, purchase_price_pm, created_at, updated_at",
       )
       .single();
 
@@ -296,7 +300,7 @@ export async function revokeAppLicense(licenseId: string, appKey: string) {
   const { data: existing, error: fetchError } = await supabase
     .from("app_activation_codes")
     .select(
-      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, owner_user_id, purchased_at, purchase_price_pm, created_at, updated_at",
     )
     .eq("id", licenseId)
     .eq("app_key", appKey)
@@ -306,7 +310,12 @@ export async function revokeAppLicense(licenseId: string, appKey: string) {
     throw fetchError;
   }
 
+  // A code bought in the Court is somebody's paid property from the moment it
+  // is issued, whether or not they have redeemed it yet. Deleting one would
+  // leave the buyer holding a dead code with no refund, so ownership counts as
+  // used here even though nothing is bound to a device.
   const hasBeenUsed =
+    Boolean(existing.owner_user_id) ||
     Boolean(existing.owner_name) ||
     Boolean(existing.bound_installation_id) ||
     Boolean(existing.bound_android_id) ||
@@ -365,7 +374,7 @@ export async function resetAppLicense(licenseId: string, appKey: string) {
     .eq("id", licenseId)
     .eq("app_key", appKey)
     .select(
-      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, created_at, updated_at",
+      "id, app_key, activation_code, status, owner_name, notes, bound_installation_id, bound_device_label, bound_android_id, bound_at, last_validated_at, reset_count, owner_user_id, purchased_at, purchase_price_pm, created_at, updated_at",
     )
     .single();
 

@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { AppLicenseShelf } from "@/components/AppLicenseShelf";
 import { MoneyIcon } from "@/components/MoneyIcon";
 import { TributeFurnace } from "@/components/TributeFurnace";
+import type { Profile } from "@/lib/supabase/client";
 import {
   getMoneyConversionBreakdown,
   MONEY_CONVERSION_TIERS,
@@ -26,6 +28,8 @@ type MoneyShopPanelProps = {
   burnError?: string;
   onAddMoney?: () => void;
   onBurn?: (amount: number) => Promise<boolean>;
+  /** Called with the fresh profile after a program licence is bought. */
+  onLicensePurchased?: (profile: Profile) => void;
   onBuy: (itemId: string) => void;
   onConvert: (amount: number) => void;
   onSell: (itemId: string) => void;
@@ -46,6 +50,7 @@ export function MoneyShopPanel({
   onBurn,
   onBuy,
   onConvert,
+  onLicensePurchased,
   onSell,
   pendingItemId = null,
 }: MoneyShopPanelProps) {
@@ -176,6 +181,12 @@ export function MoneyShopPanel({
             onBurn={onBurn}
           />
         </div>
+      ) : null}
+
+      {/* Her programs. Above the legendary catalogue because these are the
+          only things on this screen that leave the site with you. */}
+      {onLicensePurchased ? (
+        <AppLicenseShelf disabled={disabled} money={money} onPurchased={onLicensePurchased} />
       ) : null}
 
       {/* Legendary catalogue */}

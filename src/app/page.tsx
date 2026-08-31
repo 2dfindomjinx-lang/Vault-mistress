@@ -12225,6 +12225,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               pendingItemId={moneyShopPendingItemId}
               onAddMoney={() => setShowCoinCodeModal(true)}
               onBuy={(itemId) => void handleMoneyShopAction(itemId, "buy")}
+              onLicensePurchased={applyProfileStats}
               burnError={furnaceError}
               burnedTotal={burnedTotal}
               isBurning={furnaceBurning}
