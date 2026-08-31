@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { getAvatarBackgroundPresentation } from "@/lib/avatar-background-cosmetics";
@@ -10,6 +11,17 @@ import {
 } from "@/lib/devotion";
 import { normalizeEquipment } from "@/lib/avatar-slots";
 import { getProfileBorderFramePresentation } from "@/lib/profile-border-presentation";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+
+// First Property - the Court's weekly tribute race, shared through the same
+// database. The winner of the last completed week wears a crown here too, so
+// the title exists on both sites without either one owning it. Handles are
+// compared case-insensitively with any leading @ stripped, because the two
+// sites store them differently.
+function sameHandle(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return false;
+  return a.replace(/^@/, "").toLowerCase() === b.replace(/^@/, "").toLowerCase();
+}
 
 type DevotionLeaderboardProps = {
   data: DevotionLeaderboardResponse;
@@ -46,9 +58,11 @@ function formatCountdown(ms: number) {
 function LeaderboardRow({
   entry,
   highlight = false,
+  crownUsername = null,
 }: {
   entry: DevotionLeaderboardEntry;
   highlight?: boolean;
+  crownUsername?: string | null;
 }) {
   const framePresentation = getAvatarFramePresentation(entry);
   const background = getAvatarBackgroundPresentation(
@@ -90,6 +104,14 @@ function LeaderboardRow({
 
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
+          {sameHandle(entry.username, crownUsername) ? (
+            <span
+              className="shrink-0 text-amber-300 drop-shadow-[0_0_5px_rgba(252,211,77,0.6)]"
+              title="First Property — won last week's tribute race and holds the title until someone takes it"
+            >
+              ♛
+            </span>
+          ) : null}
           <p
             className="truncate text-sm font-black text-white sm:text-base"
             style={entry.usernameStyle}
@@ -135,6 +157,23 @@ export function DevotionLeaderboard({
   refreshCountdownMs,
   onPeriodChange,
 }: DevotionLeaderboardProps) {
+  // Read-only and best-effort: a failed fetch just means no crown is drawn.
+  const [crownUsername, setCrownUsername] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let alive = true;
+    supabase
+      .rpc("get_first_property")
+      .then(({ data, error: rpcError }) => {
+        if (!alive || rpcError) return;
+        const holder = (data as { holder?: { username?: string } } | null)?.holder;
+        if (holder?.username) setCrownUsername(holder.username);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <section className="court-feature-panel rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.7),rgba(66,12,55,0.5),rgba(107,33,58,0.22))] p-5 shadow-[0_0_44px_rgba(244,114,182,0.12)]">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -191,6 +230,7 @@ export function DevotionLeaderboard({
         ) : data.leaders.length > 0 ? (
           data.leaders.map((entry) => (
             <LeaderboardRow
+              crownUsername={crownUsername}
               entry={entry}
               key={`${entry.userId}:${entry.rank}`}
             />
@@ -204,7 +244,7 @@ export function DevotionLeaderboard({
 
       {data.currentUserEntry ? (
         <div className="mt-5 border-t border-dashed border-white/12 pt-5">
-          <LeaderboardRow entry={data.currentUserEntry} highlight />
+          <LeaderboardRow crownUsername={crownUsername} entry={data.currentUserEntry} highlight />
         </div>
       ) : null}
     </section>
