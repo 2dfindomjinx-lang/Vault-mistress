@@ -15,6 +15,12 @@ type LicenseRow = {
   last_validated_at: string | null;
   reset_count: number;
   created_at: string;
+  /** Set when the code was bought with Principessa Money (either site). */
+  owner_user_id: string | null;
+  purchased_at: string | null;
+  purchase_price_pm: number | null;
+  buyer_username?: string | null;
+  buyer_display_name?: string | null;
 };
 
 type EventRow = {
@@ -34,6 +40,8 @@ export default function AppLicensesPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [licenses, setLicenses] = useState<LicenseRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [eventsPage, setEventsPage] = useState(0);
+  const [eventsHasMore, setEventsHasMore] = useState(false);
   const [status, setStatus] = useState("");
   const [notes, setNotes] = useState("");
   const [isBusy, setIsBusy] = useState(false);
@@ -50,14 +58,46 @@ export default function AppLicensesPage() {
         error?: string;
         licenses?: LicenseRow[];
         events?: EventRow[];
+        eventsHasMore?: boolean;
+        eventsPage?: number;
       };
       if (!response.ok) {
         throw new Error(result.error ?? "License list failed.");
       }
       setLicenses(result.licenses ?? []);
       setEvents(result.events ?? []);
+      setEventsPage(result.eventsPage ?? 0);
+      setEventsHasMore(result.eventsHasMore ?? false);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "License list failed.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  // Pages through the activation log alone - the license list on the left
+  // stays as it is.
+  const loadEventsPage = async (page: number) => {
+    setIsBusy(true);
+    try {
+      const response = await fetch(
+        `/api/admin/app-licenses?appKey=${encodeURIComponent(appKey)}&eventsOnly=1&eventsPage=${Math.max(0, page)}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json()) as {
+        error?: string;
+        events?: EventRow[];
+        eventsHasMore?: boolean;
+        eventsPage?: number;
+      };
+      if (!response.ok) {
+        throw new Error(result.error ?? "Activation log failed.");
+      }
+      setEvents(result.events ?? []);
+      setEventsPage(result.eventsPage ?? page);
+      setEventsHasMore(result.eventsHasMore ?? false);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Activation log failed.");
     } finally {
       setIsBusy(false);
     }
@@ -109,12 +149,16 @@ export default function AppLicensesPage() {
         error?: string;
         licenses?: LicenseRow[];
         events?: EventRow[];
+        eventsHasMore?: boolean;
+        eventsPage?: number;
       };
       if (!response.ok) {
         throw new Error(result.error ?? "License action failed.");
       }
       setLicenses(result.licenses ?? []);
       setEvents(result.events ?? []);
+      setEventsPage(result.eventsPage ?? 0);
+      setEventsHasMore(result.eventsHasMore ?? false);
       setStatus(successMessage);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "License action failed.");
@@ -263,6 +307,19 @@ export default function AppLicensesPage() {
                         <p className="mt-3 text-sm text-zinc-300">
                           Unique name: <span className="font-semibold text-white">{license.owner_name || "not activated yet"}</span>
                         </p>
+                        {license.owner_user_id ? (
+                          <p className="mt-1 text-sm text-zinc-300">
+                            Bought by{" "}
+                            <span className="font-semibold text-amber-200">
+                              {license.buyer_display_name || license.buyer_username || license.owner_user_id}
+                            </span>
+                            {license.buyer_username && license.buyer_display_name ? (
+                              <span className="text-zinc-500"> ({license.buyer_username})</span>
+                            ) : null}
+                            {license.purchase_price_pm ? ` — ${license.purchase_price_pm} PM` : ""}
+                            {license.purchased_at ? ` · ${new Date(license.purchased_at).toLocaleString()}` : ""}
+                          </p>
+                        ) : null}
                         <p className="mt-1 text-sm text-zinc-400">{license.notes || "No note"}</p>
                         <p className="mt-2 text-xs text-zinc-500">
                           {license.bound_installation_id
@@ -303,8 +360,29 @@ export default function AppLicensesPage() {
           </div>
 
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">Recent activation log</p>
-            <p className="mt-2 text-xs text-zinc-500">Showing the latest 50 entries.</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">Activation log</p>
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isBusy || eventsPage === 0}
+                  onClick={() => void loadEventsPage(eventsPage - 1)}
+                  type="button"
+                >
+                  Newer
+                </button>
+                <span className="text-xs tabular-nums text-zinc-500">Page {eventsPage + 1}</span>
+                <button
+                  className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={isBusy || !eventsHasMore}
+                  onClick={() => void loadEventsPage(eventsPage + 1)}
+                  type="button"
+                >
+                  Older
+                </button>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">10 entries per page, newest first.</p>
             <div className="mt-4 grid gap-3">
               {events.length > 0 ? (
                 events.map((event) => (
@@ -326,7 +404,7 @@ export default function AppLicensesPage() {
                 ))
               ) : (
                 <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-3 text-sm text-zinc-400">
-                  No activation log yet.
+                  {eventsPage > 0 ? "No entries on this page." : "No activation log yet."}
                 </p>
               )}
             </div>

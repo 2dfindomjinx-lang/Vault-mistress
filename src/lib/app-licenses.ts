@@ -51,12 +51,18 @@ export type AppLicenseRow = {
   bound_at: string | null;
   last_validated_at: string | null;
   reset_count: number;
-  /** Set when the code was bought in the Court with Principessa Money. */
+  /** Set when the code was bought with Principessa Money (either site). */
   owner_user_id: string | null;
   purchased_at: string | null;
   purchase_price_pm: number | null;
   created_at: string;
   updated_at: string | null;
+  /**
+   * Resolved from profiles at read time, not stored on the row - a rename
+   * stays correct this way. Present only on rows listAppLicenses enriched.
+   */
+  buyer_username?: string | null;
+  buyer_display_name?: string | null;
 };
 
 export type AppLicenseEventRow = {
@@ -110,11 +116,39 @@ export async function listAppLicenses(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY) {
     throw error;
   }
 
-  return (data ?? []) as AppLicenseRow[];
+  // A code bought with Principessa Money knows WHO bought it; showing a bare
+  // uuid in the admin panel is useless, so resolve the buyers' profiles in
+  // one batch and hang the names on the rows.
+  const rows = (data ?? []) as AppLicenseRow[];
+  const buyerIds = [...new Set(rows.map((row) => row.owner_user_id).filter((id): id is string => Boolean(id)))];
+  if (buyerIds.length) {
+    const { data: buyers } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", buyerIds);
+    const byId = new Map(
+      ((buyers ?? []) as { id: string; username: string | null; display_name: string | null }[]).map((buyer) => [buyer.id, buyer]),
+    );
+    for (const row of rows) {
+      const buyer = row.owner_user_id ? byId.get(row.owner_user_id) : undefined;
+      row.buyer_username = buyer?.username ?? null;
+      row.buyer_display_name = buyer?.display_name ?? null;
+    }
+  }
+
+  return rows;
 }
 
-export async function listAppLicenseEvents(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY) {
+// The event table grows forever by design (it is the audit trail), so the
+// admin page reads it in small pages instead of one ever-growing list.
+export const APP_LICENSE_EVENTS_PAGE_SIZE = 10;
+
+export async function listAppLicenseEvents(appKey = PRINCIPESSA_DISCIPLINE_APP_KEY, page = 0) {
   const supabase = createSupabaseAdminClient();
+  const safePage = Math.max(0, Math.floor(page) || 0);
+  const from = safePage * APP_LICENSE_EVENTS_PAGE_SIZE;
+  // range() is inclusive, so this fetches one row beyond the page - the
+  // cheapest possible "is there a next page" probe.
   const { data, error } = await supabase
     .from("app_activation_events")
     .select(
@@ -122,13 +156,18 @@ export async function listAppLicenseEvents(appKey = PRINCIPESSA_DISCIPLINE_APP_K
     )
     .eq("app_key", appKey)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(from, from + APP_LICENSE_EVENTS_PAGE_SIZE);
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as AppLicenseEventRow[];
+  const rows = (data ?? []) as AppLicenseEventRow[];
+  return {
+    events: rows.slice(0, APP_LICENSE_EVENTS_PAGE_SIZE),
+    hasMore: rows.length > APP_LICENSE_EVENTS_PAGE_SIZE,
+    page: safePage,
+  };
 }
 
 export async function findAppLicense(appKey: string, activationCode: string) {

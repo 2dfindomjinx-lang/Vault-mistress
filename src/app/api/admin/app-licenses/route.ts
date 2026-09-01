@@ -1,7 +1,6 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
 import {
   PRINCIPESSA_DISCIPLINE_APP_KEY,
-  PRINCIPESSA_WALLPAPER_APP_KEY,
   isSupportedAppLicenseKey,
   insertAppLicense,
   listAppLicenseEvents,
@@ -25,6 +24,13 @@ function requestedAppKey(value: string | null | undefined) {
   return isSupportedAppLicenseKey(appKey) ? appKey : null;
 }
 
+// The activation log is paged (see APP_LICENSE_EVENTS_PAGE_SIZE); every
+// response carries the requested page plus whether a next page exists.
+async function eventsPayload(appKey: string, page = 0) {
+  const { events, hasMore, page: resolvedPage } = await listAppLicenseEvents(appKey, page);
+  return { events, eventsHasMore: hasMore, eventsPage: resolvedPage };
+}
+
 export async function GET(request: Request) {
   const admin = await requireAdminProfile();
 
@@ -32,16 +38,23 @@ export async function GET(request: Request) {
     return Response.json({ error: admin.error }, { status: admin.status });
   }
 
-  const appKey = requestedAppKey(new URL(request.url).searchParams.get("appKey"));
+  const url = new URL(request.url);
+  const appKey = requestedAppKey(url.searchParams.get("appKey"));
   if (!appKey) {
     return Response.json({ error: "Unknown app key." }, { status: 400 });
   }
+  const eventsPage = Math.max(0, Number(url.searchParams.get("eventsPage")) || 0);
+  // Paging through the log should not re-fetch the license list.
+  const eventsOnly = url.searchParams.get("eventsOnly") === "1";
 
   try {
+    if (eventsOnly) {
+      return Response.json({ appKey, ...(await eventsPayload(appKey, eventsPage)) });
+    }
     return Response.json({
       appKey,
       licenses: await listAppLicenses(appKey),
-      events: await listAppLicenseEvents(appKey),
+      ...(await eventsPayload(appKey, eventsPage)),
     });
   } catch (error) {
     return Response.json(
@@ -68,7 +81,7 @@ export async function POST(request: Request) {
     if (body.action === "list") {
       return Response.json({
         licenses: await listAppLicenses(appKey),
-        events: await listAppLicenseEvents(appKey),
+        ...(await eventsPayload(appKey)),
       });
     }
 
@@ -79,7 +92,7 @@ export async function POST(request: Request) {
       });
       return Response.json({
         licenses: await listAppLicenses(appKey),
-        events: await listAppLicenseEvents(appKey),
+        ...(await eventsPayload(appKey)),
       });
     }
 
@@ -90,7 +103,7 @@ export async function POST(request: Request) {
       await revokeAppLicense(body.licenseId.trim(), appKey);
       return Response.json({
         licenses: await listAppLicenses(appKey),
-        events: await listAppLicenseEvents(appKey),
+        ...(await eventsPayload(appKey)),
       });
     }
 
@@ -101,7 +114,7 @@ export async function POST(request: Request) {
       await resetAppLicense(body.licenseId.trim(), appKey);
       return Response.json({
         licenses: await listAppLicenses(appKey),
-        events: await listAppLicenseEvents(appKey),
+        ...(await eventsPayload(appKey)),
       });
     }
 
