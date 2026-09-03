@@ -24,11 +24,16 @@ function requestedAppKey(value: string | null | undefined) {
   return isSupportedAppLicenseKey(appKey) ? appKey : null;
 }
 
+// listAppLicenseEvents returns a paginated envelope. The mobile client wants the rows
+// themselves under "events" -- spreading the envelope in here nested it one level deeper and
+// broke every response, list and generate alike.
 async function snapshot(appKey: string) {
+  const eventPage = await listAppLicenseEvents(appKey);
   return {
     appKey,
     licenses: await listAppLicenses(appKey),
-    events: await listAppLicenseEvents(appKey),
+    events: eventPage.events,
+    eventsHasMore: eventPage.hasMore,
   };
 }
 
