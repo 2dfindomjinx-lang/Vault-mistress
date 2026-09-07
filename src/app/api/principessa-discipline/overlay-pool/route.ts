@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ type OverlayImagePayload = {
   imageUrl: string;
   updatedAt: string;
   sizeBytes: number;
+  sha256: string;
 };
 
 function listOverlayImages(): OverlayImagePayload[] {
@@ -29,12 +31,18 @@ function listOverlayImages(): OverlayImagePayload[] {
     .map((fileName) => {
       const filePath = path.join(PUBLIC_FOLDER, fileName);
       const stats = statSync(filePath);
+      if (stats.size < 1 || stats.size > 25 * 1024 * 1024) {
+        throw new Error("Overlay image exceeds supported size");
+      }
+      const bytes = readFileSync(filePath);
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
       return {
         key: fileName,
         fileName,
-        imageUrl: `${PUBLIC_BASE_URL}/${encodeURIComponent(fileName)}`,
+        imageUrl: `${PUBLIC_BASE_URL}/${encodeURIComponent(fileName)}?v=${sha256}`,
         updatedAt: stats.mtime.toISOString(),
-        sizeBytes: stats.size,
+        sizeBytes: bytes.length,
+        sha256,
       };
     });
 }
