@@ -1,3 +1,4 @@
+import type {SupabaseClient} from "@supabase/supabase-js";
 import { requireAdminProfile } from "@/lib/admin-guard";
 
 type AdminAnnouncementRow = {
@@ -11,7 +12,7 @@ type AdminAnnouncementRow = {
   updated_at: string | null;
 };
 
-async function listAnnouncements(supabase: any) {
+async function listAnnouncements(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("site_announcements")
     .select("id, title, body, active, starts_at, ends_at, created_at, updated_at")

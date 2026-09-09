@@ -20,7 +20,7 @@
 // Run: node scripts/security-integration-tests.mjs
 // Exits non-zero on any failed check.
 
-import "./_env.mjs";
+import "./_security-test-env.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;

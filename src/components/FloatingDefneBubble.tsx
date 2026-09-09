@@ -100,7 +100,7 @@ export function FloatingDefneBubble({
 
   return (
     <aside
-      className={`fixed bottom-4 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4 ${showInteractive ? "" : "pointer-events-none"}`}
+      className={`court-floating-character fixed bottom-24 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4 ${showInteractive ? "" : "pointer-events-none"}`}
     >
       {hasActiveMessage && (
         <div
@@ -112,8 +112,8 @@ export function FloatingDefneBubble({
           <span className="relative z-10">{displayMessage}</span>
         </div>
       )}
-      <div
-        className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}
+      <button type="button" aria-label="Open Live Chat" onClick={() => window.dispatchEvent(new Event("court:toggle-chat"))}
+        className={`pointer-events-auto relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}
       >
         <Image
           alt="Principessa avatar"
@@ -123,7 +123,7 @@ export function FloatingDefneBubble({
           sizes="88px"
           src={avatarSrc}
         />
-      </div>
+      </button>
     </aside>
   );
 }

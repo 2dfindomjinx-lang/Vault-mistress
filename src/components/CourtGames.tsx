@@ -1,6 +1,8 @@
 "use client";
 
-import Image from "next/image";
+import {postEconomyAction} from "@/lib/economy-client";
+import {createCourtChallenge, CROWN_SYMBOLS, guardWaveDuration, type CourtAction} from "@/lib/court-game-challenges";
+import { ActionFigure, CourtGlyph, CourtPortrait, SealFaces } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   COURT_GAME_IDS,
@@ -19,6 +21,7 @@ type GameStatus = {
 type ActiveGame = {
   gameId: CourtGameId;
   sessionId: string;
+  challengeSeed: number;
 };
 
 type CourtGamesProps = {
@@ -53,15 +56,6 @@ function formatCooldown(value: string | null, now: number) {
   const hours = Math.floor(milliseconds / 3_600_000);
   const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
   return hours > 0 ? `${hours}h ${minutes}m` : `${Math.max(1, minutes)}m`;
-}
-
-function shuffled<T>(items: readonly T[]) {
-  const result = [...items];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-  }
-  return result;
 }
 
 export function CourtGames({ coins, disabled = false, guestMode = false, onReward }: CourtGamesProps) {
@@ -99,7 +93,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     emitSoundEvent("button_click");
     try {
       if (guestMode) {
-        setActiveGame({ gameId, sessionId: `guest-${gameId}` });
+        setActiveGame({ gameId, sessionId: `guest-${gameId}`,challengeSeed:crypto.getRandomValues(new Uint32Array(1))[0] });
         return;
       }
 
@@ -109,9 +103,9 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
         method: "POST",
       });
       const payload = (await response.json().catch(() => null)) as
-        | { cooldownUntil?: string; error?: string; sessionId?: string }
+        | { cooldownUntil?: string; error?: string; sessionId?: string; challengeSeed?: number }
         | null;
-      if (!response.ok || !payload?.sessionId) {
+      if (!response.ok || !payload?.sessionId || !Number.isInteger(payload.challengeSeed)) {
         if (payload?.cooldownUntil) {
           setStatuses((current) => current.map((status) => status.gameId === gameId
             ? { ...status, cooldownUntil: payload.cooldownUntil ?? null }
@@ -119,7 +113,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
         }
         throw new Error(payload?.error ?? "The game could not begin.");
       }
-      setActiveGame({ gameId, sessionId: payload.sessionId });
+      setActiveGame({ gameId, sessionId: payload.sessionId, challengeSeed:payload.challengeSeed! });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The game could not begin.");
     } finally {
@@ -162,11 +156,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
       return COURT_GAME_RULES[gameId].reward;
     }
 
-    const response = await fetch("/api/user/court-games", {
-      body: JSON.stringify({ action: "complete", gameId, metrics, sessionId }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
+    const response = await postEconomyAction("/api/user/court-games", {action:"complete",gameId,metrics,sessionId});
     const payload = (await response.json().catch(() => null)) as
       | { cooldownUntil?: string; error?: string; profile?: { coins?: number }; rewardCoins?: number }
       | null;
@@ -184,6 +174,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
   const activeProps = activeGame
     ? {
         disabled,
+        challengeSeed:activeGame.challengeSeed,
         onClose: () => setActiveGame(null),
         onComplete: (metrics: CourtGameMetrics) => finishGame(activeGame.gameId, activeGame.sessionId, metrics),
         onFail: () => failGame(activeGame.gameId, activeGame.sessionId),
@@ -191,7 +182,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     : null;
 
   return (
-    <section className="court-games-panel relative min-w-0 overflow-hidden rounded-[2rem] border border-[#d7ad69]/20 bg-[radial-gradient(circle_at_85%_0%,rgba(190,24,93,.24),transparent_32%),linear-gradient(145deg,rgba(17,6,13,.98),rgba(3,2,4,.98))] p-5 shadow-[0_0_48px_rgba(190,24,93,.13)]">
+    <section className="court-games-panel relative min-w-0 overflow-clip rounded-[2rem] border border-[#d7ad69]/20 bg-[radial-gradient(circle_at_85%_0%,rgba(190,24,93,.24),transparent_32%),linear-gradient(145deg,rgba(17,6,13,.98),rgba(3,2,4,.98))] p-5 shadow-[0_0_48px_rgba(190,24,93,.13)]">
       <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#d7ad69]/10 court-game-orbit" />
       <div className="relative flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -234,7 +225,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
                   onClick={() => void startGame(gameId)}
                   type="button"
                 >
-                  {loadingGameId === gameId ? "Entering..." : cooldown ? `Available ${cooldown === "Today" ? "tomorrow" : `in ${cooldown}`}` : "Play"}
+                  {loadingGameId === gameId ? "Entering..." : cooldown ? `Available ${cooldown === "Today" ? "tomorrow" : `in ${cooldown}`}` : disabled && guestMode ? "Sign in to play" : disabled ? "Timeout active" : "Play"}
                 </button>
               </article>
             );
@@ -246,67 +237,23 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
 }
 
 type MiniGameProps = {
+  challengeSeed: number;
   disabled: boolean;
   onClose: () => void;
   onComplete: (metrics: CourtGameMetrics) => Promise<number>;
   onFail: () => void;
 };
 
-type SaysRound = {
-  action: "bow" | "kneel" | "still" | "type";
-  command: string;
-  expectedText?: string;
-  shouldObey: boolean;
-  timeMs: number;
-};
-
-// A pool, not a script. Eight rounds are drawn fresh each run - with the fixed
-// list of eight, three days of play memorised the whole game and it stopped
-// being a listening test. Traps borrow every voice of authority EXCEPT the one
-// that counts: only “Principessa Says” is real.
-const SAYS_OBEY_POOL: readonly SaysRound[] = [
-  { action: "kneel", command: "Principessa Says: Kneel.", shouldObey: true, timeMs: 4_500 },
-  { action: "bow", command: "Principessa Says: Bow.", shouldObey: true, timeMs: 4_000 },
-  { action: "still", command: "Principessa Says: Do not move.", shouldObey: true, timeMs: 4_000 },
-  { action: "still", command: "Principessa Says: Freeze. Eyes down.", shouldObey: true, timeMs: 4_500 },
-  { action: "kneel", command: "Principessa Says: On your knees. Now.", shouldObey: true, timeMs: 4_000 },
-  { action: "bow", command: "Principessa Says: Lower your head.", shouldObey: true, timeMs: 4_000 },
-  { action: "still", command: "Principessa Says: Hold still until I allow otherwise.", shouldObey: true, timeMs: 5_000 },
-  { action: "kneel", command: "Principessa Says: Kneel and be grateful.", shouldObey: true, timeMs: 4_500 },
-  { action: "type", command: "Principessa Says: Type “Meow, Principessa.”", expectedText: "Meow, Principessa.", shouldObey: true, timeMs: 7_000 },
-  { action: "type", command: "Principessa Says: Type “Woof! Woof!”", expectedText: "Woof! Woof!", shouldObey: true, timeMs: 7_000 },
-  { action: "type", command: "Principessa Says: Type “I belong to her.”", expectedText: "I belong to her.", shouldObey: true, timeMs: 8_000 },
-  { action: "type", command: "Principessa Says: Type “Thank you.”", expectedText: "Thank you.", shouldObey: true, timeMs: 6_000 },
-  { action: "type", command: "Principessa Says: Type “Yes, Principessa.”", expectedText: "Yes, Principessa.", shouldObey: true, timeMs: 7_000 },
-  { action: "bow", command: "Principessa Says: Bow. Deeper.", shouldObey: true, timeMs: 4_000 },
-];
-
-const SAYS_TRAP_POOL: readonly SaysRound[] = [
-  { action: "bow", command: "Bow for Principessa.", shouldObey: false, timeMs: 4_000 },
-  { action: "kneel", command: "Kneel. Principessa is watching.", shouldObey: false, timeMs: 4_000 },
-  { action: "type", command: "Principessa wants you to type “Woof!”", expectedText: "Woof!", shouldObey: false, timeMs: 5_000 },
-  { action: "kneel", command: "The court commands: Kneel.", shouldObey: false, timeMs: 4_000 },
-  { action: "bow", command: "Your Mistress expects a bow.", shouldObey: false, timeMs: 4_000 },
-  { action: "type", command: "Type “Yes, Principessa.” if you are loyal.", expectedText: "Yes, Principessa.", shouldObey: false, timeMs: 5_500 },
-  { action: "kneel", command: "Principessa said to kneel, did she not?", shouldObey: false, timeMs: 4_000 },
-  { action: "bow", command: "Everyone is bowing. Join them.", shouldObey: false, timeMs: 4_000 },
-  { action: "still", command: "Quick! Do something before time runs out!", shouldObey: false, timeMs: 4_000 },
-  { action: "type", command: "Prove yourself. Type “I obey.”", expectedText: "I obey.", shouldObey: false, timeMs: 5_000 },
-];
-
-// Five real orders, three traps, shuffled together. Always eight, because the
-// server refuses any other round count.
-function drawSaysRounds() {
-  return shuffled([...shuffled(SAYS_OBEY_POOL).slice(0, 5), ...shuffled(SAYS_TRAP_POOL).slice(0, 3)]);
-}
-
-function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
-  const [rounds] = useState(() => drawSaysRounds());
+function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
+  const [rounds] = useState(() => createCourtChallenge(challengeSeed).says);
+  const actionsRef=useRef<CourtAction[]>([]);
+  const [startedAt]=useState(()=>Date.now());
   const [roundIndex, setRoundIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [remainingMs, setRemainingMs] = useState(rounds[0].timeMs);
   const [typingValue, setTypingValue] = useState("");
+  const [visualAction, setVisualAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
   const [result, setResult] = useState<"failed" | "reward" | null>(null);
   const [reward, setReward] = useState(0);
@@ -315,21 +262,24 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
   const resolveRoundRef = useRef<(correct: boolean) => void>(() => undefined);
   const round = rounds[roundIndex];
 
-  const resolveRound = useCallback((correct: boolean) => {
+  const resolveRound = useCallback((correct: boolean, action = "wait") => {
     if (resolvedRef.current || result) return;
     resolvedRef.current = true;
+    actionsRef.current.push({action,atMs:Date.now()-startedAt});
     const nextScore = score + (correct ? 1 : 0);
     const nextMistakes = mistakes + (correct ? 0 : 1);
     setScore(nextScore);
     setMistakes(nextMistakes);
     setFeedback(correct ? "correct" : "wrong");
-    emitSoundEvent(correct ? "task_completion" : "task_fail");
+    setVisualAction(action);
+    emitSoundEvent(correct ? "button_click" : "task_fail");
 
     window.setTimeout(() => {
       if (roundIndex < rounds.length - 1) {
         const nextIndex = roundIndex + 1;
         resolvedRef.current = false;
         setTypingValue("");
+        setVisualAction(null);
         setFeedback(null);
         setRoundIndex(nextIndex);
         setRemainingMs(rounds[nextIndex].timeMs);
@@ -343,7 +293,7 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
       }
 
       setSaving(true);
-      void onComplete({ mistakes: nextMistakes, roundsCompleted: rounds.length, score: nextScore })
+      void onComplete({ mistakes: nextMistakes, roundsCompleted: rounds.length, score: nextScore, actions:actionsRef.current })
         .then((rewardCoins) => {
           setReward(rewardCoins);
           setResult("reward");
@@ -352,7 +302,7 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
         .catch(() => setResult("failed"))
         .finally(() => setSaving(false));
     }, 550);
-  }, [mistakes, onComplete, onFail, result, roundIndex, rounds, score]);
+  }, [mistakes, onComplete, onFail, result, roundIndex, rounds, score, startedAt]);
 
   useEffect(() => {
     resolveRoundRef.current = resolveRound;
@@ -374,12 +324,12 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
 
   const pressAction = (action: "bow" | "kneel") => {
     if (disabled || feedback || result) return;
-    resolveRound(!round.shouldObey ? false : round.action === action);
+    resolveRound(!round.shouldObey ? false : round.action === action, action);
   };
 
   const submitText = () => {
     if (disabled || feedback || result) return;
-    resolveRound(round.shouldObey && round.action === "type" && typingValue === round.expectedText);
+    resolveRound(round.shouldObey && round.action === "type" && typingValue === round.expectedText, "type:"+typingValue);
   };
 
   return (
@@ -398,6 +348,7 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
               <p className="font-serif text-xl leading-8 text-[#fff0d2]">{round.command}</p>
               {feedback && <p className={`mt-2 text-xs font-black uppercase tracking-[.2em] ${feedback === "correct" ? "text-emerald-200" : "text-rose-200"}`}>{feedback === "correct" ? "Good. You listened." : "Wrong. She caught you."}</p>}
             </div>
+            <div className="court-command-action"><ActionFigure action={visualAction} /><span>{feedback ? feedback === "correct" ? "Order understood" : "Order missed" : "Await her command"}</span></div>
             {round.action === "type" ? (
               <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); submitText(); }}>
                 <input
@@ -416,8 +367,8 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
               </form>
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("kneel")} type="button"><span>♟</span>Kneel</button>
-                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("bow")} type="button"><span>♜</span>Bow</button>
+                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("kneel")} type="button"><CourtGlyph symbol="seal"/>Kneel</button>
+                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("bow")} type="button"><CourtGlyph symbol="lily"/>Bow</button>
               </div>
             )}
             <p className="mt-4 text-center text-xs text-zinc-500">If she did not say “Principessa Says”, touch nothing and let the timer expire.</p>
@@ -428,12 +379,13 @@ function PrincipessaSays({ disabled, onClose, onComplete, onFail }: MiniGameProp
   );
 }
 
-const CROWN_SYMBOLS = ["♛", "♦", "♥", "✦", "⚜", "◈"] as const;
 
 // Crown Match takes no onFail: matching pairs cannot be lost by play, only
 // abandoned - and abandonment is the server's business, not this component's.
-function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFail">) {
-  const [cards] = useState(() => shuffled(CROWN_SYMBOLS.flatMap((symbol) => [symbol, symbol])).map((symbol, index) => ({ id: index, symbol })));
+function CrownMatch({ challengeSeed, disabled, onClose, onComplete }: Omit<MiniGameProps, "onFail">) {
+  const [cards] = useState(() => createCourtChallenge(challengeSeed).cards);
+  const actionsRef=useRef<CourtAction[]>([]);
+  const [startedAt]=useState(()=>Date.now());
   const [open, setOpen] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
@@ -445,6 +397,8 @@ function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFa
   const chooseCard = (id: number) => {
     if (disabled || saving || open.length >= 2 || open.includes(id) || matched.includes(id)) return;
     emitSoundEvent("button_click");
+    // eslint-disable-next-line react-hooks/purity -- user click event timestamp, never called during render
+    actionsRef.current.push({action:String(id),atMs:Date.now()-startedAt});
     const nextOpen = [...open, id];
     setOpen(nextOpen);
     if (nextOpen.length < 2) return;
@@ -454,7 +408,7 @@ function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFa
       window.setTimeout(() => {
         setMatched((current) => [...current, first, second]);
         setOpen([]);
-        emitSoundEvent("task_completion");
+        emitSoundEvent("button_click");
       }, 350);
     } else {
       window.setTimeout(() => setOpen([]), 750);
@@ -465,7 +419,7 @@ function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFa
     if (matched.length !== cards.length || finishedRef.current) return;
     finishedRef.current = true;
     setSaving(true);
-    void onComplete({ mistakes: Math.max(0, moves - CROWN_SYMBOLS.length), roundsCompleted: CROWN_SYMBOLS.length, score: CROWN_SYMBOLS.length })
+    void onComplete({ mistakes: Math.max(0, moves - CROWN_SYMBOLS.length), roundsCompleted: CROWN_SYMBOLS.length, score: CROWN_SYMBOLS.length, actions:actionsRef.current })
       .then(setReward)
       .catch(() => setFailed(true))
       .finally(() => setSaving(false));
@@ -480,19 +434,20 @@ function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFa
           <PrincipessaStageImage mood={matched.length === cards.length ? "correct" : null} />
           <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
             <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60"><span>{matched.length / 2}/6 pairs</span><span>{moves} moves</span></div>
+            <div className="crown-pair-track" aria-label="Matched seals">{CROWN_SYMBOLS.map(symbol => <span key={symbol} data-complete={cards.some(card => card.symbol === symbol && matched.includes(card.id))}><CourtGlyph symbol={symbol}/></span>)}</div>
             <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
               {cards.map((card) => {
                 const visible = open.includes(card.id) || matched.includes(card.id);
                 return (
                   <button
                     aria-label={visible ? `Revealed ${card.symbol}` : "Hidden court seal"}
-                    className={`court-match-card aspect-[3/4] rounded-xl border text-2xl transition ${visible ? "court-match-card--open border-[#d7ad69]/45 bg-[radial-gradient(circle,#831843,#17060f)] text-[#ffe3a4]" : "border-pink-200/15 bg-[linear-gradient(145deg,#240713,#090306)] text-pink-200/25 hover:border-pink-200/40"}`}
+                    className="court-match-card seal-card-button aspect-[3/4]"
                     disabled={disabled || saving || matched.includes(card.id)}
                     key={card.id}
                     onClick={() => chooseCard(card.id)}
                     type="button"
                   >
-                    {visible ? card.symbol : "P"}
+                    <SealFaces open={visible} matched={matched.includes(card.id)}><CourtGlyph symbol={card.symbol}/></SealFaces>
                   </button>
                 );
               })}
@@ -505,37 +460,11 @@ function CrownMatch({ disabled, onClose, onComplete }: Omit<MiniGameProps, "onFa
   );
 }
 
-type GuardTarget = { glyph: string; label: string; threat: boolean };
-const GUARD_THREATS: readonly GuardTarget[] = [
-  { glyph: "☠", label: "Intruder", threat: true },
-  { glyph: "⚡", label: "Saboteur", threat: true },
-  { glyph: "✖", label: "Stalker", threat: true },
-];
-const GUARD_GIFTS: readonly GuardTarget[] = [
-  { glyph: "💐", label: "Bouquet", threat: false },
-  { glyph: "💎", label: "Jewel", threat: false },
-  { glyph: "✉", label: "Love letter", threat: false },
-];
-
-// Waves get faster in thirds. The first third is deliberately slow enough to
-// learn the rule while playing it - the old version gave 720ms flat from wave
-// one, which is why first-timers failed before understanding the game.
-function guardWaveDuration(index: number) {
-  if (index < 6) return 1_700;
-  if (index < 12) return 1_250;
-  return 900;
-}
-
-function drawGuardTargets() {
-  return Array.from({ length: 18 }, (_, index) => {
-    const pool = index % 3 === 0 ? GUARD_GIFTS : Math.random() > 0.46 ? GUARD_THREATS : GUARD_GIFTS;
-    return pool[Math.floor(Math.random() * pool.length)];
-  });
-}
-
-function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
+function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
   const [phase, setPhase] = useState<"intro" | "play">("intro");
-  const [targets] = useState(drawGuardTargets);
+  const [targets] = useState(() => createCourtChallenge(challengeSeed).targets);
+  const actionsRef=useRef<CourtAction[]>([]);
+  const [startedAt]=useState(()=>Date.now());
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [mistakes, setMistakes] = useState(0);
@@ -555,7 +484,7 @@ function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
       return;
     }
     setSaving(true);
-    void onComplete({ mistakes: nextMistakes, roundsCompleted: targets.length, score: nextScore })
+    void onComplete({ mistakes: nextMistakes, roundsCompleted: targets.length, score: nextScore, actions:actionsRef.current })
       .then(setReward)
       .catch(() => setFailed(true))
       .finally(() => setSaving(false));
@@ -564,6 +493,7 @@ function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
   const resolveTarget = useCallback((hit: boolean) => {
     if (locked || saving || !target || phase !== "play") return;
     setLocked(true);
+    actionsRef.current.push({action:hit?"hit":"wait",atMs:Date.now()-startedAt});
     const correct = target.threat ? hit : !hit;
     // Four different endings, because "wrong" alone taught nobody anything:
     // the message says exactly what happened to her.
@@ -582,7 +512,7 @@ function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
         setLocked(false);
       }
     }, 460);
-  }, [finish, index, locked, mistakes, phase, saving, score, target, targets.length]);
+  }, [finish, index, locked, mistakes, phase, saving, score, target, targets.length, startedAt]);
   useEffect(() => {
     resolveRef.current = resolveTarget;
   }, [resolveTarget]);
@@ -633,39 +563,13 @@ function RoyalGuard({ disabled, onClose, onComplete, onFail }: MiniGameProps) {
             <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60">
               <span>Wave {index + 1}/{targets.length}</span><span>{score} guarded · {mistakes} failed</span>
             </div>
-            {/* Her end of the carpet is on the LEFT, beside her portrait, and
-                every target walks toward it. The travel is the timer. */}
-            <div className="relative mt-4 h-44 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[linear-gradient(90deg,rgba(190,24,93,.28),rgba(0,0,0,.75)_38%)]">
-              <style>{`
-                @keyframes vm-guard-approach {
-                  from { left: calc(100% - 7.5rem); }
-                  to   { left: 0.75rem; }
-                }
-                @media (prefers-reduced-motion: reduce) {
-                  .vm-guard-walker { animation-duration: 0.001ms !important; }
-                }
-              `}</style>
-              <div className="absolute inset-y-0 left-0 flex w-16 flex-col items-center justify-center border-r border-pink-200/20 bg-pink-950/40">
-                <span className="text-3xl">♛</span>
-                <span className="mt-1 text-[8px] font-black uppercase tracking-[.16em] text-pink-100/70">Her</span>
-              </div>
-              {outcome ? (
-                <p className={`absolute inset-x-16 top-1/2 -translate-y-1/2 text-center text-sm font-black ${outcomeCopy[outcome].tone === "good" ? "text-emerald-200" : "text-rose-200"}`}>
-                  {outcomeCopy[outcome].text}
-                </p>
-              ) : (
-                <button
-                  className={`vm-guard-walker absolute top-1/2 flex h-28 w-28 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 ${target.threat ? "border-rose-300/60 bg-rose-950/80 text-rose-100" : "border-[#d7ad69]/60 bg-amber-950/60 text-[#ffe3a4]"}`}
-                  disabled={disabled || locked || saving}
-                  key={index}
-                  onClick={() => resolveTarget(true)}
-                  style={{ animation: `vm-guard-approach ${duration}ms linear forwards` }}
-                  type="button"
-                >
-                  <span className="text-5xl">{target.glyph}</span>
-                  <span className="mt-1 text-[9px] font-black uppercase tracking-[.14em]">{target.label}</span>
-                </button>
-              )}
+            <div className="royal-corridor" data-outcome={outcome ?? "approach"}>
+              <div className="royal-corridor-arches" aria-hidden="true"/><div className="royal-carpet" aria-hidden="true"/>
+              <div className="royal-throne"><CourtGlyph/><span>Her throne</span>{outcome === "letPass" && <CourtGlyph className="royal-arrived-gift" symbol={target.glyph}/>}</div>
+              <div className="royal-barrier" data-hit={outcome === "reachedHer"}><span>Guard line</span></div>
+              {!outcome ? <button className="royal-walker" data-threat={target.threat} disabled={disabled || locked || saving} key={index} onClick={() => resolveTarget(true)} style={{animationDuration:duration+"ms"}} type="button"><CourtGlyph symbol={target.glyph}/><span>{target.label}</span></button> : <div className="royal-impact" data-good={outcomeCopy[outcome].tone === "good"}><CourtGlyph symbol={outcome === "letPass" ? target.glyph : outcome === "blocked" ? "star" : "threat"}/>{outcome === "blocked" && <span className="royal-strike"/>}</div>}
+              <div className="royal-wave-time" role="progressbar" aria-label="Wave time" aria-valuemin={0} aria-valuemax={1} aria-valuenow={outcome?0:1}><span key={index} style={{animationDuration:duration+"ms",animationPlayState:outcome?"paused":"running"}}/></div>
+              <p className="royal-wave-caption" aria-live="polite">{outcome ? outcomeCopy[outcome].text : target.threat ? "Intercept the threat" : "Let her gift pass"}</p>
             </div>
             <p className="mt-3 text-center text-xs text-zinc-500">
               Strike <span className="text-rose-200">☠ ⚡ ✖</span> — let <span className="text-[#ffe3a4]">💐 💎 ✉</span> reach her.
@@ -690,22 +594,13 @@ function GameStageShell({ children, onClose, subtitle, title }: { children: Reac
 }
 
 function PrincipessaStageImage({ mood }: { mood: "correct" | "wrong" | null }) {
-  return (
-    <div className={`court-principessa-stage relative min-h-72 overflow-hidden rounded-[1.5rem] border bg-[radial-gradient(circle_at_50%_25%,rgba(236,72,153,.2),rgba(0,0,0,.72))] ${mood === "correct" ? "border-emerald-300/30" : mood === "wrong" ? "border-rose-300/30 court-game-shake" : "border-pink-200/15"}`}>
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/25 to-transparent" />
-      <Image alt="Principessa overseeing the game" className="object-contain object-bottom court-principessa-float" fill sizes="240px" src="/principessa-ui/generated/principessa-home-command.webp" />
-      <div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-black/65 px-3 py-2 text-center backdrop-blur">
-        <p className="text-[9px] font-black uppercase tracking-[.22em] text-[#d7ad69]/70">Under her gaze</p>
-        <p className={`mt-1 text-sm font-black ${mood === "correct" ? "text-emerald-200" : mood === "wrong" ? "text-rose-200" : "text-pink-50"}`}>{mood === "correct" ? "Approved" : mood === "wrong" ? "Disappointed" : "Do not disappoint her"}</p>
-      </div>
-    </div>
-  );
+  return <CourtPortrait mood={mood === "correct" ? "approved" : mood === "wrong" ? "disappointed" : "neutral"} caption={mood === "correct" ? "Approved" : mood === "wrong" ? "Disappointed" : "Under her gaze"}/>;
 }
 
 function GameResult({ failed, onClose, reward, score }: { failed: boolean; onClose: () => void; reward: number; score: string }) {
   return (
     <div className={`court-command-pop mx-auto max-w-xl rounded-[1.75rem] border p-6 text-center ${failed ? "border-rose-300/25 bg-rose-500/10" : "border-emerald-300/25 bg-emerald-500/10"}`}>
-      <div className="text-5xl">{failed ? "✕" : "♛"}</div>
+      <div className="court-result-seal" data-failed={failed}><CourtGlyph symbol={failed ? "threat" : "crown"}/></div>
       <h4 className="mt-3 font-serif text-3xl text-white">{failed ? "Principessa is not impressed" : "Principessa approves"}</h4>
       <p className="mt-2 text-sm text-zinc-300">Score: {score}</p>
       <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward. The court reopens tomorrow." : `+${reward} Principessa Coins`}</p>

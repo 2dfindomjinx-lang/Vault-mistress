@@ -341,7 +341,7 @@ export async function POST(request: Request) {
     }
 
     let finalCoins = nextCoins;
-    let bonusTransaction: any = null;
+    let bonusTransaction: {id:string} | null = null;
     const giveDevotionAmount = isGive ? getGiveDevotionAmount(amount) : 0;
 
     if (isGive && giveBonusAmount > 0) {
@@ -520,7 +520,7 @@ export async function POST(request: Request) {
         : `Approved: added ${amount} to ${profile.username}`,
       coins: finalCoins,
     });
-  } catch (execErr: any) {
+  } catch (execErr: unknown) {
     console.error("Execution of approved pending action failed", execErr);
     // Mark as failed? Keep approved but note error. For safety leave as approved but don't retry.
     await supabase
@@ -528,7 +528,7 @@ export async function POST(request: Request) {
       .update({
         metadata: {
           ...(claimed.metadata || {}),
-          executionError: String(execErr?.message || execErr),
+          executionError: execErr instanceof Error ? execErr.message : String(execErr),
         },
       })
       .eq("id", actionId);

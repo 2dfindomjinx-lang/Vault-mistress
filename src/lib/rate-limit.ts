@@ -23,26 +23,6 @@ export async function checkRateLimit(
   });
 
   if (error) {
-    // Only fail OPEN for the specific "function does not exist" case - that
-    // means the security-fixes-2026-07.sql migration hasn't been deployed
-    // yet, which is a deployment/config issue, not an attack, and shouldn't
-    // take the whole feature down.
-    //
-    // Any OTHER error (a real, unexpected DB failure) fails CLOSED: silently
-    // allowing every request through during a genuine rate-limiter outage on
-    // a coin-spend/gamble endpoint is exactly the "protection silently
-    // disabled" gap this exists to prevent - a short availability blip for
-    // that one endpoint is the safer trade-off.
-    const migrationMissing = error.code === "42883" || error.code === "PGRST202";
-
-    if (migrationMissing) {
-      console.error(
-        "[rate-limit] check_rate_limit RPC is missing - deploy supabase/security-fixes-2026-07.sql. Allowing request through unlimited in the meantime.",
-        { key },
-      );
-      return { allowed: true, retryAfterSeconds: 0 };
-    }
-
     console.error("[rate-limit] check failed with an unexpected error - failing closed", { key, error });
     return { allowed: false, retryAfterSeconds: 5 };
   }
@@ -50,7 +30,7 @@ export async function checkRateLimit(
   const result = data as { allowed?: boolean; retryAfterSeconds?: number } | null;
 
   return {
-    allowed: result?.allowed ?? true,
+    allowed: result?.allowed === true,
     retryAfterSeconds: Number(result?.retryAfterSeconds ?? 0),
   };
 }

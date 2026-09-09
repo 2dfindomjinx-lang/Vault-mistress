@@ -200,8 +200,6 @@ export function RecentTributesTicker({
   tributes: RecentTribute[];
   showRecentOpenings?: boolean;
 }) {
-  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
-  const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
   // All-time goal. Deliberately its own fetch rather than a prop: it is a
   // single tiny public row, and threading it through page.tsx would couple this
   // widget to the dashboard for no gain.
@@ -236,57 +234,7 @@ export function RecentTributesTicker({
   }, [tributes]);
   const displayTributes = visibleTributes;
 
-  useEffect(() => {
-    if (!showRecentOpenings) return;
 
-    let mounted = true;
-
-    const loadRecentCaseOpenings = async () => {
-      try {
-        const response = await fetch("/api/recent-case-openings");
-        const payload = (await response.json()) as {
-          error?: string;
-          openers?: RecentCaseOpener[];
-        };
-
-        if (!response.ok) {
-          throw new Error(payload.error ?? "Recent openings could not be loaded.");
-        }
-
-        const flattened = (payload.openers ?? [])
-          .flatMap((opener) =>
-            (opener.recentOpenings ?? []).map((opening) => ({
-              ...opening,
-              crateIconUrl: opening.crateIconUrl,
-              openerId: opener.id,
-              openerUsername: opener.username,
-              openerRawUsername: opener.rawUsername,
-              openerDisplayName: opener.displayName,
-              openerAvatarUrl: opener.avatarUrl,
-              openerUsernameStyle: opener.usernameStyle,
-            })),
-          )
-          .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
-          .slice(0, 6);
-
-        if (mounted) {
-          setRecentCaseOpenings(flattened);
-          setRecentCaseOpeningsError("");
-        }
-      } catch (error) {
-        if (mounted) {
-          setRecentCaseOpenings([]);
-          setRecentCaseOpeningsError(error instanceof Error ? error.message : "Recent openings could not be loaded.");
-        }
-      }
-    };
-
-    void loadRecentCaseOpenings();
-
-    return () => {
-      mounted = false;
-    };
-  }, [showRecentOpenings]);
 
   return (
     <section className="space-y-2">
@@ -379,7 +327,124 @@ export function RecentTributesTicker({
           </div>
         </div>
       )}
-      {showRecentOpenings && (
+      {showRecentOpenings && <RecentCaseOpenings/>}
+    </section>
+  );
+}
+
+function TributeCard({
+  currentUsername,
+  isNewest = false,
+  tribute,
+  usernameStyle,
+}: {
+  currentUsername?: string;
+  isNewest?: boolean;
+  tribute: RecentTribute;
+  usernameStyle?: CSSProperties;
+}) {
+  const displayUsername = getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username);
+  const isCurrentUser =
+    tribute.rawUsername === currentUsername ||
+    tribute.username === currentUsername ||
+    displayUsername === currentUsername;
+
+  return (
+    <article
+      className={`flex min-w-[180px] items-center gap-2 rounded-xl border px-2.5 py-1.5 transition ${getGlowClass(tribute.amount)} ${
+        isNewest ? "animate-tribute-slide-in" : ""
+      }`}
+    >
+      <TributeAvatar
+        alt={`${displayUsername} avatar`}
+        className="h-8 w-8 rounded-full border border-pink-200/25 object-cover"
+        src={tribute.avatarUrl}
+      />
+      <div className="min-w-0">
+        <DisplayNameWithUsername
+          displayName={tribute.displayName}
+          primaryClassName="truncate text-xs font-black text-white"
+          primaryStyle={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
+          secondaryClassName="hidden"
+          username={tribute.rawUsername ?? tribute.username}
+        />
+        <p className="flex items-center gap-1 text-[10px] font-bold text-pink-100">
+          <MoneyIcon height={11} />+{tribute.amount.toLocaleString()}
+          <span className="font-semibold text-zinc-500">· {getRelativeTime(tribute.createdAt)}</span>
+        </p>
+      </div>
+    </article>
+  );
+}
+
+export function RecentCaseOpenings() {
+  const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
+  const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
+  const [openingsLoading, setOpeningsLoading] = useState(true);
+  useEffect(() => {
+
+    let mounted = true;
+    let refreshing = false;
+    const controller = new AbortController();
+
+    const loadRecentCaseOpenings = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetch("/api/recent-case-openings", { signal: controller.signal, cache: "no-store" });
+        const payload = (await response.json()) as {
+          error?: string;
+          openers?: RecentCaseOpener[];
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Recent openings could not be loaded.");
+        }
+
+        const flattened = (payload.openers ?? [])
+          .flatMap((opener) =>
+            (opener.recentOpenings ?? []).map((opening) => ({
+              ...opening,
+              crateIconUrl: opening.crateIconUrl,
+              openerId: opener.id,
+              openerUsername: opener.username,
+              openerRawUsername: opener.rawUsername,
+              openerDisplayName: opener.displayName,
+              openerAvatarUrl: opener.avatarUrl,
+              openerUsernameStyle: opener.usernameStyle,
+            })),
+          )
+          .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
+          .slice(0, 6);
+
+        if (mounted) {
+          setRecentCaseOpenings(flattened);
+          setRecentCaseOpeningsError("");
+        }
+      } catch (error) {
+        if (mounted) {
+          setRecentCaseOpeningsError(error instanceof Error ? error.message : "Recent openings could not be loaded.");
+        }
+      } finally {
+        refreshing = false;
+        if (mounted) setOpeningsLoading(false);
+      }
+    };
+
+    void loadRecentCaseOpenings();
+    const refresh = () => { if (document.visibilityState === "visible") void loadRecentCaseOpenings(); };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("court:crate-opened", refresh);
+    return () => {
+      mounted = false;
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("court:crate-opened", refresh);
+    };
+  }, []);
+  return (
       <div className="rounded-[1.35rem] border border-white/10 bg-black/35 px-3 py-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-200/80">
@@ -389,15 +454,12 @@ export function RecentTributesTicker({
             Latest case results in the vault
           </p>
         </div>
-        {recentCaseOpeningsError ? (
-          <p className="mt-3 rounded-2xl border border-rose-200/15 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
-            {recentCaseOpeningsError}
-          </p>
-        ) : recentCaseOpenings.length > 0 ? (
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {recentCaseOpeningsError && <p role="status" className="mt-3 text-xs text-amber-100/80">{recentCaseOpenings.length ? "Refresh unavailable. Showing the last loaded openings." : "Openings are temporarily unavailable. We will retry shortly."}</p>}
+        {recentCaseOpenings.length > 0 ? (
+          <div className="recent-openings-strip mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recentCaseOpenings.map((opening) => (
               <article
-                className={`group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
@@ -478,58 +540,11 @@ export function RecentTributesTicker({
               </article>
             ))}
           </div>
-        ) : (
-          <p className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-zinc-400">
-            No recent openings yet.
-          </p>
-        )}
+        ) : openingsLoading ? (
+          <p role="status" className="mt-4 text-sm text-zinc-400">Loading the latest openings…</p>
+        ) : !recentCaseOpeningsError ? (
+          <p className="mt-4 text-sm text-zinc-400">The first opening will appear here.</p>
+        ) : null}
       </div>
-      )}
-    </section>
-  );
-}
-
-function TributeCard({
-  currentUsername,
-  isNewest = false,
-  tribute,
-  usernameStyle,
-}: {
-  currentUsername?: string;
-  isNewest?: boolean;
-  tribute: RecentTribute;
-  usernameStyle?: CSSProperties;
-}) {
-  const displayUsername = getDisplayNameOrUsername(tribute.displayName, tribute.rawUsername ?? tribute.username);
-  const isCurrentUser =
-    tribute.rawUsername === currentUsername ||
-    tribute.username === currentUsername ||
-    displayUsername === currentUsername;
-
-  return (
-    <article
-      className={`flex min-w-[180px] items-center gap-2 rounded-xl border px-2.5 py-1.5 transition ${getGlowClass(tribute.amount)} ${
-        isNewest ? "animate-tribute-slide-in" : ""
-      }`}
-    >
-      <TributeAvatar
-        alt={`${displayUsername} avatar`}
-        className="h-8 w-8 rounded-full border border-pink-200/25 object-cover"
-        src={tribute.avatarUrl}
-      />
-      <div className="min-w-0">
-        <DisplayNameWithUsername
-          displayName={tribute.displayName}
-          primaryClassName="truncate text-xs font-black text-white"
-          primaryStyle={tribute.usernameStyle ?? (isCurrentUser ? usernameStyle : undefined)}
-          secondaryClassName="hidden"
-          username={tribute.rawUsername ?? tribute.username}
-        />
-        <p className="flex items-center gap-1 text-[10px] font-bold text-pink-100">
-          <MoneyIcon height={11} />+{tribute.amount.toLocaleString()}
-          <span className="font-semibold text-zinc-500">· {getRelativeTime(tribute.createdAt)}</span>
-        </p>
-      </div>
-    </article>
   );
 }

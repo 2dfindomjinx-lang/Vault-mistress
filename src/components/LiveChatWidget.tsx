@@ -42,6 +42,7 @@ type LiveChatSummaryResponse = {
 };
 
 type LiveChatWidgetProps = {
+  guestMode?: boolean;
   onCoinsChange?: (coins: number) => void;
 };
 
@@ -58,7 +59,7 @@ function formatChatTime(value: string) {
   return chatTimeFormatter.format(new Date(value));
 }
 
-export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
+export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -168,9 +169,15 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
     }
   };
 
+  useEffect(() => {
+    const open = () => setIsOpen(value => !value);
+    window.addEventListener('court:toggle-chat',open);
+    return () => window.removeEventListener('court:toggle-chat',open);
+  }, []);
   const refreshChat = useEffectEvent(() => isOpen ? loadMessages() : loadSummary());
   useEffect(() => {
-    const load = () => refreshChat();
+    if (guestMode) return;
+    const load = () => { if (document.visibilityState !== "hidden") return refreshChat(); };
     const initialTimer = window.setTimeout(() => void load(), 0);
     const timer = window.setInterval(() => {
       void load();
@@ -181,7 +188,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
       window.clearInterval(timer);
       if (catchupTimerRef.current !== null) window.clearTimeout(catchupTimerRef.current);
     };
-  }, [isOpen]);
+  }, [isOpen, guestMode]);
 
   useLayoutEffect(() => {
     if (!isOpen) return;
@@ -260,8 +267,8 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   };
 
   return (
-    <div className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
-      {isOpen ? (
+    <div data-court-chat className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
+      {isOpen && guestMode ? <section className="w-full rounded-xl border border-[#c89a55]/30 bg-[#13090f] p-5 text-sm text-zinc-200"><p>Sign in with X to join the conversation.</p><button className="mt-3 underline" onClick={() => setIsOpen(false)} type="button">Close</button></section> : isOpen ? (
         <section className="w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div>
@@ -360,7 +367,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
                 <CoinAmount amount={2000} iconSize={14} label="" prefix="Highlight " />
               </button>
               <button
-                className="rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="hidden sm:inline-flex rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!draft.trim() || isSending || Boolean(mutedText)}
                 onClick={() => void sendMessage()}
                 type="button"

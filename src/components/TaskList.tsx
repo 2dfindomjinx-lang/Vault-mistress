@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { CourtGlyph, WritingLine } from "@/components/court/CourtVisuals";
+import { LevelDrainTransfer, type DrainVisualResult } from "@/components/court/LevelDrainTransfer";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { DEFAULT_ADDRESS_TERM, type AddressTerm } from "@/lib/address-term";
@@ -148,6 +150,7 @@ type TaskListProps = {
   addressTerm?: AddressTerm;
   coins: number;
   disabled?: boolean;
+  disabledReason?: string;
   tasks: TaskItem[];
   pendingTaskActionIds?: string[];
   currentUsername?: string;
@@ -166,7 +169,7 @@ type TaskListProps = {
   // onCaseOpen's API call resolves - keeps the speech-bubble reply from
   // spoiling the result before the reveal plays.
   onCaseOpenRevealed?: (reward: number) => void;
-  onLevelDrain: () => void;
+  onLevelDrain: () => DrainVisualResult | void | Promise<DrainVisualResult | void>;
   onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
   onFreeFridaySpinConsumed?: () => void;
   onNumberPick: (selectedNumber: number) => void;
@@ -236,6 +239,7 @@ export function TaskList({
   addressTerm = DEFAULT_ADDRESS_TERM,
   coins,
   disabled = false,
+  disabledReason = "Timeout active. This task is locked.",
   currentUsername,
   globalPrincipessaLevel,
   globalPrincipessaProgressPercent,
@@ -278,6 +282,7 @@ export function TaskList({
     30_000,
   );
   const [typingValue, setTypingValue] = useState("");
+  const [drainVisual,setDrainVisual] = useState<(DrainVisualResult & {key:number}) | null>(null);
   // Risk My Freedom coin. "spin" while the server decides, then the coin lands
   // on the face the ledger actually recorded - never on a guess.
   const [riskFlip, setRiskFlip] = useState<"idle" | "spin" | "safe" | "timeout">("idle");
@@ -759,9 +764,11 @@ export function TaskList({
               <button
                 className="w-full max-w-sm rounded-xl border border-pink-200/25 bg-pink-500/15 px-5 py-2 text-xs font-black uppercase tracking-[0.16em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-56"
                 disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
-                onClick={() => {
+                onClick={async () => {
                   emitSoundEvent("button_click");
-                  onLevelDrain();
+                  setDrainVisual(null);
+                  const result = await onLevelDrain();
+                  if (result) setDrainVisual({...result,key:Date.now()});
                 }}
                 type="button"
               >
@@ -774,6 +781,7 @@ export function TaskList({
             </div>
           </div>
         </div>
+        {drainVisual && <LevelDrainTransfer key={drainVisual.key} result={drainVisual}/>}
       </article>
 
       <div className="court-grid court-grid--tasks mt-5 grid gap-3 md:grid-cols-2">
@@ -938,7 +946,7 @@ export function TaskList({
                           )}
                           {disabled && (
                             <p className="mt-2 text-sm font-semibold text-yellow-100">
-                              Timeout active. This task is locked.
+                              {disabledReason}
                             </p>
                           )}
                         </div>
@@ -972,7 +980,7 @@ export function TaskList({
                         )}
                         {disabled && (
                           <p className="mt-2 text-sm font-semibold text-yellow-100">
-                            Timeout active. This task is locked.
+                            {disabledReason}
                           </p>
                         )}
                       </div>
@@ -1018,7 +1026,7 @@ export function TaskList({
                         </p>
                       )}
                       {irlTask.assignedIrlTask && (
-                        <div className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-3">
+                        <div className="court-assigned-order mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
                             Assigned Task
                           </p>
@@ -1135,7 +1143,7 @@ export function TaskList({
                   )}
                   {disabled && !isTimeoutRisk && (
                     <p className="mt-2 text-sm font-semibold text-yellow-100">
-                      Timeout active. This task is locked.
+                      {disabledReason}
                     </p>
                   )}
                 </div>
@@ -1150,7 +1158,7 @@ export function TaskList({
                     onCopy={(event) => event.preventDefault()}
                     onCut={(event) => event.preventDefault()}
                   >
-                    {task.sentence}
+                    <WritingLine text={task.sentence ?? ""} value={typingValue} complete={task.completed}/>
                   </p>
                   <p className="mt-2 text-lg" aria-label={`${task.attemptsRemaining ?? 3} attempts remaining`}>
                     {"❤️".repeat(task.attemptsRemaining ?? 3)}
@@ -1256,7 +1264,7 @@ export function TaskList({
                     </div>
                     {caseOpenPhase === "idle" && caseOpenResolvedReward != null ? (
                       <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-emerald-400/10 px-3 py-2 text-center text-sm font-semibold text-emerald-100">
-                        Last reward: +{caseOpenResolvedReward} Principessa Coins
+                        <span className="court-number-reveal inline-flex items-center gap-2" key={caseOpenResolvedReward}><span className="h-5 w-5"><CourtGlyph symbol="coin"/></span>+{caseOpenResolvedReward} Principessa Coins</span>
                       </p>
                     ) : (
                       <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.18em] text-pink-100/70">
@@ -1334,7 +1342,8 @@ export function TaskList({
                       return (
                         <button
                           aria-disabled={isCoolingDown || undefined}
-                          className={`rounded-2xl border px-4 py-5 text-2xl font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                          data-selected={isSelected}
+                          className={`court-number-choice rounded-2xl border px-4 py-5 text-2xl font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
                             hasResult && isCorrect
                               ? "border-emerald-200/50 bg-emerald-400/15 text-emerald-100"
                               : isWrongSelection || (hasResult && isSelected)
@@ -1354,7 +1363,7 @@ export function TaskList({
                           }}
                           type="button"
                         >
-                          {option}
+                          <span className={hasResult ? "court-number-reveal block" : "block"} key={String(hasResult)}>{option}</span>
                         </button>
                       );
                     })}
@@ -1738,7 +1747,7 @@ export function TaskList({
                   {isCoolingDown ? (
                     <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
                   ) : task.claimed
-                      ? "Reward Claimed"
+                      ? <><span className="court-claim-seal"><CourtGlyph symbol="seal"/></span>Reward Claimed</>
                       : "Claim Reward"}
                 </button>
               )}
@@ -1832,7 +1841,7 @@ function WheelSpinner({
 
   return (
     <div className="relative mx-auto flex max-w-[20rem] flex-col items-center">
-      <div className="absolute -top-1 z-20 h-0 w-0 border-x-[12px] border-t-[22px] border-x-transparent border-t-pink-100 drop-shadow-[0_0_10px_rgba(244,114,182,0.9)]" />
+      <div data-spinning={spinning} className="court-wheel-pointer absolute -top-1 z-20 h-0 w-0 border-x-[12px] border-t-[22px] border-x-transparent border-t-pink-100 drop-shadow-[0_0_10px_rgba(244,114,182,0.9)]" />
       <div
         className="relative aspect-square w-full max-w-[18rem] rounded-full border border-pink-100/35 shadow-[0_0_34px_rgba(236,72,153,0.28)] transition-transform duration-[3600ms] ease-out"
         style={{

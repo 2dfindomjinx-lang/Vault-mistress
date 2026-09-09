@@ -1,15 +1,17 @@
+import { profileSelect } from "@/lib/server-game-rules";
+import { randomUUID } from "node:crypto";
+import { commitEconomyAction } from "@/lib/economy-command";
 import {
   getAllowedTaskRewards,
   getCosmeticPrice,
   getTitlePrice,
-  profileSelect,
   visibleGalleryCosts,
   SACRIFICE_COST,
   SUPPORT_COST,
   TIMEOUT_RISK_DAILY_SAFE_LIMIT,
 } from "@/lib/server-game-rules";
 import { IRL_TASK_WHEEL_COST } from "@/lib/irl-task-wheel";
-import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
+import { DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -22,8 +24,12 @@ import {
   getMetadataNumber,
   getMetadataString,
 } from "@/lib/server-task-actions";
-import { getNextGmt3Reset } from "@/lib/time";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import {
+  DEDICATED_TASK_IDS,
+  getCoinTributeAffection,
+} from "@/lib/economy-rules";
+import { getActiveEventMultipliers } from "@/lib/server-task-actions";
 
 type ProfilePatchBody = {
   metadata?: Record<string, unknown>;
@@ -60,14 +66,16 @@ function buildTransactionMetadata(
   reason: string,
   metadata: Record<string, unknown>,
   current: ProfileRow,
-  next: Required<Pick<ProfileRow, "coins" | "affection">> & Partial<Pick<ProfileRow, "tribute_total">>,
+  next: Required<Pick<ProfileRow, "coins" | "affection">> &
+    Partial<Pick<ProfileRow, "tribute_total">>,
 ) {
   const coinDelta = next.coins - current.coins;
 
   if (reason === "tribute:coin-offer") {
     return {
       affectionGain: numberFromMetadata(metadata, "affectionGain"),
-      prestigeSource: stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
+      prestigeSource:
+        stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
       spendAmount: numberFromMetadata(metadata, "spendAmount"),
     };
   }
@@ -109,16 +117,25 @@ function buildTransactionMetadata(
     };
   }
 
-  if (reason === "task:wait-obediently" || reason === "task:timeout-risk" || reason === "beg") {
+  if (
+    reason === "task:wait-obediently" ||
+    reason === "task:timeout-risk" ||
+    reason === "beg"
+  ) {
     return {
       rewardCoins: coinDelta,
       taskId: reason === "beg" ? "beg" : reason.replace("task:", ""),
     };
   }
 
-  if (reason === "tribute:sacrifice" || reason === "tribute:support" || reason === "tribute:coin-offer") {
+  if (
+    reason === "tribute:sacrifice" ||
+    reason === "tribute:support" ||
+    reason === "tribute:coin-offer"
+  ) {
     return {
-      prestigeSource: stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
+      prestigeSource:
+        stringFromMetadata(metadata, "prestigeSource") ?? "tribute-panel",
       spendAmount: numberFromMetadata(metadata, "spendAmount"),
     };
   }
@@ -128,20 +145,35 @@ function buildTransactionMetadata(
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+    return jsonError(
+      `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      500,
+    );
   }
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+  const { data: authData, error: authError } =
+    await authSupabase.auth.getUser();
 
   if (authError || !authData.user) {
     return jsonError(authError?.message ?? "Authentication required.", 401);
   }
 
-  const body = (await request.json().catch(() => null)) as ProfilePatchBody | null;
+  const body = (await request
+    .json()
+    .catch(() => null)) as ProfilePatchBody | null;
   const reason = body?.reason?.trim();
-  if (["reward:case-opening", "reward:task:case-opening", "task:case-opening"].includes(reason ?? "")) {
-    return jsonError("Case Opening must use its dedicated action endpoint.", 409);
+  if (
+    [
+      "reward:case-opening",
+      "reward:task:case-opening",
+      "task:case-opening",
+    ].includes(reason ?? "")
+  ) {
+    return jsonError(
+      "Case Opening must use its dedicated action endpoint.",
+      409,
+    );
   }
   const clientNext = body?.nextProfile ?? {};
   const metadata = body?.metadata ?? {};
@@ -150,9 +182,51 @@ export async function POST(request: Request) {
     return jsonError("Invalid profile progress payload.");
   }
 
-  const supabase = createSupabaseAdminClient();
+  const requestedTask = reason.replace(/^(?:reward:)?task:/, "");
+  if (
+    DEDICATED_TASK_IDS.has(requestedTask) ||
+    reason.startsWith("reward:task:") ||
+    reason === "streak_bonus"
+  ) {
+    return jsonError("Use the task's dedicated action or claim endpoint.", 409);
+  }
 
-  const rateLimit = await checkRateLimit(supabase, `profile-progress:${authData.user.id}`, 60, 60);
+  const requestKey = request.headers.get("Idempotency-Key");
+  if (requestKey && !/^[a-zA-Z0-9:_-]{8,120}$/.test(requestKey))
+    return jsonError("Invalid operation key.");
+  const supabase = createSupabaseAdminClient();
+  if (requestKey && !reason.startsWith("task:") && reason !== "beg") {
+    const operationKey = "profile:" + reason + ":" + requestKey;
+    const receipt = await supabase
+      .from("economy_receipts")
+      .select("operation_key")
+      .eq("user_id", authData.user.id)
+      .eq("operation_key", operationKey)
+      .maybeSingle();
+    if (receipt.error)
+      return jsonError("Action history is temporarily unavailable.", 503);
+    if (receipt.data) {
+      const profile = await supabase
+        .from("profiles")
+        .select(profileSelect)
+        .eq("id", authData.user.id)
+        .single();
+      if (profile.error)
+        return jsonError("Refresh to see your completed action.", 503);
+      return Response.json({
+        profile: profile.data,
+        operationKey,
+        duplicate: true,
+      });
+    }
+  }
+
+  const rateLimit = await checkRateLimit(
+    supabase,
+    `profile-progress:${authData.user.id}`,
+    60,
+    60,
+  );
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.retryAfterSeconds);
   }
@@ -199,7 +273,10 @@ export async function POST(request: Request) {
     reason === "streak_bonus";
 
   if (isRewardReason) {
-    let taskIdForRow = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
+    let taskIdForRow =
+      reason === "beg"
+        ? "beg"
+        : reason.replace("task:", "").replace("reward:task:", "");
     if (reason === "streak_bonus") {
       taskIdForRow = stringFromMetadata(metadata, "taskId") ?? "streak-bonus-1";
     }
@@ -215,7 +292,15 @@ export async function POST(request: Request) {
   // Compute authoritative deltas. Never apply raw client nextProfile values.
   if (reason === "tribute:coin-offer") {
     const spendAmount = numberFromMetadata(metadata, "spendAmount") || 0;
-    const affectionGain = numberFromMetadata(metadata, "affectionGain") || 0;
+    const multipliers = await getActiveEventMultipliers(supabase, [
+      "tribute_affection_boost",
+    ]);
+    const affectionGain =
+      getCoinTributeAffection(
+        spendAmount,
+        multipliers.tribute_affection_boost,
+      ) ?? 0;
+    metadata.affectionGain = affectionGain;
     const allowedTributes = new Set([250, 1000, 5000]);
     if (!allowedTributes.has(spendAmount) || current.coins < spendAmount) {
       return jsonError("Invalid or unaffordable tribute offer.", 422);
@@ -260,7 +345,8 @@ export async function POST(request: Request) {
   } else if (reason === "tribute:sacrifice" || reason === "tribute:support") {
     // Pin the charge to the server constant instead of trusting the client's
     // reported spendAmount - every other spend branch above already does this.
-    const expectedAmount = reason === "tribute:sacrifice" ? SACRIFICE_COST : SUPPORT_COST;
+    const expectedAmount =
+      reason === "tribute:sacrifice" ? SACRIFICE_COST : SUPPORT_COST;
     const spendAmount = numberFromMetadata(metadata, "spendAmount") || 0;
     if (spendAmount !== expectedAmount || current.coins < expectedAmount) {
       return jsonError("Invalid tribute spend or insufficient funds.", 422);
@@ -278,7 +364,10 @@ export async function POST(request: Request) {
       taskId = stringFromMetadata(metadata, "taskId") ?? "";
     }
     const allowed = getAllowedTaskRewards(taskId);
-    const proposedDelta = (typeof clientNext.coins === "number" ? clientNext.coins : current.coins) - current.coins;
+    const proposedDelta =
+      (typeof clientNext.coins === "number"
+        ? clientNext.coins
+        : current.coins) - current.coins;
 
     if (!allowed.includes(proposedDelta)) {
       return jsonError("Reward delta not allowed for this action.", 422);
@@ -293,17 +382,21 @@ export async function POST(request: Request) {
     const lastAction =
       taskId === "case-opening"
         ? null
-        : getMetadataString(cooldownMetadata, "lastBegAt")
-          || getMetadataString(cooldownMetadata, "resetAt")
-          || getMetadataString(cooldownMetadata, "lastClaimAt")
-          || cooldownRow?.claimed_at
-          || cooldownRow?.completed_at;
+        : getMetadataString(cooldownMetadata, "lastBegAt") ||
+          getMetadataString(cooldownMetadata, "resetAt") ||
+          getMetadataString(cooldownMetadata, "lastClaimAt") ||
+          cooldownRow?.claimed_at ||
+          cooldownRow?.completed_at;
 
     let activeCooldown: string | null = null;
 
     if (taskId === "beg") {
       activeCooldown = getCooldownUntil(lastAction, 60 * 1000);
-    } else if (taskId === "timeout-risk" || taskId === "wait-obediently" || taskId === "vertical-motion") {
+    } else if (
+      taskId === "timeout-risk" ||
+      taskId === "wait-obediently" ||
+      taskId === "vertical-motion"
+    ) {
       activeCooldown = getDailyResetCooldownUntil(lastAction);
     } else if (taskId !== "case-opening") {
       activeCooldown = getDailyResetCooldownUntil(lastAction);
@@ -317,7 +410,10 @@ export async function POST(request: Request) {
     if (taskId === "timeout-risk") {
       const safeWins = getMetadataNumber(cooldownMetadata, "safeWins", 0);
       if (safeWins >= TIMEOUT_RISK_DAILY_SAFE_LIMIT) {
-        return jsonError("Daily safe reward limit reached for timeout-risk.", 422);
+        return jsonError(
+          "Daily safe reward limit reached for timeout-risk.",
+          422,
+        );
       }
     }
 
@@ -332,169 +428,68 @@ export async function POST(request: Request) {
   }
 
   // Final safety clamps (only reached for explicitly supported reasons)
-  if (nextAffection < 0 || nextAffection > 100 || !Number.isInteger(nextCoins) || !Number.isInteger(nextAffection)) {
+  if (
+    nextAffection < 0 ||
+    nextAffection > 100 ||
+    !Number.isInteger(nextCoins) ||
+    !Number.isInteger(nextAffection)
+  ) {
     return jsonError("Computed profile values out of range.", 422);
   }
 
-  const { data: updatedProfile, error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      affection: nextAffection,
-      coins: nextCoins,
-      ...(nextTribute !== (current.tribute_total ?? 0) ? { tribute_total: nextTribute } : {}),
-      updated_at: now,
-    })
-    .eq("id", authData.user.id)
-    .eq("coins", current.coins)
-    .eq("affection", current.affection)
-    .eq("tribute_total", current.tribute_total ?? 0)
-    .select(profileSelect)
-    .maybeSingle();
-
-  if (updateError || !updatedProfile) {
-    console.error("[profile-progress] Supabase error updating profile", {
-      code: updateError?.code,
-      message: updateError?.message,
-      details: updateError?.details,
-      hint: updateError?.hint,
-      userId: authData.user.id,
-      reason,
-      computedNext: { nextCoins, nextAffection, nextTribute },
-    });
-    return jsonError(updateError?.message ?? "Profile update was stale or duplicated.", updateError ? 500 : 409);
+  const actualCoinDelta = nextCoins - current.coins;
+  const taskId = isRewardReason
+    ? reason === "beg"
+      ? "beg"
+      : reason.replace(/^(?:reward:)?task:/, "")
+    : undefined;
+  const nextMetadata: Record<string, unknown> = {
+    ...(cooldownRow?.metadata ?? {}),
+  };
+  if (taskId === "beg") {
+    nextMetadata.lastBegAt = now;
+    nextMetadata.lastReward = actualCoinDelta;
   }
-
-  const actualCoinDelta = Number(updatedProfile.coins ?? 0) - Number(current.coins ?? 0);
-
-  if (actualCoinDelta !== 0) {
-    const txMetadata = buildTransactionMetadata(reason, metadata, current, {
-      affection: nextAffection,
+  if (taskId === "wait-obediently") nextMetadata.status = "completed";
+  const operationKey = taskId
+    ? "profile-task:" +
+      taskId +
+      ":" +
+      (cooldownRow?.claimed_at ?? cooldownRow?.completed_at ?? "first")
+    : "profile:" + reason + ":" + (requestKey ?? randomUUID());
+  const result = await commitEconomyAction(supabase, {
+    userId: authData.user.id,
+    operationKey,
+    reason,
+    expectedProfile: {
+      coins: current.coins,
+      affection: current.affection,
+      tribute_total: current.tribute_total,
+    },
+    patch: {
       coins: nextCoins,
-      ...(nextTribute !== (current.tribute_total ?? 0) ? { tribute_total: nextTribute } : {}),
-    });
-
-    const { error: transactionError } = await supabase.from("coin_transactions").insert({
-      amount: actualCoinDelta,
-      balance_after: updatedProfile.coins,
-      balance_before: current.coins,
-      metadata: txMetadata,
-      reason,
-      user_id: authData.user.id,
-    });
-
-    if (transactionError) {
-      console.error("[profile-progress] Supabase error inserting coin transaction", {
-        code: transactionError.code,
-        message: transactionError.message,
-        details: transactionError.details,
-        hint: transactionError.hint,
-        userId: authData.user.id,
-        reason,
-        actualCoinDelta,
-      });
-      // Rollback
-      const { error: rollbackError } = await supabase
-        .from("profiles")
-        .update({
-          affection: current.affection,
-          coins: current.coins,
-          ...(current.tribute_total != null ? { tribute_total: current.tribute_total } : {}),
-          updated_at: now,
-        })
-        .eq("id", authData.user.id);
-      if (rollbackError) {
-        console.error("[profile-progress] Profile rollback after tx error failed", {
-          code: rollbackError.code,
-          message: rollbackError.message,
-          userId: authData.user.id,
-          reason,
-        });
-      }
-      return jsonError("Profile progress coin logging failed.", 500);
-    }
-  }
-
-  // Side-effects for task state ONLY after reward (profile + tx) has succeeded.
-  // This guarantees: on any profile/tx failure above, no completed_at/claimed_at is written for reward tasks.
-  // Server time + authoritative; prevents client backdating and bypass.
-  if (isRewardReason) {
-    let taskIdForSide = reason === "beg" ? "beg" : reason.replace("task:", "").replace("reward:task:", "");
-    if (reason === "streak_bonus") {
-      taskIdForSide = stringFromMetadata(metadata, "taskId") ?? "";
-    }
-    if (taskIdForSide === "beg" || taskIdForSide === "timeout-risk" || taskIdForSide === "wait-obediently") {
-      const metaUpdate: Record<string, unknown> = { ...(cooldownRow?.metadata ?? {}) };
-      if (taskIdForSide === "beg") {
-        metaUpdate.lastBegAt = now;
-        metaUpdate.lastReward = actualCoinDelta;
-      }
-      if (taskIdForSide === "timeout-risk") {
-        const currentSafe = getMetadataNumber(cooldownRow?.metadata, "safeWins", 0);
-        metaUpdate.safeWins = currentSafe + 1;
-        if (!getMetadataString(cooldownRow?.metadata, "resetAt")) {
-          metaUpdate.resetAt = getNextGmt3Reset().toISOString();
+      affection: nextAffection,
+      tribute_total: nextTribute,
+    },
+    taskId,
+    expectedTask: cooldownRow,
+    taskPatch: taskId
+      ? {
+          task_id: taskId,
+          completed_at: now,
+          claimed_at: now,
+          reward_coins: actualCoinDelta,
+          metadata: nextMetadata,
         }
-        metaUpdate.lastResult = "safe";
-      }
-      if (taskIdForSide === "wait-obediently") {
-        metaUpdate.status = "completed";
-        // cooldownUntil will be derived from claimed_at in buildTasksFromRows
-      }
-      const { error: sideErr } = await supabase
-        .from("user_tasks")
-        .upsert(
-          {
-            user_id: authData.user.id,
-            task_id: taskIdForSide,
-            completed_at: now,
-            claimed_at: now,
-            reward_coins: actualCoinDelta,
-            metadata: metaUpdate,
-          },
-          { onConflict: "user_id,task_id" },
-        );
-      if (sideErr) {
-        console.error("[profile-progress] Side task row update (post-reward) failed", {
-          code: sideErr.code,
-          message: sideErr.message,
-          details: sideErr.details,
-          hint: sideErr.hint,
-          userId: authData.user.id,
-          reason,
-          taskId: taskIdForSide,
-        });
-      }
-    }
-  }
-
-  if (isRewardReason && actualCoinDelta > 0) {
-    const taskSourceId =
-      reason === "beg"
-        ? "beg"
-        : reason === "streak_bonus"
-          ? stringFromMetadata(metadata, "taskId") ?? "streak-bonus"
-          : reason.replace("task:", "").replace("reward:task:", "");
-
-    try {
-      await awardDevotion(supabase, {
-        amount: DEVOTION_REWARD_BASIC_TASK,
-        metadata: {
-          coinDelta: actualCoinDelta,
-          reason,
-          taskId: taskSourceId,
-        },
-        source: "profile_progress_reward",
-        sourceKey: `profile-progress:${taskSourceId}:${now}`,
-        userId: authData.user.id,
-      });
-    } catch (devotionError) {
-      console.error("[profile-progress] devotion award failed", {
-        devotionError,
-        reason,
-        userId: authData.user.id,
-      });
-    }
-  }
-
-  return Response.json({ profile: updatedProfile });
+      : null,
+    metadata: buildTransactionMetadata(reason, metadata, current, {
+      coins: nextCoins,
+      affection: nextAffection,
+      tribute_total: nextTribute,
+    }),
+    devotion:
+      isRewardReason && actualCoinDelta > 0 ? DEVOTION_REWARD_BASIC_TASK : 0,
+  });
+  if ("error" in result) return jsonError(result.error, result.status);
+  return Response.json({ profile: result.profile, operationKey });
 }

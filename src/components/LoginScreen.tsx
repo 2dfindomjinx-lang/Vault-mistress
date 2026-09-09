@@ -40,7 +40,7 @@ export function LoginScreen({
             <div className="relative mb-7 h-32 overflow-hidden border border-[#c89a55]/15 lg:hidden"><Image alt="Principessa" className="object-cover object-center" fill priority sizes="420px" src="/principessa-ui/principessa-gaze.webp" /><div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" /></div>
             <p className="text-[9px] font-black uppercase tracking-[0.38em] text-[#d7ad69]/65">Principessa&apos;s Court</p>
             <h2 className="mt-3 font-serif text-5xl leading-none text-[#fff0d2]">Request entry.</h2>
-            <p className="mt-5 max-w-sm text-sm leading-7 text-zinc-500">Your X identity opens the court record assigned to you. Authentication remains secured by Supabase.</p>
+            <p className="mt-5 max-w-sm text-sm leading-7 text-zinc-500">Your X identity opens your court record. Earn Coins, build your collection, and return to see what Principessa has in store.</p>
 
         <button
           className="mt-8 w-full border border-pink-300/30 bg-[#7f1747] px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-white transition enabled:hover:bg-[#951b54] disabled:cursor-not-allowed disabled:opacity-50"
@@ -71,8 +71,7 @@ export function LoginScreen({
         </div>
 
         <p className="mt-5 border-t border-[#c89a55]/10 pt-4 text-[10px] leading-5 text-zinc-700">
-          Passwords are not collected by this app. X account data is handled by
-          Supabase Auth for login and account management.
+          Sign in securely with X. This app never asks for your X password.
         </p>
           </div>
         </section>

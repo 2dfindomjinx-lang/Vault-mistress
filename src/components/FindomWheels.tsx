@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
 import { emitSoundEvent } from "@/lib/sound";
@@ -61,11 +62,13 @@ function formatChastityRemaining(until: string, now: number) {
 
 function WheelFace({
   accent,
+  material,
   labels,
   rotation,
   spinning,
 }: {
   accent: string;
+  material: WheelId;
   labels: string[];
   rotation: number;
   spinning: boolean;
@@ -88,11 +91,11 @@ function WheelFace({
       {/* Pointer */}
       <div
         aria-hidden
-        className="absolute left-1/2 top-[-6px] z-10 h-0 w-0 -translate-x-1/2 border-x-[10px] border-t-[16px] border-x-transparent"
+        data-spinning={spinning} className="court-wheel-pointer absolute left-1/2 top-[-6px] z-10 h-0 w-0 -translate-x-1/2 border-x-[10px] border-t-[16px] border-x-transparent"
         style={{ borderTopColor: accent, filter: `drop-shadow(0 2px 6px ${accent}88)` }}
       />
       <div
-        className="relative h-full w-full rounded-full border-4"
+        data-material={material} className="court-wheel-body relative h-full w-full rounded-full border-4"
         style={{
           background: `conic-gradient(${gradient})`,
           borderColor: `${accent}66`,
@@ -222,9 +225,11 @@ function DebtPanel({
 
 export function FindomWheels({
   disabled = false,
+  previewMode = false,
   onProfile,
 }: {
   disabled?: boolean;
+  previewMode?: boolean;
   onProfile?: (profile: unknown) => void;
 }) {
   const [status, setStatus] = useState<WheelStatus | null>(null);
@@ -251,6 +256,7 @@ export function FindomWheels({
   }, [status?.chastityUntil]);
 
   const loadStatus = useCallback(async () => {
+    if (previewMode) return;
     try {
       const response = await fetch("/api/user/wheels", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as WheelStatus | { error?: string } | null;
@@ -263,7 +269,7 @@ export function FindomWheels({
     } catch {
       setError("The wheels are unavailable.");
     }
-  }, []);
+  }, [previewMode]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount against an external system
@@ -389,7 +395,7 @@ export function FindomWheels({
 
       {/* The verdict, straight after the animation lands. */}
       {result ? (
-        <div className="mt-5">
+        <div className="court-wheel-result mt-5">
           {result.payCode ? (
             unpaid && unpaid.payCode === result.payCode ? (
               <DebtPanel
@@ -402,7 +408,7 @@ export function FindomWheels({
           ) : (
             <section className="rounded-[1.75rem] border border-violet-300/25 bg-violet-950/30 p-5 text-center">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-violet-200/60">The wheel decided</p>
-              <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">+{result.segment.amount}h locked</h3>
+              <div className="mx-auto mb-3 h-12 w-12 text-violet-200"><CourtGlyph symbol="lock"/></div><h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">+{result.segment.amount}h locked</h3>
               <p className="mt-2 text-xs text-zinc-500">Added to your counter. It does not negotiate.</p>
             </section>
           )}
@@ -480,6 +486,7 @@ export function FindomWheels({
 
           <div className="p-5 sm:p-7">
             <WheelFace
+              material={selectedWheel}
               accent={activeWheel.accent}
               labels={activeVisualSlices.map((segment) => activeWheel.kind === "money" ? `$${segment.amount}` : segment.label)}
               rotation={rotations[selectedWheel] ?? 0}

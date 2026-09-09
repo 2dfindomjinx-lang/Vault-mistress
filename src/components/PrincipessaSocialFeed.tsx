@@ -522,6 +522,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
     try {
       const cachedProfile = window.sessionStorage.getItem(`principessa-social-profile:${currentUserId}`);
       if (cachedProfile) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the per-account session cache before the network response
         setProfile(JSON.parse(cachedProfile) as FeedProfile);
         setProfileLoading(false);
       }
@@ -586,7 +587,8 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
       try {
         const cachedProfile = window.sessionStorage.getItem(profileCacheKey);
         if (cachedProfile) {
-          setProfile(JSON.parse(cachedProfile) as FeedProfile);
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the per-account session cache before the network response
+        setProfile(JSON.parse(cachedProfile) as FeedProfile);
           setProfileLoading(false);
           return;
         }

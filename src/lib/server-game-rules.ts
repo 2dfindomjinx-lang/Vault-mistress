@@ -1,36 +1,31 @@
+import { visibleGalleryItems, secretGalleryItem } from "@/lib/gallery-catalog";
 import { cosmeticItems, titleItems } from "@/lib/cosmetics";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
 
 export const profileSelect =
   "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, pm_burned_total, affection, tribute_total, total_devotion, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, streak_freezes, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, created_at, updated_at";
 
-export const visibleGalleryCosts = new Map<string, number>([
-  ["common-velvet-arrival", 300],
-  ["common-midnight-maid", 300],
-  ["common-executive-glare", 300],
-  ["common-rose-vault", 300],
-]);
+export const visibleGalleryCosts = new Map<string, number>(
+  visibleGalleryItems
+    .filter((item) => typeof item.unlockCost === "number")
+    .map((item) => [item.id, item.unlockCost!]),
+);
 
-// Server-authoritative mirror of the client's `moodUnlocks` (src/app/page.tsx)
-// affection thresholds - these gallery items are free but gated by affection,
-// not coins. Keep in sync with the client list.
-export const galleryMoodRequirements = new Map<string, number>([
-  ["rare-loyal-glimpse", 20],
-  ["rare-private-smile", 25],
-  ["rare-purple-obsession", 40],
-  ["rare-golden-approval", 50],
-  ["divine-throne-room", 60],
-  ["divine-goddess-mood", 70],
-  ["divine-final-favor", 80],
-  ["divine-velvet-throne", 90],
-  ["secret-defnes-final-favor", 100],
-]);
+// The UI and server use the same gallery requirements.
+export const galleryMoodRequirements = new Map<string, number>(
+  [...visibleGalleryItems, secretGalleryItem]
+    .filter((item) => typeof item.moodRequired === "number")
+    .map((item) => [item.id, item.moodRequired!]),
+);
 
 // Server-authoritative mirror of the client's `sacrificeGalleryItems` ids
 // (src/app/page.tsx). The coin charge and the 35% roll both happen
 // server-side in the `roll_sacrifice_unlock` RPC - the client never reports
 // the roll outcome to the server.
-export const SACRIFICE_ITEM_IDS = Array.from({ length: 10 }, (_, index) => `sacrifice-${index + 1}`);
+export const SACRIFICE_ITEM_IDS = Array.from(
+  { length: 10 },
+  (_, index) => `sacrifice-${index + 1}`,
+);
 export const SACRIFICE_COST = 500;
 export const SACRIFICE_UNLOCK_CHANCE = 0.35;
 
@@ -111,7 +106,9 @@ export function roundRewardToNearestFive(value: number) {
 
 export function getAllowedTaskRewards(taskId: string) {
   if (taskId === "case-opening") {
-    return Array.from(new Set([0, ...CASE_OPEN_REWARD_WEIGHTS.map((entry) => entry.value)]));
+    return Array.from(
+      new Set([0, ...CASE_OPEN_REWARD_WEIGHTS.map((entry) => entry.value)]),
+    );
   }
 
   const baseReward = baseTaskRewards.get(taskId);
@@ -120,12 +117,14 @@ export function getAllowedTaskRewards(taskId: string) {
     return [];
   }
 
-  return Array.from(new Set([
-    0,
-    baseReward,
-    roundRewardToNearestFive(baseReward * 1.5),
-    roundRewardToNearestFive(baseReward * 2),
-  ]));
+  return Array.from(
+    new Set([
+      0,
+      baseReward,
+      roundRewardToNearestFive(baseReward * 1.5),
+      roundRewardToNearestFive(baseReward * 2),
+    ]),
+  );
 }
 
 export function getBaseTaskReward(taskId: string) {
@@ -140,7 +139,11 @@ export function getTitlePrice(titleId: string) {
   return titleItems.find((title) => title.id === titleId)?.price ?? null;
 }
 
-export function getTimeoutClearFee(timeoutUntil: string | null, timeoutReason: string | null, now = Date.now()) {
+export function getTimeoutClearFee(
+  timeoutUntil: string | null,
+  timeoutReason: string | null,
+  now = Date.now(),
+) {
   if (!timeoutUntil) {
     return 0;
   }

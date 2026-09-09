@@ -53,7 +53,8 @@ type CaseOpener = {
   }>;
 };
 
-// The homepage displays six opening cards. Fetching a small buffer lets us
+// Keep the latest real openings regardless of age: inactivity must not empty
+// this feed. The homepage displays six opening cards. Fetching a small buffer lets us
 // skip malformed/legacy rows without turning the ticker into a 500-row API
 // payload on every visit.
 const CASE_OPENING_QUERY_LIMIT = 40;
@@ -70,12 +71,13 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdminClient();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: openingRows, error: openingError } = await supabase
     .from("crate_opens")
     .select("id, user_id, crate_type, item_id, opened_at")
-    .gte("opened_at", since)
+    .in("crate_type", Object.keys(CRATE_TYPES))
+    .not("item_id", "is", null)
     .order("opened_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(CASE_OPENING_QUERY_LIMIT);
 
   if (openingError) {

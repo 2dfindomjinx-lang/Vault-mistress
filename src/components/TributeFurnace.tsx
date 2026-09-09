@@ -193,7 +193,7 @@ export function TributeFurnace({
         </p>
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6">
+      <div className="court-furnace-chamber mt-6 flex items-center justify-center gap-4 sm:gap-6" data-phase={phase}>
         <Slot label="Fuel">
           {phase === "burning" && burningAmount !== null ? (
             <span className="font-serif text-xl tabular-nums text-[#ffb46a]">

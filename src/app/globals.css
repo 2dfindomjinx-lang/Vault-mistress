@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./court-play.css";
 
 :root {
   --background: #06030a;
@@ -105,17 +106,6 @@
 .court-action-button:disabled {
   cursor: not-allowed;
   opacity: .45;
-}
-
-.court-match-card {
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
-.court-match-card--open {
-  animation: court-command-pop .22s ease-out;
-  box-shadow: inset 0 0 22px rgba(236,72,153,.16), 0 0 16px rgba(215,173,105,.1);
-  transform: rotateY(0deg);
 }
 
 .court-guard-target {
@@ -888,4 +878,20 @@ button:disabled {
   .profile-border-frame::after {
     animation: none;
   }
+}
+
+/* Shared court surfaces. Keep identity art and earned cosmetic effects intact. */
+.court-panel { border:1px solid rgba(200,154,85,.23); border-radius:1rem; background:linear-gradient(120deg,#160910,#0b0609); padding:1.25rem; }
+.court-eyebrow { color:#d7ad69; font-size:.75rem; font-weight:600; letter-spacing:.12em; }
+.court-button { border:1px solid rgba(215,173,105,.4); border-radius:.65rem; background:#76213f; color:#fff0d2; padding:.75rem 1rem; font-size:.875rem; font-weight:700; }
+.court-button:hover:not(:disabled) { background:#902c50; }
+.court-button:disabled { opacity:.5; cursor:not-allowed; }
+.principessa-court-ui :focus-visible { outline:2px solid #edc782; outline-offset:4px; }
+.principessa-court-ui .court-feature-panel { box-shadow:none; border-color:rgba(200,154,85,.23); }
+.principessa-court-ui .court-feature-card { border-color:rgba(200,154,85,.18); box-shadow:none; }
+.principessa-court-ui .court-feature-panel .text-zinc-600, .court-account-bar .text-zinc-600 { color:#a1a1aa; }
+@media(max-width:639px) {
+ [data-court-chat]>button { display:none; }
+ .court-floating-character { z-index:75; bottom:6rem; }
+ .court-floating-character>div { max-width:calc(100vw - 6.5rem); font-size:.875rem; line-height:1.4; padding:.65rem .8rem; }
 }

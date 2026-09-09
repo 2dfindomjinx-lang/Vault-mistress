@@ -7,6 +7,7 @@ export const COURT_GAME_IDS = [
 export type CourtGameId = (typeof COURT_GAME_IDS)[number];
 
 export type CourtGameMetrics = {
+  actions?: Array<{action:string;atMs:number}>;
   mistakes: number;
   roundsCompleted: number;
   score: number;

@@ -16,6 +16,7 @@ type ProfileHeaderStat = { label: string; value: ReactNode; hint?: string };
 
 
 type ProfileHeaderProps = {
+  compact?: boolean;
   avatarSrc: string;
   badgeStrip?: ReactNode;
   coins: number;
@@ -50,6 +51,7 @@ type ProfileHeaderProps = {
 };
 
 export function ProfileHeader({
+  compact = false,
   actions,
   progressStrip,
   badgeStrip,
@@ -100,6 +102,12 @@ export function ProfileHeader({
     ...(showCoinStat ? [{ hint: "Current balance", label: "Treasury", value: <CoinAmount amount={coins} iconSize={18} label="" /> }] : []),
     ...stats,
   ];
+
+  if (compact) return <header className="court-account-bar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#c89a55]/20 bg-[#13090f] px-4 py-3">
+    <div className="min-w-0"><p className="truncate font-serif text-lg text-[#fff0d2]" style={usernameStyle}>{visibleName}</p><p className="text-xs text-zinc-400">{currentTitle}</p></div>
+    <div className="flex flex-wrap gap-4">{ledgerStats.slice(0,3).map(stat=><div key={stat.label}><p className="text-[11px] text-zinc-400">{stat.label}</p><div className="text-sm font-semibold text-[#fff0d2]">{stat.value}</div></div>)}</div>
+    <details className="relative"><summary className="cursor-pointer rounded-lg border border-white/15 px-3 py-2 text-sm text-zinc-200">Account</summary><div className="absolute right-0 z-[80] mt-2 flex w-72 flex-wrap gap-2 rounded-xl border border-[#c89a55]/30 bg-[#13090f] p-4 shadow-2xl">{soundControls}{actions}</div></details>
+  </header>;
 
   return (
     <header className="relative isolate overflow-visible border border-[#c89a55]/18 bg-[linear-gradient(105deg,rgba(13,6,9,.96),rgba(35,8,21,.78),rgba(8,4,6,.96))] shadow-[0_22px_65px_rgba(0,0,0,.32)]">

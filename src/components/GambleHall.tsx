@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CourtDie, CourtGlyph, CourtPortrait, CourtRunner } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { emitSoundEvent } from "@/lib/sound";
 import {
@@ -69,6 +70,7 @@ function DoubleBanner({
 
   return (
     <div className="mt-3 rounded-2xl border border-[#c89a55]/25 bg-black/40 p-3 text-center">
+      {state !== "idle" && <div className="court-double-seal mx-auto mb-3 h-10 w-10 text-amber-100" data-pending={state === "pending"} key={state}><CourtGlyph symbol={state === "lost" ? "lock" : "coin"}/></div>}
       {state === "idle" || state === "pending" ? (
         <>
           <button
@@ -132,8 +134,8 @@ function SlotReel({ duration, spinKey, strip }: { duration: number; spinKey: num
     >
       <div ref={innerRef}>
         {strip.map((symbolIndex, cell) => (
-          <div className="flex items-center justify-center text-4xl" key={cell} style={{ height: REEL_CELL }}>
-            {SLOT_SYMBOLS[symbolIndex].glyph}
+          <div className="flex items-center justify-center text-4xl" aria-label={SLOT_SYMBOLS[symbolIndex].id} key={cell} style={{ height: REEL_CELL }}>
+            <CourtGlyph className="court-reel-symbol" symbol={SLOT_SYMBOLS[symbolIndex].id}/>
           </div>
         ))}
       </div>
@@ -194,7 +196,7 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
             setPhase("idle");
             const payout = Number(result.payout) || 0;
             if (payout > 0) {
-              setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
+              setLine({ text: result.multiplier + "x · " + payout.toLocaleString() + " returned · " + (payout - bet >= 0 ? "+" : "") + (payout - bet).toLocaleString() + " net", tone: payout > bet ? "win" : "info" });
               setWin({ payout, roundId: String(result.roundId) });
               emitSoundEvent("task_completion");
             } else {
@@ -217,7 +219,7 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
       <style>{`
         @keyframes vm-reel-loop { from { transform: translateY(0); } to { transform: translateY(-${REEL_CELL * SLOT_SYMBOLS.length}px); } }
       `}</style>
-      <div className="mx-auto flex w-fit gap-2 rounded-2xl border border-[#c89a55]/30 bg-black/60 p-3">
+      <div className="court-reel-result mx-auto flex w-fit gap-2 rounded-2xl border border-[#c89a55]/30 bg-black/60 p-3" data-paid={phase === "idle" && Boolean(win && win.payout > bet)}>
         {[0, 1, 2].map((reel) =>
           phase === "waiting" ? (
             // The server hasn't answered yet: free-spin blur until it does.
@@ -229,7 +231,7 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
               <div style={{ animation: `vm-reel-loop ${0.42 + reel * 0.06}s linear infinite`, filter: "blur(1.5px)" }}>
                 {[...SLOT_SYMBOLS, ...SLOT_SYMBOLS].map((symbol, cell) => (
                   <div className="flex items-center justify-center text-4xl" key={cell} style={{ height: REEL_CELL }}>
-                    {symbol.glyph}
+                    <CourtGlyph className="court-reel-symbol" symbol={symbol.id}/>
                   </div>
                 ))}
               </div>
@@ -242,7 +244,7 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
               key={reel}
               style={{ height: REEL_CELL, width: REEL_CELL }}
             >
-              {SLOT_SYMBOLS[reels[reel]].glyph}
+              <CourtGlyph className="court-reel-symbol" symbol={SLOT_SYMBOLS[reels[reel]].id}/>
             </div>
           ),
         )}
@@ -347,11 +349,10 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
-  const face = (value: number) => ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][value] ?? "?";
 
   return (
     <div>
-      <div className="mx-auto grid w-fit grid-cols-2 gap-8">
+      <div className="court-dice-table mx-auto grid w-fit grid-cols-2 gap-8">
         {(["mine", "hers"] as const).map((side) => {
           const settled = locked[side] && !rolling;
           const sum = shown[side][0] + shown[side][1];
@@ -365,7 +366,7 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
                     key={index}
                     style={locked[side] && rolling ? { animation: "vm-die-land 0.28s ease-out" } : undefined}
                   >
-                    {face(shown[side][index])}
+                    <CourtDie value={shown[side][index]} rolling={!locked[side]}/>
                   </span>
                 ))}
               </div>
@@ -475,6 +476,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
             </span>
           ))}
         </div>
+        <div className="court-roulette-ball-orbit" data-spinning={spinning} aria-hidden="true"/>
         {/* Hub */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c89a55]/40 bg-[#0b0409] text-2xl shadow-[0_0_18px_rgba(0,0,0,.8)]">
           {landedNumber ?? "•"}
@@ -608,7 +610,8 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
           {Array.from({ length: PLINKO_ROWS }, (_, row) =>
             Array.from({ length: row + 2 }, (_, peg) => (
               <span
-                className="absolute h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/25"
+                className="court-plinko-peg absolute h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/25"
+                data-hit={ball !== null && Math.abs(ball.x - (50 + (peg - (row + 1) / 2) * PLINKO_BUCKET_W)) < PLINKO_BUCKET_W/2 && Math.abs(ball.y - (((row + .5) / PLINKO_ROWS) * 92)) < 4}
                 key={`${row}-${peg}`}
                 style={{
                   left: `${50 + (peg - (row + 1) / 2) * PLINKO_BUCKET_W}%`,
@@ -630,7 +633,7 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
         <div className="flex rounded-b-2xl border border-t-0 border-white/10 bg-black/40 pb-1 text-center">
           {PLINKO_MULTIPLIERS.map((multiplier, index) => (
             <span
-              className={`flex-1 rounded px-0.5 py-1.5 text-[9px] font-black tabular-nums ${landed === index ? "bg-[#c89a55]/40 text-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.4)]" : multiplier >= 4 ? "text-emerald-200/70" : "text-zinc-600"}`}
+              className={`flex-1 rounded px-0.5 py-1.5 text-[9px] font-black tabular-nums ${landed === index ? "court-plinko-landed bg-[#c89a55]/40 text-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.4)]" : multiplier >= 4 ? "text-emerald-200/70" : "text-zinc-600"}`}
               key={index}
             >
               {multiplier}x
@@ -748,7 +751,10 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
           const revealedMine = mines.includes(cell);
           return (
             <button
-              className={`h-11 w-11 rounded-lg border text-lg transition ${
+              data-revealed={revealedSafe || revealedMine}
+              data-mine={revealedMine}
+              aria-label={revealedMine ? "Trap " + (cell+1) : revealedSafe ? "Gem " + (cell+1) : "Open jewelry box " + (cell+1)}
+              className={`court-jewelry-cell h-11 w-11 rounded-lg border text-lg transition ${
                 revealedMine
                   ? cell === bustCell
                     ? "border-rose-300/70 bg-rose-600/40"
@@ -762,7 +768,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
               onClick={() => void pick(cell)}
               type="button"
             >
-              {revealedMine ? "☠" : revealedSafe ? "💎" : ""}
+              <><span className="court-jewelry-prize">{(revealedMine || revealedSafe) && <CourtGlyph symbol={revealedMine ? "threat" : "gem"}/>}</span><span className="court-jewelry-lid" aria-hidden="true"><CourtGlyph symbol="seal"/></span></>
             </button>
           );
         })}
@@ -902,10 +908,9 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
 
   return (
     <div>
-      <div className={`mx-auto flex h-32 w-full max-w-sm items-center justify-center rounded-2xl border bg-black/50 ${roundId ? "border-[#f0821e]/40" : crashed ? "border-rose-400/40" : "border-white/10"}`}>
-        <span className={`font-serif text-6xl tabular-nums ${roundId ? "text-[#ffe2ad]" : crashed ? "text-rose-300" : "text-zinc-700"}`}>
-          {display.toFixed(2)}x
-        </span>
+      <div className="court-patience-scene" data-active={Boolean(roundId)} data-crashed={crashed}>
+        <CourtPortrait compact mood={crashed ? "disappointed" : win ? "approved" : roundId ? "watchful" : "neutral"}/>
+        <div className="court-patience-readout"><p className="text-[10px] uppercase tracking-[.18em] text-amber-200/60">{crashed ? "Her verdict" : win ? "Taken in time" : "Under her gaze"}</p><strong>{display.toFixed(2)}x</strong><div className="patience-pendulum" aria-hidden="true"/><p className="mt-4 text-xs text-zinc-400">{crashed ? "Patience spent." : roundId ? "Your decision." : "The table awaits."}</p></div>
       </div>
       <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">
         Cash out before the crash.
@@ -1025,7 +1030,7 @@ function CrawlTable({ bet, busy, onPlay, onProfile }: TableProps) {
         {CRAWL_LANES.map((entry, index) => (
           <div className="flex items-center gap-2" key={entry.id}>
             <button
-              className={`w-32 shrink-0 rounded-lg border px-2 py-1.5 text-left text-[10px] font-black transition disabled:cursor-not-allowed ${lane === index ? "border-[#e6ba73]/60 bg-[#c89a55]/15" : "border-white/10 bg-black/30 hover:border-white/30"}`}
+              className={`w-24 shrink-0 rounded-lg sm:w-32 border px-2 py-1.5 text-left text-[10px] font-black transition disabled:cursor-not-allowed ${lane === index ? "border-[#e6ba73]/60 bg-[#c89a55]/15" : "border-white/10 bg-black/30 hover:border-white/30"}`}
               disabled={!raceId || racing || busy}
               onClick={() => void placeBet(index)}
               style={{ color: entry.color }}
@@ -1034,16 +1039,8 @@ function CrawlTable({ bet, busy, onPlay, onProfile }: TableProps) {
               {entry.label}
               {odds ? <span className="block text-zinc-500">{odds[index]}x</span> : null}
             </button>
-            <div className="relative h-5 min-w-0 flex-1 overflow-hidden rounded-full bg-black/40">
-              <div
-                className="absolute inset-y-0 left-0 rounded-full"
-                style={{ background: `${entry.color}55`, width: `${progress[index]}%` }}
-              />
-              <span className="absolute top-1/2 -translate-y-1/2 text-xs" style={{ left: `calc(${progress[index]}% - 8px)` }}>
-                🐩
-              </span>
-            </div>
-            <span className="shrink-0 text-sm">👑</span>
+            <div className="court-race-lane"><span className="court-race-finish" aria-hidden="true"/><div className="court-runner-wrap" style={{left:"calc(" + progress[index] + "% - " + (progress[index]*.65) + "px)"}}><CourtRunner running={racing} color={entry.color}/></div></div>
+            <span className="h-6 w-6 shrink-0 text-amber-200/70"><CourtGlyph/></span>
           </div>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { DEDICATED_TASK_IDS } from "@/lib/economy-rules";
 import { getAllowedTaskRewards, getBaseTaskReward, SUPPORT_COST } from "@/lib/server-game-rules";
 import { getNextGmt3Reset } from "@/lib/time";
 import {
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
     return jsonError("Invalid task payload.");
   }
 
-  if (taskId === "high-low" || taskId === "number-pick" || taskId === "case-opening") {
+  if (DEDICATED_TASK_IDS.has(taskId)) {
     return jsonError("This task must use its dedicated action endpoint.", 409);
   }
 

@@ -4,6 +4,7 @@ import { SidebarNav, type DashboardPage, type SidebarNavItem } from "@/component
 
 type AppShellProps = {
   activePage: DashboardPage;
+  guestMode?: boolean;
   children: ReactNode;
   coins?: number;
   items: SidebarNavItem[];
@@ -13,7 +14,7 @@ type AppShellProps = {
   onNavigate: (page: DashboardPage) => void;
 };
 
-export function AppShell({ activePage, children, coins, items, money, onAddMoney, onCoinsChange, onNavigate }: AppShellProps) {
+export function AppShell({ guestMode = false, activePage, children, coins, items, money, onAddMoney, onCoinsChange, onNavigate }: AppShellProps) {
   return (
     <div className="principessa-court-ui relative min-h-screen w-full overflow-x-hidden bg-[#060305]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_4%,rgba(88,16,47,.2),transparent_28%),linear-gradient(115deg,#060305,#0b0508_55%,#050304)]" />
@@ -22,7 +23,7 @@ export function AppShell({ activePage, children, coins, items, money, onAddMoney
       <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-5 px-3 pb-28 pt-3 sm:px-5 lg:ml-[304px] lg:px-7 lg:pb-8 lg:pt-5 xl:px-10">
         {children}
       </div>
-      <LiveChatWidget onCoinsChange={onCoinsChange} />
+      <LiveChatWidget guestMode={guestMode} onCoinsChange={onCoinsChange} />
     </div>
   );
 }

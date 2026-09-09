@@ -1,3 +1,6 @@
+import type {UsernameCosmeticStyle} from "@/lib/username-styles";
+type InventoryValueRow={user_id:string;value:number};
+type InventoryProfileRow={id:string;display_name:string|null;username:string|null;avatar_url:string|null};
 import { getLeadershipRank } from "@/lib/leadership";
 import { normalizeAddressTerm } from "@/lib/address-term";
 import { getDisplayNameOrUsernamePlain } from "@/lib/display-name";
@@ -48,7 +51,7 @@ export async function GET() {
     displayName?: string | null;
     avatarUrl: string | null;
     value: number;
-    usernameStyle?: any;
+    usernameStyle?: UsernameCosmeticStyle;
   }> = [];
   let invUids: string[] = [];
   try {
@@ -56,24 +59,24 @@ export async function GET() {
     if (invErr) {
       console.error("Failed to load top valuable inventories via RPC", invErr);
     } else if (invData) {
-      invUids = (invData as any[]).map((r: any) => r.user_id);
+      invUids = (invData as InventoryValueRow[]).map((r) => r.user_id);
       const { data: invProfData, error: invProfErr } = await supabase.rpc("get_public_profile_snippets", {
         p_user_ids: invUids.length > 0 ? invUids : [],
       });
       if (invProfErr) {
         console.error("Failed to load profiles for top inventories", invProfErr);
       }
-      const invProfMap = new Map((invProfData ?? []).map((p: any) => [p.id, p]));
-      topInventories = (invData as any[]).map((row: any) => ({
+      const invProfMap = new Map(((invProfData ?? []) as InventoryProfileRow[]).map((p) => [p.id, p]));
+      topInventories = (invData as InventoryValueRow[]).map((row) => ({
         id: row.user_id,
         username: getDisplayNameOrUsernamePlain(
-          (invProfMap.get(row.user_id) as any)?.display_name ?? null,
-          (invProfMap.get(row.user_id) as any)?.username || "unknown",
+          invProfMap.get(row.user_id)?.display_name ?? null,
+          invProfMap.get(row.user_id)?.username || "unknown",
         ),
-        rawUsername: (invProfMap.get(row.user_id) as any)?.username || "unknown",
-        displayName: (invProfMap.get(row.user_id) as any)?.display_name ?? null,
-        display_name: (invProfMap.get(row.user_id) as any)?.display_name ?? null,
-        avatarUrl: (invProfMap.get(row.user_id) as any)?.avatar_url || null,
+        rawUsername: invProfMap.get(row.user_id)?.username || "unknown",
+        displayName: invProfMap.get(row.user_id)?.display_name ?? null,
+        display_name: invProfMap.get(row.user_id)?.display_name ?? null,
+        avatarUrl: invProfMap.get(row.user_id)?.avatar_url || null,
         value: Number(row.value ?? 0),
         usernameStyle: undefined,
       }));

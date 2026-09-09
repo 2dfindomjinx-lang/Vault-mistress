@@ -30,6 +30,7 @@ type Program = {
 };
 
 type AppLicenseShelfProps = {
+  previewMode?: boolean;
   disabled?: boolean;
   money: number;
   onPurchased: (profile: Profile) => void;
@@ -41,7 +42,7 @@ const PROGRAM_ART: Record<string, string> = {
   wallpaper: "/programs/principessa_wallpaper.webp",
 };
 
-export function AppLicenseShelf({ disabled = false, money, onPurchased }: AppLicenseShelfProps) {
+export function AppLicenseShelf({ previewMode = false, disabled = false, money, onPurchased }: AppLicenseShelfProps) {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,6 +60,7 @@ export function AppLicenseShelf({ disabled = false, money, onPurchased }: AppLic
   // A stale card is never wrong, only behind: unlocking something already owned
   // returns the existing code and charges nothing.
   useEffect(() => {
+    if (previewMode) return;
     let alive = true;
 
     const load = (initial: boolean) => {
@@ -92,7 +94,7 @@ export function AppLicenseShelf({ disabled = false, money, onPurchased }: AppLic
       alive = false;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [previewMode]);
 
   const buy = useCallback(
     async (program: Program) => {
@@ -135,6 +137,7 @@ export function AppLicenseShelf({ disabled = false, money, onPurchased }: AppLic
     }
   }, []);
 
+  if (previewMode) return <section className="court-panel mt-6"><h3 className="text-xl text-amber-100">Her Programs</h3><p className="mt-2 text-sm text-zinc-300">Sign in to see available programs and your activation codes.</p></section>;
   if (!isLoading && !error && programs.length === 0) return null;
 
   return (

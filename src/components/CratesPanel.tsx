@@ -38,6 +38,7 @@ export type CrateInventoryItem = {
 };
 
 type WonItem = {
+  weight?: number;
   item_id: string;
   name: string;
   description: string;
@@ -90,11 +91,11 @@ function CrateResultIconFrame({ item }: { item: WonItem }) {
   return (
     <div className="relative mx-auto mt-4 h-28 w-28">
       <div className={`absolute inset-0 rounded-[1.4rem] border-2 ${getRarityColor(item.rarity)} bg-black/65 shadow-[0_0_34px_rgba(244,114,182,0.2)]`} />
-      <div className="pointer-events-none absolute inset-0 animate-[spin_5s_linear_infinite]">
+      <div className="pointer-events-none absolute inset-0">
         <span className="absolute left-1/2 top-1 h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.95)]" />
         <span className="absolute bottom-1 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full bg-pink-200 shadow-[0_0_16px_rgba(244,114,182,0.95)]" />
       </div>
-      <div className="pointer-events-none absolute inset-[7px] animate-[spin_5s_linear_infinite_reverse]">
+      <div className="pointer-events-none absolute inset-[7px]">
         <span className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-white/90 shadow-[0_0_14px_rgba(255,255,255,0.85)]" />
         <span className="absolute right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-fuchsia-200 shadow-[0_0_14px_rgba(244,114,182,0.85)]" />
       </div>
@@ -157,7 +158,12 @@ export function CratesPanel({
   const [sellPending, setSellPending] = useState<string | null>(null);
   const [lastOpenedCrateType, setLastOpenedCrateType] = useState<string | null>(null);
   const [lastOpenedBatchCost, setLastOpenedBatchCost] = useState(0);
-  const [flippedCrate, setFlippedCrate] = useState<string | null>(null);
+  const [ratesCrate, setRatesCrate] = useState<CrateDefinition | null>(null);
+  const ratesDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (ratesCrate && !ratesDialog.current?.open) ratesDialog.current?.showModal();
+    if (!ratesCrate) ratesDialog.current?.close();
+  }, [ratesCrate]);
 
   // Responsive: desktop = classic multi-item horizontal slide reel; mobile keeps
   // the compact single-item presentation.
@@ -209,6 +215,10 @@ export function CratesPanel({
   // current transform outside render state so such a re-render never snaps the
   // strip back to its starting position mid-spin.
   const horizontalReelTransformRef = useRef(`translate3d(${reelCenterOffset}px, 0, 0)`);
+  const attachStrip = useCallback((node: HTMLDivElement | null) => {
+    stripRef.current = node;
+    if (node) node.style.transform = horizontalReelTransformRef.current;
+  }, []);
   const reelPanelRef = useRef<HTMLDivElement>(null);
   const verticalReelRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -335,7 +345,7 @@ export function CratesPanel({
 
     // Weighted picker that respects the configured weights (so visual "oranlarını yansıtacak şekilde")
     const pickWeighted = (): WonItem => {
-      const p = pool as any[];
+      const p = pool;
       const totalW = p.reduce((sum, it) => sum + (it.weight || 1), 0);
       let r = Math.random() * totalW;
       for (const it of p) {
@@ -394,7 +404,7 @@ export function CratesPanel({
           }
         }
 
-        let candidates = pool.filter((it: any) =>
+        const candidates = pool.filter((it) =>
           targetTiers.includes(it.rarity) ||
           (p > 0.72 && it.item_id === winner.item_id)
         );
@@ -403,7 +413,7 @@ export function CratesPanel({
           // Prefer the actual winner in very late phase for the final tease
           const preferWinnerChance = 0.5;
           if (p > 0.78 && Math.random() < preferWinnerChance) {
-            const winMatch = candidates.find((it: any) => it.item_id === winner.item_id);
+            const winMatch = candidates.find((it) => it.item_id === winner.item_id);
             if (winMatch) {
               chosen = winMatch;
             } else {
@@ -427,7 +437,7 @@ export function CratesPanel({
       // Purely visual (post real-roll), does not touch drop rates or the actual result.
       if (isPremium && (i === winnerSlot - 1 || i === winnerSlot - 2)) {
         if (Math.random() < 0.45) {  // 45% per slot → ~70% of opens have at least one close leg tease (frequent but not abartı)
-          const legItems = (pool as any[]).filter((it: any) => it.rarity === "legendary");
+          const legItems = (pool).filter((it) => it.rarity === "legendary");
           if (legItems.length > 0) {
             chosen = legItems[Math.floor(Math.random() * legItems.length)];
           }
@@ -469,7 +479,7 @@ export function CratesPanel({
             sell_value: s.sell_value || 0,
             variant: d.variant || "normal",
             weight: d.weight || 1,  // carry original drop weight for realistic visual sampling
-          } as any; // extra weight for sampling, not in base WonItem type
+          } as WonItem;
         })
         .filter((x): x is WonItem => x !== null);
     }
@@ -557,6 +567,7 @@ export function CratesPanel({
       }
 
       setWonItems(results);
+      window.dispatchEvent(new Event("court:crate-opened"));
       // Play reveal sound based on whether the batch result includes a legendary (for multi or single)
       // This ensures the special legendary reveal sound plays when a legendary is won, tied to the result reveal.
       const hasLegInResult = results.some(r => r.rarity === "legendary");
@@ -806,7 +817,7 @@ export function CratesPanel({
     setSellPending("all");
 
     try {
-      const res = await (onSellAll ? onSellAll() : Promise.resolve({ success: false } as any));
+      const res = await (onSellAll ? onSellAll() : Promise.resolve({ success: false, error: "This action is unavailable." }));
       if (res.success) {
         // Play one purchase sound for the bulk operation
         emitSoundEvent("cosmetic_purchased");
@@ -832,7 +843,7 @@ export function CratesPanel({
     setSellPending("duplicates");
 
     try {
-      const res = await (onSellDuplicates ? onSellDuplicates() : Promise.resolve({ success: false } as any));
+      const res = await (onSellDuplicates ? onSellDuplicates() : Promise.resolve({ success: false, error: "This action is unavailable." }));
       if (res.success) {
         emitSoundEvent("cosmetic_purchased");
       } else {
@@ -880,8 +891,8 @@ export function CratesPanel({
           sell_value: info.sell_value ?? 0,
         };
       })
-      .filter(Boolean)
-      .sort((a: any, b: any) => {
+      .filter((rate) => rate !== null)
+      .sort((a, b) => {
         const ra = rarityIndex[a.rarity] ?? 99;
         const rb = rarityIndex[b.rarity] ?? 99;
         if (ra !== rb) return ra - rb; // common first, then uncommon, rare, epic, legendary
@@ -890,7 +901,7 @@ export function CratesPanel({
   };
 
   return (
-    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+    <section className="crate-cases-panel court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Cosmetics • Collectibles</p>
@@ -909,228 +920,61 @@ export function CratesPanel({
         </p>
       )}
 
-      {/* Six cases stay in a compact 3x2 desktop grid. The mobile breakpoints
-          remain unchanged, while the desktop cards fit the same panel height
-          as the opening/reel view. */}
-      { ! (isOpening || wonItems.length > 0) && (
-      <div className="court-feature-inset mt-6 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[680px]">
-          <div className="court-grid court-grid--collection grid min-h-[640px] content-center gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {crates.length === 0 && (
-            <p className="col-span-full text-sm text-zinc-400">No cases available right now.</p>
-          )}
-
+      {!(isOpening || wonItems.length > 0) && (
+        <div className="crate-catalog mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {crates.length === 0 && <p className="text-sm text-zinc-400">No cases available right now.</p>}
           {crates.map((crate) => {
-            const currentQty = getOpenQuantity(crate.crate_type);
-            const batchCost = getBatchOpenCost(crate, currentQty);
-            const displayCost = getDisplayedCost(crate);
-            const freeOpenAvailable = hasFreeCrateOpen(activeEvents, crate.crate_type) && !hasFreeOpenToday(crate.crate_type);
-            const grantedOpenCount = getGrantedOpenCount(crate.crate_type);
-            const grantedOpenApplied = Math.min(currentQty, grantedOpenCount);
-            const canAfford = coins >= batchCost;
-            const isThisOpening = openingCrate === crate.crate_type;
-            const isFlipped = flippedCrate === crate.crate_type;
-            const dropRates = getDropRates(crate.crate_type);
-            const protectionLabel =
-              crate.crate_type === "principessa_case"
-                ? `Bad Luck Protection: ${pityStats.principessa_bad_luck ?? 0}/4`
-                : "Protection: None";
-
+            const quantity = getOpenQuantity(crate.crate_type);
+            const cost = getBatchOpenCost(crate, quantity);
+            const free = hasFreeCrateOpen(activeEvents, crate.crate_type) && !hasFreeOpenToday(crate.crate_type);
+            const keys = getGrantedOpenCount(crate.crate_type);
+            const usedKeys = Math.min(quantity, keys);
             return (
-              <div key={crate.crate_type} className="court-grid-card court-grid-card--violet w-full p-2">
-                <div
-                  className="relative h-[340px] sm:h-[364px] lg:h-[320px] w-full [perspective:1200px]"
-                  onClick={() => {
-                    if (!isFlipped) {
-                      setFlippedCrate(crate.crate_type);
-                    }
-                  }}
-                >
-                  <div
-                    className="relative h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] [transform-style:preserve-3d]"
-                    style={{ transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
-                  >
-                    <div className="absolute inset-0 flex h-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden]">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFlippedCrate(crate.crate_type);
-                        }}
-                        className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
-                        title="View drop rates"
-                        >
-                          ?
-                        </button>
-
-                      <div className="flex min-w-0 items-start justify-between gap-3 pr-8">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-base font-black text-white">{crate.name}</p>
-                        </div>
-                        <div className="min-w-[92px] shrink-0 text-right">
-                          <div className="flex items-center justify-end gap-1 text-xs text-pink-100/70">
-                            <span>{currentQty > 1 ? "Total cost" : "Cost"}</span>
-                            {currentQty > 1 && (
-                              <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-pink-100/80">
-                                x{currentQty}
-                              </span>
-                            )}
-                          </div>
-                          <div className="font-black text-pink-200">
-                            {batchCost === 0 ? "FREE" : <CoinAmount amount={batchCost} iconSize={13} />}
-                          </div>
-                          {freeOpenAvailable && (
-                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                              Free open today
-                            </div>
-                          )}
-                          {grantedOpenCount > 0 && (
-                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
-                              {grantedOpenCount} Premium Key{grantedOpenCount === 1 ? "" : "s"}
-                            </div>
-                          )}
-                          {!freeOpenAvailable && grantedOpenCount === 0 && displayCost < crate.cost && (
-                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
-                              Golden Key
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-1 flex-col justify-center py-3">
-                        <div className="flex justify-center">
-                          <img
-                            src={(crate.icon_url ?? getCrateIconUrl(crate.crate_type)) ?? undefined}
-                            alt={crate.name}
-                            className="h-32 w-32 rounded-2xl border border-white/15 bg-black/40 object-contain p-2 shadow-[0_6px_20px_rgba(0,0,0,0.45)] sm:h-36 sm:w-36 lg:h-28 lg:w-28"
-                            onError={(e) => {
-                              const t = e.target as HTMLImageElement;
-                              t.style.opacity = "0.25";
-                            }}
-                          />
-                        </div>
-
-                        <div className="mt-3 min-h-[18px] text-center text-[9px] whitespace-nowrap text-white/55">
-                          {crate.crate_type === "principessa_case" ? (
-                            <span className="text-amber-400/80">{protectionLabel}</span>
-                          ) : (
-                            protectionLabel
-                          )}
-                        </div>
-
-                        <div className="mt-3 flex justify-center gap-1 text-[10px]">
-                          {[1, 2, 3, 4, 5].map((q) => (
-                            <button
-                              key={q}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenQuantityForCase(crate.crate_type, q);
-                              }}
-                              className={`rounded border border-white/20 px-1.5 py-0.5 ${currentQty === q ? "bg-fuchsia-500 text-white" : "bg-white/5 hover:bg-white/10"}`}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void openCrate(crate, currentQty);
-                        }}
-                        disabled={disabled || pending || isOpening || wonItems.length > 0 || !canAfford}
-                        className="mt-auto w-full rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 py-2.5 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
-                      >
-                        {isThisOpening
-                          ? "OPENING..."
-                          : canAfford
-                            ? grantedOpenApplied > 0
-                              ? `Open ${currentQty} (${grantedOpenApplied} key${grantedOpenApplied === 1 ? "" : "s"})`
-                              : `Open ${currentQty}`
-                            : "Not enough coins"}
-                      </button>
-                    </div>
-
-                    <div className="absolute inset-0 flex h-full w-full flex-col overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.035] p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFlippedCrate(null);
-                        }}
-                        className="absolute top-2 right-2 z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-black/40 text-[11px] leading-none text-white/70 hover:text-white"
-                        title="Close"
-                      >
-                        x
-                      </button>
-
-                      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/45 shadow-[0_0_22px_rgba(255,255,255,0.06)]">
-                          <img
-                            alt={crate.name}
-                            className="h-full w-full object-contain p-2"
-                            src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xs uppercase tracking-[2px] text-fuchsia-200/70">Drop Rates</div>
-                          <div className="mt-0.5 truncate text-sm font-semibold">{crate.name}</div>
-                          <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-zinc-400">
-                            {crate.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex-1 overflow-y-auto pr-1 space-y-1 rounded bg-black/30 p-1 text-[11px]">
-                        {dropRates.length === 0 ? (
-                          <div className="py-4 text-center text-xs text-zinc-400">No rates available</div>
-                        ) : (
-                          dropRates.map((rate: any) => {
-                            const icon = getCrateItemImageUrl(rate.item_id, rate.image_url ?? null) ?? undefined;
-                            return (
-                              <div
-                                key={rate.item_id}
-                                className={`flex items-center gap-2 rounded px-2 py-1 ${getRarityColor(rate.rarity)} bg-opacity-40`}
-                              >
-                                <img
-                                  src={icon}
-                                  alt={rate.name}
-                                  className="h-7 w-7 shrink-0 rounded-md border border-white/15 bg-black/30 object-contain p-0.5"
-                                  onError={(e) => {
-                                    const t = e.target as HTMLImageElement;
-                                    t.style.opacity = "0.2";
-                                  }}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate font-medium text-white/90">{rate.name}</p>
-                                  <p className="truncate text-[9px] uppercase tracking-[0.18em] text-white/55">
-                                    {rate.rarity}
-                                  </p>
-                                </div>
-                                <div className="ml-2 shrink-0 text-right">
-                                  <div className="font-mono text-[10px] tabular-nums opacity-80">
-                                    {rate.percentage.toFixed(2)}%
-                                  </div>
-                                  <div className="mt-0.5 text-[9px] font-medium text-emerald-300/80">
-                                    {rate.sell_value ?? 0} coins
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      <div className="mt-2 text-center text-[9px] opacity-50">
-                        {dropRates.length} items • Scroll for all
-                      </div>
-                    </div>
-                  </div>
+              <article className="crate-catalog-card" key={crate.crate_type}>
+                <div className="crate-catalog-art">
+                  <span className="crate-catalog-edition">Vault collection</span>
+                  <img alt={crate.name} src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined} loading="lazy" />
+                  <span className="crate-catalog-count">{getDropRates(crate.crate_type).length} items</span>
                 </div>
-              </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="text-lg font-semibold tracking-tight text-white">{crate.name}</h3>
+                  <p className="mt-2 min-h-10 flex-1 text-xs leading-5 text-zinc-400">{crate.description}</p>
+                  <div className="mt-3 flex min-h-6 flex-wrap items-center gap-2 text-[11px]">
+                    {free && <span className="crate-benefit">Free open today</span>}
+                    {keys > 0 && <span className="crate-benefit">{keys} Premium Key{keys === 1 ? "" : "s"}</span>}
+                    {!free && keys === 0 && getDisplayedCost(crate) < crate.cost && <span className="crate-benefit">Golden Key applied</span>}
+                    {crate.crate_type === "principessa_case" && <span className="text-amber-100/80">Bad Luck Protection · {pityStats.principessa_bad_luck ?? 0}/4</span>}
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-white/[.08] pt-4">
+                    <div>
+                      <p className="mb-2 text-[11px] text-zinc-500">Quantity</p>
+                      <div className="crate-quantity" role="group" aria-label={crate.name + " quantity"}>
+                        {[1,2,3,4,5].map(q => <button type="button" aria-pressed={quantity === q} key={q} onClick={() => setOpenQuantityForCase(crate.crate_type,q)}>{q}</button>)}
+                      </div>
+                    </div>
+                    <div className="text-right"><p className="mb-2 text-[11px] text-zinc-500">Total</p><p className="text-base font-semibold text-amber-100">{cost === 0 ? "FREE" : <CoinAmount amount={cost} iconSize={14} />}</p></div>
+                  </div>
+                  <button className="crate-open-button mt-4" type="button" disabled={disabled || pending || isOpening || coins < cost} onClick={() => void openCrate(crate, quantity)}>{coins < cost ? "Not enough coins" : "Open " + quantity + (usedKeys ? " · " + usedKeys + " key" + (usedKeys > 1 ? "s" : "") : "")}</button>
+                  <button className="mt-3 w-full py-1 text-xs font-medium text-zinc-400 hover:text-white" type="button" onClick={() => setRatesCrate(crate)}>View contents & drop rates ↗</button>
+                </div>
+              </article>
             );
           })}
         </div>
-        </div>
       )}
+      <dialog ref={ratesDialog} className="crate-rates-dialog" onCancel={() => setRatesCrate(null)} onClose={() => setRatesCrate(null)} onClick={event => { if (event.target === event.currentTarget) setRatesCrate(null); }} aria-labelledby="crate-rates-title">
+        {ratesCrate && <div className="p-5 sm:p-7">
+          <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-[.18em] text-amber-200/60">Contents & probabilities</p><h3 id="crate-rates-title" className="mt-2 text-2xl font-semibold text-white">{ratesCrate.name}</h3></div><button type="button" autoFocus className="court-button" onClick={() => setRatesCrate(null)} aria-label="Close contents">✕</button></div>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">{ratesCrate.description}</p>
+          <div className="mt-5 max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {getDropRates(ratesCrate.crate_type).map(rate => <div className="flex items-center gap-3 rounded-xl border border-white/[.06] bg-white/[.025] p-3" key={rate.item_id}>
+              <img className="h-12 w-12 shrink-0 rounded-lg bg-black/25 object-contain p-1" src={getCrateItemImageUrl(rate.item_id,null) ?? undefined} alt="" loading="lazy" />
+              <div className="min-w-0 flex-1"><p className="text-sm font-medium text-zinc-100">{rate.name}</p><p className="mt-1 text-xs capitalize text-zinc-500">{rate.rarity}</p></div>
+              <div className="text-right text-xs tabular-nums"><p className="font-semibold text-amber-100">{rate.percentage.toFixed(2)}%</p><p className="mt-1 text-zinc-500">{rate.sell_value ?? 0} Coins</p></div>
+            </div>)}
+          </div>
+        </div>}
+      </dialog>
 
       <div className="cases-stack relative z-[5] mt-6 flex flex-col">
       {/* INVENTORY under Cases static */}
@@ -1302,14 +1146,14 @@ export function CratesPanel({
             <div ref={horizontalReelViewportRef} className="relative mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border-2 border-white/25 bg-black/90" style={{ height: 180 }}>
               {/* The moving strip - transform is driven directly via ref during animation (high FPS, list renders once) */}
               <div
-                ref={stripRef}
+                ref={attachStrip}
                 className="absolute left-0 flex items-center will-change-transform"
                 style={
                   {
                     top: (180 - reelCardWidth) / 2,
                     height: reelCardWidth,
                     gap: REEL_GAP,
-                    transform: horizontalReelTransformRef.current,
+
                   }
                 }  // Keep the live rAF transform across parent re-renders; this prevents visual jumps while the API result updates coins/inventory.
               >

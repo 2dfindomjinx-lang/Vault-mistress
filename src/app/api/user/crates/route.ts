@@ -239,7 +239,7 @@ async function getItemDefinition(supabase: ReturnType<typeof createSupabaseAdmin
   // In production you would query the crate_items table here.
   const sample = SAMPLE_CRATE_ITEMS[itemId];
   if (sample) {
-    const resolvedImage = getCrateItemImageUrl(itemId, (sample as any).image_url);
+    const resolvedImage = getCrateItemImageUrl(itemId, sample.image_url);
     return {
       item_id: itemId,
       ...sample,
@@ -573,7 +573,7 @@ export async function GET() {
       name: def.name,
       description: def.description,
       cost: def.cost,
-      icon_url: getCrateIconUrl(crate_type, (def as any).icon_url ?? null),
+      icon_url: getCrateIconUrl(crate_type, def.icon_url ?? null),
     }))
     .sort((a, b) => a.cost - b.cost);
 
@@ -724,7 +724,7 @@ export async function POST(request: Request) {
       return jsonError("Could not verify balance.", 500);
     }
 
-    let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
+    const principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
       const activeEvents = await getActiveEvents(supabase);
     const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
     const grantPreview = await getCrateOpenCredits(supabase, userId);
@@ -785,7 +785,7 @@ export async function POST(request: Request) {
       // - First roll normally to preserve the base legendary chance (e.g. 0.5%)
       // - If it landed on legendary → keep it
       // - Otherwise force Epic (so 99.5% epic + 0.5% legendary on pity opening)
-      let tempRolled = weightedRandom(possibleDrops);
+      const tempRolled = weightedRandom(possibleDrops);
       if (!tempRolled) {
         return jsonError("Crate is empty. Contact support.", 500);
       }
@@ -826,7 +826,7 @@ export async function POST(request: Request) {
             item_id: d.item_id,
             name: s.name,
             description: s.description || "",
-            image_url: getCrateItemImageUrl(d.item_id, (s as any).image_url),
+            image_url: getCrateItemImageUrl(d.item_id, s.image_url),
             rarity: s.rarity,
             collection: s.collection || null,
             sell_value: s.sell_value || 0,
@@ -834,7 +834,7 @@ export async function POST(request: Request) {
             metadata: {},
           };
         })
-        .filter(Boolean) as any[];
+        .filter((seed) => seed !== null);
 
       if (seeds.length > 0) {
         const { error: seedErr } = await supabase

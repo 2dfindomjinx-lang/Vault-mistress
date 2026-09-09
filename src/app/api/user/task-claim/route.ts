@@ -1,5 +1,9 @@
-import { getBaseTaskReward, profileSelect, roundRewardToNearestFive } from "@/lib/server-game-rules";
-import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
+import { commitEconomyAction } from "@/lib/economy-command";
+import {
+  getBaseTaskReward,
+  roundRewardToNearestFive,
+} from "@/lib/server-game-rules";
+import { DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import { getActiveEventMultipliers } from "@/lib/server-task-actions";
 import {
   createSupabaseAdminClient,
@@ -8,6 +12,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDailyGmt3CooldownUntil, getGmt3DateKey } from "@/lib/time";
+import { GENERIC_CLAIM_TASK_IDS } from "@/lib/economy-rules";
 
 type Body = {
   taskId?: string;
@@ -41,7 +46,10 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function getTaskMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
+function getTaskMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+) {
   const value = metadata?.[key];
   return typeof value === "string" ? value : null;
 }
@@ -56,7 +64,11 @@ function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
   return getGmt3DateKey(cycleStart);
 }
 
-function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTaskRow | null) {
+function validateClaim(
+  taskId: string,
+  profile: ProfileRow,
+  existingTask: UserTaskRow | null,
+) {
   if (taskId === "daily-login") {
     return getDailyGmt3CooldownUntil(existingTask?.claimed_at ?? null)
       ? "Daily task is still on cooldown."
@@ -96,11 +108,11 @@ function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTa
     return null;
   }
 
-  if (taskId === "affection" && profile.affection < 50 && !existingTask?.completed_at) {
+  if (taskId === "affection" && profile.affection < 50) {
     return "Task is not completed.";
   }
 
-  if (taskId === "affection-80" && profile.affection < 80 && !existingTask?.completed_at) {
+  if (taskId === "affection-80" && profile.affection < 80) {
     return "Task is not completed.";
   }
 
@@ -108,7 +120,11 @@ function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTa
     return "Task reward was already claimed.";
   }
 
-  if (!existingTask?.completed_at && taskId !== "affection" && taskId !== "affection-80") {
+  if (
+    !existingTask?.completed_at &&
+    taskId !== "affection" &&
+    taskId !== "affection-80"
+  ) {
     return "Task is not completed.";
   }
 
@@ -117,11 +133,15 @@ function validateClaim(taskId: string, profile: ProfileRow, existingTask: UserTa
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+    return jsonError(
+      `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      500,
+    );
   }
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+  const { data: authData, error: authError } =
+    await authSupabase.auth.getUser();
 
   if (authError || !authData.user) {
     return jsonError(authError?.message ?? "Authentication required.", 401);
@@ -135,6 +155,10 @@ export async function POST(request: Request) {
   }
 
   const baseReward = getBaseTaskReward(taskId);
+
+  if (!GENERIC_CLAIM_TASK_IDS.has(taskId)) {
+    return jsonError("This game must use its own action endpoint.", 409);
+  }
 
   if (typeof baseReward !== "number") {
     return jsonError("Unsupported task reward.", 422);
@@ -199,7 +223,10 @@ export async function POST(request: Request) {
     attemptsRemaining: taskId === "typing-accuracy" ? 3 : undefined,
     ...(streakBonus
       ? {
-          cycleKey: getStreakCycleKey(profile.loyalty_streak ?? 0, profile.last_loyalty_at),
+          cycleKey: getStreakCycleKey(
+            profile.loyalty_streak ?? 0,
+            profile.last_loyalty_at,
+          ),
           milestone: streakBonus.milestone,
         }
       : {}),
@@ -219,140 +246,37 @@ export async function POST(request: Request) {
     ? { milestone: streakBonus.milestone, taskId }
     : {};
 
-  // Reward grant first (profile coins + tx), task completion/claim record ONLY after reward succeeds.
-  // Use conditional profile update (.eq coins) as the atomic gate to serialize grants and prevent
-  // double-claiming / double-paying on concurrent claims (replaces prior task-conditional-as-lock).
-  // This ensures: if reward path fails for any reason (profile stale, tx, etc), NO task row is
-  // ever written with completed_at/claimed_at.
-  const { data: updatedProfile, error: profileUpdateError } = await supabase
-    .from("profiles")
-    .update({
-      coins: nextCoins,
-      updated_at: now,
-    })
-    .eq("id", authData.user.id)
-    .eq("coins", profile.coins)
-    .select(profileSelect)
-    .single();
-
-  if (profileUpdateError || !updatedProfile) {
-    console.error("[task-claim] Supabase error updating profile (reward before task state)", {
-      code: profileUpdateError?.code,
-      message: profileUpdateError?.message,
-      details: profileUpdateError?.details,
-      hint: profileUpdateError?.hint,
+  const result = await commitEconomyAction(supabase, {
+    userId: authData.user.id,
+    operationKey: [
+      "task",
       taskId,
-      userId: authData.user.id,
-      attemptedCoins: nextCoins,
-    });
-    return jsonError(profileUpdateError?.message ?? "Profile update was stale or duplicated.", profileUpdateError ? 500 : 409);
-  }
-
-  const { error: transactionError } = await supabase.from("coin_transactions").insert({
-    amount: rewardCoins,
-    balance_after: nextCoins,
-    balance_before: profile.coins,
-    metadata: transactionMetadata,
+      taskId === "daily-login" || taskId === "typing-accuracy"
+        ? getGmt3DateKey(now)
+        : streakBonus
+          ? getStreakCycleKey(
+              profile.loyalty_streak ?? 0,
+              profile.last_loyalty_at,
+            )
+          : "once",
+    ].join(":"),
+    expectedProfile: {
+      coins: profile.coins,
+      affection: profile.affection,
+      loyalty_streak: profile.loyalty_streak,
+      last_loyalty_at: profile.last_loyalty_at,
+    },
+    patch: { coins: nextCoins },
+    taskId,
+    expectedTask: existingTask,
+    taskPatch: claimPayload,
     reason,
-    user_id: authData.user.id,
+    metadata: transactionMetadata,
+    devotion: DEVOTION_REWARD_BASIC_TASK,
   });
-
-  if (transactionError) {
-    console.error("[task-claim] Supabase error inserting coin transaction (reverting profile, no task marked)", {
-      code: transactionError.code,
-      message: transactionError.message,
-      details: transactionError.details,
-      hint: transactionError.hint,
-      taskId,
-      userId: authData.user.id,
-      rewardCoins,
-    });
-
-    const { error: profileRbErr } = await supabase
-      .from("profiles")
-      .update({ coins: profile.coins, updated_at: now })
-      .eq("id", authData.user.id);
-    if (profileRbErr) console.error("Task claim profile rollback after tx failed", profileRbErr);
-
-    return jsonError("Task reward logging failed.", 500);
-  }
-
-  // Reward (profile + tx) succeeded. Now safely record completion/claim state.
-  // (If this final step fails we rollback the reward to ensure atomicity: no pay without state? Wait,
-  // per requirements we prefer no state without pay; on record fail we revert pay so neither sticks.)
-  let updatedTask: UserTaskRow | null = null;
-  let taskUpdateError: { code?: string; message?: string; details?: string; hint?: string } | null = null;
-
-  if (existingTask) {
-    const { data, error } = await supabase
-      .from("user_tasks")
-      .update(claimPayload)
-      .eq("user_id", authData.user.id)
-      .eq("task_id", taskId)
-      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-      .single();
-    updatedTask = data;
-    taskUpdateError = error;
-  } else {
-    const { data: inserted, error: insErr } = await supabase
-      .from("user_tasks")
-      .insert(claimPayload)
-      .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-      .single();
-    updatedTask = inserted;
-    taskUpdateError = insErr;
-    if (insErr && (insErr.code === "23505" || (insErr.message || "").toLowerCase().includes("duplicate"))) {
-      // Extremely rare: paid but row appeared; fetch current to return success state if possible
-      const { data: nowRow } = await supabase
-        .from("user_tasks")
-        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-        .eq("user_id", authData.user.id)
-        .eq("task_id", taskId)
-        .maybeSingle();
-      updatedTask = (nowRow as UserTaskRow | null) ?? null;
-      taskUpdateError = null;
-    }
-  }
-
-  if (taskUpdateError || !updatedTask) {
-    console.error("[task-claim] Supabase error recording task state AFTER successful reward grant -- reverting coins to keep atomic (no state without confirmed reward)", {
-      code: taskUpdateError?.code,
-      message: taskUpdateError?.message,
-      details: taskUpdateError?.details,
-      hint: taskUpdateError?.hint,
-      taskId,
-      userId: authData.user.id,
-      rewardCoins,
-    });
-
-    const { error: profileRbErr } = await supabase
-      .from("profiles")
-      .update({ coins: profile.coins, updated_at: now })
-      .eq("id", authData.user.id);
-    if (profileRbErr) console.error("Task claim profile rollback after post-reward task record fail", profileRbErr);
-
-    // tx log remains as audit of attempted (reverted) grant
-    return jsonError("Task state record failed after reward; reverted to keep completion atomic.", 500);
-  }
-
-  try {
-    await awardDevotion(supabase, {
-      amount: DEVOTION_REWARD_BASIC_TASK,
-      metadata: {
-        rewardCoins,
-        taskId,
-      },
-      source: "task_claim",
-      sourceKey: `task-claim:${taskId}:${updatedTask.claimed_at ?? now}`,
-      userId: authData.user.id,
-    });
-  } catch (devotionError) {
-    console.error("[task-claim] devotion award failed", {
-      devotionError,
-      taskId,
-      userId: authData.user.id,
-    });
-  }
+  if ("error" in result) return jsonError(result.error, result.status);
+  const updatedProfile = result.profile;
+  const updatedTask = result.task;
 
   return Response.json({
     profile: updatedProfile,

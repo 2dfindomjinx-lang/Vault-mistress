@@ -1,4 +1,5 @@
 "use client";
+import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -80,9 +81,9 @@ type TributePanelProps = {
 };
 
 const tributeOptions = [
-  { amount: 250, label: "Velvet Coin Drop", boost: "+1 affection" },
-  { amount: 1000, label: "Gilded Offering", boost: "+5 affection" },
-  { amount: 5000, label: "Vault Tribute", boost: "+30 affection" },
+  { amount: 250, label: "Velvet Coin Drop", boost: "+" + COIN_TRIBUTE_AFFECTION[250] + " affection" },
+  { amount: 1000, label: "Gilded Offering", boost: "+" + COIN_TRIBUTE_AFFECTION[1000] + " affection" },
+  { amount: 5000, label: "Vault Tribute", boost: "+" + COIN_TRIBUTE_AFFECTION[5000] + " affection" },
 ];
 
 type DrainFloater = { id: number; left: number; path: string; rotate: number; title: string; top: number };
@@ -140,7 +141,7 @@ export function TributePanel({
   const isMaxAffection = affection >= 100;
 
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
-  const [categoryReady, setCategoryReady] = useState(true);
+  const categoryReady = Boolean(clickGame && clickGameStatusCategory === clickGameCategory);
   const [optimisticClicks, setOptimisticClicks] = useState(0);
   const pendingClicksRef = useRef(0);
   const pendingCategoryRef = useRef<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
@@ -283,7 +284,6 @@ export function TributePanel({
     if (isClickGameCategoryId(stored)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage on mount, not derivable from props
       setClickGameCategory(stored);
-      setCategoryReady(false);
       onClickGameCategoryChange?.(stored);
     }
   }, [onClickGameCategoryChange]);
@@ -310,7 +310,6 @@ export function TributePanel({
     // newly selected category's state.
     flushClickGameNow();
     setClickGameCategory(categoryId);
-    setCategoryReady(false);
     window.localStorage.setItem(CLICK_GAME_CATEGORY_STORAGE_KEY, categoryId);
     onClickGameCategoryChange?.(categoryId);
   };
@@ -408,11 +407,6 @@ export function TributePanel({
 
   const displayedProgress = (clickGame?.progress ?? 0) + optimisticClicks;
   const displayedStage = clickGame ? getClickGameStage(displayedProgress, clickGame.thresholds) : 0;
-  useEffect(() => {
-    if (clickGame && clickGameStatusCategory === clickGameCategory) {
-      setCategoryReady(true);
-    }
-  }, [clickGame, clickGameCategory, clickGameStatusCategory]);
   const displayedStageImagePath = categoryReady ? getClickGameStageImagePath(displayedStage, clickGameCategory) : null;
 
   return (
@@ -828,7 +822,8 @@ export function TributePanel({
               {displayedStageImagePath ? (
                 <Image
                   alt={`Click Game stage ${displayedStage}`}
-                  className="object-contain p-3 transition-opacity"
+                  className="court-stage-image object-contain p-3 transition-opacity"
+                  key={displayedStageImagePath}
                   fill
                   sizes="(max-width: 768px) 100vw, 700px"
                   src={displayedStageImagePath}
@@ -852,7 +847,7 @@ export function TributePanel({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-12 pt-10">
                 <button
                   aria-label="Click the current stage"
-                  className="pointer-events-auto h-20 w-20 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_6px_rgba(236,72,153,.14),0_0_24px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-24 sm:w-24"
+                  className="court-click-target pointer-events-auto h-20 w-20 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_6px_rgba(236,72,153,.14),0_0_24px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-24 sm:w-24"
                   disabled={disabled || !clickGame?.isActive}
                   onClick={registerClickGameTap}
                   type="button"

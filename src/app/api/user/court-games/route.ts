@@ -1,7 +1,17 @@
-import { randomUUID } from "node:crypto";
-import { COURT_GAME_IDS, COURT_GAME_RULES, isCourtGameId, type CourtGameMetrics } from "@/lib/court-games";
-import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
-import { profileSelect, roundRewardToNearestFive } from "@/lib/server-game-rules";
+import { commitEconomyAction } from "@/lib/economy-command";
+import { verifyCourtActions } from "@/lib/court-game-challenges";
+import { randomInt, randomUUID } from "node:crypto";
+import {
+  COURT_GAME_IDS,
+  COURT_GAME_RULES,
+  isCourtGameId,
+  type CourtGameMetrics,
+} from "@/lib/court-games";
+import { DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
+import {
+  profileSelect,
+  roundRewardToNearestFive,
+} from "@/lib/server-game-rules";
 import { getActiveEventMultipliers } from "@/lib/server-task-actions";
 import {
   createSupabaseAdminClient,
@@ -38,12 +48,18 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
+function metadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+) {
   const value = metadata?.[key];
   return typeof value === "string" ? value : null;
 }
 
-function validateMetrics(gameId: keyof typeof COURT_GAME_RULES, metrics: CourtGameMetrics | undefined) {
+function validateMetrics(
+  gameId: keyof typeof COURT_GAME_RULES,
+  metrics: CourtGameMetrics | undefined,
+) {
   if (
     !metrics ||
     !Number.isInteger(metrics.score) ||
@@ -57,7 +73,10 @@ function validateMetrics(gameId: keyof typeof COURT_GAME_RULES, metrics: CourtGa
   }
 
   const rules = COURT_GAME_RULES[gameId];
-  if (metrics.roundsCompleted !== rules.requiredRounds || metrics.score < rules.requiredScore) {
+  if (
+    metrics.roundsCompleted !== rules.requiredRounds ||
+    metrics.score < rules.requiredScore
+  ) {
     return "The game was not completed successfully.";
   }
 
@@ -76,7 +95,10 @@ async function getAuthenticatedUser() {
 
 export async function GET() {
   if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+    return jsonError(
+      `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      500,
+    );
   }
 
   const { error: authError, user } = await getAuthenticatedUser();
@@ -110,7 +132,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+    return jsonError(
+      `Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`,
+      500,
+    );
   }
 
   const { error: authError, user } = await getAuthenticatedUser();
@@ -118,8 +143,14 @@ export async function POST(request: Request) {
     return jsonError(authError?.message ?? "Authentication required.", 401);
   }
 
-  const body = (await request.json().catch(() => null)) as GameActionBody | null;
-  if (!body || !isCourtGameId(body.gameId) || !["complete", "fail", "start"].includes(body.action ?? "")) {
+  const body = (await request
+    .json()
+    .catch(() => null)) as GameActionBody | null;
+  if (
+    !body ||
+    !isCourtGameId(body.gameId) ||
+    !["complete", "fail", "start"].includes(body.action ?? "")
+  ) {
     return jsonError("Invalid court game action.");
   }
 
@@ -129,7 +160,12 @@ export async function POST(request: Request) {
 
   // The reward side is gated by the daily cooldown, but bare "start" calls
   // used to write an upsert with no limit at all.
-  const rateLimit = await checkRateLimit(supabase, `court-games:${user.id}`, 30, 60);
+  const rateLimit = await checkRateLimit(
+    supabase,
+    `court-games:${user.id}`,
+    30,
+    60,
+  );
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
   const { data: taskData, error: taskReadError } = await supabase
     .from("user_tasks")
@@ -143,15 +179,60 @@ export async function POST(request: Request) {
   }
 
   const existingTask = (taskData as GameTaskRow | null) ?? null;
-  const cooldownUntil = getDailyGmt3CooldownUntil(existingTask?.claimed_at ?? null);
+  if (
+    body.action === "complete" &&
+    body.sessionId &&
+    body.sessionId === metadataString(existingTask?.metadata, "sessionId") &&
+    existingTask?.metadata?.status === "completed"
+  ) {
+    const receipt = await supabase
+      .from("economy_receipts")
+      .select("amount")
+      .eq("user_id", user.id)
+      .eq("operation_key", "court-game:" + gameId + ":" + body.sessionId)
+      .maybeSingle();
+    if (receipt.error)
+      return jsonError("Reward history is temporarily unavailable.", 503);
+    if (receipt.data) {
+      const profile = await supabase
+        .from("profiles")
+        .select(profileSelect)
+        .eq("id", user.id)
+        .single();
+      if (profile.error)
+        return jsonError("Refresh to see your completed reward.", 503);
+      return Response.json({
+        gameId,
+        profile: profile.data,
+        task: existingTask,
+        rewardCoins: receipt.data.amount,
+        duplicate: true,
+        cooldownUntil: getDailyGmt3CooldownUntil(existingTask.claimed_at),
+      });
+    }
+  }
+  const cooldownUntil = getDailyGmt3CooldownUntil(
+    existingTask?.claimed_at ?? null,
+  );
   if (cooldownUntil) {
-    return Response.json({ error: "This game is still on cooldown.", cooldownUntil }, { status: 429 });
+    return Response.json(
+      { error: "This game is still on cooldown.", cooldownUntil },
+      { status: 429 },
+    );
   }
 
   if (body.action === "start") {
-    const previousSessionId = metadataString(existingTask?.metadata, "sessionId");
-    const previousStartedAt = metadataString(existingTask?.metadata, "sessionStartedAt");
-    const previousStartedMs = previousStartedAt ? new Date(previousStartedAt).getTime() : 0;
+    const previousSessionId = metadataString(
+      existingTask?.metadata,
+      "sessionId",
+    );
+    const previousStartedAt = metadataString(
+      existingTask?.metadata,
+      "sessionStartedAt",
+    );
+    const previousStartedMs = previousStartedAt
+      ? new Date(previousStartedAt).getTime()
+      : 0;
     const hasReusableSession =
       previousSessionId &&
       previousStartedMs > 0 &&
@@ -164,37 +245,54 @@ export async function POST(request: Request) {
     const sessionStartedToday = getDailyGmt3CooldownUntil(previousStartedAt);
     if (!hasReusableSession && sessionStartedToday) {
       return Response.json(
-        { cooldownUntil: sessionStartedToday, error: "You had your attempt today. Return tomorrow." },
+        {
+          cooldownUntil: sessionStartedToday,
+          error: "You had your attempt today. Return tomorrow.",
+        },
         { status: 429 },
       );
     }
 
     const sessionId = hasReusableSession ? previousSessionId : randomUUID();
-    const sessionStartedAt = hasReusableSession ? previousStartedAt : new Date().toISOString();
+    const sessionStartedAt = hasReusableSession
+      ? previousStartedAt
+      : new Date().toISOString();
+    const challengeSeed =
+      hasReusableSession &&
+      Number.isInteger(existingTask?.metadata?.challengeSeed)
+        ? Number(existingTask?.metadata?.challengeSeed)
+        : randomInt(0, 4294967296);
     const metadata = {
+      challengeSeed,
       ...(existingTask?.metadata ?? {}),
       sessionId,
       sessionStartedAt,
       status: "active",
     };
 
-    const { error: startError } = await supabase.from("user_tasks").upsert(
-      {
+    const result = await commitEconomyAction(supabase, {
+      userId: user.id,
+      operationKey: "court-start:" + gameId + ":" + sessionId,
+      reason: "game:start",
+      expectedProfile: {},
+      patch: {},
+      taskId: gameId,
+      expectedTask: existingTask,
+      taskPatch: {
+        task_id: gameId,
         claimed_at: null,
         completed_at: null,
         metadata,
         reward_coins: 0,
-        task_id: gameId,
-        user_id: user.id,
       },
-      { onConflict: "user_id,task_id" },
-    );
-
-    if (startError) {
-      return jsonError(startError.message, 500);
-    }
-
-    return Response.json({ gameId, sessionId, sessionStartedAt });
+    });
+    if ("error" in result) return jsonError(result.error, result.status);
+    return Response.json({
+      gameId,
+      sessionId,
+      sessionStartedAt,
+      challengeSeed,
+    });
   }
 
   // A reported failure consumes the day. The honest client calls this the
@@ -206,18 +304,32 @@ export async function POST(request: Request) {
       return jsonError("Game session is missing or expired.", 409);
     }
     const now = new Date().toISOString();
-    const { error: failError } = await supabase
-      .from("user_tasks")
-      .update({
+    const result = await commitEconomyAction(supabase, {
+      userId: user.id,
+      operationKey: "court-fail:" + gameId + ":" + failSessionId,
+      reason: "game:fail",
+      expectedProfile: {},
+      patch: {},
+      taskId: gameId,
+      expectedTask: existingTask,
+      taskPatch: {
+        task_id: gameId,
         claimed_at: now,
         completed_at: null,
-        metadata: { ...(existingTask?.metadata ?? {}), failedAt: now, status: "failed" },
         reward_coins: 0,
-      })
-      .eq("user_id", user.id)
-      .eq("task_id", gameId);
-    if (failError) return jsonError(failError.message, 500);
-    return Response.json({ cooldownUntil: getDailyGmt3CooldownUntil(now), failed: true, gameId });
+        metadata: {
+          ...(existingTask?.metadata ?? {}),
+          failedAt: now,
+          status: "failed",
+        },
+      },
+    });
+    if ("error" in result) return jsonError(result.error, result.status);
+    return Response.json({
+      cooldownUntil: getDailyGmt3CooldownUntil(now),
+      failed: true,
+      gameId,
+    });
   }
 
   const metricsError = validateMetrics(gameId, body.metrics);
@@ -226,16 +338,39 @@ export async function POST(request: Request) {
   }
 
   const storedSessionId = metadataString(existingTask?.metadata, "sessionId");
-  const sessionStartedAt = metadataString(existingTask?.metadata, "sessionStartedAt");
+  const sessionStartedAt = metadataString(
+    existingTask?.metadata,
+    "sessionStartedAt",
+  );
   const startedMs = sessionStartedAt ? new Date(sessionStartedAt).getTime() : 0;
-  if (!storedSessionId || !body.sessionId || storedSessionId !== body.sessionId || !startedMs) {
+  if (
+    !storedSessionId ||
+    !body.sessionId ||
+    storedSessionId !== body.sessionId ||
+    !startedMs
+  ) {
     return jsonError("Game session is missing or expired.", 409);
   }
 
   const elapsedMs = Date.now() - startedMs;
-  if (elapsedMs < rules.minDurationMs || elapsedMs > ACTIVE_SESSION_MAX_AGE_MS) {
+  if (
+    elapsedMs < rules.minDurationMs ||
+    elapsedMs > ACTIVE_SESSION_MAX_AGE_MS
+  ) {
     return jsonError("Game session timing is invalid.", 409);
   }
+
+  const seed = existingTask?.metadata?.challengeSeed;
+  const verified =
+    typeof seed === "number"
+      ? verifyCourtActions(gameId, seed, body.metrics?.actions, elapsedMs)
+      : null;
+  if (!verified || validateMetrics(gameId, verified))
+    return jsonError(
+      "Your game result could not be verified. Reopen the game and try again.",
+      422,
+    );
+  body.metrics = verified;
 
   const [profileResult, multipliers] = await Promise.all([
     supabase.from("profiles").select("id, coins").eq("id", user.id).single(),
@@ -247,44 +382,23 @@ export async function POST(request: Request) {
   }
 
   const profile = profileResult.data as ProfileRow;
-  const rewardCoins = roundRewardToNearestFive(rules.reward * (multipliers.task_reward_multiplier ?? 1));
+  const rewardCoins = roundRewardToNearestFive(
+    rules.reward * (multipliers.task_reward_multiplier ?? 1),
+  );
   const nextCoins = profile.coins + rewardCoins;
   const now = new Date().toISOString();
-  const { data: updatedProfile, error: profileError } = await supabase
-    .from("profiles")
-    .update({ coins: nextCoins, updated_at: now })
-    .eq("id", user.id)
-    .eq("coins", profile.coins)
-    .select(profileSelect)
-    .maybeSingle();
-
-  if (profileError || !updatedProfile) {
-    return jsonError(profileError?.message ?? "Game reward was already claimed.", 409);
-  }
-
-  const { data: transaction, error: transactionError } = await supabase
-    .from("coin_transactions")
-    .insert({
-      amount: rewardCoins,
-      balance_after: nextCoins,
-      balance_before: profile.coins,
-      metadata: { elapsedMs, gameId, metrics: body.metrics },
-      reason: `reward:game:${gameId}`,
-      user_id: user.id,
-    })
-    .select("id")
-    .single();
-
-  if (transactionError || !transaction) {
-    await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", user.id).eq("coins", nextCoins);
-    return jsonError("Game reward could not be recorded.", 500);
-  }
-
-  const { data: updatedTask, error: taskError } = await supabase
-    .from("user_tasks")
-    .update({
+  const result = await commitEconomyAction(supabase, {
+    userId: user.id,
+    operationKey: "court-game:" + gameId + ":" + storedSessionId,
+    expectedProfile: { coins: profile.coins },
+    patch: { coins: nextCoins },
+    taskId: gameId,
+    expectedTask: existingTask,
+    taskPatch: {
+      task_id: gameId,
       claimed_at: now,
       completed_at: now,
+      reward_coins: rewardCoins,
       metadata: {
         ...(existingTask?.metadata ?? {}),
         completedAt: now,
@@ -292,31 +406,14 @@ export async function POST(request: Request) {
         metrics: body.metrics,
         status: "completed",
       },
-      reward_coins: rewardCoins,
-    })
-    .eq("user_id", user.id)
-    .eq("task_id", gameId)
-    .contains("metadata", { sessionId: storedSessionId })
-    .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-    .maybeSingle();
-
-  if (taskError || !updatedTask) {
-    await supabase.from("coin_transactions").delete().eq("id", transaction.id);
-    await supabase.from("profiles").update({ coins: profile.coins, updated_at: now }).eq("id", user.id).eq("coins", nextCoins);
-    return jsonError(taskError?.message ?? "Game completion could not be saved.", 409);
-  }
-
-  try {
-    await awardDevotion(supabase, {
-      amount: DEVOTION_REWARD_BASIC_TASK,
-      metadata: { gameId, rewardCoins },
-      source: "task_action",
-      sourceKey: `court-game:${gameId}:${now}`,
-      userId: user.id,
-    });
-  } catch (error) {
-    console.error("[court-games] devotion award failed", { error, gameId, userId: user.id });
-  }
+    },
+    reason: "reward:game:" + gameId,
+    metadata: { elapsedMs, gameId, metrics: body.metrics },
+    devotion: DEVOTION_REWARD_BASIC_TASK,
+  });
+  if ("error" in result) return jsonError(result.error, result.status);
+  const updatedProfile = result.profile;
+  const updatedTask = result.task;
 
   return Response.json({
     cooldownUntil: getDailyGmt3CooldownUntil(now),

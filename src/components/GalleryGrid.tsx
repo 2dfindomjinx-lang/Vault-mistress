@@ -1,9 +1,12 @@
+import { CollectionGoal } from "@/components/CollectionGoal";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import type { GalleryItem, GalleryRarity, PetGalleryItem } from "@/lib/types";
 
 type GalleryGridProps = {
+  userKey?: string;
+  previewMode?: boolean;
   items: GalleryItem[];
   petItems: PetGalleryItem[];
   petScore: number;
@@ -30,6 +33,8 @@ const rarityStyles: Record<GalleryRarity, string> = {
 };
 
 export function GalleryGrid({
+  userKey = "guest",
+  previewMode = false,
   coins,
   disabled = false,
   items,
@@ -98,6 +103,7 @@ export function GalleryGrid({
         </div>
       </div>
 
+      <CollectionGoal petUnlockedItemIds={petUnlockedItemIds} items={items} petItems={petItems} coins={coins} mood={mood} petScore={petScore} userKey={userKey} />
       <div
         aria-label="Gallery collection"
         className="mt-5 grid gap-2 rounded-[1.3rem] border border-white/10 bg-black/45 p-1.5 sm:grid-cols-2"
@@ -187,7 +193,7 @@ export function GalleryGrid({
             : isPending
               ? "Unlocking..."
             : disabled && isCommon
-              ? "Timeout Active"
+              ? (previewMode ? "Sign in to unlock" : "Timeout Active")
             : isCommon
               ? canAfford
                 ? `Unlock — ${item.unlockCost} coins`
@@ -224,7 +230,7 @@ export function GalleryGrid({
                   }}
                   unoptimized
                   sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                  src={resolvedImage}
+                  src={item.unlocked && !previewMode ? resolvedImage : "/character-icon.webp"}
                 />
                 {isNew ? (
                   <div className="absolute right-3 top-3 z-10 rounded-full border border-amber-200/30 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100 shadow-[0_0_16px_rgba(251,191,36,0.35)]">
@@ -348,7 +354,7 @@ export function GalleryGrid({
                         }
                       }}
                       sizes="(min-width: 1280px) 20vw, (min-width: 640px) 33vw, 50vw"
-                      src={resolvedImage}
+                      src={unlocked && !previewMode ? resolvedImage : "/character-icon.webp"}
                       unoptimized
                     />
                     <span className="absolute left-2.5 top-2.5 rounded-full border border-rose-100/20 bg-black/70 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-rose-50">

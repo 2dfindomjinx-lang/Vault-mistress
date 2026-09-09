@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { emitSoundEvent } from "@/lib/sound";
 
 // Tribute Duels: a fixed Coin fee opens the lobby, then real Throne tributes
@@ -41,9 +42,11 @@ function remainingLabel(deadline: string, now: number) {
 
 export function TributeDuels({
   disabled = false,
+  previewMode = false,
   onProfile,
 }: {
   disabled?: boolean;
+  previewMode?: boolean;
   onProfile?: (profile: unknown) => void;
 }) {
   const [state, setState] = useState<DuelState | null>(null);
@@ -57,6 +60,7 @@ export function TributeDuels({
   }, []);
 
   const load = useCallback(async () => {
+    if (previewMode) return;
     try {
       const response = await fetch("/api/user/duels", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as DuelState | { error?: string } | null;
@@ -69,7 +73,7 @@ export function TributeDuels({
     } catch {
       setError("The duels are unavailable.");
     }
-  }, []);
+  }, [previewMode]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount against an external system
@@ -126,6 +130,7 @@ export function TributeDuels({
         </p>
       ) : null}
 
+      <div className="court-duel-seal" aria-hidden="true"><CourtGlyph symbol="seal"/><span>vs</span><CourtGlyph symbol="crown"/></div>
       {/* My live duel takes over the top of the panel. */}
       {live ? (
         <div className="mt-5 rounded-[1.75rem] border border-pink-300/25 bg-pink-950/25 p-5">
@@ -270,7 +275,7 @@ export function TributeDuels({
               </p>
             ) : (
               revealed.map((duel) => (
-                <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
+                <div className="court-duel-reveal rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
                   <div className="flex items-baseline justify-between gap-3">
                     <p className={`min-w-0 truncate text-xs font-black ${duel.winner === duel.challenger ? "text-emerald-100" : "text-zinc-400"}`}>
                       {duel.challenger} · ${Number(duel.challengerTotalUsd ?? 0).toLocaleString()}

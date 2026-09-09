@@ -19,6 +19,7 @@ import {
 import { profileSelect } from "@/lib/server-game-rules";
 
 type Body = {
+  equippedSlots?: Record<string, unknown>;
   action?:
     | "equip"
     | "unequip"
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
     return jsonError("Profile not found.", 404);
   }
 
-  const currentSlots: EquippedAvatarSlots = (profile.equipped_avatar_slots as any) || {};
+  const currentSlots: EquippedAvatarSlots = (profile.equipped_avatar_slots as EquippedAvatarSlots) || {};
   const currentUncensored = !!profile.has_uncensored_avatar;
   const currentFullSetId: string | null = (profile.equipped_full_set_id as string | null) ?? null;
 
@@ -345,7 +346,7 @@ export async function POST(request: Request) {
   }
 
   if (action === "set-equipped") {
-    const slots = (body as any)?.equippedSlots || {};
+    const slots = body?.equippedSlots || {};
     // Already-worn items are reserved out of the inventory, so an inventory-only
     // check would drop them here - and this handler writes equipped_avatar_slots
     // without returning anything to the inventory, so a dropped item would be
@@ -361,7 +362,7 @@ export async function POST(request: Request) {
       if (!iid || typeof iid !== "string") continue;
       if (iid === "classic" || reservedItemIds.has(iid)) {
         // default item always allowed; reserved items are held, not missing
-        (cleaned as any)[s] = iid;
+        cleaned[s as AvatarSlot] = iid;
         continue;
       }
       const { data: inv } = await supabase
@@ -371,7 +372,7 @@ export async function POST(request: Request) {
         .eq("item_id", iid)
         .maybeSingle();
       if (inv && (inv.quantity ?? 0) > 0) {
-        (cleaned as any)[s] = iid;
+        cleaned[s as AvatarSlot] = iid;
       }
     }
     const normalized = normalizeEquipment(cleaned);
@@ -505,7 +506,7 @@ export async function POST(request: Request) {
       const validated: EquippedAvatarSlots = {};
       for (const [slot, itemId] of Object.entries(rawSlots)) {
         if (typeof itemId === "string" && (await isAvailable(itemId))) {
-          (validated as any)[slot] = itemId;
+          validated[slot as AvatarSlot] = itemId;
         }
       }
       targetSlots = normalizeEquipment(validated);

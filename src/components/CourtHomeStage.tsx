@@ -16,15 +16,15 @@ type CourtHomeStageProps = {
 
 export function CourtHomeStage({ affection, coins, dailyMessage, displayName, money = 0, onNavigate }: CourtHomeStageProps) {
   return (
-    <section className="relative isolate min-h-[34rem] overflow-hidden border border-[#c89a55]/20 bg-[#090507] sm:min-h-[36rem] lg:min-h-[40rem]">
+    <section className="relative isolate min-h-[24rem] overflow-hidden border border-[#c89a55]/20 bg-[#090507] sm:min-h-[26rem] lg:min-h-[28rem]">
       <div className="pointer-events-none absolute inset-0 -z-30 bg-[radial-gradient(circle_at_74%_16%,rgba(190,24,93,.23),transparent_27%),linear-gradient(110deg,#080406_0%,#160811_51%,#070405_100%)]" />
       <div className="pointer-events-none absolute inset-y-0 right-0 -z-20 w-[58%] opacity-40 [background-image:linear-gradient(rgba(215,166,94,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(215,166,94,.04)_1px,transparent_1px)] [background-size:58px_58px] [mask-image:linear-gradient(to_left,black,transparent)]" />
       <div className="absolute inset-x-8 top-7 h-px bg-gradient-to-r from-transparent via-[#d7ad69]/40 to-transparent" />
 
-      <div className="relative z-20 flex min-h-[34rem] max-w-[62rem] flex-col justify-between p-6 sm:min-h-[36rem] sm:p-8 lg:min-h-[40rem] lg:p-12">
+      <div className="relative z-20 flex min-h-[24rem] max-w-[62rem] flex-col justify-between p-6 sm:min-h-[26rem] sm:p-8 lg:min-h-[28rem] lg:p-8">
         <div className="max-w-xl pr-16 sm:pr-0">
           <p className="text-[8px] font-black uppercase tracking-[.28em] text-[#d7ad69]/60 sm:text-[9px] sm:tracking-[.38em]">Principessa is watching</p>
-          <h1 className="mt-5 max-w-[10ch] font-serif text-[2.65rem] leading-[.9] text-[#fff0d2] sm:mt-6 sm:text-6xl xl:text-7xl">Present yourself properly.</h1>
+          <h1 className="mt-5 max-w-[10ch] font-serif text-[2.65rem] leading-[.9] text-[#fff0d2] sm:mt-6 sm:text-5xl xl:text-6xl">Present yourself properly.</h1>
           <p className="mt-5 max-w-lg border-l border-pink-400/30 pl-4 text-sm leading-6 text-zinc-400 sm:mt-6 sm:text-base sm:leading-7">{dailyMessage}</p>
         </div>
 

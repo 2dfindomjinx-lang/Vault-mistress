@@ -75,6 +75,7 @@ type DebtCapacityPreview = {
 };
 
 type DebtSectionProps = {
+  previewMode?: boolean;
   canManageActiveDebtWhileTimedOut?: boolean;
   disabled?: boolean;
   isTimeoutActive?: boolean;
@@ -246,6 +247,7 @@ async function getAffordableRandomDebtDraft(purchasePledge: boolean): Promise<{
 }
 
 export function DebtSection({
+  previewMode = false,
   canManageActiveDebtWhileTimedOut = false,
   disabled = false,
   isTimeoutActive = false,
@@ -519,16 +521,18 @@ export function DebtSection({
         remainingDebtBalance={remainingDebtBalance}
         now={now}
       />
-      <ThroneDebtCard disabled={disabled} isTimeoutActive={isTimeoutActive} />
+      <ThroneDebtCard previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} />
     </section>
   );
 }
 
 function ThroneDebtCard({
+  previewMode = false,
   disabled = false,
   isTimeoutActive = false,
 }: {
   disabled?: boolean;
+  previewMode?: boolean;
   isTimeoutActive?: boolean;
 }) {
   const [contracts, setContracts] = useState<ThroneDebtContract[]>([]);
@@ -577,6 +581,7 @@ function ThroneDebtCard({
     ?? null;
 
   const loadThroneDebts = async () => {
+    if (previewMode) return;
     try {
       const response = await fetch("/api/user/throne-debts", { cache: "no-store" });
       const payload = (await response.json()) as {

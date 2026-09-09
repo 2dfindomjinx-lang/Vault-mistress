@@ -2041,6 +2041,7 @@ export function getCrateItemImageUrl(itemId: string, provided?: string | null): 
   if (SAMPLE_CRATE_ITEMS[itemId]?.collection === "cosplay") {
     return `/crate-items/${itemId}.png`;
   }
+  if (SAMPLE_CRATE_ITEMS[itemId]?.image_url) return SAMPLE_CRATE_ITEMS[itemId].image_url;
   if (provided) return provided;
   return `/crate-items/${itemId}.webp`;
 }

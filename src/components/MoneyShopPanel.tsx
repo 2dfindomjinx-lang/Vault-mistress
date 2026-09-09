@@ -15,6 +15,7 @@ import {
 } from "@/lib/principessa-money";
 
 type MoneyShopPanelProps = {
+  previewMode?: boolean;
   coins: number;
   disabled?: boolean;
   error?: string;
@@ -36,6 +37,7 @@ type MoneyShopPanelProps = {
 };
 
 export function MoneyShopPanel({
+  previewMode = false,
   burnError = "",
   burnedTotal = 0,
   coins,
@@ -186,7 +188,7 @@ export function MoneyShopPanel({
       {/* Her programs. Above the legendary catalogue because these are the
           only things on this screen that leave the site with you. */}
       {onLicensePurchased ? (
-        <AppLicenseShelf disabled={disabled} money={money} onPurchased={onLicensePurchased} />
+        <AppLicenseShelf previewMode={previewMode} disabled={disabled} money={money} onPurchased={onLicensePurchased} />
       ) : null}
 
       {/* Legendary catalogue */}

@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   const nextCoins = cost > 0 ? previousCoins - cost : previousCoins;
 
   // Optimistic update for coins if charging
-  let updatedProfile: any = null;
+  let updatedProfile: Record<string, unknown> | null = null;
   if (cost > 0) {
     const { data: coinUpdated, error: coinErr } = await supabase
       .from("profiles")

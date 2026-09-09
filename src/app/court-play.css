@@ -1,0 +1,1425 @@
+/* Court objects share a palette, while each activity owns its motion. */
+
+.court-glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 2px #0004);
+}
+
+.crate-catalog-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ffffff16;
+  border-radius: 20px;
+  background: #111115;
+  box-shadow: 0 8px 24px #0002;
+}
+
+.crate-catalog-art {
+  flex-shrink: 0;
+  height: 176px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 95%, #9c724421, transparent 65%), #141418;
+  border-bottom: 1px solid #ffffff0c;
+}
+
+.crate-catalog-art img {
+  width: 144px;
+  height: 144px;
+  object-fit: contain;
+  filter: drop-shadow(0 9px 10px #0006);
+}
+
+.crate-catalog-edition,
+.crate-catalog-count {
+  position: absolute;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #a1a1aa;
+  top: 14px;
+}
+
+.crate-catalog-edition {
+  left: 16px;
+  text-transform: uppercase;
+}
+
+.crate-catalog-count {
+  right: 16px;
+}
+
+.crate-benefit {
+  padding: 3px 7px;
+  border: 1px solid #d6bc792b;
+  border-radius: 5px;
+  background: #d6bc7909;
+  color: #ddcba1;
+}
+
+.crate-quantity {
+  display: flex;
+  gap: 2px;
+  border: 1px solid #ffffff15;
+  border-radius: 8px;
+  padding: 3px;
+  background: #08080c;
+}
+
+.crate-quantity button {
+  min-width: 29px;
+  min-height: 30px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+.crate-quantity button[aria-pressed="true"] {
+  background: #d2b57d;
+  color: #161218;
+  font-weight: 700;
+}
+
+.crate-open-button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+  background: #aa3559;
+  border: 1px solid #ce54784a;
+  color: #fff1f5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.crate-open-button:hover:enabled {
+  background: #bc4267;
+}
+
+.crate-open-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.crate-rates-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(620px, calc(100vw - 32px));
+  max-height: 90dvh;
+  overflow: auto;
+  border: 1px solid #ffffff26;
+  border-radius: 20px;
+  background: #111115;
+  color: #f5f1f3;
+  box-shadow: 0 30px 100px #0008;
+}
+
+.crate-rates-dialog::backdrop {
+  background: #050309c9;
+  backdrop-filter: blur(4px);
+}
+
+.crate-cases-panel .crate-catalog-card::after {
+  content: none;
+}
+
+.crate-cases-panel .crate-catalog-card {
+  transform: none;
+  animation: none;
+}
+
+.seal-card-button {
+  position: relative;
+  display: block;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0;
+  perspective: 900px;
+}
+
+.seal-card-button:focus-visible {
+  outline: 2px solid #f1d596;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.seal-card-button:disabled {
+  opacity: 1;
+}
+
+.seal-flip {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 70px;
+  perspective: 900px;
+}
+
+.seal-flip-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.seal-flip[data-open="true"] .seal-flip-inner {
+  transform: rotateY(180deg);
+}
+
+.seal-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  backface-visibility: hidden;
+  border: 1px solid #bd935648;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.seal-back {
+  background:
+    repeating-linear-gradient(45deg, #ffffff03 0 1px, transparent 1px 9px),
+    linear-gradient(145deg, #41182e, #160e18);
+  color: #c5a978;
+}
+
+.seal-back:after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid #d1ac6430;
+  border-radius: 7px;
+}
+
+.seal-back > .court-glyph {
+  width: 43%;
+  height: 43%;
+  opacity: 0.65;
+}
+
+.seal-front {
+  transform: rotateY(180deg);
+  background: radial-gradient(ellipse at 50% 20%, #644328, #23121c 75%);
+  color: #f8d89c;
+  font-size: 26px;
+  font-family: Georgia, serif;
+}
+
+.seal-front > .court-glyph {
+  width: 55%;
+  height: 55%;
+}
+
+.seal-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-top: 1px solid #dfbd71;
+  border-left: 1px solid #dfbd71;
+}
+
+.seal-corner-a {
+  top: 12px;
+  left: 12px;
+}
+
+.seal-corner-b {
+  bottom: 12px;
+  right: 12px;
+  transform: rotate(180deg);
+}
+
+.seal-flip[data-matched="true"] .seal-front {
+  border-color: #e9c67d;
+  background: radial-gradient(ellipse at center, #715434, #25151b);
+  box-shadow: inset 0 0 18px #eac06b18;
+}
+
+.seal-matched {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  font-size: 11px;
+  color: #f3daa6;
+  animation: court-stamp 0.3s ease-out both;
+}
+
+.crown-pair-track {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.crown-pair-track > span {
+  width: 26px;
+  height: 26px;
+  color: #756b69;
+  opacity: 0.4;
+}
+
+.crown-pair-track > span[data-complete="true"] {
+  color: #f1cf87;
+  opacity: 1;
+  animation: court-stamp 0.35s ease-out;
+}
+
+.court-reaction-portrait {
+  position: relative;
+  overflow: hidden;
+  min-height: 240px;
+  border: 1px solid #c497603b;
+  border-radius: 22px;
+  background: #150b13;
+  align-self: start;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.court-reaction-frame {
+  position: absolute;
+  inset: 0;
+  background-image: url("/principessa-ui/generated/principessa-reactions-v1.png");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+}
+
+.court-portrait-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 -50px 50px -30px #080408;
+  pointer-events: none;
+}
+
+.court-portrait-caption {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  margin: 0;
+  border: 1px solid #d8ac632f;
+  background: #110913cc;
+  border-radius: 10px;
+  padding: 9px;
+  color: #f1d6a8;
+  text-align: center;
+  font-size: 12px;
+  animation: court-caption 0.22s ease-out;
+}
+
+.court-reaction-portrait[data-mood="approved"] {
+  border-color: #d8b67380;
+}
+
+.court-reaction-portrait[data-mood="disappointed"] {
+  border-color: #bb426c66;
+}
+
+.court-reaction-portrait--compact {
+  min-height: 0;
+  max-width: 180px;
+}
+
+.court-command-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #cfb681;
+  font-size: 11px;
+  padding-top: 8px;
+}
+
+.court-action-figure {
+  width: 70px;
+  height: 52px;
+}
+
+.action-figure-upper {
+  transform-origin: 40px 38px;
+  transition: transform 0.22s;
+}
+
+.court-action-figure[data-action="bow"] .action-figure-upper {
+  transform: rotate(55deg);
+}
+
+.court-action-figure[data-action="kneel"] {
+  transform: translateY(6px) scaleY(0.82);
+}
+
+.court-action-figure[data-action="kneel"] .action-figure-legs {
+  transform: translateY(-1px) scaleY(0.9);
+}
+
+.court-action-button .court-glyph {
+  width: 20px;
+  height: 20px;
+}
+
+.royal-corridor {
+  position: relative;
+  height: 260px;
+  margin-top: 16px;
+  border-radius: 20px;
+  overflow: clip;
+  border: 1px solid #ad814e38;
+  background:
+    radial-gradient(ellipse at 7% 38%, #865c3433, transparent 37%),
+    linear-gradient(#110b12 0 32%, #26151f 33% 36%, #120c13 37%);
+}
+
+.royal-corridor-arches {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 70px,
+    #cbad6319 71px 73px,
+    transparent 74px 116px
+  );
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 0 75%);
+}
+
+.royal-carpet {
+  position: absolute;
+  left: 0;
+  right: -10%;
+  top: 45%;
+  height: 50%;
+  background: linear-gradient(
+    #c8995b45 0 2px,
+    #65162c 2px 94%,
+    #d2a16650 94% 96%,
+    #250b19 96%
+  );
+  transform: skewY(-3deg);
+  box-shadow: 0 10px 30px #0005;
+}
+
+.royal-throne {
+  position: absolute;
+  left: 14px;
+  top: 43px;
+  width: 60px;
+  color: #e1bd75;
+  text-align: center;
+}
+
+.royal-throne > .court-glyph {
+  width: 48px;
+  height: 48px;
+  margin: auto;
+}
+
+.royal-throne > span {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
+.royal-throne .royal-arrived-gift {
+  width: 28px;
+  height: 28px;
+  margin-top: 24px;
+  animation: court-stamp 0.35s ease-out;
+}
+
+.royal-barrier {
+  position: absolute;
+  left: 86px;
+  top: 27px;
+  bottom: 51px;
+  width: 2px;
+  background: linear-gradient(transparent, #e9c77c77, transparent);
+}
+
+.royal-barrier > span {
+  position: absolute;
+  bottom: 0;
+  left: -25px;
+  width: 65px;
+  text-align: center;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #d4b78099;
+}
+
+.royal-barrier[data-hit="true"] {
+  width: 6px;
+  background: #e16776;
+  animation: court-hit 0.35s ease-out;
+}
+
+.royal-walker {
+  position: absolute;
+  top: 81px;
+  left: calc(100% - 92px);
+  width: 78px;
+  height: 94px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  color: #f2d49b;
+  border: 1px solid #dab87980;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #574026, #25161a);
+  box-shadow: 0 10px 12px #0007;
+  animation: royal-approach linear forwards;
+  touch-action: manipulation;
+}
+
+.royal-walker[data-threat="true"] {
+  background: linear-gradient(145deg, #68263a, #2e101f);
+  border-color: #d46c8280;
+  color: #ffc1c8;
+  border-radius: 18px 18px 30px 30px;
+}
+
+.royal-walker > .court-glyph {
+  height: 43px;
+  width: 43px;
+}
+
+.royal-walker > span {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.royal-wave-time {
+  position: absolute;
+  bottom: 39px;
+  left: 16px;
+  right: 16px;
+  height: 3px;
+  border-radius: 3px;
+  background: #ffffff12;
+  overflow: hidden;
+}
+
+.royal-wave-time span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #d4ab6d;
+  transform-origin: left;
+  animation: royal-timer linear forwards;
+}
+
+.royal-wave-caption {
+  position: absolute;
+  bottom: 13px;
+  inset-inline: 12px;
+  font-size: 11px;
+  text-align: center;
+  color: #e2c499;
+}
+
+.royal-impact {
+  position: absolute;
+  left: 50%;
+  top: 87px;
+  width: 68px;
+  height: 68px;
+  color: #df718c;
+  animation: court-hit 0.35s ease-out;
+}
+
+.royal-impact[data-good="true"] {
+  color: #efd098;
+}
+
+.royal-strike {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-35deg);
+  border-top: 4px solid #fff0c5;
+  box-shadow: 0 -6px 16px #e8bc7166;
+  animation: court-caption 0.2s ease-out;
+}
+
+.court-result-seal {
+  margin: 0 auto;
+  width: 70px;
+  height: 70px;
+  border: 1px solid #e2bd7166;
+  border-radius: 50%;
+  padding: 15px;
+  color: #e7c47f;
+  animation: court-stamp 0.45s ease-out;
+}
+
+.court-result-seal[data-failed="true"] {
+  color: #dc8092;
+  border-color: #dc809255;
+}
+
+.court-writing-line {
+  display: block;
+  position: relative;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #b6a5af;
+}
+
+.court-writing-ink {
+  color: #f4d393;
+  text-shadow: 0 0 12px #d2a45620;
+}
+
+.court-writing-cursor {
+  border-bottom: 2px solid #d6b374;
+}
+
+.court-writing-seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #d7b67d;
+  border-radius: 50%;
+  margin-left: 12px;
+  color: #e6c990;
+  animation: court-stamp 0.3s ease-out;
+}
+
+.court-dice-table {
+  padding: 22px;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at center, #493043, #211421);
+  border: 1px solid #c6a36a33;
+  box-shadow: inset 0 0 34px #0006;
+}
+
+.court-die {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  width: 52px;
+  height: 52px;
+  border: 1px solid #fff0cb;
+  border-radius: 11px;
+  padding: 9px;
+  background: linear-gradient(130deg, #fff4d9, #dfcaa5);
+  box-shadow:
+    3px 4px 0 #897353,
+    5px 9px 11px #0006;
+  transform: rotate(-6deg);
+  animation: die-settle 0.25s ease-out;
+}
+
+.court-die i {
+  border-radius: 50%;
+  background: transparent;
+}
+
+.court-die i[data-dot="true"] {
+  background: #36212e;
+  box-shadow: inset 1px 1px 1px #0006;
+}
+
+.court-die[data-rolling="true"] {
+  animation: die-tumble 0.34s linear infinite;
+}
+
+.court-reel-symbol {
+  width: 48px;
+  height: 48px;
+  color: #e2bf7b;
+}
+
+.court-reel-result {
+  position: relative;
+}
+
+.court-reel-result[data-paid="true"]:after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 1px;
+  background: #edce8499;
+  pointer-events: none;
+  animation: court-caption 0.4s ease-out;
+}
+
+.court-jewelry-cell {
+  perspective: 600px;
+  padding: 0;
+  position: relative;
+}
+
+.court-jewelry-lid {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #bd955044;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #383426, #131812);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b2985c;
+  transform-origin: top;
+  transition:
+    transform 0.32s ease,
+    opacity 0.25s;
+}
+
+.court-jewelry-cell[data-revealed="true"] .court-jewelry-lid {
+  transform: rotateX(100deg);
+  opacity: 0;
+}
+
+.court-jewelry-lid .court-glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.court-jewelry-prize {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+  color: #ecd392;
+}
+
+.court-jewelry-cell[data-mine="true"] .court-jewelry-prize {
+  color: #e4849d;
+}
+
+.court-jewelry-cell[data-revealed="true"] .court-jewelry-prize {
+  animation: court-stamp 0.3s ease-out;
+}
+
+.court-patience-scene {
+  position: relative;
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 20px;
+  align-items: center;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid #caab6633;
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 10% 0, #771b3325, transparent), #120b13;
+}
+
+.court-patience-readout {
+  text-align: center;
+}
+
+.court-patience-readout strong {
+  display: block;
+  font-size: clamp(30px, 7vw, 58px);
+  font-family: Georgia, serif;
+  font-weight: 400;
+  color: #f2d99f;
+  font-variant-numeric: tabular-nums;
+}
+
+.court-patience-scene[data-crashed="true"] {
+  border-color: #be526988;
+}
+
+.court-patience-scene[data-crashed="true"] strong {
+  color: #e9a1b0;
+  animation: court-hit 0.25s ease-out;
+}
+
+.patience-pendulum {
+  margin: 12px auto 2px;
+  width: 50px;
+  height: 1px;
+  position: relative;
+  background: #d4b77a44;
+}
+
+.patience-pendulum:after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: #ceac6a;
+  border-radius: 50%;
+  animation: patience-sway 2.6s ease-in-out infinite;
+}
+
+.court-patience-scene[data-active="false"] .patience-pendulum:after {
+  animation-play-state: paused;
+}
+
+.court-race-lane {
+  position: relative;
+  height: 58px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: linear-gradient(#20121c, #2b1c24);
+  border-bottom: 1px solid #b9986038;
+}
+
+.court-race-lane:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 55px,
+    #e6ba7310 55px 57px
+  );
+  transform: skewX(-20deg);
+}
+
+.court-race-finish {
+  position: absolute;
+  right: 7px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  background: repeating-linear-gradient(#d9b98066 0 6px, transparent 6px 12px);
+}
+
+.court-runner-wrap {
+  position: absolute;
+  bottom: 2px;
+  width: 58px;
+  height: 40px;
+}
+
+.court-runner {
+  height: 100%;
+  width: 100%;
+  color: var(--runner-color);
+}
+
+.runner-leg {
+  transform-origin: 38px 25px;
+}
+
+.court-runner[data-running="true"] .runner-leg-a {
+  animation: runner-step 0.35s ease-in-out infinite alternate;
+}
+
+.court-runner[data-running="true"] .runner-leg-b {
+  animation: runner-step 0.35s ease-in-out infinite alternate-reverse;
+}
+
+.court-plinko-peg[data-hit="true"] {
+  background: #fce4ab !important;
+  box-shadow: 0 0 12px #efc989;
+  transform: scale(1.5);
+}
+
+.court-plinko-landed {
+  animation: plinko-catch 0.35s ease-out;
+}
+
+.court-roulette-ball-orbit {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #ceaf6750;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.court-roulette-ball-orbit:after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff4d9;
+  box-shadow: 0 0 5px #fff4d966;
+}
+
+.court-roulette-ball-orbit[data-spinning="true"] {
+  animation: roulette-ball 3.3s cubic-bezier(0.13, 0.7, 0.2, 1) both;
+}
+
+.court-roulette-ball-orbit[data-spinning="false"]:after {
+  top: 14px;
+  transition: top 0.22s ease-out;
+}
+
+.court-risk-card .vm-risk-coin:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 5px solid #8f6a34;
+  transform: translateZ(-3px);
+}
+
+.court-risk-card .vm-risk-coin:after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -13px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0007;
+  filter: blur(3px);
+}
+
+.court-wheel-pointer {
+  transform-origin: center top;
+}
+
+.court-wheel-pointer[data-spinning="true"] {
+  animation: wheel-pointer 0.16s ease-in-out infinite alternate;
+}
+
+.court-wheel-body {
+  position: relative;
+}
+
+.court-wheel-body[data-material="luxury"] {
+  box-shadow:
+    0 0 0 5px #ac814d44,
+    0 0 0 9px #6f50202b,
+    inset 0 0 25px #0008;
+}
+
+.court-wheel-body[data-material="broke"] {
+  filter: saturate(0.2);
+}
+
+.court-wheel-body[data-material="chastity"] {
+  box-shadow:
+    0 0 0 5px #b7a3d13b,
+    inset 0 0 30px #0007;
+}
+
+.court-wheel-result {
+  animation: court-stamp 0.4s ease-out;
+}
+
+.court-drain-transfer {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 65px 1fr;
+  align-items: center;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #d1a97138;
+  border-radius: 14px;
+  background: #0e0911;
+  overflow: hidden;
+}
+
+.court-drain-transfer > div {
+  text-align: center;
+  font-size: 11px;
+  color: #b6a1b4;
+}
+
+.court-drain-transfer strong {
+  display: block;
+  color: #f0d597;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.court-drain-stream {
+  position: relative;
+  height: 32px;
+}
+
+.court-drain-stream:before {
+  content: "";
+  position: absolute;
+  inset: 15px 0;
+  background: linear-gradient(90deg, #c6447a88, #f4ce88);
+}
+
+.court-drain-stream i {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f4ce88;
+  box-shadow: 0 0 8px #e6b267;
+  animation: drain-transfer 1.05s ease-in-out both;
+  animation-delay: var(--delay);
+}
+
+.court-drain-transfer[data-settled="true"] {
+  border-color: #e2bc7477;
+}
+
+.court-drain-transfer[data-settled="true"] .court-drain-stream i {
+  opacity: 0;
+  animation: none;
+}
+
+.court-number-choice {
+  position: relative;
+  overflow: hidden;
+}
+
+.court-number-choice[data-selected="true"] {
+  box-shadow: inset 0 0 0 1px #e0bd72;
+}
+
+.court-number-reveal {
+  animation: court-stamp 0.35s ease-out;
+}
+
+.court-claim-seal {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  vertical-align: middle;
+  margin-right: 8px;
+  color: #e9c989;
+}
+
+.court-highlow-cards {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.court-highlow-card {
+  width: 94px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.court-highlow-arrow {
+  color: #b69764;
+  font-size: 22px;
+}
+
+.court-sequence-keys {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.court-sequence-key {
+  border: 1px solid #ad925a38;
+  border-radius: 10px;
+  padding: 10px 15px;
+  background: #1a101a;
+  color: #746570;
+  box-shadow: 0 3px 0 #08040a;
+}
+
+.court-sequence-key[data-next="true"] {
+  color: #f0d08d;
+  border-color: #cfb06e;
+  background: #382235;
+}
+
+.court-pet-repeat-seals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.court-pet-repeat-seals span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #b39a6540;
+  border-radius: 50%;
+  color: #75677a;
+  font-size: 11px;
+}
+
+.court-pet-repeat-seals span[data-complete="true"] {
+  background: #b0883822;
+  color: #e6ca88;
+  border-color: #d4b476;
+}
+
+.court-jigsaw-envelope {
+  position: relative;
+  border-color: #c5a56844 !important;
+  background: linear-gradient(145deg, #261721, #0e0a11) !important;
+}
+
+.court-jigsaw-envelope:before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  border: 1px solid #bd975717;
+  border-radius: 18px;
+}
+
+.court-click-target:active {
+  box-shadow: 0 0 0 12px #efc16c18 !important;
+}
+
+.court-stage-image {
+  animation: court-caption 0.45s ease-out;
+}
+
+.court-assigned-order {
+  border-left: 3px solid #cfa968 !important;
+  animation: court-caption 0.4s ease-out;
+}
+
+.court-duel-seal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin: 16px 0;
+  color: #c7a96d;
+}
+
+.court-duel-seal .court-glyph {
+  height: 40px;
+  width: 40px;
+}
+
+.court-duel-seal span {
+  font-family: Georgia, serif;
+  font-size: 16px;
+}
+
+.court-duel-reveal {
+  animation: court-caption 0.4s ease-out;
+}
+
+@keyframes court-caption {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes court-stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes court-hit {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes royal-approach {
+  from {
+    left: calc(100% - 92px);
+  }
+  to {
+    left: 88px;
+  }
+}
+
+@keyframes royal-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes die-tumble {
+  0% {
+    transform: translateY(0) rotate(-10deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(14deg);
+  }
+  100% {
+    transform: translateY(0) rotate(-10deg);
+  }
+}
+
+@keyframes die-settle {
+  from {
+    transform: translateY(-8px) rotate(8deg);
+  }
+  to {
+    transform: translateY(0) rotate(-6deg);
+  }
+}
+
+@keyframes patience-sway {
+  0%,
+  100% {
+    transform: translateX(-17px);
+  }
+  50% {
+    transform: translateX(17px);
+  }
+}
+
+@keyframes runner-step {
+  from {
+    transform: rotate(-18deg);
+  }
+  to {
+    transform: rotate(18deg);
+  }
+}
+
+@keyframes plinko-catch {
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes roulette-ball {
+  from {
+    transform: rotate(1440deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes wheel-pointer {
+  to {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes drain-transfer {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  20% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(58px);
+  }
+}
+
+@media (max-width: 1023px) {
+  .court-games-panel .court-reaction-portrait {
+    max-width: 180px;
+    min-height: 0;
+    margin-inline: auto;
+  }
+  .court-games-panel .court-reaction-portrait .court-portrait-caption {
+    font-size: 10px;
+    padding: 5px;
+    bottom: 6px;
+    inset-inline: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .court-patience-scene {
+    grid-template-columns: 110px 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+  .court-patience-readout strong {
+    font-size: 34px;
+  }
+  .court-reaction-portrait--compact {
+    max-width: 110px;
+  }
+  .court-race-lane {
+    height: 52px;
+  }
+  .court-highlow-card {
+    width: 76px;
+    height: 98px;
+  }
+  .court-quantity button {
+    min-width: 28px;
+  }
+  .royal-corridor {
+    height: 245px;
+  }
+  .royal-walker {
+    width: 64px;
+    height: 82px;
+  }
+  .royal-wave-caption {
+    font-size: 10px;
+  }
+  .court-die {
+    width: 46px;
+    height: 46px;
+    gap: 4px;
+    padding: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-flip-inner,
+  .court-die,
+  .court-portrait-caption,
+  .royal-impact,
+  .royal-arrived-gift,
+  .court-result-seal,
+  .court-jewelry-lid,
+  .court-jewelry-prize,
+  .patience-pendulum:after,
+  .runner-leg,
+  .court-roulette-ball-orbit,
+  .court-wheel-pointer,
+  .court-drain-stream i,
+  .court-number-reveal,
+  .court-stage-image,
+  .court-assigned-order,
+  .court-duel-reveal,
+  .court-writing-seal,
+  .crown-pair-track > span {
+    animation: none !important;
+    transition: none !important;
+  }
+  .royal-walker {
+    animation: none !important;
+    left: calc(100% - 92px);
+  }
+  .royal-wave-time span {
+    animation-timing-function: steps(8, end);
+  }
+  .court-drain-stream i {
+    display: none;
+  }
+}
+
+.court-favor-card {
+  height: 140px;
+  min-height: 0 !important;
+}
+
+.court-favor-card .seal-front {
+  font-family: inherit;
+}
+
+.court-favor-card .seal-front > .court-glyph {
+  max-width: 38px;
+  max-height: 38px;
+}
+
+.court-wait-stage {
+  border-color: #b0906338 !important;
+}
+
+.court-wait-stage:after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid #d7ba731c;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+@media (max-width: 480px) {
+  .court-favor-card {
+    height: 105px;
+  }
+  .court-favor-card .seal-corner {
+    display: none;
+  }
+}
+
+.court-furnace-chamber {
+  position: relative;
+  padding: 26px 12px;
+  border: 1px solid #9b6d4138;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 50% 75%, #bc542718, transparent 65%), #0f0b0c;
+  overflow: hidden;
+}
+
+.court-furnace-chamber:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 -18px 25px -20px #d1843b00;
+  transition: box-shadow 0.7s;
+}
+
+.court-furnace-chamber[data-phase="burning"]:after {
+  box-shadow: inset 0 -18px 25px -20px #f3a450;
+}
+
+.court-furnace-chamber[data-phase="ash"] {
+  background:
+    radial-gradient(ellipse at 50% 90%, #8f7a6122, transparent 60%), #0f0b0c;
+}
+
+.court-double-seal {
+  animation: court-stamp 0.3s ease-out;
+}
+
+.court-double-seal[data-pending="true"] {
+  animation: court-seal-turn 0.6s linear infinite;
+}
+
+@keyframes court-seal-turn {
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .court-double-seal {
+    animation: none !important;
+  }
+}

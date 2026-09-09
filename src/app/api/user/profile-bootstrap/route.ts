@@ -16,7 +16,7 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function normalizeTwitterHandle(metadata: any): string {
+function normalizeTwitterHandle(metadata: Record<string, unknown> | null | undefined): string {
   const meta = metadata ?? {};
   const candidate =
     meta.screen_name ??
@@ -63,11 +63,11 @@ export async function POST(request: Request) {
 
   if (existing) {
     // Existing user: update twitter_handle if changed, login time. NEVER auto-rename username.
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       last_login_at: now,
       updated_at: now,
     };
-    if (rawTwitterHandle && rawTwitterHandle !== (existing as any).twitter_handle) {
+    if (rawTwitterHandle && rawTwitterHandle !== existing.twitter_handle) {
       updates.twitter_handle = rawTwitterHandle;
     }
     await supabase
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   }
 
   // Create the profile with the unique site username + store the X handle separately
-  const insertData: any = {
+  const insertData = {
     affection: 0,
     avatar_url: body?.avatarUrl ?? null,
     coins: 100,

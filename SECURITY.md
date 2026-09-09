@@ -10,7 +10,7 @@
 ## Admin Authorization
 - Admins are defined exclusively by the `ADMIN_USER_IDS` environment variable (comma-separated Supabase auth user UUIDs).
 - All admin routes must go through `requireAdmin` / `requireAdminProfile` (from `@/lib/admin-guard`).
-- The static linter (`npm run test:security`) enforces that admin routes use the guard and that we don't regress to username-based or `is_admin` flag checks.
+- Admin routes must use the server guard; username and client-controlled `is_admin` flags are not authorization. The isolated security checks cover the economy and access paths described below.
 
 ## Economy / Progression Protection
 - Database triggers (`security-hardening.sql`):
@@ -30,8 +30,8 @@
 - Admin analytics routes and public security-definer functions explicitly exclude it.
 
 ## How to Verify Security
-1. `npm run test:security` (static checks + expects certain files to be clean).
-2. `npm run test:security:http` after `npm run start` (tests that admin routes reject unauthenticated requests and public routes don't leak sensitive fields/emails).
+1. `npm run test:security` (isolated route and PostgreSQL regression checks).
+2. `npm run test:security:http` only in an explicitly configured disposable test environment after `npm run start` (tests that admin routes reject unauthenticated requests and public routes don't leak sensitive fields/emails).
 3. Manually: log in as non-admin and attempt to call `/api/admin/give` etc. (should 401/403).
 
 ## Past Incidents
@@ -46,3 +46,11 @@
 - Review any new game mechanics for "trust client for reward value" mistakes.
 
 Last reviewed: 2026-06-14 (Grok security pass)
+
+## Safe local checks (September 2026)
+
+`npm run test:security` runs isolated route checks and the actual economy migration in an in-memory PostgreSQL engine. It needs no server, credentials or external database. `npm test` also runs the existing game/content regression scripts.
+
+`npm run test:security:integration` and `test:security:http` are explicitly destructive test-environment checks. They no longer load `.env.local`. They require `ALLOW_TEST_DB_WRITES=yes`, `SECURITY_TEST_SUPABASE_URL`, `SECURITY_TEST_SERVICE_ROLE_KEY`, `SECURITY_TEST_ANON_KEY` and `SECURITY_TEST_CONFIRM_HOST` matching the disposable database host. Use a local app server configured for that same test database. Never use production credentials or a real account cookie.
+
+Apply versioned migrations before deploying dependent API code. See supabase/README.md. The admin Economy health panel reports failures from the migrated command paths; it does not automatically replay a financial action.

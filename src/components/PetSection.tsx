@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CourtGlyph, SealFaces, WritingLine } from "@/components/court/CourtVisuals";
 import { useEffect, useRef, useState } from "react";
 import {
   formatPetThroneAmount,
@@ -739,6 +740,7 @@ export function PetSection({
   const [worshipAmountInput, setWorshipAmountInput] = useState("");
   const [worshipComplimentInput, setWorshipComplimentInput] = useState("");
   const [perfectInput, setPerfectInput] = useState("");
+  const [syncedThroneProof, setSyncedThroneProof] = useState("");
   const [selectedThroneAmount, setSelectedThroneAmount] = useState<number>(PET_THRONE_AMOUNTS[0]);
   const [throneProofError, setThroneProofError] = useState("");
   const [throneProofImage, setThroneProofImage] = useState("");
@@ -1128,14 +1130,13 @@ export function PetSection({
     };
   }, [evilWaitTask?.waitCountdownEndsAt, evilWaitTask?.waitEndsAt, evilWaitTask?.waitState]);
 
-  useEffect(() => {
-    if (throneTask.throneAmount && throneTask.throneAmount > 0) {
-      setSelectedThroneAmount(throneTask.throneAmount);
-    }
-
+  const throneProofKey = JSON.stringify([throneTask.throneAmount,throneTask.throneProofImage]);
+  if (syncedThroneProof !== throneProofKey) {
+    setSyncedThroneProof(throneProofKey);
+    if (throneTask.throneAmount && throneTask.throneAmount > 0) setSelectedThroneAmount(throneTask.throneAmount);
     setThroneProofImage(throneTask.throneProofImage ?? "");
     setThroneProofError("");
-  }, [throneTask.throneAmount, throneTask.throneProofImage]);
+  }
 
   function handlePerfectInput(value: string, sentence: string) {
     if (!writingPreviewStartsWith(sentence, value)) {
@@ -1642,7 +1643,7 @@ export function PetSection({
                         className="block select-none"
                         onContextMenu={(event) => event.preventDefault()}
                       >
-                        {task.sentence}
+                        <WritingLine text={task.sentence ?? ""} value={confessionInput}/>
                       </span>
                       </p>
                       <div className="h-2 overflow-hidden rounded-full bg-black/70">
@@ -1654,6 +1655,7 @@ export function PetSection({
                       <p className="text-xs font-bold text-red-100">
                         {task.confessionCount ?? 0}/5 exact repetitions
                       </p>
+                      <div className="court-pet-repeat-seals" aria-label="Completed repetitions">{[1,2,3,4,5].map(n=><span data-complete={(task.confessionCount ?? 0)>=n} key={n}>{(task.confessionCount ?? 0)>=n ? "✓" : n}</span>)}</div>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={disabled || coolingDown || task.status === "approved" || actionPending}
@@ -1689,7 +1691,7 @@ export function PetSection({
                         className="block select-none"
                         onContextMenu={(event) => event.preventDefault()}
                       >
-                        {task.sentence}
+                        <WritingLine text={task.sentence ?? ""} value={oathInput}/>
                       </span>
                       </p>
                       <div className="h-2 overflow-hidden rounded-full bg-black/70">
@@ -1701,6 +1703,7 @@ export function PetSection({
                       <p className="text-xs font-bold text-red-100">
                         {task.oathCount ?? 0}/{PET_OWNERSHIP_OATH_REPEAT_COUNT} exact repetitions
                       </p>
+                      <div className="court-pet-repeat-seals" aria-label="Completed repetitions">{Array.from({length:PET_OWNERSHIP_OATH_REPEAT_COUNT},(_,i)=>i+1).map(n=><span data-complete={(task.oathCount ?? 0)>=n} key={n}>{(task.oathCount ?? 0)>=n ? "✓" : n}</span>)}</div>
                       <input
                         className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={disabled || coolingDown || task.status === "approved" || actionPending}
@@ -1816,7 +1819,7 @@ export function PetSection({
                         onCopy={(event) => event.preventDefault()}
                         onCut={(event) => event.preventDefault()}
                       >
-                        {sentence}
+                        <WritingLine text={sentence} value={perfectInput} complete={task.status === "approved"}/>
                       </p>
                       <p className="text-sm" aria-label="attempts remaining">
                         {Array.from({ length: Math.max(0, task.attemptsRemaining ?? 1) })
@@ -1864,9 +1867,7 @@ export function PetSection({
                             <div className="flex flex-wrap items-start justify-between gap-3">
                               <div>
                                 <p className="text-sm text-zinc-400">Current number</p>
-                                <p className="mt-1 text-5xl font-black text-white">
-                                  {task.currentNumber ?? "?"}
-                                </p>
+                                <div className="court-highlow-cards" role="img" aria-label={`Current number ${task.currentNumber ?? "unknown"}. ${task.resultOutcome ? `Last draw ${task.resultNumber}.` : "Next card hidden."}`}><div className="court-highlow-card"><SealFaces open>{task.currentNumber ?? "?"}</SealFaces></div><span className="court-highlow-arrow">→</span><div className="court-highlow-card" key={String(task.resultNumber)+String(task.highLowRoundAvailableAt)}><SealFaces open={Boolean(task.resultOutcome)}>{task.resultNumber ?? "?"}</SealFaces></div></div>
                               </div>
                               <div className="min-w-[16rem] rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
                                 <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">Last result</p>
@@ -2023,7 +2024,7 @@ export function PetSection({
                         (task.waitState === "countdown" &&
                           task.waitCountdownEndsAt &&
                           new Date(task.waitCountdownEndsAt).getTime() <= now)) && (
-                        <div className="relative mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-red-200/15 bg-black">
+                        <div className="court-wait-stage relative mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-red-200/15 bg-black">
                           <Image
                             alt="Evil wait"
                             className="object-cover"
@@ -2130,6 +2131,7 @@ export function PetSection({
                           So close. Did you really think it would be that easy?
                         </p>
                       )}
+                      <div className="court-sequence-keys" aria-hidden="true">{["a","d"].map(k=><span className="court-sequence-key" key={k} data-next={(task.falseHopeExpectedKey ?? "a") === k}>{k.toUpperCase()}</span>)}</div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {(["a", "d"] as const).map((key) => (
                           <button
@@ -2171,7 +2173,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`flex min-h-[6.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:min-h-[8rem] sm:rounded-2xl md:min-h-[9.5rem] ${
+                              className={`seal-card-button court-favor-card flex min-h-[6.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:min-h-[8rem] sm:rounded-2xl md:min-h-[9.5rem] ${
                                 picked && task.favorResult === "win"
                                   ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
                                   : picked
@@ -2196,17 +2198,7 @@ export function PetSection({
                               type="button"
                             >
                               <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
-                              <span aria-hidden="true" className="flex flex-col items-center justify-center leading-none text-pink-50/90">
-                                {!revealed ? (
-                                  "?"
-                                ) : (
-                                  label.split("").map((letter, letterIndex) => (
-                                    <span className="block" key={`${label}-${letter}-${letterIndex}`}>
-                                      {letter}
-                                    </span>
-                                  ))
-                                )}
-                              </span>
+                              <SealFaces open={revealed && (picked || !favorRevealing)} matched={revealed && picked && winning}><CourtGlyph symbol={winning ? "crown" : "seal"}/><span className="text-[9px] font-semibold tracking-normal">{label}</span></SealFaces>
                             </button>
                           );
                         })}
@@ -2289,7 +2281,7 @@ export function PetSection({
                           : "???"} clicks
                       </p>
                       <button
-                        className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="court-click-target mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={disabled || actionPending || task.status === "approved"}
                         onClick={onPetDailyClick}
                         type="button"

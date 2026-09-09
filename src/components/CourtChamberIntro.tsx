@@ -5,7 +5,7 @@ type ChamberPage = Exclude<DashboardPage, "home">;
 
 const chamberCopy: Record<ChamberPage, { code: string; eyebrow: string; title: string; description: string }> = {
   tribute: { code: DASHBOARD_PAGE_CODES.tribute, eyebrow: "You know why you're here", title: "Pay Your Tribute", description: "Choose the amount. Principessa will decide whether it is enough." },
-  tasks: { code: DASHBOARD_PAGE_CODES.tasks, eyebrow: "She gave you instructions", title: "Your Tasks", description: "Finish what she assigned. Excuses do not count as proof." },
+  tasks: { code: DASHBOARD_PAGE_CODES.tasks, eyebrow: "She gave you instructions", title: "Games", description: "Finish what she assigned. Excuses do not count as proof." },
   wheels: { code: DASHBOARD_PAGE_CODES.wheels, eyebrow: "Her hand on the wheel", title: "Gamble & Wheels", description: "Spin if you dare. Whatever it lands on, you owe her." },
   pet: { code: DASHBOARD_PAGE_CODES.pet, eyebrow: "Remember what you are", title: "Pet Training", description: "Obedience is tracked. Progress is noticed. Disappointing her is remembered." },
   debt: { code: DASHBOARD_PAGE_CODES.debt, eyebrow: "You agreed to this", title: "What You Owe", description: "Every coin, deadline and missed payment stays here until the balance is cleared." },
@@ -104,25 +104,8 @@ export function CourtChamberIntro({ page }: { page: ChamberPage }) {
   const copy = chamberCopy[page];
   const moment = characterMoments[page];
 
-  return (
-    <section className="relative isolate overflow-hidden border-x border-b border-[#c89a55]/15 bg-[#0a0608] px-5 py-7 sm:px-8 sm:py-9 lg:min-h-[19rem]">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_88%_15%,rgba(190,24,93,.13),transparent_28%),linear-gradient(105deg,rgba(217,169,91,.025),transparent_45%)]" />
-      <div className="relative z-20 flex items-start gap-4 sm:gap-7 lg:max-w-[48%]">
-        <span className="mt-1 font-serif text-3xl text-[#d7ad69]/25 sm:text-4xl">{copy.code}</span>
-        <div className="min-w-0 border-l border-[#c89a55]/20 pl-4 sm:pl-7">
-          <p className="text-[8px] font-black uppercase tracking-[.3em] text-pink-200/40">{copy.eyebrow}</p>
-          <h1 className="mt-2 font-serif text-3xl leading-none text-[#fff0d2] sm:text-4xl">{copy.title}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">{copy.description}</p>
-        </div>
-      </div>
-
-      <div className="relative mt-6 h-[19rem] overflow-hidden border border-[#c89a55]/12 bg-[radial-gradient(circle_at_55%_20%,rgba(190,24,93,.14),transparent_42%),rgba(0,0,0,.18)] lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:h-auto lg:w-[50%] lg:border-y-0 lg:border-r-0">
-        <div className="absolute inset-x-5 bottom-5 top-[62%] border border-[#c89a55]/20 bg-[linear-gradient(180deg,rgba(59,12,34,.86),rgba(8,4,6,.96))] shadow-[0_-18px_45px_rgba(0,0,0,.42)]">
-          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#e3b86d]/45 to-transparent" />
-          <p className="absolute bottom-3 right-4 max-w-[75%] text-right font-serif text-[11px] italic leading-4 text-[#d7ad69]/45">{moment.caption}</p>
-        </div>
-        <Image alt={moment.alt} className={`relative z-10 object-contain ${moment.imageClassName}`} fill quality={82} sizes="(min-width: 1024px) 50vw, 100vw" src={moment.src} />
-      </div>
-    </section>
-  );
+  return <section className="relative flex min-h-28 items-center justify-between gap-4 overflow-hidden rounded-xl border border-[#c89a55]/20 bg-[#11070d] px-5 py-4">
+    <div className="relative z-10 min-w-0 flex-1"><p className="text-xs text-[#d7ad69]">{copy.eyebrow}</p><h1 className="mt-1 font-serif text-3xl text-[#fff0d2]">{copy.title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">{copy.description}</p></div>
+    <div className="relative hidden h-28 w-24 shrink-0 sm:block"><Image alt={moment.alt} className="object-contain object-top" fill sizes="96px" src={moment.src} /></div>
+  </section>;
 }

@@ -1,4 +1,9 @@
 "use client";
+import { visibleGalleryItems, secretGalleryItem, sacrificeGalleryItems } from "@/lib/gallery-catalog";
+import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
+import { postEconomyAction } from "@/lib/economy-client";
+import { CourtNextAction } from "@/components/CourtNextAction";
+
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -32,6 +37,7 @@ import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
 import {
   RecentTributesTicker,
+  RecentCaseOpenings,
   type RecentTribute,
   type TopInventory,
 } from "@/components/RecentTributesTicker";
@@ -64,6 +70,7 @@ const MoneyShopPanel = dynamic(() => import("@/components/MoneyShopPanel").then(
 const RotatingShop = dynamic(() => import("@/components/RotatingShop").then((module) => module.RotatingShop), { loading: VaultPanelLoading });
 const RunwayPanel = dynamic(() => import("@/components/RunwayPanel").then((module) => module.RunwayPanel), { loading: VaultPanelLoading });
 const TaskList = dynamic(() => import("@/components/TaskList").then((module) => module.TaskList), { loading: VaultPanelLoading });
+const TransactionHistory = dynamic(() => import("@/components/TransactionHistory").then(m => m.TransactionHistory), {loading: VaultPanelLoading});
 const TitleCollection = dynamic(() => import("@/components/TitleCollection").then((module) => module.TitleCollection), { loading: VaultPanelLoading });
 const TributePanel = dynamic(() => import("@/components/TributePanel").then((module) => module.TributePanel), { loading: VaultPanelLoading });
 
@@ -260,135 +267,6 @@ import type {
   TaskItem,
 } from "@/lib/types";
 
-const visibleGalleryItems: GalleryItem[] = [
-  {
-    id: "common-velvet-arrival",
-    title: "Dollar Rain",
-    rarity: "Common",
-    unlockCost: 500,
-    tag: "Pole Dancer",
-    image: "/gallery/common-1.webp",
-    unlocked: false,
-  },
-  {
-    id: "common-midnight-maid",
-    title: "Leather Eclipse",
-    rarity: "Common",
-    unlockCost: 500,
-    tag: "Rebel",
-    image: "/gallery/common-2.webp",
-    unlocked: false,
-  },
-  {
-    id: "common-executive-glare",
-    title: "Golden Lust",
-    rarity: "Common",
-    unlockCost: 500,
-    tag: "Gorgeous",
-    image: "/gallery/common-3.webp",
-    unlocked: false,
-  },
-  {
-    id: "common-rose-vault",
-    title: "Silk & Vintage",
-    rarity: "Common",
-    unlockCost: 500,
-    tag: "Pantyhose",
-    image: "/gallery/common-4.webp",
-    unlocked: false,
-  },
-  {
-    id: "rare-loyal-glimpse",
-    title: "Crimson Veil",
-    rarity: "Rare",
-    moodRequired: 20,
-    tag: "Tease",
-    image: "/gallery/rare-1.webp",
-    unlocked: false,
-  },
-  {
-    id: "rare-private-smile",
-    title: "Campus Craving",
-    rarity: "Rare",
-    moodRequired: 25,
-    tag: "Tsundere",
-    image: "/gallery/rare-2.webp",
-    unlocked: false,
-  },
-  {
-    id: "rare-purple-obsession",
-    title: "Gym Goddess",
-    rarity: "Rare",
-    moodRequired: 40,
-    tag: "Goddess",
-    image: "/gallery/rare-3.webp",
-    unlocked: false,
-  },
-  {
-    id: "rare-golden-approval",
-    title: "Midnight Kitten",
-    rarity: "Rare",
-    moodRequired: 50,
-    tag: "Neko",
-    image: "/gallery/rare-4.webp",
-    unlocked: false,
-  },
-  {
-    id: "divine-throne-room",
-    title: "Sinful V",
-    rarity: "Divine",
-    moodRequired: 60,
-    tag: "Shy Kitten",
-    image: "/gallery/divine-1.webp",
-    unlocked: false,
-  },
-  {
-    id: "divine-goddess-mood",
-    title: "Leopard Fever",
-    rarity: "Divine",
-    moodRequired: 70,
-    tag: "Pouting",
-    image: "/gallery/divine-2.webp",
-    unlocked: false,
-  },
-  {
-    id: "divine-final-favor",
-    title: "Naughty Present",
-    rarity: "Divine",
-    moodRequired: 80,
-    tag: "Gift",
-    image: "/gallery/divine-3.webp",
-    unlocked: false,
-  },
-  {
-    id: "divine-velvet-throne",
-    title: "Witch's Desire",
-    rarity: "Divine",
-    moodRequired: 90,
-    tag: "Naughty",
-    image: "/gallery/divine-4.webp",
-    unlocked: false,
-  },
-];
-
-const secretGalleryItem: GalleryItem = {
-  id: "secret-defnes-final-favor",
-  title: "Principessa's Final Favor",
-  rarity: "Secret",
-  moodRequired: 100,
-  tag: "Luxury",
-  image: "/gallery/secret-1.webp",
-  unlocked: false,
-};
-
-const sacrificeGalleryItems: GalleryItem[] = Array.from({ length: 10 }, (_, index) => ({
-  id: `sacrifice-${index + 1}`,
-  title: `Sacrifice Offering ${index + 1}`,
-  rarity: "Sacrifice",
-  tag: "Sacrifice Collection",
-  image: `/gallery/sacrifice-${index + 1}.webp`,
-  unlocked: false,
-}));
 const SHRINE_MEMORY_SEEN_STORAGE_KEY = "vault-mistress:shrine-memory-seen:v1";
 const PROFILE_HEADER_COSMETIC_TYPE_ORDER: CosmeticType[] = [
   "profile-border",
@@ -1786,7 +1664,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       if (idleId !== null) window.cancelIdleCallback(idleId);
       if (timer !== null) globalThis.clearTimeout(timer);
     };
-  }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [authBootstrapped, authUserId, isGuestMode, isLoggedIn, isPreviewMode]);
   const [username, setUsername] = useState("@littledevotee");
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [, setShowDisplayNameSetup] = useState(false);
@@ -1830,7 +1708,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [streakFreezes, setStreakFreezes] = useState(2);
   const [isStreakRansomPending, setIsStreakRansomPending] = useState(false);
   const [courtSealPendingBoard, setCourtSealPendingBoard] = useState<CourtSealBoard | null>(null);
-  const [returnCard, setReturnCard] = useState<{ changes: Array<{ label: string; href: string }> } | null>(null);
+  const [returnCard, setReturnCard] = useState<{ userId?: string | null; changes: Array<{ label: string; href: string }> } | null>(null);
   const [lastLoyaltyAt, setLastLoyaltyAt] = useState<string | null>(null);
   const [tributeTotal, setTributeTotal] = useState(0);
   const [petTributeCode, setPetTributeCode] = useState<string | null>(null);
@@ -1971,16 +1849,15 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
 
   useEffect(() => {
     if (!authBootstrapped || !isLoggedIn || isGuestMode || isPreviewMode) {
-      setReturnCard(null);
       return;
     }
     let cancelled = false;
     void fetch("/api/user/return-card", { cache: "no-store" })
       .then((response) => response.json() as Promise<{ card?: { changes: Array<{ label: string; href: string }> } | null }>)
-      .then((result) => { if (!cancelled) setReturnCard(result.card ?? null); })
+      .then((result) => { if (!cancelled) setReturnCard(result.card ? {...result.card,userId:authUserId} : null); })
       .catch(() => { if (!cancelled) setReturnCard(null); });
     return () => { cancelled = true; };
-  }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode]);
+  }, [authBootstrapped, authUserId, isGuestMode, isLoggedIn, isPreviewMode]);
 
   // Existing avatar customization from before the presets feature existed
   // should be perceived as "Preset 1" - back it up into slot 0 automatically
@@ -2195,7 +2072,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     return () => { cancelled = true; };
   }, [authBootstrapped]);
   useEffect(() => {
-    if (!authBootstrapped) return;
+    if (!authBootstrapped || !isLoggedIn || isGuestMode || isPreviewMode) return;
     let cancelled = false;
     void fetch("/api/user/pet-worship", { cache: "no-store" })
       .then((response) => response.json() as Promise<{ category?: "feet" | "ass" | "breasts"; imagePath?: string | null; unlocked?: boolean }>)
@@ -2206,16 +2083,16 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
       })
       .catch((error) => console.warn("Failed to load today's worship image", error));
     return () => { cancelled = true; };
-  }, [authBootstrapped]);
+  }, [authBootstrapped, isLoggedIn, isGuestMode, isPreviewMode]);
   const loadDrainLeaderboard = useCallback(() => {
-    if (isGuestMode) return;
+    if (!isLoggedIn || isGuestMode || isPreviewMode) return;
     void fetch("/api/user/drain-session", { cache: "no-store" })
       .then((response) => response.json() as Promise<{ leaderboard?: typeof drainLeaderboard }>)
       .then((payload) => {
         if (payload.leaderboard) setDrainLeaderboard(payload.leaderboard);
       })
       .catch((error) => console.warn("Failed to load drain session leaderboard", error));
-  }, [isGuestMode]);
+  }, [isLoggedIn, isGuestMode, isPreviewMode]);
   useEffect(() => {
     if (!authBootstrapped) return;
     loadDrainLeaderboard();
@@ -2371,15 +2248,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   // once the inventory has actually loaded, an equipped title whose item is no
   // longer held is taken off. This is what makes selling the plush remove the
   // title rather than leaving it worn but unearned.
-  useEffect(() => {
-    if (!equippedTitleId || crateInventory.length === 0) return;
-    const itemGated = new Set(getAllItemGatedTitleIds());
-    if (!itemGated.has(equippedTitleId)) return;
-    if (ownedTitleIdsWithItemGrants.includes(equippedTitleId)) return;
-
+  if (equippedTitleId && crateInventory.length > 0 && getAllItemGatedTitleIds().includes(equippedTitleId) && !ownedTitleIdsWithItemGrants.includes(equippedTitleId)) {
     setEquippedTitleId(getDefaultTitleId(tributeTotal));
     setIsTitleManuallySelected(false);
-  }, [crateInventory.length, equippedTitleId, ownedTitleIdsWithItemGrants, tributeTotal]);
+  }
   const spendBadge = getSpendBadge(lifetimeSpentCoins);
   const usernameStyle = {
     color: equippedUsernameColor?.color,
@@ -4066,6 +3938,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   useEffect(() => {
     const storedCategory = window.localStorage.getItem(CLICK_GAME_CATEGORY_STORAGE_KEY);
     if (isClickGameCategoryId(storedCategory)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate the saved browser preference after SSR
       setClickGameCategory(storedCategory);
     }
   }, []);
@@ -4079,6 +3952,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // itself (a useCallback), not directly here. Restructuring this data load risks
     // breaking real leaderboard fetch timing in production.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-when-panel-active data load, not a derivable value
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- start external leaderboard request with a loading indicator
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
 
@@ -4106,12 +3980,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (devotionRefreshBoundaryRef.current !== nextBoundaryIso) {
       devotionRefreshBoundaryRef.current = nextBoundaryIso;
-      void loadDevotionLeaderboard(devotionPeriod);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- start external leaderboard request with a loading indicator
+    void loadDevotionLeaderboard(devotionPeriod);
     }
   }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
 
   useEffect(() => {
     if (activePanel !== "home" || homeLeaderboardTab !== "devotion" || isGuestMode || isPreviewMode || !isLoggedIn) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- start external leaderboard request with a loading indicator
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, homeLeaderboardTab, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
 
@@ -5620,15 +5496,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       } as Profile;
     }
 
-    const response = await fetch("/api/user/profile-progress", {
-      body: JSON.stringify({
-        metadata,
-        nextProfile,
-        reason,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
+    const response = await postEconomyAction("/api/user/profile-progress", {metadata,nextProfile,reason});
     const result = (await response.json()) as { error?: string; profile?: Profile };
     const data = result.profile ?? null;
     const error = response.ok ? null : createApiError("/api/user/profile-progress", response, result);
@@ -7342,6 +7210,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       // Keep the freshly drained global XP/level visible immediately on the client.
       // Backend re-sync can arrive later through the normal poller without overwriting
       // the optimistic UI with briefly stale read-model data.
+      return result;
     } catch (error) {
       console.error("Level Drain failed", error);
       emitSoundEvent("error");
@@ -7998,12 +7867,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     });
 
     setActivePanel("profile");
-    setAvatarMistressReply("Preview Mode (test). Full inventory + cases seeded. Use Profile tab for avatar layers.");
+    setAvatarMistressReply("Welcome to the court. Explore your wardrobe, then sign in to begin your own progress.");
     resetViewportScroll();
   }, [resetViewportScroll, seedRichLocalTestData, setActivePanel, setAvatarMistressReply]);
 
   const handleLogout = async () => {
-    if (!isGuestMode) {
+    if (!isGuestMode && !isPreviewMode) {
       // Local scope: log out THIS device only. The default (global) revokes
       // every session the account has - the phone, the desktop, and the
       // sister site sharing this Supabase project - which is not what a
@@ -8089,11 +7958,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    const tributeGains: Record<number, number> = {
-      250: 1,
-      1000: 5,
-      5000: 30,
-    };
+    const tributeGains = COIN_TRIBUTE_AFFECTION;
     const affectionGain = getEventTributeAffection(tributeGains[amount] ?? 0);
 
     const nextAffection = Math.min(100, affection + affectionGain);
@@ -11409,7 +11274,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   >
                     {courtSealPendingBoard === "streak" ? "Sealing..." : "Seal streak"}
                   </button>
-                  {lastLoyaltyAt && Date.now() - new Date(lastLoyaltyAt).getTime() > 48 * 60 * 60 * 1000 && Date.now() - new Date(lastLoyaltyAt).getTime() <= 96 * 60 * 60 * 1000 ? (
+                  {lastLoyaltyAt && currentTime - new Date(lastLoyaltyAt).getTime() > 48 * 60 * 60 * 1000 && currentTime - new Date(lastLoyaltyAt).getTime() <= 96 * 60 * 60 * 1000 ? (
                     <button
                       className="rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-amber-50 transition hover:border-amber-300/45 hover:bg-amber-500/20 disabled:opacity-45"
                       disabled={isStreakRansomPending}
@@ -11474,7 +11339,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {petTasksCompletedToday.length} pet tasks cleared, +{petCoinsEarnedToday.toLocaleString()} coins earned today.
         </p>
       </div>
-    ) : activePanel === "home" && returnCard ? (
+    ) : activePanel === "home" && isLoggedIn && !isGuestMode && !isPreviewMode && returnCard?.userId === authUserId && returnCard ? (
       <div className="rounded-2xl border border-pink-300/15 bg-pink-500/10 px-3 py-2">
         <div className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/75">While you were away</div>
         <div className="mt-2 grid gap-1 text-xs text-pink-50/85 sm:grid-cols-2">
@@ -11512,7 +11377,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       <div className="rounded-full border border-pink-300/30 bg-pink-500/10 px-3 py-1 text-sm font-semibold text-pink-100">
         Greedy Mode
       </div>
-      <NotificationBell isAdmin={isAdminUser} isLoggedIn={isLoggedIn} />
+      <NotificationBell isAdmin={isAdminUser} isLoggedIn={isLoggedIn && !isGuestMode && !isPreviewMode} />
       {isAdminUser && (
         <>
           <Link
@@ -11612,6 +11477,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const currentWeeklyTaxCost = getPetWeeklyTaxCost(coins);
   const profileLeadership = getLeadershipRank(tributeTotal);
   const homeActions: HomeAction[] = [
+    { target: "tasks", label: "Games", action: "Earn your daily Coins", detail: "Claim your daily visit reward and choose a challenge." },
+    { target: "profile", label: "Wardrobe", action: "Create your look", detail: "Equip your outfits, choose a title and make your court record yours." },
     { target: "debt", label: "Debt Contracts", action: petDebtContract ? "View contract" : "Explore contracts",
       detail: petDebtContract ? "Review your terms, balance and next payment." : "Choose your terms. Put your pledge in writing." },
     { target: "wheels", label: "Gamble Hall", action: "Choose a table",
@@ -11624,7 +11491,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         : "Make an offering. Discover her memories." },
     { target: "moneyShop", label: "Money Shop", action: "Browse the shop",
       detail: "Spend Principessa Money on something worth keeping." },
-  ];
+  ].filter(item => (item.target !== "debt" || petDebtContract !== null) && (item.target !== "wheels" || coins >= 2500) && (item.target !== "moneyShop" || principessaMoney > 0)) as HomeAction[];
   const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
   const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
   const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
@@ -11638,6 +11505,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <AppShell
+        guestMode={isGuestMode || isPreviewMode}
         activePage={activePanel}
         coins={coins}
         items={dashboardNavItems}
@@ -11669,8 +11537,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </div>
         )}
         <TopLevelNav active="main" />
+        {isPreviewMode && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#c89a55]/25 bg-[#13090f] px-4 py-3 text-sm text-zinc-200"><p>Preview · Explore the court. Sign in to play and save your progress.</p><button className="court-button" onClick={() => void handleLogout()} type="button">Go to sign in</button></div>}
         <BirthdayCourtBanner />
         <DuelCallBanner />
+        {activePanel === "home" && <CourtNextAction coins={coins} tasks={tasks} userKey={authUserId ?? "preview"} onNavigate={setActivePanel} />}
         <div className="relative isolate">
           {activePanel === "home" ? (
             <CourtHomeStage
@@ -11687,8 +11557,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           ) : null}
           {activePanel !== "home" && activePanel !== "tribute" && activePanel !== "wheels" ? <CourtChamberIntro page={activePanel} /> : null}
-          <div className="relative z-30 -mt-px lg:mx-5 lg:-mt-10 [&>header]:shadow-[0_-22px_58px_rgba(0,0,0,.82)]">
+          <div className="relative z-30 mt-3">
             <ProfileHeader
+          compact={activePanel !== "profile"}
           actions={headerActions}
           avatarBorderPresentation={profileBorderPresentation}
           avatarSrc={characterEvolutionStage.image}
@@ -11801,13 +11672,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
-        <RecentTributesTicker
+        {activePanel === "crates" && <RecentCaseOpenings />}
+
+        {(activePanel === "home" || activePanel === "tribute") && <RecentTributesTicker
           currentUsername={effectiveDisplayName ?? username}
           topTributes={topTributes}
           tributes={recentTributes}
-          showRecentOpenings={activePanel === "crates"}
+          showRecentOpenings={false}
           usernameStyle={usernameStyle}
-        />
+        />}
 
         {null}
 
@@ -11951,6 +11824,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "collection" && (
             <GalleryGrid
+              userKey={authUserId ?? "guest"}
+              previewMode={isGuestMode || isPreviewMode}
               items={visibleGallery}
               petItems={addressAwarePetGalleryItems}
               petScore={petScore}
@@ -11973,10 +11848,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
               />
               <FindomWheels
+                previewMode={isPreviewMode || isGuestMode}
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
               />
               <TributeDuels
+                previewMode={isPreviewMode || isGuestMode}
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
               />
@@ -11987,13 +11864,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               <CourtGames
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
-                guestMode={isGuestMode}
+                guestMode={isGuestMode || isPreviewMode}
                 onReward={handleCourtGameReward}
               />
             </div>
           )}
           {activePanel === "tasks" && (
-            <div className="mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
+            <div className="court-jigsaw-envelope mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-black uppercase tracking-[0.2em] text-pink-100/80">🧩 Jigsaw</p>
@@ -12025,6 +11902,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "tasks" && (
             <TaskList
+              disabledReason={isPreviewRestricted ? "Sign in to play and save your rewards." : "Timeout active. This task is locked."}
               addressTerm={addressTerm}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
@@ -12115,6 +11993,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "moneyShop" && (
             <MoneyShopPanel
+              previewMode={isPreviewMode || isGuestMode}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               error={moneyShopError}
@@ -12188,6 +12067,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "profile" && (
             <div className="flex min-w-0 flex-col gap-6">
+              <TransactionHistory previewMode={isGuestMode || isPreviewMode} />
               <TitleCollection
                 disabled={isTimeoutActive || isPreviewRestricted}
                 equippedTitleId={equippedTitleId}
@@ -12944,6 +12824,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "debt" && (
             <DebtSection
+              previewMode={isGuestMode || isPreviewMode}
               canManageActiveDebtWhileTimedOut={isDebtOverdueTimeoutActive}
               disabled={isPreviewRestricted}
               isTimeoutActive={isTimeoutActive}

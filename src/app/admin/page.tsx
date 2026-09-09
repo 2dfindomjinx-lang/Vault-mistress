@@ -1,4 +1,5 @@
 "use client";
+import { EconomyReviewPanel } from "@/components/admin/EconomyReviewPanel";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -1864,6 +1865,7 @@ export default function AdminPage() {
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Admin Console</p>
             <h1 className="mt-1 text-xl font-black text-white">Vault Control Room</h1>
+            <EconomyReviewPanel />
           </div>
           <div className="flex flex-wrap gap-2">
                 <Link

@@ -247,6 +247,7 @@ export function RotatingShop({
   onEquipCosmetic,
   onPurchaseCosmetic,
 }: RotatingShopProps) {
+  const [previousItems, setPreviousItems] = useState(items);
   const [showPossibleItems, setShowPossibleItems] = useState(false);
   const [activeSlots, setActiveSlots] = useState<AnimatedSlotState[]>(() =>
     normalizeActiveItems(items).map((item) => createAnimatedSlotState(item)),
@@ -297,7 +298,8 @@ export function RotatingShop({
     return Array.from(groups.entries());
   }, [sortedPossibleItems]);
 
-  useEffect(() => {
+  if (previousItems !== items) {
+    setPreviousItems(items);
     const normalizedItems = normalizeActiveItems(items);
 
     setActiveSlots((previousSlots) => {
@@ -339,7 +341,7 @@ export function RotatingShop({
         };
       });
     });
-  }, [items]);
+  }
 
   useEffect(() => {
     const hasAnimatingSlot = activeSlots.some((slot) => slot.isAnimating && slot.next);
