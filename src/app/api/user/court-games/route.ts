@@ -122,9 +122,9 @@ export async function GET() {
     games: COURT_GAME_IDS.map((gameId) => {
       const row = rows.find((entry) => entry.task_id === gameId);
       return {
-        cooldownUntil: getDailyGmt3CooldownUntil(row?.claimed_at ?? null),
+        cooldownUntil: getDailyGmt3CooldownUntil(row?.completed_at ? row.claimed_at : null),
         gameId,
-        reward: row?.reward_coins ?? COURT_GAME_RULES[gameId].reward,
+        reward: row?.reward_coins ? row.reward_coins : COURT_GAME_RULES[gameId].reward,
       };
     }),
   });
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
     }
   }
   const cooldownUntil = getDailyGmt3CooldownUntil(
-    existingTask?.claimed_at ?? null,
+    existingTask?.completed_at ? existingTask.claimed_at : null,
   );
   if (cooldownUntil) {
     return Response.json(
@@ -222,49 +222,12 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "start") {
-    const previousSessionId = metadataString(
-      existingTask?.metadata,
-      "sessionId",
-    );
-    const previousStartedAt = metadataString(
-      existingTask?.metadata,
-      "sessionStartedAt",
-    );
-    const previousStartedMs = previousStartedAt
-      ? new Date(previousStartedAt).getTime()
-      : 0;
-    const hasReusableSession =
-      previousSessionId &&
-      previousStartedMs > 0 &&
-      Date.now() - previousStartedMs < ACTIVE_SESSION_MAX_AGE_MS;
-
-    // ONE ATTEMPT PER DAY, and abandoning is not a loophole. A session started
-    // earlier today that can no longer be resumed is a consumed attempt -
-    // otherwise "close the tab before the last round" turns every game into
-    // retry-until-perfect, which is exactly what the daily design forbids.
-    const sessionStartedToday = getDailyGmt3CooldownUntil(previousStartedAt);
-    if (!hasReusableSession && sessionStartedToday) {
-      return Response.json(
-        {
-          cooldownUntil: sessionStartedToday,
-          error: "You had your attempt today. Return tomorrow.",
-        },
-        { status: 429 },
-      );
-    }
-
-    const sessionId = hasReusableSession ? previousSessionId : randomUUID();
-    const sessionStartedAt = hasReusableSession
-      ? previousStartedAt
-      : new Date().toISOString();
-    const challengeSeed =
-      hasReusableSession &&
-      Number.isInteger(existingTask?.metadata?.challengeSeed)
-        ? Number(existingTask?.metadata?.challengeSeed)
-        : randomInt(0, 4294967296);
+    const sessionId = randomUUID();
+    const sessionStartedAt = new Date().toISOString();
+    const challengeSeed = randomInt(0, 4294967296);
     const metadata = {
-      challengeSeed,
       ...(existingTask?.metadata ?? {}),
+      challengeSeed,
       sessionId,
       sessionStartedAt,
       status: "active",
@@ -295,9 +258,7 @@ export async function POST(request: Request) {
     });
   }
 
-  // A reported failure consumes the day. The honest client calls this the
-  // moment a run dies; the same-day session block above backstops anyone who
-  // simply refuses to report.
+  // Record the failed attempt without consuming the daily reward.
   if (body.action === "fail") {
     const failSessionId = metadataString(existingTask?.metadata, "sessionId");
     if (!failSessionId || !body.sessionId || failSessionId !== body.sessionId) {
@@ -314,7 +275,7 @@ export async function POST(request: Request) {
       expectedTask: existingTask,
       taskPatch: {
         task_id: gameId,
-        claimed_at: now,
+        claimed_at: null,
         completed_at: null,
         reward_coins: 0,
         metadata: {
@@ -326,7 +287,7 @@ export async function POST(request: Request) {
     });
     if ("error" in result) return jsonError(result.error, result.status);
     return Response.json({
-      cooldownUntil: getDailyGmt3CooldownUntil(now),
+      cooldownUntil: null,
       failed: true,
       gameId,
     });
@@ -344,6 +305,7 @@ export async function POST(request: Request) {
   );
   const startedMs = sessionStartedAt ? new Date(sessionStartedAt).getTime() : 0;
   if (
+    existingTask?.metadata?.status !== "active" ||
     !storedSessionId ||
     !body.sessionId ||
     storedSessionId !== body.sessionId ||

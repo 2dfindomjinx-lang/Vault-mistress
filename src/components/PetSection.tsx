@@ -1882,7 +1882,7 @@ export function PetSection({
                                           : "text-white"
                                   }`}
                                 >
-                                  {task.lastResult ?? "No result yet."}
+                                  {task.lastResult?.replace(/\s*Next round is prepared server-side\.?/gi, "") ?? "No result yet."}
                                 </p>
                                 <p className="mt-2 text-sm text-zinc-400">
                                   {task.resultOutcome

@@ -1,3 +1,4 @@
+export const CROWN_MATCH_MAX_MISTAKES = 5;
 export const COURT_GAME_IDS = [
   "principessa-says",
   "crown-match",

@@ -96,6 +96,7 @@ function openError(result: { error?: string }) {
 }
 
 export async function POST(request: Request) {
+  const serverReceivedAtMs = Date.now();
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
@@ -111,6 +112,7 @@ export async function POST(request: Request) {
         lane?: number;
         mines?: number;
         requestedMultiplier?: number;
+        autoCashout?: number | null;
         rouletteBet?: string;
         roundId?: string;
       }
@@ -128,7 +130,7 @@ export async function POST(request: Request) {
 
   const finishWithProfile = async (extra: Record<string, unknown>) => {
     const { data: profileData } = await supabase.from("profiles").select(profileSelect).eq("id", user.id).single();
-    return Response.json({ ...extra, profile: profileData ?? null, serverNowMs: Date.now() });
+    return Response.json({ ...extra, profile: profileData ?? null, serverReceivedAtMs, serverNowMs: Date.now() });
   };
 
   const bet = Math.floor(Number(body.bet));
@@ -318,22 +320,19 @@ export async function POST(request: Request) {
   // ------------------------------------------------------------------ crash
   if (body.action === "crash-open") {
     if (!isValidBet(bet)) return jsonError("Bets run 100 to 5,000 coins.");
-    const crashPoint = sampleCrashPoint(roll());
-    // Give the response time to reach the browser before the round clock starts.
-    // This prevents network/database latency from consuming an invisible part
-    // of Her Patience before the player can see or control it.
-    const startsAtMs = Date.now() + 2_000;
-    const opened = await openRound(supabase, user.id, "crash", bet, {
-      crashPoint,
-      startsAt: new Date(startsAtMs).toISOString(),
+    const autoCashout = body.autoCashout == null ? null : Number(body.autoCashout);
+    if (autoCashout !== null && (!Number.isFinite(autoCashout) || autoCashout < 1.1 || autoCashout > 30)) return jsonError("Choose a take point from 1.10x to 30x.");
+    const { data, error } = await supabase.rpc("gamble_crash_open", {
+      p_user_id: user.id, p_wager: bet, p_crash_point: sampleCrashPoint(roll()),
+      p_auto_cashout: autoCashout === null ? null : Math.round(autoCashout * 100) / 100,
     });
-    if (opened.error || !opened.roundId) return openError(opened);
-    return finishWithProfile({ roundId: opened.roundId, startsAtMs });
+    if (error) return jsonError("The table is temporarily unavailable.", 503);
+    const result = (data ?? {}) as Record<string, unknown> & { error?: string; roundId?: string };
+    if (result.error || !result.roundId) return openError(result);
+    return finishWithProfile(result);
   }
 
-  // The client polls this while the round runs. The moment the server clock
-  // has passed the crash point, the round settles at zero and the truth is
-  // revealed - so the display can never keep climbing past a bust.
+  // Polls resolve an immutable target before exposing a final result.
   if (body.action === "crash-status") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
     const { data, error } = await supabase.rpc("gamble_crash_status", {
@@ -341,9 +340,10 @@ export async function POST(request: Request) {
       p_user_id: user.id,
     });
     if (error) return jsonError("The round status is unavailable.", 500);
-    const result = (data ?? {}) as { crashPoint?: number; crashed?: boolean; elapsedMs?: number; error?: string };
+    const result = (data ?? {}) as Record<string, unknown> & { error?: string; settled?: boolean };
     if (result.error) return jsonError("That round is over.", 409);
-    return Response.json(result);
+    if (result.settled) return finishWithProfile(result);
+    return Response.json({ ...result, serverReceivedAtMs, serverNowMs: Date.now() });
   }
 
   if (body.action === "crash-cashout") {
@@ -362,6 +362,7 @@ export async function POST(request: Request) {
       payout?: number;
       survived?: boolean;
     };
+    if (result.error === "round_starting") return jsonError("The round is about to begin.", 409);
     if (result.error === "round_closed") return jsonError("That round is over.", 409);
     if (result.error) return jsonError("The cashout failed.");
     return finishWithProfile(result);

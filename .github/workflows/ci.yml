@@ -20,3 +20,5 @@ jobs:
       - run: npm run test:ui
       - run: npm run build
       - run: npm run test:visual:browser
+      - run: npm run test:header:browser
+      - run: npm run test:gameplay:browser

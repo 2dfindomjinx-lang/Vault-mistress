@@ -41,9 +41,15 @@ const db = {
   from(table) {
     let operation = "read",
       payload,
-      filters = [];
+      filters = [],
+      collection = false;
     const q = {
       select() {
+        return q;
+      },
+      in(k, values) {
+        collection = true;
+        filters.push((r) => values.includes(r[k]));
         return q;
       },
       eq(k, v) {
@@ -94,7 +100,14 @@ const db = {
               row = { id: "audit-tx-" + rows.length, ...clone(payload) };
               rows.push(row);
             }
-            return { data: row ? clone(row) : null, error: null };
+            return {
+              data: collection
+                ? clone(rows.filter((r) => filters.every((f) => f(r))))
+                : row
+                  ? clone(row)
+                  : null,
+              error: null,
+            };
           })
           .then(resolve, reject);
       },
@@ -166,6 +179,13 @@ async function call(handler, body) {
 }
 (async () => {
   const challenges = load("src/lib/court-game-challenges.ts");
+  const clock = load("src/lib/gamble-clock.ts");
+  assert.equal(
+    clock.estimateGambleClock(0, 2400, 100000, 102200),
+    102300,
+    "Database time must not be mistaken for network latency",
+  );
+  assert.equal(clock.estimateGambleClock(0, 200, 100000, 100000), 100100);
   const c = challenges.createCourtChallenge(12);
   let ms = 0;
   const says = c.says.map((r) => ({
@@ -212,6 +232,38 @@ async function call(handler, body) {
     ),
     null,
   );
+  const wrongPair = [
+    c.cards[0].id,
+    c.cards.find((card) => card.symbol !== c.cards[0].symbol).id,
+  ];
+  function crownWithMistakes(count) {
+    const actions = [
+      ...Array.from({ length: count }, () => wrongPair).flat(),
+      ...pairs.map((action) => Number(action.action)),
+    ];
+    return actions.map((id, index) => ({
+      action: String(id),
+      atMs: (index + 1) * 500,
+    }));
+  }
+  assert.equal(
+    challenges.verifyCourtActions(
+      "crown-match",
+      12,
+      crownWithMistakes(4),
+      20000,
+    ).score,
+    6,
+  );
+  assert.equal(
+    challenges.verifyCourtActions(
+      "crown-match",
+      12,
+      crownWithMistakes(5),
+      20000,
+    ),
+    null,
+  );
   let guardTime = 0;
   const guard = c.targets.map((target, i) => ({
     action: target.threat ? "hit" : "wait",
@@ -225,6 +277,58 @@ async function call(handler, body) {
     challenges.verifyCourtActions("royal-guard", 12, undefined, guardTime),
     null,
   );
+  const court = load("src/app/api/user/court-games/route.ts");
+  const startAttempt = await call(court.POST, {
+    action: "start",
+    gameId: "crown-match",
+  });
+  assert.equal(startAttempt.status, 200);
+  const failedAttempt = await call(court.POST, {
+    action: "fail",
+    gameId: "crown-match",
+    sessionId: startAttempt.body.sessionId,
+  });
+  assert.equal(failedAttempt.body.cooldownUntil, null);
+  const afterFail = await (await court.GET()).json();
+  assert.ok(
+    afterFail.games.find((game) => game.gameId === "crown-match").reward > 0,
+    "Reload after failure must still advertise the normal reward",
+  );
+  const retryAttempt = await call(court.POST, {
+    action: "start",
+    gameId: "crown-match",
+  });
+  assert.equal(retryAttempt.status, 200);
+  assert.notEqual(retryAttempt.body.sessionId, startAttempt.body.sessionId);
+  assert.equal(
+    (
+      await call(court.POST, {
+        action: "fail",
+        gameId: "crown-match",
+        sessionId: startAttempt.body.sessionId,
+      })
+    ).status,
+    409,
+    "A late failure cannot close the new attempt",
+  );
+  const retryRow = state.user_tasks.find(
+    (row) => row.task_id === "crown-match",
+  );
+  retryRow.metadata.sessionStartedAt = new Date(
+    Date.now() - 40 * 60000,
+  ).toISOString();
+  assert.equal(
+    (await call(court.POST, { action: "start", gameId: "crown-match" })).status,
+    200,
+    "An expired attempt can be retried",
+  );
+  retryRow.claimed_at = retryRow.completed_at = new Date().toISOString();
+  assert.equal(
+    (await call(court.POST, { action: "start", gameId: "crown-match" })).status,
+    429,
+    "Claimed daily reward still blocks replay for Coins",
+  );
+  assert.equal(state.profiles[0].coins, 1000);
   const tasks = load("src/app/api/user/tasks/route.ts");
   const claims = load("src/app/api/user/task-claim/route.ts");
   for (const game of [

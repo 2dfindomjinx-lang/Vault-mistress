@@ -5,6 +5,7 @@ import {createCourtChallenge, CROWN_SYMBOLS, guardWaveDuration, type CourtAction
 import { ActionFigure, CourtGlyph, CourtPortrait, SealFaces } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  CROWN_MATCH_MAX_MISTAKES,
   COURT_GAME_IDS,
   COURT_GAME_RULES,
   type CourtGameId,
@@ -40,7 +41,7 @@ const GAME_CARD_COPY: Record<CourtGameId, { eyebrow: string; glyph: string; summ
   "crown-match": {
     eyebrow: "Six hidden pairs",
     glyph: "♕",
-    summary: "Turn over the court seals and match every royal pair with as few mistakes as possible.",
+    summary: "Six royal pairs. Five lives. Remember each seal before your chances run out.",
   },
   "royal-guard": {
     eyebrow: "Eighteen waves",
@@ -61,6 +62,7 @@ function formatCooldown(value: string | null, now: number) {
 export function CourtGames({ coins, disabled = false, guestMode = false, onReward }: CourtGamesProps) {
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [error, setError] = useState("");
+  const failureRequests = useRef(new Map<CourtGameId, Promise<void>>());
   const [loadingGameId, setLoadingGameId] = useState<CourtGameId | null>(null);
   const [statuses, setStatuses] = useState<GameStatus[]>(
     COURT_GAME_IDS.map((gameId) => ({ cooldownUntil: null, gameId, reward: COURT_GAME_RULES[gameId].reward })),
@@ -97,6 +99,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
         return;
       }
 
+      await failureRequests.current.get(gameId);
       const response = await fetch("/api/user/court-games", {
         body: JSON.stringify({ action: "start", gameId }),
         headers: { "Content-Type": "application/json" },
@@ -121,15 +124,10 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     }
   }, [guestMode]);
 
-  // A dead run consumes the day. Fire-and-forget on purpose: the lockout is
-  // also enforced server-side (a session started today cannot be restarted),
-  // so a lost request only delays the cooldown label, never the rule.
+  // Failed attempts can be retried; only a claimed reward starts the daily cooldown.
   const failGame = useCallback((gameId: CourtGameId, sessionId: string) => {
-    if (guestMode) {
-      setGuestClaimed((current) => (current.includes(gameId) ? current : [...current, gameId]));
-      return;
-    }
-    void fetch("/api/user/court-games", {
+    if (guestMode) return;
+    const failure = fetch("/api/user/court-games", {
       body: JSON.stringify({ action: "fail", gameId, sessionId }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
@@ -143,6 +141,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
         }
       })
       .catch(() => undefined);
+    failureRequests.current.set(gameId, failure);
   }, [guestMode]);
 
   const finishGame = useCallback(async (gameId: CourtGameId, sessionId: string, metrics: CourtGameMetrics) => {
@@ -197,11 +196,11 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
 
       {error && <p className="relative mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-100">{error}</p>}
 
-      {activeGame && activeProps ? (
+      {activeGame ? (
         <div className="relative mt-5">
-          {activeGame.gameId === "principessa-says" && <PrincipessaSays {...activeProps} />}
-          {activeGame.gameId === "crown-match" && <CrownMatch {...activeProps} />}
-          {activeGame.gameId === "royal-guard" && <RoyalGuard {...activeProps} />}
+          {activeGame.gameId === "principessa-says" && <PrincipessaSays {...activeProps!} />}
+          {activeGame.gameId === "crown-match" && <CrownMatch {...activeProps!} />}
+          {activeGame.gameId === "royal-guard" && <RoyalGuard {...activeProps!} />}
         </div>
       ) : (
         <div className="relative mt-5 grid gap-3 lg:grid-cols-3">
@@ -333,7 +332,7 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
   };
 
   return (
-    <GameStageShell onClose={onClose} title="Principessa Says" subtitle="Obey only when she says the words.">
+    <GameStageShell onClose={onClose} title="Principessa Says" subtitle="Her words. Your response.">
       {result ? (
         <GameResult failed={result === "failed"} onClose={onClose} reward={reward} score={`${score}/${rounds.length}`} />
       ) : (
@@ -360,7 +359,8 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
                     setTypingValue(event.target.value);
                     if (!round.shouldObey && event.target.value.length > 0) resolveRound(false);
                   }}
-                  placeholder="Type only if Principessa Says..."
+                  aria-label="Your response"
+                  placeholder="Your response…"
                   value={typingValue}
                 />
                 <button className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 font-black text-pink-50 disabled:opacity-40" disabled={!typingValue || saving} type="submit">Submit</button>
@@ -371,7 +371,6 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
                 <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("bow")} type="button"><CourtGlyph symbol="lily"/>Bow</button>
               </div>
             )}
-            <p className="mt-4 text-center text-xs text-zinc-500">If she did not say “Principessa Says”, touch nothing and let the timer expire.</p>
           </div>
         </div>
       )}
@@ -380,22 +379,23 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
 }
 
 
-// Crown Match takes no onFail: matching pairs cannot be lost by play, only
-// abandoned - and abandonment is the server's business, not this component's.
-function CrownMatch({ challengeSeed, disabled, onClose, onComplete }: Omit<MiniGameProps, "onFail">) {
+function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
   const [cards] = useState(() => createCourtChallenge(challengeSeed).cards);
   const actionsRef=useRef<CourtAction[]>([]);
   const [startedAt]=useState(()=>Date.now());
   const [open, setOpen] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
+  const [mistakes, setMistakes] = useState(0);
+  const revealTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (revealTimer.current !== null) window.clearTimeout(revealTimer.current); }, []);
   const [reward, setReward] = useState(0);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
   const finishedRef = useRef(false);
 
   const chooseCard = (id: number) => {
-    if (disabled || saving || open.length >= 2 || open.includes(id) || matched.includes(id)) return;
+    if (disabled || saving || finishedRef.current || open.length >= 2 || open.includes(id) || matched.includes(id)) return;
     emitSoundEvent("button_click");
     // eslint-disable-next-line react-hooks/purity -- user click event timestamp, never called during render
     actionsRef.current.push({action:String(id),atMs:Date.now()-startedAt});
@@ -405,13 +405,23 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete }: Omit<MiniG
     setMoves((value) => value + 1);
     const [first, second] = nextOpen;
     if (cards[first].symbol === cards[second].symbol) {
-      window.setTimeout(() => {
+      revealTimer.current = window.setTimeout(() => {
         setMatched((current) => [...current, first, second]);
         setOpen([]);
         emitSoundEvent("button_click");
       }, 350);
     } else {
-      window.setTimeout(() => setOpen([]), 750);
+      const nextMistakes = mistakes + 1;
+      setMistakes(nextMistakes);
+      emitSoundEvent("task_fail");
+      if (nextMistakes >= CROWN_MATCH_MAX_MISTAKES) finishedRef.current = true;
+      revealTimer.current = window.setTimeout(() => {
+        setOpen([]);
+        if (nextMistakes >= CROWN_MATCH_MAX_MISTAKES) {
+          setFailed(true);
+          onFail();
+        }
+      }, 750);
     }
   };
 
@@ -426,7 +436,7 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete }: Omit<MiniG
   }, [cards.length, matched.length, moves, onComplete]);
 
   return (
-    <GameStageShell onClose={onClose} title="Crown Match" subtitle="Reveal and pair every seal in Principessa’s court.">
+    <GameStageShell onClose={onClose} title="Crown Match" subtitle="Match all six pairs. Five wrong matches end this attempt.">
       {reward > 0 || failed ? (
         <GameResult failed={failed} onClose={onClose} reward={reward} score={`${moves} moves`} />
       ) : (
@@ -434,6 +444,7 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete }: Omit<MiniG
           <PrincipessaStageImage mood={matched.length === cards.length ? "correct" : null} />
           <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
             <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60"><span>{matched.length / 2}/6 pairs</span><span>{moves} moves</span></div>
+            <div className="crown-lives" aria-label={`${CROWN_MATCH_MAX_MISTAKES - mistakes} lives remaining`} role="status">{Array.from({ length: CROWN_MATCH_MAX_MISTAKES }, (_, index) => <span key={index} data-lost={index < mistakes} aria-hidden="true">♥</span>)}<small>{CROWN_MATCH_MAX_MISTAKES - mistakes} lives left</small></div>
             <div className="crown-pair-track" aria-label="Matched seals">{CROWN_SYMBOLS.map(symbol => <span key={symbol} data-complete={cards.some(card => card.symbol === symbol && matched.includes(card.id))}><CourtGlyph symbol={symbol}/></span>)}</div>
             <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
               {cards.map((card) => {
@@ -547,7 +558,7 @@ function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail }: Mi
               <span className="mr-2">💐 💎 ✉</span> Gifts from her court — <span className="font-black text-[#ffe3a4]">do not touch</span>, let them arrive.
             </p>
           </div>
-          <p className="mt-4 text-xs text-zinc-500">18 waves. They walk faster as you go. One attempt today.</p>
+          <p className="mt-4 text-xs text-zinc-500">18 waves. They walk faster as you go. Earn your daily reward when you succeed.</p>
           <button
             className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-8 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25"
             onClick={() => setPhase("play")}
@@ -603,7 +614,7 @@ function GameResult({ failed, onClose, reward, score }: { failed: boolean; onClo
       <div className="court-result-seal" data-failed={failed}><CourtGlyph symbol={failed ? "threat" : "crown"}/></div>
       <h4 className="mt-3 font-serif text-3xl text-white">{failed ? "Principessa is not impressed" : "Principessa approves"}</h4>
       <p className="mt-2 text-sm text-zinc-300">Score: {score}</p>
-      <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward. The court reopens tomorrow." : `+${reward} Principessa Coins`}</p>
+      <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward this time. You can try again." : `+${reward} Principessa Coins`}</p>
       <button className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-6 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25" onClick={onClose} type="button">Back to Games</button>
     </div>
   );

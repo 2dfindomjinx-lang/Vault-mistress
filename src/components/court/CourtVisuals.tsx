@@ -199,14 +199,14 @@ export function WritingLine({
   value: string;
   complete?: boolean;
 }) {
-  const progress = complete ? text.length : Math.min(value.length, text.length);
   return (
     <span className="court-writing-line">
-      <span className="court-writing-ink">{text.slice(0, progress)}</span>
-      <span className={!complete ? "court-writing-cursor" : ""}>
-        {text.slice(progress, progress + 1)}
-      </span>
-      <span>{text.slice(progress + 1)}</span>
+      {text.split("").map((character, index) => (
+        <span key={index} className={complete ? "court-writing-ink" : index < value.length ? character === value[index] ? "court-writing-ink" : "court-writing-error" : index === value.length ? "court-writing-cursor" : undefined}>
+          {character}
+        </span>
+      ))}
+      {!complete && value.length > text.length && <span className="court-writing-error" aria-label="Extra characters">{value.slice(text.length)}</span>}
       {complete && (
         <span className="court-writing-seal" aria-label="Complete">
           ✓

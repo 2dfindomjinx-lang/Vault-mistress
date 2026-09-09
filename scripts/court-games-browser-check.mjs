@@ -84,6 +84,30 @@ const bundle = await build({
     await page.getByRole("button", { name: "Close game" }).waitFor();
   }
   await open("Crown Match");
+  const wrong = [
+    challenge.cards[0].id,
+    challenge.cards.find((card) => card.symbol !== challenge.cards[0].symbol)
+      .id,
+  ];
+  for (let i = 0; i < 5; i++) {
+    await page.locator(".court-match-card").nth(wrong[0]).click();
+    await page.locator(".court-match-card").nth(wrong[1]).click();
+    await page.clock.runFor(800);
+    if (i < 4)
+      assert.equal(
+        await page
+          .getByRole("status", { name: 4 - i + " lives remaining" })
+          .count(),
+        1,
+      );
+  }
+  assert.equal(completed.length, 0, "Failed attempt must not grant reward");
+  await page
+    .getByText("No reward this time. You can try again.", { exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Back to Games" }).click();
+  await open("Crown Match");
+  await page.getByRole("status", { name: "5 lives remaining" }).waitFor();
   const seen = new Set();
   for (const card of challenge.cards) {
     if (seen.has(card.symbol)) continue;
@@ -98,6 +122,10 @@ const bundle = await build({
     if (!round.shouldObey || round.action === "still")
       await page.clock.runFor(round.timeMs + 30);
     else if (round.action === "type") {
+      assert.equal(
+        await page.getByRole("textbox").getAttribute("placeholder"),
+        "Your response…",
+      );
       await page.getByRole("textbox").fill(round.expectedText);
       await page.getByRole("button", { name: "Submit", exact: true }).click();
     } else

@@ -43,6 +43,7 @@ const tabs = [
 ] as const;
 
 const destinationArt: Partial<Record<DashboardPage, { image: string; tone: string; eyebrow: string; symbol: string }>> = {
+  tasks: { image: "/principessa-ui/generated/principessa-panel-sit.webp", tone: "gold", eyebrow: "Earn her attention", symbol: "♛" },
   debt: { image: "/principessa-ui/generated/principessa-debt-contract.webp", tone: "gold", eyebrow: "A promise in writing", symbol: "✦" },
   wheels: { image: "/gamble/principessa-casino-hero.webp", tone: "violet", eyebrow: "The tables await", symbol: "♠" },
   crates: { image: "/crate-icons/couture-case.webp", tone: "pink", eyebrow: "Inside the collection", symbol: "◇" },
@@ -103,7 +104,7 @@ export function HomeCommandCenter({
             {actions.map((item) => {
               const art = destinationArt[item.target];
               return (
-                <button className={styles.card} data-tone={art?.tone} key={item.target} onClick={() => onNavigate(item.target)} type="button">
+                <button className={styles.card} data-tone={art?.tone} data-page={item.target} key={item.target} onClick={() => onNavigate(item.target)} type="button">
                   {art ? <Image alt="" className={styles.art} fill sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 30vw" src={art.image} unoptimized /> : null}
                   <span className={styles.shade} aria-hidden="true" />
                   <span className={styles.cardEyebrow}><span aria-hidden="true">{art?.symbol}</span> {art?.eyebrow}</span>

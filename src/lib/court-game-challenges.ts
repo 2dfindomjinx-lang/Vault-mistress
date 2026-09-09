@@ -1,3 +1,4 @@
+import { CROWN_MATCH_MAX_MISTAKES } from "@/lib/court-games";
 function shuffled<T>(items: readonly T[], random: () => number) {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -284,7 +285,7 @@ export function verifyCourtActions(
         matched.add(a);
         matched.add(b);
         score++;
-      } else mistakes++;
+      } else if (++mistakes >= CROWN_MATCH_MAX_MISTAKES) return null;
     }
     if (score !== 6) return null;
     return { score, mistakes, roundsCompleted: 6 };

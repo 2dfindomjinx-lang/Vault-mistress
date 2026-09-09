@@ -5,7 +5,7 @@ const db = new PGlite();
 const uid = "00000000-0000-0000-0000-000000000001";
 const sql = await readFile(
   new URL(
-    "../supabase/migrations/202609090001_atomic_economy.sql",
+    "../supabase/202609090001_atomic_economy.sql",
     import.meta.url,
   ),
   "utf8",
@@ -120,7 +120,7 @@ try {
   );
   const milestoneSql = await readFile(
     new URL(
-      "../supabase/migrations/202609090002_product_milestones.sql",
+      "../supabase/202609090002_product_milestones.sql",
       import.meta.url,
     ),
     "utf8",

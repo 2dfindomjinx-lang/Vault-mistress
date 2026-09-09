@@ -2,7 +2,8 @@
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { ClickStageTrack, DrainScene } from "@/components/court/ShrineSessionVisuals";
 import { createPortal } from "react-dom";
 import {
   SHRINE_BONUS_LEVEL_STEP,
@@ -143,6 +144,8 @@ export function TributePanel({
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const categoryReady = Boolean(clickGame && clickGameStatusCategory === clickGameCategory);
   const [optimisticClicks, setOptimisticClicks] = useState(0);
+  const [tapBursts, setTapBursts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const tapId = useRef(0);
   const pendingClicksRef = useRef(0);
   const pendingCategoryRef = useRef<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const inFlightRef = useRef(false);
@@ -373,8 +376,8 @@ export function TributePanel({
     }, CLICK_GAME_BATCH_DEBOUNCE_MS);
   };
 
-  const registerClickGameTap = () => {
-    if (disabled || !clickGame?.isActive) {
+  const registerClickGameTap = (event: MouseEvent<HTMLButtonElement>) => {
+    if (disabled || !categoryReady || !clickGame?.isActive || coins < (optimisticClicks + 1) * clickGame.costPerClick) {
       return;
     }
 
@@ -383,6 +386,9 @@ export function TributePanel({
       // eslint-disable-next-line react-hooks/purity -- only runs inside this onClick handler, never during render
       batchOpenedAtRef.current = Date.now();
     }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const burst = { id: tapId.current++, x: event.detail === 0 ? 50 : (event.clientX - rect.left) / rect.width * 100, y: event.detail === 0 ? 50 : (event.clientY - rect.top) / rect.height * 100 };
+    setTapBursts(current => [...current.slice(-7), burst]);
     pendingClicksRef.current += 1;
     setOptimisticClicks((current) => current + 1);
 
@@ -441,21 +447,12 @@ export function TributePanel({
           </p>
         ) : (
           <>
-            {drainActive && (
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/50">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#fbbf24,#f43f5e)] transition-[width] duration-1000 ease-linear"
-                  style={{
-                    width: `${Math.max(0, 100 - (drainTotal / Math.max(1, drainStartCoins)) * 100)}%`,
-                  }}
-                />
-              </div>
-            )}
+            <DrainScene active={drainActive} total={drainTotal} balance={drainStartCoins || coins} rate={clampDrainSessionRate(Number(drainRateInput))} memory={shrine?.revealedMemories?.at(-1)} />
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
               {drainActive ? (
                 <>
-                  <p className="animate-pulse text-sm text-zinc-300">
+                  <p className="sr-only">
                     Drained: <span className="font-black text-rose-100">{drainTotal.toLocaleString()}</span>{" "}
                     / Remaining: <span className="font-black text-amber-100">{Math.max(0, drainStartCoins - drainTotal).toLocaleString()}</span> coins
                   </p>
@@ -472,6 +469,7 @@ export function TributePanel({
                   <input
                     className="w-28 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none focus:border-rose-200/40"
                     disabled={disabled}
+                    aria-label="Drain speed in Coins per second"
                     min={DRAIN_SESSION_MIN_RATE}
                     max={DRAIN_SESSION_MAX_RATE}
                     onChange={(event) => setDrainRateInput(event.target.value)}
@@ -570,7 +568,7 @@ export function TributePanel({
               ? "Principessa's mood is already at its peak. Ordinary tribute rests now, but the Shrine still welcomes offerings."
               : disabled
                 ? "Timeout is active. Tribute actions are locked until the timer ends."
-              : "Prototype note: tributes spend Principessa Coins only. This is where a future backend or Supabase ledger could record non-payment game events."}
+              : "Offer Coins to raise Principessa’s affection. Every offering is remembered."}
           </p>
         </>
       )}
@@ -730,7 +728,7 @@ export function TributePanel({
                       Awaiting Shrine Memories
                     </p>
                     <p className="mt-3 max-w-xs text-sm leading-6 text-zinc-300">
-                      Future Shrine Memories can be placed in `public/shrine`, and each new one will become part of the next revelation cycle.
+                      Her next memory is still veiled. Your offerings bring the next revelation closer.
                     </p>
                   </div>
                 )}
@@ -830,7 +828,7 @@ export function TributePanel({
                 />
               ) : (
                 <div className="flex h-full min-h-[28rem] w-full flex-col items-center justify-center px-5 text-center text-xs font-bold uppercase tracking-[0.14em] text-pink-100/40 sm:min-h-[34rem]">
-                  Loading category...
+                  {categoryReady ? "Every reveal begins with your first offering." : "Loading category…"}
                 </div>
               )}
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.05)_30%,rgba(0,0,0,0.15)_65%,rgba(0,0,0,0.75)_100%)]" />
@@ -844,39 +842,25 @@ export function TributePanel({
                 </div>
               </div>
 
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-12 pt-10">
+              <div className="absolute inset-0 bottom-36">
                 <button
                   aria-label="Click the current stage"
-                  className="court-click-target pointer-events-auto h-20 w-20 rounded-full border-2 border-pink-100/70 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,.95),rgba(236,72,153,.92)_38%,rgba(126,34,206,.92)_100%)] text-xs font-black uppercase tracking-[0.16em] text-white shadow-[0_0_0_6px_rgba(236,72,153,.14),0_0_24px_rgba(236,72,153,.7)] transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 sm:h-24 sm:w-24"
-                  disabled={disabled || !clickGame?.isActive}
+                  className="court-click-surface absolute inset-0 flex w-full items-center justify-center focus-visible:outline-2 focus-visible:outline-pink-200 disabled:cursor-not-allowed"
+                  disabled={disabled || !categoryReady || !clickGame?.isActive || coins < (optimisticClicks + 1) * (clickGame?.costPerClick ?? 1)}
                   onClick={registerClickGameTap}
                   type="button"
                 >
-                  Click
+                  <span className="court-click-invitation">{clickGame?.isActive ? "Tap to offer" : "Begin your session below"}</span>
+                  {tapBursts.map(burst => <span key={burst.id} className="court-click-burst" aria-hidden="true" style={{ left: `${burst.x}%`, top: `${burst.y}%` }} onAnimationEnd={() => setTapBursts(current => current.filter(item => item.id !== burst.id))}>+1<span>✦</span></span>)}
                 </button>
               </div>
 
               <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4">
-                <div className="h-1.5 overflow-hidden rounded-full bg-black/45">
-                  <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#a855f7)] transition-[width]"
-                    style={{
-                      width: `${Math.max(
-                        4,
-                        Math.min(
-                          100,
-                          clickGame?.nextThreshold ? (displayedProgress / clickGame.nextThreshold) * 100 : 100,
-                        ),
-                      )}%`,
-                    }}
-                  />
-                </div>
+                <ClickStageTrack stage={displayedStage} progress={displayedProgress} thresholds={clickGame?.thresholds ?? []} />
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] font-semibold text-pink-50/85 drop-shadow">
-                    {clickGame?.nextThreshold
-                      ? `${displayedProgress.toLocaleString()} / ${clickGame.nextThreshold.toLocaleString()} to stage ${displayedStage + 1}`
-                      : `${displayedProgress.toLocaleString()} progress - all 10 stages reached`}
+                    {displayedProgress.toLocaleString()} total clicks
                   </p>
 
                   <div className="flex items-center gap-1.5">

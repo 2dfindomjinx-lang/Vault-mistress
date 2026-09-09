@@ -1,4 +1,3 @@
-import { CollectionGoal } from "@/components/CollectionGoal";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -33,7 +32,6 @@ const rarityStyles: Record<GalleryRarity, string> = {
 };
 
 export function GalleryGrid({
-  userKey = "guest",
   previewMode = false,
   coins,
   disabled = false,
@@ -103,7 +101,6 @@ export function GalleryGrid({
         </div>
       </div>
 
-      <CollectionGoal petUnlockedItemIds={petUnlockedItemIds} items={items} petItems={petItems} coins={coins} mood={mood} petScore={petScore} userKey={userKey} />
       <div
         aria-label="Gallery collection"
         className="mt-5 grid gap-2 rounded-[1.3rem] border border-white/10 bg-black/45 p-1.5 sm:grid-cols-2"

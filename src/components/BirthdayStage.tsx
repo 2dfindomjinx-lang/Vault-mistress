@@ -917,7 +917,7 @@ export function BirthdayStage() {
           {loadFailed ? (
             <p className="mt-3 text-center text-[11px] text-rose-200/70">
               {loadFailureCode === "BIRTHDAY_PROGRESS_NOT_CONFIGURED"
-                ? "Local preview: Supabase environment variables are missing, so live candle data is unavailable."
+                ? "Preview: live candle activity is unavailable here."
                 : "Live candle count is temporarily unavailable."}
             </p>
           ) : null}

@@ -15,11 +15,14 @@
     "test:slots": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/avatar-slot-check.mjs",
     "test:outfits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/runway-outfit-check.mjs",
     "test:security:integration": "node scripts/admin-security-checks.mjs && node scripts/security-integration-tests.mjs",
-    "test": "npm run test:security && npm run test:gamble && npm run test:slots && npm run test:outfits && npm run test:linkify && npm run test:femsub-speech && npm run test:recent-openings",
+    "test": "npm run test:security && npm run test:gamble && npm run test:slots && npm run test:outfits && npm run test:linkify && npm run test:femsub-speech && npm run test:recent-openings && npm run test:gameplay:sql",
     "check:deployment": "node scripts/deployment-readiness.mjs",
     "test:ui": "node scripts/court-games-browser-check.mjs",
     "test:recent-openings": "node scripts/recent-openings-check.cjs",
-    "test:visual:browser": "node scripts/visual-experience-browser-check.mjs"
+    "test:visual:browser": "node scripts/visual-experience-browser-check.mjs",
+    "test:header:browser": "node scripts/header-browser-check.mjs",
+    "test:gameplay:sql": "node scripts/gameplay-sql-check.mjs",
+    "test:gameplay:browser": "node scripts/gameplay-browser-check.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",

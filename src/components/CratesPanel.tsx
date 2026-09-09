@@ -1442,7 +1442,7 @@ export function CratesPanel({
 
           {isOpening && wonItems.length === 0 && (
           <p className="mt-3 text-center text-xs text-pink-100/50">
-              The result was decided server-side the moment your coins were accepted.
+              The seal is broken. Your reward awaits.
             </p>
           )}
         </div>

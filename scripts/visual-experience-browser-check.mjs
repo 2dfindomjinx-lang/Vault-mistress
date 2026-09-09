@@ -371,7 +371,11 @@ try {
   const favor = page.locator("article").filter({
     has: page.getByRole("heading", { name: "Favor Roulette", exact: true }),
   });
-  await favor.getByRole("button", { name: "Hidden card 1" }).click();
+  const selectable = favor.getByRole("button", { name: "Hidden card 1" });
+  await selectable.hover(); await settleVisuals(selectable);
+  assert.equal(await selectable.evaluate(el => getComputedStyle(el).outlineStyle), "solid");
+  assert.ok(await selectable.evaluate(el => getComputedStyle(el).transform !== "none"), "Hover must lift a selectable card");
+  await selectable.click();
   await page.clock.runFor(1000);
   await settleVisuals(favor);
   assert.equal(await favor.locator(".seal-flip[data-open=true]").count(), 5);
@@ -386,9 +390,12 @@ try {
     .getByPlaceholder("Type the sentence exactly...")
     .fill("I follow");
   assert.equal(
-    await writing.locator(".court-writing-ink").innerText(),
+    (await writing.locator(".court-writing-ink").allTextContents()).join(""),
     "I follow",
   );
+  await writing.getByPlaceholder("Type the sentence exactly...").fill("I xollow");
+  assert.equal((await writing.locator(".court-writing-error").allTextContents()).join(""), "f");
+  assert.equal(await writing.locator(".court-writing-error").evaluate(el => getComputedStyle(el).color), "rgb(253, 164, 175)");
   await writing.screenshot({ path: "tmp/visual-pet-writing-mobile.png" });
   metrics.push({
     screen: "pet mobile",

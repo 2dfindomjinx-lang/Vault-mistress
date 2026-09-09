@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { estimateGambleClock } from "@/lib/gamble-clock";
 import { CourtDie, CourtGlyph, CourtPortrait, CourtRunner } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { emitSoundEvent } from "@/lib/sound";
@@ -13,6 +14,7 @@ import {
   GAMBLE_MIN_BET,
   MINES_GRID,
   MINES_OPTIONS,
+  MINES_MAX_MULTIPLIER,
   minesMultiplier,
   PLINKO_MULTIPLIERS,
   PLINKO_ROWS,
@@ -31,7 +33,8 @@ type HallProps = { disabled?: boolean; onProfile?: (profile: unknown) => void };
 
 const BET_CHIPS = [100, 250, 500, 1_000, 2_500, 5_000];
 
-async function callGamble(body: Record<string, unknown>) {
+async function callGamble(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const sentAt = performance.now();
   const response = await fetch("/api/user/gamble", {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
@@ -39,7 +42,10 @@ async function callGamble(body: Record<string, unknown>) {
   });
   const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok) throw new Error((payload?.error as string) ?? "The table refused.");
-  return payload ?? {};
+  const receivedAt = performance.now();
+  const serverSentAt = Number(payload?.serverNowMs);
+  const serverReceivedAt = Number(payload?.serverReceivedAtMs);
+  return { ...payload, receivedAt, estimatedServerNow: Number.isFinite(serverSentAt) ? estimateGambleClock(sentAt, receivedAt, Number.isFinite(serverReceivedAt) ? serverReceivedAt : serverSentAt, serverSentAt) : Date.now() };
 }
 
 // --------------------------------------------------------- double or nothing
@@ -398,6 +404,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [rotation, setRotation] = useState(0);
   const [landedNumber, setLandedNumber] = useState<number | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
   const timers = useRef<number[]>([]);
@@ -417,13 +424,15 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setLine(null);
       setWin(null);
       setLandedNumber(null);
-      setSpinning(true);
+      setPreparing(true);
       try {
         const result = await callGamble({ action: "roulette", bet, rouletteBet });
         if (result.profile && onProfile) onProfile(result.profile);
         const number = Number(result.number);
         const target = EUROPEAN_ROULETTE_ORDER.indexOf(number as (typeof EUROPEAN_ROULETTE_ORDER)[number]);
         const targetAngle = target * ROULETTE_SEGMENT_DEGREES + ROULETTE_SEGMENT_DEGREES / 2;
+        setPreparing(false);
+        setSpinning(true);
         setRotation((previous) => {
           const delta = (((-targetAngle - previous) % 360) + 360) % 360;
           return previous + 4 * 360 + delta;
@@ -445,6 +454,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
           }, 3_400),
         );
       } catch (error) {
+        setPreparing(false);
         setSpinning(false);
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
       }
@@ -489,7 +499,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
         {ROULETTE_BETS.map((entry) => (
           <button
             className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition disabled:opacity-50 ${rouletteBet === entry.id ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"}`}
-            disabled={spinning}
+            disabled={preparing || spinning}
             key={entry.id}
             onClick={() => setRouletteBet(entry.id)}
             type="button"
@@ -499,8 +509,8 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
           </button>
         ))}
       </div>
-      <button className="vm-table-button" disabled={busy || spinning} onClick={play} type="button">
-        {spinning ? "The wheel is turning..." : `Spin — ${bet.toLocaleString()} coins`}
+      <button className="vm-table-button" disabled={busy || preparing || spinning} onClick={play} type="button">
+        {preparing ? "Taking your bet…" : spinning ? "The wheel is turning..." : `Spin — ${bet.toLocaleString()} coins`}
       </button>
       {line ? <ResultLine {...line} /> : null}
       {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
@@ -652,6 +662,7 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
 
 // -------------------------------------------------------------- Jewelry Box
 function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
+  const [wager, setWager] = useState(bet);
   const [mineCount, setMineCount] = useState<number>(MINES_OPTIONS[0]);
   const [roundId, setRoundId] = useState<string | null>(null);
   const [picks, setPicks] = useState<number[]>([]);
@@ -677,6 +688,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
       try {
         const result = await callGamble({ action: "mines-open", bet, mines: mineCount });
         if (result.profile && onProfile) onProfile(result.profile);
+        setWager(bet);
         setRoundId(String(result.roundId));
       } catch (error) {
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
@@ -714,7 +726,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
       const result = await callGamble({ action: "mines-cashout", roundId });
       if (result.profile && onProfile) onProfile(result.profile);
       const payout = Number(result.payout) || 0;
-      setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
+      setLine({ text: `${result.multiplier}x · ${payout.toLocaleString()} Coins returned · +${(payout - wager).toLocaleString()} net`, tone: "win" });
       setWin({ payout, roundId });
       setRoundId(null);
       emitSoundEvent("task_completion");
@@ -726,7 +738,9 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
   };
 
   const currentMultiplier = minesMultiplier(mineCount, picks.length);
-  const nextMultiplier = minesMultiplier(mineCount, picks.length + 1);
+  const remainingSafe = MINES_GRID - mineCount - picks.length;
+  const nextMultiplier = remainingSafe > 0 && currentMultiplier < MINES_MAX_MULTIPLIER ? minesMultiplier(mineCount, picks.length + 1) : null;
+  const netProfit = Math.floor(wager * currentMultiplier) - wager;
 
   return (
     <div>
@@ -735,8 +749,9 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
           {MINES_OPTIONS.map((option) => (
             <button
               className={`rounded-xl border px-4 py-2 text-xs font-black transition ${mineCount === option ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500"}`}
+              disabled={pending || busy}
               key={option}
-              onClick={() => setMineCount(option)}
+              onClick={() => { reset(); setMineCount(option); setLine(null); }}
               type="button"
             >
               {option} mines
@@ -763,7 +778,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
                     ? "border-[#e6ba73]/50 bg-[#c89a55]/20"
                     : "border-white/10 bg-black/40 hover:border-pink-200/35"
               }`}
-              disabled={!roundId || pending || revealedSafe}
+              disabled={!roundId || pending || revealedSafe || currentMultiplier >= MINES_MAX_MULTIPLIER}
               key={cell}
               onClick={() => void pick(cell)}
               type="button"
@@ -774,10 +789,12 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
         })}
       </div>
 
+      <p className="mt-3 text-center text-xs text-zinc-400">{remainingSafe} gems · {mineCount} traps left{roundId && picks.length > 0 ? ` · Net profit +${netProfit.toLocaleString()} Coins` : " · Return includes your stake"}</p>
+      <p className="mt-1 text-center text-xs text-zinc-500">{roundId ? `This round: ${wager.toLocaleString()} Coins · ` : ""}Maximum return {MINES_MAX_MULTIPLIER}x</p>
       {roundId ? (
-        <div className="mt-3 flex items-center justify-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
           <span className="text-xs font-black text-[#ffe2ad] tabular-nums">
-            {picks.length > 0 ? `${currentMultiplier}x locked` : "Open a box"} · next {nextMultiplier}x
+            {picks.length > 0 ? `${currentMultiplier}x return` : "Open a box"}{nextMultiplier !== null ? ` · next ${nextMultiplier}x` : currentMultiplier >= MINES_MAX_MULTIPLIER ? " · maximum reached — take your return" : " · all gems found"}
           </span>
           <button
             className="rounded-xl border border-emerald-300/40 bg-emerald-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-100 disabled:opacity-40"
@@ -785,7 +802,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
             onClick={() => void cashout()}
             type="button"
           >
-            Take {Math.floor(bet * currentMultiplier).toLocaleString()}
+            Take {Math.floor(wager * currentMultiplier).toLocaleString()}
           </button>
         </div>
       ) : (
@@ -800,135 +817,146 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
 }
 
 // --------------------------------------------------------------- Her Patience
-// The climb is a pure function of server time, and the client now polls the
-// server while the round runs: the moment her patience actually runs out the
-// display stops AT the crash point. What you see is always what happened -
-// including the 1.00x instant busts.
 function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [roundId, setRoundId] = useState<string | null>(null);
   const [display, setDisplay] = useState(1);
+  const [countdown, setCountdown] = useState(0);
   const [crashed, setCrashed] = useState(false);
   const [cashingOut, setCashingOut] = useState(false);
+  const [autoCashout, setAutoCashout] = useState("1.50");
+  const [activeTarget, setActiveTarget] = useState<number | null>(null);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
-  const startedAt = useRef<number | null>(null);
-  const frame = useRef<number | null>(null);
-  const poll = useRef<number | null>(null);
-  const pollBusy = useRef(false);
+  const clock = useRef({ start: 0, server: 0, received: 0 });
+  const activeRound = useRef<string | null>(null);
+  const cashoutPending = useRef(false);
+  const completed = useRef<string | null>(null);
 
-  const stopLoops = () => {
-    if (frame.current !== null) window.cancelAnimationFrame(frame.current);
-    frame.current = null;
-    if (poll.current !== null) window.clearInterval(poll.current);
-    poll.current = null;
-    startedAt.current = null;
-  };
-
-  useEffect(() => stopLoops, []);
-
-  const bust = useCallback((crashPoint: number) => {
-    stopLoops();
+  const acceptResult = useCallback((result: Record<string, unknown>, id: string) => {
+    if (activeRound.current !== id || completed.current === id) return;
+    completed.current = id;
+    activeRound.current = null;
+    cashoutPending.current = false;
     setRoundId(null);
     setCashingOut(false);
-    setDisplay(crashPoint);
-    setCrashed(true);
-    setLine({ text: `Too slow. Her patience ran out at ${crashPoint.toFixed(2)}x.`, tone: "lose" });
-    emitSoundEvent("task_fail");
-  }, []);
+    setCountdown(0);
+    if (result.profile && onProfile) onProfile(result.profile);
+    if (result.survived) {
+      const payout = Number(result.payout) || 0;
+      const multiplier = Number(result.multiplier) || 1;
+      setDisplay(multiplier);
+      setLine({ text: `${multiplier.toFixed(2)}x — ${payout.toLocaleString()} Coins returned.`, tone: "win" });
+      setWin({ payout, roundId: id });
+      emitSoundEvent("task_completion");
+    } else {
+      const point = Number(result.crashPoint) || 1;
+      setDisplay(point);
+      setCrashed(true);
+      setLine({ text: `Her patience ran out at ${point.toFixed(2)}x.`, tone: "lose" });
+      emitSoundEvent("task_fail");
+    }
+  }, [onProfile]);
 
-  const open = () =>
-    onPlay(async () => {
-      setLine(null);
-      setWin(null);
-      setCrashed(false);
-      setCashingOut(false);
+  useEffect(() => {
+    if (!roundId || cashingOut) return;
+    let cancelled = false;
+    let frame = 0;
+    let pollBusy = false;
+    const tick = () => {
+      const now = clock.current.server + performance.now() - clock.current.received;
+      const elapsed = now - clock.current.start;
+      setCountdown(Math.max(0, Math.ceil(-elapsed / 1000)));
+      // An open status response can refine the clock, but cannot rewind it.
+      setDisplay(current => Math.max(current, Math.min(activeTarget ?? 30, crashMultiplierAt(elapsed))));
+      frame = requestAnimationFrame(tick);
+    };
+    const pollStatus = async () => {
+      if (pollBusy || cashoutPending.current) return;
+      pollBusy = true;
       try {
-        const requestStartedAt = Date.now();
-        const result = await callGamble({ action: "crash-open", bet });
-        const responseReceivedAt = Date.now();
-        if (result.profile && onProfile) onProfile(result.profile);
-        const id = String(result.roundId);
-        setRoundId(id);
-        const serverNowMs = Number(result.serverNowMs) || responseReceivedAt;
-        const clockOffset = serverNowMs - (requestStartedAt + responseReceivedAt) / 2;
-        startedAt.current = (Number(result.startsAtMs) || serverNowMs) - clockOffset;
-        setDisplay(1);
-        const tick = () => {
-          if (startedAt.current === null) return;
-          setDisplay(crashMultiplierAt(Date.now() - startedAt.current));
-          frame.current = window.requestAnimationFrame(tick);
-        };
-        frame.current = window.requestAnimationFrame(tick);
-        // The crash point lives on the server; polling is the only honest way
-        // for the display to learn the round already died.
-        poll.current = window.setInterval(() => {
-          if (pollBusy.current) return;
-          pollBusy.current = true;
-          callGamble({ action: "crash-status", roundId: id })
-            .then((status) => {
-              if (status.crashed) bust(Number(status.crashPoint) || 1);
-              else if (typeof status.elapsedMs === "number") startedAt.current = Date.now() - status.elapsedMs;
-            })
-            .catch(() => undefined)
-            .finally(() => {
-              pollBusy.current = false;
-            });
-        }, 650);
-      } catch (error) {
-        setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
-      }
-    });
+        const status = await callGamble({ action: "crash-status", roundId });
+        if (cancelled || cashoutPending.current || activeRound.current !== roundId) return;
+        if (status.settled || status.crashed) acceptResult(status, roundId);
+        else {
+          clock.current.server = Number(status.estimatedServerNow);
+          clock.current.received = Number(status.receivedAt);
+          if (typeof status.startsAtMs === "number") clock.current.start = status.startsAtMs;
+        }
+      } catch {
+        // Keep the immutable target and the manual retry available after a lost poll.
+      } finally { pollBusy = false; }
+    };
+    frame = requestAnimationFrame(tick);
+    const timer = window.setInterval(() => void pollStatus(), 650);
+    return () => { cancelled = true; cancelAnimationFrame(frame); clearInterval(timer); };
+  }, [roundId, cashingOut, activeTarget, acceptResult]);
+
+  useEffect(() => () => { activeRound.current = null; }, []);
+
+  const open = () => onPlay(async () => {
+    setLine(null);
+    setWin(null);
+    setCrashed(false);
+    const target = autoCashout === "" ? null : Number(autoCashout);
+    if (target !== null && (!Number.isFinite(target) || target < 1.1 || target > 30)) {
+      setLine({ text: "Choose a take point from 1.10x to 30x, or leave it blank for manual play.", tone: "info" });
+      return;
+    }
+    try {
+      const result = await callGamble({ action: "crash-open", bet, autoCashout: target });
+      if (result.profile && onProfile) onProfile(result.profile);
+      const id = String(result.roundId);
+      clock.current = { start: Number(result.startsAtMs), server: Number(result.estimatedServerNow), received: Number(result.receivedAt) };
+      completed.current = null;
+      cashoutPending.current = false;
+      activeRound.current = id;
+      setDisplay(1);
+      setCountdown(Math.max(0, Math.ceil((clock.current.start - clock.current.server) / 1000)));
+      setActiveTarget(typeof result.autoCashout === "number" ? result.autoCashout : result.resumed ? null : target);
+      setCashingOut(false);
+      setRoundId(id);
+    } catch (error) {
+      setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
+    }
+  });
 
   const cashout = async () => {
-    if (!roundId) return;
+    if (!roundId || cashoutPending.current || countdown > 0) return;
     const id = roundId;
-    const requestedMultiplier = display;
-    stopLoops();
+    cashoutPending.current = true;
     setCashingOut(true);
+    setLine(null);
     try {
-      const result = await callGamble({ action: "crash-cashout", requestedMultiplier, roundId: id });
-      if (result.profile && onProfile) onProfile(result.profile);
-      const payout = Number(result.payout) || 0;
-      if (result.survived) {
-        setRoundId(null);
-        setCashingOut(false);
-        setDisplay(Number(result.multiplier) || 1);
-        setLine({ text: `${result.multiplier}x — +${payout.toLocaleString()} coins`, tone: "win" });
-        setWin({ payout, roundId: id });
-        emitSoundEvent("task_completion");
-      } else {
-        bust(Number(result.crashPoint) || 1);
-      }
+      const result = await callGamble({ action: "crash-cashout", requestedMultiplier: display, roundId: id });
+      acceptResult(result, id);
     } catch (error) {
-      setRoundId(null);
+      cashoutPending.current = false;
       setCashingOut(false);
-      setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
+      setLine({ text: error instanceof Error ? error.message : "Connection interrupted. You can try taking again.", tone: "info" });
     }
   };
 
   return (
     <div>
-      <div className="court-patience-scene" data-active={Boolean(roundId)} data-crashed={crashed}>
+      <div className="court-patience-scene" data-active={Boolean(roundId) && countdown === 0} data-crashed={crashed}>
         <CourtPortrait compact mood={crashed ? "disappointed" : win ? "approved" : roundId ? "watchful" : "neutral"}/>
-        <div className="court-patience-readout"><p className="text-[10px] uppercase tracking-[.18em] text-amber-200/60">{crashed ? "Her verdict" : win ? "Taken in time" : "Under her gaze"}</p><strong>{display.toFixed(2)}x</strong><div className="patience-pendulum" aria-hidden="true"/><p className="mt-4 text-xs text-zinc-400">{crashed ? "Patience spent." : roundId ? "Your decision." : "The table awaits."}</p></div>
+        <div className="court-patience-readout">
+          <p className="text-[10px] uppercase tracking-[.18em] text-amber-200/60">{countdown ? "Get ready" : crashed ? "Her verdict" : win ? "Taken in time" : "Under her gaze"}</p>
+          <strong>{countdown > 0 ? countdown : `${display.toFixed(2)}x`}</strong>
+          <div className="patience-pendulum" aria-hidden="true"/>
+          <p className="mt-4 text-xs text-zinc-400">{crashed ? "Patience spent." : roundId && activeTarget ? `Taking at ${activeTarget.toFixed(2)}x` : roundId ? "Your decision." : "The table awaits."}</p>
+        </div>
       </div>
-      <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">
-        Cash out before the crash.
-      </p>
+      {!roundId && <label className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-300">
+        Take automatically at
+        <input aria-label="Automatic cashout multiplier" className="w-24 rounded-lg border border-amber-200/25 bg-black/40 px-3 py-2 text-amber-100" type="number" min="1.10" max="30" step="0.05" placeholder="Manual" value={autoCashout} disabled={busy} onChange={event => setAutoCashout(event.target.value)} /> x
+      </label>}
+      <p className="mt-2 text-center text-xs leading-5 text-zinc-400">{roundId ? "You can take earlier. A crash before your take point loses the stake." : "Set a take point before playing, or clear it to play manually."}</p>
       {roundId ? (
-        <button
-          className="vm-table-button !border-emerald-300/40 !bg-emerald-500/15 !text-emerald-100"
-          disabled={cashingOut}
-          onClick={() => void cashout()}
-          type="button"
-        >
-          {cashingOut ? "Cashing out..." : `Cash out at ${display.toFixed(2)}x`}
+        <button className="vm-table-button !border-emerald-300/40 !bg-emerald-500/15 !text-emerald-100" disabled={cashingOut || countdown > 0} onClick={() => void cashout()} type="button">
+          {cashingOut ? "Taking…" : countdown ? `Beginning in ${countdown}…` : `Cash out at ${display.toFixed(2)}x`}
         </button>
-      ) : (
-        <button className="vm-table-button" disabled={busy} onClick={open} type="button">
-          {`Test her — ${bet.toLocaleString()} coins`}
-        </button>
-      )}
+      ) : <button className="vm-table-button" disabled={busy} onClick={open} type="button">{`Test her — ${bet.toLocaleString()} coins`}</button>}
       {line ? <ResultLine {...line} /> : null}
       {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
     </div>

@@ -2,7 +2,6 @@
 import { visibleGalleryItems, secretGalleryItem, sacrificeGalleryItems } from "@/lib/gallery-catalog";
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 import { postEconomyAction } from "@/lib/economy-client";
-import { CourtNextAction } from "@/components/CourtNextAction";
 
 
 import Link from "next/link";
@@ -6537,8 +6536,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   highLowResetAt,
                   lastResult:
                     outcome === "tie"
-                      ? `${currentNumber} -> ${resultNumber}. Tie. Play fee ${Math.abs(coinDelta)} coins kept. Next round is prepared server-side.`
-                      : `${currentNumber} -> ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins. Next round is prepared server-side.`,
+                      ? `${currentNumber} → ${resultNumber}. Tie. Play fee ${Math.abs(coinDelta)} coins kept.`
+                      : `${currentNumber} → ${resultNumber}. ${outcome === "win" ? "Won" : "Lost"} ${Math.abs(coinDelta)} coins.`,
                   nextBaseRevealAt,
                   resultBaseNumber: currentNumber,
                   resultCoinDelta: coinDelta,
@@ -7721,7 +7720,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     try {
       if (!isSupabaseConfigured) {
-        throw new Error("Supabase env is missing locally. Preview Mode still works without local env.");
+        throw new Error("Sign-in is unavailable here. You can still explore Preview Mode.");
       }
 
       console.info("Starting Supabase OAuth", {
@@ -7748,7 +7747,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(
         error instanceof Error
           ? error.message
-          : "X sign-in failed. Check Supabase OAuth settings.",
+          : "X sign-in failed. Please try again in a moment.",
       );
     } finally {
       if (!oauthRedirectStarted) {
@@ -11478,7 +11477,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const profileLeadership = getLeadershipRank(tributeTotal);
   const homeActions: HomeAction[] = [
     { target: "tasks", label: "Games", action: "Earn your daily Coins", detail: "Claim your daily visit reward and choose a challenge." },
-    { target: "profile", label: "Wardrobe", action: "Create your look", detail: "Equip your outfits, choose a title and make your court record yours." },
     { target: "debt", label: "Debt Contracts", action: petDebtContract ? "View contract" : "Explore contracts",
       detail: petDebtContract ? "Review your terms, balance and next payment." : "Choose your terms. Put your pledge in writing." },
     { target: "wheels", label: "Gamble Hall", action: "Choose a table",
@@ -11540,8 +11538,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         {isPreviewMode && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#c89a55]/25 bg-[#13090f] px-4 py-3 text-sm text-zinc-200"><p>Preview · Explore the court. Sign in to play and save your progress.</p><button className="court-button" onClick={() => void handleLogout()} type="button">Go to sign in</button></div>}
         <BirthdayCourtBanner />
         <DuelCallBanner />
-        {activePanel === "home" && <CourtNextAction coins={coins} tasks={tasks} userKey={authUserId ?? "preview"} onNavigate={setActivePanel} />}
-        <div className="relative isolate">
+        <div className="court-profile-stage relative isolate z-40">
           {activePanel === "home" ? (
             <CourtHomeStage
               affection={affection}
@@ -12873,8 +12870,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     </main>
   );
 }
-
-
 
 
 

@@ -122,6 +122,7 @@ export function plinkoBucketForPath(rights: number) {
 export const MINES_GRID = 25;
 export const MINES_OPTIONS = [7, 10, 15] as const;
 export const MINES_RTP = GAMBLE_MAX_RTP;
+export const MINES_MAX_MULTIPLIER = 250;
 
 export function minesMultiplier(mineCount: number, safePicks: number): number {
   if (safePicks <= 0) return 1;
@@ -132,7 +133,7 @@ export function minesMultiplier(mineCount: number, safePicks: number): number {
     if (safe <= 0) return multiplier;
     multiplier *= remaining / safe;
   }
-  return Math.floor(multiplier * MINES_RTP * 100) / 100;
+  return Math.min(MINES_MAX_MULTIPLIER, Math.floor(multiplier * MINES_RTP * 100) / 100);
 }
 
 // --------------------------------------------------------------------- crash

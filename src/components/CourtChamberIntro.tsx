@@ -104,8 +104,19 @@ export function CourtChamberIntro({ page }: { page: ChamberPage }) {
   const copy = chamberCopy[page];
   const moment = characterMoments[page];
 
-  return <section className="relative flex min-h-28 items-center justify-between gap-4 overflow-hidden rounded-xl border border-[#c89a55]/20 bg-[#11070d] px-5 py-4">
-    <div className="relative z-10 min-w-0 flex-1"><p className="text-xs text-[#d7ad69]">{copy.eyebrow}</p><h1 className="mt-1 font-serif text-3xl text-[#fff0d2]">{copy.title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">{copy.description}</p></div>
-    <div className="relative hidden h-28 w-24 shrink-0 sm:block"><Image alt={moment.alt} className="object-contain object-top" fill sizes="96px" src={moment.src} /></div>
-  </section>;
+  return (
+    <section className="court-chamber-hero" aria-labelledby="chamber-title">
+      <div className="court-chamber-arch" aria-hidden="true" />
+      <div className="court-chamber-copy">
+        <p className="court-eyebrow">{copy.eyebrow}</p>
+        <h1 id="chamber-title">{copy.title}</h1>
+        <p className="court-chamber-description">{copy.description}</p>
+        <p className="court-chamber-caption">“{moment.caption}”</p>
+      </div>
+      <div className="court-chamber-portrait">
+        <Image alt={moment.alt} className={`object-contain ${moment.imageClassName}`} fill sizes="(min-width: 1024px) 36vw, (min-width: 640px) 42vw, 55vw" src={moment.src} />
+      </div>
+      <span className="court-chamber-number" aria-hidden="true">{copy.code}</span>
+    </section>
+  );
 }

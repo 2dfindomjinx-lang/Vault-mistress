@@ -44,7 +44,10 @@ next-env.d.ts
 # database migrations - kept local only. They are run by hand against Supabase
 # and are not part of the deployed app, and some contain real usernames.
 /supabase/*
-!/supabase/migrations/
+!/supabase/202609090001_atomic_economy.sql
+!/supabase/202609090002_product_milestones.sql
+!/supabase/202609100001_court_gameplay.sql
+!/supabase/gamble-hall.sql
 !/supabase/README.md
 
 !/supabase/schema.sql

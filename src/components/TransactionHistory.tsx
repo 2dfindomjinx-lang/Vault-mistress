@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   "spend:cosmetic": "Profile cosmetic",
   "spend:title": "Title purchase",
 };
+const PAGE_SIZE = 6;
 function label(reason: string | null) {
   return (
     labels[reason ?? ""] ??
@@ -34,6 +35,9 @@ export function TransactionHistory({
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil((entries?.length ?? 0) / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
   useEffect(() => {
     if (previewMode) return;
     const controller = new AbortController();
@@ -75,6 +79,7 @@ export function TransactionHistory({
                 setCurrency(c);
                 setEntries(null);
                 setError("");
+                setPage(0);
               }}
             >
               {c}
@@ -83,8 +88,7 @@ export function TransactionHistory({
         </div>
       </div>
       <p className="mt-2 text-sm text-zinc-400">
-        Your latest 50 entries. Coin is earned in the court; PM comes from
-        verified payments. PM can become Coin.
+        Your recent purchases and rewards, six at a time.
       </p>
       {previewMode ? (
         <p className="mt-4 text-sm text-amber-100">
@@ -109,39 +113,74 @@ export function TransactionHistory({
           No {currency} transactions yet.
         </p>
       ) : (
-        <ol className="mt-4 divide-y divide-white/10">
-          {entries.map((e) => (
-            <li key={e.id} className="flex justify-between gap-3 py-3 text-sm">
-              <div>
-                <p className="capitalize text-zinc-100">{label(e.reason)}</p>
-                <p className="mt-1 text-xs text-zinc-400">
-                  <time dateTime={e.created_at}>
-                    {new Date(e.created_at).toLocaleString()}
-                  </time>
-                </p>
-                <details className="mt-1 text-xs text-zinc-400">
-                  <summary>Reference</summary>
-                  <span className="break-all">{e.id}</span>
-                </details>
-              </div>
-              <div className="text-right">
-                <p
-                  className={
-                    e.amount > 0 ? "text-emerald-200" : "text-rose-200"
-                  }
+        <>
+          <ol className="mt-4 divide-y divide-white/10">
+            {entries
+              .slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
+              .map((e) => (
+                <li
+                  key={e.id}
+                  className="flex justify-between gap-3 py-3 text-sm"
                 >
-                  {e.amount > 0 ? "+" : ""}
-                  {e.amount.toLocaleString()} {currency}
-                </p>
-                {e.balance_after !== null && (
-                  <p className="mt-1 text-xs text-zinc-400">
-                    Balance {e.balance_after.toLocaleString()}
-                  </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ol>
+                  <div>
+                    <p className="capitalize text-zinc-100">
+                      {label(e.reason)}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      <time dateTime={e.created_at}>
+                        {new Date(e.created_at).toLocaleString()}
+                      </time>
+                    </p>
+                    <details className="mt-1 text-xs text-zinc-400">
+                      <summary>Reference</summary>
+                      <span className="break-all">{e.id}</span>
+                    </details>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={
+                        e.amount > 0 ? "text-emerald-200" : "text-rose-200"
+                      }
+                    >
+                      {e.amount > 0 ? "+" : ""}
+                      {e.amount.toLocaleString()} {currency}
+                    </p>
+                    {e.balance_after !== null && (
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Balance {e.balance_after.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+          </ol>
+          {pageCount > 1 && (
+            <nav
+              className="mt-3 flex items-center justify-between gap-2 border-t border-white/10 pt-3"
+              aria-label="Transaction pages"
+            >
+              <button
+                type="button"
+                className="court-button disabled:opacity-35"
+                disabled={currentPage === 0}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                Newer
+              </button>
+              <span className="text-xs text-zinc-400" aria-live="polite">
+                {currentPage + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                className="court-button disabled:opacity-35"
+                disabled={currentPage === pageCount - 1}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Older
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </section>
   );
