@@ -293,9 +293,11 @@ export function TaskList({
   const [movementDirection, setMovementDirection] = useState<"down" | "up" | null>(null);
   const [movementTravel, setMovementTravel] = useState(0);
   const [caseOpenPhase, setCaseOpenPhase] = useState<"idle" | "rolling">("idle");
+  const [caseOpenError, setCaseOpenError] = useState("");
+  const [caseOpenRequestPending, setCaseOpenRequestPending] = useState(false);
+  const caseOpenRequestRef = useRef(false);
   const [caseOpenTape, setCaseOpenTape] = useState<number[]>([]);
   const [caseOpenOffset, setCaseOpenOffset] = useState(0);
-  const [caseOpenAnimating, setCaseOpenAnimating] = useState(false);
   const [caseOpenResolvedReward, setCaseOpenResolvedReward] = useState<number | null>(null);
   const [caseOpenActiveIndex, setCaseOpenActiveIndex] = useState<number | null>(null);
   const irlWheelTimerRef = useRef<number | null>(null);
@@ -335,7 +337,6 @@ export function TaskList({
       window.cancelAnimationFrame(caseOpenAnimationFrameRef.current);
       caseOpenAnimationFrameRef.current = null;
     }
-    setCaseOpenAnimating(false);
   }, []);
   const resetCaseOpenDisplay = useCallback(() => {
     stopCaseOpenAnimation();
@@ -353,7 +354,6 @@ export function TaskList({
     let startTime: number | null = null;
 
     caseOpenLastTickIndexRef.current = 0;
-    setCaseOpenAnimating(true);
     setCaseOpenPhase("rolling");
     setCaseOpenResolvedReward(null);
     setCaseOpenActiveIndex(0);
@@ -393,8 +393,7 @@ export function TaskList({
       }
 
       caseOpenAnimationFrameRef.current = null;
-      setCaseOpenAnimating(false);
-      setCaseOpenOffset(0);
+      setCaseOpenOffset(-totalDistance);
       setCaseOpenActiveIndex(CASE_OPEN_REEL_LANDING_INDEX);
       setCaseOpenResolvedReward(reward);
       setCaseOpenPhase("idle");
@@ -517,7 +516,7 @@ export function TaskList({
     const wheelSegments = getIrlTaskWheelSegments(addressTerm, isFreeFridayEventActive);
     const selectedIndex = Math.floor(Math.random() * wheelSegments.length);
     const segmentDegrees = 360 / wheelSegments.length;
-    const selectedCenter = selectedIndex * segmentDegrees + segmentDegrees / 2;
+    const selectedCenter = selectedIndex * segmentDegrees;
     const currentRotation = ((irlWheelRotation % 360) + 360) % 360;
     const targetRotation = (360 - selectedCenter) % 360;
     const rotationDelta = (targetRotation - currentRotation + 360) % 360;
@@ -1226,11 +1225,11 @@ export function TaskList({
                         style={{
                           paddingLeft: caseOpenTrackSidePadding,
                           paddingRight: caseOpenTrackSidePadding,
-                          transform: `translateX(${caseOpenOffset}px)`,
+                          transform: `translateX(${caseOpenTape.length > 0 ? caseOpenOffset : -Math.floor(caseOpenPreviewValues.length / 2) * caseOpenSlotSize}px)`,
                           transition: "none",
                         }}
                       >
-                        {(caseOpenPhase === "rolling"
+                        {(caseOpenTape.length > 0
                           ? caseOpenTape
                           : caseOpenPreviewValues
                         ).map((value, index) => (
@@ -1270,14 +1269,18 @@ export function TaskList({
                     className={`mt-3 w-full rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                       isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                     }`}
-                    disabled={disabled || isCoolingDown || isCaseOpenPending || caseOpenPhase === "rolling"}
+                    disabled={disabled || isCoolingDown || isCaseOpenPending || caseOpenRequestPending || caseOpenPhase === "rolling"}
                     onClick={async () => {
+                      if (caseOpenRequestRef.current) return;
                       if (isCoolingDown) {
                         handleCooldownAttempt(`Cooldown active. Available again in ${formatRemaining(cooldownRemaining)}.`);
                         return;
                       }
 
                       emitSoundEvent("button_click");
+                      caseOpenRequestRef.current = true;
+                      setCaseOpenRequestPending(true);
+                      setCaseOpenError("");
                       setCaseOpenResolvedReward(null);
                       stopCaseOpenAnimation();
                       setCaseOpenTape([]);
@@ -1285,31 +1288,32 @@ export function TaskList({
                       setCaseOpenActiveIndex(null);
                       setCaseOpenPhase("idle");
 
-                      const reward = await onCaseOpen();
-                      if (typeof reward !== "number") {
-                        setCaseOpenResolvedReward(null);
-                        setCaseOpenOffset(0);
-                        setCaseOpenActiveIndex(null);
-                        setCaseOpenPhase("idle");
-                        return;
+                      try {
+                        const reward = await onCaseOpen();
+                        if (typeof reward !== "number") {
+                          throw new Error("Case Opening is not available. Please try again.");
+                        }
+                        setCaseOpenTape(buildCaseOpenTape(reward));
+                        setCaseOpenPhase("rolling");
+                        window.requestAnimationFrame(() => runCaseOpenAnimation(reward));
+                      } catch (error) {
+                        setCaseOpenError(error instanceof Error ? error.message : "Case Opening failed. Please try again.");
+                      } finally {
+                        caseOpenRequestRef.current = false;
+                        setCaseOpenRequestPending(false);
                       }
-
-                      const nextTape = buildCaseOpenTape(reward);
-                      setCaseOpenTape(nextTape);
-                      window.requestAnimationFrame(() => {
-                        runCaseOpenAnimation(reward);
-                      });
                     }}
                     type="button"
                   >
-                    {isCoolingDown ? (
-                      <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
-                    ) : isCaseOpenPending || caseOpenPhase === "rolling" ? (
+                    {isCaseOpenPending || caseOpenRequestPending || caseOpenPhase === "rolling" ? (
                       "Opening..."
+                    ) : isCoolingDown ? (
+                      <CooldownButtonContent label={`Available in ${formatRemaining(cooldownRemaining)}`} />
                     ) : (
                       "Open Case"
                     )}
                   </button>
+                  {caseOpenError ? <p role="alert" className="mt-3 rounded-xl border border-rose-300/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{caseOpenError}</p> : null}
                 </div>
               )}
 
@@ -1812,7 +1816,7 @@ function WheelSpinner({
   const settledRotation =
     selectedIndex === null
       ? rotation
-      : (360 - (selectedIndex * segmentDegrees + segmentDegrees / 2)) % 360;
+      : (360 - selectedIndex * segmentDegrees) % 360;
   const displayRotation = rotation !== 0 ? rotation : settledRotation;
   const activeIndex = spinning ? null : selectedIndex;
   const wheelGradient = Array.from({ length: safeSegmentCount }, (_, index) => {
@@ -1832,26 +1836,30 @@ function WheelSpinner({
       <div
         className="relative aspect-square w-full max-w-[18rem] rounded-full border border-pink-100/35 shadow-[0_0_34px_rgba(236,72,153,0.28)] transition-transform duration-[3600ms] ease-out"
         style={{
-          background: `conic-gradient(from -9deg, ${wheelGradient})`,
+          background: `conic-gradient(from ${-segmentDegrees / 2}deg, ${wheelGradient})`,
           transform: `rotate(${displayRotation}deg)`,
         }}
       >
         <div className="absolute inset-2 rounded-full border border-black/35" />
         <div className="absolute inset-[42%] rounded-full border border-pink-100/40 bg-black shadow-[0_0_18px_rgba(0,0,0,0.6)]" />
         {Array.from({ length: safeSegmentCount }, (_, index) => {
-          const angle = index * segmentDegrees + segmentDegrees / 2;
+          const angle = index * segmentDegrees;
+          const radians = angle * Math.PI / 180;
           const isActive = activeIndex === index;
 
           return (
             <span
-              className={`absolute left-1/2 top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xs font-black ${
+              className={`absolute flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${
                 isActive
                   ? "bg-white text-pink-600 shadow-[0_0_14px_rgba(255,255,255,0.9)]"
                   : "bg-black/35 text-pink-50"
               }`}
               key={index}
               style={{
-                transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-6.45rem) rotate(${-angle}deg)`,
+                left: `${50 + 39 * Math.sin(radians)}%`,
+                top: `${50 - 39 * Math.cos(radians)}%`,
+                transform: `translate(-50%, -50%) rotate(${-displayRotation}deg)`,
+                transition: "transform 3600ms ease-out",
               }}
             >
               {index + 1}

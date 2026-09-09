@@ -1,0 +1,46 @@
+.destinations { min-width: 0; }
+.heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 6px 0 18px; }
+.eyebrow { color: #d6a867; font-size: 10px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; }
+.heading h2 { margin-top: 5px; color: #fff3e6; font-family: Georgia, serif; font-size: clamp(23px, 2.3vw, 32px); font-weight: 500; }
+.headingNote { color: #bb9cba; font-size: 11px; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; }
+.card { --accent: #ebbe79; position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; min-height: 252px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 14px; background: #180f16; color: #fff; text-align: left; cursor: pointer; box-shadow: 0 10px 28px #0003; transition: border-color .25s, box-shadow .25s, transform .25s; }
+.card:first-child { grid-row: span 2; }
+.card[data-tone="violet"] { --accent: #be9aff; background: #231338; }
+.card[data-tone="pink"] { --accent: #ff9fda; background: #37152f; }
+.card[data-tone="rose"] { --accent: #ff929e; background: #31151c; }
+.card[data-tone="mint"] { --accent: #8ee8c3; background: #122b29; }
+.card .art { position: absolute; z-index: -3; object-fit: cover; object-position: center 25%; opacity: .83; transition: transform .6s; }
+.card[data-tone="pink"] .art, .card[data-tone="mint"] .art { object-fit: contain; width: 66% !important; height: 66% !important; left: auto !important; right: -3% !important; top: 5% !important; transform: rotate(-9deg); filter: drop-shadow(0 0 24px color-mix(in srgb, var(--accent) 30%, transparent)); }
+.shade { position: absolute; z-index: -2; inset: 0; background: linear-gradient(180deg, #10071355, transparent 26%, #100713a8 52%, #100713 100%); }
+.card:first-child .shade { background: linear-gradient(180deg, #170c0d55, transparent 22%, #170c0d80 52%, #170c0d 100%); }
+.cardEyebrow { padding: 18px 18px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .15em; color: var(--accent); text-shadow: 0 1px 8px #000; }
+.cardEyebrow > span { margin-right: 5px; font-size: 16px; }
+.content { display: flex; flex-direction: column; padding: 34px 18px 18px; }
+.title { font-family: Georgia, serif; font-size: clamp(23px, 1.9vw, 30px); line-height: 1.1; color: #fff5eb; }
+.card:first-child .title { font-size: clamp(30px, 2.5vw, 42px); }
+.detail { margin-top: 9px; max-width: 32ch; font-size: 12px; line-height: 1.6; color: #e0d4df; }
+.cta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); color: var(--accent); font-size: 11px; font-weight: 800; }
+.cta > span { font-size: 20px; line-height: 1; }
+.card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 12px 30px #0005, 0 0 20px color-mix(in srgb, var(--accent) 12%, transparent); }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.card:hover .art { transform: scale(1.04); }
+.card[data-tone="mint"]:hover .art, .card[data-tone="pink"]:hover .art { transform: rotate(-5deg) scale(1.04); }
+@media (max-width: 1200px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card:first-child { grid-column: span 2; grid-row: auto; min-height: 270px; }
+  .card:first-child .art { object-position: center 30%; }
+  .card:first-child .content { max-width: 62%; }
+  .card:first-child .shade { background: linear-gradient(90deg, #170c0def, #170c0d8c 60%, #170c0d22); }
+}
+@media (max-width: 640px) {
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .card, .card:first-child { grid-column: auto; min-height: 260px; }
+  .card:first-child .content { max-width: none; }
+  .headingNote { display: none; }
+  .card .art { object-position: center 30%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .card .art { transition: none; }
+  .card:hover, .card:hover .art { transform: none; }
+}

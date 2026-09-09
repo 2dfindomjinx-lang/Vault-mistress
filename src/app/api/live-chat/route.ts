@@ -9,12 +9,11 @@ import { sendAdminMobileChatPushOnce } from "@/lib/admin-mobile-push";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { formatHandle } from "@/lib/username";
+import { CHAT_PAGE_SIZE, chatCursor, parseChatCursor } from "@/lib/live-chat-pagination";
 
 const CHAT_HIGHLIGHT_COST = 2000;
 const CHAT_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MS = 8000;
-const CHAT_RETENTION_LIMIT = 30;
-const CHAT_RETENTION_MS = 72 * 60 * 60 * 1000;
 
 type ChatBody = {
   action?: "send" | "delete" | "mute";
@@ -88,6 +87,7 @@ async function hydrateMessages(
 
   return messages.map((message) => ({
     ...message,
+    message: message.is_deleted ? "Message deleted." : message.message,
     profiles: profileMap.get(message.user_id) ?? null,
   }));
 }
@@ -101,7 +101,6 @@ export async function GET(request: Request) {
   if (authResult.error) return authResult.error;
 
   const supabase = createSupabaseAdminClient();
-  const retentionCutoff = new Date(Date.now() - CHAT_RETENTION_MS).toISOString();
   const requestUrl = new URL(request.url);
   const summaryOnly = requestUrl.searchParams.get("summary") === "1";
 
@@ -117,7 +116,6 @@ export async function GET(request: Request) {
       supabase
         .from("live_chat_messages")
         .select("created_at")
-        .gte("created_at", retentionCutoff)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -139,33 +137,49 @@ export async function GET(request: Request) {
     }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
-  // Age-based retention now runs exclusively via the run_data_retention() cron
-  // (supabase/retention-maintenance.sql, 7-day cutoff) instead of on every
-  // poll here - this route was previously running a DELETE against
-  // live_chat_messages on every GET (every 30s per open chat widget), and
-  // the query below already filters to `retentionCutoff` regardless of
-  // whether stale rows still physically exist in the table.
-  const [messagesResult, muteResult] = await Promise.all([
-    supabase
-      .from("live_chat_messages")
-      .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
-      .gte("created_at", retentionCutoff)
-      .order("created_at", { ascending: false })
-      .limit(CHAT_RETENTION_LIMIT),
+  const beforeValue = requestUrl.searchParams.get("before");
+  const afterValue = requestUrl.searchParams.get("after");
+  const before = parseChatCursor(beforeValue);
+  const after = parseChatCursor(afterValue);
+  const deletedAfterValue = requestUrl.searchParams.get("deletedAfter");
+  const deletedAfter = parseChatCursor(deletedAfterValue);
+  const deletionBaseline = chatCursor({ created_at: new Date().toISOString(), id: "00000000-0000-0000-0000-000000000000" });
+  if ((beforeValue && !before) || (afterValue && !after) || (before && after) || (deletedAfterValue && !deletedAfter)) {
+    return jsonError("Invalid chat cursor.", 400);
+  }
+  let query = supabase.from("live_chat_messages")
+    .select("id, user_id, message, created_at, is_deleted, deleted_at, message_type, coin_cost, expires_at")
+    .order("created_at", { ascending: Boolean(after) })
+    .order("id", { ascending: Boolean(after) })
+    .limit(CHAT_PAGE_SIZE + 1);
+  const cursor = before ?? after;
+  if (cursor) {
+    const op = before ? "lt" : "gt";
+    query = query.or(`created_at.${op}.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.${op}.${cursor.id})`);
+  }
+  const [messagesResult, muteResult, deletedResult] = await Promise.all([
+    query,
     supabase.from("live_chat_mutes").select("*").eq("user_id", authResult.userId!).maybeSingle(),
+    deletedAfter ? supabase.from("live_chat_messages").select("id, deleted_at").eq("is_deleted", true)
+      .or(`deleted_at.gt.${deletedAfter.created_at},and(deleted_at.eq.${deletedAfter.created_at},id.gt.${deletedAfter.id})`)
+      .order("deleted_at").order("id").limit(CHAT_PAGE_SIZE + 1) : Promise.resolve({ data: [], error: null }),
   ]);
 
   if (messagesResult.error) {
     return jsonError(messagesResult.error.message, 500);
   }
+  if (deletedResult.error) return jsonError("Chat moderation updates could not be loaded.", 500);
+  const deletions = (deletedResult.data ?? []).slice(0, CHAT_PAGE_SIZE);
+  const lastDeletion = deletions[deletions.length - 1];
 
   const mute = muteResult.data as { muted_until?: string | null; reason?: string | null } | null;
   const mutedUntilMs = mute?.muted_until ? new Date(mute.muted_until).getTime() : null;
   const isMuted = mutedUntilMs === null ? Boolean(mute) : mutedUntilMs > Date.now();
-  const messages = await hydrateMessages(
-    supabase,
-    ((messagesResult.data ?? []) as LiveChatMessageRow[]).reverse(),
-  );
+  const rows = (messagesResult.data ?? []) as LiveChatMessageRow[];
+  const hasMore = rows.length > CHAT_PAGE_SIZE;
+  const page = rows.slice(0, CHAT_PAGE_SIZE);
+  if (!after) page.reverse();
+  const messages = await hydrateMessages(supabase, page);
 
   return Response.json({
     currentUser: {
@@ -175,7 +189,12 @@ export async function GET(request: Request) {
       mutedUntil: isMuted ? mute?.muted_until ?? null : null,
     },
     messages,
-  });
+    deletedIds: deletions.map((row) => row.id),
+    nextDeletionCursor: lastDeletion ? chatCursor({ id: lastDeletion.id, created_at: lastDeletion.deleted_at }) : deletedAfterValue ?? deletionBaseline,
+    hasMoreDeletions: (deletedResult.data?.length ?? 0) > CHAT_PAGE_SIZE,
+    hasMore,
+    nextCursor: page.length ? chatCursor(after ? page[page.length - 1] : page[0]) : null,
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -342,21 +361,6 @@ export async function POST(request: Request) {
   }
 
   const [hydratedMessage] = await hydrateMessages(supabase, [createdMessage as LiveChatMessageRow]);
-  const { data: expiredRows, error: expiredRowsError } = await supabase
-    .from("live_chat_messages")
-    .select("id")
-    .order("created_at", { ascending: false })
-    .range(CHAT_RETENTION_LIMIT, CHAT_RETENTION_LIMIT + 499);
-
-  if (expiredRowsError) {
-    console.warn("[live-chat] retention lookup failed", expiredRowsError);
-  } else {
-    const expiredIds = (expiredRows ?? []).map((row) => row.id as string).filter(Boolean);
-    if (expiredIds.length > 0) {
-      const { error: retentionError } = await supabase.from("live_chat_messages").delete().in("id", expiredIds);
-      if (retentionError) console.warn("[live-chat] retention cleanup failed", retentionError);
-    }
-  }
 
   if (!isAdmin) {
     await sendAdminMobileChatPushOnce({

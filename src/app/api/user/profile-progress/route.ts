@@ -140,6 +140,9 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as ProfilePatchBody | null;
   const reason = body?.reason?.trim();
+  if (["reward:case-opening", "reward:task:case-opening", "task:case-opening"].includes(reason ?? "")) {
+    return jsonError("Case Opening must use its dedicated action endpoint.", 409);
+  }
   const clientNext = body?.nextProfile ?? {};
   const metadata = body?.metadata ?? {};
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { UserNotificationRecord } from "@/lib/user-notifications";
 
 type AdminNotificationItem = {
@@ -61,6 +62,15 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
     socialApprovals: 0,
   });
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelPosition, setPanelPosition] = useState({ top: 64, left: 12, maxHeight: 500 });
+  const positionPanel = useCallback(() => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(448, window.innerWidth - 24);
+    const top = Math.max(12, Math.min(rect.bottom + 12, window.innerHeight - 180));
+    setPanelPosition({ top, left: Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12)), maxHeight: Math.min(672, window.innerHeight - top - 12) });
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     if (!isLoggedIn) {
@@ -172,17 +182,25 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
     }
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      if (!rootRef.current?.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handlePointerDown);
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { setIsOpen(false); rootRef.current?.querySelector("button")?.focus(); } };
+    const reposition = () => positionPanel();
+    document.addEventListener("keydown", escape);
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
     };
-  }, [isOpen]);
+  }, [isOpen, positionPanel]);
 
   const totalAdminCount =
     adminCounts.irlPending +
@@ -237,6 +255,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
         aria-haspopup="dialog"
         className="relative rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white"
         onClick={() => {
+          positionPanel();
           setIsOpen((current) => !current);
           if (!isOpen) {
             void loadNotifications();
@@ -270,8 +289,8 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
         </span>
       </button>
 
-      {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[100] w-[min(28rem,calc(100vw-1.5rem))] max-h-[min(80dvh,42rem)] overflow-y-auto overscroll-contain rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 pr-3 shadow-[0_24px_80px_rgba(0,0,0,0.48)] [scrollbar-width:thin]">
+      {isOpen ? createPortal(
+        <div ref={panelRef} role="dialog" aria-label="Notification Center" style={panelPosition} className="fixed z-[200] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-[1.5rem] border border-fuchsia-200/15 bg-[linear-gradient(180deg,rgba(14,6,20,0.98),rgba(7,3,10,0.98))] p-4 pr-3 text-white shadow-[0_24px_80px_rgba(0,0,0,0.48)] [scrollbar-width:thin]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.28em] text-pink-100/70">
@@ -389,7 +408,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
             </div>
           </div>
         </div>
-      ) : null}
+      , document.body) : null}
     </div>
   );
 }

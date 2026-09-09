@@ -3,6 +3,7 @@
 import type { DashboardPage } from "@/components/SidebarNav";
 import Image from "next/image";
 import { useState } from "react";
+import styles from "./HomeCommandCenter.module.css";
 
 export type HomeAction = {
   detail: string;
@@ -40,6 +41,14 @@ const tabs = [
   ["shame", "Shame"],
   ["inventory", "Inventory"],
 ] as const;
+
+const destinationArt: Partial<Record<DashboardPage, { image: string; tone: string; eyebrow: string; symbol: string }>> = {
+  debt: { image: "/principessa-ui/generated/principessa-debt-contract.webp", tone: "gold", eyebrow: "A promise in writing", symbol: "✦" },
+  wheels: { image: "/gamble/principessa-casino-hero.webp", tone: "violet", eyebrow: "The tables await", symbol: "♠" },
+  crates: { image: "/crate-icons/couture-case.webp", tone: "pink", eyebrow: "Inside the collection", symbol: "◇" },
+  tribute: { image: "/principessa-ui/generated/principessa-shrine-offering.webp", tone: "rose", eyebrow: "An offering to remember", symbol: "♛" },
+  moneyShop: { image: "/principessa-money-icon.png", tone: "mint", eyebrow: "Something worth keeping", symbol: "✧" },
+};
 
 export function HomeCommandCenter({
   actions,
@@ -82,24 +91,30 @@ export function HomeCommandCenter({
       </section>
 
       {actions.length > 0 ? (
-        <section className="relative min-h-[12rem] overflow-hidden rounded-[1.5rem] border border-[#c89a55]/25 bg-[linear-gradient(110deg,rgba(45,10,22,.96),rgba(20,5,14,.76))] p-4 shadow-[0_0_34px_rgba(251,191,36,.08)]">
-          <Image alt="Principessa" className="pointer-events-none absolute right-0 top-0 h-full w-2/5 object-cover object-top opacity-55" fill sizes="40vw" src="/home-principessa-court.png" unoptimized />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#220914] via-[#220914]/90 to-transparent" />
-          <div className="pointer-events-none absolute right-5 top-4 text-4xl text-amber-200/[.08]">♛</div>
-          <div className="relative z-10 flex items-center justify-between gap-3">
+        <section className={styles.destinations} aria-labelledby="court-destinations-title">
+          <div className={styles.heading}>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-100/60">Court direction</p>
-              <h2 className="mt-1 text-xl font-black text-white">What should you do now?</h2>
+              <p className={styles.eyebrow}>Explore the court</p>
+              <h2 id="court-destinations-title">What should you do now?</h2>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/45">{actions.length} ready</span>
+            <span className={styles.headingNote}>Your next chapter</span>
           </div>
-          <div className="relative z-10 mt-3 divide-y divide-white/[0.07]">
-            {actions.map((item) => (
-              <div className="flex items-center justify-between gap-3 py-3" key={`${item.label}-${item.detail}`}>
-                <div className="min-w-0"><p className="truncate text-sm font-bold text-white">› {item.label}</p><p className="mt-0.5 truncate text-xs text-zinc-400">{item.detail}</p></div>
-                <button className="shrink-0 rounded-full border border-amber-200/25 bg-amber-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-50 transition hover:border-amber-200/55" onClick={() => onNavigate(item.target)} type="button">{item.action}</button>
-              </div>
-            ))}
+          <div className={styles.grid}>
+            {actions.map((item) => {
+              const art = destinationArt[item.target];
+              return (
+                <button className={styles.card} data-tone={art?.tone} key={item.target} onClick={() => onNavigate(item.target)} type="button">
+                  {art ? <Image alt="" className={styles.art} fill sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 30vw" src={art.image} unoptimized /> : null}
+                  <span className={styles.shade} aria-hidden="true" />
+                  <span className={styles.cardEyebrow}><span aria-hidden="true">{art?.symbol}</span> {art?.eyebrow}</span>
+                  <span className={styles.content}>
+                    <span className={styles.title}>{item.label}</span>
+                    <span className={styles.detail}>{item.detail}</span>
+                    <span className={styles.cta}>{item.action}<span aria-hidden="true">↗</span></span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
       ) : null}

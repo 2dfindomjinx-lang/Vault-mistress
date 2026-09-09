@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     return jsonError("Invalid task payload.");
   }
 
-  if (taskId === "high-low" || taskId === "number-pick") {
+  if (taskId === "high-low" || taskId === "number-pick" || taskId === "case-opening") {
     return jsonError("This task must use its dedicated action endpoint.", 409);
   }
 

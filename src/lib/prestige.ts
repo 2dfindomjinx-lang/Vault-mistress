@@ -203,6 +203,24 @@ export const COMMUNITY_GOALS: CommunityGoalDefinition[] = [
       "tribute:support",
     ],
   },
+  {
+    id: "autumn-community-goal-2026",
+    title: "Spend 2,000,000 Coins",
+    startsAt: "2026-09-09T19:45:00+03:00",
+    endsAt: "2026-12-08T19:45:00+03:00",
+    targetCoins: 2_000_000,
+    rewardCrateType: "couture_case",
+    rewardFreeOpens: 3,
+    rewardTitle: "3x Couture Case Keys",
+    rewardDescription: "Every participant receives 3 Couture Case keys when the community completes the goal.",
+    includedReasons: [
+      "crate:open", "cosmetic:display_name_change", "spend:cosmetic",
+      "spend:gallery-unlock", "spend:irl-task-wheel", "spend:pet-weekly-tax",
+      "spend:puzzle", "spend:puzzle-preview", "spend:rights", "spend:chat-highlight",
+      "spend:title", "spend:timeout-clear", "spend:uncensored",
+      "tribute:coin-offer", "tribute:sacrifice", "tribute:shrine", "tribute:support",
+    ],
+  },
 ];
 
 const rotatingBorderIds = rotatingCosmeticItems

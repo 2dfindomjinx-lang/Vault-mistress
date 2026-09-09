@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
+import { chatCursor, mergeChatMessages } from "@/lib/live-chat-pagination";
 
 type LiveChatProfile = {
   avatar_url?: string | null;
@@ -28,6 +29,11 @@ type LiveChatResponse = {
     mutedUntil?: string | null;
   };
   messages?: LiveChatMessage[];
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  deletedIds?: string[];
+  nextDeletionCursor?: string;
+  hasMoreDeletions?: boolean;
 };
 
 type LiveChatSummaryResponse = {
@@ -65,17 +71,36 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
   const messagesScrollRef = useRef<HTMLDivElement | null>(null);
   const lastReadAtRef = useRef<string | null>(null);
   const hasLoadedRef = useRef(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const historyCursorRef = useRef<string | null>(null);
+  const latestCursorRef = useRef<string | null>(null);
+  const deletionCursorRef = useRef<string | null>(null);
+  const catchupTimerRef = useRef<number | null>(null);
+  const loadingRef = useRef(false);
+  const followLatestRef = useRef(true);
+  const prependAnchorRef = useRef<{ height: number; top: number } | null>(null);
 
-  const markLatestMessageRead = (latestCreatedAt: string | null) => {
+  const markLatestMessageRead = useCallback((latestCreatedAt: string | null) => {
     if (!latestCreatedAt) return;
     lastReadAtRef.current = latestCreatedAt;
     window.localStorage.setItem("vault-live-chat-last-read-at", latestCreatedAt);
     setUnreadCount(0);
-  };
+  }, []);
 
-  const loadMessages = async () => {
+  const loadMessages = async (older = false) => {
+    if (loadingRef.current || (older && !historyCursorRef.current)) return;
+    loadingRef.current = true;
+    if (older) setIsLoadingHistory(true);
+    else setIsLoadingMessages(true);
     try {
-      const response = await fetch("/api/live-chat", { cache: "no-store" });
+      const initial = !latestCursorRef.current;
+      const params = new URLSearchParams();
+      if (older) params.set("before", historyCursorRef.current!);
+      else if (latestCursorRef.current) params.set("after", latestCursorRef.current);
+      if (!older && deletionCursorRef.current) params.set("deletedAfter", deletionCursorRef.current);
+      const response = await fetch(`/api/live-chat?${params}`, { cache: "no-store" });
       const payload = (await response.json()) as LiveChatResponse & { error?: string };
 
       if (!response.ok) {
@@ -84,22 +109,39 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
 
       const nextMessages = payload.messages ?? [];
       const newestCreatedAt = nextMessages[nextMessages.length - 1]?.created_at ?? null;
+      if (older || initial) {
+        historyCursorRef.current = payload.nextCursor ?? null;
+        setHasMore(Boolean(payload.hasMore));
+      }
+      if (!older && nextMessages.length) latestCursorRef.current = chatCursor(nextMessages[nextMessages.length - 1]);
+      if (!older && payload.nextDeletionCursor) deletionCursorRef.current = payload.nextDeletionCursor;
+      const container = messagesScrollRef.current;
+      if (older && container) prependAnchorRef.current = { height: container.scrollHeight, top: container.scrollTop };
       const storedLastReadAt = lastReadAtRef.current ?? window.localStorage.getItem("vault-live-chat-last-read-at");
       const shouldEstablishBaseline = !hasLoadedRef.current && !storedLastReadAt;
 
-      if (isOpen || shouldEstablishBaseline) {
-        // Opening Live Chat means the whole current thread is acknowledged.
+      if (!older && ((isOpen && followLatestRef.current) || shouldEstablishBaseline)) {
+        // Only acknowledge incoming messages while following the bottom.
         markLatestMessageRead(newestCreatedAt);
-      } else if (storedLastReadAt) {
-        setUnreadCount(nextMessages.filter((message) => new Date(message.created_at).getTime() > new Date(storedLastReadAt).getTime()).length);
+      } else if (!older && storedLastReadAt) {
+        setUnreadCount((count) => count + nextMessages.filter((message) => message.created_at > storedLastReadAt).length);
       }
 
       hasLoadedRef.current = true;
-      setMessages(nextMessages);
+      const deletedIds = new Set(payload.deletedIds ?? []);
+      setMessages((current) => mergeChatMessages(current, nextMessages).map((message) =>
+        deletedIds.has(message.id) ? { ...message, is_deleted: true, message: "Message deleted." } : message));
       setIsAdmin(Boolean(payload.currentUser?.isAdmin));
       setMutedText(payload.currentUser?.mutedUntil ? "Muted" : payload.currentUser?.mutedReason ? "Muted" : "");
+      setError("");
+      // Catch up in ascending pages so a busy conversation never creates gaps.
+      if (!older && ((!initial && payload.hasMore) || payload.hasMoreDeletions)) catchupTimerRef.current = window.setTimeout(() => void loadMessages(), 0);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
+    } finally {
+      loadingRef.current = false;
+      setIsLoadingHistory(false);
+      setIsLoadingMessages(false);
     }
   };
 
@@ -126,31 +168,34 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
     }
   };
 
+  const refreshChat = useEffectEvent(() => isOpen ? loadMessages() : loadSummary());
   useEffect(() => {
-    const load = isOpen ? loadMessages : loadSummary;
+    const load = () => refreshChat();
     const initialTimer = window.setTimeout(() => void load(), 0);
     const timer = window.setInterval(() => {
       void load();
     }, isOpen ? 30000 : 120000);
 
-    return () => { window.clearTimeout(initialTimer); window.clearInterval(timer); };
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+      if (catchupTimerRef.current !== null) window.clearTimeout(catchupTimerRef.current);
+    };
   }, [isOpen]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return;
-
-    // Scroll the actual overflow container, rather than relying on
-    // scrollIntoView() to pick the right ancestor. This makes opening the
-    // panel land at the newest message on desktop and mobile alike.
-    const frame = window.requestAnimationFrame(() => {
-      const container = messagesScrollRef.current;
-      if (!container) return;
+    const container = messagesScrollRef.current;
+    if (!container) return;
+    const anchor = prependAnchorRef.current;
+    if (anchor) {
+      container.scrollTop = anchor.top + container.scrollHeight - anchor.height;
+      prependAnchorRef.current = null;
+    } else if (followLatestRef.current) {
       container.scrollTop = container.scrollHeight;
       markLatestMessageRead(messages[messages.length - 1]?.created_at ?? null);
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [isOpen, messages.length]);
+    }
+  }, [isOpen, messages, markLatestMessageRead]);
 
   const sendMessage = async () => {
     const message = draft.replace(/\s+/g, " ").trim();
@@ -182,7 +227,9 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
         throw new Error(payload.error ?? "Message could not be sent.");
       }
 
-      setMessages((current) => [...current, payload.message!].slice(-30));
+      followLatestRef.current = true;
+      setMessages((current) => mergeChatMessages(current, [payload.message!]));
+      // Leave the polling cursor in place: messages arriving during send must also be fetched.
       setDraft("");
       setHighlighted(false);
 
@@ -231,9 +278,17 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
           </div>
 
           <div
-            className="flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3"
+            className="flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 [overflow-anchor:none] [&>article]:shrink-0"
             ref={messagesScrollRef}
+            onScroll={(event) => {
+              const container = event.currentTarget;
+              followLatestRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 48;
+              if (followLatestRef.current) markLatestMessageRead(messages[messages.length - 1]?.created_at ?? null);
+              if (container.scrollTop < 48 && hasMore && !loadingRef.current) void loadMessages(true);
+            }}
           >
+            {hasMore ? <button className="shrink-0 py-2 text-xs font-bold text-pink-200 hover:text-white disabled:opacity-50" disabled={isLoadingHistory} onClick={() => void loadMessages(true)} type="button">{isLoadingHistory ? "Loading history…" : "Load older messages"}</button> : null}
+            {!messages.length ? <p className="py-5 text-center text-xs text-pink-100/60">{isLoadingMessages ? "Loading messages…" : "Start the conversation."}</p> : null}
             {messages.map((message) => {
               const profile = getMessageProfile(message);
               const displayName = profile?.display_name || profile?.username || "Vault User";
@@ -320,7 +375,7 @@ export function LiveChatWidget({ onCoinsChange }: LiveChatWidgetProps) {
 
       <button
         className="group inline-flex items-center gap-2 rounded-full border border-pink-200/30 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.28)] transition hover:scale-[1.02]"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => { followLatestRef.current = true; setIsOpen((current) => !current); }}
         type="button"
       >
         <span

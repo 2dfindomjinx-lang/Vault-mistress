@@ -87,7 +87,7 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
 
       <div className="relative hidden h-full flex-col lg:flex">
-        <header className="relative h-[136px] shrink-0 overflow-hidden border-b border-[#c89a55]/15 px-6 pb-3 pt-4">
+        <header className="relative h-[clamp(100px,16dvh,136px)] shrink-0 overflow-hidden border-b border-[#c89a55]/15 px-6 pb-3 pt-3">
           <div className="absolute -right-9 -top-11 h-48 w-48 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
             <Image alt="Principessa watching over the court" className="object-cover object-center" fill priority sizes="208px" src="/principessa-ui/principessa-gaze.webp" />
           </div>
@@ -107,12 +107,12 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
         </div>
 
         <nav className="flex min-h-0 flex-1 flex-col justify-start overflow-hidden px-4 py-1.5">
-          <p className="mb-1 px-3 text-[7px] font-black uppercase tracking-[0.34em] text-[#c89a55]/40">Court directory</p>
+          <p className="mb-1 px-3 text-[9px] font-black uppercase tracking-[0.24em] text-[#c89a55]/60">Court directory</p>
           {items.map((item) => {
             const meta = navigationMeta[item.key];
             const isActive = activePage === item.key;
             return (
-              <div key={item.key}>
+              <div className="flex min-h-0 flex-1 basis-10 max-h-12" key={item.key}>
                 <button
                   className={`group relative flex w-full items-center gap-2.5 border-y border-transparent px-3 py-1 text-left transition ${isActive ? "border-[#c89a55]/20 bg-[linear-gradient(90deg,rgba(190,24,93,.2),rgba(190,24,93,.025))] text-[#fff0d2]" : item.disabled ? "cursor-not-allowed text-zinc-700" : "text-zinc-500 hover:bg-white/[.025] hover:text-pink-100"}`}
                   disabled={item.disabled}
@@ -123,9 +123,9 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
                 >
                   {isActive ? <span className="absolute inset-y-1 left-0 w-px bg-[#e6ba73] shadow-[0_0_10px_rgba(230,186,115,.75)]" /> : null}
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center border text-[10px] ${isActive ? "border-[#c89a55]/30 bg-black/35 text-pink-300" : "border-white/[.06] bg-black/20 text-zinc-700 group-hover:text-pink-300/70"}`}>{meta.glyph}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[7px] font-black uppercase leading-none tracking-[0.22em] text-[#c89a55]/35">{meta.code}</span>
-                    <span className="mt-0.5 block truncate font-serif text-[14px] leading-4">{item.label}</span>
+                  <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                    <span className="w-5 shrink-0 text-[9px] font-bold tracking-wide text-[#c89a55]/60">{meta.code}</span>
+                    <span className="block font-serif text-[17px] leading-[1.15] text-inherit">{item.label}</span>
                   </span>
                   {item.hasIndicator ? <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_9px_#fbbf24]" /> : null}
                   {item.badge ? <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700">{item.badge}</span> : null}

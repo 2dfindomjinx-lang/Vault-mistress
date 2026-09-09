@@ -96,10 +96,6 @@ const dashboardPanelLoaders: Partial<Record<DashboardPage, () => Promise<unknown
 // Temporary product hold: preserves click-game progress and all routes, but
 // removes the feature from the visible Shrine experience and stops its polls.
 const CLICK_GAME_ENABLED = true;
-// How many "what should you do now" lines the home page shows at once. The
-// candidate list is deliberately longer than this; only the most pressing few
-// are surfaced so the card stays a prompt rather than a chore list.
-const HOME_ACTION_LIMIT = 5;
 
 function preloadDashboardPanel(page: DashboardPage) {
   return dashboardPanelLoaders[page]?.() ?? Promise.resolve();
@@ -232,7 +228,7 @@ import {
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
 import { ownsPlush } from "@/lib/birthday-plush";
-import { getTimeoutClearFee, PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, roundRewardToNearestFive, RUNWAY_DAILY_REWARDED_VOTE_LIMIT, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
+import { getTimeoutClearFee, PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
   getGmt3DateKey,
@@ -1832,11 +1828,6 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [affection, setAffection] = useState(0);
   const [loyaltyStreak, setLoyaltyStreak] = useState(0);
   const [streakFreezes, setStreakFreezes] = useState(2);
-  // Runway's own panel loads its state lazily, but the home page needs to know
-  // whether the daily rewarded votes are still on the table. These two columns
-  // ride along on the profile row that is already being fetched.
-  const [runwayVotesToday, setRunwayVotesToday] = useState(0);
-  const [runwayVotesDate, setRunwayVotesDate] = useState<string | null>(null);
   const [isStreakRansomPending, setIsStreakRansomPending] = useState(false);
   const [courtSealPendingBoard, setCourtSealPendingBoard] = useState<CourtSealBoard | null>(null);
   const [returnCard, setReturnCard] = useState<{ changes: Array<{ label: string; href: string }> } | null>(null);
@@ -4304,8 +4295,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setStreakFreezes(profile.streak_freezes ?? 2);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    setRunwayVotesToday(profile.runway_rewarded_votes_today ?? 0);
-    setRunwayVotesDate(profile.runway_rewarded_votes_date ?? null);
     const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
     setCommittedEquippedSlots(slots);
@@ -4642,8 +4631,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setLoyaltyStreak(profile.loyalty_streak ?? 0);
     setStreakFreezes(profile.streak_freezes ?? 2);
     setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    setRunwayVotesToday(profile.runway_rewarded_votes_today ?? 0);
-    setRunwayVotesDate(profile.runway_rewarded_votes_date ?? null);
     timeoutUntilRef.current = profile.timeout_until ?? null;
     timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
@@ -10121,67 +10108,39 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     };
 
   const handleCaseOpen = async () => {
-    if (blockIfTimedOut()) {
-      return null;
-    }
-
+    if (blockIfTimedOut()) throw new Error("Timeout is active.");
     const actionId = "case-opening";
-    const task = tasks.find((entry) => entry.id === "case-opening");
-    const coolingDown =
-      Boolean(task?.cooldownUntil) &&
-      new Date(task?.cooldownUntil ?? "").getTime() > Date.now();
-
-    if (!task || coolingDown || !beginTaskAction(actionId)) {
-      return null;
+    const task = tasks.find((entry) => entry.id === actionId);
+    if (!task || (task.cooldownUntil && new Date(task.cooldownUntil).getTime() > Date.now())) {
+      throw new Error("Case Opening is on cooldown until the daily reset.");
     }
-
+    if (!beginTaskAction(actionId)) return null;
     try {
-      const now = new Date().toISOString();
-      const reward = randomCaseOpeningReward();
-      const nextCoins = Math.max(0, coinsRef.current + reward);
-
-      if (!isGuestMode && authUserId) {
-        try {
-          await persistProfileProgress({ coins: nextCoins, affection }, "reward:case-opening");
-        } catch (error) {
-          setAuthError(describeError(error));
-          return null;
-        }
-
-        try {
-          await persistUserTask({
-            task_id: task.id,
-            completed_at: now,
-            claimed_at: now,
-            reward_coins: reward,
-            metadata: { reward },
-          });
-        } catch (error) {
-          console.error("Failed to persist case opening", error);
-          setAuthError(describeError(error));
-          return null;
-        }
+      let reward: number;
+      let openedAt: string;
+      let cooldownUntil: string | null;
+      if (isGuestMode) {
+        reward = randomCaseOpeningReward();
+        openedAt = new Date().toISOString();
+        cooldownUntil = getPetTaskCooldownUntil(openedAt);
+        coinsRef.current += reward;
+        setCoins(coinsRef.current);
       } else {
-        setCoins(nextCoins);
+        const response = await fetch("/api/user/task-actions/case-opening", { method: "POST" });
+        const result = await response.json() as { error?: string; reward?: number; coins?: number; openedAt?: string; cooldownUntil?: string };
+        if (!response.ok || !Number.isFinite(result.reward) || typeof result.coins !== "number" || !result.openedAt || !result.cooldownUntil) {
+          if (result.cooldownUntil) setTasks((current) => current.map((entry) => entry.id === actionId ? { ...entry, cooldownUntil: result.cooldownUntil } : entry));
+          throw new Error(result.error ?? "Case Opening could not be saved. Please try again.");
+        }
+        reward = result.reward!;
+        openedAt = result.openedAt;
+        cooldownUntil = result.cooldownUntil;
+        coinsRef.current = result.coins;
+        setCoins(result.coins);
       }
-
-      setTasks((current) =>
-        current.map((entry) =>
-          entry.id === task.id
-            ? {
-                ...entry,
-                caseReward: reward,
-                caseSpunAt: now,
-                completed: true,
-                claimed: true,
-                cooldownUntil: getPetTaskCooldownUntil(now),
-              }
-            : entry,
-        ),
-      );
-      // Reply text is intentionally NOT set here - it would spoil the result
-      // before the reel animation in TaskList finishes. TaskList calls
-      // handleCaseOpenRevealed with this same reward once the reveal lands.
+      setTasks((current) => current.map((entry) => entry.id === actionId ? {
+        ...entry, caseReward: reward, caseSpunAt: openedAt, completed: true, claimed: true, cooldownUntil,
+      } : entry));
       return reward;
     } finally {
       finishTaskAction(actionId);
@@ -11652,79 +11611,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const currentWeeklyTaxCost = getPetWeeklyTaxCost(coins);
   const profileLeadership = getLeadershipRank(tributeTotal);
-  const readyTaskCount = tasks.filter((task) => !task.completed && !task.claimed && (!task.cooldownUntil || new Date(task.cooldownUntil).getTime() <= Date.now())).length;
-  // Copy is written in Principessa's voice on purpose - this block is the first
-  // thing a returning user reads, and "Complete your assigned tasks" reads like
-  // a project tracker instead of a court. Keep it second person, cold, terse.
-  // Court direction. Everything the court is currently waiting on, most
-  // pressing first, trimmed to a readable handful.
-  //
-  // This used to hold four rules, three of them pet-only, so a user without
-  // the pet unlock saw at most two lines - and none at all once those were
-  // done, since the whole card hides on an empty list. The site has far more
-  // going on than that, and the home page was the one place not saying so.
-  const petThroneTask = petTaskState.find((task) => task.id === PET_THRONE_TASK_ID);
-  const runwayVotesLeft = runwayVotesDate === getGmt3DateKey()
-    ? Math.max(0, RUNWAY_DAILY_REWARDED_VOTE_LIMIT - runwayVotesToday)
-    : RUNWAY_DAILY_REWARDED_VOTE_LIMIT;
-  const dressedSlotCount = Object.values(equippedAvatarSlots).filter(Boolean).length;
-  const affordableShopItem = moneyShopItems.find((item) => item.pricePm <= principessaMoney);
-
-  // Every line names something the reader can go and do. Phrasing them as
-  // deficits ("your avatar is bare", "you have not finished") turns the card
-  // into a list of failures, which reads as nagging and, worse, tells someone
-  // nothing about what the site actually offers them.
-  const homeCandidates: Array<(HomeAction & { weight: number }) | null> = [
-    // Things with a deadline first - still stated as an act, not a scolding.
-    isPetUnlocked && nextPetTaxDueAt && new Date(nextPetTaxDueAt).getTime() <= Date.now()
-      ? { weight: 100, action: "Pay", detail: `${currentWeeklyTaxCost.toLocaleString()} coins buys another week in her house.`, label: "Settle this week's tax", target: "pet" as const }
-      : null,
-    readyTaskCount > 0
-      ? { weight: 90, action: "Obey", detail: `${readyTaskCount} waiting, and every one of them pays.`, label: "Take on her orders", target: "tasks" as const }
-      : null,
-    isPetUnlocked && petThroneTask?.status === "available"
-      ? { weight: 85, action: "Tribute", detail: "Your code is live. Send it on Throne, then bring her the proof.", label: "Send tribute through Throne", target: "pet" as const }
-      : null,
-
-    // Already earned, just not collected yet.
-    Object.values(crateOpenCredits).some((count) => count > 0)
-      ? { weight: 80, action: "Open", detail: "Keys are sitting in your vault. She decides what is inside.", label: "Open what you already own", target: "crates" as const }
-      : null,
-
-    // Free coins on the table, and they reset at midnight.
-    runwayVotesLeft > 0
-      ? { weight: 70, action: "Judge", detail: `${runwayVotesLeft} more rated look${runwayVotesLeft === 1 ? "" : "s"} pays today. It resets at midnight.`, label: "Rate the Runway for coins", target: "runway" as const }
-      : null,
-    // Whether a look was already submitted today is only known inside the
-    // Runway panel, so this stays an invitation rather than a claim.
-    { weight: 65, action: "Strut", detail: "One look a day, judged by the whole court.", label: "Show the court your taste", target: "runway" as const },
-
-    // Ongoing pursuits.
-    CLICK_GAME_ENABLED && clickGameStatus && clickGameStatus.progress > 0
-      ? { weight: 60, action: "Drain", detail: `Stage ${clickGameStatus.stage}, and it slips back while you are away.`, label: "Push the drain further", target: "tribute" as const }
-      : null,
-    shrineStatus && shrineStatus.coinsUntilNextUnlock !== null && shrineStatus.coinsUntilNextUnlock > 0
-      ? { weight: 55, action: "Spend", detail: `${shrineStatus.coinsUntilNextUnlock.toLocaleString()} coins reaches it.`, label: "Unlock her next memory", target: "tribute" as const }
-      : null,
-    affordableShopItem
-      ? { weight: 50, action: "Buy", detail: `${affordableShopItem.name} is within reach at ${affordableShopItem.pricePm} PM.`, label: "Spend your Principessa Money", target: "moneyShop" as const }
-      : null,
-
-    // Quieter openings, surfaced only when there is genuinely room for them.
-    dressedSlotCount === 0
-      ? { weight: 45, action: "Dress", detail: "Everything you own can be worn. Decide how you look.", label: "Dress your avatar", target: "profile" as const }
-      : null,
-    selectedDevotionRank === null
-      ? { weight: 40, action: "Climb", detail: "Every tribute moves you up it.", label: "Claim a place on the Devotion board", target: "devotion" as const }
-      : null,
-    { weight: 20, action: "Look", detail: "New pieces arrive without warning.", label: "See what the cases are holding", target: "crates" as const },
+  const homeActions: HomeAction[] = [
+    { target: "debt", label: "Debt Contracts", action: petDebtContract ? "View contract" : "Explore contracts",
+      detail: petDebtContract ? "Review your terms, balance and next payment." : "Choose your terms. Put your pledge in writing." },
+    { target: "wheels", label: "Gamble Hall", action: "Choose a table",
+      detail: "Seven tables. Set your stake and meet her odds." },
+    { target: "crates", label: "Cases", action: "Explore cases",
+      detail: Object.values(crateOpenCredits).some((count) => count > 0) ? "Your keys are ready. Discover what is inside." : "Find your next piece for the royal collection." },
+    { target: "tribute", label: "Shrine of Principessa", action: "Visit the shrine",
+      detail: shrineStatus && shrineStatus.coinsUntilNextUnlock !== null && shrineStatus.coinsUntilNextUnlock > 0
+        ? `${shrineStatus.coinsUntilNextUnlock.toLocaleString()} Coins to the next Shrine Memory.`
+        : "Make an offering. Discover her memories." },
+    { target: "moneyShop", label: "Money Shop", action: "Browse the shop",
+      detail: "Spend Principessa Money on something worth keeping." },
   ];
-
-  const homeActions: HomeAction[] = homeCandidates
-    .filter((entry): entry is HomeAction & { weight: number } => entry !== null)
-    .sort((left, right) => right.weight - left.weight)
-    .slice(0, HOME_ACTION_LIMIT)
-    .map(({ weight: _weight, ...action }) => action);
   const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
   const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
   const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
