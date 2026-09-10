@@ -86,29 +86,25 @@ export const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 
 export const ROULETTE_BETS = [
   { id: "red", label: "Red", multiplier: 1.68 },
   { id: "black", label: "Black", multiplier: 1.68 },
-  { id: "odd", label: "Odd", multiplier: 1.68 },
-  { id: "even", label: "Even", multiplier: 1.68 },
-  { id: "low", label: "1–18", multiplier: 1.68 },
-  { id: "high", label: "19–36", multiplier: 1.68 },
+  { id: "green", label: "Green", multiplier: 30 },
 ] as const;
 export type RouletteBetId = (typeof ROULETTE_BETS)[number]["id"];
 
 export function rouletteBetWins(betId: RouletteBetId, number: number) {
+  if (betId === "green") return number === 0;
   if (number === 0) return false;
   if (betId === "red") return ROULETTE_RED_NUMBERS.has(number);
   if (betId === "black") return !ROULETTE_RED_NUMBERS.has(number);
-  if (betId === "odd") return number % 2 === 1;
-  if (betId === "even") return number % 2 === 0;
-  if (betId === "low") return number <= 18;
-  return number >= 19;
+  return false;
 }
 
 // -------------------------------------------------------------------- plinko
 // 12 rows of pegs -> 13 buckets, binomial landing. Centre buckets grind you
-// down, the rim pays. EV ~0.814 against exact binomial(12, 0.5) weights
+// down, the rim pays, and the centre loses the whole stake. EV ~0.815
+// against exact binomial(12, 0.5) weights
 // (verified in the test script).
 export const PLINKO_ROWS = 12;
-export const PLINKO_MULTIPLIERS = [45, 13, 3.6, 1.55, 0.82, 0.45, 0.27, 0.45, 0.82, 1.55, 3.6, 13, 45] as const;
+export const PLINKO_MULTIPLIERS = [45, 13, 3.6, 1.55, 0.82, 0.61, 0, 0.61, 0.82, 1.55, 3.6, 13, 45] as const;
 
 export function plinkoBucketForPath(rights: number) {
   return Math.max(0, Math.min(PLINKO_MULTIPLIERS.length - 1, rights));
@@ -117,12 +113,16 @@ export function plinkoBucketForPath(rights: number) {
 // --------------------------------------------------------------------- mines
 // 25 boxes, player-chosen mine count. No 3-mine mode on purpose: at 3 the
 // first picks are near-free and the game reads as coin farming. Multiplier
-// after each safe pick is the fair inverse odds shaved by the edge, so the
-// house cut is identical at every depth.
+// after each safe pick is the fair inverse odds shaved by the edge. Early
+// picks return at most the stake until that difficulty's profit threshold.
 export const MINES_GRID = 25;
 export const MINES_OPTIONS = [7, 10, 15] as const;
 export const MINES_RTP = GAMBLE_MAX_RTP;
 export const MINES_MAX_MULTIPLIER = 250;
+
+export function minesProfitPicks(mineCount: number) {
+  return mineCount >= 15 ? 1 : mineCount >= 10 ? 2 : 3;
+}
 
 export function minesMultiplier(mineCount: number, safePicks: number): number {
   if (safePicks <= 0) return 1;
@@ -133,7 +133,8 @@ export function minesMultiplier(mineCount: number, safePicks: number): number {
     if (safe <= 0) return multiplier;
     multiplier *= remaining / safe;
   }
-  return Math.min(MINES_MAX_MULTIPLIER, Math.floor(multiplier * MINES_RTP * 100) / 100);
+  const ceiling = safePicks < minesProfitPicks(mineCount) ? 1 : MINES_MAX_MULTIPLIER;
+  return Math.min(ceiling, Math.floor(multiplier * MINES_RTP * 100) / 100);
 }
 
 // --------------------------------------------------------------------- crash

@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeWritingText } from "@/lib/writing-comparison";
+
 import type { CSSProperties, ReactNode } from "react";
 
 const shapes: Record<string, ReactNode> = {
@@ -191,14 +193,16 @@ export function CourtPortrait({
   );
 }
 export function WritingLine({
-  text,
-  value,
+  text: rawText,
+  value: rawValue,
   complete = false,
 }: {
   text: string;
   value: string;
   complete?: boolean;
 }) {
+  const text = normalizeWritingText(rawText);
+  const value = normalizeWritingText(rawValue);
   return (
     <span className="court-writing-line">
       {text.split("").map((character, index) => (

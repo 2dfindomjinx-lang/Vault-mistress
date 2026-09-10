@@ -87,7 +87,7 @@ function WheelFace({
     .join(", ");
 
   return (
-    <div className="relative mx-auto h-60 w-60">
+    <div className="relative mx-auto aspect-square w-full max-w-60 shrink-0">
       {/* Pointer */}
       <div
         aria-hidden
@@ -104,18 +104,15 @@ function WheelFace({
           transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none",
         }}
       >
-        {labels.map((label, index) => (
-          <span
-            className="absolute left-1/2 top-1/2 origin-left text-[7px] font-black uppercase tracking-[0.03em] text-white/80 [text-shadow:0_1px_4px_rgba(0,0,0,.95)]"
-            key={index}
-            style={{
-              transform: `rotate(${index * slice + slice / 2 - 90}deg) translateX(4.15rem)`,
-              width: "2.6rem",
-            }}
-          >
-            {label}
-          </span>
-        ))}
+        <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">
+          {labels.map((label, index) => {
+            const angle = index * slice + slice / 2 - 90;
+            const radians = angle * Math.PI / 180;
+            const x = 120 + 82 * Math.cos(radians);
+            const y = 120 + 82 * Math.sin(radians);
+            return <text key={index} x={x} y={y} transform={`rotate(${angle} ${x} ${y})`} textAnchor="middle" dominantBaseline="central" fill="rgba(255,255,255,.9)" fontSize="7" fontWeight="900">{label}</text>;
+          })}
+        </svg>
         <span
           aria-hidden
           className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-black/85"

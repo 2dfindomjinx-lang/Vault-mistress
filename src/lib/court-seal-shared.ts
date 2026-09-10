@@ -126,7 +126,7 @@ export function getCourtSealSecondary(payload: CourtSealPayload) {
 export function getCourtSealShareText(payload: CourtSealPayload) {
   switch (payload.board) {
     case "furnace":
-      return `I burned ${(payload.burned ?? 0).toLocaleString("en-US")} of her Money and got nothing back.`;
+      return `I burned $${(payload.burned ?? 0).toLocaleString("en-US")} and got nothing back.`;
     case "crate":
       return `Pulled ${payload.itemName ?? "something"} from Principessa's cases.`;
     case "tribute":

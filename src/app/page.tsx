@@ -1,4 +1,7 @@
 "use client";
+
+import { normalizeWritingText as normalizeWritingComparisonText } from "@/lib/writing-comparison";
+import { getTypingTaskProgress } from "@/lib/typing-task";
 import { visibleGalleryItems, secretGalleryItem, sacrificeGalleryItems } from "@/lib/gallery-catalog";
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 import { postEconomyAction } from "@/lib/economy-client";
@@ -1115,18 +1118,7 @@ function randomChance(probability: number) {
   return Math.random() < probability;
 }
 
-function normalizeWritingComparisonText(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
-    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ")
-    .replace(/[\u2018\u2019\u201A\u201B\u2032\u02BC\u02BB\uFF07\u00B4`]/g, "'")
-    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"')
-    .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-    .replace(/\u2026/g, "...")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+
 
 function formatLongTimeoutDuration(milliseconds: number) {
   const totalDays = Math.max(0, Math.ceil(milliseconds / DAY_MS));
@@ -1312,17 +1304,7 @@ function getTaskMetadataString(
   return typeof value === "string" ? value : null;
 }
 
-function isCompletedAfterClaim(row: UserTaskRow | undefined) {
-  if (!row?.completed_at) {
-    return false;
-  }
 
-  if (!row.claimed_at) {
-    return true;
-  }
-
-  return new Date(row.completed_at).getTime() > new Date(row.claimed_at).getTime();
-}
 
 function buildTasksFromRows(
   rows: UserTaskRow[],
@@ -1367,12 +1349,7 @@ function buildTasksFromRows(
     if (task.id === "typing-accuracy") {
       return {
         ...task,
-        attemptsRemaining: cooldownUntil
-          ? getTaskMetadataNumber(row?.metadata, "attemptsRemaining", 0)
-          : 3,
-        completed: !cooldownUntil && isCompletedAfterClaim(row),
-        claimed: Boolean(cooldownUntil),
-        cooldownUntil,
+        ...getTypingTaskProgress(row),
         sentence: getDailyTypingSentence(addressTerm),
       };
     }
@@ -4510,6 +4487,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     timeoutReasonRef.current = profile.timeout_reason ?? null;
     setTimeoutUntil(profile.timeout_until ?? null);
     setTimeoutReason(profile.timeout_reason ?? null);
+    if (profile.timeout_until !== undefined) {
+      setTasks(current => current.map(task =>
+        task.id === "timeout-risk" || task.id === "irl-task-wheel"
+          ? { ...task, timeoutUntil: profile.timeout_until ?? null }
+          : task,
+      ));
+    }
     const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
     setEquippedAvatarSlots(slots);
     setCommittedEquippedSlots(slots);
@@ -5895,10 +5879,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (
       task.id === "typing-accuracy" &&
-      (
-        getDailyCooldownUntil(existingTask?.claimed_at ?? null) ||
-        getDailyCooldownUntil(getTaskMetadataString(existingTask?.metadata, "failedAt"))
-      )
+      getTypingTaskProgress(existingTask).cooldownUntil
     ) {
       throw new Error("Task is still on cooldown.");
     }
@@ -10490,7 +10471,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     let nextProgress = Math.max(0, currentProgress + (correct ? 1 : -5));
     let nextStage = currentStage;
     let completed = false;
-    const failed = nextWrongInputs >= 10;
+    const failed = nextWrongInputs >= 5;
     const nextExpectedKey: "a" | "d" = expectedKey === "a" ? "d" : "a";
 
     if (!failed && nextProgress >= 99 && currentStage === 1) {
@@ -11556,7 +11537,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           {activePanel !== "home" && activePanel !== "tribute" && activePanel !== "wheels" ? <CourtChamberIntro page={activePanel} /> : null}
           <div className="relative z-30 mt-3">
             <ProfileHeader
-          compact={activePanel !== "profile"}
           actions={headerActions}
           avatarBorderPresentation={profileBorderPresentation}
           avatarSrc={characterEvolutionStage.image}
@@ -12870,7 +12850,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     </main>
   );
 }
-
 
 
 

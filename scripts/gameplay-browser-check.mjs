@@ -99,6 +99,7 @@ try {
           json: { bust: false, picks: [body.cell], multiplier: 1.13 },
         });
       if (body.action === "crash-open") {
+        assert.equal(body.autoCashout, autoWon ? 1.5 : null);
         crashStart = now + 3000;
         return route.fulfill({
           json: {
@@ -282,6 +283,8 @@ try {
     .first()
     .click();
   const roulette = page.locator("#table-roulette");
+  for (const color of ["Red", "Black", "Green"]) assert.ok(await roulette.getByRole("button", {name:new RegExp(`^${color}`)}).isVisible());
+  for (const removed of ["Odd", "Even", "1–18", "19–36"]) assert.equal(await roulette.getByRole("button", {name:new RegExp(`^${removed}`)}).count(),0);
   await roulette.getByRole("button", { name: /^Spin/ }).click();
   await roulette.getByRole("button", { name: "Taking your bet…" }).waitFor();
   assert.equal(
@@ -298,6 +301,8 @@ try {
       .evaluate((el) => el.style.transform !== "rotate(0deg)"),
   );
   await page.clock.runFor(3600);
+  await roulette.getByRole("button", {name:/^Double/}).click();
+  await roulette.getByText("Gone. She laughs at you", {exact:true}).waitFor();
   assert.equal(
     await roulette
       .locator(".court-roulette-ball-orbit")
@@ -310,6 +315,12 @@ try {
     .first()
     .click();
   const patience = page.locator("#table-crash");
+  const automatic = patience.getByRole("checkbox", { name: "Take automatically", exact: true });
+  assert.equal(await automatic.isChecked(), false, "Manual play is the default");
+  await automatic.check();
+  assert.ok(await patience.getByRole("spinbutton", { name: "Automatic cashout multiplier" }).isVisible());
+  await automatic.uncheck();
+  assert.equal(await patience.getByRole("spinbutton", { name: "Automatic cashout multiplier" }).count(), 0);
   await patience.getByRole("button", { name: /^Test her/ }).click();
   await patience.getByRole("button", { name: /^Beginning/ }).waitFor();
   assert.ok(
@@ -326,6 +337,8 @@ try {
   await patience
     .getByText("1.12x — 112 Coins returned.", { exact: true })
     .waitFor();
+  await automatic.check();
+  autoWon = true;
   await patience.getByRole("button", { name: /^Test her/ }).click();
   await page.clock.runFor(3100);
   autoWon = true;

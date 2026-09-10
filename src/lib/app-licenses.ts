@@ -254,7 +254,7 @@ export async function bindAppLicense(input: {
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data: updatedLicense, error } = await supabase
     .from("app_activation_codes")
     .update({
       owner_name: normalizedOwnerName,
@@ -265,10 +265,13 @@ export async function bindAppLicense(input: {
       last_validated_at: now,
       updated_at: now,
     })
-    .eq("id", input.activationId);
+    .eq("id", input.activationId)
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    throw error;
+  if (error || !updatedLicense) {
+    throw error ?? new Error("This activation code is no longer active.");
   }
 }
 
@@ -288,7 +291,7 @@ export async function rebindAppLicenseForKnownDevice(input: {
   }
 
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data: updatedLicense, error } = await supabase
     .from("app_activation_codes")
     .update({
       owner_name: normalizedOwnerName,
@@ -301,10 +304,13 @@ export async function rebindAppLicenseForKnownDevice(input: {
     })
     .eq("id", input.activationId)
     .eq("owner_name", normalizedOwnerName)
-    .eq("bound_android_id", normalizedAndroidId);
+    .eq("bound_android_id", normalizedAndroidId)
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    throw error;
+  if (error || !updatedLicense) {
+    throw error ?? new Error("This activation code is no longer active.");
   }
 }
 
@@ -317,7 +323,7 @@ export async function touchAppLicenseValidation(input: {
 }) {
   const supabase = createSupabaseAdminClient();
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data: updatedLicense, error } = await supabase
     .from("app_activation_codes")
     .update({
       last_validated_at: now,
@@ -327,10 +333,13 @@ export async function touchAppLicenseValidation(input: {
     })
     .eq("id", input.activationId)
     .eq("bound_installation_id", input.installationId)
-    .eq("owner_name", normalizeOwnerName(input.ownerName));
+    .eq("owner_name", normalizeOwnerName(input.ownerName))
+    .eq("status", "active")
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    throw error;
+  if (error || !updatedLicense) {
+    throw error ?? new Error("This activation code is no longer active.");
   }
 }
 
@@ -349,38 +358,29 @@ export async function revokeAppLicense(licenseId: string, appKey: string) {
     throw fetchError;
   }
 
-  // A code bought in the Court is somebody's paid property from the moment it
-  // is issued, whether or not they have redeemed it yet. Deleting one would
-  // leave the buyer holding a dead code with no refund, so ownership counts as
-  // used here even though nothing is bound to a device.
-  const hasBeenUsed =
-    Boolean(existing.owner_user_id) ||
-    Boolean(existing.owner_name) ||
-    Boolean(existing.bound_installation_id) ||
-    Boolean(existing.bound_android_id) ||
-    Boolean(existing.bound_at) ||
-    Boolean(existing.last_validated_at) ||
-    (existing.reset_count ?? 0) > 0;
+  if (existing.status === "revoked") return existing as AppLicenseRow;
 
-  if (hasBeenUsed) {
-    throw new Error("Used activation codes can no longer be revoked.");
-  }
-
-  const { error } = await supabase.from("app_activation_codes").delete().eq("id", licenseId);
-
-  if (error) {
-    throw error;
-  }
+  // Keep the paid entitlement and device history. Release the unique owner
+  // name so a replacement code can be activated under the same name.
+  const { data, error } = await supabase
+    .from("app_activation_codes")
+    .update({ status: "revoked", owner_name: null, updated_at: new Date().toISOString() })
+    .eq("id", licenseId)
+    .eq("app_key", appKey)
+    .select("*")
+    .single();
+  if (error) throw error;
 
   await logAppLicenseEvent({
     activationId: existing.id,
     activationCodeSnapshot: existing.activation_code,
     ownerNameSnapshot: existing.owner_name,
     appKey: existing.app_key,
-    eventType: "deleted_unused",
+    eventType: "revoked",
+    installationId: existing.bound_installation_id,
+    deviceLabel: existing.bound_device_label,
   });
-
-  return existing as AppLicenseRow;
+  return data as AppLicenseRow;
 }
 
 export async function resetAppLicense(licenseId: string, appKey: string) {

@@ -16,7 +16,14 @@ const ast = ts.createSourceFile(
   ts.ScriptKind.TSX,
 );
 const initializers = new Map();
+let profileHeaderJsx;
 function visit(node) {
+  if (
+    ts.isJsxSelfClosingElement(node) &&
+    node.tagName.getText(ast) === "ProfileHeader"
+  ) {
+    profileHeaderJsx = node.getText(ast);
+  }
   if (
     ts.isVariableDeclaration(node) &&
     node.initializer &&
@@ -29,6 +36,7 @@ function visit(node) {
 }
 visit(ast);
 assert.equal(initializers.size, 2);
+assert.ok(profileHeaderJsx);
 const stageClass = source.match(/className="(court-profile-stage[^"]*)"/)?.[1];
 assert.ok(stageClass);
 const fixture = `
@@ -38,16 +46,37 @@ import Link from "next/link";
 import {ProfileHeader} from "./src/components/ProfileHeader";
 import {NotificationBell} from "./src/components/NotificationBell";
 import {RecentTributesTicker} from "./src/components/RecentTributesTicker";
+import {PrestigeBadgeList} from "./src/components/PrestigeBadgeList";
+import {getCosmeticItem} from "./src/lib/cosmetics";
+import {getProfileBorderFramePresentation} from "./src/lib/profile-border-presentation";
 function Fixture(){
   const isAdminUser = !location.search.includes("member"), isLoggedIn=true, isGuestMode=false, isPreviewMode=false;
   const [soundSettings, setSoundSettings]=useState({masterVolume:.7,gameplayEnabled:true,uiEnabled:true});
   const soundsMuted=!soundSettings.uiEnabled&&!soundSettings.gameplayEnabled;
   const applySoundSettings=patch=>setSoundSettings(s=>({...s,...patch}));
   const handleLogout=()=>window.fixtureLoggedOut=true;
+  const activePanel=new URLSearchParams(location.search).get("panel")??"home";
+  const activePageLabel=activePanel[0].toUpperCase()+activePanel.slice(1);
+  const coins=1000, username="Court Reader", characterEvolutionStage={image:""};
+  const [effectiveDisplayName,setEffectiveDisplayName]=useState("Royal Court Collector");
+  const [displayNameEditInput,setDisplayNameEditInput]=useState("");
+  const [isEditingDisplayName,setIsEditingDisplayName]=useState(false);
+  const hasDisplayNameChangeRight=true,isSettingDisplayName=false,canSaveDisplayNameEdit=true;
+  const handleSaveDisplayNameChange=()=>{setEffectiveDisplayName(displayNameEditInput);setIsEditingDisplayName(false)};
+  const [addressTerm,handleAddressTermPillClick]=useState("sub");
+  const isSavingAddressTerm=false;
+  const equippedTitle={name:"Royal Favorite"}, usernameStyle={color:"#f9a8d4"};
+  const equippedAvatarSlots={ears:"classic-ears",collar:"classic-collar",fullBody:"classic-maid-outfit"};
+  const equippedFullSetId=null,hasUncensoredAvatar=false,spendBadge=null;
+  const effectiveEquippedCosmeticIds={"profile-border":"profile-border-rainbow-animated","avatar-background":"avatar-background-bar","profile-frame-top":"frame-top-gilded-crown","profile-frame-corner":"frame-corner-noir-gold","profile-frame-bottom":"frame-bottom-satin-noir"};
+  const profileBorderPresentation=getProfileBorderFramePresentation(getCosmeticItem(effectiveEquippedCosmeticIds["profile-border"]));
+  const profileBadgeStrip=<PrestigeBadgeList badges={[{id:"collector",earnedAt:"2026-09-10",label:"Royal Collector",description:"Collected wardrobe treasures",tone:"gold"}]}/>;
+  const profileHeaderStats=[{label:"Affection",value:80,hint:"Her attention"},{label:"Devotion",value:"Respected"},{label:"Tribute",value:"250 Money"}];
+  const headerProgressStrip=activePanel==="tasks"?<p>Games completed today: 2 / 5</p>:null;
   const soundControls=${initializers.get("soundControls")};
   const headerActions=${initializers.get("headerActions")};
   return <div className="principessa-court-ui"><main className="relative z-10 mx-auto flex max-w-6xl flex-col gap-5 p-4">
-    <div className=${JSON.stringify(stageClass)}><div className="relative z-30 mt-3"><ProfileHeader compact avatarSrc="" coins={1000} username="Court Reader" currentTitle="Royal Favorite" pageLabel="Home" stats={[{label:"Money",value:25}]} soundControls={soundControls} actions={headerActions}/></div></div>
+    <div className=${JSON.stringify(stageClass)}><div className="relative z-30 mt-3">${profileHeaderJsx}</div></div>
     <RecentTributesTicker showRecentOpenings={false} tributes={[{id:"fixture",username:"Reader",avatarUrl:null,amount:100,createdAt:"2026-09-10T12:00:00Z"}]}/>
     <div style={{height:1200}}>Court content</div>
   </main></div>;
@@ -72,7 +101,7 @@ const result = await build({
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({
           contents: args.path.endsWith("link")
             ? 'import {createElement} from "react";export default function Link(p){return createElement("a",p)}'
-            : "export default function Image(){return null}",
+            : 'import {createElement} from "react";export default function Image({fill,priority,unoptimized,quality,loader,...p}){return createElement("img",{...p,style:{...(fill?{position:"absolute",inset:0,width:"100%",height:"100%"}:{}),...p.style}})}',
           resolveDir: process.cwd(),
           loader: "js",
         }));
@@ -119,6 +148,23 @@ try {
       return route.fulfill({ json: { goalUsd: 1000, raisedUsd: 100 } });
     if (url.pathname === "/styles.css")
       return route.fulfill({ contentType: "text/css", body: css });
+    const publicRoot = path.resolve("public");
+    const asset = path.resolve(
+      publicRoot,
+      "." + decodeURIComponent(url.pathname),
+    );
+    if (
+      asset.startsWith(publicRoot + path.sep) &&
+      fs.existsSync(asset) &&
+      fs.statSync(asset).isFile()
+    ) {
+      const contentType = {
+        ".webp": "image/webp",
+        ".png": "image/png",
+        ".svg": "image/svg+xml",
+      }[path.extname(asset)];
+      return route.fulfill({ path: asset, contentType });
+    }
     if (url.pathname !== "/")
       return route.fulfill({ body: "Fixture destination" });
     return route.fulfill({
@@ -130,8 +176,49 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("http://header.test/");
     await page.addScriptTag({ content: result.outputFiles[0].text });
-    const header = page.locator(".court-account-bar");
+    const header = page.locator('header[aria-label="Court profile"]');
     await header.waitFor();
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll(".court-profile-avatar img")].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+    );
+    const portrait = header.locator(".court-profile-avatar");
+    const portraitBounds = await portrait.boundingBox();
+    assert.ok(
+      portraitBounds.width >= (width >= 768 ? 180 : width >= 360 ? 120 : 104),
+    );
+    assert.ok(portraitBounds.height >= 166);
+    assert.equal(
+      await portrait.locator("img").count(),
+      5,
+      "Equipped background, base and all three wardrobe layers must render",
+    );
+    assert.equal(
+      await portrait.locator('svg[viewBox="0 0 180 285"]').count(),
+      3,
+      "All equipped frame ornaments remain visible",
+    );
+    assert.ok(
+      await header
+        .getByRole("heading", { name: "Royal Court Collector" })
+        .isVisible(),
+    );
+    assert.ok(
+      await header.getByText("Royal Favorite", { exact: true }).isVisible(),
+    );
+    assert.ok(
+      await header.getByText("Royal Collector", { exact: true }).isVisible(),
+    );
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await page.screenshot({
+      path: `tmp/profile-showcase-${width}.png`,
+      fullPage: false,
+    });
     assert.equal(
       await header.locator("details").count(),
       0,
@@ -146,6 +233,9 @@ try {
       await header.getByRole("button", { name: "Unmute sound" }).isVisible(),
     );
     const bell = header.getByRole("button", { name: /Notifications/ });
+    await header
+      .locator(".court-profile-actions")
+      .evaluate((el) => el.scrollIntoView({ block: "start" }));
     await bell.click();
     const panel = page.getByRole("dialog", { name: "Notification Center" });
     await panel.getByText("Fixture notification", { exact: true }).waitFor();
@@ -192,9 +282,31 @@ try {
     await header.getByRole("link", { name: "Admin", exact: true }).click();
     await page.waitForURL("http://header.test/admin");
   }
+  for (const panelName of [
+    "games",
+    "tasks",
+    "crates",
+    "pet",
+    "shop",
+    "profile",
+  ]) {
+    await page.goto(`http://header.test/?panel=${panelName}`);
+    await page.addScriptTag({ content: result.outputFiles[0].text });
+    const avatar = page.getByRole("img", {
+      name: "Principessa court profile avatar",
+    });
+    await avatar.waitFor();
+    assert.ok(
+      await avatar.isVisible(),
+      `${panelName} must display the equipped avatar`,
+    );
+    assert.ok(
+      await page.getByText("Royal Collector", { exact: true }).isVisible(),
+    );
+  }
   await page.goto("http://header.test/?member");
   await page.addScriptTag({ content: result.outputFiles[0].text });
-  await page.locator(".court-account-bar").waitFor();
+  await page.locator(".court-profile-header").waitFor();
   assert.equal(
     await page.getByRole("link", { name: "Admin", exact: true }).count(),
     0,
@@ -205,7 +317,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Header passed: direct admin/analytics access, separate sound controls, member visibility, notifications above tribute feed, mobile widths, Escape and outside click. HTTP mocked.",
+    "Header passed: equipped avatar, clothing, background, frame ornaments, title and badges across dashboard panels; desktop/mobile widths, direct admin/analytics access, separate sound controls, member visibility, notifications above tribute feed, Escape and outside click. HTTP mocked; local cosmetic assets loaded.",
   );
 } finally {
   await browser.close();

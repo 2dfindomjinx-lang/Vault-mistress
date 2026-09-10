@@ -342,6 +342,7 @@ export async function GET(request: Request) {
     galleryCountsResult,
     coinDailyResult,
     selectedTransactionsResult,
+    gambleResult,
   ] = await Promise.all([
     countAuthUsers(supabase),
     supabase.rpc("get_admin_analytics_rollup", { p_today_end: todayWindow.end, p_today_start: todayWindow.start }),
@@ -358,6 +359,7 @@ export async function GET(request: Request) {
           .order("created_at", { ascending: false })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
+    supabase.rpc("get_admin_gamble_analytics", { p_start: sevenDaysAgo, p_end: todayWindow.end }),
   ]);
 
   const failed = [
@@ -621,6 +623,8 @@ export async function GET(request: Request) {
     });
 
   return Response.json({
+    gamble: gambleResult.error ? null : gambleResult.data,
+    gambleError: gambleResult.error ? "Gamble analytics are unavailable. Apply the latest Court fixes SQL and try again." : null,
     overview: {
       authRegisteredUsers: authUsersCount ?? totalRegisteredUsers,
       coinMetricScope: "daily_gmt3",

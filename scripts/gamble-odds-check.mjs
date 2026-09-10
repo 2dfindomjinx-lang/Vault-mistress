@@ -45,7 +45,7 @@ assertRtp("Her Dice", (575 / 1296) * DICE_PAYOUT_MULTIPLIER);
 
 for (const bet of ROULETTE_BETS) {
   const winningNumbers = EUROPEAN_ROULETTE_ORDER.filter((number) => rouletteBetWins(bet.id, number)).length;
-  assert.equal(winningNumbers, 18, `${bet.label} should cover 18 numbers`);
+  assert.equal(winningNumbers, bet.id === "green" ? 1 : 18, `${bet.label} must cover its printed color`);
   assertRtp(`Court Roulette / ${bet.label}`, (winningNumbers / 37) * bet.multiplier);
 }
 
@@ -54,8 +54,13 @@ const plinkoRtp = PLINKO_MULTIPLIERS.reduce(
   0,
 );
 assertRtp("Royal Plinko", plinkoRtp);
+assert.equal(PLINKO_MULTIPLIERS[PLINKO_ROWS / 2], 0, "Centre bucket loses the whole stake");
+assert.deepEqual(ROULETTE_BETS.map(bet => bet.id).sort(), ["black", "green", "red"]);
 
 for (const mines of MINES_OPTIONS) {
+  const firstProfit = mines === 7 ? 3 : mines === 10 ? 2 : 1;
+  for (let picks = 1; picks < firstProfit; picks++) assert.ok(minesMultiplier(mines, picks) <= 1);
+  assert.ok(minesMultiplier(mines, firstProfit) > 1);
   for (let picks = 1; picks <= 25 - mines; picks += 1) {
     const survivalChance = choose(25 - mines, picks) / choose(25, picks);
     assertRtp(`Jewelry Box / ${mines} mines / ${picks} picks`, survivalChance * minesMultiplier(mines, picks));
@@ -77,4 +82,3 @@ for (const a of samples) {
   }
 }
 console.log("The Crawl: <= 82.000% across sampled race sheets");
-

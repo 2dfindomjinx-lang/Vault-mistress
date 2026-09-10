@@ -22,7 +22,8 @@
     "test:visual:browser": "node scripts/visual-experience-browser-check.mjs",
     "test:header:browser": "node scripts/header-browser-check.mjs",
     "test:gameplay:sql": "node scripts/gameplay-sql-check.mjs",
-    "test:gameplay:browser": "node scripts/gameplay-browser-check.mjs"
+    "test:gameplay:browser": "node scripts/gameplay-browser-check.mjs",
+    "test:court-fixes:browser": "node scripts/court-fixes-browser-check.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",

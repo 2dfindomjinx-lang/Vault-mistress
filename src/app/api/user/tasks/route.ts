@@ -1,6 +1,7 @@
 import { DEDICATED_TASK_IDS } from "@/lib/economy-rules";
 import { getAllowedTaskRewards, getBaseTaskReward, SUPPORT_COST } from "@/lib/server-game-rules";
 import { getNextGmt3Reset } from "@/lib/time";
+import { buildTypingTaskUpdate } from "@/lib/typing-task";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -205,6 +206,14 @@ export async function POST(request: Request) {
         : effectiveRewardCoins,
     metadata: mergedMetadata,
   };
+
+  if (taskId === "typing-accuracy") {
+    try {
+      Object.assign(safeTask, buildTypingTaskUpdate(currentTask, task ?? {}), { reward_coins: effectiveRewardCoins });
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Typing progress could not be saved.", 409);
+    }
+  }
 
   const { data, error } = await supabase
     .from("user_tasks")

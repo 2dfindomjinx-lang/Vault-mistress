@@ -16,6 +16,7 @@ import {
   MINES_OPTIONS,
   MINES_MAX_MULTIPLIER,
   minesMultiplier,
+  minesProfitPicks,
   PLINKO_MULTIPLIERS,
   PLINKO_ROWS,
   ROULETTE_BETS,
@@ -93,7 +94,7 @@ function DoubleBanner({
         </>
       ) : (
         <p className={`text-sm font-black ${state === "won" ? "text-emerald-200" : "text-rose-200"}`}>
-          {state === "won" ? `Doubled. +${(payout * 2).toLocaleString()} total.` : "Gone. She thanks you."}
+          {state === "won" ? `Doubled. +${(payout * 2).toLocaleString()} total.` : "Gone. She laughs at you"}
         </p>
       )}
     </div>
@@ -726,7 +727,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
       const result = await callGamble({ action: "mines-cashout", roundId });
       if (result.profile && onProfile) onProfile(result.profile);
       const payout = Number(result.payout) || 0;
-      setLine({ text: `${result.multiplier}x · ${payout.toLocaleString()} Coins returned · +${(payout - wager).toLocaleString()} net`, tone: "win" });
+      setLine({ text: `${result.multiplier}x · ${payout.toLocaleString()} Coins returned · +${(payout - wager).toLocaleString()} net`, tone: payout > wager ? "win" : "info" });
       setWin({ payout, roundId });
       setRoundId(null);
       emitSoundEvent("task_completion");
@@ -790,6 +791,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
       </div>
 
       <p className="mt-3 text-center text-xs text-zinc-400">{remainingSafe} gems · {mineCount} traps left{roundId && picks.length > 0 ? ` · Net profit +${netProfit.toLocaleString()} Coins` : " · Return includes your stake"}</p>
+      <p className="mt-1 text-center text-xs text-zinc-400">Profit begins at {minesProfitPicks(mineCount)} safe {minesProfitPicks(mineCount) === 1 ? "box" : "boxes"}. Earlier takes return your stake.</p>
       <p className="mt-1 text-center text-xs text-zinc-500">{roundId ? `This round: ${wager.toLocaleString()} Coins · ` : ""}Maximum return {MINES_MAX_MULTIPLIER}x</p>
       {roundId ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
@@ -824,6 +826,7 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [crashed, setCrashed] = useState(false);
   const [cashingOut, setCashingOut] = useState(false);
   const [autoCashout, setAutoCashout] = useState("1.50");
+  const [autoCashoutEnabled, setAutoCashoutEnabled] = useState(false);
   const [activeTarget, setActiveTarget] = useState<number | null>(null);
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
@@ -897,9 +900,9 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
     setLine(null);
     setWin(null);
     setCrashed(false);
-    const target = autoCashout === "" ? null : Number(autoCashout);
+    const target = autoCashoutEnabled ? Number(autoCashout) : null;
     if (target !== null && (!Number.isFinite(target) || target < 1.1 || target > 30)) {
-      setLine({ text: "Choose a take point from 1.10x to 30x, or leave it blank for manual play.", tone: "info" });
+      setLine({ text: "Choose a take point from 1.10x to 30x, or turn off automatic taking.", tone: "info" });
       return;
     }
     try {
@@ -947,11 +950,14 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
           <p className="mt-4 text-xs text-zinc-400">{crashed ? "Patience spent." : roundId && activeTarget ? `Taking at ${activeTarget.toFixed(2)}x` : roundId ? "Your decision." : "The table awaits."}</p>
         </div>
       </div>
-      {!roundId && <label className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-300">
-        Take automatically at
-        <input aria-label="Automatic cashout multiplier" className="w-24 rounded-lg border border-amber-200/25 bg-black/40 px-3 py-2 text-amber-100" type="number" min="1.10" max="30" step="0.05" placeholder="Manual" value={autoCashout} disabled={busy} onChange={event => setAutoCashout(event.target.value)} /> x
-      </label>}
-      <p className="mt-2 text-center text-xs leading-5 text-zinc-400">{roundId ? "You can take earlier. A crash before your take point loses the stake." : "Set a take point before playing, or clear it to play manually."}</p>
+      {!roundId && <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-300">
+        <label className="flex cursor-pointer items-center gap-2">
+          <input type="checkbox" className="accent-pink-400" checked={autoCashoutEnabled} disabled={busy} onChange={event => setAutoCashoutEnabled(event.target.checked)} />
+          Take automatically
+        </label>
+        {autoCashoutEnabled && <>at <input aria-label="Automatic cashout multiplier" className="w-24 rounded-lg border border-amber-200/25 bg-black/40 px-3 py-2 text-amber-100" type="number" min="1.10" max="30" step="0.05" value={autoCashout} disabled={busy} onChange={event => setAutoCashout(event.target.value)} /> x</>}
+      </div>}
+      <p className="mt-2 text-center text-xs leading-5 text-zinc-400">{roundId ? "You can take earlier. A crash before your take point loses the stake." : autoCashoutEnabled ? "Your chosen take point applies to the next round." : "Manual play. Choose when to take your coins."}</p>
       {roundId ? (
         <button className="vm-table-button !border-emerald-300/40 !bg-emerald-500/15 !text-emerald-100" disabled={cashingOut || countdown > 0} onClick={() => void cashout()} type="button">
           {cashingOut ? "Taking…" : countdown ? `Beginning in ${countdown}…` : `Cash out at ${display.toFixed(2)}x`}

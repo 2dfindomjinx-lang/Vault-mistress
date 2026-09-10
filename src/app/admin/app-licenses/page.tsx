@@ -204,6 +204,11 @@ export default function AppLicensesPage() {
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Generate a code, see who used it, and reset or revoke it when needed.
             </p>
+            <p className="mt-2 text-xs leading-5 text-zinc-400">
+              {appKey === "principessas-discipline"
+                ? "Revoke blocks future activation. Previously activated offline copies of Discipline keep working until the app supports online license checks."
+                : "Revoke blocks activation and the old device's next Wallpaper request. Use Reset to move the existing code to a replacement phone."}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link className="rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-pink-300/40 hover:text-white" href="/admin">
@@ -341,8 +346,8 @@ export default function AppLicensesPage() {
                         </button>
                         <button
                           className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-black text-rose-100 transition hover:border-rose-200/50 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={isBusy || license.status === "revoked" || Boolean(license.owner_name || license.bound_installation_id || license.bound_at || license.last_validated_at || license.reset_count > 0)}
-                          onClick={() => void runAction({ action: "revoke", licenseId: license.id }, "Unused activation code deleted.")}
+                          disabled={isBusy || license.status === "revoked"}
+                          onClick={() => void runAction({ action: "revoke", licenseId: license.id }, "Activation code revoked.")}
                           type="button"
                         >
                           Revoke

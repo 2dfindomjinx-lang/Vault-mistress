@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizeWritingText as normalizeWritingPreview } from "@/lib/writing-comparison";
+
 import Image from "next/image";
 import { CourtGlyph, SealFaces, WritingLine } from "@/components/court/CourtVisuals";
 import { useEffect, useRef, useState } from "react";
@@ -318,18 +320,7 @@ function getPetRank(score: number) {
   return { current, next, progress };
 }
 
-function normalizeWritingPreview(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
-    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, " ")
-    .replace(/[\u2018\u2019\u201A\u201B\u2032\u02BC\u02BB\uFF07\u00B4\u0060]/g, "'")
-    .replace(/[\u201C\u201D\u201E\u201F\u2033\uFF02]/g, '"')
-    .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-")
-    .replace(/\u2026/g, "...")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+
 
 function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
@@ -2123,8 +2114,8 @@ export function PetSection({
                         <span>Next: {(task.falseHopeExpectedKey ?? "a").toUpperCase()}</span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs font-bold text-rose-100">
-                        <span>Wrong: {task.falseHopeWrongInputs ?? 0}/10</span>
-                        <span>{Math.max(0, 10 - (task.falseHopeWrongInputs ?? 0))} mistakes left</span>
+                        <span>Wrong: {task.falseHopeWrongInputs ?? 0}/5</span>
+                        <span>{Math.max(0, 5 - (task.falseHopeWrongInputs ?? 0))} mistakes left</span>
                       </div>
                       {showFalseHopeWarning && (
                         <p className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-2 text-sm font-black text-pink-50">

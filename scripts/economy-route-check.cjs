@@ -18,6 +18,8 @@ const state = {
   coin_transactions: [],
   user_gallery: [],
   user_pet_gallery: [],
+  app_activation_codes: [],
+  app_activation_events: [],
 };
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const db = {
@@ -54,6 +56,10 @@ const db = {
       },
       eq(k, v) {
         filters.push((r) => r[k] === v);
+        return q;
+      },
+      neq(k, v) {
+        filters.push((r) => r[k] !== v);
         return q;
       },
       upsert(p) {
@@ -398,6 +404,48 @@ async function call(handler, body) {
   assert.equal(granted.status, 200);
   assert.equal(granted.headers.get("Cache-Control"), "private, no-store");
   assert.ok((await granted.arrayBuffer()).byteLength > 0);
+  const typingProgress = load("src/lib/typing-task.ts");
+  const writing = load("src/lib/writing-comparison.ts");
+  assert.equal(writing.normalizeWritingText("I’m Principessa’s pet."), writing.normalizeWritingText("I'm Principessa's pet."));
+  assert.notEqual(writing.normalizeWritingText("I’m hers."), writing.normalizeWritingText("I'm hirs."));
+  const typing = async (attempts, completed = false) => call(tasks.POST, {task:{task_id:"typing-accuracy",reward_coins:100,completed_at:completed ? new Date().toISOString() : null,claimed_at:null,metadata:{attemptsRemaining:attempts,failedAt:null}}});
+  const firstMistake = await typing(2);
+  assert.equal(firstMistake.status, 200);
+  assert.equal(firstMistake.body.task.metadata.failedAt, null, "One error cannot start a cooldown");
+  assert.equal(typingProgress.getTypingTaskProgress(firstMistake.body.task).attemptsRemaining, 2, "Hearts survive a refresh");
+  assert.equal((await typing(2, true)).status, 200);
+  assert.equal((await call(claims.POST, {taskId:"typing-accuracy"})).status, 200, "Completed text with two hearts earns its reward");
+  assert.equal((await call(claims.POST, {taskId:"typing-accuracy"})).status, 422, "Claim once per day");
+  const savedTyping = state.user_tasks.find(row => row.task_id === "typing-accuracy");
+  Object.assign(savedTyping, {claimed_at:null,completed_at:new Date().toISOString(),metadata:{attemptsRemaining:2,failedAt:new Date().toISOString()}});
+  assert.equal((await call(claims.POST, {taskId:"typing-accuracy"})).status, 200, "Legacy false failure anchors with hearts remaining can be claimed");
+  Object.assign(savedTyping, {claimed_at:null,completed_at:null,metadata:{}});
+  for (const attempts of [2,1,0]) assert.equal((await typing(attempts)).status, 200);
+  assert.ok(typingProgress.getTypingTaskProgress(savedTyping).cooldownUntil);
+  assert.equal((await typing(0,true)).status, 409, "Zero hearts blocks completion");
+  const yesterday = new Date(Date.now()-86400000).toISOString();
+  Object.assign(savedTyping, {claimed_at:yesterday,completed_at:yesterday,metadata:{attemptsRemaining:0,failedAt:yesterday,attemptedAt:yesterday}});
+  assert.equal((await typing(3,true)).status, 200, "A new day replaces previous claimed/completed timestamps");
+  assert.equal(savedTyping.claimed_at, null);
+  assert.equal((await call(claims.POST, {taskId:"typing-accuracy"})).status, 200);
+
+  const licenses = load("src/lib/app-licenses.ts");
+  const appKey = licenses.PRINCIPESSA_WALLPAPER_APP_KEY;
+  state.app_activation_codes.push({id:"used-code",app_key:appKey,activation_code:"TEST-CODE-USED-HERE",status:"active",owner_name:"Device Owner",owner_user_id:"audit-user",bound_installation_id:"old-phone",bound_android_id:"old-android",bound_at:new Date().toISOString(),reset_count:1,purchase_price_pm:50});
+  await licenses.revokeAppLicense("used-code",appKey);
+  const revoked = state.app_activation_codes[0];
+  assert.equal(revoked.status,"revoked");
+  assert.equal(revoked.owner_user_id,"audit-user", "Paid purchase history is retained");
+  assert.equal(revoked.owner_name,null,"Replacement can reuse the unique owner name");
+  assert.equal(state.app_activation_events.at(-1).owner_name_snapshot,"Device Owner");
+  assert.equal(state.app_activation_events.at(-1).event_type,"revoked");
+  await assert.rejects(licenses.touchAppLicenseValidation({activationId:"used-code",installationId:"old-phone",ownerName:"Device Owner"}),/no longer active/);
+  const activate = load("src/app/api/app-license/activate/route.ts");
+  assert.equal((await call(activate.POST,{appKey,activationCode:revoked.activation_code,installationId:"old-phone",ownerName:"Device Owner"})).status,403);
+  const wallpaper = load("src/app/api/wallpaper-control/heartbeat/route.ts");
+  const token = licenses.createSignedLicenseToken({appKey,activationCode:revoked.activation_code,installationId:"old-phone",ownerName:"Device Owner",issuedAtMillis:Date.now()});
+  assert.equal((await wallpaper.POST(new Request("http://audit.invalid",{method:"POST",headers:{authorization:`Bearer ${token}`},body:"{}"}))).status,403,"Previously signed token cannot access Wallpaper after revoke");
+  console.log("Court fixes: typing hearts/completion/recovery/daily reset, apostrophes, used-code revoke and signed-token rejection passed.");
   mocks["@/lib/supabase/server"].createClient = async () => ({
     auth: { getUser: async () => ({ data: { user: null }, error: null }) },
   });

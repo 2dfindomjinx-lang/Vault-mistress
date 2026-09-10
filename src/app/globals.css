@@ -889,9 +889,45 @@ button:disabled {
 .principessa-court-ui :focus-visible { outline:2px solid #edc782; outline-offset:4px; }
 .principessa-court-ui .court-feature-panel { box-shadow:none; border-color:rgba(200,154,85,.23); }
 .principessa-court-ui .court-feature-card { border-color:rgba(200,154,85,.18); box-shadow:none; }
-.principessa-court-ui .court-feature-panel .text-zinc-600, .court-account-bar .text-zinc-600 { color:#a1a1aa; }
+.principessa-court-ui .court-feature-panel .text-zinc-600, .court-profile-header .text-zinc-600 { color:#a1a1aa; }
 @media(max-width:639px) {
  [data-court-chat]>button { display:none; }
  .court-floating-character { z-index:75; bottom:6rem; }
  .court-floating-character>div { max-width:calc(100vw - 6.5rem); font-size:.875rem; line-height:1.4; padding:.65rem .8rem; }
+}
+.court-profile-header { border-radius: 20px; }
+.court-profile-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-areas: "portrait identity" "portrait progress" "portrait ledger" "actions actions";
+  gap: 18px 28px;
+  padding: 26px;
+}
+.court-profile-portrait { grid-area: portrait; align-self: center; min-width: 0; padding-block: 14px 24px; }
+.court-profile-avatar { width: 100%; aspect-ratio: 5 / 8; }
+.court-profile-identity { grid-area: identity; align-self: center; }
+.court-profile-name { font-size: clamp(26px, 3vw, 40px); line-height: 1.15; overflow-wrap: anywhere; }
+.court-profile-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid #c89a5526; }
+.court-profile-progress { grid-area: progress; }
+.court-profile-ledger { grid-area: ledger; align-self: end; }
+.court-profile-stat { border-bottom-width: 1px; border-right-width: 1px; }
+.court-profile-stat:nth-child(even) { border-right-width: 0; }
+.court-profile-stat:nth-last-child(-n+2) { border-bottom-width: 0; }
+@media (min-width: 1280px) {
+  .court-profile-stat:nth-child(even) { border-right-width: 1px; }
+  .court-profile-stat { border-bottom-width: 0; }
+  .court-profile-stat:last-child { border-right-width: 0; }
+}
+@media (max-width: 767px) {
+  .court-profile-layout {
+    grid-template-columns: 120px minmax(0, 1fr);
+    grid-template-areas: "portrait identity" "actions actions" "progress progress" "ledger ledger";
+    gap: 16px;
+    padding: 20px;
+  }
+  .court-profile-name { font-size: clamp(23px, 5vw, 30px); }
+}
+@media (max-width: 359px) {
+  .court-profile-layout { grid-template-columns: 104px minmax(0, 1fr); padding: 16px; gap: 14px; }
+  .court-profile-name { font-size: 22px; }
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { GambleAnalyticsPanel } from "@/components/admin/GambleAnalyticsPanel";
+import type { GambleAnalytics } from "@/lib/gamble-analytics";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Overview = {
@@ -95,6 +97,8 @@ type TopInventoryUser = {
 };
 
 type AnalyticsPayload = {
+  gamble?: GambleAnalytics | null;
+  gambleError?: string | null;
   overview: Overview;
   charts: {
     activeByDay: CountPoint[];
@@ -378,6 +382,7 @@ export default function AdminAnalyticsPage() {
               ))}
             </div>
 
+            <GambleAnalyticsPanel data={data.gamble} error={data.gambleError} />
             <div className="grid gap-4 lg:grid-cols-2">
               <article className="rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-4">
                 <h2 className="text-lg font-black">User Growth</h2>

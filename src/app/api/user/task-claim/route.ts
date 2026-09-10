@@ -13,6 +13,7 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDailyGmt3CooldownUntil, getGmt3DateKey } from "@/lib/time";
 import { GENERIC_CLAIM_TASK_IDS } from "@/lib/economy-rules";
+import { getTypingTaskProgress } from "@/lib/typing-task";
 
 type Body = {
   taskId?: string;
@@ -46,13 +47,7 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function getTaskMetadataString(
-  metadata: Record<string, unknown> | null | undefined,
-  key: string,
-) {
-  const value = metadata?.[key];
-  return typeof value === "string" ? value : null;
-}
+
 
 function getStreakCycleKey(streak: number, lastLoyaltyAt: string | null) {
   if (!lastLoyaltyAt || streak <= 0) {
@@ -76,16 +71,12 @@ function validateClaim(
   }
 
   if (taskId === "typing-accuracy") {
-    const failedAt = getTaskMetadataString(existingTask?.metadata, "failedAt");
-
-    if (
-      getDailyGmt3CooldownUntil(existingTask?.claimed_at ?? null) ||
-      getDailyGmt3CooldownUntil(failedAt)
-    ) {
+    const progress = getTypingTaskProgress(existingTask);
+    if (progress.cooldownUntil) {
       return "Task is still on cooldown.";
     }
 
-    if (!existingTask?.completed_at) {
+    if (!progress.completed) {
       return "Task is not completed.";
     }
 
