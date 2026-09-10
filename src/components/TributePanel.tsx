@@ -2,7 +2,7 @@
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { ClickStageTrack, DrainScene } from "@/components/court/ShrineSessionVisuals";
 import { createPortal } from "react-dom";
 import {
@@ -91,9 +91,9 @@ type DrainFloater = { id: number; left: number; path: string; rotate: number; ti
 
 function randomDrainTransform() {
   return {
-    left: Math.random(),
-    rotate: Math.random() * 40 - 20,
-    top: Math.random(),
+    left: Math.random() * 65,
+    rotate: Math.random() * 90 - 45,
+    top: Math.random() * 70,
   };
 }
 
@@ -513,21 +513,23 @@ export function TributePanel({
 
       {mounted &&
         createPortal(
-          <div aria-hidden="true" className="drain-memory-overlay pointer-events-none fixed inset-0 z-[95] overflow-hidden">
+          <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[95]">
             {drainFloaters.map((floater) => (
               <div
-                className="drain-memory-popup"
+                className="absolute"
+                data-drain-popup
                 key={floater.id}
                 style={{
-                  "--drain-left": floater.left,
-                  "--drain-top": floater.top,
-                  transform: `translate(-50%, -50%) rotate(${floater.rotate}deg)`,
-                } as CSSProperties}
+                  left: `${floater.left}%`,
+                  top: `${floater.top}%`,
+                  width: "min(60vw, 360px)",
+                  transform: `rotate(${floater.rotate}deg)`,
+                }}
               >
                 <Image
                   alt={floater.title}
-                  className="drain-memory-image rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)]"
-                  style={{ animationDuration: `${DRAIN_SESSION_IMAGE_LIFESPAN_MS}ms` }}
+                  className="w-full rounded-xl object-cover shadow-[0_12px_36px_rgba(0,0,0,0.6)]"
+                  style={{ height: "auto", animation: `drainImagePop ${DRAIN_SESSION_IMAGE_LIFESPAN_MS}ms ease-in-out both` }}
                   height={458}
                   sizes="(max-width: 600px) 60vw, 360px"
                   src={floater.path}
