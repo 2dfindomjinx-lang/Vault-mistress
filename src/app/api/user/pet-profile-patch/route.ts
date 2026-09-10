@@ -382,10 +382,13 @@ export async function POST(request: Request) {
   // This ensures pet task progress (for reward cases) is not recorded unless coins/pet_score were granted.
   // Client may still call persistPetTask after (for count/meta), but side guarantees the record on reward path.
   if (reason.startsWith("reward:pet-")) {
-    const taskId = reason.replace("reward:", ""); // e.g. "pet-perfect-writing"
+    // Older clients used a reward alias which is not the persisted task ID.
+    const taskId = reason === "reward:pet-confession"
+      ? "pet-confession-dm"
+      : reason.replace("reward:", "");
     const isAffectionClaim = reason === "reward:pet-affection-claim";
     const isCase = reason === "reward:pet-case-opening";
-    const rewardScore = isAffectionClaim ? 10 : 10; // most are 10; tax separate but not via reward:pet- coin path
+    const rewardScore = PET_TASK_REWARD;
     const meta: Record<string, unknown> = { ...((body?.metadata as Record<string, unknown>) ?? {}) };
     if (isAffectionClaim || isCase) {
       meta.date = new Date().toISOString().slice(0, 10);

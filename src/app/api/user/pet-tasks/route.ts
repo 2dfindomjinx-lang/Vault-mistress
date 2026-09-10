@@ -13,6 +13,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const allowedTaskIds = new Set([
   "pet-confession-dm",
+  "pet-ownership-oath",
   "pet-daily-report",
   "pet-twitter-post",
   "pet-weekly-throne-tax",

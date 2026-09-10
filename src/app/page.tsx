@@ -9234,7 +9234,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         try {
           await persistPetProfilePatch(
             { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
-            "reward:pet-confession",
+            `reward:${task.id}`,
           );
         } catch (error) {
           setAuthError(describeError(error));
@@ -9336,7 +9336,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         try {
           await persistPetProfilePatch(
             { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
-            "reward:pet-ownership-oath",
+            `reward:${task.id}`,
           );
         } catch (error) {
           setAuthError(describeError(error));

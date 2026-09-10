@@ -15,6 +15,7 @@ const state = {
     },
   ],
   user_tasks: [],
+  user_pet_tasks: [],
   coin_transactions: [],
   user_gallery: [],
   user_pet_gallery: [],
@@ -141,7 +142,9 @@ const mocks = {
   "@/lib/devotion": {
     awardDevotion: async () => {},
     DEVOTION_REWARD_BASIC_TASK: 1,
+    DEVOTION_REWARD_PET_TASK: 1,
   },
+  "@/lib/admin-mobile-push": { sendAdminMobilePush: async () => {} },
   "@/lib/server-task-actions": {
     getActiveEventMultipliers: async () => ({}),
     CASE_OPEN_REWARD_WEIGHTS: [],
@@ -428,6 +431,79 @@ async function call(handler, body) {
   assert.equal((await typing(3,true)).status, 200, "A new day replaces previous claimed/completed timestamps");
   assert.equal(savedTyping.claimed_at, null);
   assert.equal((await call(claims.POST, {taskId:"typing-accuracy"})).status, 200);
+
+  // Run the actual page submit handlers against actual route handlers. The
+  // database is isolated; this catches API rejections that green letters miss.
+  const petTasks = load("src/app/api/user/pet-tasks/route.ts");
+  const petProfile = load("src/app/api/user/pet-profile-patch/route.ts");
+  const pageSource = fs.readFileSync("src/app/page.tsx", "utf8");
+  const pageAst = ts.createSourceFile("page.tsx", pageSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const clientCode = {};
+  function findWritingHandlers(node) {
+    if (ts.isVariableDeclaration(node) && ["handlePetConfessionSubmit", "handlePetOwnershipOathSubmit"].includes(node.name.getText(pageAst)))
+      clientCode[node.name.getText(pageAst)] = node.initializer.getText(pageAst);
+    if (ts.isFunctionDeclaration(node) && node.name?.text === "writingEquals")
+      clientCode.writingEquals = node.getText(pageAst);
+    ts.forEachChild(node, findWritingHandlers);
+  }
+  findWritingHandlers(pageAst);
+  for (const [handlerName, taskId, countKey, repeatCount] of [
+    ["handlePetConfessionSubmit", "pet-confession-dm", "confessionCount", 5],
+    ["handlePetOwnershipOathSubmit", "pet-ownership-oath", "oathCount", 25],
+  ]) {
+    assert.ok(clientCode[handlerName] && clientCode.writingEquals);
+    Object.assign(state.profiles[0], {pet_score:0,owner_likeness:100,pet_unlocked_at:new Date().toISOString(),last_pet_tax_at:null,last_owner_likeness_at:null});
+    const coinStart = state.profiles[0].coins;
+    const taskRef = {current:[{id:taskId,sentence:"I’m Principessa’s devoted pet.",reward:10,[countKey]:0}]};
+    const failures = [], requests = [];
+    const scope = {
+      blockIfTimedOut:()=>false,petTaskStateRef:taskRef,petScore:0,
+      isGuestMode:false,authUserId:"audit-user",coinsRef:{current:coinStart},eventPetTaskCoinReward:0,
+      PET_OWNERSHIP_OATH_REPEAT_COUNT:25,
+      normalizeWritingComparisonText:writing.normalizeWritingText,
+      setAuthError:error=>failures.push(error),describeError:String,
+      resyncAuthenticatedProfile:async()=>{},setAvatarMistressReply:()=>{},emitSoundEvent:()=>{},
+      setPetTaskStateOptimistic:fn=>{taskRef.current=fn(taskRef.current);},
+      getPetTaskCooldownUntil:()=>new Date(Date.now()+86400000).toISOString(),
+      getTaskMetadataNumber:(metadata,key,fallback)=>metadata?.[key]??fallback,
+      persistPetProfilePatch:async(patch,reason)=>{
+        requests.push(reason);
+        const result=await call(petProfile.POST,{patch,reason});
+        assert.equal(result.status,200,JSON.stringify(result.body));
+        return result.body.profile;
+      },
+      persistPetTask:async(payload)=>{
+        requests.push(payload);
+        const result=await call(petTasks.POST,payload);
+        assert.equal(result.status,200,JSON.stringify(result.body));
+        return result.body.task;
+      },
+    };
+    const js = ts.transpileModule(`${clientCode.writingEquals}\nreturn (${clientCode[handlerName]});`, {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+    const submit = new Function(...Object.keys(scope),js)(...Object.values(scope));
+    await submit("I'm Principessa's devotex pet.");
+    assert.equal(requests.length,0,"Real spelling mistakes never submit progress");
+    for (let i=1;i<=repeatCount;i++) {
+      await submit(i%2 ? "I'm Principessa's devoted pet." : "I’m Principessa’s devoted pet.");
+      assert.deepEqual(failures,[],`${taskId} submission must be accepted`);
+      assert.equal(taskRef.current[0][countKey],i);
+      assert.equal(state.user_pet_tasks.find(row=>row.task_id===taskId).metadata.count,i);
+      assert.equal(state.profiles[0].pet_score,i===repeatCount?10:0);
+    }
+    assert.equal(state.user_pet_tasks.find(row=>row.task_id===taskId).status,"approved");
+    assert.equal(state.profiles[0].coins,coinStart,"Pet writing does not mint coins");
+    const completedRequests=requests.length;
+    await submit("I'm Principessa's devoted pet.");
+    assert.equal(requests.length,completedRequests,"Completed writing stays on cooldown");
+    assert.equal(requests.filter(value=>typeof value==="string").length,1,"Only one reward request");
+  }
+  assert.ok(!state.user_pet_tasks.some(row=>row.task_id==="pet-confession"),"Reward and progress use the same task ID");
+  assert.equal((await call(petTasks.POST,{task_id:"invented-pet-task",status:"available",reward_score:10})).status,400);
+  assert.equal((await call(petTasks.POST,{task_id:"pet-ownership-oath",status:"available",reward_score:999})).status,422);
+  const oldConfessionReward=await call(petProfile.POST,{reason:"reward:pet-confession",patch:{pet_score:state.profiles[0].pet_score+10}});
+  assert.equal(oldConfessionReward.status,200);
+  assert.ok(!state.user_pet_tasks.some(row=>row.task_id==="pet-confession"),"Old clients also resolve to the canonical task ID");
+  console.log("Pet writing submission passed: actual client and API handlers, straight/curly apostrophes, 5/25 repetitions, rewards, cooldown and invalid payload rejection.");
 
   const licenses = load("src/lib/app-licenses.ts");
   const appKey = licenses.PRINCIPESSA_WALLPAPER_APP_KEY;

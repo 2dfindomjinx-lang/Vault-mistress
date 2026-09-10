@@ -237,14 +237,24 @@ try {
     .click();
   await page.clock.runFor(2100);
   assert.match(await page.locator(".shrine-drain-total").innerText(), /200/);
+  assert.ok(await page.locator(".drain-memory-popup").count() >= 5, "Several larger memories appear within two seconds");
   await page.getByRole("button", { name: "Stop", exact: true }).first().click();
+  assert.equal(await page.locator(".drain-memory-popup").count(), 0, "Stop removes every popup");
   assert.deepEqual(await page.evaluate(() => window.drainBatches), [200]);
   assert.equal(
     await page.locator('.shrine-drain-scene[data-active="true"]').count(),
     0,
   );
-  for (const width of [390, 1440]) {
+  for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
+    await page.getByRole("button", { name: "Start Draining", exact: true }).click();
+    await page.clock.runFor(6200);
+    const popups = await page.locator(".drain-memory-popup").evaluateAll(els => els.map(el=>({width:el.clientWidth,x:el.getBoundingClientRect().x,right:el.getBoundingClientRect().right,top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})));
+    assert.ok(popups.length>=10 && popups.length<=12, "Dense popup stream stays bounded after expiry");
+    for (const popup of popups) {
+      assert.ok(popup.width >= Math.min(width * 0.59, 350), "Larger responsive popup width");
+      assert.ok(popup.x>=0 && popup.right<=width && popup.top>=0 && popup.bottom<=1000, `Tilted popups stay inside the viewport: ${JSON.stringify({width,...popup})}`);
+    }
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -252,8 +262,11 @@ try {
     );
     await page.screenshot({
       path: `tmp/gameplay-shrine-${width}.png`,
-      fullPage: true,
     });
+    await page.getByRole("button", { name: "Stop", exact: true }).first().click();
+    assert.equal(await page.locator(".drain-memory-popup").count(), 0);
+    await page.clock.runFor(1000);
+    assert.equal(await page.locator(".drain-memory-popup").count(), 0, "No popup timers survive Stop");
   }
   await page.getByRole("button", { name: "Gamble fixture" }).click();
   await page
