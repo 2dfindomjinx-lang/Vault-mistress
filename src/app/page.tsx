@@ -12801,6 +12801,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "debt" && (
             <DebtSection
+              onMoneyChange={setPrincipessaMoney}
               previewMode={isGuestMode || isPreviewMode}
               canManageActiveDebtWhileTimedOut={isDebtOverdueTimeoutActive}
               disabled={isPreviewRestricted}

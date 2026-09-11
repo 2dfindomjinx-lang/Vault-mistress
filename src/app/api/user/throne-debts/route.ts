@@ -14,7 +14,9 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 const CONTRACT_SELECT = `
   *,
   installments:throne_debt_installments(*),
-  payment_reviews:throne_debt_payment_reviews(*)
+  payment_reviews:throne_debt_payment_reviews(*),
+  payments:throne_debt_payments(*),
+  pm_payments:throne_debt_pm_payments(*)
 `;
 
 function jsonError(message: string, status = 400) {
@@ -67,8 +69,11 @@ export async function GET() {
   }
 
   const contracts = ((data ?? []) as ThroneDebtContract[]).map(sortContract);
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("principessa_money").eq("id", userId).single();
+  if (profileError) return jsonError("Your PM balance could not be loaded.", 500);
 
   return Response.json({
+    money: Number(profile.principessa_money),
     activeContract: contracts.find((contract) =>
       ["pending_review", "active", "overdue", "timeout", "paused"].includes(contract.status),
     ) ?? null,
@@ -88,7 +93,11 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as {
-    action?: "create" | "submit_payment";
+    action?: "create" | "submit_payment" | "pay_pm";
+    contractId?: string;
+    requestId?: string;
+    throughInstallment?: number;
+    expectedAmount?: number;
     contractLengthWeeks?: number;
     installmentId?: string;
     optionalNote?: string;
@@ -99,6 +108,18 @@ export async function POST(request: Request) {
     userNote?: string;
   } | null;
   const supabase = createSupabaseAdminClient();
+
+  if (body?.action === "pay_pm") {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuid.test(body.contractId ?? "") || !uuid.test(body.requestId ?? "") || !Number.isSafeInteger(body.throughInstallment) || !Number.isSafeInteger(body.expectedAmount) || Number(body.expectedAmount) <= 0) return jsonError("Invalid payment.", 422);
+    const { data, error: paymentError } = await supabase.rpc("pay_throne_debt_pm", {
+      p_user_id: userId, p_debt_id: body.contractId, p_request_id: body.requestId,
+      p_through_installment: body.throughInstallment, p_expected_amount: body.expectedAmount,
+    });
+    if (paymentError) return jsonError("Payment could not be confirmed. Retry with the same payment reference.", 500);
+    if (data?.error) return jsonError(data.error, 409);
+    return Response.json(data);
+  }
 
   if (body?.action === "create") {
     const repaymentFrequency = normalizeThroneDebtFrequency(body.repaymentFrequency);
@@ -178,7 +199,7 @@ export async function POST(request: Request) {
 
     const debt = Array.isArray(installment.debt) ? installment.debt[0] : installment.debt;
 
-    if (!debt || debt.user_id !== userId || !["active", "timeout"].includes(debt.status)) {
+    if (!debt || debt.user_id !== userId || !["active", "overdue", "timeout"].includes(debt.status)) {
       return jsonError("Active Throne Debt installment not found.", 404);
     }
 

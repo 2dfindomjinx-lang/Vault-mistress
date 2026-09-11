@@ -29,8 +29,21 @@ export type ThroneDebtInstallmentStatus =
 
 export type ThroneDebtPaymentReviewStatus = "pending" | "approved" | "rejected";
 
+export const THRONE_DEBT_INSTALLMENT_LABELS: Record<ThroneDebtInstallmentStatus, string> = {
+  approved_paid: "Approved Paid",
+  pending: "Pending",
+  submitted_for_review: "Submitted for Review",
+  rejected: "Rejected",
+  missed: "Missed",
+  overdue: "Overdue",
+  timeout_redemption_required: "Timeout Redemption Required",
+};
+
 export type ThroneDebtInstallment = {
   amount_usd: number;
+  webhook_paid_usd?: number;
+  pm_paid_usd?: number;
+  original_amount_usd?: number | null;
   created_at: string;
   debt_id: string;
   due_date: string;
@@ -63,6 +76,10 @@ export type ThroneDebtPaymentReview = {
 };
 
 export type ThroneDebtContract = {
+  rounding_waived_usd?: number;
+  schedule_adjusted_at?: string | null;
+  pm_payments?: Array<{id: string; amount_pm: number; created_at: string; allocations: Array<{installment: number; amount: number}>}>;
+  payments?: Array<{ event_id: string; amount_usd: number; applied_usd: number; status: string; review_reason: string | null; created_at: string }>;
   debt_code: string | null;
   admin_note: string | null;
   approved_at: string | null;
@@ -141,16 +158,20 @@ export function calculateThroneDebtPlan(input: {
   repaymentFrequency: ThroneDebtFrequency;
   totalAmountUsd: number;
 }) {
-  const contractLengthWeeks = Math.floor(Number(input.contractLengthWeeks));
+  const contractLengthWeeks = Math.min(104, Math.max(0, Math.floor(Number(input.contractLengthWeeks)) || 0));
   const totalAmountUsd = Math.round(Number(input.totalAmountUsd) * 100) / 100;
   const installmentCount = getThroneDebtInstallmentCount(input.repaymentFrequency, contractLengthWeeks);
-  const installmentAmountUsd = Math.round((totalAmountUsd / installmentCount) * 100) / 100;
+  const baseAmount = Math.floor(totalAmountUsd / installmentCount);
+  const extraDollars = Math.round(totalAmountUsd - baseAmount * installmentCount);
+  const installmentAmountsUsd = Array.from({ length: installmentCount }, (_, index) => baseAmount + (index < extraDollars ? 1 : 0));
+  const installmentAmountUsd = installmentAmountsUsd[0];
   const minimumInstallmentUsd = getThroneDebtMinimumInstallmentUsd(input.repaymentFrequency);
   const minimumTotalUsd = minimumInstallmentUsd * installmentCount;
 
   return {
     contractLengthWeeks,
     installmentAmountUsd,
+    installmentAmountsUsd,
     installmentCount,
     minimumInstallmentUsd,
     minimumTotalUsd,
@@ -171,6 +192,10 @@ export function validateThroneDebtRequest(input: {
     return { error: "Total amount must be greater than 0.", plan: null };
   }
 
+  if (!Number.isSafeInteger(input.totalAmountUsd)) {
+    return { error: "Enter a whole-dollar total, without cents.", plan: null };
+  }
+
   if (!Number.isInteger(input.contractLengthWeeks) || input.contractLengthWeeks < 4 || input.contractLengthWeeks > 104) {
     return { error: "Contract length must be between 4 and 104 weeks.", plan: null };
   }
@@ -181,7 +206,7 @@ export function validateThroneDebtRequest(input: {
     totalAmountUsd: input.totalAmountUsd,
   });
 
-  if (plan.installmentAmountUsd < plan.minimumInstallmentUsd) {
+  if (Math.min(...plan.installmentAmountsUsd) < plan.minimumInstallmentUsd) {
     return {
       error: `Minimum installment is $${plan.minimumInstallmentUsd.toFixed(2)} for this frequency.`,
       plan,
@@ -204,6 +229,13 @@ export function getThroneDebtDueDateIso(
 
 export function getThroneDebtPaidTotal(contract: Pick<ThroneDebtContract, "installments">) {
   return (contract.installments ?? [])
-    .filter((installment) => installment.status === "approved_paid")
-    .reduce((sum, installment) => sum + Number(installment.amount_usd ?? 0), 0);
+    .reduce((sum, installment) => sum + getThroneDebtInstallmentPaid(installment), 0);
+}
+
+export function getThroneDebtInstallmentPaid(installment: Pick<ThroneDebtInstallment, "amount_usd" | "status" | "webhook_paid_usd" | "pm_paid_usd">) {
+  return installment.status === "approved_paid" ? Number(installment.amount_usd) : Math.min(Number(installment.amount_usd), Number(installment.webhook_paid_usd ?? 0) + Number(installment.pm_paid_usd ?? 0));
+}
+
+export function getThroneDebtInstallmentRemaining(installment: Pick<ThroneDebtInstallment, "amount_usd" | "status" | "webhook_paid_usd" | "pm_paid_usd">) {
+  return Math.max(0, Math.round((Number(installment.amount_usd) - getThroneDebtInstallmentPaid(installment)) * 100) / 100);
 }

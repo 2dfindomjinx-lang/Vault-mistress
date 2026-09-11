@@ -9,7 +9,7 @@ import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/l
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { GMT3_OFFSET_MS } from "@/lib/time";
 import { formatHandle } from "@/lib/username";
-import type { ThroneDebtContract } from "@/lib/throne-debt";
+import { getThroneDebtPaidTotal, getThroneDebtInstallmentRemaining, THRONE_DEBT_INSTALLMENT_LABELS, type ThroneDebtContract } from "@/lib/throne-debt";
 
 // Mirrors the clamp in src/app/api/admin/premium-title-pool/route.ts and the
 // CHECK constraint in supabase/premium-title-pool-duration.sql.
@@ -1697,6 +1697,7 @@ export default function AdminPage() {
   const pendingThroneDebtCount = throneDebtContracts.filter((contract) =>
     contract.status === "pending_review" ||
     contract.status === "timeout" ||
+    (contract.payments ?? []).some((payment) => payment.status === "needs_review") ||
     (contract.payment_reviews ?? []).some((review) => review.status === "pending"),
   ).length;
   const liveDebtCount = debtContracts.filter((contract) =>
@@ -2547,13 +2548,12 @@ export default function AdminPage() {
                   <div className="grid gap-3">
                     {throneDebtContracts.length > 0 ? (
                       throneDebtContracts.map((contract) => {
-                        const paidInstallments = (contract.installments ?? []).filter((item) => item.status === "approved_paid");
                         const pendingReviews = (contract.payment_reviews ?? []).filter((review) => review.status === "pending");
                         const overdueInstallments = (contract.installments ?? []).filter((item) =>
                           item.status !== "approved_paid" &&
                           new Date(item.due_date).getTime() <= adminNow,
                         );
-                        const paidUsd = paidInstallments.reduce((sum, item) => sum + Number(item.amount_usd ?? 0), 0);
+                        const paidUsd = getThroneDebtPaidTotal(contract);
 
                         return (
                           <article
@@ -2566,11 +2566,18 @@ export default function AdminPage() {
                                   {contract.username ?? "@unknown"} - ${contract.total_amount_usd.toFixed(2)}
                                 </p>
                                 <p className="mt-1 text-sm text-amber-50">
-                                  {contract.repayment_frequency} / {contract.installment_count} installments / ${contract.installment_amount_usd.toFixed(2)}
+                                  {contract.repayment_frequency} / {contract.installment_count} installments
                                 </p>
                                 <p className="mt-1 text-xs text-zinc-500">
-                                  Paid ${paidUsd.toFixed(2)} - remaining ${Math.max(0, contract.total_amount_usd - paidUsd).toFixed(2)}
+                                  Settled ${paidUsd.toFixed(2)} · waived ${Number(contract.rounding_waived_usd ?? 0).toFixed(2)} - remaining ${Math.max(0, contract.total_amount_usd - Number(contract.rounding_waived_usd ?? 0) - paidUsd).toFixed(2)}
                                 </p>
+                                {(contract.payments ?? []).slice(-10).map(payment => (
+                                  <p key={payment.event_id} className="mt-1 text-xs text-amber-100">
+                                    Payment ${payment.amount_usd.toFixed(2)} / applied ${payment.applied_usd.toFixed(2)}
+                                    {payment.status === "needs_review" ? ` / needs review: ${payment.review_reason}` : " / automatic"}
+                                    {payment.amount_usd > payment.applied_usd ? ` / unapplied $${(payment.amount_usd-payment.applied_usd).toFixed(2)}` : ""}
+                                  </p>
+                                ))}
                                 <p className="mt-1 text-xs text-zinc-500">
                                   User note: {contract.user_note || "-"}
                                 </p>
@@ -2715,8 +2722,10 @@ export default function AdminPage() {
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                       <div>
                                         <p className="font-black text-white">
-                                          #{installment.installment_number} - ${installment.amount_usd.toFixed(2)} - {installment.status}
+                                          #{installment.installment_number} - ${installment.amount_usd.toFixed(2)} - {THRONE_DEBT_INSTALLMENT_LABELS[installment.status]}
                                         </p>
+                                        {Number(installment.pm_paid_usd) > 0 ? <p className="text-amber-100">PM paid: {Number(installment.pm_paid_usd).toFixed(2)}</p> : null}
+                                        {Number(installment.webhook_paid_usd) > 0 ? <p className="text-amber-100">Automatic payments: ${Number(installment.webhook_paid_usd).toFixed(2)} / remaining: ${getThroneDebtInstallmentRemaining(installment).toFixed(2)}</p> : null}
                                         <p className="mt-1 text-zinc-500">
                                           Due {new Date(installment.due_date).toLocaleString()}
                                           {overdue ? " - overdue" : ""}

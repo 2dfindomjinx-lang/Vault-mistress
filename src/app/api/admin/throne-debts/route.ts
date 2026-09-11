@@ -2,6 +2,8 @@ import { requireAdminProfile } from "@/lib/admin-guard";
 import type { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   calculateThroneDebtRedemptionAmount,
+  validateThroneDebtRequest,
+  getThroneDebtInstallmentRemaining,
   getThroneDebtDueDateIso,
   getThroneDebtTimeoutReason,
   type ThroneDebtContract,
@@ -12,7 +14,9 @@ import { createUserNotification } from "@/lib/user-notifications";
 const CONTRACT_SELECT = `
   *,
   installments:throne_debt_installments(*),
-  payment_reviews:throne_debt_payment_reviews(*)
+  payment_reviews:throne_debt_payment_reviews(*),
+  payments:throne_debt_payments(*),
+  pm_payments:throne_debt_pm_payments(*)
 `;
 
 type AdminThroneDebt = ThroneDebtContract & {
@@ -150,8 +154,14 @@ export async function POST(request: Request) {
       return jsonError(error?.message ?? "Pending Throne Debt contract not found.", error ? 500 : 404);
     }
 
-    const installments = Array.from({ length: Number(contract.installment_count ?? 0) }, (_, index) => ({
-      amount_usd: Number(contract.installment_amount_usd ?? 0),
+    const { plan, error: planError } = validateThroneDebtRequest({
+      totalAmountUsd: Number(contract.total_amount_usd),
+      contractLengthWeeks: Number(contract.contract_length_weeks),
+      repaymentFrequency: contract.repayment_frequency,
+    });
+    if (planError || !plan) return jsonError(planError ?? "Invalid installment plan.", 422);
+    const installments = plan.installmentAmountsUsd.map((amount, index) => ({
+      amount_usd: amount,
       debt_id: contract.id,
       due_date: getThroneDebtDueDateIso(now, contract.repayment_frequency, index + 1),
       installment_number: index + 1,
@@ -164,6 +174,8 @@ export async function POST(request: Request) {
         admin_note: String(body.adminNote ?? "").trim() || null,
         approved_at: nowIso,
         approved_by_admin_id: admin.adminUser.id,
+        installment_amount_usd: plan.installmentAmountUsd,
+        installment_count: plan.installmentCount,
         status: "active",
         updated_at: nowIso,
       })
@@ -193,7 +205,7 @@ export async function POST(request: Request) {
     }
 
     await notifyUser(admin.supabase, {
-      body: "Your Throne Debt request was approved. Installments are now scheduled for manual review.",
+      body: "Your Throne Debt request was approved. Include your TD debt code in Throne payments to settle installments automatically.",
       contractId: contract.id,
       kind: "throne_debt_approved",
       title: "Throne Debt Approved",
@@ -259,7 +271,7 @@ export async function POST(request: Request) {
 
     const { data: overdueInstallments, error: installmentsError } = await admin.supabase
       .from("throne_debt_installments")
-      .select("id, amount_usd, due_date, status")
+      .select("id, amount_usd, webhook_paid_usd, pm_paid_usd, due_date, status")
       .eq("debt_id", contract.id)
       .neq("status", "approved_paid")
       .lte("due_date", nowIso);
@@ -270,7 +282,7 @@ export async function POST(request: Request) {
 
     const targetInstallments = overdueInstallments ?? [];
     const overdueAmountUsd = Math.round(
-      targetInstallments.reduce((sum, installment) => sum + Number(installment.amount_usd ?? 0), 0) * 100,
+      targetInstallments.reduce((sum, installment) => sum + getThroneDebtInstallmentRemaining(installment), 0) * 100,
     ) / 100;
 
     if (targetInstallments.length === 0 || overdueAmountUsd <= 0) {

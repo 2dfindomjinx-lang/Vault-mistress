@@ -4,6 +4,7 @@ import { BIRTHDAY_CANDLE_CODE_MONEY_PERCENT, BIRTHDAY_MONEY_BONUS_PERCENT, getBi
 import { PET_THRONE_TASK_BONUS_PERCENT } from "@/lib/pet-throne";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createUserNotification } from "@/lib/user-notifications";
+import { extractThroneAttributionCode, throneProfileCodeColumn } from "@/lib/throne-attribution";
 
 const THRONE_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAPXbUfxh7XL4SYUVcfhmYMIbxvtR9E9LDd8gPJ1PwSD8=
@@ -82,10 +83,41 @@ export async function POST(request: Request) {
   // Principessa2DFD shares this code: a Court user tributes with the same VM-
   // code as in the vault, and its wheels run on Principessa Money instead of
   // codes of their own.
-  const code = message.match(/\b(?:VM|PT|CK|WL)-[A-Z0-9]{4,8}\b/i)?.[0]?.toUpperCase() ?? null;
-  const isPetBonusCode = Boolean(code?.startsWith("PT-"));
-  const isCandleCode = Boolean(code?.startsWith("CK-"));
+  const code = extractThroneAttributionCode(message);
   const isWheelCode = Boolean(code?.startsWith("WL-"));
+  const isThroneDebtCode = Boolean(code?.startsWith("TD-"));
+
+  // TD- payments settle installments atomically, without minting PM or Coins.
+  // The attribution-only RPC remains separate for historical feed repairs.
+  if (isThroneDebtCode) {
+    const { data: debt, error: debtError } = await supabase.rpc("apply_throne_debt_payment", {
+      p_event_id: eventId,
+    });
+    if (debtError) {
+      console.error("Throne debt attribution failed", { eventId, debtError });
+      return Response.json({ error: "Could not attribute Throne debt payment." }, { status: 500 });
+    }
+    if (debt?.userId) {
+      if (!debt.duplicate) {
+        try {
+          await createUserNotification(supabase, {
+            userId: debt.userId,
+            kind: "throne_debt_payment_approved",
+            title: debt.status === "needs_review" ? "Throne Payment Received" : debt.contractStatus === "completed" ? "Throne Debt Settled" : "Throne Debt Payment Received",
+            body: debt.status === "needs_review"
+              ? "Your payment was received. This contract needs a manual check before the payment can be applied."
+              : `$${Number(debt.applied).toFixed(2)} applied to your Throne Debt. $${Number(debt.remaining).toFixed(2)} remains.${Number(debt.unallocated) > 0 ? ` Extra payment: $${Number(debt.unallocated).toFixed(2)} recorded separately.` : ""}`,
+            metadata: { eventId, contractId: debt.contractId, ...debt },
+          });
+        } catch (error) { console.error("Throne debt notification failed", error); }
+      }
+      return Response.json({ ok: true, matched: true, moneyAwarded: 0, debt });
+    }
+    if (debt?.error !== "unknown_debt_code") {
+      return Response.json({ error: "Throne debt attribution needs review." }, { status: 409 });
+    }
+    // Unknown debt codes use the ordinary unmatched queue below.
+  }
 
   // WL- is a wheel debt payment, and it deliberately does NOT flow into
   // credit_throne_tribute: paying a wheel order must not hand the debtor the
@@ -158,14 +190,21 @@ export async function POST(request: Request) {
   // its own (W1-W4 keys, WD- debts) and nothing here has to match a payment to
   // a wheel row. Its debts are settled with PM, or on Throne with the WL- code
   // the vault already issues and handles above.
-  const codeColumn = isPetBonusCode ? "pet_tribute_code" : isCandleCode ? "candle_code" : "tribute_code";
-  const profile: { id: string; username: string | null } | null = code
-    ? (await supabase
+  // Legacy P2- codes remain valid in their original Court column. A database
+  // failure is retryable; it must not permanently finalize a valid code as
+  // anonymous (unmatched events are deliberately not retried automatically).
+  const profileResult = code && !isThroneDebtCode
+    ? await supabase
         .from("profiles")
         .select("id, username")
-        .ilike(codeColumn, code)
-        .maybeSingle()).data
-    : null;
+        .ilike(throneProfileCodeColumn(code), code)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (profileResult.error) {
+    console.error("Throne profile lookup failed", { eventId, error: profileResult.error });
+    return Response.json({ error: "Could not look up Throne recipient." }, { status: 500 });
+  }
+  const profile: { id: string; username: string | null } | null = profileResult.data;
 
   if (!profile) {
     const { error: claimError } = await supabase

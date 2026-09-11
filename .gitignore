@@ -48,6 +48,11 @@ next-env.d.ts
 !/supabase/202609090002_product_milestones.sql
 !/supabase/202609100001_court_gameplay.sql
 !/supabase/202609100002_court_fixes.sql
+!/supabase/202609110001_throne_attribution.sql
+!/supabase/202609110002_repair_throne_debt_attribution.sql
+!/supabase/202609110003_throne_debt_auto_payments.sql
+!/supabase/202609110004_throne_debt_contracts.sql
+!/supabase/throne-debts.sql
 !/supabase/gamble-hall.sql
 !/supabase/README.md
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   calculateThroneDebtPlan,
   getThroneDebtMinimumInstallmentUsd,
   getThroneDebtPaidTotal,
+  getThroneDebtInstallmentRemaining,
   THRONE_DEBT_LENGTH_OPTIONS,
+  THRONE_DEBT_INSTALLMENT_LABELS,
   type ThroneDebtContract,
   type ThroneDebtFrequency,
 } from "@/lib/throne-debt";
@@ -75,6 +77,7 @@ type DebtCapacityPreview = {
 };
 
 type DebtSectionProps = {
+  onMoneyChange?: (money: number) => void;
   previewMode?: boolean;
   canManageActiveDebtWhileTimedOut?: boolean;
   disabled?: boolean;
@@ -247,6 +250,7 @@ async function getAffordableRandomDebtDraft(purchasePledge: boolean): Promise<{
 }
 
 export function DebtSection({
+  onMoneyChange,
   previewMode = false,
   canManageActiveDebtWhileTimedOut = false,
   disabled = false,
@@ -436,7 +440,7 @@ export function DebtSection({
   }
 
   return (
-    <section className="court-grid court-grid--debt grid min-w-0 gap-6 xl:grid-cols-3">
+    <section className="court-grid court-grid--debt grid min-w-0 gap-6 xl:grid-cols-2">
       <DebtCard
         active={activeDebtContractType === "normal"}
         currentKind={showDebtSigningImage}
@@ -521,20 +525,26 @@ export function DebtSection({
         remainingDebtBalance={remainingDebtBalance}
         now={now}
       />
-      <ThroneDebtCard previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} />
+      <ThroneDebtCard onMoneyChange={onMoneyChange} previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} />
     </section>
   );
 }
 
 function ThroneDebtCard({
+  onMoneyChange,
   previewMode = false,
   disabled = false,
   isTimeoutActive = false,
 }: {
+  onMoneyChange?: (money: number) => void;
   disabled?: boolean;
   previewMode?: boolean;
   isTimeoutActive?: boolean;
 }) {
+  const [money, setMoney] = useState<number | null>(null);
+  const [historyId, setHistoryId] = useState("");
+  const [paymentThrough, setPaymentThrough] = useState(0);
+  const pmRequest = useRef<{id: string; key: string} | null>(null);
   const [contracts, setContracts] = useState<ThroneDebtContract[]>([]);
   const [totalAmountUsd, setTotalAmountUsd] = useState("");
   const [repaymentFrequency, setRepaymentFrequency] = useState<ThroneDebtFrequency>("weekly");
@@ -547,9 +557,10 @@ function ThroneDebtCard({
   const [statusText, setStatusText] = useState("");
   const [isBusy, setIsBusy] = useState(false);
 
-  const activeContract = contracts.find((contract) =>
+  const openContract = contracts.find((contract) =>
     ["pending_review", "active", "overdue", "timeout", "paused"].includes(contract.status),
   ) ?? null;
+  const activeContract = contracts.find(contract => contract.id === historyId) ?? openContract ?? contracts[0] ?? null;
   const cleanLengthWeeks = contractLengthWeeks === "custom"
     ? Math.floor(Number(customLengthWeeks))
     : Math.floor(Number(contractLengthWeeks));
@@ -567,11 +578,13 @@ function ThroneDebtCard({
     hasPlanInputs &&
     Number.isFinite(Number(totalAmountUsd)) &&
     Number(totalAmountUsd) > 0 &&
+    Number.isSafeInteger(Number(totalAmountUsd)) &&
     Number.isInteger(cleanLengthWeeks) &&
     cleanLengthWeeks >= 4 &&
-    plan.installmentAmountUsd >= minimumInstallmentUsd;
+    cleanLengthWeeks <= 104 &&
+    Math.min(...plan.installmentAmountsUsd) >= minimumInstallmentUsd;
   const paidUsd = activeContract ? getThroneDebtPaidTotal(activeContract) : 0;
-  const remainingUsd = activeContract ? Math.max(0, activeContract.total_amount_usd - paidUsd) : 0;
+  const remainingUsd = activeContract ? Math.max(0, Number(activeContract.total_amount_usd) - Number(activeContract.rounding_waived_usd ?? 0) - paidUsd) : 0;
   const installments = activeContract?.installments ?? [];
   const nextInstallment = installments.find((installment) =>
     ["pending", "rejected", "overdue", "timeout_redemption_required"].includes(installment.status),
@@ -580,11 +593,12 @@ function ThroneDebtCard({
     ?? nextInstallment
     ?? null;
 
-  const loadThroneDebts = async () => {
+  const loadThroneDebts = useCallback(async () => {
     if (previewMode) return;
     try {
       const response = await fetch("/api/user/throne-debts", { cache: "no-store" });
       const payload = (await response.json()) as {
+        money?: number;
         contracts?: ThroneDebtContract[];
         error?: string;
       };
@@ -594,292 +608,133 @@ function ThroneDebtCard({
       }
 
       setContracts(payload.contracts ?? []);
+      if (typeof payload.money === "number") setMoney(payload.money);
+      setStatusText("");
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : "Throne Debt could not be loaded.");
     }
-  };
+  }, [previewMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadThroneDebts();
     }, 0);
 
-    return () => window.clearTimeout(timer);
-  }, []);
+    const refresh = () => { if (document.visibilityState === "visible") void loadThroneDebts(); };
+    const interval = window.setInterval(refresh, 10000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearTimeout(timer); window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [loadThroneDebts]);
 
   const createThroneDebt = async () => {
-    if (!planValid || isBusy) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "This is a real-money Throne debt request. Payments are not automatically verified. Each installment must be submitted and manually approved.",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    if (!planValid || isBusy || disabled || isTimeoutActive) return;
+    if (!window.confirm("Submit this real-money debt agreement for approval? Approved installments can be paid with PM or Throne.")) return;
     setIsBusy(true);
-    setStatusText("");
-
     try {
-      const response = await fetch("/api/user/throne-debts", {
-        body: JSON.stringify({
-          action: "create",
-          contractLengthWeeks: cleanLengthWeeks,
-          optionalNote: userNote,
-          repaymentFrequency,
-          totalAmountUsd: Number(totalAmountUsd),
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        contract?: ThroneDebtContract;
-        error?: string;
-      };
-
-      if (!response.ok || !payload.contract) {
-        throw new Error(payload.error ?? "Throne Debt request failed.");
-      }
-
-      await loadThroneDebts();
-      setStatusText("Throne Debt request submitted for manual review.");
-      setUserNote("");
-    } catch (error) {
-      setStatusText(error instanceof Error ? error.message : "Throne Debt request failed.");
-    } finally {
-      setIsBusy(false);
-    }
+      const response = await fetch("/api/user/throne-debts", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",contractLengthWeeks:cleanLengthWeeks,repaymentFrequency,totalAmountUsd:Number(totalAmountUsd),optionalNote:userNote})});
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Request failed.");
+      setHistoryId(payload.contract.id);
+      await loadThroneDebts(); setUserNote(""); setStatusText("Your request is awaiting approval.");
+    } catch(error) {setStatusText(error instanceof Error ? error.message : "Request failed.");}
+    finally {setIsBusy(false);}
   };
-
   const submitPaymentReview = async () => {
-    if (!selectedInstallment || isBusy) {
-      return;
-    }
-
+    if (!selectedInstallment || isBusy || disabled) return;
     setIsBusy(true);
-    setStatusText("");
-
     try {
-      const response = await fetch("/api/user/throne-debts", {
-        body: JSON.stringify({
-          action: "submit_payment",
-          installmentId: selectedInstallment.id,
-          throneOrderLink,
-          userNote: paymentNote,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        contracts?: ThroneDebtContract[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Payment review submission failed.");
-      }
-
-      setContracts(payload.contracts ?? contracts);
-      setThroneOrderLink("");
-      setPaymentNote("");
-      setSelectedInstallmentId("");
-      setStatusText("Payment submitted for admin review. It is not paid until approved.");
-    } catch (error) {
-      setStatusText(error instanceof Error ? error.message : "Payment review submission failed.");
-    } finally {
-      setIsBusy(false);
-    }
+      const response = await fetch("/api/user/throne-debts", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"submit_payment",installmentId:selectedInstallment.id,throneOrderLink,userNote:paymentNote})});
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Review submission failed.");
+      await loadThroneDebts();setThroneOrderLink("");setPaymentNote("");setSelectedInstallmentId("");setStatusText("Payment submitted for review. It is settled only after approval.");
+    } catch(error) {setStatusText(error instanceof Error ? error.message : "Review submission failed.");}
+    finally {setIsBusy(false);}
   };
-
+  const payable = installments.filter(item => getThroneDebtInstallmentRemaining(item) > 0);
+  const through = payable.some(item => item.installment_number === paymentThrough) ? paymentThrough : payable[0]?.installment_number ?? 0;
+  const pmCost = Math.round(payable.filter(item => item.installment_number <= through).reduce((sum,item) => sum + getThroneDebtInstallmentRemaining(item),0)*100)/100;
+  const hasReview = activeContract?.payment_reviews?.some(review => review.status === "pending");
+  const canPay = !!activeContract && ["active","overdue"].includes(activeContract.status) && !hasReview;
+  const usd = (amount: number) => "$" + Number(amount).toFixed(2);
+  const label = (value: string) => value.split("_").map(word => word.charAt(0).toUpperCase()+word.slice(1)).join(" ");
+  const date = (value: string | null | undefined) => value ? new Date(value).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "Awaiting approval";
+  const payPm = async () => {
+    if (!activeContract || isBusy || !canPay || !pmCost || !Number.isInteger(pmCost)) return;
+    const key = activeContract.id + ":" + through + ":" + pmCost;
+    if (pmRequest.current?.key !== key) pmRequest.current = {key,id:crypto.randomUUID()};
+    setIsBusy(true); setStatusText("");
+    try {
+      const response = await fetch("/api/user/throne-debts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"pay_pm",contractId:activeContract.id,requestId:pmRequest.current.id,throughInstallment:through,expectedAmount:pmCost})});
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Payment could not be confirmed. Please retry.");
+      pmRequest.current=null;
+      setMoney(payload.money); onMoneyChange?.(payload.money);
+      await loadThroneDebts();
+      setStatusText(payload.spent + " PM paid toward your contract.");
+    } catch(error) { setStatusText(error instanceof Error ? error.message : "Payment could not be confirmed. Please retry."); }
+    finally {setIsBusy(false);}
+  };
   return (
-      <article className="court-feature-panel court-grid-card court-grid-card--gold rounded-[1.5rem] border border-amber-200/20 bg-[linear-gradient(180deg,rgba(120,53,15,0.22),rgba(0,0,0,0.72))] p-4 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-amber-100/70">Throne Debt</p>
-          <h3 className="mt-1 text-lg font-black text-white">Throne Debt Contract</h3>
+    <article className="throne-agreement xl:col-span-2">
+      <header className="throne-agreement__cover">
+        <div><p className="throne-agreement__eyebrow">The private court of Principessa</p><h3>Throne Debt<br/><em>Agreement</em></h3><p>A promise recorded. Every payment accounted for.</p></div>
+        <div className="throne-agreement__seal" aria-label="Principessa contract seal"><span>P</span><small>BY HER AUTHORITY</small></div>
+      </header>
+      <div className="throne-agreement__body">
+      {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
+      {activeContract ? <>
+        <div className="throne-agreement__reference"><div><small>CONTRACT REFERENCE</small><strong>{activeContract.debt_code}</strong></div><span className="throne-agreement__status">{label(activeContract.status)}</span></div>
+        <dl className="throne-agreement__figures">
+          <div><dt>Original commitment</dt><dd>{usd(activeContract.total_amount_usd)}</dd></div>
+          <div><dt>Settled installments & credits</dt><dd>{usd(paidUsd)}</dd></div>
+          <div><dt>Rounding waived</dt><dd>{usd(activeContract.rounding_waived_usd ?? 0)}</dd></div>
+          <div><dt>Remaining balance</dt><dd>{usd(remainingUsd)}</dd></div>
+        </dl>
+        <div className="throne-agreement__progress" role="progressbar" aria-label="Contract settled" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1-remainingUsd/activeContract.total_amount_usd)*100)}><span style={{width:Math.max(0,Math.min(100,(1-remainingUsd/activeContract.total_amount_usd)*100))+"%"}}/></div>
+        <div className="throne-agreement__terms"><p><strong>01 / The commitment</strong> Approved {date(activeContract.approved_at)}. {activeContract.contract_length_weeks} weeks · {activeContract.repayment_frequency === "weekly" ? "Every week" : activeContract.repayment_frequency === "bi_weekly" ? "Every 2 weeks" : "Every 4 weeks"} · {activeContract.installment_count} installments.</p><p><strong>02 / Accepted payment</strong> Pay with PM at 1 PM = $1, or include <b>{activeContract.debt_code}</b> in your Throne payment message. TD payments reduce this debt and do not add PM. Payments cover the earliest unpaid installment first; you may pay ahead or settle the full balance.</p><p><strong>03 / Due dates & review</strong> Partial payments reduce the amount due but do not postpone its date. Unmatched payments need review. Overdue payments may lead to account timeout; timeout redemption is a separate, manually reviewed process.</p></div>
+        {activeContract.schedule_adjusted_at ? <div className="throne-agreement__amendment"><strong>Schedule amendment · {date(activeContract.schedule_adjusted_at)}</strong><p>Unpaid amounts were redistributed into whole-dollar payments. {usd(activeContract.rounding_waived_usd ?? 0)} was waived, not added to a future installment. Previous approvals and due dates remain valid. “Settled” includes manual approvals; the actual cash received for older approvals was not recorded.</p></div> : null}
+        {activeContract.status === "pending_review" ? <p className="throne-agreement__notice">Pending manual admin approval. Your dated schedule will appear after approval.</p> : null}
+        <div className="throne-agreement__columns">
+          <section><h4>Schedule of payments</h4><p className="throne-agreement__caption">{installments.filter(item => item.status === "approved_paid").length} of {activeContract.installment_count} installments settled</p>
+            <div className="throne-agreement__schedule">{installments.map(item => <div className="throne-agreement__installment" key={item.id}>
+              <div><strong>No. {String(item.installment_number).padStart(2,"0")}</strong><small>Due {date(item.due_date)}</small><span className={item.status === "approved_paid" ? "throne-agreement__paid" : ""}>{THRONE_DEBT_INSTALLMENT_LABELS[item.status]}</span></div>
+              <div className="throne-agreement__amount"><strong>{usd(getThroneDebtInstallmentRemaining(item))} due</strong><small>Scheduled {usd(item.amount_usd)}</small>{item.original_amount_usd != null && item.original_amount_usd !== item.amount_usd ? <small>Originally {usd(item.original_amount_usd)}</small> : null}<small>Throne credits {usd(item.webhook_paid_usd ?? 0)} · PM {usd(item.pm_paid_usd ?? 0)}</small>{item.status === "approved_paid" && Number(item.webhook_paid_usd ?? 0)+Number(item.pm_paid_usd ?? 0)<Number(item.amount_usd) ? <small>Includes manual settlement</small> : null}{item.paid_at ? <small>Settled {date(item.paid_at)}</small> : null}</div>
+            </div>)}</div>
+          </section>
+          <aside className="throne-agreement__payment"><h4>Honor your agreement</h4><p>Your balance: <strong>{money === null ? "Loading…" : money + " PM"}</strong></p>
+            {canPay && payable.length ? <><label>Pay installments through<select aria-label="Pay installments through" value={through} disabled={isBusy} onChange={event => setPaymentThrough(Number(event.target.value))}>{payable.map(item => <option key={item.id} value={item.installment_number}>{item.installment_number === payable[0].installment_number ? "Next installment" : item.installment_number === payable[payable.length-1].installment_number ? "Full remaining balance" : "Through installment #"+item.installment_number} · {usd(payable.filter(row=>row.installment_number<=item.installment_number).reduce((sum,row)=>sum+getThroneDebtInstallmentRemaining(row),0))}</option>)}</select></label><p className="throne-agreement__quote">{pmCost} PM <span>reduces your debt by {usd(pmCost)}</span></p><p>Balance after payment: {money === null ? "—" : Math.max(0,money-pmCost)+" PM"}</p><button type="button" disabled={disabled || isBusy || money === null || money<pmCost || !Number.isInteger(pmCost)} onClick={()=>void payPm()}>{isBusy ? "Processing…" : "Pay "+pmCost+" PM"}</button>{money !== null && money<pmCost ? <p>Not enough PM for this payment.</p> : null}{!Number.isInteger(pmCost) ? <p>This payment contains cents. Use Throne or request a manual review.</p> : null}</> : <p>{hasReview ? "A payment is awaiting review. Please wait before paying again." : activeContract.status === "completed" ? "Your agreement is fulfilled. No balance remains." : "PM payments are available for active and overdue contracts."}</p>}
+            <div className="throne-agreement__throne"><strong>Prefer Throne?</strong><p>Include this exact code in your message:</p><code>{activeContract.debt_code}</code><p>Extra funds cover future installments. Any excess after the final installment is recorded separately and does not become PM.</p></div>
+          </aside>
         </div>
-        <span className="rounded-full border border-amber-200/25 bg-amber-400/10 px-2 py-1 text-[10px] font-black uppercase text-amber-50">
-          Manual
-        </span>
+        <details className="throne-agreement__details"><summary>Payment record & manual review</summary>
+          {(activeContract.payments ?? []).map(payment => <p key={payment.event_id}>{date(payment.created_at)} · Throne {usd(payment.amount_usd)} · Applied {usd(payment.applied_usd)}{payment.status === "needs_review" ? " · Awaiting review" : ""}{payment.amount_usd > payment.applied_usd ? " · Unapplied " + usd(payment.amount_usd-payment.applied_usd) : ""}</p>)}
+          {(activeContract.pm_payments ?? []).map(payment => <p key={payment.id}>{date(payment.created_at)} · {payment.amount_pm} PM · {payment.allocations.map(part=>"#"+part.installment+": "+usd(part.amount)).join(" / ")}</p>)}
+          {(activeContract.payment_reviews ?? []).map(review => <p key={review.id}>{date(review.created_at)} · Manual review · {label(review.status)}{review.admin_note ? " · "+review.admin_note : ""}</p>)}
+          {![...(activeContract.payments ?? []),...(activeContract.pm_payments ?? []),...(activeContract.payment_reviews ?? [])].length ? <p>No payment receipts recorded. Older manual approvals are shown in the schedule above.</p> : null}
+          {["active","overdue","timeout"].includes(activeContract.status) ? <div className="throne-agreement__proof"><h4>Payment not detected?</h4><p>{activeContract.status === "timeout" ? "Timeout redemption: "+usd(activeContract.timeout_redemption_amount_usd ?? 0)+". Submit proof for manual approval." : "Submit your Throne order for a manual check. Select the installment it covers."}</p><select aria-label="Installment for manual review" value={selectedInstallment?.id ?? ""} onChange={event=>setSelectedInstallmentId(event.target.value)} disabled={isBusy}>{installments.filter(item=>["pending","rejected","overdue","timeout_redemption_required"].includes(item.status)).map(item=><option key={item.id} value={item.id}>Installment #{item.installment_number} · {usd(getThroneDebtInstallmentRemaining(item))}</option>)}</select><input aria-label="Throne order link" placeholder="Throne order link" value={throneOrderLink} onChange={event=>setThroneOrderLink(event.target.value)} disabled={isBusy}/><textarea aria-label="Payment note" placeholder="Optional payment note" maxLength={500} value={paymentNote} onChange={event=>setPaymentNote(event.target.value)} disabled={isBusy}/><button type="button" disabled={disabled || isBusy || !selectedInstallment || !throneOrderLink.trim()} onClick={()=>void submitPaymentReview()}>Submit Throne Payment for Review</button></div> : null}
+        </details>
+        {activeContract.user_note ? <p><strong>Your note:</strong> {activeContract.user_note}</p> : null}{activeContract.admin_note ? <p><strong>Principessa’s note:</strong> {activeContract.admin_note}</p> : null}
+        <footer className="throne-agreement__signature"><span>Principessa<small>THE COURT</small></span><span>{activeContract.debt_code}<small>{activeContract.approved_at ? "APPROVED · "+date(activeContract.approved_at) : "AWAITING APPROVAL"}</small></span></footer>
+      </> : null}
+      {!openContract ? <details open={!activeContract} className="throne-agreement__request"><summary>{activeContract ? "Request another agreement" : "Draft your agreement"}</summary><p>Minimum $10 per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
+        <div className="throne-agreement__draft">
+          <label>Total commitment (USD)<input placeholder="Total USD" inputMode="numeric" disabled={disabled || isBusy || isTimeoutActive} value={totalAmountUsd} onChange={event=>setTotalAmountUsd(event.target.value)}/></label>
+          <label>Repayment frequency<select disabled={disabled || isBusy || isTimeoutActive} value={repaymentFrequency} onChange={event=>setRepaymentFrequency(event.target.value as ThroneDebtFrequency)}><option value="weekly">Every week</option><option value="bi_weekly">Every 2 weeks</option><option value="monthly">Every 4 weeks</option></select></label>
+          <label>Contract length<select aria-label="Contract length" disabled={disabled || isBusy || isTimeoutActive} value={contractLengthWeeks} onChange={event=>setContractLengthWeeks(event.target.value)}><option value="">Length</option>{THRONE_DEBT_LENGTH_OPTIONS.map(weeks=><option key={weeks} value={weeks}>{weeks} weeks</option>)}<option value="custom">Custom</option></select></label>
+          {contractLengthWeeks === "custom" ? <label>Custom weeks<input inputMode="numeric" disabled={disabled || isBusy || isTimeoutActive} value={customLengthWeeks} onChange={event=>setCustomLengthWeeks(event.target.value)}/></label> : null}
+        </div>
+        {hasPlanInputs ? <><p>Payment schedule: {plan.installmentAmountsUsd.map(amount=>"$"+amount).join(" + ")}</p>{!planValid ? <p>Use a whole-dollar total, 4–104 weeks, and at least {usd(minimumInstallmentUsd)} per installment.</p> : null}</> : <p>Enter a total and length to preview every installment before submitting.</p>}
+        <label>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label>
+        <button type="button" disabled={disabled || isBusy || isTimeoutActive || !planValid} onClick={()=>void createThroneDebt()}>Submit Throne Debt Request</button>
+        {isTimeoutActive ? <p>You cannot create new debt while your account is in timeout.</p> : null}
+      </details> : null}
+      {statusText ? <p role="status" className="throne-agreement__notice">{statusText}</p> : null}
       </div>
-      <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Real-money debt via Throne. All payments are manually reviewed. Minimum installment: $10 per week.
-      </p>
-
-      {activeContract ? (
-        <div className="mt-4 grid gap-3">
-          <div className="court-inset-tile rounded-2xl border border-amber-200/15 bg-black/35 p-3">
-            <div className="grid gap-2 text-sm text-amber-50 sm:grid-cols-2">
-              <span>Debt Code: <strong className="text-amber-100">{activeContract.debt_code ?? `TD-${activeContract.id.slice(0, 8).toUpperCase()}`}</strong></span>
-              <span>Total Debt: ${activeContract.total_amount_usd.toFixed(2)}</span>
-              <span>Paid: ${paidUsd.toFixed(2)}</span>
-              <span>Remaining: ${remainingUsd.toFixed(2)}</span>
-              <span>Frequency: {activeContract.repayment_frequency}</span>
-              <span>Status: {activeContract.status}</span>
-              <span>Installments: {installments.filter((item) => item.status === "approved_paid").length} / {activeContract.installment_count}</span>
-            </div>
-            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
-              Throne payments are handled outside the app. Submitting a payment for review does not mark it as paid until approved.
-            </p>
-            {activeContract.status === "timeout" ? (
-              <p className="mt-3 rounded-2xl border border-red-200/25 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
-                Your account is in Throne Debt Timeout because a Throne Debt payment is overdue. To request removal, submit a Throne payment for the redemption amount. This must be manually reviewed and approved.
-                {activeContract.timeout_redemption_amount_usd ? ` Redemption amount: $${activeContract.timeout_redemption_amount_usd.toFixed(2)}.` : ""}
-              </p>
-            ) : null}
-          </div>
-
-          {activeContract.status === "pending_review" ? (
-            <p className="rounded-2xl border border-amber-200/20 bg-amber-400/10 px-3 py-3 text-sm font-bold text-amber-50">
-              Pending manual admin approval. Installments are generated only after approval.
-            </p>
-          ) : null}
-
-          {["active", "overdue", "timeout"].includes(activeContract.status) ? (
-            <>
-              <div className="max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-black/30 p-2 [scrollbar-width:thin]">
-                <div className="grid gap-2">
-                  {installments.map((installment) => (
-                    <button
-                      className={`rounded-xl border px-3 py-2 text-left text-xs transition ${
-                        selectedInstallment?.id === installment.id
-                          ? "border-amber-200/45 bg-amber-400/12"
-                          : "border-white/10 bg-white/[0.04]"
-                      }`}
-                        disabled={!["pending", "rejected", "overdue", "timeout_redemption_required"].includes(installment.status)}
-                      key={installment.id}
-                      onClick={() => setSelectedInstallmentId(installment.id)}
-                      type="button"
-                    >
-                      <span className="font-black text-white">#{installment.installment_number} - ${installment.amount_usd.toFixed(2)}</span>
-                      <span className="ml-2 text-amber-100/70">{installment.status}</span>
-                      <span className="block text-zinc-400">Due {new Date(installment.due_date).toLocaleDateString()}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <input
-                className="rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                disabled={disabled || isBusy || !selectedInstallment}
-                onChange={(event) => setThroneOrderLink(event.target.value)}
-                placeholder={activeContract.status === "timeout" ? "Throne redemption order link" : "Throne order link"}
-                value={throneOrderLink}
-              />
-              <textarea
-                className="min-h-20 rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                disabled={disabled || isBusy || !selectedInstallment}
-                maxLength={500}
-                onChange={(event) => setPaymentNote(event.target.value)}
-                placeholder={activeContract.status === "timeout" ? "Optional redemption note" : "Optional payment note"}
-                value={paymentNote}
-              />
-              <button
-                className="rounded-2xl border border-amber-200/25 bg-amber-400/15 px-4 py-3 text-sm font-black text-amber-50 transition hover:border-amber-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={disabled || isBusy || !selectedInstallment || !throneOrderLink.trim()}
-                onClick={() => void submitPaymentReview()}
-                type="button"
-              >
-                {activeContract.status === "timeout" ? "Submit Redemption Proof for Review" : "Submit Throne Payment for Review"}
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : (
-        <div className="mt-4 grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              className="rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              disabled={disabled || isBusy || isTimeoutActive}
-              inputMode="decimal"
-              min={plan.minimumTotalUsd}
-              onChange={(event) => setTotalAmountUsd(event.target.value)}
-              placeholder="Total USD"
-              value={totalAmountUsd}
-            />
-            <select
-              className="rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              disabled={disabled || isBusy || isTimeoutActive}
-              onChange={(event) => setRepaymentFrequency(event.target.value as ThroneDebtFrequency)}
-              value={repaymentFrequency}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="bi_weekly">Bi-weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-            <select
-              className="rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              disabled={disabled || isBusy || isTimeoutActive}
-              onChange={(event) => setContractLengthWeeks(event.target.value)}
-              value={contractLengthWeeks}
-            >
-              <option value="">Length</option>
-              {THRONE_DEBT_LENGTH_OPTIONS.map((weeks) => (
-                <option key={weeks} value={weeks}>{weeks} weeks</option>
-              ))}
-              <option value="custom">Custom</option>
-            </select>
-            {contractLengthWeeks === "custom" ? (
-              <input
-                className="rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-                disabled={disabled || isBusy || isTimeoutActive}
-                inputMode="numeric"
-                max={104}
-                min={4}
-                onChange={(event) => setCustomLengthWeeks(event.target.value)}
-                placeholder="Custom weeks"
-                value={customLengthWeeks}
-              />
-            ) : null}
-          </div>
-          <div className="rounded-2xl border border-amber-200/15 bg-black/35 p-3 text-sm text-amber-50">
-            {hasPlanInputs ? (
-              <>
-                <p>Total Debt: ${plan.totalAmountUsd.toFixed(2)}</p>
-                <p>Installments: {plan.installmentCount}</p>
-                <p>Each Installment: ${plan.installmentAmountUsd.toFixed(2)}</p>
-                <p>Minimum for this frequency: ${minimumInstallmentUsd.toFixed(2)}</p>
-              </>
-            ) : (
-              <p>Enter total amount and contract length to calculate the installment plan.</p>
-            )}
-            {hasPlanInputs && !planValid ? (
-              <p className="mt-2 text-xs font-bold text-red-200">
-                Increase total amount or adjust length. This plan is below minimum installment.
-              </p>
-            ) : null}
-          </div>
-          <textarea
-            className="min-h-20 rounded-2xl border border-amber-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-            disabled={disabled || isBusy || isTimeoutActive}
-            maxLength={500}
-            onChange={(event) => setUserNote(event.target.value)}
-            placeholder="Optional note"
-            value={userNote}
-          />
-          <button
-            className="rounded-2xl border border-amber-200/25 bg-amber-400/15 px-4 py-3 text-sm font-black text-amber-50 transition hover:border-amber-200/55 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={disabled || isBusy || isTimeoutActive || !planValid}
-            onClick={() => void createThroneDebt()}
-            type="button"
-          >
-            Submit Throne Debt Request
-          </button>
-          {isTimeoutActive ? (
-            <p className="rounded-2xl border border-red-200/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-100">
-              You cannot create new debt while your account is in timeout.
-            </p>
-          ) : null}
-        </div>
-      )}
-
-      {statusText ? (
-        <p className="mt-3 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-xs font-bold text-amber-50/85">
-          {statusText}
-        </p>
-      ) : null}
     </article>
   );
 }
