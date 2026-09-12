@@ -1,9 +1,15 @@
 "use client";
+import {arrangeTaskCards} from "./task-layout";
+
+import ui from "./TaskExperience.module.css";
+import { TaskExperienceCard, TaskProgress, TaskWaitDial, TaskCardFace, TaskInputSignal, taskExperienceState } from "./TaskExperience";
+
 
 import { normalizeWritingText as normalizeWritingPreview } from "@/lib/writing-comparison";
 
 import Image from "next/image";
-import { CourtGlyph, SealFaces, WritingLine } from "@/components/court/CourtVisuals";
+import styles from "./ExperienceSurfaces.module.css";
+import { CourtGlyph, WritingLine } from "@/components/court/CourtVisuals";
 import { useEffect, useRef, useState } from "react";
 import {
   formatPetThroneAmount,
@@ -1338,7 +1344,7 @@ export function PetSection({
   ];
 
   return (
-    <section className="court-feature-panel rounded-[1.5rem] border border-rose-300/20 bg-[linear-gradient(145deg,rgba(0,0,0,0.84),rgba(76,5,25,0.48),rgba(20,0,28,0.86))] p-3 shadow-[0_0_54px_rgba(190,18,60,0.18)] sm:rounded-[2rem] sm:p-4">
+    <section className={`${styles.surface} ${styles.pet}`}>
       {showThroneCode && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border border-pink-200/25 bg-[#180812] p-5 shadow-2xl">
@@ -1364,7 +1370,7 @@ export function PetSection({
       )}
       {isGuest && (
         <p className="mb-4 rounded-2xl border border-yellow-200/25 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100">
-          Guest mode: Pet progression is local-only for development testing.
+          Preview mode · Pet progress stays on this device.
         </p>
       )}
 
@@ -1384,7 +1390,7 @@ export function PetSection({
 
       <div className="court-grid court-grid--pet grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
         <div className="space-y-4">
-          <div className="relative min-h-[20rem] overflow-hidden rounded-[1.25rem] border border-rose-200/15 bg-black sm:min-h-[24rem] sm:rounded-[1.5rem]">
+          <div className={`${styles.petHero} relative overflow-hidden bg-black`}>
             <Image
               alt="Evil Principessa"
               className="object-cover object-top opacity-82"
@@ -1398,17 +1404,16 @@ export function PetSection({
               <p className="text-xs uppercase tracking-[0.3em] text-rose-100/70">
                 Principessa&apos;s Pet
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">The darker vault opens.</h2>
+              <h2 className="mt-2 text-white">Under her command.</h2>
             </div>
           </div>
 
-          <div className="rounded-[1.5rem] border border-rose-200/15 bg-black/45 p-4">
+          <div className={styles.petIntro}>
             <p className="text-xs uppercase tracking-[0.24em] text-rose-200/70">
               Principessa&apos;s Thoughts
             </p>
             <p className="mt-3 text-sm leading-6 text-rose-50/80">
-              A Pet is not promoted by noise. A Pet is shaped by proof, consistency,
-              and review.
+              Your place is earned. Show her consistency.
             </p>
           </div>
         </div>
@@ -1557,8 +1562,8 @@ export function PetSection({
             </button>
           </div>
 
-          <div className="court-grid court-grid--pet grid min-w-0 gap-3 md:grid-cols-2">
-            {regularTasks.map((task) => {
+          <div className={ui.grid}>
+            {arrangeTaskCards(regularTasks).map((task) => {
               const coolingDown =
                 Boolean(task.cooldownUntil) &&
                 new Date(task.cooldownUntil ?? "").getTime() > now;
@@ -1570,38 +1575,25 @@ export function PetSection({
               const actionPending = isPetActionPending(task.id);
 
               return (
-                <article
-                  className={`court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4 ${
-                    task.kind === "high-low" ? "md:col-span-2" : ""
-                  }`}
-                  key={task.id}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-base font-black text-white sm:text-lg">{task.title}</h3>
-                    <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                      {getPetTaskBadgeLabel(task, pending, approved, failed)}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-zinc-300">{task.description}</p>
-                  <p className="mt-3 text-xs font-bold text-red-100">
+                <TaskExperienceCard key={task.id} kind={task.kind} taskId={task.id} title={task.title} reward={<p className="mt-3 text-xs font-bold text-red-100">
                     {task.kind === "review"
-                      ? `Admin approve reward: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
+                      ? `On approval: +${task.reward} Pet Score, +${petReviewTaskCoinReward} Coins`
                       : task.kind === "throne-tribute"
                         ? `Recorded reward: +${PET_THRONE_TASK_SCORE_BASE} Pet Score plus a tenth of what you send, rounded up. Admin approval only adds the selected Throne payout with both bonuses.`
                       : task.kind === "high-low"
-                        ? "Higher or Lower is now handled here. Coin stakes are separate from Pet Score."
+                        ? "Stake Coins. Pet Score stays separate."
                       : task.kind === "worship"
-                        ? `One-way tribute: send coins (min ${PET_WORSHIP_MIN_AMOUNT}), no coins back. Reward: +${task.reward} Pet Score, Devotion scales with the amount sent.`
+                        ? `+${task.reward} Pet Score · Minimum ${PET_WORSHIP_MIN_AMOUNT} Coins. No Coins returned.`
                       : `Completion reward: +${task.reward} Pet Score, +${
                           task.kind === "favor-roulette" ? favorCoinReward : petTaskCoinReward
                         } Coins`}
-                  </p>
-                  {task.voiceSentence && (
-                    <p className="mt-3 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm leading-6 text-red-50">
+                  </p>} status={<span>{getPetTaskBadgeLabel(task, pending, approved, failed)}</span>} rules={task.description} state={task.kind === "favor-roulette" && favorRevealing ? "active" : taskExperienceState(task, now, actionPending)} wide={task.kind === "high-low"} reaction={task.attemptsRemaining ?? task.resultOutcome ?? ""}>
+{task.voiceSentence && (
+                    <p className={ui.voiceLine}>
                       {task.voiceSentence}
                     </p>
                   )}
-                  {task.actionUrl && (
+{task.actionUrl && (
                     task.kind === "throne-tribute" ? (
                       <button
                         className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-sky-200/25 bg-sky-500/10 px-4 py-3 text-sm font-black text-sky-50 transition hover:border-sky-200/55 hover:bg-sky-500/20"
@@ -1621,15 +1613,14 @@ export function PetSection({
                       </a>
                     )
                   )}
-                  {coolingDown && (
+{coolingDown && (
                     <p className="mt-2 text-xs text-yellow-100">
                       Available in {formatRemaining(task.cooldownUntil ?? null, now)}
                     </p>
                   )}
-
-                  {task.kind === "confession-writing" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+{task.kind === "confession-writing" && (
+                    <div className={ui.stage}>
+                      <p className={ui.writingPrompt}>
                       <span
                         className="block select-none"
                         onContextMenu={(event) => event.preventDefault()}
@@ -1637,18 +1628,10 @@ export function PetSection({
                         <WritingLine text={task.sentence ?? ""} value={confessionInput}/>
                       </span>
                       </p>
-                      <div className="h-2 overflow-hidden rounded-full bg-black/70">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
-                          style={{ width: `${((task.confessionCount ?? 0) / 5) * 100}%` }}
-                        />
-                      </div>
-                      <p className="text-xs font-bold text-red-100">
-                        {task.confessionCount ?? 0}/5 exact repetitions
-                      </p>
-                      <div className="court-pet-repeat-seals" aria-label="Completed repetitions">{[1,2,3,4,5].map(n=><span data-complete={(task.confessionCount ?? 0)>=n} key={n}>{(task.confessionCount ?? 0)>=n ? "✓" : n}</span>)}</div>
+                      <TaskProgress value={task.confessionCount ?? 0} total={5} label="Exact repetitions" />
+
                       <input
-                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        className={ui.writingInput + " px-4 py-3"}
                         disabled={disabled || coolingDown || task.status === "approved" || actionPending}
                         onKeyDown={(event) => {
                           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
@@ -1674,10 +1657,9 @@ export function PetSection({
                       </button>
                     </div>
                   )}
-
-                  {task.kind === "ownership-oath" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-                      <p className="rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50">
+{task.kind === "ownership-oath" && (
+                    <div className={ui.stage}>
+                      <p className={ui.writingPrompt}>
                       <span
                         className="block select-none"
                         onContextMenu={(event) => event.preventDefault()}
@@ -1685,18 +1667,10 @@ export function PetSection({
                         <WritingLine text={task.sentence ?? ""} value={oathInput}/>
                       </span>
                       </p>
-                      <div className="h-2 overflow-hidden rounded-full bg-black/70">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
-                          style={{ width: `${((task.oathCount ?? 0) / PET_OWNERSHIP_OATH_REPEAT_COUNT) * 100}%` }}
-                        />
-                      </div>
-                      <p className="text-xs font-bold text-red-100">
-                        {task.oathCount ?? 0}/{PET_OWNERSHIP_OATH_REPEAT_COUNT} exact repetitions
-                      </p>
-                      <div className="court-pet-repeat-seals" aria-label="Completed repetitions">{Array.from({length:PET_OWNERSHIP_OATH_REPEAT_COUNT},(_,i)=>i+1).map(n=><span data-complete={(task.oathCount ?? 0)>=n} key={n}>{(task.oathCount ?? 0)>=n ? "✓" : n}</span>)}</div>
+                      <TaskProgress value={task.oathCount ?? 0} total={PET_OWNERSHIP_OATH_REPEAT_COUNT} label="Exact repetitions" />
+
                       <input
-                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        className={ui.writingInput + " px-4 py-3"}
                         disabled={disabled || coolingDown || task.status === "approved" || actionPending}
                         onKeyDown={(event) => {
                           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
@@ -1722,9 +1696,8 @@ export function PetSection({
                       </button>
                     </div>
                   )}
-
-                  {task.kind === "worship" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+{task.kind === "worship" && (
+                    <div className={ui.stage}>
                       {worshipImagePath ? (
                         <img
                           alt={`Worship: ${worshipCategory ?? ""}`}
@@ -1734,9 +1707,7 @@ export function PetSection({
                           src={`/api/user/pet-worship/image?v=${worshipImageVersion}`}
                         />
                       ) : (
-                        <div className="flex h-40 items-center justify-center rounded-2xl border border-red-200/15 bg-black/40 text-center text-xs text-red-200/60">
-                          Awaiting worship images.
-                        </div>
+                        <div className={ui.offeringPlaceholder}><span aria-hidden="true">✧</span><p>Her private collection</p><small>Awaiting today’s worship image</small></div>
                       )}
                       {worshipImagePath && (
                         <div className="flex items-center justify-between gap-2">
@@ -1801,24 +1772,19 @@ export function PetSection({
                       </button>
                     </div>
                   )}
-
-                  {task.kind === "perfect-writing" && (
-                    <div className="mt-auto space-y-3">
+{task.kind === "perfect-writing" && (
+                    <div className={ui.stage}>
                       <p
-                        className="select-none rounded-2xl border border-red-200/10 bg-black/35 p-3 text-sm leading-6 text-red-50"
+                        className={ui.writingPrompt}
                         onContextMenu={(event) => event.preventDefault()}
                         onCopy={(event) => event.preventDefault()}
                         onCut={(event) => event.preventDefault()}
                       >
                         <WritingLine text={sentence} value={perfectInput} complete={task.status === "approved"}/>
                       </p>
-                      <p className="text-sm" aria-label="attempts remaining">
-                        {Array.from({ length: Math.max(0, task.attemptsRemaining ?? 1) })
-                          .map(() => "\u2764\uFE0F")
-                          .join("") || "No hearts"}
-                      </p>
+                      <><TaskInputSignal count={task.attemptsRemaining ?? 1} total={1} label="Attempts left" /><TaskProgress value={perfectInput.length} total={sentence.length} label="Characters" /></>
                       <input
-                        className="w-full rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55 disabled:cursor-not-allowed disabled:opacity-40"
+                        className={ui.writingInput + " px-4 py-3"}
                         disabled={disabled || coolingDown || pending || actionPending}
                         onCopy={(event) => event.preventDefault()}
                         onCut={(event) => event.preventDefault()}
@@ -1830,9 +1796,8 @@ export function PetSection({
                       />
                     </div>
                   )}
-
-                  {task.kind === "high-low" && (
-                    <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-4">
+{task.kind === "high-low" && (
+                    <div className={ui.stage}>
                       {(() => {
                         const highLowBetAllowance =
                           task.highLowBetAllowance ??
@@ -1842,8 +1807,9 @@ export function PetSection({
                           ? new Date(task.highLowResetAt).getTime() - now
                           : 0;
                         const resultCoinDelta = task.resultCoinDelta ?? 0;
-                        const resultBaseNumber = task.resultBaseNumber ?? task.currentNumber ?? "?";
-                        const resultNumber = task.resultNumber ?? "?";
+                        const currentNumberLabel = Number.isFinite(task.currentNumber) ? task.currentNumber : "?";
+                        const resultBaseNumber = Number.isFinite(task.resultBaseNumber) ? task.resultBaseNumber : currentNumberLabel;
+                        const resultNumber = Number.isFinite(task.resultNumber) ? task.resultNumber : "?";
                         const resultLabel =
                           task.resultOutcome === "win"
                             ? "Win"
@@ -1855,35 +1821,25 @@ export function PetSection({
 
                         return (
                           <div className="flex h-full flex-col">
-                            <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className={ui.highLowArena}>
                               <div>
                                 <p className="text-sm text-zinc-400">Current number</p>
-                                <div className="court-highlow-cards" role="img" aria-label={`Current number ${task.currentNumber ?? "unknown"}. ${task.resultOutcome ? `Last draw ${task.resultNumber}.` : "Next card hidden."}`}><div className="court-highlow-card"><SealFaces open>{task.currentNumber ?? "?"}</SealFaces></div><span className="court-highlow-arrow">→</span><div className="court-highlow-card" key={String(task.resultNumber)+String(task.highLowRoundAvailableAt)}><SealFaces open={Boolean(task.resultOutcome)}>{task.resultNumber ?? "?"}</SealFaces></div></div>
+                                <div className={ui.highLowCards} role="img" aria-label={`Current number ${currentNumberLabel}. ${task.resultOutcome ? `Last draw ${resultNumber}.` : "Next card hidden."}`}><div className="court-highlow-card"><TaskCardFace open>{currentNumberLabel}</TaskCardFace></div><span className="court-highlow-arrow">→</span><div className="court-highlow-card" key={String(task.resultNumber)+String(task.highLowRoundAvailableAt)}><TaskCardFace open={Boolean(task.resultOutcome)} matched={task.resultOutcome === "win"}>{resultNumber}</TaskCardFace></div></div>
                               </div>
-                              <div className="min-w-[16rem] rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+                              <div className={ui.highLowResult}>
                                 <p className="text-xs uppercase tracking-[0.18em] text-pink-200/70">Last result</p>
-                                <p
-                                  className={`mt-2 text-2xl font-black ${
-                                    resultLabel === "Win"
-                                      ? "text-emerald-200"
-                                      : resultLabel === "Loss"
-                                        ? "text-rose-200"
-                                        : resultLabel === "Tie"
-                                          ? "text-yellow-100"
-                                          : "text-white"
-                                  }`}
-                                >
-                                  {task.lastResult?.replace(/\s*Next round is prepared server-side\.?/gi, "") ?? "No result yet."}
+                                <p className={ui.highLowVerdict} data-outcome={task.resultOutcome ?? "ready"}>
+                                  {task.resultOutcome ? resultLabel : "Your move"}
                                 </p>
-                                <p className="mt-2 text-sm text-zinc-400">
+                                <p className="mt-2 text-xs text-zinc-400" role="status">
                                   {task.resultOutcome
-                                    ? `${resultLabel} · ${resultBaseNumber} -> ${resultNumber} · ${resultCoinDelta > 0 ? "+" : ""}${resultCoinDelta} coins`
-                                    : "Play once to reveal the next result here."}
+                                    ? `${resultBaseNumber} → ${resultNumber} · ${resultCoinDelta > 0 ? "+" : ""}${resultCoinDelta} Coins`
+                                    : "Higher or lower?"}
                                 </p>
                               </div>
                             </div>
                             <p className="mt-2 text-xs text-zinc-500">
-                              Base rolls use 2-19. Result rolls use 1-25 and are weighted around the current number.
+                              Next card: 1–25. Draws favour numbers near the current card.
                             </p>
                             {task.highLowRoundAvailableAt && (
                               <p className="mt-2 text-sm font-semibold text-pink-100">
@@ -1891,7 +1847,7 @@ export function PetSection({
                               </p>
                             )}
 
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className={ui.highLowStats}>
                               <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
                                 <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">24h Net Profit</p>
                                 <p
@@ -1941,7 +1897,7 @@ export function PetSection({
                             )}
                             {!task.highLowDailyLocked && (
                               <p className="mt-3 text-xs font-semibold text-zinc-500">
-                                Locks at {highLowProfitCap.toLocaleString()} net profit or after {highLowAllowanceCap.toLocaleString()} total coins are bet during the daily allowance period. Wins and losses consume allowance; ties charge a 25% play fee.
+                                Daily limits: {highLowProfitCap.toLocaleString()} profit / {highLowAllowanceCap.toLocaleString()} staked. Every bet uses allowance. Ties cost 25% of your stake.
                               </p>
                             )}
                             {!task.highLowDailyLocked && highLowBetAllowance <= 0 && (
@@ -1965,7 +1921,7 @@ export function PetSection({
                               />
                             </label>
 
-                            <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className={ui.highLowControls} style={{marginTop:12}}>
                               {(["higher", "lower"] as const).map((guess) => (
                                 <button
                                   aria-disabled={coolingDown || undefined}
@@ -2005,9 +1961,8 @@ export function PetSection({
                       })()}
                     </div>
                   )}
-
-                  {task.kind === "evil-wait" && (
-                    <div className="mt-auto flex flex-1 flex-col rounded-2xl border border-red-200/15 bg-black/35 p-3">
+{task.kind === "evil-wait" && (
+                    <div className={ui.stage}>
                       <p className="text-sm leading-6 text-zinc-300">
                         Three second countdown, then 2 minutes with no input.
                       </p>
@@ -2061,7 +2016,7 @@ export function PetSection({
                           ))}
                         </div>
                       )}
-                      <p className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm font-black text-red-50">
+                      <TaskWaitDial seconds={task.waitState === "countdown" && evilCountdown > 0 ? evilCountdown : evilWaitRemaining} total={120} state={task.waitState ?? "ready"} /><p className={ui.waitStatus}>
                         {task.waitState === "countdown"
                           ? new Date(task.waitCountdownEndsAt ?? "").getTime() <= now
                             ? `Waiting ${evilWaitRemaining}s`
@@ -2096,34 +2051,18 @@ export function PetSection({
                       </button>
                     </div>
                   )}
-
-                  {task.kind === "false-hope" && (
+{task.kind === "false-hope" && (
                     <div
-                      className={`mt-auto rounded-2xl border border-red-200/15 bg-black/35 p-3 ${
-                        falseHopeShaking ? "animate-[pet-shake_1.4s_ease-in-out_both]" : ""
-                      }`}
-                    >
-                      <div className="h-3 overflow-hidden rounded-full bg-black/70">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-red-700 via-pink-500 to-white transition-all"
-                          style={{ width: `${task.falseHopeProgress ?? 0}%` }}
-                        />
-                      </div>
-                      <div className="mt-3 flex items-center justify-between text-xs text-red-100/80">
-                        <span>{task.falseHopeProgress ?? 0}%</span>
-                        <span>Next: {(task.falseHopeExpectedKey ?? "a").toUpperCase()}</span>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-xs font-bold text-rose-100">
-                        <span>Wrong: {task.falseHopeWrongInputs ?? 0}/5</span>
-                        <span>{Math.max(0, 5 - (task.falseHopeWrongInputs ?? 0))} mistakes left</span>
-                      </div>
+                      className={ui.stage + " " + ui.sequenceStage}
+                     data-mistake={falseHopeShaking}>
+                      <TaskProgress value={task.falseHopeProgress ?? 0} total={100} label="Obedience" /><TaskInputSignal count={Math.max(0, 5 - (task.falseHopeWrongInputs ?? 0))} total={5} label="Mistakes left" />
                       {showFalseHopeWarning && (
                         <p className="mt-3 rounded-2xl border border-pink-200/25 bg-pink-500/10 px-3 py-2 text-sm font-black text-pink-50">
                           So close. Did you really think it would be that easy?
                         </p>
                       )}
-                      <div className="court-sequence-keys" aria-hidden="true">{["a","d"].map(k=><span className="court-sequence-key" key={k} data-next={(task.falseHopeExpectedKey ?? "a") === k}>{k.toUpperCase()}</span>)}</div>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+
+                      <div className={ui.sequenceBoard}>
                         {(["a", "d"] as const).map((key) => (
                           <button
                             aria-disabled={coolingDown || undefined}
@@ -2141,17 +2080,16 @@ export function PetSection({
                               onFalseHopeKey(key);
                             }}
                             type="button"
-                          >
-                            {key}
+                           data-next={(task.falseHopeExpectedKey ?? "a") === key}>
+                            {key.toUpperCase()}<small>{(task.falseHopeExpectedKey ?? "a") === key ? "NEXT COMMAND" : "WAIT"}</small>
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {task.kind === "favor-roulette" && (
-                    <div className="mt-auto flex flex-1 flex-col justify-center rounded-2xl border border-pink-200/15 bg-black/35 p-3 sm:p-4">
-                      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+{task.kind === "favor-roulette" && (
+                    <div className={ui.stage}>
+                      <div className={ui.choiceTable}>
                         {Array.from({ length: 5 }, (_, index) => {
                           const revealed = typeof task.favorPickedIndex === "number" && task.favorPickedIndex >= 0;
                           const picked = task.favorPickedIndex === index;
@@ -2164,17 +2102,7 @@ export function PetSection({
 
                           return (
                             <button
-                              className={`seal-card-button court-favor-card flex min-h-[6.75rem] min-w-0 items-center justify-center rounded-xl border px-1 py-3 text-center text-xs font-black uppercase tracking-[0.08em] transition sm:min-h-[8rem] sm:rounded-2xl md:min-h-[9.5rem] ${
-                                picked && task.favorResult === "win"
-                                  ? "border-yellow-200/70 bg-yellow-300/15 shadow-[0_0_24px_rgba(250,204,21,0.35)]"
-                                  : picked
-                                    ? "border-pink-200/45 bg-pink-500/15"
-                                    : revealed
-                                      ? "border-white/10 bg-black/45"
-                                      : "border-pink-200/20 bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(88,28,135,0.24))] hover:border-pink-200/55"
-                              } ${favorRevealing && picked ? "scale-105" : ""} ${
-                                coolingDown ? CLICKABLE_COOLDOWN_TILE_CLASS : ""
-                              }`}
+                              className={ui.choiceButton + (coolingDown ? " " + CLICKABLE_COOLDOWN_TILE_CLASS : "")}
                               aria-disabled={coolingDown || undefined}
                               disabled={disabled || revealed || actionPending}
                               key={index}
@@ -2187,9 +2115,9 @@ export function PetSection({
                                 handleFavorPick(index);
                               }}
                               type="button"
-                            >
+                             data-selected={picked} data-revealed={revealed}>
                               <span className="sr-only">{revealed ? label : `Hidden card ${index + 1}`}</span>
-                              <SealFaces open={revealed && (picked || !favorRevealing)} matched={revealed && picked && winning}><CourtGlyph symbol={winning ? "crown" : "seal"}/><span className="text-[9px] font-semibold tracking-normal">{label}</span></SealFaces>
+                              <TaskCardFace open={revealed && (picked || !favorRevealing)} matched={revealed && picked && winning} selected={picked} index={index}><CourtGlyph symbol={winning ? "crown" : "seal"}/><span className="text-[9px] font-semibold tracking-normal">{label}</span></TaskCardFace>
                             </button>
                           );
                         })}
@@ -2211,9 +2139,8 @@ export function PetSection({
                       )}
                     </div>
                   )}
-
-                  {task.kind === "daily-click" && (
-                    <div className="mt-auto rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+{task.kind === "daily-click" && (
+                    <div className={ui.stage}>
                       <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
                         {(() => {
                           const clickRequirement = task.clickRequirement ?? 0;
@@ -2285,9 +2212,8 @@ export function PetSection({
                       </button>
                     </div>
                   )}
-
-                  {task.kind === "throne-tribute" && (
-                    <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+{task.kind === "throne-tribute" && (
+                    <div className={ui.stage}>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                         {PET_THRONE_AMOUNTS.map((amount) => {
                           const active = selectedThroneAmount === amount;
@@ -2365,7 +2291,7 @@ export function PetSection({
                       )}
 
                       <div className="hidden grid gap-2 sm:grid-cols-2">
-                        <button
+                        <div className={ui.claimStage}><span aria-hidden="true">✓</span><p>{pending ? "Your submission is awaiting her review." : approved ? "Principessa has approved your submission." : "Complete the instruction and request her approval."}</p><footer className={ui.action}><button
                           className={`rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                             coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
                           }`}
@@ -2388,7 +2314,7 @@ export function PetSection({
                             : pending
                               ? "Pending Review"
                               : "Submit for Review"}
-                        </button>
+                        </button></footer></div>
                         <button
                           className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-zinc-200 transition hover:border-white/20 hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-40"
                           disabled={disabled || actionPending || !pending}
@@ -2400,9 +2326,8 @@ export function PetSection({
                       </div>
                     </div>
                   )}
-
-                  {task.kind === "review" && (
-                    <button
+{task.kind === "review" && (
+                    <div className={ui.claimStage}><span aria-hidden="true">✓</span><p>{pending ? "Your submission is awaiting her review." : approved ? "Principessa has approved your submission." : "Complete the instruction and request her approval."}</p><footer className={ui.action}><button
                       aria-disabled={coolingDown || undefined}
                       className={`mt-auto w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40 ${
                         coolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
@@ -2419,34 +2344,21 @@ export function PetSection({
                       type="button"
                     >
                       {actionPending ? "Saving..." : pending ? "Pending Review" : coolingDown ? "Cooldown" : "Submit for Review"}
-                    </button>
+                    </button></footer></div>
                   )}
-                </article>
+</TaskExperienceCard>
               );
             })}
           </div>
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,0.94fr)_minmax(0,1.06fr)]">
-            <div className="grid min-w-0 gap-3">
-            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.25rem] border border-red-300/20 bg-red-950/20 p-3 shadow-[0_0_22px_rgba(127,29,29,0.12)] sm:min-h-[22rem] sm:rounded-[1.5rem] sm:p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-red-100/70">
-                      Rights
-                    </p>
-                    <h3 className="text-base font-black text-white sm:text-lg">{RIGHTS_TASK_TITLE}</h3>
-                  </div>
-                  <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                    Task
-                  </span>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-zinc-300">{RIGHTS_TASK_DESCRIPTION}</p>
-                <div
-                  className="mt-3 min-h-28 rounded-2xl border border-red-200/15 bg-black/35 bg-contain bg-center bg-no-repeat"
+          <div className={ui.grid}>
+<TaskExperienceCard kind="rights" taskId="pet-rights" title={RIGHTS_TASK_TITLE} rules={RIGHTS_TASK_DESCRIPTION}>
+<div
+                  className={ui.rightsImage}
                   style={{
                     backgroundImage: `url("${RIGHTS_IMAGE_PATH_PREFIX}-${Math.min(5, Math.max(0, displayedStoredRights))}.webp")`,
                   }}
                 />
-                <div className="mt-3 grid gap-2 rounded-2xl border border-red-200/15 bg-black/35 p-3 text-sm font-bold text-red-50">
+<div className={ui.rightsLedger}>
                   <div className="flex items-center justify-between gap-3">
                     <span>Stored rights</span>
                     <span>{displayedStoredRights.toLocaleString()}</span>
@@ -2479,10 +2391,10 @@ export function PetSection({
                     )}
                   </div>
                 </div>
-                <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold leading-5 text-yellow-50/85">
+<p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold leading-5 text-yellow-50/85">
                   {RIGHTS_TASK_WARNING}
                 </p>
-                <div className="mt-auto grid gap-2 pt-4">
+<div className={ui.rightsActions}>
                     <button
                       className="w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
                       disabled={
@@ -2509,111 +2421,15 @@ export function PetSection({
                     {isPetActionPending("rights:use") ? "Using..." : "I Used My Right"}
                   </button>
                 </div>
-              </article>
-
-              {dailyClickTask && (
-            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-0 min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-black text-white">{dailyClickTask.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-zinc-300">{dailyClickTask.description}</p>
-                    </div>
-                    <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                      Task
-                    </span>
-                  </div>
-                  <p className="mt-3 text-xs font-bold text-red-100">
-                    Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.
-                  </p>
-                  <div className="mt-3 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
-                    <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
-                      {(() => {
-                        const clickRequirement = dailyClickTask.clickRequirement ?? 0;
-                        const clickProgress = dailyClickTask.clickProgress ?? 0;
-                        const revealProgress =
-                          clickRequirement > 0
-                            ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
-                            : 0;
-                        const censorOpacity = Math.max(0, 1 - revealProgress);
-                        const censorBlur = Math.round(18 * censorOpacity);
-
-                        return (
-                          <>
-                            {dailyClickTask.clickImage ? (
-                              <Image
-                                alt="Daily pet click"
-                                className="object-cover"
-                                fill
-                                sizes="360px"
-                                src={dailyClickTask.clickImage}
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
-                                Image unlocks on first click
-                              </div>
-                            )}
-                            {censorOpacity > 0 && (
-                              <div
-                                className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
-                                style={{
-                                  backdropFilter: `blur(${censorBlur}px)`,
-                                  opacity: censorOpacity,
-                                }}
-                              />
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
-                      <div
-                        className="h-full rounded-full bg-pink-400 transition-all"
-                        style={{
-                          width:
-                            dailyClickTask.clickRequirement && dailyClickTask.clickRequirement > 0
-                              ? `${Math.min(100, ((dailyClickTask.clickProgress ?? 0) / dailyClickTask.clickRequirement) * 100)}%`
-                              : "0%",
-                        }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs font-bold text-pink-100/75">
-                      {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
-                      {dailyClickTask.status === "approved" && (dailyClickTask.clickRequirement ?? 0) > 0
-                        ? dailyClickTask.clickRequirement?.toLocaleString()
-                        : "???"} clicks
-                    </p>
-                    <button
-                      className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={disabled || dailyClickTask.status === "approved"}
-                      onClick={onPetDailyClick}
-                      type="button"
-                    >
-                      {dailyClickTask.status === "approved" ? "Completed Today" : "Click"}
-                    </button>
-                  </div>
-                </article>
-              )}
-            </div>
-
-            <div className="grid min-w-0 gap-3">
-            <article className="court-feature-card court-grid-card court-grid-card--danger flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-black text-white">{throneTask.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-300">{throneTask.description}</p>
-                  </div>
-                  <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-                    {getPetTaskBadgeLabel(throneTask, thronePending, throneApproved, throneFailed)}
-                  </span>
-                </div>
-                <p className="mt-3 text-xs font-bold text-red-100">
+</TaskExperienceCard>
+<TaskExperienceCard kind="throne-tribute" taskId={throneTask.id} title={throneTask.title} rules={throneTask.description} status={<span>{getPetTaskBadgeLabel(throneTask, thronePending, throneApproved, throneFailed)}</span>} state={taskExperienceState(throneTask, now)}>
+<p className="mt-3 text-xs font-bold text-red-100">
                   Verified Throne gifts are credited automatically with both bonuses. If automation fails, DM Principessa with your receipt.
                 </p>
-                <button className="mt-3 w-full rounded-2xl border border-pink-200/30 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/25" onClick={() => setShowThroneCode(true)} type="button">
+<button className="mt-3 w-full rounded-2xl border border-pink-200/30 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/25" onClick={() => setShowThroneCode(true)} type="button">
                   Open Throne &amp; Show Pet Code
                 </button>
-                <div className="mt-auto space-y-3 rounded-2xl border border-red-200/15 bg-black/35 p-3">
+<div className={ui.stage}>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {PET_THRONE_AMOUNTS.map((amount) => {
                       const active = selectedThroneAmount === amount;
@@ -2734,34 +2550,93 @@ export function PetSection({
                     </button>
                   </div>
                 </div>
-              </article>
+</TaskExperienceCard>
+{dailyClickTask && (<TaskExperienceCard kind="daily-click" taskId={dailyClickTask.id} title={dailyClickTask.title} rules={dailyClickTask.description} reward={<p className="mt-3 text-xs font-bold text-red-100">
+                    Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.
+                  </p>} state={taskExperienceState(dailyClickTask, now)}>
+<div className={ui.stage}>
+                    <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-pink-200/15 bg-black/45">
+                      {(() => {
+                        const clickRequirement = dailyClickTask.clickRequirement ?? 0;
+                        const clickProgress = dailyClickTask.clickProgress ?? 0;
+                        const revealProgress =
+                          clickRequirement > 0
+                            ? Math.min(1, Math.max(0, clickProgress / clickRequirement))
+                            : 0;
+                        const censorOpacity = Math.max(0, 1 - revealProgress);
+                        const censorBlur = Math.round(18 * censorOpacity);
 
-            <article className="court-feature-card court-grid-card flex min-h-full min-w-0 flex-col rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
-                      Mystery Link
+                        return (
+                          <>
+                            {dailyClickTask.clickImage ? (
+                              <Image
+                                alt="Daily pet click"
+                                className="object-cover"
+                                fill
+                                sizes="360px"
+                                src={dailyClickTask.clickImage}
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center px-4 text-center text-xs font-black uppercase tracking-[0.18em] text-pink-100/60">
+                                Image unlocks on first click
+                              </div>
+                            )}
+                            {censorOpacity > 0 && (
+                              <div
+                                className="absolute inset-0 border border-black/20 bg-[repeating-linear-gradient(45deg,rgba(0,0,0,0.94)_0_12px,rgba(236,72,153,0.72)_12px_20px),repeating-linear-gradient(-45deg,rgba(0,0,0,0.88)_0_10px,rgba(0,0,0,0.5)_10px_18px)] backdrop-blur-md transition-all"
+                                style={{
+                                  backdropFilter: `blur(${censorBlur}px)`,
+                                  opacity: censorOpacity,
+                                }}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/70">
+                      <div
+                        className="h-full rounded-full bg-pink-400 transition-all"
+                        style={{
+                          width:
+                            dailyClickTask.clickRequirement && dailyClickTask.clickRequirement > 0
+                              ? `${Math.min(100, ((dailyClickTask.clickProgress ?? 0) / dailyClickTask.clickRequirement) * 100)}%`
+                              : "0%",
+                        }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-pink-100/75">
+                      {(dailyClickTask.clickProgress ?? 0).toLocaleString()} /{" "}
+                      {dailyClickTask.status === "approved" && (dailyClickTask.clickRequirement ?? 0) > 0
+                        ? dailyClickTask.clickRequirement?.toLocaleString()
+                        : "???"} clicks
                     </p>
-                    <h3 className="mt-1 text-lg font-black text-white">Random Website Generator</h3>
+                    <button
+                      className="mt-3 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={disabled || dailyClickTask.status === "approved"}
+                      onClick={onPetDailyClick}
+                      type="button"
+                    >
+                      {dailyClickTask.status === "approved" ? "Completed Today" : "Click"}
+                    </button>
                   </div>
-                  <span className="rounded-full border border-pink-200/20 bg-pink-500/10 px-2 py-1 text-[10px] font-black uppercase text-pink-50">
-                    Mystery
-                  </span>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-zinc-300">
+</TaskExperienceCard>)}
+<TaskExperienceCard kind="website" taskId="random-website" title="Random Website Generator">
+<div className={ui.destinationMark} aria-hidden="true"><span>↗</span><i>HER NEXT DESTINATION</i></div><p className="mt-3 text-sm leading-6 text-zinc-300">
                   Opens an unknown external destination. Each click prepares a different hidden link
                   until the whole pool has been used.
                 </p>
-                <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
+<div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/85">
                   The destination may contain adult-oriented content. Be mindful of your surroundings
                   before opening it.
                 </div>
-                <div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
+<div className="mt-3 rounded-2xl border border-pink-200/10 bg-black/35 px-3 py-2 text-xs font-bold text-zinc-400">
                   {randomWebsiteLink
                     ? "A mystery destination is ready."
                     : "No destination configured."}
                 </div>
-                <div className="mt-auto pt-4">
+<div className="mt-auto pt-4">
                   <button
                     className="w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={!randomWebsiteLink}
@@ -2771,8 +2646,7 @@ export function PetSection({
                     {randomWebsiteLink ? "Click" : "No destination configured"}
                   </button>
                 </div>
-              </article>
-            </div>
+</TaskExperienceCard>
           </div>
 
           <div className="rounded-[1.5rem] border border-pink-200/15 bg-black/45 p-4">

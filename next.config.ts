@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
   },
   // Prefer modern formats for next/image optimization pipeline.
   images: {
+    qualities: [75, 85],
     formats: ["image/avif", "image/webp"],
   },
 };

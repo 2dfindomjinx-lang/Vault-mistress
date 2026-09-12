@@ -15,6 +15,7 @@ type LayeredAvatarProps = {
   hasUncensored?: boolean;
   imageClassName?: string;
   backgroundPath?: string | null;
+  backgroundAlignment?: "center" | "bottom";
   backgroundOverlayPath?: string | null;
   backgroundStyle?: CSSProperties;
   priority?: boolean;
@@ -28,10 +29,15 @@ export function LayeredAvatar({
   hasUncensored = false,
   imageClassName = "object-contain object-center",
   backgroundPath = null,
+  backgroundAlignment = "bottom",
   backgroundOverlayPath = null,
   backgroundStyle,
   priority = false,
 }: LayeredAvatarProps) {
+  // Keep the floor visible in portrait backgrounds; full scenes can retain their own framing.
+  const backgroundImageClassName = backgroundAlignment === "bottom"
+    ? "object-cover object-bottom"
+    : "object-cover object-center";
   const layers = getRenderedAvatarLayers(equipped);
   const baseSrc = getAvatarBaseModelPath(equipped, hasUncensored);
 
@@ -44,7 +50,7 @@ export function LayeredAvatar({
         <Image
           alt=""
           aria-hidden="true"
-          className="object-cover object-center"
+          className={backgroundImageClassName}
           fill
           priority={priority}
           src={backgroundPath}
@@ -55,7 +61,7 @@ export function LayeredAvatar({
         <Image
           alt=""
           aria-hidden="true"
-          className="object-cover object-center"
+          className={backgroundImageClassName}
           fill
           priority={priority}
           src={backgroundOverlayPath}

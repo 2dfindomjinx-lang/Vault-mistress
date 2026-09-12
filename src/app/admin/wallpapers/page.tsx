@@ -360,7 +360,7 @@ export default function WallpaperAdminPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090b] text-zinc-100">
+    <main className="court-admin min-h-screen bg-[#09090b] text-zinc-100">
       <div className="lg:grid lg:min-h-screen lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="border-b border-white/[0.07] bg-[#0d0d10] lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
           <div className="flex h-full flex-col">

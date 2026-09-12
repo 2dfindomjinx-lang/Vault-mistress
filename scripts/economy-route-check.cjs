@@ -230,7 +230,7 @@ async function call(handler, body) {
   }
   assert.equal(
     challenges.verifyCourtActions("crown-match", 12, pairs, crownTime).score,
-    6,
+    9,
   );
   assert.equal(
     challenges.verifyCourtActions(
@@ -262,7 +262,7 @@ async function call(handler, body) {
       crownWithMistakes(4),
       20000,
     ).score,
-    6,
+    9,
   );
   assert.equal(
     challenges.verifyCourtActions(

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BirthdayStage } from "@/components/BirthdayStage";
+import styles from "@/components/StandaloneSurfaces.module.css";
 import { BIRTHDAY_TARGET_CANDLES } from "@/lib/birthday";
 
 // Standalone public page, deliberately NOT the dashboard shell that every
@@ -37,5 +39,5 @@ export const metadata: Metadata = {
 };
 
 export default function Birthday2026Page() {
-  return <BirthdayStage />;
+  return <div className={styles.birthday}><nav className={styles.birthdayNav}><Link href="/">← Back to the court</Link><span>A birthday to remember.</span><Link href="/principessa-feed">The Feed ↗</Link></nav><BirthdayStage /></div>;
 }

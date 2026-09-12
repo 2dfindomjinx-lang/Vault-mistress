@@ -1,5 +1,7 @@
 "use client";
 
+import { getCosmeticPurchasePrice, getWorldCupFarewell, isWorldCupBorder } from "@/lib/world-cup-farewell";
+
 import { normalizeWritingText as normalizeWritingComparisonText } from "@/lib/writing-comparison";
 import { getTypingTaskProgress } from "@/lib/typing-task";
 import { visibleGalleryItems, secretGalleryItem, sacrificeGalleryItems } from "@/lib/gallery-catalog";
@@ -20,16 +22,21 @@ import {
   type AddressTerm,
 } from "@/lib/address-term";
 import { AppShell } from "@/components/AppShell";
+import { CourtLoading } from "@/components/CourtLoading";
 import { BirthdayCourtBanner } from "@/components/BirthdayCourtBanner";
 import { DuelCallBanner } from "@/components/DuelCallBanner";
 import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CourtChamberIntro } from "@/components/CourtChamberIntro";
 import { CourtHomeStage } from "@/components/CourtHomeStage";
+import { GamesWorkspace } from "@/components/GamesWorkspace";
+
+
 import { LinkifiedText } from "@/components/LinkifiedText";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { GambleWheelsLobby } from "@/components/GambleWheelsLobby";
 import { HallOfFameSection } from "@/components/HallOfFameSection";
+import {AffectionRead} from "@/components/AffectionRead";
 import { HomeCommandCenter, type HomeAction, type HomeLeaderboardEntry } from "@/components/HomeCommandCenter";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -1613,34 +1620,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
 
-  useEffect(() => {
-    if (!authBootstrapped || (!isLoggedIn && !isPreviewMode && !isGuestMode)) return;
-    const panels: DashboardPage[] = ["devotion", "tribute", "shop", "tasks", "wheels", "crates", "runway", "collection", "profile", "pet", "debt"];
-    let cancelled = false;
-    let idleId: number | null = null;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let index = 0;
-
-    const scheduleNext = () => {
-      if (cancelled || index >= panels.length) return;
-      const run = () => {
-        const panel = panels[index++];
-        void preloadDashboardPanel(panel).finally(scheduleNext);
-      };
-      if (typeof window.requestIdleCallback === "function") {
-        idleId = window.requestIdleCallback(run, { timeout: 8000 });
-      } else {
-        timer = globalThis.setTimeout(run, 1200);
-      }
-    };
-
-    scheduleNext();
-    return () => {
-      cancelled = true;
-      if (idleId !== null) window.cancelIdleCallback(idleId);
-      if (timer !== null) globalThis.clearTimeout(timer);
-    };
-  }, [authBootstrapped, authUserId, isGuestMode, isLoggedIn, isPreviewMode]);
+  // Panels load on navigation, hover, or keyboard focus through preloadDashboardPanel.
+  // Do not warm every panel after login: most sessions only visit a few of them.
   const [username, setUsername] = useState("@littledevotee");
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [, setShowDisplayNameSetup] = useState(false);
@@ -3737,7 +3718,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [isGuestMode, isLoggedIn, isPreviewMode]);
 
   const loadCommunityStatus = useCallback(async () => {
-    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+    if ((isGuestMode || isPreviewMode || !isLoggedIn)) {
       setCommunityStatus(null);
       setCommunityStatusError("");
       setCommunityStatusLoading(false);
@@ -3968,7 +3949,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [activePanel, devotionPeriod, homeLeaderboardTab, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
 
   useEffect(() => {
-    if (isGuestMode || isPreviewMode || !isLoggedIn) {
+    if ((isGuestMode || isPreviewMode || !isLoggedIn)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- guard clause resetting state before the fetch below
       setCommunityStatus(null);
       return;
@@ -7846,12 +7827,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       allGalleryComplete: false,
     });
 
-    setActivePanel("profile");
-    setAvatarMistressReply("Welcome to the court. Explore your wardrobe, then sign in to begin your own progress.");
+    setActivePanel("home");
+    setAvatarMistressReply("Welcome to my court. Take a look around.");
     resetViewportScroll();
   }, [resetViewportScroll, seedRichLocalTestData, setActivePanel, setAvatarMistressReply]);
 
   const handleLogout = async () => {
+
     if (!isGuestMode && !isPreviewMode) {
       // Local scope: log out THIS device only. The default (global) revokes
       // every session the account has - the phone, the desktop, and the
@@ -8327,7 +8309,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
-    if (coinsRef.current < item.price) {
+    if (isWorldCupBorder(item.id) && !getWorldCupFarewell().active) {
+      setAvatarMistressReply("The World Cup farewell collection has closed.");
+      return;
+    }
+
+    const purchasePrice = getCosmeticPurchasePrice(item);
+
+    if (coinsRef.current < purchasePrice) {
       setAvatarMistressReply("Not enough coins for that cosmetic.");
       return;
     }
@@ -8341,12 +8330,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     try {
       if (isGuestMode) {
         await persistProfileProgress(
-          { coins: coinsRef.current - item.price, affection },
+          { coins: coinsRef.current - purchasePrice, affection },
           "spend:cosmetic",
           {
             cosmeticId: item.id,
             cosmeticType: item.type,
-            spendAmount: item.price,
+            spendAmount: purchasePrice,
             tributeTotalChanged: false,
           },
         );
@@ -11385,13 +11374,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   );
 
   if (!authBootstrapped || isAuthLoading || isProfileLoading || (isLoggedIn && !isVaultReady)) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
-        <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
-          Loading vault...
-        </div>
-      </main>
-    );
+    return <CourtLoading />;
   }
 
   if (authBootstrapped && !isLoggedIn && !isPreviewMode) {
@@ -11457,20 +11440,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const currentWeeklyTaxCost = getPetWeeklyTaxCost(coins);
   const profileLeadership = getLeadershipRank(tributeTotal);
   const homeActions: HomeAction[] = [
-    { target: "tasks", label: "Games", action: "Earn your daily Coins", detail: "Claim your daily visit reward and choose a challenge." },
-    { target: "debt", label: "Debt Contracts", action: petDebtContract ? "View contract" : "Explore contracts",
-      detail: petDebtContract ? "Review your terms, balance and next payment." : "Choose your terms. Put your pledge in writing." },
-    { target: "wheels", label: "Gamble Hall", action: "Choose a table",
-      detail: "Seven tables. Set your stake and meet her odds." },
-    { target: "crates", label: "Cases", action: "Explore cases",
-      detail: Object.values(crateOpenCredits).some((count) => count > 0) ? "Your keys are ready. Discover what is inside." : "Find your next piece for the royal collection." },
-    { target: "tribute", label: "Shrine of Principessa", action: "Visit the shrine",
-      detail: shrineStatus && shrineStatus.coinsUntilNextUnlock !== null && shrineStatus.coinsUntilNextUnlock > 0
-        ? `${shrineStatus.coinsUntilNextUnlock.toLocaleString()} Coins to the next Shrine Memory.`
-        : "Make an offering. Discover her memories." },
-    { target: "moneyShop", label: "Money Shop", action: "Browse the shop",
-      detail: "Spend Principessa Money on something worth keeping." },
-  ].filter(item => (item.target !== "debt" || petDebtContract !== null) && (item.target !== "wheels" || coins >= 2500) && (item.target !== "moneyShop" || principessaMoney > 0)) as HomeAction[];
+    { target: "tasks", label: "Games", action: "Choose a challenge", detail: "Listen. Remember. Earn her approval." },
+    { target: "wheels", label: "Gamble Hall", action: "Choose a table", detail: "Seven tables. Set your stake and meet her odds." },
+    { target: "crates", label: "Cases", action: "Explore cases", detail: Object.values(crateOpenCredits).some(count => count > 0) ? "Your keys are ready. Discover what is inside." : "Find your next piece for the royal collection." },
+    { target: "debt", label: "Debt Contracts", action: petDebtContract ? "View contract" : "Explore contracts", detail: "Your terms. Your promise. Her signature." },
+    { target: "tribute", label: "Shrine of Principessa", action: "Visit the shrine", detail: "Make an offering. Discover her memories." },
+    { target: "moneyShop", label: "Money Shop", action: "Browse the shop", detail: "Spend Principessa Money on something worth keeping." },
+  ];
   const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
   const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
   const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
@@ -11479,10 +11455,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   return (
     <main
-      className="relative min-h-screen overflow-x-hidden bg-[#06030a] text-white"
+      className="relative min-h-screen overflow-x-clip bg-[#060305] text-white"
       onPointerDown={handleGlobalPointerDown}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(89,20,47,0.24),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(200,154,85,0.07),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#060305_78%)]" />
       <AppShell
         guestMode={isGuestMode || isPreviewMode}
         activePage={activePanel}
@@ -11516,7 +11492,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </div>
         )}
         <TopLevelNav active="main" />
-        {isPreviewMode && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#c89a55]/25 bg-[#13090f] px-4 py-3 text-sm text-zinc-200"><p>Preview · Explore the court. Sign in to play and save your progress.</p><button className="court-button" onClick={() => void handleLogout()} type="button">Go to sign in</button></div>}
+        {isPreviewMode && <div className="court-guest-note"><p>Explore the court. Sign in to play and save your progress.</p><button onClick={() => void handleLogout()} type="button">Go to sign in ↗</button></div>}
         <BirthdayCourtBanner />
         <DuelCallBanner />
         <div className="court-profile-stage relative isolate z-40">
@@ -11587,29 +11563,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             </section>
           )}
 
-        {isFreeFridayActive && (
-          <section className="overflow-hidden rounded-[1.5rem] border border-emerald-200/35 bg-[linear-gradient(135deg,rgba(16,185,129,0.18),rgba(236,72,153,0.12),rgba(0,0,0,0.6))] px-4 py-4 shadow-[0_0_34px_rgba(16,185,129,0.14)]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-100">
-                  Active Vault Event
-                </p>
-                <h2 className="mt-1 text-2xl font-black text-white">Free Task Friday</h2>
-                <p className="mt-1 text-sm leading-6 text-emerald-50/80">
-                  One IRL Task Wheel spin is free today.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-emerald-100/25 bg-black/45 px-4 py-3 text-center">
-                <p className="text-xs uppercase tracking-[0.2em] text-emerald-100/70">
-                  Ends In
-                </p>
-                <p className="mt-1 text-2xl font-black text-emerald-50">
-                  {formatEventCountdown(freeFridayRemainingMs)}
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
+        {isFreeFridayActive && <aside className="court-event-notice"><div><strong>Free Task Friday</strong><span>One free IRL Task Wheel spin.</span></div><div><small>Ends in {formatEventCountdown(freeFridayRemainingMs)}</small><button type="button" onClick={() => { setActivePanel("wheels"); resetViewportScroll(); }}>Visit Wheels ↗</button></div></aside>}
 
         {activeEvents.length > 0 && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
@@ -11722,7 +11676,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           </section>
         )}
 
-        <section className="court-panel-stage min-w-0 pb-10">
+        <section id="court-content" className="court-panel-stage min-w-0 pb-10" tabIndex={-1}>
           {activePanel === "home" && (
             <div className="flex min-w-0 flex-col gap-6">
               {communityStatusError ? (
@@ -11749,15 +11703,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 streak={loyaltyStreak}
               />
               <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-                <section className="relative min-h-[18rem] overflow-hidden rounded-[2rem] border border-pink-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.68),rgba(67,9,61,0.42))] p-5 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
-                  <Image alt="Principessa" className="pointer-events-none absolute right-0 top-0 h-full w-1/2 object-cover object-top opacity-45" fill sizes="50vw" src="/home-principessa-court.png" unoptimized />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#09040a] via-[#09040a]/80 to-transparent" />
-                  <div className="relative z-10 max-w-[58%]">
-                  <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Affection Read</p>
-                  <h2 className="mt-1 text-2xl font-black">Principessa&apos;s Mood</h2>
-                  <p className="mt-4 text-sm leading-6 text-pink-50">{scriptedMessage}</p>
-                  </div>
-                </section>
+                <AffectionRead affection={affection} message={scriptedMessage}/>
                 {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
               </div>
               <HallOfFameSection
@@ -11836,17 +11782,16 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               />
             </GambleWheelsLobby>
           )}
-          {activePanel === "tasks" && (
+          {activePanel === "tasks" && <GamesWorkspace courtGames={(
             <div className="mb-4">
               <CourtGames
                 coins={coins}
-                disabled={isTimeoutActive || isPreviewRestricted}
+                disabled={isTimeoutActive || (isPreviewRestricted)}
                 guestMode={isGuestMode || isPreviewMode}
                 onReward={handleCourtGameReward}
               />
             </div>
-          )}
-          {activePanel === "tasks" && (
+          )} jigsaws={(
             <div className="court-jigsaw-envelope mb-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -11876,10 +11821,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               )}
               {jigsawError && <p className="mt-2 text-xs text-rose-200/80">{jigsawError}</p>}
             </div>
-          )}
-          {activePanel === "tasks" && (
+          )} rituals={(
             <TaskList
-              disabledReason={isPreviewRestricted ? "Sign in to play and save your rewards." : "Timeout active. This task is locked."}
+              disabledReason={isPreviewRestricted ? "Sign in to play and save your progress." : "Timeout active. This task is locked."}
               addressTerm={addressTerm}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
@@ -11920,9 +11864,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onWaitObedientlyFail={handleWaitObedientlyFail}
               onWaitObedientlyStart={handleWaitObedientlyStart}
             />
-          )}
+          )} />}
           {activePanel === "crates" && (
               <CratesPanel
+
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
                 crates={availableCrates}
@@ -12010,6 +11955,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onPurchaseCosmetic={handlePurchaseCosmetic}
               />
               <CosmeticShop
+                equippedAvatarSlots={equippedAvatarSlots}
+                equippedFullSetId={equippedFullSetId}
+                hasUncensoredAvatar={hasUncensoredAvatar}
                 coins={coins}
                 disabled={isTimeoutActive || isPreviewRestricted}
                 equippedCosmeticIds={effectiveEquippedCosmeticIds}
@@ -12821,7 +12769,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
         </section>
       </AppShell>
-      <PublicProfileModal
+      {selectedCommunityProfileId && <PublicProfileModal
         data={selectedCommunityProfile}
         error={selectedCommunityProfileError}
         isLoading={selectedCommunityProfileLoading}
@@ -12830,7 +12778,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           setSelectedCommunityProfileId(null);
           setSelectedCommunityProfile(null);
         }}
-      />
+      />}
       <FloatingDefneBubble
         avatarSrc={equippedSpeechAvatar?.image ?? "/character-icon.webp"}
         globalPrincipessaLevel={globalPrincipessa.level}
@@ -12851,6 +12799,3 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     </main>
   );
 }
-
-
-

@@ -16,6 +16,7 @@ export type RecentTribute = {
   avatarUrl: string | null;
   amount: number;
   createdAt: string;
+  noPm?: boolean;
   usernameStyle?: CSSProperties;
 };
 
@@ -83,36 +84,28 @@ function getRelativeTime(createdAt: string) {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
-// Glow tiers, in PRINCIPESSA MONEY.
-//
-// The board used to report coin-equivalent, so these were 1000x and the ladder
-// worked out to $1 / $5 / $10 / $20 / $30. Nearly every tribute cleared the
-// bottom rung, which made the glow mean almost nothing.
-//
-// Every threshold is now an amount the site actually offers (PET_THRONE_AMOUNTS
-// in src/lib/pet-throne.ts, and the $15 birthday candle), so a tier change
-// always lines up with a real decision the sender made rather than an arbitrary
-// number. Under 5 PM there is no glow at all.
-const GLOW_TIERS_PM = { faint: 5, pink: 15, purple: 25, gold: 50, radiant: 100 };
+// Glow tiers use the bonus-free payment base at $1 = 1 PM.
+// No PM payments retain the same glow; only their displayed currency changes.
+const GLOW_TIERS_USD = { faint: 5, pink: 15, purple: 25, gold: 50, radiant: 100 };
 
 function getGlowClass(amount: number) {
-  if (amount >= GLOW_TIERS_PM.radiant) {
+  if (amount >= GLOW_TIERS_USD.radiant) {
     return "border-yellow-200/70 bg-[linear-gradient(135deg,rgba(250,204,21,0.24),rgba(236,72,153,0.24),rgba(0,0,0,0.7))] shadow-[0_0_30px_rgba(250,204,21,0.32)]";
   }
 
-  if (amount >= GLOW_TIERS_PM.gold) {
+  if (amount >= GLOW_TIERS_USD.gold) {
     return "border-yellow-200/50 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(236,72,153,0.18),rgba(0,0,0,0.68))] shadow-[0_0_24px_rgba(250,204,21,0.24)]";
   }
 
-  if (amount >= GLOW_TIERS_PM.purple) {
+  if (amount >= GLOW_TIERS_USD.purple) {
     return "border-fuchsia-200/45 bg-[linear-gradient(135deg,rgba(168,85,247,0.22),rgba(236,72,153,0.18),rgba(0,0,0,0.68))] shadow-[0_0_22px_rgba(217,70,239,0.25)]";
   }
 
-  if (amount >= GLOW_TIERS_PM.pink) {
+  if (amount >= GLOW_TIERS_USD.pink) {
     return "border-pink-200/40 bg-pink-500/14 shadow-[0_0_18px_rgba(236,72,153,0.22)]";
   }
 
-  if (amount >= GLOW_TIERS_PM.faint) {
+  if (amount >= GLOW_TIERS_USD.faint) {
     return "border-pink-200/25 bg-pink-500/10 shadow-[0_0_14px_rgba(236,72,153,0.16)]";
   }
 
@@ -369,7 +362,9 @@ function TributeCard({
           username={tribute.rawUsername ?? tribute.username}
         />
         <p className="flex items-center gap-1 text-[10px] font-bold text-pink-100">
-          <MoneyIcon height={11} />+{tribute.amount.toLocaleString()}
+          {tribute.noPm
+            ? <span>${tribute.amount.toLocaleString()}</span>
+            : <><MoneyIcon height={11} />+{tribute.amount.toLocaleString()}</>}
           <span className="font-semibold text-zinc-500">· {getRelativeTime(tribute.createdAt)}</span>
         </p>
       </div>

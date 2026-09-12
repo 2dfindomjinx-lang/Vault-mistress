@@ -228,22 +228,22 @@ const rotatingBorderIds = rotatingCosmeticItems
   .map((item) => item.id);
 
 const rotatingBottomIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-bottom")
+  .filter((item) => item.type === "profile-frame-bottom" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingSideIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-side")
+  .filter((item) => item.type === "profile-frame-side" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingCornerIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-corner")
+  .filter((item) => item.type === "profile-frame-corner" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingTopIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-top")
+  .filter((item) => item.type === "profile-frame-top" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingOverlayIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-overlay")
+  .filter((item) => item.type === "profile-frame-overlay" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingParticleIds = rotatingProfileFrameCosmeticItems
-  .filter((item) => item.type === "profile-frame-particles")
+  .filter((item) => item.type === "profile-frame-particles" && !item.requiresItemId)
   .map((item) => item.id);
 const rotatingShowpieceIds = [
   ...rotatingBorderIds,
@@ -251,8 +251,9 @@ const rotatingShowpieceIds = [
   ...rotatingSideIds,
   ...rotatingOverlayIds,
 ];
-const rotatingAccentIds = [...rotatingCornerIds, ...rotatingTopIds];
-const rotatingWildIds = rotatingProfileFrameCosmeticItems.map((item) => item.id);
+const rotatingIdentityIds = rotatingCosmeticItems.filter((item) => item.type === "username-color" || item.type === "username-glow").map((item) => item.id);
+const rotatingAccentIds = [...rotatingCornerIds, ...rotatingTopIds, ...rotatingIdentityIds];
+const rotatingWildIds = [...rotatingProfileFrameCosmeticItems.filter((item) => !item.requiresItemId).map((item) => item.id), ...rotatingIdentityIds];
 const ROTATING_SHOP_START_MS = new Date("2026-06-01T00:00:00+03:00").getTime();
 
 const rotatingShopDefinition: RotatingShopDefinition = {

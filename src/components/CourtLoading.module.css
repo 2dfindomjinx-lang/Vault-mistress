@@ -1,0 +1,16 @@
+.screen {
+  min-height:100vh; min-height:100dvh; display:grid; place-items:center;
+  padding:32px 24px; color:#f5e6d3; overflow:hidden; isolation:isolate;
+  background:radial-gradient(ellipse at 50% 42%,#4a1d3038,transparent 58%),#0b0609;
+}
+.entrance { width:min(100%,340px); text-align:center; position:relative; padding:40px 12px; }
+.entrance::before { content:""; position:absolute; inset:8px 20px; z-index:-1; border:1px solid #c89a5514; border-radius:150px 150px 12px 12px; }
+.seal { display:grid; place-items:center; width:106px; height:106px; margin:0 auto 27px; border-radius:50%; border:1px solid #c89a5530; box-shadow:0 0 45px #c89a5510,inset 0 0 25px #c89a5509; }
+.seal img { display:block; width:88px; height:88px; }
+.eyebrow { margin:0 0 12px; font:500 9px/1.5 var(--font-geist-sans,Arial),sans-serif; text-transform:uppercase; letter-spacing:.24em; color:#c49b66; }
+.name { margin:0; font:42px/1.1 Georgia,serif; letter-spacing:-.025em; color:#f5e6d3; }
+.rule { position:relative; width:120px; height:2px; margin:29px auto 20px; background:#c89a5520; overflow:hidden; border-radius:2px; }
+.rule span { display:block; width:45%; height:100%; background:linear-gradient(90deg,transparent,#e9c58e,transparent); animation:arrive 1.8s ease-in-out infinite; }
+.status { margin:0; color:#b99ea9; font:11px/1.6 var(--font-geist-sans,Arial),sans-serif; letter-spacing:.04em; }
+@keyframes arrive { from { transform:translateX(-110%); } to { transform:translateX(325%); } }
+@media(prefers-reduced-motion:reduce) { .rule span { animation:none; width:100%; opacity:.7; } }

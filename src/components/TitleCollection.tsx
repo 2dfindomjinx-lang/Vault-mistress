@@ -1,4 +1,5 @@
 import type { TitleItem } from "@/lib/cosmetics";
+import styles from "./CollectionSurfaces.module.css";
 import { rebrandProfile } from "@/lib/rebrand-profile";
 
 type TitleCollectionProps = {
@@ -91,7 +92,7 @@ export function TitleCollection({
   const isHorizontal = layout === "horizontal";
 
   return (
-    <section className="court-feature-panel rounded-[1.35rem] border border-fuchsia-200/15 bg-[linear-gradient(150deg,rgba(0,0,0,0.62),rgba(88,28,135,0.16))] p-4 shadow-[0_0_24px_rgba(168,85,247,0.08)]">
+    <section className={`${styles.surface} ${styles.titles}`} data-collection-surface="titles">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-fuchsia-200/70">
@@ -108,7 +109,7 @@ export function TitleCollection({
 
       <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-400">
         {equippedTitle?.description ??
-          "Unlock titles through progression, shop purchases, Throne tribute, cases, inventory value milestones, and admin rewards."}
+          "A title earned through devotion, collection or the court."}
       </p>
 
       <div
@@ -124,7 +125,7 @@ export function TitleCollection({
 
           return (
             <button
-              className={`court-grid-card court-grid-card--violet ${isHorizontal ? "min-h-[10rem] min-w-[17rem] max-w-[17rem] shrink-0 snap-start" : "w-full"} rounded-2xl border px-3 py-2 text-left transition ${
+              className={`${styles.product} ${styles.titleCard} ${isHorizontal ? "min-h-[10rem] min-w-[17rem] max-w-[17rem] shrink-0 snap-start" : "w-full"} rounded-2xl border px-3 py-2 text-left transition ${
                 disabled
                   ? "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
                   : isOwned
@@ -134,6 +135,7 @@ export function TitleCollection({
                   : "cursor-not-allowed border-white/5 bg-black/25 opacity-60"
               }`}
               disabled={disabled || !isOwned}
+              aria-pressed={isEquipped}
               key={title.id}
               onClick={() => handleSelect(title, isOwned)}
               type="button"
@@ -182,7 +184,7 @@ export function ProfileTaskCard({
   onRebrandProfile,
 }: ProfileTaskCardProps) {
   return (
-    <section className="court-feature-panel court-grid-card flex min-h-[18rem] flex-col justify-between rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(150deg,rgba(236,72,153,0.14),rgba(0,0,0,0.42))] p-4 shadow-[0_0_24px_rgba(236,72,153,0.08)]">
+    <section className={`${styles.surface} ${styles.profileTask} flex min-h-[18rem] flex-col justify-between`}>
       <div>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-200/70">
           Profile Task
@@ -201,6 +203,10 @@ export function ProfileTaskCard({
               alt=""
               className="-mt-6 h-12 w-12 shrink-0 rounded-full border-2 border-black bg-black object-cover"
               src={rebrandProfile.avatarPath}
+              loading="lazy"
+              decoding="async"
+              width={48}
+              height={48}
             />
             <div className="min-w-0 pt-2">
               <p className="truncate text-xs font-black text-white">

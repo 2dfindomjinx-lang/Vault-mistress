@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { getAnimeBorderDefinition, type AnimeBorderDefinition } from "@/lib/anime-border-cosmetics";
 import type { CosmeticItem } from "@/lib/cosmetics";
 import {
   layeredBorderConfigById,
@@ -20,6 +21,7 @@ export type ProfileBorderLayerPresentation = {
 };
 
 export type ProfileBorderFramePresentation = {
+  animeBorder?: AnimeBorderDefinition;
   contentInset: number;
   contentShadow?: string;
   glowStyle?: CSSProperties;
@@ -471,6 +473,11 @@ function resolveLegacyBackground(item: CosmeticItem, palette: [string, string, s
 export function getProfileBorderFramePresentation(
   item: CosmeticItem | null,
 ): ProfileBorderFramePresentation {
+  const animeBorder = item?.type === "profile-border" ? getAnimeBorderDefinition(item.id) : null;
+  if (animeBorder) {
+    return { contentInset: 3, layered: false, layers: [], variant: null, animeBorder };
+  }
+
   const isRainbow = item?.id === "profile-border-rainbow-animated";
   const isRunner = item?.id === "profile-border-animated";
 

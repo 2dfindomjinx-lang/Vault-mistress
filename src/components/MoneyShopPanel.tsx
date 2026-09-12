@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./CollectionSurfaces.module.css";
+
 import Image from "next/image";
 import { useState } from "react";
 import { AppLicenseShelf } from "@/components/AppLicenseShelf";
@@ -62,13 +64,13 @@ export function MoneyShopPanel({
   const canConvert = convertAmount > 0 && convertAmount <= money && !disabled && !isConverting;
 
   return (
-    <section className="court-feature-panel rounded-[2rem] border border-[#c89a55]/25 bg-black/50 p-5 shadow-[0_0_44px_rgba(230,186,115,0.12)]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className={`${styles.surface} ${styles.treasury}`} data-collection-surface="treasury">
+      <div className={styles.header}>
         <div className="flex items-center gap-4">
           <MoneyIcon className="hidden shrink-0 rounded-md sm:inline-block" height={52} />
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-[#d7ad69]/70">Paid in full</p>
-            <h2 className="text-3xl font-black">Money Shop</h2>
+            <p className="text-sm uppercase tracking-[0.3em] text-[#d7ad69]/70">The private boutique</p>
+            <h2 className="text-3xl font-black">A taste for the exceptional.</h2>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -88,70 +90,17 @@ export function MoneyShopPanel({
 
       {/* Conversion desk */}
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)]">
-        <div className="rounded-[1.35rem] border border-[#c89a55]/20 bg-black/30 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d7ad69]/70">Convert to Coins</p>
-            <button
-              className="rounded-full border border-[#c89a55]/30 bg-[#e6ba73]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#fff0d2] transition hover:border-[#c89a55]/60"
-              onClick={onAddMoney}
-              type="button"
-            >
-              + Add Money
-            </button>
+        <form className={styles.exchange} onSubmit={event=>{event.preventDefault();if(!canConvert)return;onConvert(convertAmount);setConvertInput("");}}>
+          <header className={styles.exchangeHeading}><div><p>The exchange desk</p><h3>Convert to Coins</h3></div><button onClick={onAddMoney} type="button">+ Add Money</button></header>
+          <div className={styles.exchangeFlow}>
+            <div className={styles.exchangeFrom}><label htmlFor="convert-money">You give <span>PM</span></label><div><MoneyIcon height={22}/><input id="convert-money" aria-label="Money to convert" disabled={disabled||isConverting} inputMode="numeric" min={1} onChange={event=>setConvertInput(event.target.value.replace(/[^0-9]/g,""))} placeholder="0" type="number" value={convertInput}/><button type="button" disabled={isConverting} onClick={()=>setConvertInput(String(money))}>Max</button></div><small>{money.toLocaleString()} PM available</small></div>
+            <span className={styles.exchangeArrow} aria-hidden="true">→</span>
+            <div className={styles.exchangeTo}><p>You receive <span>Coins</span></p><strong>{preview.totalCoins.toLocaleString()}</strong><small>{preview.bonusCoins>0 ? "+"+preview.bonusCoins.toLocaleString()+" bonus included" : "1 PM = "+PM_TO_COIN_RATE.toLocaleString()+" Coins"}</small></div>
           </div>
+          <footer className={styles.exchangeFooter}><p>{convertAmount>money ? "You have "+money.toLocaleString()+" PM available." : preview.bonusCoins>0 ? preview.baseCoins.toLocaleString()+" base + "+Math.round(preview.bonusPercent*100)+"% bonus" : "Convert 10+ PM at once for a bonus."}</p><button type="submit" disabled={!canConvert}>{isConverting?"Converting…":"Convert"}<span aria-hidden="true">↗</span></button></footer>
+        </form>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <input
-              className="w-32 rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none focus:border-[#c89a55]/50"
-              disabled={disabled || isConverting}
-              inputMode="numeric"
-              min={1}
-              onChange={(event) => setConvertInput(event.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="0"
-              type="number"
-              value={convertInput}
-            />
-            <p className="text-xs text-zinc-500">Money to spend</p>
-            <button
-              className="rounded-full border border-[#c89a55]/30 bg-[#e6ba73]/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#fff0d2] transition enabled:hover:border-[#c89a55]/60 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!canConvert}
-              onClick={() => {
-                onConvert(convertAmount);
-                setConvertInput("");
-              }}
-              type="button"
-            >
-              {isConverting ? "Converting..." : "Convert"}
-            </button>
-            <button
-              className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-200"
-              onClick={() => setConvertInput(String(money))}
-              type="button"
-            >
-              Max
-            </button>
-          </div>
-
-          {convertAmount > 0 ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm">
-              <p className="text-zinc-300">
-                {convertAmount.toLocaleString()} Money &rarr;{" "}
-                <span className="font-black text-[#fff0d2]">{preview.totalCoins.toLocaleString()} coins</span>
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">
-                {preview.baseCoins.toLocaleString()} base
-                {preview.bonusCoins > 0
-                  ? ` + ${preview.bonusCoins.toLocaleString()} bonus (${Math.round(preview.bonusPercent * 100)}%)`
-                  : " - convert 10 or more at once to earn a bonus"}
-              </p>
-              {convertAmount > money ? (
-                <p className="mt-1 text-xs text-rose-200/80">You only have {money.toLocaleString()} Money.</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="rounded-[1.35rem] border border-white/10 bg-black/30 p-4">
+        <div className={styles.rates}>
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d7ad69]/70">Rates</p>
           <p className="mt-3 text-sm text-zinc-300">
             1 Money = <span className="font-black text-[#fff0d2]">{PM_TO_COIN_RATE.toLocaleString()} coins</span>
@@ -220,12 +169,12 @@ export function MoneyShopPanel({
 
               return (
                 <article
-                  className="court-grid-card court-grid-card--gold flex min-w-0 flex-col overflow-hidden rounded-[1.25rem] border border-[#c89a55]/20 bg-[linear-gradient(155deg,rgba(120,53,15,0.22),rgba(0,0,0,0.55))]"
+                  className={`${styles.product} ${styles.moneyCard} flex min-w-0 flex-col`}
                   key={item.itemId}
                 >
-                  <div className="relative h-36 w-full overflow-hidden bg-black/45">
+                  <div className={`${styles.moneyArt} relative w-full overflow-hidden`}>
                     {item.imageUrl ? (
-                      <Image alt={item.name} className="object-contain p-2" fill sizes="220px" src={item.imageUrl} />
+                      <Image alt={item.name} className="object-contain p-2" fill sizes="(min-width: 1280px) 28vw, (min-width: 640px) 44vw, 90vw" src={item.imageUrl} />
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-zinc-600">No image</div>
                     )}
@@ -239,7 +188,7 @@ export function MoneyShopPanel({
                     ) : null}
                   </div>
 
-                  <div className="flex flex-1 flex-col p-3">
+                  <div className={`${styles.productCopy} flex flex-1 flex-col`}>
                     <p className="truncate text-sm font-black text-white">{item.name}</p>
                     {ownsInInventory ? (
                       <p className="mt-1 text-[11px] font-semibold leading-4 text-emerald-200/80">

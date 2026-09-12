@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./CollectionSurfaces.module.css";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -64,7 +66,7 @@ function formatCountdown(targetIso: string) {
 
 function getSlotLabel(item: CosmeticItem) {
   if (item.type === "profile-border") {
-    return "Frame Finish";
+    return item.collection ?? "Frame Finish";
   }
 
   if (isProfileFrameCosmeticType(item.type)) {
@@ -111,7 +113,7 @@ function createAnimatedSlotState(item: CosmeticItem | null): AnimatedSlotState {
 function CompactCatalogPreview({ item }: { item: CosmeticItem }) {
   if (item.type === "profile-border") {
     return (
-      <div className="mx-auto w-12">
+      <div className={item.collection === "Anime / Manga" ? "mx-auto w-16" : "mx-auto w-12"}>
         <ProfileBorderFrame
           className="aspect-[180/285] rounded-[0.9rem]"
           contentClassName="overflow-hidden rounded-[calc(0.9rem-3px)] bg-[linear-gradient(180deg,rgba(16,8,22,0.98),rgba(6,3,10,0.96))]"
@@ -249,6 +251,7 @@ export function RotatingShop({
 }: RotatingShopProps) {
   const [previousItems, setPreviousItems] = useState(items);
   const [showPossibleItems, setShowPossibleItems] = useState(false);
+
   const [activeSlots, setActiveSlots] = useState<AnimatedSlotState[]>(() =>
     normalizeActiveItems(items).map((item) => createAnimatedSlotState(item)),
   );
@@ -458,7 +461,7 @@ export function RotatingShop({
 
     return (
       <article
-        className={`court-grid-card court-grid-card--gold flex h-full min-h-[15.75rem] flex-col rounded-[1.45rem] border p-3 transition lg:min-h-[14rem] ${
+        className={`${styles.product} ${styles.rotationCard} flex h-full flex-col ${
           equipped
             ? "border-amber-200/50 bg-amber-400/12 shadow-[0_0_26px_rgba(251,191,36,0.14)]"
             : owned
@@ -493,7 +496,7 @@ export function RotatingShop({
           </span>
         </div>
 
-        <div className="mt-3 flex items-start gap-3">
+        <div className={`${styles.rotationPreview} mt-3`}>
           {hasRenderableProfileFramePreview(item) ? (
             <PrincipessaShowcasePreview
               className="w-[5.75rem] shrink-0 lg:w-[5.4rem]"
@@ -526,7 +529,7 @@ export function RotatingShop({
           </div>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+        <div className={styles.productActions}>
           <CoinAmount amount={item.price} iconSize={14} label="" />
           <button
             className="rounded-2xl border border-amber-200/28 bg-amber-400/15 px-3 py-2 text-xs font-black text-amber-50 transition enabled:hover:border-amber-200/55 enabled:hover:bg-amber-400/22 disabled:cursor-not-allowed disabled:opacity-40"
@@ -578,7 +581,7 @@ export function RotatingShop({
 
     return (
       <div
-        className={`flex h-full flex-col gap-2 rounded-[1.15rem] border px-2 py-2 ${
+        className={`${styles.catalogTile} flex h-full flex-col gap-2 border ${
           equipped
             ? "border-amber-200/35 bg-amber-400/10"
             : owned
@@ -648,13 +651,13 @@ export function RotatingShop({
   };
 
   return (
-    <section className="court-feature-panel rounded-[2rem] border border-amber-200/18 bg-[linear-gradient(145deg,rgba(22,10,2,0.92),rgba(120,53,15,0.52),rgba(0,0,0,0.68))] p-5 shadow-[0_0_46px_rgba(251,191,36,0.12)]">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <section className={`${styles.surface} ${styles.rotation}`} data-collection-surface="rotation">
+      <div className={styles.header}>
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-amber-200/74">Rotating Shop</p>
-          <h2 className="mt-2 text-3xl font-black text-white">Principessa Showcase Rotation</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-amber-200/74">The limited edit</p>
+          <h2 className="mt-2 text-3xl font-black text-white">On her terms. For a moment.</h2>
         </div>
-        <div className="rounded-[1.25rem] border border-amber-200/20 bg-black/30 px-4 py-3 text-sm text-amber-50/80">
+        <div className={styles.rotationTimer}>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-100/70">
             Next refresh
           </p>
@@ -665,8 +668,7 @@ export function RotatingShop({
 
       <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <p className="max-w-3xl text-sm leading-6 text-amber-50/72">
-          Four live slots stay visible at once. Every 12 hours, only two slots reel upward into
-          fresh items while the other two remain unchanged for continuity.
+          Four pieces in the spotlight. Two change every 12 hours.
         </p>
         <button
           className="rounded-2xl border border-amber-200/28 bg-black/25 px-4 py-2 text-sm font-black text-amber-50 transition hover:border-amber-200/55 hover:bg-amber-400/14"
@@ -681,8 +683,7 @@ export function RotatingShop({
 
       {items.length === 0 ? (
         <div className="mt-5 rounded-[1.55rem] border border-white/10 bg-black/28 p-5 text-sm leading-6 text-amber-50/78">
-          Rotating shop is temporarily empty. Limited frame cosmetics will appear here again once
-          the catalog is seeded.
+          The next edit is being prepared. Check back for her limited pieces.
         </div>
       ) : (
         <div className="court-grid court-grid--shop mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -702,8 +703,7 @@ export function RotatingShop({
                 Candidate Library
               </p>
               <p className="mt-1 text-sm leading-6 text-amber-50/72">
-                Full visual previews of the candidate pool. Live items stay buyable, and desktop
-                density is tuned so you can scan far more options at once.
+                Explore the full collection. Available pieces can be purchased now.
               </p>
             </div>
           </div>

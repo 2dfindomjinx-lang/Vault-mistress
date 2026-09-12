@@ -1,4 +1,7 @@
 export const CROWN_MATCH_MAX_MISTAKES = 5;
+export const CROWN_MATCH_PAIR_COUNT = 9;
+export const CROWN_MATCH_PREVIEW_MS = 3_000;
+export const CROWN_MATCH_FLIP_MS = 320;
 export const COURT_GAME_IDS = [
   "principessa-says",
   "crown-match",
@@ -33,8 +36,8 @@ export const COURT_GAME_RULES: Record<
   },
   "crown-match": {
     minDurationMs: 2_000,
-    requiredRounds: 6,
-    requiredScore: 6,
+    requiredRounds: CROWN_MATCH_PAIR_COUNT,
+    requiredScore: CROWN_MATCH_PAIR_COUNT,
     reward: 100,
     title: "Crown Match",
   },

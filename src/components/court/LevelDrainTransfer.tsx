@@ -1,4 +1,5 @@
 "use client";
+import styles from "./ShrineRitual.module.css";
 import { useEffect, useState, type CSSProperties } from "react";
 export type DrainVisualResult = {
   drainedUserXp?: number;
@@ -23,7 +24,7 @@ export function LevelDrainTransfer({ result }: { result: DrainVisualResult }) {
   const drained = result.drainedUserXp ?? 0,
     received = result.transferredXp ?? 0;
   return (
-    <div>
+    <div className={styles.xpReceipt}>
       <div className="court-drain-transfer" data-settled={progress === 1}>
         <div>
           Your offering

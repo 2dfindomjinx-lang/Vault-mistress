@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import styles from "./CourtChrome.module.css";
 import Image from "next/image";
 import { MoneyIcon } from "@/components/MoneyIcon";
 import {
@@ -92,196 +93,17 @@ const navigationMeta: Record<DashboardPage, { code: string; glyph: string }> = {
   devotion: { code: DASHBOARD_PAGE_CODES.devotion, glyph: "◇" },
 };
 
-export function SidebarNav({
-  activePage,
-  coins = 0,
-  items,
-  money = 0,
-  onAddMoney,
-  onSelect,
-}: SidebarNavProps) {
+export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney, onSelect }: SidebarNavProps) {
   const directoryRef = useRef<HTMLDialogElement>(null);
-  const primaryItems = items.filter((item) =>
-    ["home", "tasks", "tribute", "profile"].includes(item.key),
-  );
-  return (
-    <aside className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#c89a55]/20 bg-[#080406]/95 lg:inset-y-0 lg:left-0 lg:right-auto lg:h-dvh lg:max-h-dvh lg:w-[304px] lg:border-r lg:border-t-0 lg:bg-[#080406]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_7%,rgba(190,24,93,.18),transparent_24%),linear-gradient(180deg,rgba(255,255,255,.018),transparent_24%)]" />
-
-      <div className="relative hidden h-full flex-col lg:flex">
-        <header className="relative h-[clamp(100px,16dvh,136px)] shrink-0 overflow-hidden border-b border-[#c89a55]/15 px-6 pb-3 pt-3">
-          <div className="absolute -right-9 -top-11 h-48 w-48 overflow-hidden rounded-full border border-[#c89a55]/20 opacity-75 [mask-image:linear-gradient(to_bottom,black_65%,transparent)]">
-            <Image
-              alt="Principessa watching over the court"
-              className="object-cover object-center"
-              fill
-              priority
-              sizes="208px"
-              src="/principessa-ui/principessa-gaze.webp"
-            />
-          </div>
-          <div className="relative z-10">
-            <p className="text-[9px] font-black uppercase tracking-[0.36em] text-[#d7ad69]/65">
-              Private domain
-            </p>
-            <h1 className="mt-2 max-w-[9rem] font-serif text-[28px] leading-[.92] text-[#fff0d2]">
-              Principessa&apos;s Court
-            </h1>
-            <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-pink-200/35">
-              You enter by her permission.
-            </p>
-          </div>
-        </header>
-
-        <div className="shrink-0 border-b border-[#c89a55]/15 px-6 py-2">
-          <div className="flex items-center justify-between gap-3">
-            <p className="flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-[#fff0d2]">
-              <MoneyIcon height={14} />
-              {money.toLocaleString()}{" "}
-              <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#d7ad69]/60">
-                money
-              </span>
-            </p>
-            <button
-              className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-pink-200/65 transition hover:text-pink-50"
-              onClick={onAddMoney}
-              type="button"
-            >
-              + Add
-            </button>
-          </div>
-          <p className="mt-0.5 truncate text-[10px] font-bold text-pink-100/60">
-            <span className="mr-1 text-amber-200/60">◉</span>
-            {coins.toLocaleString()}{" "}
-            <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-pink-200/35">
-              coins
-            </span>
-          </p>
-        </div>
-
-        <nav className="flex min-h-0 flex-1 flex-col justify-start overflow-hidden px-4 py-1.5">
-          <p className="mb-1 px-3 text-[9px] font-black uppercase tracking-[0.24em] text-[#c89a55]/60">
-            Court directory
-          </p>
-          {items.map((item) => {
-            const meta = navigationMeta[item.key];
-            const isActive = activePage === item.key;
-            return (
-              <div
-                className="flex min-h-0 flex-1 basis-10 max-h-12"
-                key={item.key}
-              >
-                <button
-                  className={`group relative flex w-full items-center gap-2.5 border-y border-transparent px-3 py-1 text-left transition ${isActive ? "border-[#c89a55]/20 bg-[linear-gradient(90deg,rgba(190,24,93,.2),rgba(190,24,93,.025))] text-[#fff0d2]" : item.disabled ? "cursor-not-allowed text-zinc-700" : "text-zinc-500 hover:bg-white/[.025] hover:text-pink-100"}`}
-                  disabled={item.disabled}
-                  onClick={() => onSelect(item.key)}
-                  onFocus={() => item.onHover?.()}
-                  onMouseEnter={() => item.onHover?.()}
-                  type="button"
-                >
-                  {isActive ? (
-                    <span className="absolute inset-y-1 left-0 w-px bg-[#e6ba73] shadow-[0_0_10px_rgba(230,186,115,.75)]" />
-                  ) : null}
-                  <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center border text-[10px] ${isActive ? "border-[#c89a55]/30 bg-black/35 text-pink-300" : "border-white/[.06] bg-black/20 text-zinc-700 group-hover:text-pink-300/70"}`}
-                  >
-                    {meta.glyph}
-                  </span>
-                  <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                    <span className="w-5 shrink-0 text-[9px] font-bold tracking-wide text-[#c89a55]/60">
-                      {meta.code}
-                    </span>
-                    <span className="block font-serif text-[17px] leading-[1.15] text-inherit">
-                      {item.label}
-                    </span>
-                  </span>
-                  {item.hasIndicator ? (
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-300 shadow-[0_0_9px_#fbbf24]" />
-                  ) : null}
-                  {item.badge ? (
-                    <span className="text-[8px] font-black uppercase tracking-wider text-zinc-700">
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </button>
-              </div>
-            );
-          })}
-        </nav>
-
-        <footer className="shrink-0 border-t border-[#c89a55]/12 px-6 py-2.5 text-[8px] uppercase tracking-[0.22em] text-zinc-700">
-          Her court. Her ledger. Her rules.
-        </footer>
-      </div>
-
-      <nav
-        aria-label="Main navigation"
-        className="relative grid grid-cols-5 gap-1 px-2 py-2 pb-[max(.5rem,env(safe-area-inset-bottom))] lg:hidden"
-      >
-        {primaryItems.map((item) => (
-          <button
-            aria-current={activePage === item.key ? "page" : undefined}
-            aria-label={item.label}
-            className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-semibold ${activePage === item.key ? "bg-[#74213f]/35 text-[#ffe8bd]" : "text-zinc-300"}`}
-            disabled={item.disabled}
-            key={item.key}
-            onClick={() => onSelect(item.key)}
-            type="button"
-          >
-            <span aria-hidden="true">{navigationMeta[item.key].glyph}</span>
-            <span>{item.key === "tribute" ? "Shrine" : item.label}</span>
-          </button>
-        ))}
-        <button
-          aria-label="All court sections"
-          className="min-h-12 rounded-lg text-xs font-semibold text-[#ffe8bd]"
-          onClick={() => directoryRef.current?.showModal()}
-          type="button"
-        >
-          ☰<span className="block mt-1">More</span>
-        </button>
-      </nav>
-      <dialog
-        ref={directoryRef}
-        aria-label="Court directory"
-        className="fixed inset-x-3 bottom-24 top-auto m-auto max-h-[75dvh] w-[calc(100%_-_1.5rem)] max-w-lg overflow-y-auto rounded-2xl border border-[#c89a55]/30 bg-[#13090f] p-5 text-[#fff0d2] shadow-2xl backdrop:bg-black/70"
-        onClick={(event) => {
-          if (event.target === event.currentTarget)
-            directoryRef.current?.close();
-        }}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-serif text-2xl">Court directory</h2>
-          <button
-            aria-label="Close directory"
-            className="min-h-11 min-w-11"
-            onClick={() => directoryRef.current?.close()}
-            type="button"
-          >
-            ×
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {items.map((item) => (
-            <button
-              aria-current={activePage === item.key ? "page" : undefined}
-              className={`min-h-14 rounded-xl border px-3 py-3 text-left text-sm disabled:opacity-45 ${activePage === item.key ? "border-[#c89a55]/50 bg-[#74213f]/30" : "border-white/10"}`}
-              disabled={item.disabled}
-              key={item.key}
-              onClick={() => {
-                onSelect(item.key);
-                directoryRef.current?.close();
-              }}
-              type="button"
-            >
-              {item.label}
-              {item.disabled && (
-                <span className="block text-xs">Not unlocked yet</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </dialog>
-    </aside>
-  );
+  const renderItem = (item: SidebarNavItem, mobile = false) => <button key={item.key} className={styles.navItem} aria-current={activePage === item.key ? "page" : undefined} disabled={item.disabled} onClick={() => { onSelect(item.key); if (mobile) directoryRef.current?.close(); }} onFocus={item.onHover} onMouseEnter={item.onHover} type="button"><span className={styles.glyph} aria-hidden="true">{navigationMeta[item.key].glyph}</span><span>{item.label}</span>{item.hasIndicator && <i className={styles.indicator} />}{item.badge && <small className={styles.badge}>{item.badge}</small>}</button>;
+  return <aside className={styles.sidebar}>
+    <div className={styles.desktop}>
+      <div className={styles.brand}><Image src="/brand/vault-mistress-mark.svg" alt="" width={40} height={48} /><div><strong>Principessa</strong><small>Her private court</small></div></div>
+      <div className={styles.wallet}><div className={styles.balance}><MoneyIcon height={14}/><strong>{money.toLocaleString()}</strong><small>PM</small><button aria-label="Add Money" title="Add Money" onClick={onAddMoney} type="button">+</button></div><div className={styles.walletCoins}><span>Coins</span><strong>{coins.toLocaleString()}</strong></div></div>
+      <nav className={styles.directory} aria-label="Court navigation">{items.map(item => renderItem(item))}</nav>
+      <div className={styles.sidebarFooter}>Her court. Her rules.</div>
+    </div>
+    <nav className={styles.mobileNav} aria-label="Main navigation">{items.filter(item => ["home","tasks","tribute","profile"].includes(item.key)).map(item => <button key={item.key} type="button" aria-current={activePage === item.key ? "page" : undefined} aria-label={item.label} disabled={item.disabled} onClick={() => onSelect(item.key)}><span aria-hidden="true">{navigationMeta[item.key].glyph}</span>{item.key === "tribute" ? "Shrine" : item.label}</button>)}<button type="button" aria-label="All court sections" onClick={() => directoryRef.current?.showModal()}><span aria-hidden="true">☰</span>More</button></nav>
+    <dialog ref={directoryRef} aria-label="Court directory" className={styles.directoryDialog} onClick={e => {if(e.target === e.currentTarget) directoryRef.current?.close();}}><div className={styles.dialogHeading}><h2>The court</h2><button type="button" aria-label="Close directory" onClick={() => directoryRef.current?.close()}>×</button></div><div className={styles.dialogGrid}>{items.map(item => renderItem(item,true))}</div></dialog>
+  </aside>;
 }

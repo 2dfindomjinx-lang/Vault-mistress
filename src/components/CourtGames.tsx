@@ -1,11 +1,16 @@
 "use client";
 
+import Image from "next/image";
+import styles from "./CourtGamesExperience.module.css";
+import { COURT_GAME_ART, CommandGesture, GameHearts, GameMetric, GamePresence, GameResult, GameStageShell, GameTimer, MemoryCard } from "./CourtGamePresentation";
 import {postEconomyAction} from "@/lib/economy-client";
 import {createCourtChallenge, CROWN_SYMBOLS, guardWaveDuration, type CourtAction} from "@/lib/court-game-challenges";
-import { ActionFigure, CourtGlyph, CourtPortrait, SealFaces } from "@/components/court/CourtVisuals";
+import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CROWN_MATCH_MAX_MISTAKES,
+  CROWN_MATCH_PREVIEW_MS,
+  CROWN_MATCH_FLIP_MS,
   COURT_GAME_IDS,
   COURT_GAME_RULES,
   type CourtGameId,
@@ -39,9 +44,9 @@ const GAME_CARD_COPY: Record<CourtGameId, { eyebrow: string; glyph: string; summ
     summary: "Obey only when the order begins with “Principessa Says”. Buttons, timed writing and traps await.",
   },
   "crown-match": {
-    eyebrow: "Six hidden pairs",
+    eyebrow: "Nine hidden pairs",
     glyph: "♕",
-    summary: "Six royal pairs. Five lives. Remember each seal before your chances run out.",
+    summary: "Nine pairs. Five lives. Take three seconds to remember the royal seals.",
   },
   "royal-guard": {
     eyebrow: "Eighteen waves",
@@ -49,6 +54,8 @@ const GAME_CARD_COPY: Record<CourtGameId, { eyebrow: string; glyph: string; summ
     summary: "Threats charge at Principessa. Cut them down before they reach her — and let her gifts through untouched.",
   },
 };
+
+const GAME_CARD_ART = COURT_GAME_ART;
 
 function formatCooldown(value: string | null, now: number) {
   if (!value) return null;
@@ -62,6 +69,7 @@ function formatCooldown(value: string | null, now: number) {
 export function CourtGames({ coins, disabled = false, guestMode = false, onReward }: CourtGamesProps) {
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
   const [error, setError] = useState("");
+  const startingRef = useRef(false);
   const failureRequests = useRef(new Map<CourtGameId, Promise<void>>());
   const [loadingGameId, setLoadingGameId] = useState<CourtGameId | null>(null);
   const [statuses, setStatuses] = useState<GameStatus[]>(
@@ -90,6 +98,8 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
   }, [guestMode]);
 
   const startGame = useCallback(async (gameId: CourtGameId) => {
+    if (startingRef.current) return;
+    startingRef.current = true;
     setError("");
     setLoadingGameId(gameId);
     emitSoundEvent("button_click");
@@ -120,6 +130,7 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The game could not begin.");
     } finally {
+      startingRef.current = false;
       setLoadingGameId(null);
     }
   }, [guestMode]);
@@ -173,6 +184,9 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
   const activeProps = activeGame
     ? {
         disabled,
+        retrying: disabled || loadingGameId !== null,
+        retryError: error,
+        onRetry: () => void startGame(activeGame.gameId),
         challengeSeed:activeGame.challengeSeed,
         onClose: () => setActiveGame(null),
         onComplete: (metrics: CourtGameMetrics) => finishGame(activeGame.gameId, activeGame.sessionId, metrics),
@@ -181,56 +195,50 @@ export function CourtGames({ coins, disabled = false, guestMode = false, onRewar
     : null;
 
   return (
-    <section className="court-games-panel relative min-w-0 overflow-clip rounded-[2rem] border border-[#d7ad69]/20 bg-[radial-gradient(circle_at_85%_0%,rgba(190,24,93,.24),transparent_32%),linear-gradient(145deg,rgba(17,6,13,.98),rgba(3,2,4,.98))] p-5 shadow-[0_0_48px_rgba(190,24,93,.13)]">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#d7ad69]/10 court-game-orbit" />
-      <div className="relative flex flex-wrap items-end justify-between gap-3">
+    <section className={`court-games-panel ${styles.arcade}`} aria-label="Court Games">
+      <header className={styles.lobbyHeader}>
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Principessa&apos;s arcade</p>
-          <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Court Games</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">Earn her approval. Clear each game once per day for its Coin reward.</p>
+          <p className={styles.eyebrow}>Play for her approval</p>
+          <h2>Court Games</h2>
+          <p>Listen. Remember. Protect her. Claim each game&apos;s Coin reward once per day.</p>
         </div>
-        <div className="rounded-full border border-pink-200/15 bg-pink-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-[.16em] text-pink-100">
-          3 daily games
-        </div>
-      </div>
+        <div className={styles.dailyStamp}><strong>03</strong><span>Ways to impress her</span></div>
+      </header>
 
-      {error && <p className="relative mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-100">{error}</p>}
+      {error && <p className={styles.error} role="alert">{error}</p>}
 
-      {activeGame ? (
-        <div className="relative mt-5">
-          {activeGame.gameId === "principessa-says" && <PrincipessaSays {...activeProps!} />}
-          {activeGame.gameId === "crown-match" && <CrownMatch {...activeProps!} />}
-          {activeGame.gameId === "royal-guard" && <RoyalGuard {...activeProps!} />}
+      {activeGame && (
+        <div>
+          {activeGame.gameId === "principessa-says" && <PrincipessaSays key={activeGame.sessionId+":"+activeGame.challengeSeed} {...activeProps!} />}
+          {activeGame.gameId === "crown-match" && <CrownMatch key={activeGame.sessionId+":"+activeGame.challengeSeed} {...activeProps!} />}
+          {activeGame.gameId === "royal-guard" && <RoyalGuard key={activeGame.sessionId+":"+activeGame.challengeSeed} {...activeProps!} />}
         </div>
-      ) : (
-        <div className="relative mt-5 grid gap-3 lg:grid-cols-3">
-          {COURT_GAME_IDS.map((gameId) => {
+      )}
+      {<div className={styles.lobbyGrid} data-testid="court-game-lobby">
+          {COURT_GAME_IDS.map((gameId, index) => {
             const status = statuses.find((entry) => entry.gameId === gameId);
             const cooldown = guestClaimed.includes(gameId) ? "Today" : formatCooldown(status?.cooldownUntil ?? null, now);
             const copy = GAME_CARD_COPY[gameId];
             return (
-              <article className="court-game-card group relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.045] p-4 transition hover:-translate-y-0.5 hover:border-pink-200/30" key={gameId}>
-                <div className="pointer-events-none absolute -right-6 -top-8 text-[7rem] text-pink-300/[.035] transition group-hover:scale-110 group-hover:text-pink-300/[.07]">{copy.glyph}</div>
-                <div className="relative flex items-start justify-between gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d7ad69]/25 bg-black/35 text-2xl text-[#efc880] shadow-[0_0_22px_rgba(215,173,105,.1)]">{copy.glyph}</span>
-                  <span className="rounded-full border border-emerald-200/15 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black text-emerald-100">+{COURT_GAME_RULES[gameId].reward}</span>
+              <article className={styles.lobbyCard} data-game={gameId} key={gameId}>
+                <div className={styles.lobbyScene}>
+                  <span className={styles.lobbyNumber}>GAME / 0{index+1}</span>
+                  <div className={styles.lobbyPortrait}><Image src={GAME_CARD_ART[gameId]} alt="" fill sizes="(max-width: 760px) 90vw, 30vw" unoptimized/></div>
+                  <span className={styles.lobbyGlyph}><CourtGlyph symbol={gameId === "principessa-says" ? "crown" : gameId === "crown-match" ? "seal" : "threat"}/></span>
+                  <span className={styles.lobbyType}>{gameId === "principessa-says" ? "Listen" : gameId === "crown-match" ? "Remember" : "Protect"}</span>
                 </div>
-                <p className="relative mt-4 text-[9px] font-black uppercase tracking-[.2em] text-pink-200/50">{copy.eyebrow}</p>
-                <h3 className="relative mt-1 font-serif text-2xl text-white">{COURT_GAME_RULES[gameId].title}</h3>
-                <p className="relative mt-2 min-h-20 text-sm leading-6 text-zinc-400">{copy.summary}</p>
-                <button
-                  className="relative mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={disabled || Boolean(cooldown) || loadingGameId !== null}
-                  onClick={() => void startGame(gameId)}
-                  type="button"
-                >
-                  {loadingGameId === gameId ? "Entering..." : cooldown ? `Available ${cooldown === "Today" ? "tomorrow" : `in ${cooldown}`}` : disabled && guestMode ? "Sign in to play" : disabled ? "Timeout active" : "Play"}
-                </button>
+                <div className={styles.lobbyCardBody}>
+                  <h3>{COURT_GAME_RULES[gameId].title}</h3>
+                  <p className={styles.lobbyDescription}>{copy.summary}</p>
+                  <div className={styles.lobbyFacts}><span>{copy.eyebrow}</span><strong>+{COURT_GAME_RULES[gameId].reward} Coins</strong></div>
+                  <button className={styles.playButton} data-testid={`court-play-${gameId}`} disabled={disabled || Boolean(cooldown) || loadingGameId !== null} onClick={() => void startGame(gameId)} type="button">
+                    <span>{loadingGameId === gameId ? "Entering..." : cooldown ? `Available ${cooldown === "Today" ? "tomorrow" : `in ${cooldown}`}` : disabled && guestMode ? "Sign in to play" : disabled ? "Timeout active" : `Play ${COURT_GAME_RULES[gameId].title}`}</span><span aria-hidden="true">↗</span>
+                  </button>
+                </div>
               </article>
             );
           })}
-        </div>
-      )}
+        </div>}
     </section>
   );
 }
@@ -241,9 +249,12 @@ type MiniGameProps = {
   onClose: () => void;
   onComplete: (metrics: CourtGameMetrics) => Promise<number>;
   onFail: () => void;
+  onRetry: () => void;
+  retrying: boolean;
+  retryError: string;
 };
 
-function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
+function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail, onRetry, retrying, retryError }: MiniGameProps) {
   const [rounds] = useState(() => createCourtChallenge(challengeSeed).says);
   const actionsRef=useRef<CourtAction[]>([]);
   const [startedAt]=useState(()=>Date.now());
@@ -332,45 +343,50 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
   };
 
   return (
-    <GameStageShell onClose={onClose} title="Principessa Says" subtitle="Her words. Your response.">
+    <GameStageShell gameId="principessa-says" onClose={onClose} title="Principessa Says" subtitle={`Obey only commands beginning with “Principessa Says”. Otherwise, stay still. ${COURT_GAME_RULES["principessa-says"].requiredScore} correct responses out of ${rounds.length} earn the reward.`}>
       {result ? (
-        <GameResult failed={result === "failed"} onClose={onClose} reward={reward} score={`${score}/${rounds.length}`} />
+        <GameResult gameId="principessa-says" failed={result === "failed"} onClose={onClose} onRetry={onRetry} retrying={retrying} retryError={retryError} reward={reward} score={`${score}/${rounds.length}`} />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <PrincipessaStageImage mood={feedback} />
-          <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
-            <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[.18em] text-pink-100/60">
-              <span>Round {roundIndex + 1}/{rounds.length}</span><span>{Math.ceil(remainingMs / 1000)}s</span>
+        <div className={styles.playLayout}>
+          <GamePresence gameId="principessa-says" mood={feedback} message={feedback === "correct" ? "Good. You listened." : feedback === "wrong" ? "She caught that." : "Every word matters."}/>
+          <div className={styles.board}>
+            <div className={styles.hud}>
+              <GameMetric label="Round" value={<>{roundIndex+1}<small> / {rounds.length}</small></>}/>
+              <GameMetric label="Correct" value={score}/>
+              <GameMetric label="Mistakes" value={mistakes}/>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/60"><div className="h-full bg-[linear-gradient(90deg,#d7ad69,#ec4899)] transition-[width]" style={{ width: `${(remainingMs / round.timeMs) * 100}%` }} /></div>
-            <div className={`court-command-pop mt-5 rounded-2xl border px-4 py-5 text-center ${feedback === "correct" ? "border-emerald-300/35 bg-emerald-500/10" : feedback === "wrong" ? "border-rose-300/35 bg-rose-500/10" : "border-pink-200/20 bg-pink-500/10"}`}>
-              <p className="font-serif text-xl leading-8 text-[#fff0d2]">{round.command}</p>
-              {feedback && <p className={`mt-2 text-xs font-black uppercase tracking-[.2em] ${feedback === "correct" ? "text-emerald-200" : "text-rose-200"}`}>{feedback === "correct" ? "Good. You listened." : "Wrong. She caught you."}</p>}
+            <GameTimer remaining={remainingMs} total={round.timeMs}/>
+            <div className={styles.command} data-testid="says-command" data-feedback={feedback ?? "waiting"} key={roundIndex}>
+              <p>{round.command}</p>
             </div>
-            <div className="court-command-action"><ActionFigure action={visualAction} /><span>{feedback ? feedback === "correct" ? "Order understood" : "Order missed" : "Await her command"}</span></div>
+            <div className={styles.receipt} data-feedback={feedback ?? "waiting"} aria-live="polite">
+              {feedback ? <><strong>{feedback === "correct" ? "✓ Correct response" : "× Wrong response"}</strong><span>{visualAction === "wait" ? (typingValue ? "You began typing." : "You held still.") : visualAction?.startsWith("type:") ? "Your answer was submitted." : visualAction === "kneel" ? "You knelt." : "You bowed."}</span></> : <span>Her words. Your judgement.</span>}
+            </div>
             {round.action === "type" ? (
-              <form className="mt-4 flex gap-2" onSubmit={(event) => { event.preventDefault(); submitText(); }}>
+              <form className={styles.answerForm} onSubmit={(event) => { event.preventDefault(); submitText(); }}>
+                <label htmlFor="says-answer">Your response</label>
+                <div className={styles.answerLine}>
                 <input
                   autoComplete="off"
-                  autoFocus
-                  className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-white outline-none focus:border-pink-300/55"
+                  id="says-answer"
                   disabled={disabled || Boolean(feedback) || saving}
                   onChange={(event) => {
                     setTypingValue(event.target.value);
                     if (!round.shouldObey && event.target.value.length > 0) resolveRound(false);
                   }}
-                  aria-label="Your response"
                   placeholder="Your response…"
                   value={typingValue}
                 />
-                <button className="rounded-2xl border border-pink-200/25 bg-pink-500/15 px-4 font-black text-pink-50 disabled:opacity-40" disabled={!typingValue || saving} type="submit">Submit</button>
+                <button className={styles.primaryButton} disabled={disabled || Boolean(feedback) || !typingValue || saving} type="submit">Submit ↗</button>
+                </div>
               </form>
             ) : (
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("kneel")} type="button"><CourtGlyph symbol="seal"/>Kneel</button>
-                <button className="court-action-button" disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("bow")} type="button"><CourtGlyph symbol="lily"/>Bow</button>
+              <div className={styles.commandControls}>
+                <button className={styles.gestureButton} data-chosen={Boolean(feedback) && visualAction === "kneel"} disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("kneel")} type="button"><CommandGesture action="kneel"/><span>Kneel</span></button>
+                <button className={styles.gestureButton} data-chosen={Boolean(feedback) && visualAction === "bow"} disabled={disabled || Boolean(feedback) || saving} onClick={() => pressAction("bow")} type="button"><CommandGesture action="bow"/><span>Bow</span></button>
               </div>
             )}
+            {saving && <p className={styles.saving} role="status">Recording her verdict…</p>}
           </div>
         </div>
       )}
@@ -379,99 +395,109 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail 
 }
 
 
-function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
+function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail, onRetry, retrying, retryError }: MiniGameProps) {
   const [cards] = useState(() => createCourtChallenge(challengeSeed).cards);
-  const actionsRef=useRef<CourtAction[]>([]);
-  const [startedAt]=useState(()=>Date.now());
+  const actionsRef = useRef<CourtAction[]>([]);
+  const [startedAt] = useState(() => Date.now());
+  const [phase, setPhase] = useState<"preview" | "conceal" | "play">("preview");
+  const [previewCount, setPreviewCount] = useState(Math.ceil(CROWN_MATCH_PREVIEW_MS / 1000));
   const [open, setOpen] = useState<number[]>([]);
+  const openRef = useRef<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [mistakes, setMistakes] = useState(0);
-  const revealTimer = useRef<number | null>(null);
-  useEffect(() => () => { if (revealTimer.current !== null) window.clearTimeout(revealTimer.current); }, []);
+  const [verdict, setVerdict] = useState<"correct" | "wrong" | null>(null);
+  const judgedRef = useRef(false);
+  const timers = useRef(new Set<number>());
   const [reward, setReward] = useState(0);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
   const finishedRef = useRef(false);
+  const after = (callback: () => void, delay: number) => {
+    const timer = window.setTimeout(() => { timers.current.delete(timer); callback(); }, delay);
+    timers.current.add(timer);
+  };
+  useEffect(() => {
+    const pending = timers.current;
+    for (let remaining = Math.ceil(CROWN_MATCH_PREVIEW_MS / 1000) - 1; remaining > 0; remaining--) {
+      pending.add(window.setTimeout(() => setPreviewCount(remaining), CROWN_MATCH_PREVIEW_MS - remaining * 1000));
+    }
+    const previewTimer = window.setTimeout(() => {
+      setPhase("conceal");
+      const concealTimer = window.setTimeout(() => setPhase("play"), CROWN_MATCH_FLIP_MS);
+      pending.add(concealTimer);
+    }, CROWN_MATCH_PREVIEW_MS);
+    pending.add(previewTimer);
+    return () => { pending.forEach(window.clearTimeout); pending.clear(); };
+  }, []);
+
+  const judgePair = (pair: number[]) => {
+    if (judgedRef.current || pair.length !== 2 || finishedRef.current) return;
+    judgedRef.current = true;
+    const [first, second] = pair;
+    const correct = cards[first].symbol === cards[second].symbol;
+    setVerdict(correct ? "correct" : "wrong");
+    emitSoundEvent(correct ? "button_click" : "task_fail");
+    const nextMistakes = mistakes + (correct ? 0 : 1);
+    if (!correct) setMistakes(nextMistakes);
+    after(() => {
+      if (correct) setMatched(current => [...current, first, second]);
+      setOpen([]);
+      openRef.current = [];
+      setVerdict(null);
+      if (nextMistakes >= CROWN_MATCH_MAX_MISTAKES) {
+        finishedRef.current = true;
+        setFailed(true);
+        onFail();
+      }
+    }, correct ? 380 : 650);
+  };
 
   const chooseCard = (id: number) => {
-    if (disabled || saving || finishedRef.current || open.length >= 2 || open.includes(id) || matched.includes(id)) return;
+    if (phase !== "play" || disabled || saving || finishedRef.current || openRef.current.length >= 2 || openRef.current.includes(id) || matched.includes(id)) return;
     emitSoundEvent("button_click");
-    // eslint-disable-next-line react-hooks/purity -- user click event timestamp, never called during render
+    // eslint-disable-next-line react-hooks/purity -- This handler records a user click, never a render-time timestamp.
     actionsRef.current.push({action:String(id),atMs:Date.now()-startedAt});
-    const nextOpen = [...open, id];
-    setOpen(nextOpen);
-    if (nextOpen.length < 2) return;
-    setMoves((value) => value + 1);
-    const [first, second] = nextOpen;
-    if (cards[first].symbol === cards[second].symbol) {
-      revealTimer.current = window.setTimeout(() => {
-        setMatched((current) => [...current, first, second]);
-        setOpen([]);
-        emitSoundEvent("button_click");
-      }, 350);
-    } else {
-      const nextMistakes = mistakes + 1;
-      setMistakes(nextMistakes);
-      emitSoundEvent("task_fail");
-      if (nextMistakes >= CROWN_MATCH_MAX_MISTAKES) finishedRef.current = true;
-      revealTimer.current = window.setTimeout(() => {
-        setOpen([]);
-        if (nextMistakes >= CROWN_MATCH_MAX_MISTAKES) {
-          setFailed(true);
-          onFail();
-        }
-      }, 750);
-    }
+    const pair = [...openRef.current, id];
+    openRef.current = pair;
+    setOpen(pair);
+    if (pair.length !== 2) return;
+    judgedRef.current = false;
+    setMoves(value => value + 1);
+    // The transition event is authoritative visually; the fallback also supports reduced motion.
+    after(() => judgePair(pair), CROWN_MATCH_FLIP_MS + 80);
   };
 
   useEffect(() => {
     if (matched.length !== cards.length || finishedRef.current) return;
     finishedRef.current = true;
     setSaving(true);
-    void onComplete({ mistakes: Math.max(0, moves - CROWN_SYMBOLS.length), roundsCompleted: CROWN_SYMBOLS.length, score: CROWN_SYMBOLS.length, actions:actionsRef.current })
-      .then(setReward)
-      .catch(() => setFailed(true))
-      .finally(() => setSaving(false));
+    void onComplete({ mistakes: Math.max(0, moves-CROWN_SYMBOLS.length), roundsCompleted: CROWN_SYMBOLS.length, score: CROWN_SYMBOLS.length, actions:actionsRef.current })
+      .then(setReward).catch(() => setFailed(true)).finally(() => setSaving(false));
   }, [cards.length, matched.length, moves, onComplete]);
 
-  return (
-    <GameStageShell onClose={onClose} title="Crown Match" subtitle="Match all six pairs. Five wrong matches end this attempt.">
-      {reward > 0 || failed ? (
-        <GameResult failed={failed} onClose={onClose} reward={reward} score={`${moves} moves`} />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <PrincipessaStageImage mood={matched.length === cards.length ? "correct" : null} />
-          <div className="rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
-            <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60"><span>{matched.length / 2}/6 pairs</span><span>{moves} moves</span></div>
-            <div className="crown-lives" aria-label={`${CROWN_MATCH_MAX_MISTAKES - mistakes} lives remaining`} role="status">{Array.from({ length: CROWN_MATCH_MAX_MISTAKES }, (_, index) => <span key={index} data-lost={index < mistakes} aria-hidden="true">♥</span>)}<small>{CROWN_MATCH_MAX_MISTAKES - mistakes} lives left</small></div>
-            <div className="crown-pair-track" aria-label="Matched seals">{CROWN_SYMBOLS.map(symbol => <span key={symbol} data-complete={cards.some(card => card.symbol === symbol && matched.includes(card.id))}><CourtGlyph symbol={symbol}/></span>)}</div>
-            <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {cards.map((card) => {
-                const visible = open.includes(card.id) || matched.includes(card.id);
-                return (
-                  <button
-                    aria-label={visible ? `Revealed ${card.symbol}` : "Hidden court seal"}
-                    className="court-match-card seal-card-button aspect-[3/4]"
-                    disabled={disabled || saving || matched.includes(card.id)}
-                    key={card.id}
-                    onClick={() => chooseCard(card.id)}
-                    type="button"
-                  >
-                    <SealFaces open={visible} matched={matched.includes(card.id)}><CourtGlyph symbol={card.symbol}/></SealFaces>
-                  </button>
-                );
-              })}
-            </div>
-            {saving && <p className="mt-4 text-center text-sm font-black text-emerald-100">Principessa is granting your reward...</p>}
+  return <GameStageShell gameId="crown-match" onClose={onClose} title="Crown Match" subtitle="Nine pairs. Five lives. Remember the seals.">
+    {reward > 0 || failed ? <GameResult gameId="crown-match" failed={failed} onClose={onClose} onRetry={onRetry} retrying={retrying} retryError={retryError} reward={reward} score={moves+" moves"}/> :
+      <div className={styles.playLayout}>
+        <GamePresence gameId="crown-match" countdown={phase === "preview" ? previewCount : undefined} mood={verdict} message={phase === "preview" ? "Three seconds. Remember them." : phase === "conceal" ? "Now, show me." : "Remember what she revealed."}/>
+        <div className={styles.board}>
+          <div className={styles.matchHud}><div className={styles.hud}><GameMetric label="Pairs" value={<>{matched.length/2}<small> / {CROWN_SYMBOLS.length}</small></>}/><GameMetric label="Moves" value={moves}/></div><GameHearts maximum={CROWN_MATCH_MAX_MISTAKES} remaining={CROWN_MATCH_MAX_MISTAKES-mistakes}/></div>
+          <div className={styles.memoryGrid} data-testid="crown-memory-grid" data-phase={phase}>
+            {cards.map(card => {
+              const visible = phase === "preview" || open.includes(card.id) || matched.includes(card.id);
+              return <MemoryCard id={card.id} symbol={card.symbol} key={card.id}
+                state={matched.includes(card.id) ? "matched" : visible ? open.includes(card.id) && verdict === "wrong" ? "mismatch" : open.includes(card.id) && verdict === "correct" ? "matched" : "open" : "hidden"}
+                disabled={phase !== "play" || disabled || saving || open.length >= 2 || open.includes(card.id) || matched.includes(card.id)}
+                onClick={() => chooseCard(card.id)} onReveal={() => { if (phase === "play" && openRef.current[1] === card.id) judgePair(openRef.current); }}/>
+            })}
           </div>
+          {saving && <p className={styles.saving} role="status">Claiming your reward…</p>}
         </div>
-      )}
-    </GameStageShell>
-  );
+      </div>}
+  </GameStageShell>;
 }
 
-function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail }: MiniGameProps) {
+function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail, onRetry, retrying, retryError }: MiniGameProps) {
   const [phase, setPhase] = useState<"intro" | "play">("intro");
   const [targets] = useState(() => createCourtChallenge(challengeSeed).targets);
   const actionsRef=useRef<CourtAction[]>([]);
@@ -543,79 +569,44 @@ function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail }: Mi
   };
 
   return (
-    <GameStageShell onClose={onClose} title="Royal Guard" subtitle="Everything on the carpet is walking toward her.">
+    <GameStageShell gameId="royal-guard" onClose={onClose} title="Royal Guard" subtitle="Strike incoming threats. Leave gifts untouched. Your reaction decides what reaches her.">
       {reward > 0 || failed ? (
-        <GameResult failed={failed} onClose={onClose} reward={reward} score={`${score}/${targets.length}`} />
+        <GameResult gameId="royal-guard" failed={failed} onClose={onClose} onRetry={onRetry} retrying={retrying} retryError={retryError} reward={reward} score={`${score}/${targets.length}`} />
       ) : phase === "intro" ? (
-        <div className="court-command-pop mx-auto max-w-xl rounded-[1.75rem] border border-pink-200/20 bg-black/40 p-6 text-center">
-          <div className="text-5xl">⚔</div>
-          <h4 className="mt-3 font-serif text-2xl text-[#fff0d2]">You stand between them and her.</h4>
-          <div className="mt-5 grid gap-2 text-left text-sm leading-6 text-zinc-300">
-            <p className="rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-2.5">
-              <span className="mr-2">☠ ⚡ ✖</span> Threats — <span className="font-black text-rose-100">strike them</span> before they reach her.
-            </p>
-            <p className="rounded-2xl border border-[#d7ad69]/25 bg-amber-500/10 px-4 py-2.5">
-              <span className="mr-2">💐 💎 ✉</span> Gifts from her court — <span className="font-black text-[#ffe3a4]">do not touch</span>, let them arrive.
-            </p>
+        <div className={styles.guardIntro}>
+          <div className={styles.guardIntroArt}><Image src={COURT_GAME_ART["royal-guard"]} unoptimized alt="Principessa awaits her guard" fill sizes="(max-width: 760px) 90vw, 35vw"/><span>Nothing reaches her<br/>without you.</span></div>
+          <div className={styles.guardBrief}>
+            <h4>You are her last line.</h4>
+            <div className={styles.guardRule} data-kind="threat"><div aria-hidden="true"><CourtGlyph symbol="threat"/><CourtGlyph symbol="bolt"/></div><div><strong>Threats: strike before they arrive</strong><p>Hit the moving target before it reaches her.</p></div></div>
+            <div className={styles.guardRule} data-kind="gift"><div aria-hidden="true"><CourtGlyph symbol="gift"/><CourtGlyph symbol="gem"/><CourtGlyph symbol="letter"/></div><div><strong>Gifts: let them pass</strong><p>Do nothing until the gift reaches her.</p></div></div>
+            <p>{targets.length} waves, getting faster. Guard {COURT_GAME_RULES["royal-guard"].requiredScore} correctly to earn your daily reward.</p>
+            <button className={styles.primaryButton} data-testid="guard-start" onClick={() => setPhase("play")} type="button">Take your post <span aria-hidden="true">→</span></button>
           </div>
-          <p className="mt-4 text-xs text-zinc-500">18 waves. They walk faster as you go. Earn your daily reward when you succeed.</p>
-          <button
-            className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-8 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25"
-            onClick={() => setPhase("play")}
-            type="button"
-          >
-            Take your post
-          </button>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-          <PrincipessaStageImage mood={outcome ? (outcomeCopy[outcome].tone === "good" ? "correct" : "wrong") : null} />
-          <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-black/35 p-4">
-            <div className="flex items-center justify-between text-xs font-black uppercase tracking-[.18em] text-pink-100/60">
-              <span>Wave {index + 1}/{targets.length}</span><span>{score} guarded · {mistakes} failed</span>
+        <div className={styles.playLayout}>
+          <GamePresence gameId="royal-guard" mood={outcome ? (outcomeCopy[outcome].tone === "good" ? "correct" : "wrong") : null} message={outcome ? outcomeCopy[outcome].text : "Keep her court intact."}/>
+          <div className={styles.board}>
+            <div className={styles.hud}>
+              <GameMetric label="Wave" value={<>{index+1}<small> / {targets.length}</small></>}/>
+              <GameMetric label="Guarded" value={score}/>
+              <GameMetric label="Missed" value={mistakes}/>
             </div>
-            <div className="royal-corridor" data-outcome={outcome ?? "approach"}>
-              <div className="royal-corridor-arches" aria-hidden="true"/><div className="royal-carpet" aria-hidden="true"/>
-              <div className="royal-throne"><CourtGlyph/><span>Her throne</span>{outcome === "letPass" && <CourtGlyph className="royal-arrived-gift" symbol={target.glyph}/>}</div>
-              <div className="royal-barrier" data-hit={outcome === "reachedHer"}><span>Guard line</span></div>
-              {!outcome ? <button className="royal-walker" data-threat={target.threat} disabled={disabled || locked || saving} key={index} onClick={() => resolveTarget(true)} style={{animationDuration:duration+"ms"}} type="button"><CourtGlyph symbol={target.glyph}/><span>{target.label}</span></button> : <div className="royal-impact" data-good={outcomeCopy[outcome].tone === "good"}><CourtGlyph symbol={outcome === "letPass" ? target.glyph : outcome === "blocked" ? "star" : "threat"}/>{outcome === "blocked" && <span className="royal-strike"/>}</div>}
-              <div className="royal-wave-time" role="progressbar" aria-label="Wave time" aria-valuemin={0} aria-valuemax={1} aria-valuenow={outcome?0:1}><span key={index} style={{animationDuration:duration+"ms",animationPlayState:outcome?"paused":"running"}}/></div>
-              <p className="royal-wave-caption" aria-live="polite">{outcome ? outcomeCopy[outcome].text : target.threat ? "Intercept the threat" : "Let her gift pass"}</p>
+            <div className={styles.guardTrack} data-testid="guard-track" data-guard-outcome={outcome ?? "approach"}>
+              <span className={styles.guardTrackLabel}>Incoming · {index+1}</span>
+              <div className={styles.guardGate} data-hit={outcome === "reachedHer"}><CourtGlyph symbol={outcome === "letPass" ? target.glyph : "crown"}/><span>Principessa</span></div>
+              <div className={styles.guardTravel}>
+                {!outcome ? <button className={styles.guardTarget} data-testid="guard-target" data-threat={target.threat} disabled={disabled || locked || saving} key={index} onClick={() => resolveTarget(true)} style={{animationDuration:duration+"ms"}} type="button"><CourtGlyph symbol={target.glyph}/><span>{target.label}</span></button> : null}
+              </div>
+              {outcome ? <div className={styles.guardImpact} data-good={outcomeCopy[outcome].tone === "good"}><CourtGlyph symbol={outcome === "letPass" ? target.glyph : outcome === "blocked" ? "star" : "threat"}/>{outcome === "blocked" && <span className={styles.strike}/>}</div> : null}
+              <div className={styles.waveTime} role="progressbar" aria-label="Wave time" aria-valuemin={0} aria-valuemax={1} aria-valuenow={outcome?0:1} aria-valuetext={outcome ? "Resolved" : `Up to ${(duration/1000).toFixed(1)} seconds`}><span key={index} style={{animationDuration:duration+"ms",animationPlayState:outcome?"paused":"running"}}/></div>
+              <p className={styles.waveCaption} aria-live="polite">{outcome ? outcomeCopy[outcome].text : target.threat ? "Intercept the threat" : "Let her gift pass"}</p>
             </div>
-            <p className="mt-3 text-center text-xs text-zinc-500">
-              Strike <span className="text-rose-200">☠ ⚡ ✖</span> — let <span className="text-[#ffe3a4]">💐 💎 ✉</span> reach her.
-            </p>
+
+            {saving && <p className={styles.saving} role="status">Recording your guard duty…</p>}
           </div>
         </div>
       )}
     </GameStageShell>
-  );
-}
-
-function GameStageShell({ children, onClose, subtitle, title }: { children: React.ReactNode; onClose: () => void; subtitle: string; title: string }) {
-  return (
-    <div className="rounded-[1.75rem] border border-pink-200/15 bg-black/40 p-4">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div><p className="text-[9px] font-black uppercase tracking-[.25em] text-[#d7ad69]/60">Now playing</p><h3 className="font-serif text-2xl text-[#fff0d2]">{title}</h3><p className="mt-1 text-xs text-zinc-500">{subtitle}</p></div>
-        <button aria-label="Close game" className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-zinc-400 hover:border-pink-200/40 hover:text-white" onClick={onClose} type="button">×</button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function PrincipessaStageImage({ mood }: { mood: "correct" | "wrong" | null }) {
-  return <CourtPortrait mood={mood === "correct" ? "approved" : mood === "wrong" ? "disappointed" : "neutral"} caption={mood === "correct" ? "Approved" : mood === "wrong" ? "Disappointed" : "Under her gaze"}/>;
-}
-
-function GameResult({ failed, onClose, reward, score }: { failed: boolean; onClose: () => void; reward: number; score: string }) {
-  return (
-    <div className={`court-command-pop mx-auto max-w-xl rounded-[1.75rem] border p-6 text-center ${failed ? "border-rose-300/25 bg-rose-500/10" : "border-emerald-300/25 bg-emerald-500/10"}`}>
-      <div className="court-result-seal" data-failed={failed}><CourtGlyph symbol={failed ? "threat" : "crown"}/></div>
-      <h4 className="mt-3 font-serif text-3xl text-white">{failed ? "Principessa is not impressed" : "Principessa approves"}</h4>
-      <p className="mt-2 text-sm text-zinc-300">Score: {score}</p>
-      <p className={`mt-3 text-lg font-black ${failed ? "text-rose-200" : "text-emerald-200"}`}>{failed ? "No reward this time. You can try again." : `+${reward} Principessa Coins`}</p>
-      <button className="mt-5 rounded-2xl border border-pink-200/25 bg-pink-500/15 px-6 py-3 text-sm font-black text-pink-50 hover:bg-pink-500/25" onClick={onClose} type="button">Back to Games</button>
-    </div>
   );
 }

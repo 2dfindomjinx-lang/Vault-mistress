@@ -1,7 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { getGlobalPrincipessaVisualTier } from "@/lib/global-principessa";
+import styles from "./SpeechPresence.module.css";
+
+const subscribeToMount = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 type FloatingDefneBubbleProps = {
   avatarSrc?: string;
@@ -35,7 +43,30 @@ export function FloatingDefneBubble({
   const bubbleKey = messageId ?? message;
   const displayMessage = sanitizeBubbleMessage(message);
   const [hiddenBubbleKey, setHiddenBubbleKey] = useState<number | string | null>(null);
+  const mounted = useSyncExternalStore(subscribeToMount, clientSnapshot, serverSnapshot);
+  const presenceRef = useRef<HTMLElement>(null);
   const visualTier = getGlobalPrincipessaVisualTier(globalPrincipessaLevel);
+
+  useEffect(() => {
+    const presence = presenceRef.current;
+    if (!mounted || !presence || typeof presence.showPopover !== "function") return;
+    const bringForward = () => {
+      if (!presence.isConnected) return;
+      if (presence.matches(":popover-open")) presence.hidePopover();
+      presence.showPopover();
+    };
+    bringForward();
+    // Native dialogs/popovers also live above CSS stacking contexts. Re-promote
+    // this non-modal presence when one opens, without changing keyboard focus.
+    const onOverlayToggle = (event: Event) => {
+      if (event.target !== presence && "newState" in event && event.newState === "open") bringForward();
+    };
+    document.addEventListener("toggle", onOverlayToggle, true);
+    return () => {
+      document.removeEventListener("toggle", onOverlayToggle, true);
+      if (presence.isConnected && presence.matches(":popover-open")) presence.hidePopover();
+    };
+  }, [mounted]);
 
   // Significantly stronger and more distinct visual progression so Level Drain
   // power increases are actually visible and satisfying on the speech bubble.
@@ -98,13 +129,18 @@ export function FloatingDefneBubble({
   const hasActiveMessage = displayMessage.length > 0;
   const showInteractive = bubbleVisible && hasActiveMessage;
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <aside
-      className={`court-floating-character fixed bottom-24 right-4 z-30 flex max-w-[calc(100vw-2rem)] items-center gap-3 sm:bottom-6 sm:right-6 sm:max-w-2xl sm:gap-4 ${showInteractive ? "" : "pointer-events-none"}`}
+      ref={presenceRef}
+      popover="manual"
+      aria-label="Principessa speech"
+      className={`court-floating-character ${styles.presence} ${showInteractive ? styles.speaking : ""}`}
     >
       {hasActiveMessage && (
         <div
-          className={`flex min-h-16 items-center rounded-[1.5rem] border bg-black/80 px-4 py-3 text-base font-semibold leading-6 text-pink-50 ${visualClass} backdrop-blur transition-opacity duration-[2000ms] sm:min-h-20 sm:px-5 sm:py-4 sm:text-lg sm:leading-7 ${
+          className={`${styles.message} ${visualClass} transition-opacity duration-[2000ms] ${
             bubbleVisible ? "opacity-100" : "opacity-0"
           }`}
           style={messageStyle}
@@ -113,7 +149,7 @@ export function FloatingDefneBubble({
         </div>
       )}
       <button type="button" aria-label="Open Live Chat" onClick={() => window.dispatchEvent(new Event("court:toggle-chat"))}
-        className={`pointer-events-auto relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-pink-200/50 bg-fuchsia-950 sm:h-22 sm:w-22 ${portraitGlow}`}
+        className={`${styles.portrait} ${portraitGlow}`}
       >
         <Image
           alt="Principessa avatar"
@@ -124,6 +160,6 @@ export function FloatingDefneBubble({
           src={avatarSrc}
         />
       </button>
-    </aside>
+    </aside>, document.body,
   );
 }

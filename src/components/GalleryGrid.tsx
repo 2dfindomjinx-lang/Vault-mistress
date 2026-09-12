@@ -1,4 +1,5 @@
 import Image from "next/image";
+import styles from "./CollectionSurfaces.module.css";
 import { useMemo, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import type { GalleryItem, GalleryRarity, PetGalleryItem } from "@/lib/types";
@@ -81,17 +82,18 @@ export function GalleryGrid({
 
   return (
     <section
-      className="court-feature-panel rounded-[1.5rem] border border-fuchsia-200/15 bg-black/50 p-3 shadow-[0_0_44px_rgba(217,70,239,0.12)] sm:rounded-[2rem] sm:p-5"
+      className={`${styles.surface} ${styles.gallery}`}
+      data-collection-surface="gallery"
       data-allow-image-download
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className={styles.header}>
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-            The Court Archive
+            Her private archive
           </p>
-          <h2 className="text-2xl font-black sm:text-3xl">Gallery</h2>
+          <h2 className="text-2xl font-black sm:text-3xl">A collection worth earning.</h2>
           <p className="mt-2 text-sm text-zinc-400">
-            Vault rewards and Pet Score memories live in separate wings of the archive.
+            Unlock her portraits. Keep the moments you have earned.
           </p>
         </div>
         <div className="text-sm text-zinc-400">
@@ -103,7 +105,7 @@ export function GalleryGrid({
 
       <div
         aria-label="Gallery collection"
-        className="mt-5 grid gap-2 rounded-[1.3rem] border border-white/10 bg-black/45 p-1.5 sm:grid-cols-2"
+        className={styles.galleryTabs}
         role="tablist"
       >
         <button
@@ -148,7 +150,7 @@ export function GalleryGrid({
 
       {view === "vault" ? (
         <>
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className={`${styles.galleryFilters} mt-5 flex flex-wrap gap-2`}>
         {filters.map((option) => (
           <button
             className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold transition ${
@@ -157,6 +159,7 @@ export function GalleryGrid({
                 : "border-white/10 bg-black/35 text-zinc-300 hover:border-pink-300/40"
             }`}
             key={option}
+            aria-pressed={filter === option}
             onClick={() => setFilter(option)}
             type="button"
           >
@@ -199,7 +202,7 @@ export function GalleryGrid({
 
           return (
             <article
-              className={`court-feature-card court-grid-card court-grid-card--violet min-w-0 overflow-hidden rounded-[1.1rem] border bg-white/[0.045] transition hover:-translate-y-0.5 sm:rounded-[1.5rem] ${
+              className={`${styles.product} ${styles.galleryCard} ${
                 isSecret || isSacrifice || isShrineMemory
                   ? "border-pink-200/60 shadow-[0_0_34px_rgba(236,72,153,0.24)]"
                   : "border-white/10 hover:border-pink-300/30"
@@ -211,9 +214,9 @@ export function GalleryGrid({
                 }
               }}
             >
-              <div className="relative aspect-[4/5] bg-fuchsia-950/30">
+              <div className={`${styles.galleryArt} relative aspect-[4/5]`}>
                 <Image
-                  alt={`${item.title} gallery placeholder`}
+                  alt={item.unlocked ? item.title : "Sealed portrait"}
                   className={`object-cover transition duration-500 ${
                     item.unlocked ? "" : "scale-105 blur-md grayscale"
                   } ${isSecret || isSacrifice || isShrineMemory ? "saturate-150 contrast-125" : ""}`}
@@ -226,7 +229,7 @@ export function GalleryGrid({
                     }
                   }}
                   unoptimized
-                  sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                  sizes="(min-width: 1280px) 22vw, (min-width: 768px) 30vw, 44vw"
                   src={item.unlocked && !previewMode ? resolvedImage : "/character-icon.webp"}
                 />
                 {isNew ? (
@@ -246,7 +249,7 @@ export function GalleryGrid({
                 )}
               </div>
 
-              <div className="p-4">
+              <div className={styles.productCopy}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-black text-white sm:text-lg">
@@ -314,7 +317,7 @@ export function GalleryGrid({
         </>
       ) : (
         <div className="mt-5">
-          <div className="court-feature-card court-grid-card court-grid-card--danger flex flex-col gap-3 rounded-[1.25rem] border border-rose-200/15 bg-[linear-gradient(120deg,rgba(136,19,55,0.22),rgba(88,28,135,0.12),rgba(0,0,0,0.34))] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className={`${styles.gallerySummary} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-rose-100/70">Pet Score Collection</p>
               <p className="mt-1 text-sm text-zinc-300">Every score threshold reveals another private memory.</p>
@@ -335,10 +338,10 @@ export function GalleryGrid({
 
               return (
                 <article
-                  className="court-feature-card court-grid-card court-grid-card--danger min-w-0 overflow-hidden rounded-[1.1rem] border border-rose-200/10 bg-[linear-gradient(160deg,rgba(136,19,55,0.16),rgba(0,0,0,0.54))] sm:rounded-[1.35rem]"
+                  className={`${styles.product} ${styles.galleryCard}`}
                   key={item.id}
                 >
-                  <div className="relative aspect-[3/4] bg-black">
+                  <div className={`${styles.galleryArt} relative aspect-[3/4]`}>
                     <Image
                       alt={unlocked ? item.title : "Locked Pet Gallery memory"}
                       className={`object-cover transition duration-500 ${unlocked ? "" : "scale-105 blur-md grayscale opacity-45"}`}
@@ -364,7 +367,7 @@ export function GalleryGrid({
                       </div>
                     ) : null}
                   </div>
-                  <div className="p-3 sm:p-4">
+                  <div className={styles.productCopy}>
                     <p className="truncate text-sm font-black text-white">{item.title}</p>
                     <p className="mt-1 text-xs text-zinc-500">{unlocked ? "Revealed by devotion" : `${item.unlockCost.toLocaleString()} score required`}</p>
                     {unlocked ? (

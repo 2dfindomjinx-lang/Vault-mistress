@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import styles from "./HomeCourtPanels.module.css";
 import { getBadgeToneClasses, type CommunityGoalStatus, type UserPrestigeBadge } from "@/lib/prestige";
 
 type CommunityGoalWidgetProps = {
@@ -43,71 +44,15 @@ export function CommunityGoalWidget({ badges = [], goal, onBadgesChange }: Commu
     }
   };
 
-  return (
-    <section className="court-feature-panel rounded-[2rem] border border-emerald-200/18 bg-[linear-gradient(145deg,rgba(2,22,18,0.9),rgba(6,78,59,0.48),rgba(0,0,0,0.62))] p-5 shadow-[0_0_40px_rgba(16,185,129,0.12)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.32em] text-emerald-200/74">Community Goal</p>
-          <h2 className="mt-2 text-2xl font-black text-white">{goal.title}</h2>
-        </div>
-        <p className="rounded-full border border-emerald-200/20 bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-emerald-50">
-          {goal.participantCount.toLocaleString()} participants
-        </p>
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="font-black text-white">{goal.progressCoins.toLocaleString()} / {goal.targetCoins.toLocaleString()}</span>
-          <span className="font-black text-emerald-200">{goal.progressPercent}%</span>
-        </div>
-        <div className="mt-3 h-4 overflow-hidden rounded-full bg-black/50">
-          <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,#34d399,#facc15,#fb7185)] shadow-[0_0_24px_rgba(52,211,153,0.28)]"
-            style={{ width: `${goal.progressPercent}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="court-grid mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="court-grid-card court-grid-card--success rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Reward</p>
-          <p className="mt-2 text-lg font-black text-white">{goal.rewardTitle}</p>
-          <p className="mt-1 text-sm leading-6 text-emerald-50/72">{goal.rewardDescription}</p>
-        </div>
-        <div className="court-grid-card court-grid-card--success rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Status</p>
-          <p className="mt-2 text-lg font-black text-white">
-            {goal.currentUserParticipating ? "You are contributing" : "You have not contributed yet"}
-          </p>
-          <p className="mt-1 text-sm leading-6 text-emerald-50/72">
-            Goal ends in <span className="font-black text-white">{formatCountdown(goal.endsAt)}</span>.
-          </p>
-          <p className="mt-1 text-sm leading-6 text-emerald-50/72">
-            You contributed: <span className="font-black text-white">{goal.currentUserContributionCoins.toLocaleString()}</span>
-          </p>
-        </div>
-      </div>
-
-      {badges.length > 0 ? (
-        <div className="mt-4 rounded-[1.35rem] border border-white/10 bg-black/25 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">Profile Badges</p>
-          <p className="mt-1 text-sm text-emerald-50/72">Choose which earned badges appear on your profile.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {badges.map((badge) => (
-              <button
-                className={`rounded-full border px-3 py-1.5 text-xs font-black tracking-[0.12em] transition disabled:cursor-wait disabled:opacity-50 ${getBadgeToneClasses(badge.tone)} ${badge.equipped ? "" : "opacity-45 grayscale"}`}
-                disabled={badgeBusyId === badge.id}
-                key={badge.id}
-                onClick={() => void toggleBadge(badge)}
-                title={badge.description}
-                type="button"
-              >
-                {badge.label} · {badge.equipped ? "Equipped" : "Unequipped"}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
+  const percent=Math.max(0,Math.min(100,goal.progressPercent));
+  return <section className={styles.panel+" "+styles.goal} aria-label="Community Goal">
+    <header className={styles.goalHead}><div><p className={styles.kicker}>Community Goal</p><h2>{goal.title}</h2></div><span>{goal.participantCount.toLocaleString()} participants</span></header>
+    <div className={styles.goalMain}>
+      <div className={styles.goalMeter} role="progressbar" aria-label="Community goal progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="51" fill="none" stroke="#c89a551f" strokeWidth="5"/><circle cx="60" cy="60" r="51" fill="none" stroke="#dab073" strokeWidth="5" strokeDasharray="320.44" strokeDashoffset={320.44*(1-percent/100)} strokeLinecap="round"/></svg><div><strong>{percent}%</strong><small>Of her goal</small></div></div>
+      <div className={styles.goalTotals}><strong>{goal.progressCoins.toLocaleString()}</strong><small>of {goal.targetCoins.toLocaleString()} Coins</small><p>{formatCountdown(goal.endsAt)} remaining</p></div>
+    </div>
+    <div className={styles.reward}><p>The court earns</p><strong>{goal.rewardTitle}</strong><span>{goal.rewardDescription}</span></div>
+    <footer className={styles.goalFooter}><div>Your contribution<strong>{goal.currentUserContributionCoins.toLocaleString()} Coins</strong></div><div>{goal.currentUserParticipating?"You’re part of it.":"Your place is waiting."}</div></footer>
+    {badges.length>0&&<div className={styles.badges}><p>Your earned profile badges</p><div className={styles.badgeChoices}>{badges.map(badge=><button className={getBadgeToneClasses(badge.tone)} aria-pressed={badge.equipped} disabled={badgeBusyId===badge.id} key={badge.id} onClick={()=>void toggleBadge(badge)} title={badge.description} type="button">{badge.label} · {badge.equipped?"Equipped":"Unequipped"}</button>)}</div></div>}
+  </section>;
 }

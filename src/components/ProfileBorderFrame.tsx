@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, type CSSProperties, type ReactNode } from "react";
+import { AnimeBorderArtwork } from "@/components/AnimeBorderArtwork";
+import animeStyles from "./AnimeBorderArtwork.module.css";
 import type {
   ProfileBorderFramePresentation,
   ProfileBorderLayerPresentation,
@@ -86,8 +88,10 @@ export function ProfileBorderFrame({
   const inset = presentation.contentInset;
 
   return (
-    <div className={`relative ${className ?? ""}`}>
-      {presentation.layered ? (
+    <div className={`relative ${presentation.animeBorder ? animeStyles.animeHost : ""} ${className ?? ""}`}>
+      {presentation.animeBorder ? (
+        <AnimeBorderArtwork border={presentation.animeBorder} />
+      ) : presentation.layered ? (
         <>
           {presentation.glowStyle ? (
             <div

@@ -1,4 +1,6 @@
 "use client";
+
+import styles from "./CollectionSurfaces.module.css";
 import { useEffect, useState } from "react";
 type Entry = {
   id: string;
@@ -59,15 +61,15 @@ export function TransactionHistory({
     return () => controller.abort();
   }, [currency, previewMode, revision]);
   return (
-    <section className="court-panel" aria-label="Transaction history">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className={`${styles.surface} ${styles.ledger}`} data-collection-surface="ledger" aria-label="Transaction history">
+      <div className={styles.header}>
         <div>
           <p className="court-eyebrow">Your account</p>
           <h2 className="text-xl font-semibold text-amber-50">
             Transaction history
           </h2>
         </div>
-        <div className="flex gap-2">
+        <div className={styles.currencyTabs}>
           {["Coin", "PM"].map((c) => (
             <button
               className="court-button"
@@ -88,7 +90,7 @@ export function TransactionHistory({
         </div>
       </div>
       <p className="mt-2 text-sm text-zinc-400">
-        Your recent purchases and rewards, six at a time.
+        Every purchase. Every reward. Your account, recorded.
       </p>
       {previewMode ? (
         <p className="mt-4 text-sm text-amber-100">
@@ -114,13 +116,13 @@ export function TransactionHistory({
         </p>
       ) : (
         <>
-          <ol className="mt-4 divide-y divide-white/10">
+          <ol className={`${styles.ledgerList} divide-y divide-white/10`}>
             {entries
               .slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
               .map((e) => (
                 <li
                   key={e.id}
-                  className="flex justify-between gap-3 py-3 text-sm"
+                  className={`${styles.ledgerRow} flex justify-between gap-3 text-sm`}
                 >
                   <div>
                     <p className="capitalize text-zinc-100">
@@ -138,9 +140,7 @@ export function TransactionHistory({
                   </div>
                   <div className="text-right">
                     <p
-                      className={
-                        e.amount > 0 ? "text-emerald-200" : "text-rose-200"
-                      }
+                      className={`${styles.ledgerAmount} ${e.amount > 0 ? "text-emerald-200" : "text-rose-200"}`}
                     >
                       {e.amount > 0 ? "+" : ""}
                       {e.amount.toLocaleString()} {currency}

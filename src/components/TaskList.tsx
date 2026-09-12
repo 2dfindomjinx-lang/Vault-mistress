@@ -1,7 +1,10 @@
+import ui from "./TaskExperience.module.css";
+import { TaskExperienceCard, TaskProgress, TaskWaitDial, TaskInputSignal, taskExperienceState } from "./TaskExperience";
 import { normalizeWritingText as normalizeWritingPreview } from "@/lib/writing-comparison";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import {arrangeTaskCards} from "./task-layout";
 import { CourtGlyph, WritingLine } from "@/components/court/CourtVisuals";
 import { LevelDrainTransfer, type DrainVisualResult } from "@/components/court/LevelDrainTransfer";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -29,7 +32,6 @@ const MOVEMENT_STAGE_IMAGES = [
 ];
 const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.webp";
 const MOVEMENT_STROKE_DISTANCE_PX = 80;
-const LEVEL_DRAIN_IMAGE_PATH = "/pet/level-drain-principessa.webp?v=2";
 const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
 const CASE_OPEN_REEL_ITEM_WIDTH = 88;
 const CASE_OPEN_REEL_ITEM_GAP = 10;
@@ -100,12 +102,6 @@ function getMovementStageImage(progress: number) {
   return MOVEMENT_STAGE_IMAGES.find((image) => progress >= image.min)?.src ?? MOVEMENT_STAGE_IMAGES[0].src;
 }
 
-const TASK_VISUALS: Partial<Record<TaskItem["id"], { glyph: string; label: string }>> = {
-  "daily-login": { glyph: "♛", label: "Daily audience" },
-  "typing-accuracy": { glyph: "✒", label: "Precision trial" },
-  "number-pick": { glyph: "❖", label: "Three sealed numbers" },
-  "case-opening": { glyph: "▣", label: "Animated vault case" },
-};
 
 function getMovementLastResult(task: TaskItem) {
   if (task.movementOutcome === "success") {
@@ -682,8 +678,8 @@ export function TaskList({
   const isFreeFriday = isFreeFridayEventActive && isFreeFridaySpinAvailable;
 
   return (
-    <section className="court-feature-panel min-w-0 rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div className="court-section-heading" data-mark="III">
+    <section className={ui.list}>
+      <div className={ui.sectionHeading} data-mark="III">
         <div>
         <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">
           Daily rewards
@@ -692,91 +688,25 @@ export function TaskList({
         </div>
       </div>
 
-      <article className="level-drain-game-card court-feature-card court-grid-card court-grid-card--violet mt-5 overflow-hidden rounded-[1.5rem] border border-pink-200/15 bg-[radial-gradient(circle_at_85%_20%,rgba(236,72,153,0.22),transparent_34%),linear-gradient(145deg,rgba(88,28,135,0.32),rgba(0,0,0,0.42))] p-4 shadow-[0_0_30px_rgba(236,72,153,0.12)]">
-        <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.42fr)_minmax(0,1fr)] lg:items-stretch">
-              <div className="mx-auto flex w-full max-w-[18rem] flex-col gap-2">
-                <div className="relative aspect-[3/2] w-full overflow-hidden rounded-[1.25rem] border border-pink-200/20 bg-black/45">
-                  <Image
-                    alt="Level Drain Principessa"
-                    className="object-contain object-center opacity-90"
-                    fill
-                    sizes="280px"
-                    src={LEVEL_DRAIN_IMAGE_PATH}
-                    unoptimized
-                  />
-                </div>
-                <div className="rounded-2xl border border-pink-100/25 bg-black/55 px-3 py-2 text-center shadow-[0_0_18px_rgba(236,72,153,0.22)] backdrop-blur">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-pink-100/65">
-                    Principessa
-                  </p>
-                  <p className="text-base font-black text-white">Level {globalPrincipessaLevel}</p>
-                </div>
-              </div>
-          <div className="flex min-w-0 flex-col">
-            <p className="text-xs uppercase tracking-[0.24em] text-pink-200/70">
-              Level Drain
-            </p>
-            <h3 className="mt-1 text-xl font-black text-white">Strengthen Principessa</h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-300">
-              Sacrifice all current user XP at once. A quarter of the drained amount becomes Principessa XP.
-            </p>
-            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-sm font-semibold text-yellow-100">
-              Monthly reset in {formatRemaining(monthlyResetRemaining)}
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
-                <div className="flex items-center justify-between text-sm font-bold text-pink-50">
-                  <span>User Level {userLevel}</span>
-                  <span>
-                    {userXpRequiredForNext === null
-                      ? "MAX"
-                      : `${Math.floor(userXpIntoLevel).toLocaleString()} / ${userXpRequiredForNext.toLocaleString()} XP`}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
-                  <div className="level-drain-progress h-full rounded-full bg-[linear-gradient(90deg,#ec4899,#f9a8d4,#ec4899)]" style={{ width: `${userLevelProgressPercent}%` }} />
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
-                <div className="flex items-center justify-between text-sm font-bold text-fuchsia-50">
-                  <span>Principessa Level {globalPrincipessaLevel}</span>
-                  <span>
-                    {globalPrincipessaRequirement === null
-                      ? "MAX"
-                      : `${globalPrincipessaXp.toLocaleString()} / ${globalPrincipessaRequirement.toLocaleString()} XP`}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/70">
-                  <div className="level-drain-progress h-full rounded-full bg-[linear-gradient(90deg,#d946ef,#f5d0fe,#d946ef)]" style={{ width: `${globalPrincipessaProgressPercent}%` }} />
-                </div>
-              </div>
+      <TaskExperienceCard kind="level-drain" taskId="level-drain" title="Strengthen Principessa" state={drainVisual ? "complete" : isTaskActionPending("level-drain") ? "busy" : "ready"}>
+<div className={ui.strength}>
+          <div className={ui.strengthArt}><Image src="/principessa-ui/atelier/v4/strength_v4.webp" alt="Golden XP gathers in Principessa’s hand" fill sizes="(max-width:700px) 90vw, 38vw" unoptimized/><span>Yours, made hers.</span></div>
+          <div className={ui.strengthBody}>
+            <p className={ui.strengthLead}>Your devotion. Her power.</p>
+            <p className={ui.strengthDescription}>Give her all your current XP. She receives one quarter.</p>
+            <div className={ui.strengthTransfer}>
+              <div><small>Your level</small><strong>{userLevel}</strong><span>{userXpRequiredForNext === null ? "MAX" : Math.floor(userXpIntoLevel).toLocaleString()+" / "+userXpRequiredForNext.toLocaleString()+" XP"}</span><div className={ui.strengthMeter}><i style={{width:userLevelProgressPercent+"%"}}/></div></div>
+              <span className={ui.strengthArrow} aria-hidden="true">↗</span>
+              <div><small>Principessa’s level</small><strong>{globalPrincipessaLevel}</strong><span>{globalPrincipessaRequirement === null ? "MAX" : globalPrincipessaXp.toLocaleString()+" / "+globalPrincipessaRequirement.toLocaleString()+" XP"}</span><div className={ui.strengthMeter}><i style={{width:globalPrincipessaProgressPercent+"%"}}/></div></div>
             </div>
-            <div className="mt-4 flex justify-center">
-              <button
-                className="w-full max-w-sm rounded-xl border border-pink-200/25 bg-pink-500/15 px-5 py-2 text-xs font-black uppercase tracking-[0.16em] text-pink-50 transition enabled:hover:border-pink-200/55 enabled:hover:bg-pink-500/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-56"
-                disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")}
-                onClick={async () => {
-                  emitSoundEvent("button_click");
-                  setDrainVisual(null);
-                  const result = await onLevelDrain();
-                  if (result) setDrainVisual({...result,key:Date.now()});
-                }}
-                type="button"
-              >
-                {isTaskActionPending("level-drain")
-                  ? "Draining..."
-                  : userLevel < 2
-                    ? "Requires L2"
-                    : "Drain All Your XP"}
-              </button>
-            </div>
+            <div className={ui.strengthFooter}><button className={ui.strengthButton} disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")} onClick={async () => {emitSoundEvent("button_click");setDrainVisual(null);const result=await onLevelDrain();if(result)setDrainVisual({...result,key:Date.now()});}} type="button">{isTaskActionPending("level-drain") ? "Draining…" : userLevel < 2 ? "Requires Level 2" : "Give her all your XP"}<span aria-hidden="true">↗</span></button><span>Monthly reset <strong>{formatRemaining(monthlyResetRemaining)}</strong></span></div>
           </div>
         </div>
-        {drainVisual && <LevelDrainTransfer key={drainVisual.key} result={drainVisual}/>}
-      </article>
+{drainVisual && <LevelDrainTransfer key={drainVisual.key} result={drainVisual}/>}
+</TaskExperienceCard>
 
-      <div className="court-grid court-grid--tasks mt-5 grid gap-3 md:grid-cols-2">
-        {visibleTasks.map((task) => {
+      <div className={ui.grid}>
+        {arrangeTaskCards(visibleTasks).map((task) => {
           const isTimeoutRisk = task.kind === "timeout-risk";
           const cooldownRemaining = task.cooldownUntil
             ? new Date(task.cooldownUntil).getTime() - now
@@ -807,21 +737,12 @@ export function TaskList({
 
             return (
               <div
-                className="min-w-0 grid gap-3 md:col-span-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch"
+                className={ui.group}
                 key="risk-wheel-layout"
               >
-                <div className="flex min-h-full min-w-0 flex-col gap-3">
-          <article className="court-risk-card court-feature-card court-grid-card overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-black text-white">{task.title}</h3>
-                        <p className="mt-1 text-sm text-zinc-400">
-                          Reward: {task.reward} Principessa Coins
-                        </p>
-                      </div>
-                      {renderStatus(task, false)}
-                    </div>
-                    <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
+                <div className={ui.group}>
+          <TaskExperienceCard kind="timeout-risk" taskId={task.id} title={task.title} reward={<>{task.reward} Principessa Coins</>} status={renderStatus(task, false)} state={riskFlip === "spin" ? "active" : riskFlip === "safe" ? "won" : riskFlip === "timeout" ? "lost" : taskExperienceState(task, now, isTaskActionPending(task.id))}>
+<div className={ui.stage}>
                       <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-100/70">
@@ -850,7 +771,7 @@ export function TaskList({
                           </button>
                         </div>
                       </div>
-                      <RiskCoin state={riskFlip} />
+                      <div className={ui.riskArena} data-outcome={riskFlip}><div><strong>{Math.round((1 - timeoutRiskChance) * 100)}<small>%</small></strong><span>Win Coins</span></div><RiskCoin state={riskFlip} /><div><strong>{Math.round(timeoutRiskChance * 100)}<small>%</small></strong><span>Timeout</span></div></div>
                       <p className="text-sm leading-6 text-zinc-300">
                         Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
                         to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout,{" "}
@@ -920,30 +841,11 @@ export function TaskList({
                             : "Attempt Risk"}
                       </button>
                     </div>
-                  </article>
+</TaskExperienceCard>
 
                   {waitTask && (
-          <article className="court-feature-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="text-lg font-black text-white">{waitTask.title}</h3>
-                          <p className="mt-1 text-sm text-zinc-400">
-                            Reward: {waitTask.reward} Principessa Coins
-                          </p>
-                          {isWaitCoolingDown && (
-                            <p className="mt-2 text-sm font-semibold text-pink-100">
-                              Available again in {formatRemaining(waitCooldownRemaining)}
-                            </p>
-                          )}
-                          {disabled && (
-                            <p className="mt-2 text-sm font-semibold text-yellow-100">
-                              {disabledReason}
-                            </p>
-                          )}
-                        </div>
-                        {renderStatus(waitTask, isWaitCoolingDown)}
-                      </div>
-                      <WaitObedientlyPanel
+          <TaskExperienceCard kind="wait-obediently" taskId={waitTask.id} title={waitTask.title} reward={<>{waitTask.reward} Principessa Coins</>} status={renderStatus(waitTask, isWaitCoolingDown)} state={taskExperienceState(waitTask, now, isTaskActionPending(waitTask.id))} notice={<>{isWaitCoolingDown && <p>Available again in {formatRemaining(waitCooldownRemaining)}</p>}{disabled && <p>{disabledReason}</p>}</>}>
+<WaitObedientlyPanel
                         cooldownRemaining={waitCooldownRemaining}
                         formatRemaining={formatRemaining}
                         isCoolingDown={isWaitCoolingDown}
@@ -955,29 +857,13 @@ export function TaskList({
                         onStart={onWaitObedientlyStart}
                         task={waitTask}
                       />
-                    </article>
+</TaskExperienceCard>
                   )}
                 </div>
 
                 {irlTask && (
-          <article className="court-wheel-card court-feature-card court-grid-card flex min-h-full flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-black text-white">{irlTask.title}</h3>
-                        {isIrlCoolingDown && (
-                          <p className="mt-2 text-sm font-semibold text-pink-100">
-                            Available again in {formatRemaining(irlCooldownRemaining)}
-                          </p>
-                        )}
-                        {disabled && (
-                          <p className="mt-2 text-sm font-semibold text-yellow-100">
-                            {disabledReason}
-                          </p>
-                        )}
-                      </div>
-                      {renderStatus(irlTask, isIrlCoolingDown)}
-                    </div>
-                    <div className="mt-4 flex flex-1 flex-col rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+          <TaskExperienceCard kind="irl-wheel" taskId={irlTask.id} title={irlTask.title} status={renderStatus(irlTask, isIrlCoolingDown)} state={isIrlWheelSpinning ? "active" : taskExperienceState(irlTask, now, isTaskActionPending(irlTask.id))} notice={<>{isIrlCoolingDown && <p>Available again in {formatRemaining(irlCooldownRemaining)}</p>}{disabled && <p>{disabledReason}</p>}</>}>
+<div className={ui.stage}>
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <p className="text-sm leading-6 text-zinc-400">
                         {isFreeFridayEventActive
@@ -995,7 +881,7 @@ export function TaskList({
                           Task List
                         </button>
                       </div>
-                      <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
+                      <div className={ui.wheelStage}>
                         {showIrlTaskList ? (
                           <IrlTaskWheelTaskList
                             onClose={() => setShowIrlTaskList(false)}
@@ -1088,7 +974,7 @@ export function TaskList({
                               : `Spin — ${IRL_TASK_WHEEL_COST} Coins`}
                       </button>
                     </div>
-                  </article>
+</TaskExperienceCard>
                 )}
               </div>
             );
@@ -1099,64 +985,20 @@ export function TaskList({
           }
 
           return (
-            <article
-              className={`court-game-card court-grid-card rounded-[1.5rem] border border-white/10 bg-white/[0.045] p-4 ${
-                task.kind === "movement" &&
-                (movementLocalActive || task.movementState === "active" || task.movementState === "fake_hope")
-                  ? "md:col-span-2"
-                  : ""
-              }`}
-              key={task.id}
-            >
-              {TASK_VISUALS[task.id] && (
-                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#d7ad69]/15 bg-[linear-gradient(110deg,rgba(190,24,93,.14),rgba(0,0,0,.18))] px-3 py-2.5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d7ad69]/25 bg-black/35 text-xl text-[#efc880]">{TASK_VISUALS[task.id]?.glyph}</span>
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[.2em] text-[#d7ad69]/55">{TASK_VISUALS[task.id]?.label}</p>
-                    <p className="mt-0.5 text-xs text-pink-100/60">Principessa is watching your result.</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-black text-white">{task.title}</h3>
-                  {task.reward > 0 && (
-                    <p className="mt-1 text-sm text-zinc-400">
-                      {task.kind === "number-pick"
-                        ? "Reward: 100 Principessa Coins"
-                        : `Reward: ${task.reward} Principessa Coins`}
-                    </p>
-                  )}
-                  {isCoolingDown && (
-                    <p className="mt-2 text-sm font-semibold text-pink-100">
-                      Available again in {formatRemaining(cooldownRemaining)}
-                    </p>
-                  )}
-                  {disabled && !isTimeoutRisk && (
-                    <p className="mt-2 text-sm font-semibold text-yellow-100">
-                      {disabledReason}
-                    </p>
-                  )}
-                </div>
-                {renderStatus(task, isCoolingDown)}
-              </div>
-
-              {task.kind === "typing" && (
-                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+            <TaskExperienceCard key={task.id} kind={task.kind} taskId={task.id} title={task.title} reward={task.reward > 0 ? <>{task.kind === "number-pick" ? 100 : task.reward} Principessa Coins</> : undefined} status={renderStatus(task, isTimeoutRisk ? false : isCoolingDown)} state={task.kind === "case-open" && caseOpenPhase === "rolling" ? "active" : task.kind === "movement" && movementLocalActive ? "active" : taskExperienceState(task, now, isTaskActionPending(task.id))} wide={task.kind === "movement" && (movementLocalActive || task.movementState === "completed")} reaction={task.attemptsRemaining ?? task.lastResult ?? ""} notice={<>{isCoolingDown && <p>Available again in {formatRemaining(cooldownRemaining)}</p>}{disabled && <p>{disabledReason}</p>}</>}>
+{task.kind === "typing" && (
+                <div className={ui.stage}>
                   <p
-                    className="select-none text-sm leading-6 text-pink-50"
+                    className={ui.writingPrompt}
                     onContextMenu={(event) => event.preventDefault()}
                     onCopy={(event) => event.preventDefault()}
                     onCut={(event) => event.preventDefault()}
                   >
                     <WritingLine text={task.sentence ?? ""} value={typingValue} complete={task.completed}/>
                   </p>
-                  <p className="mt-2 text-lg" aria-label={`${task.attemptsRemaining ?? 3} attempts remaining`}>
-                    {"❤️".repeat(task.attemptsRemaining ?? 3)}
-                    {"♡".repeat(Math.max(0, 3 - (task.attemptsRemaining ?? 3)))}
-                  </p>
+                  <><TaskInputSignal count={task.attemptsRemaining ?? 3} total={3} label="Attempts left" /><TaskProgress value={typingValue.length} total={(task.sentence ?? "").length} label="Characters" /></>
                   <input
-                    className="mt-3 w-full rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-pink-300/60 disabled:cursor-not-allowed disabled:opacity-45"
+                    className={ui.writingInput + " px-4 py-3"}
                   disabled={disabled || isCoolingDown || task.completed || isTaskActionPending("typing-accuracy")}
                     onCopy={(event) => event.preventDefault()}
                     onCut={(event) => event.preventDefault()}
@@ -1201,13 +1043,12 @@ export function TaskList({
                   )}
                 </div>
               )}
-
-              {task.kind === "case-open" && (
-                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+{task.kind === "case-open" && (
+                <div className={ui.stage}>
                   <p className="text-sm leading-6 text-zinc-400">
                     Open a luxury case and let the vault roll a random coin reward.
                   </p>
-                  <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
+                  <div className={ui.reelWindow}>
                     <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
                       {caseOpenPhase === "rolling" ? "Rolling reward" : "Case contents"}
                     </p>
@@ -1220,7 +1061,7 @@ export function TaskList({
                         <div className="h-[4.75rem] w-px bg-gradient-to-b from-transparent via-pink-200/75 to-transparent" />
                       </div>
                       <div
-                        className="flex items-center gap-[10px]"
+                        className={ui.reelTrack + " flex items-center gap-[10px]"} data-rolling={caseOpenPhase === "rolling"}
                         style={{
                           paddingLeft: caseOpenTrackSidePadding,
                           paddingRight: caseOpenTrackSidePadding,
@@ -1315,13 +1156,12 @@ export function TaskList({
                   {caseOpenError ? <p role="alert" className="mt-3 rounded-xl border border-rose-300/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">{caseOpenError}</p> : null}
                 </div>
               )}
-
-              {task.kind === "number-pick" && (
-                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+{task.kind === "number-pick" && (
+                <div className={ui.stage}>
                   <p className="text-sm leading-6 text-zinc-400">
                     Pick the correct number in one try to win 100 Principessa Coins.
                   </p>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className={ui.numberTable}>
                     {(task.numberPickOptions ?? []).map((option) => {
                       const isSelected = task.numberPickSelected === option;
                       const isCorrect = task.numberPickCorrect === option;
@@ -1334,13 +1174,7 @@ export function TaskList({
                         <button
                           aria-disabled={isCoolingDown || undefined}
                           data-selected={isSelected}
-                          className={`court-number-choice rounded-2xl border px-4 py-5 text-2xl font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                            hasResult && isCorrect
-                              ? "border-emerald-200/50 bg-emerald-400/15 text-emerald-100"
-                              : isWrongSelection || (hasResult && isSelected)
-                                ? "border-rose-200/45 bg-rose-400/15 text-rose-100"
-                                : "border-pink-200/20 bg-pink-500/10 text-pink-50 enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20"
-                          } ${isCoolingDown ? CLICKABLE_COOLDOWN_TILE_CLASS : ""}`}
+                          className={ui.numberChoice + (isCoolingDown ? " " + CLICKABLE_COOLDOWN_TILE_CLASS : "")}
                           disabled={disabled || isTaskActionPending("number-pick") || hasResult || isWrongSelection}
                           key={option}
                           onClick={() => {
@@ -1353,7 +1187,7 @@ export function TaskList({
                             onNumberPick(option);
                           }}
                           type="button"
-                        >
+                         data-result={hasResult && isCorrect ? "win" : isWrongSelection || (hasResult && isSelected) ? "loss" : "ready"}><small>SEALED NUMBER</small>
                           <span className={hasResult ? "court-number-reveal block" : "block"} key={String(hasResult)}>{option}</span>
                         </button>
                       );
@@ -1375,8 +1209,7 @@ export function TaskList({
                     )}
                 </div>
               )}
-
-              {task.kind === "wait-obediently" && (
+{task.kind === "wait-obediently" && (
                 <WaitObedientlyPanel
                   cooldownRemaining={cooldownRemaining}
                   formatRemaining={formatRemaining}
@@ -1390,8 +1223,7 @@ export function TaskList({
                   task={task}
                 />
               )}
-
-              {task.kind === "movement" && (
+{task.kind === "movement" && (
                 (() => {
                   const currentMovementProgress = Math.min(
                     100,
@@ -1421,7 +1253,7 @@ export function TaskList({
 
                   return (
                     <div
-                      className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3"
+                      className={ui.stage}
                       onMouseLeave={resetMovementPointer}
                       onPointerDown={(event) => {
                         if (movementInputActive) {
@@ -1449,10 +1281,10 @@ export function TaskList({
                       style={{ touchAction: movementInputActive ? "none" : "auto" }}
                     >
                       {!movementActive && !completeRevealVisible && (
-                        <p className="text-sm leading-6 text-zinc-400">
+                        <><div className={ui.motionIdle}><span aria-hidden="true">↕</span><small>QUICK, VERTICAL MOVEMENTS</small></div><p className="text-sm leading-6 text-zinc-400">
                           Press Start, then use quick medium-length vertical movements. Slow or tiny
                           movements do not count.
-                        </p>
+                        </p></>
                       )}
                       {(movementActive || completeRevealVisible) && (
                         <>
@@ -1467,16 +1299,9 @@ export function TaskList({
                             />
                           </div>
                           {movementActive && (
-                            <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-400/10 px-3 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-yellow-100">
-                              No movement fail in {inactivityRemaining}s
-                            </div>
+                            <div className={ui.motionHud}><div><p>KEEP THE RHYTHM</p><strong>{Math.round(currentMovementProgress)}<small>%</small></strong></div><div><p>INACTIVITY LIMIT</p><strong>{inactivityRemaining}<small>s</small></strong></div></div>
                           )}
-                          <div className="mt-3 h-4 overflow-hidden rounded-full border border-pink-200/15 bg-black/55">
-                            <div
-                              className="h-full rounded-full bg-pink-400 transition-all"
-                              style={{ width: `${currentMovementProgress}%` }}
-                            />
-                          </div>
+                          <TaskProgress value={Math.round(currentMovementProgress)} total={100} label="Motion" state={task.movementState ?? "ready"} />
                           <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-pink-100/70">
                             {task.movementState === "fake_hope"
                               ? "So close. Keep going."
@@ -1533,10 +1358,9 @@ export function TaskList({
                   );
                 })()
               )}
-
-              {task.kind === "timeout-risk" && (
-                <div className="mt-4 rounded-2xl border border-yellow-200/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(236,72,153,0.08),rgba(0,0,0,0.4))] p-3">
-                  <RiskCoin state={riskFlip} />
+{task.kind === "timeout-risk" && (
+                <div className={ui.stage}>
+                  <div className={ui.riskArena} data-outcome={riskFlip}><div><strong>{Math.round((1 - timeoutRiskChance) * 100)}<small>%</small></strong><span>Win Coins</span></div><RiskCoin state={riskFlip} /><div><strong>{Math.round(timeoutRiskChance * 100)}<small>%</small></strong><span>Timeout</span></div></div>
                   <p className="text-sm leading-6 text-zinc-300">
                     Risk is chance-based: {Math.round(timeoutRiskChance * 100)}% chance
                     to receive {timeoutRiskTimeoutHours * (task.timeoutRiskMultiplier ?? 1)} hours timeout, {Math.round((1 - timeoutRiskChance) * 100)}%
@@ -1605,9 +1429,8 @@ export function TaskList({
                   </button>
                 </div>
               )}
-
-              {task.kind === "irl-wheel" && (
-                <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+{task.kind === "irl-wheel" && (
+                <div className={ui.stage}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <p className="text-sm leading-6 text-zinc-400">
                       {isFreeFriday
@@ -1625,7 +1448,7 @@ export function TaskList({
                       Task List
                     </button>
                   </div>
-                  <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.14),rgba(0,0,0,0.5))] p-4">
+                  <div className={ui.wheelStage}>
                     {showIrlTaskList ? (
                       <IrlTaskWheelTaskList
                         onClose={() => setShowIrlTaskList(false)}
@@ -1716,9 +1539,8 @@ export function TaskList({
                   </button>
                 </div>
               )}
-
-              {task.kind === "claim" && (
-                <button
+{task.kind === "claim" && (
+                <div className={ui.claimStage}><span aria-hidden="true">P</span><p>{task.claimed ? "Your daily audience is recorded." : "A place in her court, every day."}</p><footer className={ui.action}><button
                   aria-disabled={isCoolingDown || undefined}
                   className={`mt-4 w-full rounded-2xl border border-pink-200/20 bg-pink-500/10 px-4 py-3 text-sm font-bold text-pink-50 transition enabled:hover:border-pink-300/60 enabled:hover:bg-pink-500/20 disabled:cursor-not-allowed disabled:opacity-40 ${
                     isCoolingDown ? CLICKABLE_COOLDOWN_BUTTON_CLASS : ""
@@ -1740,9 +1562,9 @@ export function TaskList({
                   ) : task.claimed
                       ? <><span className="court-claim-seal"><CourtGlyph symbol="seal"/></span>Reward Claimed</>
                       : "Claim Reward"}
-                </button>
+                </button></footer></div>
               )}
-            </article>
+</TaskExperienceCard>
           );
         })}
       </div>
@@ -1856,8 +1678,8 @@ function WheelSpinner({
               }`}
               key={index}
               style={{
-                left: `${50 + 39 * Math.sin(radians)}%`,
-                top: `${50 - 39 * Math.cos(radians)}%`,
+                left: `${50 + 43 * Math.sin(radians)}%`,
+                top: `${50 - 43 * Math.cos(radians)}%`,
                 transform: `translate(-50%, -50%) rotate(${-displayRotation}deg)`,
                 transition: "transform 3600ms ease-out",
               }}
@@ -2117,11 +1939,11 @@ function WaitObedientlyPanel({
   const displayPhase = isCoolingDown && phase === "ready" ? "cooldown" : phase;
 
   return (
-    <div className="mt-4 rounded-2xl border border-pink-200/15 bg-black/35 p-3">
+    <div className={ui.stage}>
       <p className="text-sm leading-6 text-zinc-400">
         Press Ready, survive a 3 second countdown, then avoid every input for 1 minute.
       </p>
-      <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-3">
+      <TaskWaitDial seconds={phase === "countdown" ? countdown : waitRemaining} total={60} state={displayPhase} /><div className={ui.waitStatus}>
         <p className="text-xs uppercase tracking-[0.2em] text-fuchsia-200/70">
           State
         </p>
@@ -2191,4 +2013,3 @@ function WaitObedientlyPanel({
     </div>
   );
 }
-

@@ -1,3 +1,5 @@
+import { animeMangaRotatingBorders } from "@/lib/anime-border-cosmetics";
+import { isWorldCupBorder } from "@/lib/world-cup-farewell";
 import type { AddressTerm } from "@/lib/address-term";
 import { LEADERSHIP_RANKS } from "@/lib/leadership";
 import {
@@ -35,6 +37,8 @@ export type CosmeticItem = {
   glow?: string;
   borderPalette?: [string, string, string?];
   borderStyle?: ProfileBorderStyle;
+  collection?: string;
+  series?: string;
   backgroundPath?: string | null;
   backgroundOverlayPath?: string | null;
   backgroundFallback?: string;
@@ -580,14 +584,15 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     price: 7000,
     color: "#a855f7",
   },
-  ...footballInspiredRotatingBorders,
+  ...footballInspiredRotatingBorders.filter((item) => !isWorldCupBorder(item.id)),
+  ...animeMangaRotatingBorders,
   {
     id: "username-color-rotating-sunset",
     name: "Sunset Name",
-    description: "A warm coral-gold username reserved for the rotating vault.",
+    description: "A warm rose-gold username reserved for the rotating vault.",
     type: "username-color",
     price: 5000,
-    color: "#fb7185",
+    color: "#e8b07d",
   },
   {
     id: "username-color-rotating-lagoon",
@@ -603,15 +608,15 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     description: "A hot orange halo for public recognition.",
     type: "username-glow",
     price: 5000,
-    glow: "0 0 22px rgba(251,146,60,0.95)",
+    glow: "0 0 2px #ffddbc, 0 0 8px #f97316, 0 0 17px #c2410c",
   },
   {
     id: "username-glow-rotating-aurora",
     name: "Aurora Glow",
-    description: "A shifting mint-cyan glow that reads instantly on public cards.",
+    description: "A layered mint-cyan glow that reads instantly on public cards.",
     type: "username-glow",
     price: 3000,
-    glow: "0 0 22px rgba(45,212,191,0.95)",
+    glow: "0 0 2px #c4fff1, 0 -2px 8px #2dd4bf, 0 2px 15px #3b82f6",
   },
   {
     id: "username-glow-rotating-frostline",
@@ -619,12 +624,12 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     description: "A cold silver-blue highlight for polished prestige.",
     type: "username-glow",
     price: 3000,
-    glow: "0 0 22px rgba(186,230,253,0.95)",
+    glow: "0 0 1px #ffffff, 0 0 6px #dbeafe, 0 0 13px #7dd3fc",
   },
   {
     id: "username-color-event-summer-2026",
     name: "Summer Support Name",
-    description: "A summer-limited coral shimmer available only during the seasonal rotation.",
+    description: "A vivid coral-orange name from the Summer collection.",
     type: "username-color",
     price: 7000,
     color: "#f97316",
@@ -635,12 +640,13 @@ export const rotatingCosmeticItems: CosmeticItem[] = [
     description: "A seasonal rotating glow with bright amber heat.",
     type: "username-glow",
     price: 3000,
-    glow: "0 0 24px rgba(251,191,36,0.95)",
+    glow: "0 0 2px #fff1be, 0 0 7px #fbbf24, 0 2px 15px #ea580c",
   },
   ...rotatingProfileFrameCosmeticItems,
 ];
 
-export const cosmeticItems: CosmeticItem[] = [...permanentCosmeticItems, ...rotatingCosmeticItems];
+export const worldCupFarewellBorders: CosmeticItem[] = footballInspiredRotatingBorders.filter((item) => isWorldCupBorder(item.id));
+export const cosmeticItems: CosmeticItem[] = [...permanentCosmeticItems, ...rotatingCosmeticItems, ...worldCupFarewellBorders];
 
 export const titleItems: TitleItem[] = [
   ...LEADERSHIP_RANKS.map((rank) => ({

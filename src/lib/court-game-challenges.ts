@@ -190,7 +190,7 @@ function drawSaysRounds(random: () => number) {
   );
 }
 
-export const CROWN_SYMBOLS = ["♛", "♦", "♥", "✦", "⚜", "◈"] as const;
+export const CROWN_SYMBOLS = ["♛", "♦", "♥", "✦", "⚜", "◈", "lock", "coin", "pet"] as const;
 type GuardTarget = { glyph: string; label: string; threat: boolean };
 const GUARD_THREATS: readonly GuardTarget[] = [
   { glyph: "☠", label: "Intruder", threat: true },
@@ -287,8 +287,8 @@ export function verifyCourtActions(
         score++;
       } else if (++mistakes >= CROWN_MATCH_MAX_MISTAKES) return null;
     }
-    if (score !== 6) return null;
-    return { score, mistakes, roundsCompleted: 6 };
+    if (score !== CROWN_SYMBOLS.length) return null;
+    return { score, mistakes, roundsCompleted: CROWN_SYMBOLS.length };
   }
   const rounds =
     gameId === "principessa-says" ? challenge.says : challenge.targets;

@@ -1823,7 +1823,7 @@ export default function AdminPage() {
   }>;
   if (isCheckingAdmin) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06030a] px-4 text-pink-100">
+      <main className="court-admin flex min-h-screen items-center justify-center bg-[#06030a] px-4 text-pink-100">
         <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5 shadow-[0_0_44px_rgba(236,72,153,0.16)]">
           Checking admin access...
         </div>
@@ -1833,7 +1833,7 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
+      <main className="court-admin min-h-screen bg-[#06030a] px-4 py-8 text-white">
         <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
         <section className="relative mx-auto max-w-2xl rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
@@ -1860,7 +1860,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#08070b] px-3 py-4 text-white sm:px-5 lg:px-6">
+    <main className="court-admin min-h-screen bg-[#08070b] px-3 py-4 text-white sm:px-5 lg:px-6">
       <section className="mx-auto max-w-[94rem] rounded-xl border border-white/10 bg-[#0d0a12] shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
         <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">

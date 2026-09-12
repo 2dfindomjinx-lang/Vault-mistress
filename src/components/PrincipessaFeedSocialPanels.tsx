@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import styles from "./StandaloneSurfaces.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 
@@ -8,7 +9,7 @@ type PublicIdentity = { displayName: string | null; userId: string; username: st
 type SearchPost = { author: PublicIdentity | null; channel: string; createdAt: string; description: string; id: string; postType: string; title: string };
 type DirectMessage = { body: string; createdAt: string; id: string; mine: boolean; other: PublicIdentity | null; otherId: string; readAt: string | null };
 type Achievement = { data: Record<string, unknown>; description: string; key: string; shared: boolean; title: string };
-type SocialView = "achievements" | "approvals" | "messages" | "notifications" | "search";
+type SocialView = "achievements" | "approvals" | "home" | "messages" | "notifications" | "profile" | "search";
 
 async function json<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null) as (T & { error?: string }) | null;
@@ -145,10 +146,11 @@ export function PrincipessaFeedAchievementsPage({ isLoggedIn }: { isLoggedIn: bo
 
 export function PrincipessaFeedSocialPanels({ activeView, isAdmin = false, isLoggedIn }: { activeView: string; isAdmin?: boolean; isLoggedIn: boolean }) {
   const links: Array<{ adminOnly?: boolean; href: string; icon: string; label: string; view: SocialView }> = [
+    ...([]),
     { adminOnly: true, href: "/principessa-feed/approvals", icon: "✓", label: "Post Approvals", view: "approvals" },
     { href: "/principessa-feed/search", icon: "⌕", label: "Search", view: "search" },
     { href: "/principessa-feed/messages", icon: "✉", label: "Direct Messages", view: "messages" },
     { href: "/principessa-feed/achievements", icon: "◇", label: "Share Achievement", view: "achievements" },
   ];
-  return <nav className="mt-2 flex gap-2 overflow-x-auto pb-1 lg:grid lg:gap-1 lg:overflow-visible lg:pb-0">{links.filter((link) => (!link.adminOnly || isAdmin) && (isLoggedIn || link.view === "search")).map((link) => <Link className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-left text-xs font-black transition lg:rounded-2xl lg:py-3 lg:text-sm ${activeView === link.view ? "border border-[#f4c06a]/20 bg-pink-500/10 text-[#ffe5b8]" : link.adminOnly ? "border border-amber-300/10 text-amber-200/70 hover:bg-amber-400/10 hover:text-amber-100" : "text-zinc-500 hover:bg-white/5 hover:text-white"}`} href={link.href} key={link.view}>{link.icon}&nbsp;&nbsp; {link.label}</Link>)}</nav>;
+  return <nav aria-label="Feed pages" className={styles.socialNav}>{links.filter((link) => ((!link.adminOnly || isAdmin) && (isLoggedIn || link.view === "search"))).map((link) => <Link aria-current={activeView === link.view ? "page" : undefined} href={link.href} key={link.view}><span aria-hidden="true">{link.icon}</span>{link.label}</Link>)}</nav>;
 }

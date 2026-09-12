@@ -1,6 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import styles from "./ExperienceSurfaces.module.css";
+import c from "./CasinoExperience.module.css";
+import { CasinoMetric } from "./CasinoTableFrame";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
@@ -86,72 +89,18 @@ function WheelFace({
     })
     .join(", ");
 
-  return (
-    <div className="relative mx-auto aspect-square w-full max-w-60 shrink-0">
-      {/* Pointer */}
-      <div
-        aria-hidden
-        data-spinning={spinning} className="court-wheel-pointer absolute left-1/2 top-[-6px] z-10 h-0 w-0 -translate-x-1/2 border-x-[10px] border-t-[16px] border-x-transparent"
-        style={{ borderTopColor: accent, filter: `drop-shadow(0 2px 6px ${accent}88)` }}
-      />
-      <div
-        data-material={material} className="court-wheel-body relative h-full w-full rounded-full border-4"
-        style={{
-          background: `conic-gradient(${gradient})`,
-          borderColor: `${accent}66`,
-          boxShadow: `0 0 48px ${accent}44, 0 0 90px ${accent}18, inset 0 0 42px rgba(0,0,0,.68)`,
-          transform: `rotate(${rotation}deg)`,
-          transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none",
-        }}
-      >
-        <svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">
-          {labels.map((label, index) => {
-            const angle = index * slice + slice / 2 - 90;
-            const radians = angle * Math.PI / 180;
-            const x = 120 + 82 * Math.cos(radians);
-            const y = 120 + 82 * Math.sin(radians);
-            return <text key={index} x={x} y={y} transform={`rotate(${angle} ${x} ${y})`} textAnchor="middle" dominantBaseline="central" fill="rgba(255,255,255,.9)" fontSize="7" fontWeight="900">{label}</text>;
-          })}
-        </svg>
-        <span
-          aria-hidden
-          className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-black/85"
-          style={{ borderColor: `${accent}77` }}
-        />
-      </div>
-    </div>
-  );
+  return <div className={c.wheelFace}><span aria-hidden="true" className={c.wheelPointer} data-spinning={spinning} /><div className={c.wheelBody} data-material={material} style={{background:`conic-gradient(${gradient})`,transform:`rotate(${rotation}deg)`,transition:spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none"}}><svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">{labels.map((label,index) => {const angle=index*slice+slice/2-90;const radians=angle*Math.PI/180;const x=120+108*Math.cos(radians),y=120+108*Math.sin(radians);return <text dominantBaseline="central" fill="#f0dceb" fontSize="7" fontWeight="600" key={index} textAnchor="end" transform={`rotate(${angle} ${x} ${y})`} x={x} y={y}>{label}</text>;})}</svg></div><span aria-hidden="true" className={c.wheelHub}><CourtGlyph symbol={material === "chastity" ? "lock" : "crown"} /></span></div>;
 }
 
 function SendButton({ href }: { href: string }) {
   return (
     <a
-      className="vm-send-button relative inline-flex items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(100deg,#9d174d,#db2777_55%,#e6ba73)] px-10 py-3.5 text-sm font-black uppercase tracking-[0.24em] text-white"
+      className={styles.sendAction}
       href={href}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <style>{`
-        @keyframes vm-send-pulse {
-          0%, 100% { box-shadow: 0 0 18px rgba(219,39,119,.35); transform: scale(1); }
-          50%      { box-shadow: 0 0 34px rgba(230,186,115,.55); transform: scale(1.03); }
-        }
-        @keyframes vm-send-sheen {
-          0%, 60% { transform: translateX(-130%) skewX(-18deg); }
-          100%    { transform: translateX(230%) skewX(-18deg); }
-        }
-        .vm-send-button { animation: vm-send-pulse 2.2s ease-in-out infinite; }
-        .vm-send-button::after {
-          content: ""; position: absolute; top: 0; bottom: 0; width: 40%;
-          background: linear-gradient(105deg, transparent, rgba(255,255,255,.35), transparent);
-          animation: vm-send-sheen 2.8s ease-in-out infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .vm-send-button { animation: none; }
-          .vm-send-button::after { animation: none; display: none; }
-        }
-      `}</style>
-      SEND
+      Send through Throne ↗
     </a>
   );
 }
@@ -173,7 +122,7 @@ function DebtPanel({
   const remaining = Math.max(0, spin.amountOwedUsd - spin.amountPaidUsd);
 
   return (
-    <section className="rounded-[1.75rem] border border-rose-300/25 bg-[radial-gradient(circle_at_50%_0%,rgba(190,24,93,.2),transparent_55%),linear-gradient(160deg,rgba(30,8,18,.96),rgba(6,3,5,.99))] p-5">
+    <section className={c.orderPanel}>
       <p className="text-[9px] font-black uppercase tracking-[0.3em] text-rose-200/60">Outstanding order</p>
       <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">
         {spin.segmentLabel} — ${spin.amountOwedUsd.toLocaleString()}
@@ -183,7 +132,7 @@ function DebtPanel({
         {spin.amountPaidUsd > 0 ? ` $${spin.amountPaidUsd.toLocaleString()} received — $${remaining.toLocaleString()} to go.` : ""}
       </p>
 
-      <div className="mt-4 flex items-center gap-2 rounded-xl border border-pink-300/20 bg-pink-950/30 p-2">
+      <div className={c.paymentCode}>
         <code className="min-w-0 flex-1 text-center text-base font-black tracking-[0.22em] text-pink-100">
           {spin.payCode}
         </code>
@@ -366,15 +315,19 @@ export function FindomWheels({
   const activeBlocked = !activeIsChastity && Boolean(unpaid);
   const activeIsSpinning = spinningWheel === selectedWheel;
 
+
+
+  const viewSpinning = activeIsSpinning;
+
   return (
-    <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-fuchsia-300/25 bg-[radial-gradient(circle_at_15%_0%,rgba(236,72,153,.34),transparent_35%),radial-gradient(circle_at_90%_20%,rgba(124,58,237,.25),transparent_30%),linear-gradient(145deg,rgba(27,5,22,.98),rgba(5,2,10,.98))] p-5 shadow-[0_24px_80px_rgba(90,8,66,.28)]">
+    <section className={`${styles.surface} ${styles.wheels}`} id="verdict-wheels">
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-pink-300/80 to-transparent" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Her wheels</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-[#fff0d2]">Findom Wheels</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-            A spin costs Principessa Money. Where it lands is not a prize — it is what you owe her.
+            Pay to spin. The result is an obligation: Money owed or time locked.
           </p>
         </div>
         {status ? (
@@ -403,7 +356,7 @@ export function FindomWheels({
               />
             ) : null
           ) : (
-            <section className="rounded-[1.75rem] border border-violet-300/25 bg-violet-950/30 p-5 text-center">
+            <section className={c.orderPanel}>
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-violet-200/60">The wheel decided</p>
               <div className="mx-auto mb-3 h-12 w-12 text-violet-200"><CourtGlyph symbol="lock"/></div><h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">+{result.segment.amount}h locked</h3>
               <p className="mt-2 text-xs text-zinc-500">Added to your counter. It does not negotiate.</p>
@@ -416,105 +369,19 @@ export function FindomWheels({
         </div>
       ) : null}
 
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-[.28em] text-pink-100/65">Choose her verdict</p>
-        <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/30">Exact odds shown below</p>
-      </div>
+      <div className={c.wheelTabs}>{WHEEL_IDS.map(wheelId => {const wheel=WHEELS[wheelId];return <button aria-pressed={selectedWheel === wheelId} disabled={spinningWheel !== null} key={wheelId} onClick={() => {setSelectedWheel(wheelId);}} type="button"><small>{WHEEL_CARD_META[wheelId].tag}</small><strong>{wheel.title}</strong><span>{wheel.spinCostPm} PM per spin</span></button>;})}</div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {WHEEL_IDS.map((wheelId) => {
-          const wheel = WHEELS[wheelId];
-          const meta = WHEEL_CARD_META[wheelId];
-          const selected = selectedWheel === wheelId;
-          return (
-            <button
-              aria-pressed={selected}
-              className={`group relative h-52 overflow-hidden rounded-[1.45rem] border text-left transition duration-300 ${selected ? "shadow-[0_18px_55px_rgba(236,72,153,.22)]" : "border-white/15 hover:-translate-y-1 hover:border-pink-200/45"}`}
-              disabled={spinningWheel !== null}
-              key={wheelId}
-              onClick={() => setSelectedWheel(wheelId)}
-              style={selected ? { borderColor: `${wheel.accent}bb`, boxShadow: `0 18px 55px ${wheel.accent}22` } : undefined}
-              type="button"
-            >
-              <Image
-                alt=""
-                aria-hidden
-                className="object-cover transition duration-700 group-hover:scale-[1.04]"
-                fill
-                quality={75}
-                sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                src="/gamble/principessa-wheel-chamber.webp"
-                style={{ objectPosition: WHEEL_IMAGE_POSITION }}
-              />
-              <span className="absolute inset-0 bg-[linear-gradient(0deg,rgba(5,2,8,.98),rgba(7,2,10,.62)_44%,transparent_83%)]" />
-              <span className="absolute left-4 top-4 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em] text-white/75 backdrop-blur">{meta.tag}</span>
-              <span className="absolute right-4 top-4 rounded-full border bg-black/55 px-2.5 py-1 text-[9px] font-black backdrop-blur" style={{ borderColor: `${wheel.accent}55`, color: wheel.accent }}>{wheel.spinCostPm} PM</span>
-              <span className="absolute inset-x-4 bottom-4">
-                <span className="text-[8px] font-black uppercase tracking-[.24em] text-white/55">{meta.kicker}</span>
-                <span className="mt-1 flex items-end justify-between gap-3">
-                  <span className="font-serif text-2xl font-semibold text-white">{wheel.title}</span>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white/80">↘</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <article className="mt-5 overflow-hidden rounded-[1.8rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,.07),rgba(0,0,0,.28))] shadow-[0_24px_70px_rgba(0,0,0,.35)]">
-        <div className="grid lg:grid-cols-[minmax(0,.9fr)_minmax(22rem,1.1fr)]">
-          <div className="relative h-80 overflow-hidden border-b border-white/10 sm:h-96 lg:h-[30rem] lg:border-b-0 lg:border-r">
-            <Image
-              alt={`${activeWheel.title} presented by Principessa`}
-              className="object-cover"
-              fill
-              quality={75}
-              sizes="(min-width: 1024px) 40vw, 100vw"
-              src="/gamble/principessa-wheel-chamber.webp"
-              style={{ objectPosition: WHEEL_IMAGE_POSITION }}
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(6,2,9,.96),rgba(7,2,10,.28)_72%),linear-gradient(90deg,rgba(6,2,9,.42),transparent)]" />
-            <div className="absolute inset-x-6 bottom-6">
-              <p className="text-[9px] font-black uppercase tracking-[.3em]" style={{ color: activeWheel.accent }}>{WHEEL_CARD_META[selectedWheel].kicker}</p>
-              <h3 className="mt-2 font-serif text-4xl font-semibold text-white">{activeWheel.title}</h3>
-              <p className="mt-2 max-w-lg text-sm leading-6 text-white/60">{activeWheel.blurb}</p>
-            </div>
-          </div>
-
-          <div className="p-5 sm:p-7">
-            <WheelFace
-              material={selectedWheel}
-              accent={activeWheel.accent}
-              labels={activeVisualSlices.map((segment) => activeWheel.kind === "money" ? `$${segment.amount}` : segment.label)}
-              rotation={rotations[selectedWheel] ?? 0}
-              spinning={activeIsSpinning}
-            />
-
-            <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-              {activeWheel.segments.map((segment) => (
-                <span className="rounded-full border border-white/10 bg-black/35 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.08em] text-white/60" key={`${selectedWheel}-${segment.label}`}>
-                  {activeWheel.kind === "money" ? `$${segment.amount}` : segment.label} · {Math.round((segment.weight / activeTotalWeight) * 100)}%
-                </span>
-              ))}
-            </div>
-
-            {activeIsChastity ? (
-              <div className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-950/25 px-3 py-2.5 text-center">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-200/60">Your lock</p>
-                {chastityRemaining ? <p className="mt-1 font-serif text-xl tabular-nums text-violet-100">{chastityRemaining}</p> : <p className="mt-1 text-sm font-black text-emerald-200">You are free. For now.</p>}
-              </div>
-            ) : null}
-
-            <button
-              className="mt-4 w-full rounded-2xl border border-pink-200/25 bg-[linear-gradient(100deg,rgba(219,39,119,.28),rgba(124,58,237,.22))] px-4 py-3.5 text-sm font-black text-pink-50 transition enabled:hover:border-pink-200/60 enabled:hover:shadow-[0_0_28px_rgba(236,72,153,.2)] disabled:cursor-not-allowed disabled:opacity-45"
-              disabled={disabled || activeIsSpinning || spinningWheel !== null || activeBlocked || !status}
-              onClick={() => void spin(selectedWheel)}
-              type="button"
-            >
-              {activeIsSpinning ? "Spinning..." : activeBlocked ? "Pay your debt first" : `Spin ${activeWheel.title} — ${activeWheel.spinCostPm} PM`}
-            </button>
-          </div>
+      <article className={c.wheelChamber} data-phase={viewSpinning ? "spinning" : "ready"}>
+        <div className={c.wheelPlay}><Image alt="" aria-hidden="true" className={c.wheelPortrait} height={600} src="/gamble/principessa-wheel-chamber.webp" style={{objectPosition:WHEEL_IMAGE_POSITION}} width={400} /><div className={c.stageLabel}><span>{WHEEL_CARD_META[selectedWheel].kicker}</span><span className={c.phase}><i />{viewSpinning ? "The verdict is turning" : "Her wheel awaits"}</span></div>
+          <WheelFace accent={activeWheel.accent} labels={activeVisualSlices.map(segment => activeWheel.kind === "money" ? `$${segment.amount}` : segment.label)} material={selectedWheel} rotation={rotations[selectedWheel] ?? 0} spinning={viewSpinning} />
+          <div aria-live="polite" className={c.wheelOutcome}>{activeIsSpinning ? "Wait for her final word." : result?.wheelId === selectedWheel ? <>The wheel decided<strong>{result.segment.label}</strong></> : "A fixed pointer. Her final decision."}</div>
         </div>
+        <aside className={c.controls}><div><p className={c.controlTitle}>Her verdict wheel</p><h3 className={c.wheelControlTitle} style={{marginTop:10}}>{activeWheel.title}</h3></div><CasinoMetric label="Price per spin" value={activeWheel.spinCostPm+" PM"} detail={activeIsChastity ? "Result adds hours to your lock" : "Result becomes an order to pay"} /><p className={c.controlCopy}>{activeWheel.blurb}</p>
+          <details className={c.oddsDisclosure}><summary>View every outcome & chance</summary><div className={c.wheelOdds}>{activeWheel.segments.map(segment => <span key={selectedWheel+segment.label}>{activeWheel.kind === "money" ? `$${segment.amount}` : segment.label}<small>{Math.round(segment.weight/activeTotalWeight*100)}%</small></span>)}</div></details>
+          {activeIsChastity ? <CasinoMetric label="Your lock" value={chastityRemaining ?? "Free for now"} /> : null}
+          <button className={c.action} disabled={disabled || activeIsSpinning || spinningWheel !== null || activeBlocked || !status} onClick={() => void spin(selectedWheel)} type="button">{activeIsSpinning ? "Spinning…" : activeBlocked ? "Pay your debt first" : `Spin · ${activeWheel.spinCostPm} PM`}</button>
+
+        </aside>
       </article>
 
       {status?.debtors?.length ? (

@@ -79,7 +79,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
   const latestCursorRef = useRef<string | null>(null);
   const deletionCursorRef = useRef<string | null>(null);
   const catchupTimerRef = useRef<number | null>(null);
-  const loadingRef = useRef(false);
+  const readRequestRef = useRef<AbortController | null>(null);
   const followLatestRef = useRef(true);
   const prependAnchorRef = useRef<{ height: number; top: number } | null>(null);
 
@@ -91,8 +91,9 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
   }, []);
 
   const loadMessages = async (older = false) => {
-    if (loadingRef.current || (older && !historyCursorRef.current)) return;
-    loadingRef.current = true;
+    if (readRequestRef.current || guestMode || !isOpen || document.visibilityState === "hidden" || (older && !historyCursorRef.current)) return;
+    const controller = new AbortController();
+    readRequestRef.current = controller;
     if (older) setIsLoadingHistory(true);
     else setIsLoadingMessages(true);
     try {
@@ -101,8 +102,9 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
       if (older) params.set("before", historyCursorRef.current!);
       else if (latestCursorRef.current) params.set("after", latestCursorRef.current);
       if (!older && deletionCursorRef.current) params.set("deletedAfter", deletionCursorRef.current);
-      const response = await fetch(`/api/live-chat?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/live-chat?${params}`, { cache: "no-store", signal: controller.signal });
       const payload = (await response.json()) as LiveChatResponse & { error?: string };
+      if (controller.signal.aborted) return;
 
       if (!response.ok) {
         throw new Error(payload.error ?? "Live Chat could not be loaded.");
@@ -138,21 +140,27 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
       // Catch up in ascending pages so a busy conversation never creates gaps.
       if (!older && ((!initial && payload.hasMore) || payload.hasMoreDeletions)) catchupTimerRef.current = window.setTimeout(() => void loadMessages(), 0);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
+      if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
     } finally {
-      loadingRef.current = false;
-      setIsLoadingHistory(false);
-      setIsLoadingMessages(false);
+      if (readRequestRef.current === controller) {
+        readRequestRef.current = null;
+        setIsLoadingHistory(false);
+        setIsLoadingMessages(false);
+      }
     }
   };
 
   const loadSummary = async () => {
+    if (readRequestRef.current || guestMode || isOpen || document.visibilityState === "hidden") return;
+    const controller = new AbortController();
+    readRequestRef.current = controller;
     try {
       const storedLastReadAt = lastReadAtRef.current ?? window.localStorage.getItem("vault-live-chat-last-read-at");
       const params = new URLSearchParams({ summary: "1" });
       if (storedLastReadAt) params.set("after", storedLastReadAt);
-      const response = await fetch(`/api/live-chat?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/live-chat?${params.toString()}`, { cache: "no-store", signal: controller.signal });
       const payload = (await response.json()) as LiveChatSummaryResponse & { error?: string };
+      if (controller.signal.aborted) return;
 
       if (!response.ok) throw new Error(payload.error ?? "Live Chat could not be loaded.");
 
@@ -165,7 +173,9 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
       }
       hasLoadedRef.current = true;
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
+      if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");
+    } finally {
+      if (readRequestRef.current === controller) readRequestRef.current = null;
     }
   };
 
@@ -177,16 +187,36 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
   const refreshChat = useEffectEvent(() => isOpen ? loadMessages() : loadSummary());
   useEffect(() => {
     if (guestMode) return;
-    const load = () => { if (document.visibilityState !== "hidden") return refreshChat(); };
-    const initialTimer = window.setTimeout(() => void load(), 0);
-    const timer = window.setInterval(() => {
-      void load();
-    }, isOpen ? 30000 : 120000);
+    let disposed = false;
+    let pollEpoch = 0;
+    let timer: number | null = null;
+    const stop = () => {
+      pollEpoch += 1;
+      if (timer !== null) window.clearTimeout(timer);
+      if (catchupTimerRef.current !== null) window.clearTimeout(catchupTimerRef.current);
+      timer = null;
+      catchupTimerRef.current = null;
+      readRequestRef.current?.abort();
+    };
+    const poll = async () => {
+      if (disposed || document.visibilityState === "hidden") return;
+      const epoch = pollEpoch;
+      await refreshChat();
+      if (!disposed && epoch === pollEpoch && !document.hidden) {
+        timer = window.setTimeout(() => void poll(), isOpen ? 30000 : 120000);
+      }
+    };
+    const resume = () => {
+      stop();
+      if (document.visibilityState !== "hidden") timer = window.setTimeout(() => void poll(), 0);
+    };
+    resume();
+    document.addEventListener("visibilitychange", resume);
 
     return () => {
-      window.clearTimeout(initialTimer);
-      window.clearInterval(timer);
-      if (catchupTimerRef.current !== null) window.clearTimeout(catchupTimerRef.current);
+      disposed = true;
+      stop();
+      document.removeEventListener("visibilitychange", resume);
     };
   }, [isOpen, guestMode]);
 
@@ -291,7 +321,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
               const container = event.currentTarget;
               followLatestRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 48;
               if (followLatestRef.current) markLatestMessageRead(messages[messages.length - 1]?.created_at ?? null);
-              if (container.scrollTop < 48 && hasMore && !loadingRef.current) void loadMessages(true);
+              if (container.scrollTop < 48 && hasMore && !readRequestRef.current) void loadMessages(true);
             }}
           >
             {hasMore ? <button className="shrink-0 py-2 text-xs font-bold text-pink-200 hover:text-white disabled:opacity-50" disabled={isLoadingHistory} onClick={() => void loadMessages(true)} type="button">{isLoadingHistory ? "Loading history…" : "Load older messages"}</button> : null}

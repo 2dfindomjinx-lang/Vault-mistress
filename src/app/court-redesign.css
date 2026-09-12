@@ -1,0 +1,83 @@
+/* Shared visual language; interaction/state styles remain local to each experience. */
+.court-theme { color-scheme:dark; --background:#080508; --foreground:#f5e6d3; background:var(--background); color:var(--foreground); font-family:var(--font-geist-sans),Arial,sans-serif; }
+.court-theme ::selection { background:#7d355a; color:#fff; }
+.court-theme :focus-visible { outline:2px solid #efadc9; outline-offset:4px; }
+.court-theme [data-page=tasks] { --page-accent:#c89a55; }
+.court-theme [data-page=wheels] { --page-accent:#c89a55; }
+.court-theme [data-page=crates] { --page-accent:#dfc39a; }
+.court-theme [data-page=runway],.court-theme [data-page=shop] { --page-accent:#df9dbb; }
+.court-theme [data-page=pet] { --page-accent:#d99398; }
+.court-theme [data-page=tribute] { --page-accent:#d4b589; }
+.court-theme [data-page=collection] { --page-accent:#c89a55; }
+.court-theme .principessa-court-ui { --court-gold:#c89a55; --court-ivory:#f5e6d3; --court-wine:#662b46; }
+.court-theme .court-panel-stage { min-width:0; }
+.court-theme .court-feature-panel { border:1px solid #ffffff13; border-radius:12px; background:#140a10; box-shadow:none; }
+.court-theme .court-feature-card,.court-theme .court-grid-card { border:1px solid #ffffff14; border-radius:12px; background:#140a10; box-shadow:none; }
+.court-theme .court-grid-card::before,.court-theme .court-grid-card::after,.court-theme .court-feature-panel::before { display:none; }
+.court-theme .court-grid-card:is(:hover,:focus-within) { transform:none; box-shadow:none; border-color:#d998b74a; }
+.court-theme .court-inset-tile,.court-theme .court-feature-inset { border-radius:8px; border-color:#ffffff13; background:#08050880; }
+.court-theme .court-profile-header { border-radius:14px; border-color:#d899b620; background:linear-gradient(110deg,#140a10,#20141f 60%,#191219); box-shadow:none; }
+.court-theme .court-profile-layout { grid-template-columns:136px minmax(0,1fr); gap:14px 25px; padding:24px 27px; }
+.court-theme .court-profile-portrait { padding:9px 0; }
+.court-theme .court-profile-name { font-size:32px; color:#f4eaf1; letter-spacing:-.025em; }
+.court-theme .court-profile-identity>p:first-child { font-size:9px; letter-spacing:.18em; color:#bd91ac; }
+.court-theme .court-profile-identity>p { color:#bfa8b9; }
+.court-theme .court-profile-actions { padding-top:13px; border-color:#d8abc51a; gap:10px; }
+.court-theme .court-profile-stat { border-color:#e2b2d015; padding:13px 16px; }
+.court-theme .court-profile-stat>p:first-child { color:#b99bae; letter-spacing:.12em; font-size:9px; }
+.court-theme .court-profile-stat>div { color:#f5e6d3; font-weight:550; font-size:19px; }
+.court-theme .court-profile-progress { opacity:.9; }
+.court-theme .principessa-court-ui :is(.text-zinc-700,.text-zinc-600) { color:#9e899b; }
+.court-theme .principessa-court-ui .text-zinc-500 { color:#ad9aab; }
+.court-theme .principessa-court-ui .court-section-heading { font-size:10px; letter-spacing:.18em; color:#bda0b2; }
+.court-theme .court-button { min-height:38px; border-radius:7px; border:1px solid #d3a0bc36; background:#2f1d2c; color:#edcede; font-size:12px; font-weight:500; padding:9px 15px; }
+.court-theme .court-button:hover:enabled { border-color:#dfacc4; background:#4a1d30; }
+.court-theme .home-stats { background:#140a10; border:1px solid #ffffff12; border-radius:12px; box-shadow:none; padding:19px 23px; }
+.court-theme .home-stats .font-black { font-weight:500; }.court-theme .home-stats p:first-child { font-size:10px; color:#b69cac; letter-spacing:.1em; }.court-theme .home-stats p:last-child { font-size:25px; font-variant-numeric:tabular-nums; }
+.court-theme .court-standings { border:1px solid #ffffff13; background:#140a10; box-shadow:none; border-radius:12px; padding:24px; }
+.court-theme .court-standings h2 { font:30px Georgia,serif; }.court-theme .court-standings button { text-transform:none; letter-spacing:0; font-size:12px; font-weight:500; min-height:34px; }.court-theme .court-standings [class*=rounded-xl] { background:transparent; border:0; border-bottom:1px solid #ffffff0c; border-radius:0; padding-block:15px; }
+.court-theme .court-standings .text-zinc-500 { color:#b098b0; }
+.court-theme .court-event-notice { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:15px 20px; border:1px solid #c3d6bf27; border-radius:10px; background:#15221b; color:#c4d7c5; }
+.court-theme .court-event-notice>div { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }.court-theme .court-event-notice strong { font-size:12px; color:#e5eee4; }.court-theme .court-event-notice span,.court-theme .court-event-notice small { font-size:11px; }.court-theme .court-event-notice button { color:#e6efdb; font-size:11px; border-left:1px solid #b6d0b430; padding-left:14px; }
+.court-theme .court-chapter-jump { display:inline-flex; margin-top:12px; font-size:11px; color:#f1c2dc; border-bottom:1px solid #e4b8d437; padding:4px 0; }
+@media(min-width:768px) { .court-theme [data-page]:not([data-page=home]) .court-profile-layout { grid-template-columns:104px minmax(0,1.15fr) minmax(220px,1fr); grid-template-areas:"portrait identity ledger" "portrait actions actions" "portrait progress progress"; padding:17px 22px; gap:10px 20px; }.court-theme [data-page]:not([data-page=home]) .court-profile-name { font-size:27px; }.court-theme [data-page]:not([data-page=home]) .court-profile-ledger { grid-template-columns:repeat(2,minmax(0,1fr)); }.court-theme [data-page]:not([data-page=home]) .court-profile-stat { padding:9px 12px; }.court-theme [data-page]:not([data-page=home]) .court-profile-stat>div { font-size:16px; } }
+@media(min-width:1280px) { .court-theme .court-profile-layout { grid-template-columns:136px minmax(0,1.15fr) minmax(230px,1fr); grid-template-areas:"portrait identity ledger" "portrait actions actions" "portrait progress progress"; }.court-theme .court-profile-ledger { grid-template-columns:repeat(2,minmax(0,1fr)); align-self:center; border:1px solid #ffffff0b; border-radius:9px; }.court-theme .court-profile-stat { border:0; }.court-theme .court-profile-actions { align-self:end; } }
+@media(max-width:767px) { .court-theme .court-profile-layout { grid-template-columns:104px minmax(0,1fr); grid-template-areas:"portrait identity" "actions actions" "progress progress" "ledger ledger"; padding:19px 18px; gap:14px; }.court-theme .court-profile-name { font-size:27px; }.court-theme .court-profile-stat { padding:10px; }.court-theme .court-profile-stat>div { font-size:17px; }.court-theme .home-stats { padding:15px 18px; }.court-theme .home-stats p:last-child { font-size:21px; }.court-theme .court-standings { padding:19px 15px; }.court-theme .court-standings h2 { font-size:27px; } }
+@media(prefers-reduced-motion:reduce) { .court-theme *, .court-theme *::before,.court-theme *::after { scroll-behavior:auto!important; transition-duration:.01ms!important; animation-duration:.01ms!important; animation-iteration-count:1!important; } }
+
+/* Keep the conversation controls in the same visual language as the court. */
+.court-theme [data-court-chat] > button {
+  border: 1px solid #c89a5557;
+  background: #4a1d30;
+  box-shadow: 0 8px 24px #0004;
+  color: #f5e6d3;
+  font-size: 12px;
+  font-weight: 600;
+}
+.court-theme [data-court-chat] > button:hover { background: #4a1d30; }
+.court-theme [data-court-chat] > section {
+  border: 1px solid #c89a5544;
+  background: #140a10f7;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px #0008;
+}
+@media (max-width: 1023px) {
+  .court-theme [data-court-chat] { bottom: calc(150px + env(safe-area-inset-bottom)); right: 15px; }
+}
+@media (max-width: 1023px) {
+  html:has(body.court-theme) { scroll-padding-bottom: 175px; }
+}
+
+.court-theme { --background:#060305; --foreground:#fff7ee; }.court-theme .principessa-court-ui { --court-gold:#c89a55; --court-wine:#59142f; }
+.court-theme [data-page=tasks],.court-theme [data-page=wheels],.court-theme [data-page=collection] { --page-accent:#d7ad6b; }
+.court-theme .court-profile-header { background:linear-gradient(110deg,#210d17,#0d080b); border-color:#c89a5533; }
+.court-theme .court-profile-stat { background:#130a0f; }.court-theme .court-button { border-color:#c89a553b; color:#f0d3a6; background:#28101c; }
+
+.court-theme .court-guest-note { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; border:1px solid #c89a5526; padding:11px 14px; border-radius:8px; color:#c3aabb; background:#170b13; font-size:12px; }
+.court-theme .court-guest-note button { color:#efd09d; }
+.court-theme .court-admin { background:radial-gradient(ellipse at 10% 0,#42152a45,transparent 48%),#080508; color:#f5e6d3; }
+.court-admin h1 { font-family:Georgia,serif; font-weight:500; letter-spacing:-.035em; color:#f5e6d3; }
+.court-admin :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { border-radius:7px; border-color:#cda4b933; background-color:#100910; color:#eddce7; }
+.court-admin :is(button,a)[class*=rounded] { border-radius:7px; }
+.court-admin :is(section,article)[class*=rounded] { border-radius:12px; border-color:#cda4b925; box-shadow:none; }
+.court-admin :is(.text-zinc-500,.text-zinc-600,.text-zinc-700) { color:#b19cab; }

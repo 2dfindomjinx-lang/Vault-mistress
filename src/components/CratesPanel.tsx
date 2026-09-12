@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import styles from "./CollectionSurfaces.module.css";
+import { CourtDialog } from "./CourtDialog";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
@@ -270,23 +273,6 @@ export function CratesPanel({
     return () => observer.disconnect();
   }, [isMobile, isOpening, wonItems.length]);
 
-  useEffect(() => {
-    if (!isMobile || !(isOpening || wonItems.length > 0)) {
-      return;
-    }
-
-    const target = reelPanelRef.current;
-    if (!target) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
-
-    return () => window.clearTimeout(timer);
-  }, [isMobile, isOpening, wonItems.length]);
-
   // The server answers before the reel stops, so live inventory numbers would
   // spoil the reveal (value and duplicate count jump the moment the response
   // lands). Everything display-facing reads this snapshot, frozen at the
@@ -451,7 +437,7 @@ export function CratesPanel({
 
   const openCrate = async (crate: CrateDefinition, qty: number = 1) => {
     const batchCost = getBatchOpenCost(crate, qty);
-    if (disabled || pending || isOpening || coins < batchCost) return;
+    if (pending || isOpening || ((disabled || coins < batchCost))) return;
 
     // Freeze the display numbers BEFORE the request: the spoiler was the
     // response updating them mid-slide.
@@ -505,7 +491,7 @@ export function CratesPanel({
 
     setReelItems(fakeReel);
 
-    const res = await onOpenCrate(crate.crate_type, qty);
+    const res: Awaited<ReturnType<CratesPanelProps["onOpenCrate"]>> = await onOpenCrate(crate.crate_type, qty);
     if (!(res.success && res.result)) {
       const msg = res?.error || "Case open failed.";
       notice(msg);
@@ -901,27 +887,26 @@ export function CratesPanel({
   };
 
   return (
-    <section className="crate-cases-panel court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className={`${styles.surface} ${styles.cases}`} data-collection-surface="cases">
+      <div className={styles.header}>
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Cosmetics • Collectibles</p>
-          <h2 className="text-3xl font-black">Vault Mistress Cases</h2>
+          <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Her private collection</p>
+          <h2 className="text-3xl font-black">Choose your case.</h2>
         </div>
-        <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
+        <p className={styles.balance}>
           <CoinAmount amount={coins} iconSize={15} label="coins" />
         </p>
       </div>
 
-      {/* When opening a crate we give the ENTIRE remaining area to the opening experience (no tabs, no grids, full focus).
-          After the user claims/closes it returns to normal crate view. */}
-      {! (isOpening || wonItems.length > 0) && (
+      {/* The gallery stays mounted underneath the modal so its position is preserved. */}
+      {(
         <p className="mt-3 text-sm leading-6 text-zinc-400">
-          Open cases to uncover rare collectibles, exclusive cosmetics.
+          Collect her rarest pieces. Contents and drop rates are listed with every case.
         </p>
       )}
 
-      {!(isOpening || wonItems.length > 0) && (
-        <div className="crate-catalog mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {(
+        <div className={styles.caseGrid}>
           {crates.length === 0 && <p className="text-sm text-zinc-400">No cases available right now.</p>}
           {crates.map((crate) => {
             const quantity = getOpenQuantity(crate.crate_type);
@@ -930,10 +915,10 @@ export function CratesPanel({
             const keys = getGrantedOpenCount(crate.crate_type);
             const usedKeys = Math.min(quantity, keys);
             return (
-              <article className="crate-catalog-card" key={crate.crate_type}>
-                <div className="crate-catalog-art">
+              <article className={`${styles.product} ${styles.caseCard}`} key={crate.crate_type}>
+                <div className={styles.caseArt}>
                   <span className="crate-catalog-edition">Vault collection</span>
-                  <img alt={crate.name} src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined} loading="lazy" />
+                  <img alt={crate.name} src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined} loading="lazy" decoding="async" width={166} height={166} />
                   <span className="crate-catalog-count">{getDropRates(crate.crate_type).length} items</span>
                 </div>
                 <div className="flex flex-1 flex-col p-5">
@@ -954,7 +939,7 @@ export function CratesPanel({
                     </div>
                     <div className="text-right"><p className="mb-2 text-[11px] text-zinc-500">Total</p><p className="text-base font-semibold text-amber-100">{cost === 0 ? "FREE" : <CoinAmount amount={cost} iconSize={14} />}</p></div>
                   </div>
-                  <button className="crate-open-button mt-4" type="button" disabled={disabled || pending || isOpening || coins < cost} onClick={() => void openCrate(crate, quantity)}>{coins < cost ? "Not enough coins" : "Open " + quantity + (usedKeys ? " · " + usedKeys + " key" + (usedKeys > 1 ? "s" : "") : "")}</button>
+                  <button className="crate-open-button mt-4" type="button" disabled={pending || isOpening || ((disabled || coins < cost))} onClick={() => void openCrate(crate, quantity)}>{coins < cost ? "Not enough coins" : "Open " + quantity + (usedKeys ? " · " + usedKeys + " key" + (usedKeys > 1 ? "s" : "") : "")}</button>
                   <button className="mt-3 w-full py-1 text-xs font-medium text-zinc-400 hover:text-white" type="button" onClick={() => setRatesCrate(crate)}>View contents & drop rates ↗</button>
                 </div>
               </article>
@@ -978,9 +963,9 @@ export function CratesPanel({
 
       <div className="cases-stack relative z-[5] mt-6 flex flex-col">
       {/* INVENTORY under Cases static */}
-      <div className="inventory-section relative z-[1] order-last">
+      <div className={`${styles.inventory} inventory-section relative z-[1] order-last`}>
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
-          <div className="mb-3 flex items-center justify-between">
+          <div className={`${styles.inventoryHeader} mb-3 flex items-center justify-between`}>
             <div className="text-sm">
               <span className="text-zinc-400">Inventory Value</span>
               <span className="ml-2 font-bold text-pink-200">
@@ -1018,7 +1003,7 @@ export function CratesPanel({
 
           {inventory.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-400">
-              Your inventory is empty. Open some cases to start hoarding.
+              Your collection starts here. Open a case to discover your first piece.
             </div>
           ) : (
             <div className="court-grid court-grid--collection grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1031,13 +1016,17 @@ export function CratesPanel({
                 return (
                   <article
                     key={key}
-                    className={`court-grid-card court-grid-card--violet rounded-[1.35rem] border p-4 ${getRarityColor(item.rarity)}`}
+                    className={`${styles.product} ${styles.inventoryCard} ${getRarityColor(item.rarity)}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
                           <img
                             src={item.image_url}
+                            loading="lazy"
+                            decoding="async"
+                            width={56}
+                            height={56}
                             alt={item.name}
                             className="h-full w-full object-cover transition-transform hover:scale-110"
                             onError={(e) => {
@@ -1116,30 +1105,13 @@ export function CratesPanel({
           )}
         </div>
 
-      {/* Reel and cases area now same fixed size h-[440px] */}
       {(isOpening || wonItems.length > 0) && (
-        <div
-          ref={reelPanelRef}
-          className="case-opening-panel relative z-[10] order-first mt-6 scroll-mt-24 rounded-3xl border border-white/10 bg-[#0a0a0c] p-5 min-h-[560px] md:order-none"
-        >
-          {wonItems.length > 0 && (
-            <button
-              onClick={closeReveal}
-              className="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full border border-white/30 bg-black/50 text-white text-xl hover:bg-white/20 hover:text-red-400 transition z-30"
-              title="Back to Cases"
-            >
-              ✕
-            </button>
-          )}
-          {!wonItems.length && (
-            <div className="mb-3 text-center">
-              {openingCrate && (
-                <p className="text-xs uppercase tracking-[3px] text-fuchsia-300/70">Opening {openingCrate}</p>
-              )}
-              <h3 className="text-xl font-black text-white">Reel is spinning…</h3>
-            </div>
-          )}
-
+        <CourtDialog className={styles.caseDialog} label="Case opening" onClose={closeReveal} canClose={!isOpening}>
+          <header className={styles.caseDialogHeader}>
+            <div><h3>{openingCrate || crates.find(crate => crate.crate_type === lastOpenedCrateType)?.name || "Your case"}</h3><p>{isOpening ? "Opening…" : "Your reveal"}</p></div>
+            <button type="button" aria-label="Back to Cases" disabled={isOpening} onClick={closeReveal}>×</button>
+          </header>
+          <div ref={reelPanelRef} className={styles.caseOpening+" case-opening-panel"}>
           {/* DESKTOP SLIDING REEL - card count and card size follow the actual
               panel width, so the track remains natural with any case/item pool. */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
@@ -1244,9 +1216,7 @@ export function CratesPanel({
             </div>
           )}
 
-          {/* Won items reveal - shown inline under the (stopped) reel, no popup. Supports multi open.
-              For single: the reel above stays stopped (full width like during spin) + name label here.
-              For multi: vertical reels stay + compact list below. */}
+          {/* The accepted result is revealed under the stopped reel inside the same dialog. */}
           {wonItems.length > 0 && (
             <div className="mt-4">
               {/* Single result: prominent name/desc matching the full reel width (not the narrow 120px cards) */}
@@ -1407,6 +1377,7 @@ export function CratesPanel({
               )}
                 {wonItems.length > 1 && (
                   <button
+                    disabled={false}
                     onClick={sellAllWonItems}
                     className="rounded-2xl bg-emerald-500/90 px-3 py-2 text-sm font-bold text-black"
                   >
@@ -1422,30 +1393,17 @@ export function CratesPanel({
                       openCrate(crateToReopen, qty);
                     }
                   }}
-                  disabled={
-                    disabled ||
-                    pending ||
-                    !lastOpenedCrateType ||
-                    !crates.find((c) => c.crate_type === lastOpenedCrateType) ||
-                    coins < getBatchOpenCost(
-                      crates.find((c) => c.crate_type === lastOpenedCrateType)!,
-                      getOpenQuantity(lastOpenedCrateType || "")
-                    )
-                  }
+                  disabled={pending || !lastOpenedCrateType || ((disabled || coins < getBatchOpenCost(crates.find((c) => c.crate_type === lastOpenedCrateType)!, getOpenQuantity(lastOpenedCrateType || ""))))}
                   className="rounded-2xl bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-2 text-sm font-bold text-white shadow-[0_0_18px_rgba(236,72,153,0.35)] transition active:scale-[0.985] disabled:opacity-50"
                 >
-                  Open Again
+                  {"Open Again"}
                 </button>
               </div>
             </div>
           )}
 
-          {isOpening && wonItems.length === 0 && (
-          <p className="mt-3 text-center text-xs text-pink-100/50">
-              The seal is broken. Your reward awaits.
-            </p>
-          )}
-        </div>
+          </div>
+        </CourtDialog>
       )}
       </div>
     </section>

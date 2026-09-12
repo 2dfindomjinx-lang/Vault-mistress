@@ -7,11 +7,12 @@ import { getDisplayNameOrUsername } from "@/lib/display-name";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
 
 
-type CoinTransactionRow = {
+type TributePaymentRow = {
   id: string;
   user_id: string;
   amount: number;
   created_at: string;
+  no_pm: boolean;
 };
 
 type TopTributorRow = {
@@ -40,7 +41,7 @@ export async function GET() {
   const supabase = createPublicSupabaseClient();
   const [{ data: transactions, error: transactionError }, { data: topRowsData, error: topRowsError }] =
     await Promise.all([
-      supabase.rpc("get_public_recent_tribute_transactions", { p_limit: 20 }),
+      supabase.rpc("get_public_recent_tribute_payments", { p_limit: 20 }),
       supabase.rpc("get_public_top_tributors", { p_limit: 3 }),
     ]);
 
@@ -54,7 +55,7 @@ export async function GET() {
     return Response.json({ error: topRowsError.message }, { status: 500 });
   }
 
-  const rows = ((transactions ?? []) as CoinTransactionRow[]).slice(0, 5);
+  const rows = ((transactions ?? []) as TributePaymentRow[]).slice(0, 5);
   const topRows: TopTributorRow[] = ((topRowsData ?? []) as Array<{
     user_id: string;
     amount: number | string;
@@ -90,7 +91,7 @@ export async function GET() {
   );
   const usernameStyles = getUsernameStylesByUserId((cosmeticRows ?? []) as EquippedUsernameCosmeticRow[]);
 
-  const mapTribute = (row: CoinTransactionRow) => {
+  const mapTribute = (row: TributePaymentRow) => {
     const profile = profileMap.get(row.user_id);
 
     return {
@@ -101,6 +102,7 @@ export async function GET() {
       avatarUrl: profile?.avatar_url ?? null,
       amount: row.amount,
       createdAt: row.created_at,
+      noPm: row.no_pm === true,
       usernameStyle: usernameStyles.get(row.user_id),
     };
   };

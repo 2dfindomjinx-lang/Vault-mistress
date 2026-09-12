@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./CollectionSurfaces.module.css";
+
 import { useCallback, useEffect, useState } from "react";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { RunwayAvatarEditor } from "@/components/RunwayAvatarEditor";
@@ -277,16 +279,16 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
   const canSubmit = canAddMultipleAvatars || (myAvatar ? myAvatar.canResubmit : true);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-        <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">Runway</p>
-        <h2 className="text-3xl font-black">Your Voting Avatar</h2>
+    <div className={styles.runway} data-collection-surface="runway">
+      <section className={`${styles.surface} ${styles.runwayPanel}`}>
+        <header className={`${styles.header} ${styles.runwayHeader}`}><div><p>Principessa’s runway</p><h2>Dress like she is watching.</h2><p className={styles.intro}>Style your look. Take the floor. Earn the court’s attention.</p></div></header>
 
         {!loadingMe && myAvatar && (
-          <div className="mt-4 flex gap-3 rounded-[1.25rem] border border-white/10 bg-black/30 p-3">
+          <div className={`${styles.runwayEntry} mt-4 flex gap-3`}>
             <div className="relative h-[152px] w-[56px] shrink-0 overflow-hidden rounded-xl border border-pink-300/25 bg-black/40">
               <LayeredAvatar
                 alt="Your active voting avatar"
+                backgroundAlignment="center"
                 backgroundPath={RUNWAY_VOTING_BACKGROUND}
                 equipped={normalizeEquipment(myAvatar.equippedAvatarSlots)}
                 equippedFullSetId={myAvatar.equippedFullSetId}
@@ -308,7 +310,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
           </div>
         )}
 
-        <div className="mt-4">
+        <div className={`${styles.runwayEditor} mt-4`}>
           <RunwayAvatarEditor
             ownedItems={ownedItems}
             liveEquippedSlots={liveEquippedSlots}
@@ -322,9 +324,9 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
+      <section className={`${styles.surface} ${styles.runwayPanel}`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black">Vote</h2>
+          <h2 className="text-xl font-black">The next look.</h2>
           <p className="text-xs text-zinc-400">
             {rewardedVotesToday ?? 0}/5 rewarded votes today
           </p>
@@ -337,11 +339,12 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
             No one else has a look in the pool right now. Check back soon.
           </p>
         ) : (
-          <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-black/30 p-4">
-            <div className="flex gap-4">
-              <div className="relative h-[220px] w-[74px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+          <div className={`${styles.runwayCandidate} mt-4`}>
+            <div className={styles.runwayLook}>
+              <div className={`${styles.runwayPortrait} relative shrink-0 overflow-hidden`}>
                 <LayeredAvatar
                   alt={`${candidate.username}'s voting avatar`}
+                  backgroundAlignment="center"
                   backgroundPath={RUNWAY_VOTING_BACKGROUND}
                   equipped={normalizeEquipment(candidate.equippedAvatarSlots)}
                   equippedFullSetId={candidate.equippedFullSetId}
@@ -372,7 +375,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
                   {candidate.superVoteCount > 0 ? `${candidate.superVoteCount} Super Vote${candidate.superVoteCount === 1 ? "" : "s"}` : "No Super Votes yet"}
                 </p>
 
-                <div className="mt-3 flex gap-1">
+                <div className={`${styles.rating} flex`}>
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -415,13 +418,14 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         )}
       </section>
 
-      <section className="rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-        <div className="flex flex-wrap gap-2">
+      <section className={`${styles.surface} ${styles.runwayPanel}`}>
+        <div className={`${styles.runwayTabs} flex flex-wrap gap-2`}>
           {(Object.keys(SECTION_LABELS) as LeaderboardSection[]).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setSection(key)}
+              aria-pressed={section === key}
               className={`rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
                 section === key ? "border-pink-300 bg-pink-500/10 text-pink-100" : "border-white/15 text-zinc-400"
               }`}
@@ -453,7 +457,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
 
 function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-center">
+    <div className={`${styles.runwayStat} text-center`}>
       <p className="text-lg font-black text-white">{value}</p>
       <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-400">{label}</p>
     </div>
@@ -463,7 +467,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
 function LeaderboardRow({ entry, highlight = false }: { entry: LeaderboardEntry; highlight?: boolean }) {
   return (
     <div
-      className={`flex items-center gap-3 rounded-[1.25rem] border px-3 py-2.5 ${
+      className={`${styles.runwayRank} flex items-center gap-3 border px-3 py-2.5 ${
         highlight ? "border-amber-300/35 bg-amber-500/5" : "border-white/10 bg-black/30"
       }`}
     >
@@ -471,6 +475,7 @@ function LeaderboardRow({ entry, highlight = false }: { entry: LeaderboardEntry;
       <div className="relative h-16 w-8 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/40">
         <LayeredAvatar
           alt={`${entry.username}'s voting avatar`}
+          backgroundAlignment="center"
           backgroundPath={RUNWAY_VOTING_BACKGROUND}
           equipped={normalizeEquipment(entry.equippedAvatarSlots)}
           equippedFullSetId={entry.equippedFullSetId}

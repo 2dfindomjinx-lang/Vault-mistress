@@ -1,3 +1,4 @@
+import { getCosmeticPurchasePrice, getWorldCupFarewell, isWorldCupBorder } from "@/lib/world-cup-farewell";
 import { cosmeticItems, isCosmeticAvailableForAddressTerm, type CosmeticType } from "@/lib/cosmetics";
 import { normalizeAddressTerm } from "@/lib/address-term";
 import { profileSelect } from "@/lib/server-game-rules";
@@ -208,13 +209,18 @@ export async function POST(request: Request) {
     return jsonError("This cosmetic is not available for your address preference.", 403);
   }
 
+  if (isWorldCupBorder(item.id) && !getWorldCupFarewell().active) {
+    return jsonError("The World Cup farewell collection has closed.", 403);
+  }
+
+  const purchasePrice = getCosmeticPurchasePrice(item);
   const previousCoins = Number(profile.coins ?? 0);
 
-  if (previousCoins < item.price) {
+  if (previousCoins < purchasePrice) {
     return jsonError("Not enough coins for that cosmetic.", 402);
   }
 
-  const nextCoins = previousCoins - item.price;
+  const nextCoins = previousCoins - purchasePrice;
   const now = new Date().toISOString();
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("profiles")
@@ -232,13 +238,13 @@ export async function POST(request: Request) {
   const { data: transaction, error: transactionError } = await supabase
     .from("coin_transactions")
     .insert({
-      amount: -item.price,
+      amount: -purchasePrice,
       balance_after: nextCoins,
       balance_before: previousCoins,
       metadata: {
         cosmeticId: item.id,
         cosmeticType: item.type,
-        spendAmount: item.price,
+        spendAmount: purchasePrice,
         tributeTotalChanged: false,
       },
       reason: "spend:cosmetic",

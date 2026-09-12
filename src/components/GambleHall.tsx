@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import styles from "./ExperienceSurfaces.module.css";
+import c from "./CasinoExperience.module.css";
+import { CasinoTableFrame, CasinoMetric, CasinoDie, CasinoRunner } from "./CasinoTableFrame";
 import { estimateGambleClock } from "@/lib/gamble-clock";
-import { CourtDie, CourtGlyph, CourtPortrait, CourtRunner } from "@/components/court/CourtVisuals";
+import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { emitSoundEvent } from "@/lib/sound";
 import {
@@ -75,30 +78,7 @@ function DoubleBanner({
     }
   };
 
-  return (
-    <div className="mt-3 rounded-2xl border border-[#c89a55]/25 bg-black/40 p-3 text-center">
-      {state !== "idle" && <div className="court-double-seal mx-auto mb-3 h-10 w-10 text-amber-100" data-pending={state === "pending"} key={state}><CourtGlyph symbol={state === "lost" ? "lock" : "coin"}/></div>}
-      {state === "idle" || state === "pending" ? (
-        <>
-          <button
-            className="w-full rounded-xl bg-[linear-gradient(100deg,#a02c0c,#f0821e)] px-4 py-2.5 text-xs font-black uppercase tracking-[0.18em] text-white disabled:opacity-50"
-            disabled={state === "pending"}
-            onClick={() => void play()}
-            type="button"
-          >
-            {state === "pending" ? "Flipping..." : `Double — ${Math.round(DOUBLE_OR_NOTHING_CHANCE * 100)}%`}
-          </button>
-          <button className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 hover:text-zinc-300" onClick={onDone} type="button">
-            Keep {payout.toLocaleString()}
-          </button>
-        </>
-      ) : (
-        <p className={`text-sm font-black ${state === "won" ? "text-emerald-200" : "text-rose-200"}`}>
-          {state === "won" ? `Doubled. +${(payout * 2).toLocaleString()} total.` : "Gone. She laughs at you"}
-        </p>
-      )}
-    </div>
-  );
+  return <div className={c.doubleBox} data-state={state}><div><span className={c.doubleIcon} data-pending={state === "pending"}><CourtGlyph symbol={state === "lost" ? "lock" : "coin"} /></span><div><p>One more decision</p><small>{state === "pending" ? "The coin is turning." : "Keep your return or take the printed chance."}</small></div></div>{state === "idle" || state === "pending" ? <div className={c.doubleActions}><button className={c.action} disabled={state === "pending"} onClick={() => void play()} type="button">{state === "pending" ? "Flipping…" : `Double · ${Math.round(DOUBLE_OR_NOTHING_CHANCE*100)}%`}</button><button className={c.keepReturn} onClick={onDone} type="button">Keep {payout.toLocaleString()}</button></div> : <p className={c.result} data-tone={state === "won" ? "win" : "lose"}>{state === "won" ? `Doubled. +${(payout*2).toLocaleString()} total.` : "Gone. She laughs at you"}</p>}</div>;
 }
 
 type WinState = { payout: number; roundId: string } | null;
@@ -106,7 +86,7 @@ type Line = { text: string; tone: "win" | "lose" | "info" } | null;
 
 function ResultLine({ text, tone }: { text: string; tone: "win" | "lose" | "info" }) {
   return (
-    <p className={`mt-3 text-center text-sm font-black ${tone === "win" ? "text-emerald-200" : tone === "lose" ? "text-rose-200" : "text-zinc-400"}`}>
+    <p className={c.result} data-tone={tone}>
       {text}
     </p>
   );
@@ -136,12 +116,12 @@ function SlotReel({ duration, spinKey, strip }: { duration: number; spinKey: num
 
   return (
     <div
-      className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(180deg,#1c0a14,#090306)]"
+      className={`${c.reelCell} ${c.reelClip}`}
       style={{ height: REEL_CELL, width: REEL_CELL }}
     >
       <div ref={innerRef}>
         {strip.map((symbolIndex, cell) => (
-          <div className="flex items-center justify-center text-4xl" aria-label={SLOT_SYMBOLS[symbolIndex].id} key={cell} style={{ height: REEL_CELL }}>
+          <div className={c.reelStripCell} aria-label={SLOT_SYMBOLS[symbolIndex].id} key={cell} style={{ height: REEL_CELL }}>
             <CourtGlyph className="court-reel-symbol" symbol={SLOT_SYMBOLS[symbolIndex].id}/>
           </div>
         ))}
@@ -221,47 +201,24 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
 
   const spinning = phase !== "idle";
 
+  const viewPhase = phase;
+  const viewReels = reels;
+  const viewStrips = strips;
   return (
-    <div>
-      <style>{`
-        @keyframes vm-reel-loop { from { transform: translateY(0); } to { transform: translateY(-${REEL_CELL * SLOT_SYMBOLS.length}px); } }
-      `}</style>
-      <div className="court-reel-result mx-auto flex w-fit gap-2 rounded-2xl border border-[#c89a55]/30 bg-black/60 p-3" data-paid={phase === "idle" && Boolean(win && win.payout > bet)}>
-        {[0, 1, 2].map((reel) =>
-          phase === "waiting" ? (
-            // The server hasn't answered yet: free-spin blur until it does.
-            <div
-              className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(180deg,#1c0a14,#090306)]"
-              key={reel}
-              style={{ height: REEL_CELL, width: REEL_CELL }}
-            >
-              <div style={{ animation: `vm-reel-loop ${0.42 + reel * 0.06}s linear infinite`, filter: "blur(1.5px)" }}>
-                {[...SLOT_SYMBOLS, ...SLOT_SYMBOLS].map((symbol, cell) => (
-                  <div className="flex items-center justify-center text-4xl" key={cell} style={{ height: REEL_CELL }}>
-                    <CourtGlyph className="court-reel-symbol" symbol={symbol.id}/>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : phase === "sliding" && strips ? (
-            <SlotReel duration={REEL_DURATIONS[reel]} key={reel} spinKey={spinKey} strip={strips[reel]} />
-          ) : (
-            <div
-              className="flex items-center justify-center rounded-xl border border-white/10 bg-[linear-gradient(180deg,#1c0a14,#090306)] text-4xl"
-              key={reel}
-              style={{ height: REEL_CELL, width: REEL_CELL }}
-            >
-              <CourtGlyph className="court-reel-symbol" symbol={SLOT_SYMBOLS[reels[reel]].id}/>
-            </div>
-          ),
-        )}
+    <CasinoTableFrame label="One payline · three reels" phase={spinning ? "Spinning" : line ? "Result" : "Ready"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · one payline" />
+      <p className={c.controlCopy}>Three matching symbols pay the triple value. Any pair pays its symbol’s pair value.</p>
+      <button className={c.action} disabled={busy || spinning} onClick={play} type="button">{spinning ? "Spinning…" : "Pull the reels"}</button>
+
+    </>}>
+      <style>{`@keyframes vm-reel-loop { from { transform: translateY(0); } to { transform: translateY(-${REEL_CELL * SLOT_SYMBOLS.length}px); } }`}</style>
+      <div className={c.cabinet} data-winning={viewPhase === "idle" && (Boolean(win && win.payout > bet))}>
+        <div className={c.cabinetTop}><span>Her Reels</span><small>PRINCIPESSA · 03</small></div>
+        <div className={c.reelWindow}>{[0, 1, 2].map(reel => viewPhase === "waiting" ? <div className={`${c.reelCell} ${c.reelClip}`} key={reel}><div style={{ animation: `vm-reel-loop ${0.42 + reel * 0.06}s linear infinite`, filter: "blur(1.5px)" }}>{[...SLOT_SYMBOLS, ...SLOT_SYMBOLS].map((symbol, cell) => <div className={c.reelStripCell} key={cell}><CourtGlyph className="court-reel-symbol" symbol={symbol.id} /></div>)}</div></div> : viewPhase === "sliding" && viewStrips ? <SlotReel duration={REEL_DURATIONS[reel]} key={reel} spinKey={spinKey} strip={viewStrips[reel]} /> : <div className={c.reelCell} key={reel}><CourtGlyph className="court-reel-symbol" symbol={SLOT_SYMBOLS[viewReels[reel]].id} /></div>)}</div>
+        <div className={c.cabinetFoot}><span>Follow the centre line</span><div className={c.reelLamps}>{[0,1,2].map(index => <i data-lit={viewPhase === "idle"} key={index} />)}</div></div>
       </div>
-      <button className="vm-table-button" disabled={busy || spinning} onClick={play} type="button">
-        {spinning ? "Spinning..." : `Pull — ${bet.toLocaleString()} coins`}
-      </button>
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+      <div className={c.symbolLegend}>{SLOT_SYMBOLS.map(symbol => <span key={symbol.id}><CourtGlyph symbol={symbol.id} />{symbol.triplePays}× triple</span>)}</div>
+    </CasinoTableFrame>
   );
 }
 
@@ -356,42 +313,19 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
-
+  const viewRolling = rolling;
+  const viewLocked = locked;
+  const viewShown = shown;
   return (
-    <div>
-      <div className="court-dice-table mx-auto grid w-fit grid-cols-2 gap-8">
-        {(["mine", "hers"] as const).map((side) => {
-          const settled = locked[side] && !rolling;
-          const sum = shown[side][0] + shown[side][1];
-          return (
-            <div className="text-center" key={side}>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-600">{side === "mine" ? "Yours" : "Hers"}</p>
-              <div className={`mt-2 flex justify-center gap-2 text-5xl ${side === "hers" ? "text-pink-200" : "text-[#ffe2ad]"}`}>
-                {[0, 1].map((index) => (
-                  <span
-                    className={locked[side] ? "" : "opacity-80 blur-[1px]"}
-                    key={index}
-                    style={locked[side] && rolling ? { animation: "vm-die-land 0.28s ease-out" } : undefined}
-                  >
-                    <CourtDie value={shown[side][index]} rolling={!locked[side]}/>
-                  </span>
-                ))}
-              </div>
-              <p className={`mt-1 text-xs font-black tabular-nums ${settled ? "text-zinc-400" : "text-transparent"}`}>= {sum}</p>
-            </div>
-          );
-        })}
-      </div>
-      <style>{`
-        @keyframes vm-die-land { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
-      `}</style>
-      <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">Ties belong to Principessa.</p>
-      <button className="vm-table-button" disabled={busy || rolling} onClick={play} type="button">
-        {rolling ? "Rolling..." : `Roll — ${bet.toLocaleString()} coins`}
-      </button>
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+    <CasinoTableFrame label="A duel across the felt" phase={rolling ? "Rolling" : line ? "Result" : "Ready"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · two dice each" />
+      <p className={c.controlTitle}>Roll higher than her.</p><p className={c.controlCopy}>Your two dice settle first. Hers follow. A tie belongs to Principessa.</p>
+      <button className={c.action} disabled={busy || rolling} onClick={play} type="button">{rolling ? "Rolling…" : "Roll the dice"}</button>
+
+    </>}>
+      <div className={c.diceArena}>{(["mine", "hers"] as const).map((side,index) => <div className={c.diceSide} data-side={side} key={side} style={{ gridColumn:index === 0 ? 1 : 3, gridRow:1 }}><p>{side === "mine" ? "Your hand" : "Principessa"}</p><div className={c.dicePair}>{viewShown[side].map((value, dieIndex) => <CasinoDie key={dieIndex} rolling={!viewLocked[side]} value={value} />)}</div><strong>{viewLocked[side] ? viewShown[side][0] + viewShown[side][1] : "—"}</strong><small>{viewLocked[side] ? "Total" : "Rolling"}</small></div>)}<span className={c.diceVersus} style={{ gridColumn:2,gridRow:1 }}>vs</span></div>
+      <p className={c.diceRule}>{viewRolling ? "The dice are in motion." : "Two hands. One final word."}</p>
+    </CasinoTableFrame>
   );
 }
 
@@ -461,61 +395,21 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
+  const viewSpinning = spinning;
+  const viewNumber = landedNumber;
+
+  const viewRotation = rotation;
   return (
-    <div>
-      <div className="relative mx-auto h-56 w-56">
-        {/* Fixed pointer */}
-        <div className="absolute -top-0.5 left-1/2 z-10 -translate-x-1/2">
-          <div className="mx-auto h-0 w-0 border-x-[7px] border-t-[12px] border-x-transparent border-t-[#ffe2ad] drop-shadow-[0_0_4px_rgba(230,186,115,.8)]" />
-        </div>
-        {/* Wheel */}
-        <div
-          className="relative h-full w-full rounded-full border-4 border-[#c89a55]/40 shadow-[inset_0_0_24px_rgba(0,0,0,.7)]"
-          style={{
-            background: `conic-gradient(from 0deg, ${gradientStops.join(",")})`,
-            transform: `rotate(${rotation}deg)`,
-            transition: spinning ? "transform 3300ms cubic-bezier(0.12, 0.62, 0.1, 1)" : "none",
-          }}
-        >
-          {EUROPEAN_ROULETTE_ORDER.map((number, index) => (
-            <span
-              className="absolute left-1/2 top-1/2 origin-center text-[7px] font-black text-white/80"
-              key={number}
-              style={{ transform: `translate(-50%, -50%) rotate(${index * ROULETTE_SEGMENT_DEGREES + ROULETTE_SEGMENT_DEGREES / 2}deg) translateY(-96px)` }}
-            >
-              {number}
-            </span>
-          ))}
-        </div>
-        <div className="court-roulette-ball-orbit" data-spinning={spinning} aria-hidden="true"/>
-        {/* Hub */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c89a55]/40 bg-[#0b0409] text-2xl shadow-[0_0_18px_rgba(0,0,0,.8)]">
-          {landedNumber ?? "•"}
-        </div>
-      </div>
-      <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-[#c89a55]/60">
-        European wheel · 0–36
-      </p>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {ROULETTE_BETS.map((entry) => (
-          <button
-            className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.08em] transition disabled:opacity-50 ${rouletteBet === entry.id ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"}`}
-            disabled={preparing || spinning}
-            key={entry.id}
-            onClick={() => setRouletteBet(entry.id)}
-            type="button"
-          >
-            {entry.label}
-            <span className="block text-zinc-500">{entry.multiplier}x</span>
-          </button>
-        ))}
-      </div>
-      <button className="vm-table-button" disabled={busy || preparing || spinning} onClick={play} type="button">
-        {preparing ? "Taking your bet…" : spinning ? "The wheel is turning..." : `Spin — ${bet.toLocaleString()} coins`}
-      </button>
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+    <CasinoTableFrame label="European roulette · 37 pockets" phase={preparing ? "Preparing" : spinning ? "Spinning" : line ? "Result" : "Place your bet"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · select a colour" />
+      <div className={c.choices}>{ROULETTE_BETS.map(entry => <button aria-pressed={rouletteBet === entry.id} disabled={preparing || spinning} key={entry.id} onClick={() => setRouletteBet(entry.id)} type="button"><i className={c.colorDot} data-color={entry.id} />{entry.label}<small>{entry.multiplier}×</small></button>)}</div>
+      <p className={c.controlCopy}>The pocket map shows the wheel’s numbers. Your wager covers the selected colour.</p>
+      <button className={c.action} disabled={busy || preparing || spinning} onClick={play} type="button">{preparing ? "Taking your bet…" : spinning ? "Wheel turning…" : "Spin the wheel"}</button>
+
+    </>}>
+      <div className={c.rouletteArena}><div className={c.rouletteInstrument}><span aria-hidden="true" className={c.roulettePointer} /><div className={c.rouletteDisk} style={{ background:`conic-gradient(from 0deg, ${gradientStops.join(",")})`,transform:`rotate(${viewRotation}deg)`,transition:viewSpinning ? "transform 3300ms cubic-bezier(0.12, 0.62, 0.1, 1)" : "none" }}>{EUROPEAN_ROULETTE_ORDER.map((number,index) => <span className={c.rouletteNumber} key={number} style={{ transform:`translate(-50%, -50%) rotate(${index * ROULETTE_SEGMENT_DEGREES + ROULETTE_SEGMENT_DEGREES / 2}deg) translateY(-96px)` }}>{number}</span>)}</div><div aria-hidden="true" className="court-roulette-ball-orbit" data-spinning={viewSpinning} /><div className={c.rouletteHub}><small>Landed pocket</small><strong>{viewNumber ?? "—"}</strong></div></div>
+      <div aria-label="Pocket map. Bets are red, black or green." className={c.pocketMap}>{Array.from({length:37},(_,number) => {const color = number === 0 ? "green" : ROULETTE_RED_NUMBERS.has(number) ? "red" : "black";return <span data-color={color} data-landed={viewNumber === number} data-selected={rouletteBet === color} key={number}>{number}</span>;})}</div></div><p className={c.pocketCaption}>One zero. Red or black pays 1.68×. Green pays 30×.</p>
+    </CasinoTableFrame>
   );
 }
 
@@ -609,55 +503,25 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
+
+
+
+
+
+  const viewBall = ball;
+  const viewTrail = trail;
+  const viewLanded = landed;
   return (
-    <div>
-      <div className="mx-auto w-full max-w-xl">
-        <div className="relative h-64 w-full overflow-hidden rounded-t-2xl border border-b-0 border-white/10 bg-black/40">
-          {trail.length > 1 ? (
-            <svg aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-              <polyline fill="none" points={trail.map((point) => `${point.x},${point.y}`).join(" ")} stroke="rgba(255,226,173,.2)" strokeDasharray="1.2 1.8" strokeWidth="0.45" />
-            </svg>
-          ) : null}
-          {Array.from({ length: PLINKO_ROWS }, (_, row) =>
-            Array.from({ length: row + 2 }, (_, peg) => (
-              <span
-                className="court-plinko-peg absolute h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white/25"
-                data-hit={ball !== null && Math.abs(ball.x - (50 + (peg - (row + 1) / 2) * PLINKO_BUCKET_W)) < PLINKO_BUCKET_W/2 && Math.abs(ball.y - (((row + .5) / PLINKO_ROWS) * 92)) < 4}
-                key={`${row}-${peg}`}
-                style={{
-                  left: `${50 + (peg - (row + 1) / 2) * PLINKO_BUCKET_W}%`,
-                  top: `${((row + 0.5) / PLINKO_ROWS) * 92}%`,
-                }}
-              />
-            )),
-          )}
-          {ball ? (
-            <span
-              className="absolute h-3 w-3 -translate-x-1/2 rounded-full bg-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.9)]"
-              style={{
-                left: `${ball.x}%`,
-                top: `${ball.y}%`,
-              }}
-            />
-          ) : null}
-        </div>
-        <div className="flex rounded-b-2xl border border-t-0 border-white/10 bg-black/40 pb-1 text-center">
-          {PLINKO_MULTIPLIERS.map((multiplier, index) => (
-            <span
-              className={`flex-1 rounded px-0.5 py-1.5 text-[9px] font-black tabular-nums ${landed === index ? "court-plinko-landed bg-[#c89a55]/40 text-[#ffe2ad] shadow-[0_0_10px_rgba(230,186,115,.4)]" : multiplier >= 4 ? "text-emerald-200/70" : "text-zinc-600"}`}
-              key={index}
-            >
-              {multiplier}x
-            </span>
-          ))}
-        </div>
-      </div>
-      <button className="vm-table-button" disabled={busy || ball !== null} onClick={play} type="button">
-        {ball !== null ? "Falling..." : `Drop — ${bet.toLocaleString()} coins`}
-      </button>
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+    <CasinoTableFrame label="Twelve rows · thirteen destinations" phase={ball ? "Falling" : line ? "Result" : "Ready"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · one drop" />
+      <CasinoMetric label="Landed multiplier" value={viewLanded === null ? "—" : `${PLINKO_MULTIPLIERS[viewLanded]}×`} detail="The outer buckets pay more." />
+      <button className={c.action} disabled={busy || ball !== null} onClick={play} type="button">{ball !== null ? "Falling…" : "Release the ball"}</button>
+
+    </>}>
+      <div className={c.plinkoMachine}><div className={c.plinkoBoard}>{viewTrail.length > 1 ? <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100"><polyline fill="none" points={viewTrail.map(point => `${point.x},${point.y}`).join(" ")} stroke="#d2a9c56b" strokeWidth=".4" /></svg> : null}{Array.from({length:PLINKO_ROWS},(_,row) => Array.from({length:row+2},(_,peg) => <span className={c.peg} data-hit={viewBall !== null && Math.abs(viewBall.x-(50+(peg-(row+1)/2)*PLINKO_BUCKET_W)) < PLINKO_BUCKET_W/2 && Math.abs(viewBall.y-((row+.5)/PLINKO_ROWS)*92) < 4} key={`${row}-${peg}`} style={{left:`${50+(peg-(row+1)/2)*PLINKO_BUCKET_W}%`,top:`${((row+.5)/PLINKO_ROWS)*92}%`}} />))}{viewBall ? <span className={c.plinkoBall} style={{left:`${viewBall.x}%`,top:`${viewBall.y}%`}} /> : null}</div>
+      <div className={c.buckets}>{PLINKO_MULTIPLIERS.map((multiplier,index) => <span data-high={multiplier >= 4} data-landed={viewLanded === index} key={index}>{multiplier}×</span>)}</div><div className={c.boardLegend}><span>Outer return</span><span>Centre risk</span><span>Outer return</span></div></div>
+      <div className={c.resultTrack}><span>{viewLanded === null ? "Awaiting landing" : `Pocket ${viewLanded+1}`}</span><span>{viewLanded === null ? "One ball at a time" : `${PLINKO_MULTIPLIERS[viewLanded]}× return`}</span></div>
+    </CasinoTableFrame>
   );
 }
 
@@ -743,78 +607,22 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const nextMultiplier = remainingSafe > 0 && currentMultiplier < MINES_MAX_MULTIPLIER ? minesMultiplier(mineCount, picks.length + 1) : null;
   const netProfit = Math.floor(wager * currentMultiplier) - wager;
 
+  const viewPicks = picks;
+  const viewMines = mines;
+  const viewBust = bustCell;
+  const viewSafe = MINES_GRID - mineCount - viewPicks.length;
   return (
-    <div>
-      {!roundId && bustCell === null ? (
-        <div className="mb-3 flex justify-center gap-2">
-          {MINES_OPTIONS.map((option) => (
-            <button
-              className={`rounded-xl border px-4 py-2 text-xs font-black transition ${mineCount === option ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-500"}`}
-              disabled={pending || busy}
-              key={option}
-              onClick={() => { reset(); setMineCount(option); setLine(null); }}
-              type="button"
-            >
-              {option} mines
-            </button>
-          ))}
-        </div>
-      ) : null}
+    <CasinoTableFrame label="Twenty-five sealed compartments" phase={pending ? "Opening" : roundId ? "Choose a box" : line ? "Result" : "Sealed"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label={roundId ? "Round stake" : "Your stake"} value={(roundId ? wager : bet).toLocaleString()} detail="Coins · return includes your stake" />
+      {!roundId && bustCell === null ? <div><p className={c.controlTitle}>Choose the traps</p><div className={c.choices} style={{marginTop:10}}>{MINES_OPTIONS.map(option => <button aria-pressed={mineCount === option} disabled={pending || busy} key={option} onClick={() => {reset();setMineCount(option);setLine(null);}} type="button">{option}<small>traps</small></button>)}</div></div> : null}
+      <p className={c.controlCopy}>Profit begins at {minesProfitPicks(mineCount)} safe {minesProfitPicks(mineCount) === 1 ? "box" : "boxes"}. Earlier takes return your stake. Maximum return {MINES_MAX_MULTIPLIER}×.</p>
+      {roundId ? <><CasinoMetric label="Available return" value={picks.length > 0 ? `${currentMultiplier}×` : "Open a box"} detail={nextMultiplier !== null ? `Next gem: ${nextMultiplier}×` : currentMultiplier >= MINES_MAX_MULTIPLIER ? "Maximum reached" : "All gems found"} /><button className={c.action} disabled={pending || picks.length === 0} onClick={() => void cashout()} type="button">Take {Math.floor(wager*currentMultiplier).toLocaleString()}</button></> : <button className={c.action} disabled={busy || pending} onClick={open} type="button">Buy in · {bet.toLocaleString()} coins</button>}
 
-      <div className="mx-auto grid w-fit grid-cols-5 gap-1.5">
-        {Array.from({ length: MINES_GRID }, (_, cell) => {
-          const revealedSafe = picks.includes(cell);
-          const revealedMine = mines.includes(cell);
-          return (
-            <button
-              data-revealed={revealedSafe || revealedMine}
-              data-mine={revealedMine}
-              aria-label={revealedMine ? "Trap " + (cell+1) : revealedSafe ? "Gem " + (cell+1) : "Open jewelry box " + (cell+1)}
-              className={`court-jewelry-cell h-11 w-11 rounded-lg border text-lg transition ${
-                revealedMine
-                  ? cell === bustCell
-                    ? "border-rose-300/70 bg-rose-600/40"
-                    : "border-rose-300/30 bg-rose-950/50"
-                  : revealedSafe
-                    ? "border-[#e6ba73]/50 bg-[#c89a55]/20"
-                    : "border-white/10 bg-black/40 hover:border-pink-200/35"
-              }`}
-              disabled={!roundId || pending || revealedSafe || currentMultiplier >= MINES_MAX_MULTIPLIER}
-              key={cell}
-              onClick={() => void pick(cell)}
-              type="button"
-            >
-              <><span className="court-jewelry-prize">{(revealedMine || revealedSafe) && <CourtGlyph symbol={revealedMine ? "threat" : "gem"}/>}</span><span className="court-jewelry-lid" aria-hidden="true"><CourtGlyph symbol="seal"/></span></>
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="mt-3 text-center text-xs text-zinc-400">{remainingSafe} gems · {mineCount} traps left{roundId && picks.length > 0 ? ` · Net profit +${netProfit.toLocaleString()} Coins` : " · Return includes your stake"}</p>
-      <p className="mt-1 text-center text-xs text-zinc-400">Profit begins at {minesProfitPicks(mineCount)} safe {minesProfitPicks(mineCount) === 1 ? "box" : "boxes"}. Earlier takes return your stake.</p>
-      <p className="mt-1 text-center text-xs text-zinc-500">{roundId ? `This round: ${wager.toLocaleString()} Coins · ` : ""}Maximum return {MINES_MAX_MULTIPLIER}x</p>
-      {roundId ? (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-          <span className="text-xs font-black text-[#ffe2ad] tabular-nums">
-            {picks.length > 0 ? `${currentMultiplier}x return` : "Open a box"}{nextMultiplier !== null ? ` · next ${nextMultiplier}x` : currentMultiplier >= MINES_MAX_MULTIPLIER ? " · maximum reached — take your return" : " · all gems found"}
-          </span>
-          <button
-            className="rounded-xl border border-emerald-300/40 bg-emerald-500/15 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-100 disabled:opacity-40"
-            disabled={pending || picks.length === 0}
-            onClick={() => void cashout()}
-            type="button"
-          >
-            Take {Math.floor(wager * currentMultiplier).toLocaleString()}
-          </button>
-        </div>
-      ) : (
-        <button className="vm-table-button" disabled={busy || pending} onClick={open} type="button">
-          {`Buy in — ${bet.toLocaleString()} coins`}
-        </button>
-      )}
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+    </>}>
+      <div className={c.jewelTray}>{Array.from({length:MINES_GRID},(_,cell) => {const safe=viewPicks.includes(cell),trap=viewMines.includes(cell);return <button aria-label={trap ? "Trap "+(cell+1) : safe ? "Gem "+(cell+1) : "Open jewelry box "+(cell+1)} className={c.jewelCell} data-revealed={safe || trap} data-mine={trap} data-bust={cell === viewBust} disabled={!roundId || pending || safe || currentMultiplier >= MINES_MAX_MULTIPLIER} key={cell} onClick={() => void pick(cell)} type="button"><span className={c.jewelPrize}>{(safe || trap) && <CourtGlyph symbol={trap ? "threat" : "gem"} />}</span><span aria-hidden="true" className={c.jewelLid}><CourtGlyph symbol="seal" /></span><span className={c.jewelIndex}>{String(cell+1).padStart(2,"0")}</span></button>;})}</div>
+      <div className={c.jewelSummary}><span><strong>{viewPicks.length}</strong> gems found</span><span><strong>{viewSafe}</strong> gems remain</span><span><strong>{mineCount}</strong> traps</span></div>
+      {roundId && picks.length > 0 ? <p className={c.diceRule}>Net profit +{netProfit.toLocaleString()} Coins</p> : null}
+    </CasinoTableFrame>
   );
 }
 
@@ -939,33 +747,20 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
     }
   };
 
+  const viewDisplay = display;
+  const viewCountdown = countdown;
+  const viewCrashed = crashed;
+  const graphProgress = Math.min(1, Math.log(Math.max(1,viewDisplay)) / Math.log(30));
   return (
-    <div>
-      <div className="court-patience-scene" data-active={Boolean(roundId) && countdown === 0} data-crashed={crashed}>
-        <CourtPortrait compact mood={crashed ? "disappointed" : win ? "approved" : roundId ? "watchful" : "neutral"}/>
-        <div className="court-patience-readout">
-          <p className="text-[10px] uppercase tracking-[.18em] text-amber-200/60">{countdown ? "Get ready" : crashed ? "Her verdict" : win ? "Taken in time" : "Under her gaze"}</p>
-          <strong>{countdown > 0 ? countdown : `${display.toFixed(2)}x`}</strong>
-          <div className="patience-pendulum" aria-hidden="true"/>
-          <p className="mt-4 text-xs text-zinc-400">{crashed ? "Patience spent." : roundId && activeTarget ? `Taking at ${activeTarget.toFixed(2)}x` : roundId ? "Your decision." : "The table awaits."}</p>
-        </div>
-      </div>
-      {!roundId && <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-300">
-        <label className="flex cursor-pointer items-center gap-2">
-          <input type="checkbox" className="accent-pink-400" checked={autoCashoutEnabled} disabled={busy} onChange={event => setAutoCashoutEnabled(event.target.checked)} />
-          Take automatically
-        </label>
-        {autoCashoutEnabled && <>at <input aria-label="Automatic cashout multiplier" className="w-24 rounded-lg border border-amber-200/25 bg-black/40 px-3 py-2 text-amber-100" type="number" min="1.10" max="30" step="0.05" value={autoCashout} disabled={busy} onChange={event => setAutoCashout(event.target.value)} /> x</>}
-      </div>}
-      <p className="mt-2 text-center text-xs leading-5 text-zinc-400">{roundId ? "You can take earlier. A crash before your take point loses the stake." : autoCashoutEnabled ? "Your chosen take point applies to the next round." : "Manual play. Choose when to take your coins."}</p>
-      {roundId ? (
-        <button className="vm-table-button !border-emerald-300/40 !bg-emerald-500/15 !text-emerald-100" disabled={cashingOut || countdown > 0} onClick={() => void cashout()} type="button">
-          {cashingOut ? "Taking…" : countdown ? `Beginning in ${countdown}…` : `Cash out at ${display.toFixed(2)}x`}
-        </button>
-      ) : <button className="vm-table-button" disabled={busy} onClick={open} type="button">{`Test her — ${bet.toLocaleString()} coins`}</button>}
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
+    <CasinoTableFrame label="The longer you wait, the higher the risk" phase={countdown ? "Get ready" : roundId ? "Live" : line ? "Result" : "Ready"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · cash out before the crash" />
+      {!roundId ? <><label className={c.autoControl}><input checked={autoCashoutEnabled} disabled={busy} onChange={event => setAutoCashoutEnabled(event.target.checked)} type="checkbox" />Take automatically</label>{autoCashoutEnabled ? <><label className={c.targetInput}><input aria-label="Automatic cashout multiplier" disabled={busy} max="30" min="1.10" onChange={event => setAutoCashout(event.target.value)} step="0.05" type="number" value={autoCashout} />×</label><input aria-label="Adjust automatic cashout" className={c.targetRange} disabled={busy} max="30" min="1.10" onChange={event => setAutoCashout(event.target.value)} step="0.05" type="range" value={autoCashout} /></> : null}</> : null}
+      <p className={c.controlCopy}>{roundId ? "You can take earlier. A crash before your take point loses the stake." : autoCashoutEnabled ? "Your chosen take point applies to the next round." : "Manual play. Choose when to take your coins."}</p>
+      {roundId ? <button className={c.action} disabled={cashingOut || countdown > 0} onClick={() => void cashout()} type="button">{cashingOut ? "Taking…" : countdown ? `Beginning in ${countdown}…` : `Cash out at ${display.toFixed(2)}×`}</button> : <button className={c.action} disabled={busy} onClick={open} type="button">Test her patience</button>}
+
+    </>}>
+      <div className={c.patienceStage} data-crashed={viewCrashed}><Image alt="Principessa watching the table" className={c.patiencePortrait} height={450} src="/principessa-ui/principessa-gaze.webp" width={360} /><svg aria-hidden="true" className={c.patienceGraph} preserveAspectRatio="none" viewBox="0 0 400 300"><path d="M0 250H400 M0 200H400 M0 150H400 M0 100H400" stroke="#c2a3bd22" strokeWidth=".5" /><path d="M15 280 Q170 275 380 25" fill="none" pathLength="1" stroke={viewCrashed ? "#d998b6" : "#d6b4cf"} strokeDasharray="1" strokeDashoffset={1-graphProgress} strokeWidth="3" /></svg><div className={c.patienceReadout}><p>{viewCountdown ? "Get ready" : viewCrashed ? "Her verdict" : win ? "Taken in time" : "Under her gaze"}</p><strong>{viewCountdown > 0 ? viewCountdown : `${viewDisplay.toFixed(2)}×`}</strong><small>{viewCrashed ? "Patience spent." : roundId && activeTarget ? `Taking at ${activeTarget.toFixed(2)}×` : roundId ? "Your decision." : "The table awaits."}</small></div></div>
+    </CasinoTableFrame>
   );
 }
 
@@ -1058,42 +853,20 @@ function CrawlTable({ bet, busy, onPlay, onProfile }: TableProps) {
     }
   };
 
+  const viewRacing = racing;
+  const viewProgress = progress;
+  const viewLane = lane;
   return (
-    <div>
-      <div className="grid gap-1.5">
-        {CRAWL_LANES.map((entry, index) => (
-          <div className="flex items-center gap-2" key={entry.id}>
-            <button
-              className={`w-24 shrink-0 rounded-lg sm:w-32 border px-2 py-1.5 text-left text-[10px] font-black transition disabled:cursor-not-allowed ${lane === index ? "border-[#e6ba73]/60 bg-[#c89a55]/15" : "border-white/10 bg-black/30 hover:border-white/30"}`}
-              disabled={!raceId || racing || busy}
-              onClick={() => void placeBet(index)}
-              style={{ color: entry.color }}
-              type="button"
-            >
-              {entry.label}
-              {odds ? <span className="block text-zinc-500">{odds[index]}x</span> : null}
-            </button>
-            <div className="court-race-lane"><span className="court-race-finish" aria-hidden="true"/><div className="court-runner-wrap" style={{left:"calc(" + progress[index] + "% - " + (progress[index]*.65) + "px)"}}><CourtRunner running={racing} color={entry.color}/></div></div>
-            <span className="h-6 w-6 shrink-0 text-amber-200/70"><CourtGlyph/></span>
-          </div>
-        ))}
-      </div>
-      {!raceId && !racing ? (
-        <button className="vm-table-button" disabled={busy} onClick={draw} type="button">
-          Draw a race sheet
-        </button>
-      ) : raceId ? (
-        <p className="mt-3 text-center text-[10px] font-black uppercase tracking-[0.16em] text-[#c89a55]/60">
-          Pick a collar · {bet.toLocaleString()} coins
-        </p>
-      ) : null}
-      {line ? <ResultLine {...line} /> : null}
-      {win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}
-    </div>
-  );
-}
+    <CasinoTableFrame label="Four collars · one finish line" phase={racing ? "Racing" : raceId ? "Choose a collar" : line ? "Result" : "Ready"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
+      <CasinoMetric label="Your stake" value={bet.toLocaleString()} detail="Coins · odds appear on the race sheet" />
+      <div className={c.laneChoices}>{CRAWL_LANES.map((entry,index) => <button aria-pressed={viewLane === index} disabled={!raceId || racing || busy} key={entry.id} onClick={() => void placeBet(index)} style={{color:entry.color}} type="button"><span>{entry.label}</span><small>{odds ? `${odds[index]}×` : "—"}</small></button>)}</div>
+      {!raceId && !racing ? <button className={c.action} disabled={busy} onClick={draw} type="button">Draw a race sheet</button> : raceId ? <p className={c.controlCopy}>Pick a collar · {bet.toLocaleString()} coins</p> : null}
 
-type TableProps = {
+    </>}>
+      <div className={c.raceField}><div className={c.raceBanner}><span>The starting line</span><span>Principessa awaits</span></div>{CRAWL_LANES.map((entry,index) => <div className={c.raceRow} data-selected={viewLane === index} data-winner={!viewRacing && viewProgress[index] >= 100} key={entry.id}><span className={c.raceBadge} style={{color:entry.color}}>{index+1}</span><div className={c.raceLane}><span aria-hidden="true" className={c.raceFinish} /><div className={c.runnerWrap} style={{left:"calc("+viewProgress[index]+"% - "+(viewProgress[index]*.65)+"px)"}}><CasinoRunner color={entry.color} running={viewRacing} /></div></div><span className="h-6 w-6 shrink-0 text-pink-200/60"><CourtGlyph /></span></div>)}<div className={c.raceFooter}><span>{viewRacing ? "Every collar is moving." : "Choose who you believe will reach her."}</span><span>Finish →</span></div></div>
+    </CasinoTableFrame>
+  );
+}type TableProps = {
   bet: number;
   busy: boolean;
   onPlay: (run: () => Promise<void>) => void;
@@ -1117,192 +890,58 @@ type TablePresentation = {
 };
 
 const TABLE_PRESENTATIONS: readonly TablePresentation[] = [
-  { art: "/gamble/principessa-reels-dice.webp", blurb: "Three reels. Match her symbols.", edge: "RTP 81.7%", id: "slots", kicker: "The curtain rises", objectPosition: "68% center", symbol: "🎰", tag: "Popular", title: "Her Reels", tone: "pink" },
-  { art: "/gamble/principessa-reels-dice.webp", blurb: "Roll higher than Principessa.", edge: "RTP 81.6%", id: "dice", kicker: "Challenge her", objectPosition: "22% center", symbol: "🎲", tag: "Hot", title: "Her Dice", tone: "violet" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "European roulette. Choose your bet.", edge: "RTP 81.7%", id: "roulette", kicker: "Place your bet", objectPosition: "42% 68%", symbol: "◎", tag: "Classic", title: "Court Roulette", tone: "amber" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "Drop through twelve rows of pegs.", edge: "RTP 81.4%", id: "plinko", kicker: "Drop for her", objectPosition: "18% 70%", symbol: "◆", tag: "Live", title: "Royal Plinko", tone: "cyan" },
-  { art: "/gamble/principessa-risk-table.webp", blurb: "Find gems. Avoid the traps.", edge: "RTP 82%", id: "mines", kicker: "Take what you dare", objectPosition: "76% center", symbol: "💎", tag: "Risk", title: "The Jewelry Box", tone: "emerald" },
-  { art: "/gamble/principessa-casino-hero.webp", blurb: "Cash out before the crash.", edge: "RTP 82%", id: "crash", kicker: "Test her patience", objectPosition: "68% center", symbol: "♥", tag: "Push", title: "Her Patience", tone: "rose" },
-  { art: "/gamble/principessa-casino-hero.webp", blurb: "Back one collar to reach her first.", edge: "RTP 82%", id: "crawl", kicker: "The court watches", objectPosition: "91% center", symbol: "♛", tag: "Court", title: "The Crawl", tone: "violet" },
+  { art: "/gamble/v5/slots.webp", blurb: "Three reels. Match her symbols.", edge: "RTP 81.7%", id: "slots", kicker: "The curtain rises", objectPosition: "center", symbol: "🎰", tag: "Popular", title: "Her Reels", tone: "pink" },
+  { art: "/gamble/v5/dice.webp", blurb: "Roll higher than Principessa.", edge: "RTP 81.6%", id: "dice", kicker: "Challenge her", objectPosition: "center", symbol: "🎲", tag: "Hot", title: "Her Dice", tone: "violet" },
+  { art: "/gamble/v5/roulette.webp", blurb: "European roulette. Choose your bet.", edge: "RTP 81.7%", id: "roulette", kicker: "Place your bet", objectPosition: "center", symbol: "◎", tag: "Classic", title: "Court Roulette", tone: "amber" },
+  { art: "/gamble/v5/plinko.webp", blurb: "Drop through twelve rows of pegs.", edge: "RTP 81.4%", id: "plinko", kicker: "Drop for her", objectPosition: "center", symbol: "◆", tag: "Live", title: "Royal Plinko", tone: "cyan" },
+  { art: "/gamble/v5/mines.webp", blurb: "Find gems. Avoid the traps.", edge: "RTP 82%", id: "mines", kicker: "Take what you dare", objectPosition: "center", symbol: "💎", tag: "Risk", title: "The Jewelry Box", tone: "emerald" },
+  { art: "/gamble/v5/crash.webp", blurb: "Cash out before the crash.", edge: "RTP 82%", id: "crash", kicker: "Test her patience", objectPosition: "center", symbol: "♥", tag: "Push", title: "Her Patience", tone: "rose" },
+  { art: "/gamble/v5/crawl.webp", blurb: "Back one collar to reach her first.", edge: "RTP 82%", id: "crawl", kicker: "The court watches", objectPosition: "center", symbol: "♛", tag: "Court", title: "The Crawl", tone: "violet" },
 ] as const;
 
-function TableCard({
-  children,
-  game,
-}: {
-  children: React.ReactNode;
-  game: TablePresentation;
-}) {
-  const toneClasses = {
-    amber: "border-amber-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(245,158,11,.19),transparent_34%),linear-gradient(145deg,rgba(42,20,7,.82),rgba(10,5,10,.94))] shadow-[0_18px_55px_rgba(245,158,11,.08)]",
-    cyan: "border-cyan-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(34,211,238,.17),transparent_34%),linear-gradient(145deg,rgba(4,27,35,.82),rgba(8,5,14,.94))] shadow-[0_18px_55px_rgba(34,211,238,.08)]",
-    emerald: "border-emerald-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(16,185,129,.18),transparent_34%),linear-gradient(145deg,rgba(4,31,24,.82),rgba(8,5,13,.94))] shadow-[0_18px_55px_rgba(16,185,129,.08)]",
-    pink: "border-pink-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(236,72,153,.22),transparent_34%),linear-gradient(145deg,rgba(48,8,31,.82),rgba(10,5,13,.94))] shadow-[0_18px_55px_rgba(236,72,153,.1)]",
-    rose: "border-rose-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(244,63,94,.2),transparent_34%),linear-gradient(145deg,rgba(48,8,18,.82),rgba(10,5,11,.94))] shadow-[0_18px_55px_rgba(244,63,94,.09)]",
-    violet: "border-violet-300/25 bg-[radial-gradient(circle_at_100%_0%,rgba(139,92,246,.22),transparent_34%),linear-gradient(145deg,rgba(27,10,49,.84),rgba(8,5,13,.94))] shadow-[0_18px_55px_rgba(139,92,246,.1)]",
-  } as const;
-  return (
-    <div className={`relative overflow-hidden rounded-[1.85rem] border ${toneClasses[game.tone]}`}>
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/55 to-transparent" />
-      <div className="relative h-52 overflow-hidden border-b border-white/10 sm:h-60">
-        <Image
-          alt={`${game.title} hosted by Principessa`}
-          className="object-cover transition duration-700"
-          fill
-          quality={75}
-          sizes="(min-width: 1280px) 60vw, (min-width: 768px) 80vw, 100vw"
-          src={game.art}
-          style={{ objectPosition: game.objectPosition }}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,2,8,.96),rgba(7,2,9,.62)_44%,rgba(7,2,9,.08)_78%),linear-gradient(0deg,rgba(5,2,8,.9),transparent_62%)]" />
-        <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 sm:inset-x-7">
-          <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[.3em] text-pink-200/75">{game.kicker}</p>
-            <div className="mt-2 flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-black/45 text-xl backdrop-blur">{game.symbol}</span>
-              <div>
-                <h3 className="font-serif text-2xl font-semibold text-white sm:text-3xl">{game.title}</h3>
-                <p className="mt-1 max-w-xl text-xs leading-5 text-white/55">{game.blurb}</p>
-              </div>
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full border border-[#ffd68a]/30 bg-black/55 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#ffe2ad] backdrop-blur">
-            {game.edge}
-          </span>
-        </div>
-      </div>
-      <div className="p-4 sm:p-6">{children}</div>
-    </div>
-  );
+function TableCard({ children, game }: { children: React.ReactNode; game: TablePresentation }) {
+  return <div className={c.frame}><header className={c.frameHeader}><Image alt={game.title+" hosted by Principessa"} className={c.frameArt} height={90} src={game.art} style={{objectPosition:game.objectPosition}} width={90} /><div><p>{game.kicker}</p><h3>{game.title}</h3><small>{game.blurb}</small></div><span className={c.rtp}>{game.edge}</span></header>{children}</div>;
 }
 
-export function GambleHall({ disabled = false, onProfile }: HallProps) {
-  const [bet, setBet] = useState(250);
-  const [busy, setBusy] = useState(false);
-  const [activeTable, setActiveTable] = useState<TableId>("slots");
-
-  const onPlay = useCallback(
-    (run: () => Promise<void>) => {
-      if (disabled || busy) return;
-      setBusy(true);
-      void run().finally(() => setBusy(false));
-    },
-    [busy, disabled],
-  );
-
-  const tableProps: TableProps = { bet, busy: busy || disabled, onPlay, onProfile };
-  const activeGame = TABLE_PRESENTATIONS.find((game) => game.id === activeTable) ?? TABLE_PRESENTATIONS[0];
-
-  const renderActiveTable = () => {
-    switch (activeTable) {
-      case "dice": return <DiceTable {...tableProps} />;
-      case "roulette": return <RouletteTable {...tableProps} />;
-      case "plinko": return <PlinkoTable {...tableProps} />;
-      case "mines": return <MinesTable {...tableProps} />;
-      case "crash": return <CrashTable {...tableProps} />;
-      case "crawl": return <CrawlTable {...tableProps} />;
-      case "slots":
-      default: return <SlotsTable {...tableProps} />;
+export function GambleHall({disabled=false,onProfile}:HallProps) {
+  const [bet,setBet]=useState(250);
+  const [busy,setBusy]=useState(false);
+  const [activeTable,setActiveTable]=useState<TableId>("slots");
+  const [visited,setVisited]=useState<TableId[]>(["slots"]);
+  const onPlay=useCallback((run:()=>Promise<void>)=>{
+    if(disabled||busy)return;
+    setBusy(true);
+    void run().finally(()=>setBusy(false));
+  },[busy,disabled]);
+  const tableProps:TableProps={bet,busy:busy||disabled,onPlay,onProfile};
+  const select=(id:TableId)=>{
+    setActiveTable(id);
+    setVisited(current=>current.includes(id)?current:[...current,id]);
+    requestAnimationFrame(()=>document.getElementById("table-"+id)?.scrollIntoView({block:"start",behavior:"instant"}));
+  };
+  const renderTable=(id:TableId)=>{
+    switch(id){
+      case "dice":return <DiceTable {...tableProps}/>;
+      case "roulette":return <RouletteTable {...tableProps}/>;
+      case "plinko":return <PlinkoTable {...tableProps}/>;
+      case "mines":return <MinesTable {...tableProps}/>;
+      case "crash":return <CrashTable {...tableProps}/>;
+      case "crawl":return <CrawlTable {...tableProps}/>;
+      default:return <SlotsTable {...tableProps}/>;
     }
   };
-
-  return (
-    <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-pink-300/30 bg-[radial-gradient(circle_at_10%_0%,rgba(255,28,151,.34),transparent_30%),radial-gradient(circle_at_92%_8%,rgba(124,58,237,.28),transparent_28%),linear-gradient(145deg,rgba(27,5,25,.98),rgba(5,2,10,.98))] p-5 shadow-[0_26px_90px_rgba(104,8,78,.3)] sm:p-6">
-      <style>{`
-        .vm-table-button {
-          margin-top: 0.9rem; display: block; width: 100%; border-radius: 1rem;
-          border: 1px solid rgba(244,194,255,.3); background: linear-gradient(100deg,rgba(219,39,119,.24),rgba(124,58,237,.2));
-          padding: 0.8rem 1rem; font-size: .875rem; font-weight: 900; color: #fce7f3;
-          text-transform: none; transition: background .15s, border-color .15s;
-        }
-        .vm-table-button:enabled:hover { background: linear-gradient(100deg,rgba(236,72,153,.4),rgba(124,58,237,.34)); border-color: rgba(244,194,255,.62); box-shadow: 0 0 26px rgba(236,72,153,.18); }
-        .vm-table-button:disabled { opacity: .45; cursor: not-allowed; }
-        @media (prefers-reduced-motion: reduce) {
-          .vm-table-button { transition: none; }
-        }
-      `}</style>
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.32em] text-pink-200/70">Principessa&apos;s casino</p>
-          <h2 className="mt-1 font-serif text-4xl font-semibold text-white [text-shadow:0_0_28px_rgba(236,72,153,.3)]">Gamble Hall</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-pink-50/55">
-            Seven games. One shared stake. Maximum RTP: 82%.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-black uppercase tracking-[.28em] text-pink-100/65">Choose a table</p>
-        <p className="text-[9px] font-black uppercase tracking-[.18em] text-white/30">7 games · one shared stake</p>
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {TABLE_PRESENTATIONS.map((game, index) => {
-          const selected = activeTable === game.id;
-          return (
-            <button
-              aria-pressed={selected}
-              className={`group relative h-56 overflow-hidden rounded-[1.45rem] border text-left transition duration-300 ${index === 0 ? "sm:col-span-2 xl:col-span-2" : ""} ${selected ? "border-pink-200/75 shadow-[0_0_0_1px_rgba(244,114,182,.2),0_22px_55px_rgba(219,39,119,.24)]" : "border-white/15 hover:-translate-y-1 hover:border-pink-200/45 hover:shadow-[0_18px_45px_rgba(118,10,82,.22)]"}`}
-              key={game.id}
-              onClick={() => setActiveTable(game.id)}
-              type="button"
-            >
-              <Image
-                alt=""
-                aria-hidden
-                className="object-cover transition duration-700 group-hover:scale-[1.04]"
-                fill
-                quality={75}
-                sizes={index === 0 ? "(min-width: 1280px) 50vw, (min-width: 640px) 100vw, 100vw" : "(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"}
-                src={game.art}
-                style={{ objectPosition: game.objectPosition }}
-              />
-              <span className="absolute inset-0 bg-[linear-gradient(0deg,rgba(5,2,8,.98)_0%,rgba(8,2,11,.72)_38%,rgba(7,2,9,.04)_78%),linear-gradient(90deg,rgba(6,2,8,.52),transparent_68%)]" />
-              <span className="absolute left-4 top-4 rounded-full border border-white/20 bg-black/50 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.18em] text-white/80 backdrop-blur">
-                {game.tag}
-              </span>
-              {selected ? (
-                <span className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full border border-pink-200/35 bg-pink-500/20 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em] text-pink-50 backdrop-blur">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-pink-200" /> On stage
-                </span>
-              ) : null}
-              <span className="absolute inset-x-4 bottom-4">
-                <span className="text-[8px] font-black uppercase tracking-[.28em] text-pink-200/70">{game.kicker}</span>
-                <span className="mt-1 flex items-end justify-between gap-3">
-                  <span>
-                    <span className="block font-serif text-2xl font-semibold text-white">{game.title}</span>
-                    <span className="mt-1 block text-[10px] font-black uppercase tracking-[.12em] text-[#ffe2ad]/70">{game.edge}</span>
-                  </span>
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-pink-200/30 bg-pink-500/15 text-pink-100 transition group-hover:bg-pink-500/30">↘</span>
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-5 scroll-mt-24" id={`table-${activeTable}`}>
-        <TableCard game={activeGame}>
-          <div className="sticky top-2 z-20 mb-5 flex flex-wrap items-center gap-1.5 rounded-2xl border border-pink-200/20 bg-[#120712]/90 p-3 shadow-[0_16px_35px_rgba(0,0,0,.28)] backdrop-blur-xl">
-            <span className="mr-1 text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/60">Table bet</span>
-            {BET_CHIPS.map((chip) => (
-              <button
-                className={`rounded-full border px-3 py-1.5 text-xs font-black tabular-nums transition ${bet === chip ? "border-pink-200/65 bg-pink-500/25 text-white shadow-[0_0_20px_rgba(236,72,153,.24)]" : "border-white/10 bg-black/30 text-white/45 hover:border-pink-200/30 hover:text-pink-100"}`}
-                key={chip}
-                onClick={() => setBet(chip)}
-                type="button"
-              >
-                {chip.toLocaleString()}
-              </button>
-            ))}
-            <span className="ml-1 text-[9px] text-zinc-600">
-              {GAMBLE_MIN_BET}–{GAMBLE_MAX_BET.toLocaleString()} per round
-            </span>
-          </div>
-          {renderActiveTable()}
-        </TableCard>
-      </div>
-    </section>
-  );
+  return <section className={`${styles.surface} ${styles.casino} ${c.hall}`} id="gamble-tables">
+    <div className={c.hallHeading}><h2>Gamble Hall</h2><p>Seven games · Maximum RTP 82%</p></div>
+    <nav className={c.tableSwitcher} aria-label="Choose a casino game">
+      {TABLE_PRESENTATIONS.map(game=><button key={game.id} type="button" aria-pressed={activeTable===game.id} aria-controls={"table-"+game.id} onClick={()=>select(game.id)} data-table-choice={game.id}>
+        <Image src={game.art} alt="" width={240} height={140} sizes="(max-width:700px) 100px, 180px" quality={85} style={{objectPosition:game.objectPosition}}/><span>{game.title}</span>
+      </button>)}
+    </nav>
+    {TABLE_PRESENTATIONS.filter(game=>visited.includes(game.id)).map(game=><div className={c.tablePanel} key={game.id} id={"table-"+game.id} hidden={activeTable!==game.id}>
+      <TableCard game={game}>
+        <div className={c.stakeBar}><span>Stake · Coins</span>{BET_CHIPS.map(chip=><button key={chip} type="button" disabled={busy||disabled} onClick={()=>setBet(chip)} aria-pressed={bet===chip}>{chip.toLocaleString()}</button>)}<input aria-label="Stake amount" disabled={busy||disabled} type="range" min={GAMBLE_MIN_BET} max={GAMBLE_MAX_BET} step={GAMBLE_MIN_BET} value={bet} onChange={event=>setBet(Number(event.target.value))}/><small>{GAMBLE_MIN_BET.toLocaleString()}–{GAMBLE_MAX_BET.toLocaleString()} per round</small></div>
+        {renderTable(game.id)}
+      </TableCard>
+    </div>)}
+  </section>;
 }

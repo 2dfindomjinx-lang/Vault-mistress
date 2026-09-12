@@ -10,6 +10,8 @@ export const PROFILE_FRAME_COSMETIC_TYPES = [
 export type ProfileFrameCosmeticType = (typeof PROFILE_FRAME_COSMETIC_TYPES)[number];
 
 export type ProfileFrameDecorationMotif =
+  | "royal-key"
+  | "top-crescent"
   | "festoon-medallion"
   | "jeweled-locket"
   | "cathedral-tassel"
@@ -123,6 +125,8 @@ const definition = (
 ): ProfileFrameDecorationDefinition => item;
 
 export const profileFrameDecorationDefinitions: ProfileFrameDecorationDefinition[] = [
+  definition({ id:"frame-bottom-royal-key", name:"Her Private Key", description:"A heart-cut jewel, a polished golden key and her wine-red ribbon.", type:"profile-frame-bottom", price:5000, motif:"royal-key", palette:["#481526","#b55478","#f8d8d6"], metal:"#dfbd84", shadow:"#260d1a" }),
+  definition({ id:"frame-top-eclipse-crescent", name:"Eclipse Diadem", description:"A hammered crescent, a floating violet star and a suspended crystal.", type:"profile-frame-top", price:5000, motif:"top-crescent", palette:["#251c45","#a49cde","#e6e6ff"], metal:"#d0c7e5", shadow:"#18152e" }),
   // Not for sale. Held only while the birthday plush is in the inventory, and
   // equipped or removed from the Profile header cosmetics panel like any other
   // side pair - so wanting the plush does not force you into wearing its title.

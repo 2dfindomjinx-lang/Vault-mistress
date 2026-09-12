@@ -2,6 +2,7 @@
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import Image from "next/image";
+import styles from "./ExperienceSurfaces.module.css";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { ClickStageTrack, DrainScene } from "@/components/court/ShrineSessionVisuals";
 import { createPortal } from "react-dom";
@@ -416,11 +417,11 @@ export function TributePanel({
   const displayedStageImagePath = categoryReady ? getClickGameStageImagePath(displayedStage, clickGameCategory) : null;
 
   return (
-    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className={`${styles.surface} ${styles.tribute}`}>
+      <div className={styles.sectionHeader}>
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-pink-200/70">
-            Tribute System
+            For Principessa
           </p>
           <h2 className="text-3xl font-black">{hideAffectionOffer ? "Shrine of Principessa" : "Offer Principessa Coins"}</h2>
         </div>
@@ -431,7 +432,7 @@ export function TributePanel({
 
       {/* Drain Session: its own top-level grid, same as Click Game below -
           not nested inside the Shrine grid/card. */}
-      <div className="mt-5 rounded-[1.35rem] border border-rose-200/20 bg-black/30 p-4">
+      <div className={`${styles.shrineSession} mt-5`}>
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-rose-100/70">Drain Session</p>
           {drainActive && (
@@ -568,7 +569,7 @@ export function TributePanel({
 
           <p className="mt-5 text-sm leading-6 text-zinc-400">
             {isMaxAffection
-              ? "Principessa's mood is already at its peak. Ordinary tribute rests now, but the Shrine still welcomes offerings."
+              ? "Her affection is full. Shrine offerings remain available."
               : disabled
                 ? "Timeout is active. Tribute actions are locked until the timer ends."
               : "Offer Coins to raise Principessa’s affection. Every offering is remembered."}
@@ -584,7 +585,7 @@ export function TributePanel({
                 Sacred Offerings
               </p>
               <h3 className="mt-2 text-2xl font-black text-white">
-                Deepen your devotion through sacred offerings.
+                Her shrine. Your devotion.
               </h3>
               <p className="mt-2 text-sm leading-6 text-amber-50/80">
                 Each offering increases your Tribute Score, grants Devotion, and contributes toward revealing new Shrine Memories.

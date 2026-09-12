@@ -1,0 +1,60 @@
+
+.animeHost { container-type: inline-size; isolation: isolate; }
+.animeArt {
+  --trim-width: clamp(4px, 8cqw, 14px);
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.trim, .shine {
+  position: absolute;
+  inset: -1px;
+  border: var(--trim-width) solid transparent;
+  border-image-source: var(--anime-trim);
+  border-image-slice: 44;
+  border-image-width: var(--trim-width);
+  border-image-outset: 1px;
+  border-image-repeat: stretch;
+}
+.trim { opacity: 1; }
+.shine { opacity: .14; }
+.crest {
+  position: absolute;
+  width: clamp(12px, 25cqw, 42px);
+  aspect-ratio: 1;
+  background: var(--anime-crest) center / contain no-repeat;
+  transform-origin: center;
+}
+.crest[data-position="nw"] { top: -3%; left: -5%; }
+.crest[data-position="ne"] { top: -3%; right: -5%; }
+.crest[data-position="sw"] { bottom: -3%; left: -5%; }
+.crest[data-position="se"] { bottom: -3%; right: -5%; }
+.crest[data-position="south"] { bottom: -6%; left: 50%; margin-left: calc(clamp(12px, 25cqw, 42px) / -2); }
+.crest[data-small="true"] { width: clamp(9px, 18cqw, 30px); }
+.animeArt[data-motion="drift"] .shine { animation: animeTide 8s ease-in-out infinite; }
+.animeArt[data-motion="drift"] .crest { animation: animeBreathe 8s ease-in-out infinite; }
+.animeArt[data-motion="pulse"] .shine { animation: animeAura 6s ease-in-out infinite; }
+.animeArt[data-motion="pulse"] .crest { animation: animeFocus 6s ease-in-out infinite; }
+.animeArt[data-motion="sweep"] .shine { animation: animeLustre 9s ease-in-out infinite; }
+.animeArt[data-motion="ember"] .shine { animation: animeEmber 7s ease-in-out infinite; }
+.animeArt[data-motion="ember"] .crest { animation: animeFocus 7s ease-in-out infinite; }
+.animeArt[data-motion="float"] .crest { animation: animeFloat 8s ease-in-out infinite; }
+.animeArt[data-motion="float"] .shine { animation: animeTide 8s ease-in-out infinite; }
+.animeArt[data-motion="slash"] .shine { animation: animeSlash 8s ease-in-out infinite; }
+.animeArt[data-motion="charge"] .shine { animation: animeCharge 9s ease-in-out infinite; }
+.animeArt[data-motion="charge"] .crest { animation: animeFocus 9s ease-in-out infinite; }
+.crest:nth-of-type(even) { animation-delay: -2.5s !important; }
+@keyframes animeTide { 0%,100% { opacity:.12; } 50% { opacity:.6; } }
+@keyframes animeBreathe { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+@keyframes animeAura { 0%,100% { opacity:.08; filter:brightness(1); } 50% { opacity:.65; filter:brightness(1.6); } }
+@keyframes animeFocus { 0%,100% { filter:brightness(1); } 50% { filter:brightness(1.18); } }
+@keyframes animeLustre { 0%,60%,100% { opacity:.05; } 35% { opacity:.75; filter:brightness(1.5); } }
+@keyframes animeEmber { 0%,100% { opacity:.18; } 28% { opacity:.58; } 48% { opacity:.28; } 74% { opacity:.65; } }
+@keyframes animeFloat { 0%,100% { transform:translateY(0) rotate(-2deg); } 50% { transform:translateY(-1.5px) rotate(2deg); } }
+@keyframes animeSlash { 0%,55%,100% { opacity:.05; } 64% { opacity:.7; filter:brightness(1.7); } 75% { opacity:.08; } }
+@keyframes animeCharge { 0%,65%,100% { opacity:.08; } 72% { opacity:.7; filter:brightness(1.6); } 84% { opacity:.22; } }
+@media (prefers-reduced-motion: reduce) {
+  .animeArt .shine, .animeArt .crest { animation:none !important; transform:none !important; filter:none !important; }
+}

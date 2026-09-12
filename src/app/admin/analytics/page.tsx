@@ -302,7 +302,7 @@ export default function AdminAnalyticsPage() {
 
   if (isLoading && !data) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
+      <main className="court-admin flex min-h-screen items-center justify-center bg-[#06030a] text-pink-100">
         <div className="rounded-[2rem] border border-pink-200/20 bg-black/55 px-6 py-5">
           Loading analytics...
         </div>
@@ -311,7 +311,7 @@ export default function AdminAnalyticsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
+    <main className="court-admin min-h-screen bg-[#06030a] px-4 py-8 text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(236,72,153,0.22),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(168,85,247,0.2),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#06030a_78%)]" />
       <section className="relative mx-auto max-w-7xl space-y-5">
         <div className="rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">

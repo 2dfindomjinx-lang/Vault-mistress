@@ -1,5 +1,11 @@
 "use client";
 
+import { LayeredAvatar } from "@/components/LayeredAvatar";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
+import { worldCupFarewellBorders } from "@/lib/cosmetics";
+import { getCosmeticPurchasePrice, getWorldCupFarewell } from "@/lib/world-cup-farewell";
+import styles from "./CollectionSurfaces.module.css";
+
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -22,7 +28,16 @@ function formatCountdown(targetIso: string) {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function ShopCountdown({ target }: { target: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const interval = window.setInterval(() => tick((value) => value + 1), 1000); return () => window.clearInterval(interval); }, [target]);
+  return <>{formatCountdown(target)}</>;
+}
+
 type CosmeticShopProps = {
+  equippedAvatarSlots?: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
+  hasUncensoredAvatar?: boolean;
   coins: number;
   equippedCosmeticIds: Partial<Record<CosmeticItem["type"], string>>;
   ownedCosmeticIds: string[];
@@ -40,6 +55,9 @@ type CosmeticShopProps = {
 };
 
 export function CosmeticShop({
+  equippedAvatarSlots = {},
+  equippedFullSetId = null,
+  hasUncensoredAvatar = false,
   coins,
   disabled = false,
   equippedCosmeticIds,
@@ -55,13 +73,11 @@ export function CosmeticShop({
   onPurchaseCosmetic,
   onPurchaseTitle,
 }: CosmeticShopProps) {
-  const [, forceCountdownTick] = useState(0);
-
+  const [farewell, setFarewell] = useState(() => getWorldCupFarewell());
   useEffect(() => {
-    if (!premiumTitleExpiresAt) return;
-    const interval = window.setInterval(() => forceCountdownTick((tick) => tick + 1), 1000);
+    const interval = window.setInterval(() => setFarewell(getWorldCupFarewell()), 60_000);
     return () => window.clearInterval(interval);
-  }, [premiumTitleExpiresAt]);
+  }, []);
   const sortByPrice = (items: CosmeticItem[]) =>
     [...items].sort((a, b) => a.price - b.price);
   const groupedItems = [
@@ -91,7 +107,7 @@ export function CosmeticShop({
       const presentation = getProfileBorderFramePresentation(item);
 
       return (
-        <div className="mb-3 rounded-2xl border border-white/10 bg-black/35 p-3">
+        <div className={styles.cosmeticPreview}>
           <div className="mx-auto w-[6.4rem]">
             <ProfileBorderFrame
               className="aspect-[180/288] rounded-[1.35rem]"
@@ -109,49 +125,9 @@ export function CosmeticShop({
     }
 
     if (item.type === "avatar-background") {
-      const isDefaultBackground = item.id === "avatar-background-none";
-
       return (
-        <div className="mb-3 overflow-hidden rounded-2xl border border-white/10 bg-black/35">
-          <div className="relative h-20 w-full">
-            {item.backgroundFallback ? (
-              <div
-                aria-hidden="true"
-                className="absolute inset-0"
-                style={{ background: item.backgroundFallback }}
-              />
-            ) : (
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 bg-[linear-gradient(140deg,rgba(24,24,27,0.95),rgba(63,63,70,0.7),rgba(9,9,11,0.95))]"
-              />
-            )}
-            {item.backgroundPath ? (
-              <Image
-                alt={item.name}
-                className="object-cover object-center"
-                fill
-                src={item.backgroundPath}
-                unoptimized
-              />
-            ) : null}
-            {item.backgroundOverlayPath ? (
-              <Image
-                alt=""
-                aria-hidden="true"
-                className="object-cover object-center"
-                fill
-                src={item.backgroundOverlayPath}
-                unoptimized
-              />
-            ) : null}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.42))]" />
-            <div className="absolute inset-0 border border-white/10" />
-            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.18em] text-white/85">
-              <span>{isDefaultBackground ? "Default" : "Backdrop"}</span>
-              <span>{isDefaultBackground ? "Clean" : "Preview"}</span>
-            </div>
-          </div>
+        <div className={styles.backgroundDollPreview}>
+          <LayeredAvatar alt={item.name + " with your avatar"} equipped={equippedAvatarSlots} equippedFullSetId={equippedFullSetId} hasUncensored={hasUncensoredAvatar} backgroundPath={item.backgroundPath} backgroundOverlayPath={item.backgroundOverlayPath} backgroundStyle={item.backgroundFallback ? { background: item.backgroundFallback } : undefined} />
         </div>
       );
     }
@@ -159,7 +135,7 @@ export function CosmeticShop({
     if (item.image) {
       return (
         <div
-          className={`mb-3 flex h-14 w-14 items-center justify-center overflow-hidden border border-white/10 bg-black/35 ${
+          className={`${styles.cosmeticPreview} ${styles.avatarSwatch} ${
             item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
           }`}
         >
@@ -168,9 +144,9 @@ export function CosmeticShop({
             className={`h-11 w-11 object-contain ${
               item.type === "speech-avatar" ? "rounded-full" : "rounded-2xl"
             }`}
-            height={44}
+            height={116}
             src={item.image}
-            width={44}
+            width={116}
           />
         </div>
       );
@@ -187,7 +163,9 @@ export function CosmeticShop({
         !ownedCosmeticIds.includes(item.id);
       const owned = item.price === 0 || ownedCosmeticIds.includes(item.id) || eventAvailable;
       const equipped = equippedCosmeticIds[item.type] === item.id;
-      const canAfford = coins >= item.price;
+      const purchasePrice = getCosmeticPurchasePrice(item);
+      const discounted = purchasePrice < item.price;
+      const canAfford = coins >= purchasePrice;
       const pending = pendingCosmeticIds.includes(item.id);
 
       const isDisplayNameChange = item.id === "display-name-change";
@@ -195,7 +173,7 @@ export function CosmeticShop({
 
       return (
         <article
-          className={`court-grid-card court-grid-card--violet rounded-[1.35rem] border p-4 transition ${
+          className={`${styles.product} ${styles.cosmeticCard} ${
             equipped
               ? "border-pink-200/45 bg-pink-500/12 shadow-[0_0_24px_rgba(236,72,153,0.18)]"
               : owned
@@ -203,6 +181,7 @@ export function CosmeticShop({
                 : "border-white/10 bg-white/[0.035]"
           }`}
           key={item.id}
+          data-equipped={equipped}
         >
           {renderPreview(item)}
           <div className="flex items-start justify-between gap-3">
@@ -232,10 +211,11 @@ export function CosmeticShop({
               </span>
             </div>
           </div>
-          <div className="mt-4 flex items-center justify-end gap-3">
+          <div className={styles.productActions}>
             {item.price > 0 && !owned && (
-              <div className="shrink-0">
-                <CoinAmount amount={item.price} iconSize={16} label="" />
+              <div className={styles.salePrice}>
+                {discounted && <span className={styles.originalPrice}><span className="sr-only">Original price: </span><s>{item.price.toLocaleString()}</s><span className={styles.discountBadge}>−50%</span></span>}
+                <CoinAmount amount={purchasePrice} iconSize={16} label="" />
               </div>
             )}
             <button
@@ -269,26 +249,31 @@ export function CosmeticShop({
     });
 
   return (
-    <section className="court-feature-panel rounded-[2rem] border border-fuchsia-200/15 bg-black/50 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section className={`${styles.surface} ${styles.wardrobe}`} data-collection-surface="wardrobe">
+      <div className={styles.header}>
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-fuchsia-200/70">
-            Cosmetic Shop
+            The dressing room
           </p>
-          <h2 className="text-3xl font-black">Spend Without Tribute</h2>
+          <h2 className="text-3xl font-black">Dress for her attention.</h2>
         </div>
-        <p className="rounded-full border border-pink-200/20 bg-pink-500/10 px-3 py-1 text-xs font-bold text-pink-100">
+        <p className={styles.balance}>
           <CoinAmount amount={coins} iconSize={15} label="coins" />
         </p>
       </div>
       <p className="mt-3 text-sm leading-6 text-zinc-400">
-        Cosmetic purchases personalize your profile and speech bubble. They never increase Tribute
-        Total, and they also build your all time coin spendings badge progress.
+        Make her mark your signature. Cosmetics count toward coin spending, not Tribute Total.
       </p>
 
+      {farewell.active && farewell.endsAt && (
+        <section className={styles.farewell} aria-label="World Cup farewell collection">
+          <div className={styles.farewellHeading}><div><span>Last call · World Cup</span><h3>One final appearance.</h3><p>All {worldCupFarewellBorders.length} club and national-team borders. Half price for seven days. Yours to keep.</p></div><span className={styles.farewellTime}><ShopCountdown target={farewell.endsAt} /></span></div>
+          <div className={styles.farewellGrid}>{renderCosmeticCards(worldCupFarewellBorders)}</div>
+        </section>
+      )}
       {groupedItems.map((group) => (
         <div className="mt-6" key={group.type}>
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">
+          <p className={styles.sectionLabel}>
             {group.label}
           </p>
         <div className="court-grid court-grid--collection mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -299,7 +284,7 @@ export function CosmeticShop({
 
       {/* Profile Identity category with sub items: colors, glows, and minimal display name */}
       <div className="mt-6">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-200">Profile Identity</p>
+        <p className={styles.sectionLabel}>Profile Identity</p>
 
         {usernameColorItems.length > 0 && (
           <div className="mt-3">
@@ -329,7 +314,7 @@ export function CosmeticShop({
         )}
       </div>
 
-      <div className="mt-6 rounded-[1.35rem] border border-yellow-200/25 bg-yellow-300/10 p-4 shadow-[0_0_28px_rgba(250,204,21,0.1)]">
+      <div className={styles.premium}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-100/80">
@@ -339,7 +324,7 @@ export function CosmeticShop({
             <p className="mt-1 text-sm text-yellow-50/75">{premiumTitle.description}</p>
             {premiumTitleExpiresAt && (
               <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-yellow-200/70">
-                New title in {formatCountdown(premiumTitleExpiresAt)}
+                New title in <ShopCountdown target={premiumTitleExpiresAt} />
               </p>
             )}
           </div>

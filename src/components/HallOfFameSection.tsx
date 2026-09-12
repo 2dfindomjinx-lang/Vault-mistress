@@ -1,4 +1,6 @@
 import Image from "next/image";
+import {CourtGlyph} from "./court/CourtVisuals";
+import styles from "./HomeCourtPanels.module.css";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
@@ -33,114 +35,26 @@ export function HallOfFameSection({
   isLoading = false,
   onSelectUser,
 }: HallOfFameSectionProps) {
-  return (
-    <section className={`court-feature-panel overflow-hidden border border-amber-200/20 bg-[linear-gradient(145deg,rgba(10,7,2,0.96),rgba(74,22,12,0.74),rgba(111,35,27,0.32))] shadow-[0_0_56px_rgba(251,191,36,0.12)] ${compact ? "rounded-[1.5rem] p-4" : "rounded-[2.25rem] p-5"}`}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.34em] text-amber-200/72">Hall of Fame</p>
-          <h2 className={`${compact ? "text-2xl" : "text-3xl"} mt-2 font-black text-white`}>Community Prestige</h2>
-        </div>
-        <p className="max-w-2xl text-sm leading-6 text-amber-50/72">
-          Community highlights refresh automatically so visible support, devotion, streak discipline,
-          and case obsession always feel noticed.
-        </p>
-      </div>
-
-      <div className="court-grid court-grid--shop mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading && cards.length === 0 ? (
-          <div className="rounded-[1.8rem] border border-white/10 bg-black/25 px-4 py-10 text-sm text-amber-50/75 md:col-span-2 2xl:col-span-4">
-            Loading community honors...
+  return <section className={styles.panel+" "+styles.honors} aria-label="Hall of Fame" data-compact={compact}>
+    <header className={styles.panelHeader}><div><p className={styles.kicker}>Names she remembers</p><h2>Hall of Fame</h2></div><span>Community honors</span></header>
+    <div className={styles.honorGrid}>
+      {isLoading && cards.length === 0 ? <p className={styles.empty}>Loading honors…</p> : cards.map(card => {
+        const winner = card.winner;
+        const frame = getFramePresentation(card);
+        const background = getAvatarBackgroundPresentation(getCosmeticItem(winner?.backgroundItemId ?? ""));
+        const displayName = winner?.displayName?.trim() || winner?.username || "Unclaimed";
+        return <button className={styles.honorCard} type="button" key={card.id} disabled={!winner} onClick={() => winner && onSelectUser(winner.userId)}>
+          <header><p>{card.title}</p>{winner?.badgeImagePath ? <Image src={winner.badgeImagePath} alt="" width={30} height={30} unoptimized/> : <CourtGlyph symbol="crown" className={styles.honorMedal}/>}</header>
+          <div className={styles.honorPerson}>
+            <ProfileBorderFrame className={styles.honorAvatar} contentClassName="overflow-hidden rounded-[inherit] border border-white/10 bg-black/30" presentation={frame}>
+              {winner && <LayeredAvatar alt={displayName+" avatar"} backgroundOverlayPath={background.backgroundOverlayPath} backgroundPath={background.backgroundPath} backgroundStyle={background.backgroundStyle} className="absolute inset-0" equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})} equippedFullSetId={winner.equippedFullSetId} hasUncensored={winner.hasUncensoredAvatar} imageClassName="object-contain object-center"/>}
+            </ProfileBorderFrame>
+            <div><p className={styles.honorName} style={winner?.usernameStyle} title={displayName}>{displayName}</p>{winner?.displayName && <small>{winner.username}</small>}<p className={styles.honorTitle}>{getTitleNameForAddressTerm(winner?.titleName, winner?.addressTerm ?? DEFAULT_ADDRESS_TERM) ?? "Awaiting the first honor"}</p></div>
           </div>
-        ) : (
-          cards.map((card) => {
-            const winner = card.winner;
-            const frame = getFramePresentation(card);
-            const background = getAvatarBackgroundPresentation(
-              getCosmeticItem(winner?.backgroundItemId ?? ""),
-            );
-            const displayName = winner?.displayName?.trim() || winner?.username || "No winner yet";
-
-            return (
-              <button
-                className={`court-grid-card court-grid-card--gold group border border-amber-200/18 bg-[linear-gradient(160deg,rgba(255,255,255,0.05),rgba(0,0,0,0.28),rgba(0,0,0,0.52))] text-left transition hover:border-amber-200/40 hover:bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(126,34,206,0.08),rgba(0,0,0,0.5))] ${compact ? "rounded-[1.25rem] p-3" : "rounded-[1.8rem] p-4"}`}
-                disabled={!winner}
-                key={card.id}
-                onClick={() => winner && onSelectUser(winner.userId)}
-                type="button"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-100/74">
-                      {card.title}
-                    </p>
-                    <p className="mt-2 text-2xl font-black text-white">{card.valueDisplay}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-amber-100/55">
-                      {card.metricLabel}
-                    </p>
-                  </div>
-                  {winner?.badgeImagePath ? (
-                    <Image
-                      alt=""
-                      className="h-9 w-9 shrink-0 rounded-full object-contain"
-                      height={36}
-                      src={winner.badgeImagePath}
-                      unoptimized
-                      width={36}
-                    />
-                  ) : null}
-                </div>
-
-                <div className="mt-4 flex items-center gap-4">
-                  <ProfileBorderFrame
-                    className={`${compact ? "h-14 w-14 rounded-xl" : "h-20 w-20 rounded-[1.45rem]"} shrink-0`}
-                    contentClassName="overflow-hidden rounded-[1.25rem] border border-white/12 bg-black/45"
-                    presentation={frame}
-                  >
-                    {winner ? (
-                      <LayeredAvatar
-                        alt={`${displayName} avatar`}
-                        backgroundOverlayPath={background.backgroundOverlayPath}
-                        backgroundPath={background.backgroundPath}
-                        backgroundStyle={background.backgroundStyle}
-                        className="absolute inset-0"
-                        equipped={normalizeEquipment(winner.equippedAvatarSlots ?? {})}
-                        equippedFullSetId={winner.equippedFullSetId}
-                        hasUncensored={winner.hasUncensoredAvatar}
-                        imageClassName="object-contain object-center"
-                      />
-                    ) : null}
-                  </ProfileBorderFrame>
-
-                  <div className="min-w-0">
-                    <p
-                      className="truncate text-lg font-black text-white transition group-hover:text-amber-100"
-                      style={winner?.usernameStyle}
-                      title={displayName}
-                    >
-                      {displayName}
-                    </p>
-                    {winner?.displayName ? (
-                      <p className="truncate text-xs text-amber-50/55">{winner.username}</p>
-                    ) : null}
-                    <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-100/70">
-                      {getTitleNameForAddressTerm(winner?.titleName, winner?.addressTerm ?? DEFAULT_ADDRESS_TERM) ??
-                        "Awaiting first honor"}
-                    </p>
-                  </div>
-                </div>
-
-                {winner ? (
-                  <div className="mt-4">
-                    <PrestigeBadgeList badges={winner.badges.slice(0, 2)} compact />
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-amber-50/55">No qualifying community activity yet.</p>
-                )}
-              </button>
-            );
-          })
-        )}
-      </div>
-    </section>
-  );
+          <div className={styles.honorValue}><strong>{card.valueDisplay}</strong><span>{card.metricLabel}</span></div>
+          {winner && <div className={styles.honorBadges}><PrestigeBadgeList badges={winner.badges.slice(0,2)} compact/></div>}
+        </button>;
+      })}
+    </div>
+  </section>;
 }

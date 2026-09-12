@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { ContractDocument, ContractClause, ContractField, ContractSignature, CoinContractSummary } from "./DebtContractPresentation";
+import styles from "./DebtContracts.module.css";
 import {
   calculateThroneDebtPlan,
   getThroneDebtMinimumInstallmentUsd,
@@ -15,7 +18,7 @@ import type { PetDebtContract, PetTaskItem } from "@/lib/types";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
 
 const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
-const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.webp";
+const DEBT_SIGNING_IMAGE_PATH = "/principessa-ui/generated/principessa-debt-contract.webp";
 const DEBT_DURATION_LIMITS = {
   monthly: { label: "Months", max: 24, min: 1 },
   weekly: { label: "Weeks", max: 52, min: 1 },
@@ -285,6 +288,12 @@ export function DebtSection({
   const [evilDebtDuration, setEvilDebtDuration] = useState("");
   const [evilDebtPeriodType, setEvilDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
   const [evilPurchasePledge, setEvilPurchasePledge] = useState(false);
+  const [contractFilters, setContractFilters] = useState<Array<"coin" | "evil" | "throne">>([]);
+  const toggleContractFilter = (kind: "coin" | "evil" | "throne") => setContractFilters(current => {
+    const next = current.includes(kind) ? current.filter(value => value !== kind) : [...current, kind];
+    return next.length === 3 ? [] : next;
+  });
+  const contractVisible = (kind: "coin" | "evil" | "throne") => contractFilters.length === 0 || contractFilters.includes(kind);
   const [showDebtSigningImage, setShowDebtSigningImage] = useState<"normal" | "evil" | null>(null);
 
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
@@ -440,8 +449,11 @@ export function DebtSection({
   }
 
   return (
-    <section className="court-grid court-grid--debt grid min-w-0 gap-6 xl:grid-cols-2">
-      <DebtCard
+    <section className={styles.documents} aria-label="Debt agreements" data-visible-count={contractFilters.length || 3}>
+      <nav className={styles.index} aria-label="Filter agreements">
+        {([{kind:"coin",label:"Coin Debt"},{kind:"evil",label:"Evil Debt"},{kind:"throne",label:"Throne Debt"}] as const).map((item,index)=><button type="button" key={item.kind} aria-pressed={contractFilters.includes(item.kind)} aria-controls={item.kind+"-contract-panel"} onClick={()=>toggleContractFilter(item.kind)}><span>{String(index+1).padStart(2,"0")}</span>{item.label}</button>)}
+      </nav>
+      <div className={styles.contractSlot} id="coin-contract-panel" hidden={!contractVisible("coin")}><DebtCard
         active={activeDebtContractType === "normal"}
         currentKind={showDebtSigningImage}
         debtInstallmentNumber={debtInstallmentNumber}
@@ -477,8 +489,8 @@ export function DebtSection({
         petDebtContract={petDebtContract}
         remainingDebtBalance={remainingDebtBalance}
         now={now}
-      />
-      <EvilDebtCard
+      /></div>
+      <div className={styles.contractSlot} id="evil-contract-panel" hidden={!contractVisible("evil")}><EvilDebtCard
         active={activeDebtContractType === "evil"}
         canManageActiveDebtWhileTimedOut={canManageActiveDebtWhileTimedOut}
         currentKind={showDebtSigningImage}
@@ -524,8 +536,8 @@ export function DebtSection({
         petDebtContract={petDebtContract}
         remainingDebtBalance={remainingDebtBalance}
         now={now}
-      />
-      <ThroneDebtCard onMoneyChange={onMoneyChange} previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} />
+      /></div>
+      <div className={styles.contractSlot} id="throne-contract-panel" hidden={!contractVisible("throne")}><ThroneDebtCard onMoneyChange={onMoneyChange} previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} /></div>
     </section>
   );
 }
@@ -680,11 +692,7 @@ function ThroneDebtCard({
     finally {setIsBusy(false);}
   };
   return (
-    <article className="throne-agreement xl:col-span-2">
-      <header className="throne-agreement__cover">
-        <div><p className="throne-agreement__eyebrow">The private court of Principessa</p><h3>Throne Debt<br/><em>Agreement</em></h3><p>A promise recorded. Every payment accounted for.</p></div>
-        <div className="throne-agreement__seal" aria-label="Principessa contract seal"><span>P</span><small>BY HER AUTHORITY</small></div>
-      </header>
+    <ContractDocument kind="throne" recorded={Boolean(activeContract)} status={activeContract ? label(activeContract.status) : "Draft · Not signed"}>
       <div className="throne-agreement__body">
       {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
       {activeContract ? <>
@@ -722,20 +730,29 @@ function ThroneDebtCard({
         <footer className="throne-agreement__signature"><span>Principessa<small>THE COURT</small></span><span>{activeContract.debt_code}<small>{activeContract.approved_at ? "APPROVED · "+date(activeContract.approved_at) : "AWAITING APPROVAL"}</small></span></footer>
       </> : null}
       {!openContract ? <details open={!activeContract} className="throne-agreement__request"><summary>{activeContract ? "Request another agreement" : "Draft your agreement"}</summary><p>Minimum $10 per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
+        <div className={styles.draftForm}><div className={styles.form}>
+        <ContractClause number="I" title="The terms of your promise">
         <div className="throne-agreement__draft">
           <label>Total commitment (USD)<input placeholder="Total USD" inputMode="numeric" disabled={disabled || isBusy || isTimeoutActive} value={totalAmountUsd} onChange={event=>setTotalAmountUsd(event.target.value)}/></label>
           <label>Repayment frequency<select disabled={disabled || isBusy || isTimeoutActive} value={repaymentFrequency} onChange={event=>setRepaymentFrequency(event.target.value as ThroneDebtFrequency)}><option value="weekly">Every week</option><option value="bi_weekly">Every 2 weeks</option><option value="monthly">Every 4 weeks</option></select></label>
           <label>Contract length<select aria-label="Contract length" disabled={disabled || isBusy || isTimeoutActive} value={contractLengthWeeks} onChange={event=>setContractLengthWeeks(event.target.value)}><option value="">Length</option>{THRONE_DEBT_LENGTH_OPTIONS.map(weeks=><option key={weeks} value={weeks}>{weeks} weeks</option>)}<option value="custom">Custom</option></select></label>
           {contractLengthWeeks === "custom" ? <label>Custom weeks<input inputMode="numeric" disabled={disabled || isBusy || isTimeoutActive} value={customLengthWeeks} onChange={event=>setCustomLengthWeeks(event.target.value)}/></label> : null}
         </div>
-        {hasPlanInputs ? <><p>Payment schedule: {plan.installmentAmountsUsd.map(amount=>"$"+amount).join(" + ")}</p>{!planValid ? <p>Use a whole-dollar total, 4–104 weeks, and at least {usd(minimumInstallmentUsd)} per installment.</p> : null}</> : <p>Enter a total and length to preview every installment before submitting.</p>}
-        <label>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label>
-        <button type="button" disabled={disabled || isBusy || isTimeoutActive || !planValid} onClick={()=>void createThroneDebt()}>Submit Throne Debt Request</button>
+        {planValid ? <div className={styles.draftQuote}>
+          <span>{plan.installmentAmountsUsd.length} installments <strong>{usd(Math.min(...plan.installmentAmountsUsd))}{Math.min(...plan.installmentAmountsUsd) !== Math.max(...plan.installmentAmountsUsd) ? "–"+usd(Math.max(...plan.installmentAmountsUsd)) : ""} each</strong></span>
+          <span>Total commitment <strong>{usd(plan.totalAmountUsd)}</strong></span>
+        </div> : null}
+        <p className={styles.hint}>1 PM = $1. Throne payments with your TD code settle this agreement without adding PM. Payment dates are set after approval.</p>
+        </ContractClause>
+        {hasPlanInputs && !planValid ? <p className={styles.note}>Use a whole-dollar total, 4–104 weeks, and at least {usd(minimumInstallmentUsd)} per installment.</p> : null}
+        <ContractClause number="II" title="A note with your promise"><label className={styles.field}>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label></ContractClause>
+        <div className={styles.signing}><p>Submit these terms for Principessa’s approval.</p><button className={styles.primary} type="button" disabled={disabled || isBusy || isTimeoutActive || !planValid} onClick={()=>void createThroneDebt()}>Submit Throne Debt Request</button></div>
         {isTimeoutActive ? <p>You cannot create new debt while your account is in timeout.</p> : null}
+        </div></div>
       </details> : null}
       {statusText ? <p role="status" className="throne-agreement__notice">{statusText}</p> : null}
       </div>
-    </article>
+    </ContractDocument>
   );
 }
 
@@ -785,7 +802,6 @@ function DebtCard(props: {
     debtInstallmentNumber,
     debtPaymentDue,
     hasMissedInstallment,
-    debtTask,
     disabled,
     blockingContractMessage,
     hasOpenDebtContract,
@@ -820,171 +836,32 @@ function DebtCard(props: {
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
-      <article className="court-feature-panel court-grid-card court-grid-card--danger rounded-[1.5rem] border border-red-300/20 bg-red-950/20 p-4 shadow-[0_0_22px_rgba(127,29,29,0.12)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">Debt</p>
-          <h3 className="mt-1 text-lg font-black text-white">Normal Debt Contract</h3>
+
+    <ContractDocument kind="coin" recorded={Boolean(hasOpenDebtContract && active && petDebtContract)} status={active && hasOpenDebtContract ? "Active agreement" : showLockedState ? "Unavailable · Contract open" : "Draft · Not signed"}>
+      {currentKind === "normal" ? <SignedBanner/> : null}
+      {hasOpenDebtContract && active && petDebtContract ? <CoinAccount contract={petDebtContract} now={now} installmentNumber={debtInstallmentNumber} remaining={remainingDebtBalance} due={debtPaymentDue} missed={hasMissedInstallment} disabled={activeDebtControlsDisabled} busy={isPetActionPending("pet-debt-contract")} autoPay={isDebtAutoPayEnabled} onAutoPay={onDebtAutoPayChange} onPay={onPayDebtPeriod}/> : showLockedState ? <LockedDebtState accent="normal" blockingContractMessage={blockingContractMessage} petDebtContract={petDebtContract}/> : <>
+        <div className={styles.draftForm}>
+          <div className={styles.form}>
+            <ContractClause number="I" title="The terms of your promise">
+              <div className={styles.fields}>
+                <ContractField label="Your contracted name"><select aria-label="Your contracted name" value={normalPetName} onChange={e=>onNormalPetNameChange(e.target.value)} disabled={contractCreationDisabled}>{DEBT_PET_NAMES.map(name=><option key={name}>{name}</option>)}</select></ContractField>
+                <ContractField label="Repayment period"><select aria-label="Coin repayment period" value={normalDebtPeriodType} onChange={e=>onNormalDebtPeriodTypeChange(e.target.value as "weekly" | "monthly")} disabled={contractCreationDisabled}><option value="weekly">Weekly · every 7 days</option><option value="monthly">Monthly · every 30 days</option></select></ContractField>
+                <ContractField label="Coins per installment"><input aria-label="Coin installment amount" inputMode="numeric" min={normalDebtMinimumPayment} placeholder={"Min "+normalDebtMinimumPayment.toLocaleString()} value={normalDebtAmount} onChange={e=>onNormalDebtAmountChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+                <ContractField label={"Duration in "+normalDebtDurationLimit.label.toLowerCase()}><input aria-label="Coin contract duration" inputMode="numeric" min={normalDebtDurationLimit.min} max={normalDebtDurationLimit.max} placeholder={normalDebtDurationLimit.min+"–"+normalDebtDurationLimit.max} value={normalDebtDuration} onChange={e=>onNormalDebtDurationChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+              </div>
+              <p className={styles.hint}>Minimum {normalDebtMinimumPayment.toLocaleString()} Coins per {normalDebtPeriodType === "weekly" ? "week" : "month"}. Your first payment opens after one period.</p>
+            </ContractClause>
+            <ContractClause number="II" title="Your payment preferences">
+              <PurchasePledgeCheckbox checked={normalPurchasePledge} disabled={contractCreationDisabled} onChange={onNormalPurchasePledgeChange}/>
+              <div className={styles.autopay}><AutoPaymentSwitch disabled={contractControlsDisabled || hasOpenDebtContract} enabled={isDebtAutoPayEnabled} onChange={onDebtAutoPayChange}/><p className={styles.hint}>Optional. After the 48-hour grace period, auto payment can collect a full outstanding installment when your balance covers it.</p></div>
+            </ContractClause>
+            <DebtCapacitySummary amount={normalDebtAmount} duration={normalDebtDuration} capacity={capacityPreview} error={capacityPreviewError}/>
+            <div className={styles.signing}><p>Signing starts your Coin Debt agreement with the terms above.</p><button type="button" className={styles.primary} onClick={onSign} disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}>Sign Debt Contract</button></div>
+            <details className={styles.disclosure}><summary>Let Principessa choose your terms</summary><p className={styles.hint}>Sign Random Debt immediately creates a contract with a random name, period, amount and duration. It does not fill in a draft.</p><button type="button" className={styles.secondary} onClick={onRandomDebtSign} disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}>{isPetActionPending("pet-debt-contract") ? "Signing…" : "Sign Random Debt"}</button></details>
+          </div>
         </div>
-        <span className="rounded-full border border-red-200/20 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-          Contract
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-zinc-300">{debtTask.description}</p>
-      {currentKind === "normal" && (
-        <SignedBanner />
-      )}
-      {hasOpenDebtContract && active && petDebtContract ? (
-        <div className="court-inset-tile mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-          <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
-            <span>Pet: {petDebtContract.pet_name}</span>
-            <span>{petDebtContract.period_type} debt</span>
-            <span>
-              Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
-            </span>
-            <span>Current payment: {getCurrentInstallmentRemaining(petDebtContract).toLocaleString()} Coins</span>
-            <span>
-              Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
-            </span>
-            <span>Remaining balance: {remainingDebtBalance.toLocaleString()} Coins</span>
-            <span>Paid periods: {petDebtContract.paid_periods}</span>
-            <span>Missed: {petDebtContract.missed_periods}</span>
-          </div>
-          <p className="mt-3 rounded-2xl border border-red-200/10 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
-            Future installments are locked. Only the current {petDebtContract.period_type === "weekly" ? "week" : "month"} can be paid.
-          </p>
-          <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-            <AutoPaymentSwitch
-              disabled={activeDebtControlsDisabled}
-              enabled={isDebtAutoPayEnabled}
-              onChange={onDebtAutoPayChange}
-            />
-            <p className="mt-2 text-yellow-50/75">
-              When enabled, the full installment is collected automatically the moment your balance can cover it.
-            </p>
-            <p className="mt-2 text-yellow-50/75">
-              Missed payments enter a 48-hour grace period and then go to admin review. Debt timeout is never applied automatically.
-            </p>
-          </div>
-          <button
-            className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
-            onClick={onPayDebtPeriod}
-            type="button"
-          >
-            {isPetActionPending("pet-debt-contract")
-              ? "Saving..."
-              : !debtPaymentDue
-                ? "Next installment locked"
-                : hasMissedInstallment
-                  ? "Catch up missed installment"
-                  : "Pay current installment"}
-          </button>
-        </div>
-      ) : showLockedState ? (
-        <LockedDebtState
-          accent="normal"
-          blockingContractMessage={blockingContractMessage}
-          petDebtContract={petDebtContract}
-        />
-      ) : (
-        <div className="mt-4 grid gap-3">
-          {hasOpenDebtContract && (
-            <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-              {blockingContractMessage ?? "A debt contract is already active or pending. Only one debt mode can stay open at a time."}
-            </p>
-          )}
-          <select
-            className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-red-200/55"
-            onChange={(event) => onNormalPetNameChange(event.target.value)}
-            value={normalPetName}
-            disabled={contractCreationDisabled}
-          >
-            {DEBT_PET_NAMES.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
-            Minimum Payment: {normalDebtMinimumPayment.toLocaleString()} Coins per {normalDebtPeriodType === "weekly" ? "Week" : "Month"}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <select
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              onChange={(event) => onNormalDebtPeriodTypeChange(event.target.value as "weekly" | "monthly")}
-              value={normalDebtPeriodType}
-              disabled={contractCreationDisabled}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              inputMode="numeric"
-              min={normalDebtMinimumPayment}
-              onChange={(event) => onNormalDebtAmountChange(event.target.value)}
-              placeholder={`Min ${normalDebtMinimumPayment.toLocaleString()}`}
-              value={normalDebtAmount}
-              disabled={contractCreationDisabled}
-            />
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              inputMode="numeric"
-              max={normalDebtDurationLimit.max}
-              min={normalDebtDurationLimit.min}
-              onChange={(event) => onNormalDebtDurationChange(event.target.value)}
-              placeholder={`${normalDebtDurationLimit.label} ${normalDebtDurationLimit.min}-${normalDebtDurationLimit.max}`}
-              value={normalDebtDuration}
-              disabled={contractCreationDisabled}
-            />
-          </div>
-          <p className="text-xs text-zinc-500">
-            Duration must be {normalDebtDurationLimit.min}-{normalDebtDurationLimit.max} {normalDebtDurationLimit.label.toLowerCase()} for {normalDebtPeriodType} contracts.
-          </p>
-          <PurchasePledgeCheckbox
-            checked={normalPurchasePledge}
-            disabled={contractCreationDisabled}
-            onChange={onNormalPurchasePledgeChange}
-          />
-          <DebtCapacitySummary
-            amount={normalDebtAmount}
-            capacity={capacityPreview}
-            error={capacityPreviewError}
-            duration={normalDebtDuration}
-          />
-          <button
-            className="rounded-2xl border border-red-200/20 bg-red-500/10 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-red-50 transition enabled:hover:border-red-200/50 enabled:hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}
-            onClick={onRandomDebtSign}
-            type="button"
-          >
-            {isPetActionPending("pet-debt-contract") ? "Signing..." : "Sign Random Debt"}
-          </button>
-          <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-xs font-bold text-red-50/75">
-            Warning: Sign Random Debt immediately creates a debt contract with a random Pet name, weekly/monthly type, amount, and duration.
-          </p>
-          <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-            Auto payment is off by default. Turn it on only if you want the full installment collected the moment your balance can cover it.
-          </p>
-          <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-            <AutoPaymentSwitch
-              disabled={contractControlsDisabled || hasOpenDebtContract}
-              enabled={isDebtAutoPayEnabled}
-              onChange={onDebtAutoPayChange}
-            />
-          </div>
-          <button
-            className="rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={contractCreationDisabled}
-            onClick={onSign}
-            type="button"
-          >
-            Sign Debt Contract
-          </button>
-        </div>
-      )}
-    </article>
+      </>}
+    </ContractDocument>
   );
 }
 
@@ -1090,248 +967,84 @@ function EvilDebtCard(props: {
   const contractCreationDisabled = contractControlsDisabled || hasOpenDebtContract;
 
   return (
-      <article className="court-feature-panel court-grid-card court-grid-card--danger rounded-[1.5rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(69,10,10,0.5),rgba(0,0,0,0.8))] p-4 shadow-[0_0_28px_rgba(127,29,29,0.2)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-red-200/70">Debt</p>
-          <h3 className="mt-1 text-lg font-black text-white">Evil Debt Contract</h3>
-        </div>
-        <span className="rounded-full border border-red-200/25 bg-red-700/30 px-2 py-1 text-[10px] font-black uppercase text-red-50">
-          Evil
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-zinc-300">
-        Submit the stricter contract flow separately. This mode stays mutually exclusive with the normal debt contract.
-      </p>
-      {currentKind === "evil" && (
-        <SignedBanner />
-      )}
-      {hasOpenDebtContract && active && petDebtContract ? (
-        <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-          <div className="grid gap-2 text-sm text-red-50 sm:grid-cols-2">
-            <span>Contract: {petDebtContract.pet_name}</span>
-            <span>{petDebtContract.period_type} debt</span>
-            <span>Full name: {petDebtContract.full_name ?? "Stored"}</span>
-            <span>Timezone: {petDebtContract.timezone ?? "Stored"}</span>
-            <span>
-              Installment: {debtInstallmentNumber}/{petDebtContract.duration_periods}
-            </span>
-            <span>Current payment: {getCurrentInstallmentRemaining(petDebtContract).toLocaleString()} Coins</span>
-            <span>
-              Next availability: {debtPaymentDue ? "Open now" : formatRemaining(petDebtContract.next_due_at, now)}
-            </span>
-            <span>Remaining balance: {remainingDebtBalance.toLocaleString()} Coins</span>
-            <span>Paid periods: {petDebtContract.paid_periods}</span>
-            <span>Missed: {petDebtContract.missed_periods}</span>
-            {petDebtContract.status === "pending" && (
-              <span className="sm:col-span-2">Status: Pending admin approval</span>
-            )}
-          </div>
-          {petDebtContract.status === "active" ? (
-            <>
-              <div className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-3 text-xs font-bold text-yellow-50/85">
-                <AutoPaymentSwitch
-                  disabled={activeDebtControlsDisabled}
-                  enabled={isDebtAutoPayEnabled}
-                  onChange={onDebtAutoPayChange}
-                />
-                <p className="mt-2 text-yellow-50/75">
-                  When enabled, the full installment is collected automatically the moment your balance can cover it.
-                </p>
-                <p className="mt-2 text-yellow-50/75">
-                  Missed payments enter a 48-hour grace period and then go to admin review. Debt timeout is never applied automatically.
-                </p>
+
+    <ContractDocument kind="evil" recorded={Boolean(hasOpenDebtContract && active && petDebtContract)} status={active && hasOpenDebtContract ? petDebtContract?.status === "pending" ? "Awaiting approval" : "Active agreement" : showLockedState ? "Unavailable · Contract open" : "Draft · Not signed"}>
+      {currentKind === "evil" ? <SignedBanner/> : null}
+      {hasOpenDebtContract && active && petDebtContract ? <CoinAccount contract={petDebtContract} now={now} installmentNumber={debtInstallmentNumber} remaining={remainingDebtBalance} due={debtPaymentDue} missed={hasMissedInstallment} disabled={activeDebtControlsDisabled} busy={isPetActionPending("pet-debt-contract")} autoPay={isDebtAutoPayEnabled} onAutoPay={onDebtAutoPayChange} onPay={onPayDebtPeriod}/> : showLockedState ? <LockedDebtState accent="evil" blockingContractMessage={blockingContractMessage} petDebtContract={petDebtContract}/> : <>
+        <div className={styles.draftForm}>
+          <div className={styles.form}>
+            <ContractClause number="I" title="The person making the promise">
+              <div className={styles.fields}>
+                <ContractField label="Full name"><input aria-label="Full name" placeholder="Name on your contract" value={evilFullName} onChange={e=>onEvilFullNameChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+                <ContractField label="Age"><input aria-label="Age" type="number" min={18} max={120} value={evilAge} onChange={e=>onEvilAgeChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+                <ContractField label="Timezone"><select aria-label="Timezone" value={evilTimezone} onChange={e=>onEvilTimezoneChange(e.target.value)} disabled={contractCreationDisabled}>{EVIL_DEBT_TIMEZONE_OPTIONS.map(zone=><option key={zone}>{zone}</option>)}</select></ContractField>
+                <ContractField label="Personal note · optional"><textarea aria-label="Evil contract note" maxLength={240} placeholder="A note for Principessa" value={evilCustomNote} onChange={e=>onEvilCustomNoteChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
               </div>
-              <button
-                className="mt-4 w-full rounded-2xl border border-red-200/25 bg-red-600/15 px-4 py-3 text-sm font-black text-red-50 transition enabled:hover:border-red-200/55 enabled:hover:bg-red-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={activeDebtControlsDisabled || !debtPaymentDue || isPetActionPending("pet-debt-contract")}
-                onClick={onPayDebtPeriod}
-                type="button"
-              >
-                {isPetActionPending("pet-debt-contract")
-                  ? "Saving..."
-                  : !debtPaymentDue
-                    ? "Next installment locked"
-                    : hasMissedInstallment
-                      ? "Catch up missed installment"
-                      : "Pay current installment"}
-              </button>
-            </>
-          ) : (
-            <p className="mt-3 rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-              Evil Debt Contract was submitted and is waiting for admin approval.
-            </p>
-          )}
+            </ContractClause>
+            <ContractClause number="II" title="The obligation you accept">
+              <div className={styles.fields}>
+                <ContractField label="Repayment period"><select aria-label="Evil repayment period" value={evilDebtPeriodType} onChange={e=>onEvilDebtPeriodTypeChange(e.target.value as "weekly" | "monthly")} disabled={contractCreationDisabled}><option value="weekly">Weekly · every 7 days</option><option value="monthly">Monthly · every 30 days</option></select></ContractField>
+                <ContractField label="Coins per installment"><input aria-label="Evil installment amount" inputMode="numeric" min={evilDebtMinimumPayment} step={5000} placeholder={"Min "+evilDebtMinimumPayment.toLocaleString()} value={evilDebtAmount} onChange={e=>onEvilDebtAmountChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+                <ContractField label={"Duration in "+evilDebtDurationLimit.label.toLowerCase()}><input aria-label="Evil contract duration" inputMode="numeric" min={evilDebtDurationLimit.min} max={evilDebtDurationLimit.max} placeholder={evilDebtDurationLimit.min+"–"+evilDebtDurationLimit.max} value={evilDebtDuration} onChange={e=>onEvilDebtDurationChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
+              </div>
+              <p className={styles.hint}>Minimum {evilDebtMinimumPayment.toLocaleString()} Coins per {evilDebtPeriodType === "weekly" ? "week" : "month"}. Principessa reviews this agreement before it begins.</p>
+            </ContractClause>
+            <ContractClause number="III" title="Your attachments & declarations">
+              <label className={styles.upload}>Contract attachments · 1–8 BM images<input aria-label="Contract attachments" type="file" accept="image/*" multiple onChange={e=>void onEvilDebtImagesChange(e.target.files)} disabled={contractCreationDisabled}/><span className={styles.hint}>Up to 4 MB per image.</span></label>
+              {evilImageError ? <p role="alert" className={styles.note}>{evilImageError}</p> : null}
+              {evilImageUrls.length ? <div className={styles.uploads}>{evilImageUrls.map((url,i)=><Image unoptimized width={160} height={160} src={url} alt={"Contract attachment "+(i+1)} key={url.slice(0,32)+i}/>)}</div> : null}
+              <div className={styles.consent}><p>Declaration 1 · Type this statement exactly:</p><p>{EVIL_CONSENT_PRIMARY_TEXT}</p><textarea aria-label="First consent statement" placeholder="Type declaration 1 here" value={evilConsentPrimary} onChange={e=>onEvilConsentPrimaryChange(e.target.value)} disabled={contractCreationDisabled}/></div>
+              <div className={styles.consent}><p>Declaration 2 · Type this statement exactly:</p><p>{EVIL_CONSENT_SECONDARY_TEXT}</p><textarea aria-label="Second consent statement" placeholder="Type declaration 2 here" value={evilConsentSecondary} onChange={e=>onEvilConsentSecondaryChange(e.target.value)} disabled={contractCreationDisabled}/></div>
+            </ContractClause>
+            <ContractClause number="IV" title="Your payment preferences"><PurchasePledgeCheckbox checked={evilPurchasePledge} disabled={contractCreationDisabled} onChange={onEvilPurchasePledgeChange}/><div className={styles.autopay}><AutoPaymentSwitch disabled={contractControlsDisabled || hasOpenDebtContract} enabled={isDebtAutoPayEnabled} onChange={onDebtAutoPayChange}/><p className={styles.hint}>Optional. After the 48-hour grace period, auto payment can collect a full outstanding installment when your balance covers it.</p></div></ContractClause>
+            <DebtCapacitySummary amount={evilDebtAmount} duration={evilDebtDuration} capacity={capacityPreview} error={capacityPreviewError}/>
+            <div className={styles.signing}><p>Review every declaration. Signing asks for final confirmation, then sends the agreement for approval.</p><button type="button" className={styles.primary} onClick={onSign} disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}>Sign Evil Debt Contract</button></div>
+          </div>
         </div>
-      ) : showLockedState ? (
-        <LockedDebtState
-          accent="evil"
-          blockingContractMessage={blockingContractMessage}
-          petDebtContract={petDebtContract}
-        />
-      ) : (
-        <div className="mt-4 grid gap-3">
-          {hasOpenDebtContract && (
-            <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-              {blockingContractMessage ?? "A debt contract is already active or pending. Only one debt mode can stay open at a time."}
-            </p>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              onChange={(event) => onEvilFullNameChange(event.target.value)}
-              placeholder="Full name"
-              value={evilFullName}
-              disabled={contractCreationDisabled}
-            />
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              inputMode="numeric"
-              onChange={(event) => onEvilAgeChange(event.target.value)}
-              placeholder="Age"
-              type="number"
-              value={evilAge}
-              disabled={contractCreationDisabled}
-            />
-            <select
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              onChange={(event) => onEvilTimezoneChange(event.target.value)}
-              value={evilTimezone}
-              disabled={contractCreationDisabled}
-            >
-              {EVIL_DEBT_TIMEZONE_OPTIONS.map((timezone) => (
-                <option key={timezone} value={timezone}>
-                  {timezone}
-                </option>
-              ))}
-            </select>
-          </div>
-          <textarea
-            className="min-h-24 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-            maxLength={240}
-            onChange={(event) => onEvilCustomNoteChange(event.target.value)}
-            placeholder="Optional note"
-            value={evilCustomNote}
-            disabled={contractCreationDisabled}
-          />
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-            Optional note, max 240 characters.
-          </p>
-          <p className="rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50">
-            Evil minimum: {evilDebtMinimumPayment.toLocaleString()} Coins per {evilDebtPeriodType === "weekly" ? "Week" : "Month"}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <select
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              onChange={(event) => onEvilDebtPeriodTypeChange(event.target.value as "weekly" | "monthly")}
-              value={evilDebtPeriodType}
-              disabled={contractCreationDisabled}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              inputMode="numeric"
-              min={evilDebtMinimumPayment}
-              onChange={(event) => onEvilDebtAmountChange(event.target.value)}
-              placeholder={`Min ${evilDebtMinimumPayment.toLocaleString()}`}
-              step={5000}
-              value={evilDebtAmount}
-              disabled={contractCreationDisabled}
-            />
-            <input
-              className="rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-              inputMode="numeric"
-              max={evilDebtDurationLimit.max}
-              min={evilDebtDurationLimit.min}
-              onChange={(event) => onEvilDebtDurationChange(event.target.value)}
-              placeholder={`${evilDebtDurationLimit.label} ${evilDebtDurationLimit.min}-${evilDebtDurationLimit.max}`}
-              value={evilDebtDuration}
-              disabled={contractCreationDisabled}
-            />
-          </div>
-          <label className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-            Upload 1-8 BM images
-            <input
-              accept="image/*"
-              className="mt-2 block w-full text-xs text-zinc-300 file:mr-3 file:rounded-full file:border-0 file:bg-red-500/20 file:px-3 file:py-2 file:text-xs file:font-bold file:text-red-50"
-              multiple
-              onChange={(event) => void onEvilDebtImagesChange(event.target.files)}
-              type="file"
-              disabled={contractCreationDisabled}
-            />
-          </label>
-          {evilImageError && (
-            <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-100">
-              {evilImageError}
-            </p>
-          )}
-          {evilImageUrls.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {evilImageUrls.map((imageUrl, index) => (
-                <img
-                  alt={`Evil Debt upload ${index + 1}`}
-                  className="aspect-square rounded-xl border border-red-200/15 object-cover"
-                  key={`${imageUrl.slice(0, 32)}-${index}`}
-                  src={imageUrl}
-                />
-              ))}
-            </div>
-          )}
-          <textarea
-            className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-            onChange={(event) => onEvilConsentPrimaryChange(event.target.value)}
-            placeholder={EVIL_CONSENT_PRIMARY_TEXT}
-            value={evilConsentPrimary}
-            disabled={contractCreationDisabled}
-          />
-          <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
-            Consent 1 must be typed exactly: {EVIL_CONSENT_PRIMARY_TEXT}
-          </p>
-          <textarea
-            className="min-h-20 rounded-2xl border border-red-200/20 bg-black/50 px-4 py-3 text-sm text-white outline-none"
-            onChange={(event) => onEvilConsentSecondaryChange(event.target.value)}
-            placeholder={EVIL_CONSENT_SECONDARY_TEXT}
-            value={evilConsentSecondary}
-            disabled={contractCreationDisabled}
-          />
-          <p className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-2 text-[11px] font-bold text-red-50/80">
-            Consent 2 must be typed exactly: {EVIL_CONSENT_SECONDARY_TEXT}
-          </p>
-          <p className="rounded-2xl border border-yellow-200/20 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-50/80">
-            Evil Debt Contract is mutually exclusive with normal Debt Contract. Final signing asks one last confirmation.
-          </p>
-          <PurchasePledgeCheckbox
-            checked={evilPurchasePledge}
-            disabled={contractCreationDisabled}
-            onChange={onEvilPurchasePledgeChange}
-          />
-          <DebtCapacitySummary
-            amount={evilDebtAmount}
-            capacity={capacityPreview}
-            error={capacityPreviewError}
-            duration={evilDebtDuration}
-          />
-          <div className="rounded-2xl border border-red-200/15 bg-black/35 px-3 py-3 text-xs font-bold text-red-50/85">
-            <AutoPaymentSwitch
-              disabled={contractControlsDisabled || hasOpenDebtContract}
-              enabled={isDebtAutoPayEnabled}
-              onChange={onDebtAutoPayChange}
-            />
-          </div>
-          <button
-            className="rounded-2xl border border-red-200/25 bg-red-700/25 px-4 py-3 text-sm font-black text-red-50 transition hover:border-red-200/55 hover:bg-red-700/35 disabled:cursor-not-allowed disabled:opacity-40"
-            onClick={onSign}
-            type="button"
-            disabled={contractCreationDisabled}
-          >
-            Sign Evil Debt Contract
-          </button>
-        </div>
-      )}
-    </article>
+      </>}
+    </ContractDocument>
   );
+}
+
+function CoinAccount({ contract, now, installmentNumber, remaining, due, missed, disabled, busy, autoPay, onAutoPay, onPay }: {
+  contract: PetDebtContract; now: number; installmentNumber: number; remaining: number;
+  due: boolean; missed: boolean; disabled: boolean; busy: boolean; autoPay: boolean;
+  onAutoPay: (enabled: boolean) => void; onPay: () => void;
+}) {
+  const pending = contract.status === "pending";
+  const date = (value: string) => new Date(value).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return <>
+    <div className={styles.columns}>
+      <div className={styles.form}>
+        <ContractClause number="I" title="Your recorded agreement">
+          <dl className={styles.record}>
+            <div><dt>Contracted name</dt><dd>{contract.pet_name}</dd></div>
+            <div><dt>Reference</dt><dd>{contract.id.slice(0,8).toUpperCase()}</dd></div>
+            <div><dt>Signed</dt><dd>{date(contract.created_at)}</dd></div>
+            <div><dt>Repayment</dt><dd>Every {contract.period_type === "weekly" ? "7" : "30"} days</dd></div>
+            {contract.contract_type === "evil" ? <><div><dt>Full name</dt><dd>{contract.full_name ?? "Recorded"}</dd></div><div><dt>Timezone</dt><dd>{contract.timezone ?? "Recorded"}</dd></div></> : null}
+          </dl>
+          {pending ? <p className={styles.note}>Your agreement is awaiting Principessa’s approval. The repayment schedule begins after approval.</p> : <p className={styles.hint}>Contract period: {date(contract.started_at)} – {date(contract.ends_at)}.</p>}
+        </ContractClause>
+        <ContractClause number="II" title={pending ? "Awaiting the court" : "Your current installment"}>
+          {pending ? <p className={styles.hint}>Your submission is recorded. Payment controls will appear when the agreement is approved.</p> : <>
+            <dl className={styles.record}>
+              <div><dt>Installment</dt><dd>{installmentNumber} of {contract.duration_periods}</dd></div>
+              <div><dt>Amount still due</dt><dd>{getCurrentInstallmentRemaining(contract).toLocaleString()} Coins</dd></div>
+              <div><dt>Payment opens</dt><dd>{due ? "Open now" : formatRemaining(contract.next_due_at, now)}</dd></div>
+              <div><dt>Missed periods</dt><dd>{contract.missed_periods}</dd></div>
+            </dl>
+            <p className={styles.hint}>Only the current installment can be paid. If your Coins cover part of it, that amount reduces the balance; the period is settled when it is fully paid.</p>
+            <div className={styles.autopay}><AutoPaymentSwitch enabled={autoPay} disabled={disabled || busy} onChange={onAutoPay}/><p className={styles.hint}>When enabled, collection can run after the 48-hour grace period if your balance covers the full outstanding installment.</p></div>
+            <div className={styles.signing}><p>{due ? "Apply your available Coins to this installment." : "Future installments remain locked until their scheduled date."}</p><button className={styles.primary} type="button" disabled={disabled || !due || busy} onClick={onPay}>{busy ? "Saving…" : !due ? "Next installment locked" : missed ? "Catch up missed installment" : "Pay current installment"}</button></div>
+          </>}
+        </ContractClause>
+        {contract.custom_note ? <p className={styles.note}>{contract.custom_note}</p> : null}
+      </div>
+      <CoinContractSummary amount="" duration="" period={contract.period_type} contract={contract} remaining={remaining}/>
+    </div>
+    <ContractSignature name={contract.full_name || contract.pet_name} state={pending ? "SIGNED · AWAITING APPROVAL" : "SIGNED · ACTIVE AGREEMENT"}/>
+  </>;
 }
 
 function PurchasePledgeCheckbox({
@@ -1344,21 +1057,7 @@ function PurchasePledgeCheckbox({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-2xl border border-amber-200/20 bg-amber-500/10 px-3 py-3 text-xs font-bold text-amber-50/90">
-      <input
-        checked={checked}
-        className="mt-0.5 h-4 w-4 accent-amber-500"
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        type="checkbox"
-      />
-      <span>
-        If I cannot cover a scheduled payment, I may purchase coins to complete it. I understand that a missed payment can result in a 7-day timeout only after admin review.
-        <span className="mt-1 block font-medium text-amber-100/65">
-          Optional and unchecked by default. Accepting it doubles the affordability limit (+100%).
-        </span>
-      </span>
-    </label>
+<label className={styles.choice}><input type="checkbox" checked={checked} disabled={disabled} onChange={e=>onChange(e.target.checked)}/><span>If I cannot cover a scheduled payment, I may purchase coins to complete it. I understand that a missed payment can result in a 7-day timeout only after admin review.<small>Optional and unchecked by default. Accepting it doubles the affordability limit (+100%).</small></span></label>
   );
 }
 
@@ -1375,7 +1074,7 @@ function DebtCapacitySummary({
 }) {
   if (error) {
     return (
-      <p className="rounded-2xl border border-rose-200/20 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-100">
+      <p role="alert" className={styles.note}>
         {error}
       </p>
     );
@@ -1383,8 +1082,8 @@ function DebtCapacitySummary({
 
   if (!capacity) {
     return (
-      <p className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-zinc-400">
-        Enter a duration to calculate your server-verified affordability limit.
+      <p className={styles.hint}>
+        Enter a duration to see how this commitment fits your balance.
       </p>
     );
   }
@@ -1396,33 +1095,24 @@ function DebtCapacitySummary({
   const overLimit = reviewedExposure > capacity.totalLimit;
 
   return (
-    <div className={`rounded-2xl border px-3 py-3 text-xs ${
-      overLimit
-        ? "border-rose-200/25 bg-rose-500/10 text-rose-50"
-        : "border-emerald-200/20 bg-emerald-500/10 text-emerald-50"
-    }`}>
-      <p className="font-black uppercase tracking-[0.14em]">Affordability check</p>
-      <div className="mt-2 grid gap-1 sm:grid-cols-2">
-        <span>Balance: {capacity.balanceCoins.toLocaleString()}</span>
-        <span>75% balance capacity: {capacity.balanceComponent.toLocaleString()}</span>
-        <span>Reliable period income: {capacity.reliablePeriodIncome.toLocaleString()}</span>
-        <span>Reviewed periods: {capacity.evaluatedPeriods}</span>
-        <span>Affordability limit: {capacity.totalLimit.toLocaleString()}</span>
-        <span>Reviewed exposure: {reviewedExposure.toLocaleString()}</span>
-        <span>Full contract total: {requestedTotal.toLocaleString()}</span>
-        <span>Pledge boost: {capacity.purchasePledgeBoost.toLocaleString()}</span>
-      </div>
-      <p className="mt-2 font-bold">
-        {overLimit
-          ? "The near-term payment exposure exceeds your current limit."
-          : "The near-term payment exposure is within your current limit."}
-      </p>
-    </div>
+    <details className={styles.disclosure} open={overLimit}>
+      <summary>Affordability · {overLimit ? "Above your current limit" : "Within your current limit"}</summary>
+      <dl className={styles.facts}>
+        <div><dt>Coin balance</dt><dd>{capacity.balanceCoins.toLocaleString()}</dd></div>
+        <div><dt>75% balance capacity</dt><dd>{capacity.balanceComponent.toLocaleString()}</dd></div>
+        <div><dt>Reliable period income</dt><dd>{capacity.reliablePeriodIncome.toLocaleString()}</dd></div>
+        <div><dt>Reviewed periods</dt><dd>{capacity.evaluatedPeriods}</dd></div>
+        <div><dt>Affordability limit</dt><dd>{capacity.totalLimit.toLocaleString()}</dd></div>
+        <div><dt>Near-term commitment</dt><dd>{reviewedExposure.toLocaleString()}</dd></div>
+        <div><dt>Full contract total</dt><dd>{requestedTotal.toLocaleString()}</dd></div>
+        <div><dt>Optional pledge boost</dt><dd>{capacity.purchasePledgeBoost.toLocaleString()}</dd></div>
+      </dl>
+      <p className={styles.hint}>The affordability check covers the reviewed periods above; your full contract total is shown separately.</p>
+    </details>
   );
 }
 
 function LockedDebtState({
-  accent,
   blockingContractMessage,
   petDebtContract,
 }: {
@@ -1430,49 +1120,16 @@ function LockedDebtState({
   blockingContractMessage: string | null;
   petDebtContract: PetDebtContract;
 }) {
-  const pillClass =
-    accent === "evil"
-      ? "border-red-300/25 bg-red-700/25 text-red-50"
-      : "border-yellow-200/20 bg-yellow-500/10 text-yellow-50";
+
 
   return (
-    <div className="mt-4 rounded-2xl border border-red-200/15 bg-black/35 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-black text-white">New Contract Locked</p>
-          <p className="mt-1 text-xs text-zinc-400">
-            {blockingContractMessage ?? "Another debt contract is already active or pending."}
-          </p>
-        </div>
-        <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${pillClass}`}>
-          Locked
-        </span>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-red-50 sm:grid-cols-2">
-        <span>Active mode: {petDebtContract.contract_type === "evil" ? "Evil Debt Contract" : "Normal Debt Contract"}</span>
-        <span>Status: {petDebtContract.status}</span>
-        <span>{petDebtContract.period_type === "weekly" ? "Weekly" : "Monthly"} schedule</span>
-        <span>Payment: {petDebtContract.debt_amount.toLocaleString()} Coins</span>
-      </div>
-      <p className="mt-3 rounded-2xl border border-red-200/15 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-50/80">
-        You cannot create a new debt contract until the current one is completed, removed, or resolved by admin.
-      </p>
-    </div>
+<div className={styles.locked}><Image src="/principessa-ui/generated/principessa-debt-contract.webp" width={80} height={106} alt="Principessa holding a contract"/><div><h4>One promise at a time.</h4><p>{blockingContractMessage ?? "Another Coin or Evil Debt agreement is already open."}</p><p className={styles.note}>{petDebtContract.contract_type === "evil" ? "Evil Debt" : "Coin Debt"} · {petDebtContract.status === "pending" ? "Awaiting approval" : "Active"} · {petDebtContract.debt_amount.toLocaleString()} Coins / {petDebtContract.period_type === "weekly" ? "week" : "month"}</p><p>This agreement becomes available when the current one is completed or resolved by Principessa.</p></div></div>
   );
 }
 
 function SignedBanner() {
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-red-200/25 bg-black/45 shadow-[0_0_28px_rgba(248,113,113,0.18)]">
-      <div
-        className="flex min-h-28 items-center justify-center bg-cover bg-center px-4 py-8 text-center"
-        style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.82), rgba(127,29,29,0.28)), url(${DEBT_SIGNING_IMAGE_PATH})` }}
-      >
-        <p className="text-sm font-black uppercase tracking-[0.24em] text-red-50">
-          Contract signed
-        </p>
-      </div>
-    </div>
+<div className={styles.signed} role="status"><Image src={DEBT_SIGNING_IMAGE_PATH} width={36} height={48} alt=""/><div><strong>Contract signed.</strong><p>Your promise is recorded.</p></div></div>
   );
 }
 
@@ -1486,34 +1143,6 @@ function AutoPaymentSwitch({
   onChange: (enabled: boolean) => void;
 }) {
   return (
-    <button
-      aria-pressed={enabled}
-      className="flex w-full items-center gap-3 text-left"
-      onClick={() => onChange(!enabled)}
-      disabled={disabled}
-      type="button"
-    >
-      <span className="min-w-0 flex-1">Auto payment</span>
-      <span className="ml-auto inline-flex items-center gap-2">
-        <span
-          className={`relative h-7 w-14 rounded-full border transition ${
-            enabled
-              ? "border-emerald-200/40 bg-emerald-400/25"
-              : "border-red-200/25 bg-black/55"
-          }`}
-        >
-          <span
-            className={`absolute top-1 h-5 w-5 rounded-full transition ${
-              enabled
-                ? "left-7 bg-emerald-100 shadow-[0_0_14px_rgba(110,231,183,0.55)]"
-                : "left-1 bg-red-100/80"
-            }`}
-          />
-        </span>
-        <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
-          {enabled ? "ON" : "OFF"}
-        </span>
-      </span>
-    </button>
+<button type="button" aria-pressed={enabled} className={styles.toggle} disabled={disabled} onClick={()=>onChange(!enabled)}><span>Auto payment</span><span className={styles.switch} aria-hidden="true"><i/></span><strong>{enabled ? "ON" : "OFF"}</strong></button>
   );
 }

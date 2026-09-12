@@ -169,7 +169,7 @@ export default function AppLicensesPage() {
 
   if (isCheckingAdmin) {
     return (
-      <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
+      <main className="court-admin min-h-screen bg-[#06030a] px-4 py-8 text-white">
         <section className="mx-auto max-w-6xl rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-6 text-sm text-zinc-300">
           Checking admin access...
         </section>
@@ -179,7 +179,7 @@ export default function AppLicensesPage() {
 
   if (!isAdmin) {
     return (
-      <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
+      <main className="court-admin min-h-screen bg-[#06030a] px-4 py-8 text-white">
         <section className="mx-auto max-w-6xl rounded-[2rem] border border-rose-200/15 bg-black/55 p-6">
           <p className="text-sm font-semibold text-rose-100">{status || "Admin access required."}</p>
           <Link className="mt-4 inline-flex rounded-full border border-white/10 px-4 py-2 text-sm text-zinc-200" href="/admin">
@@ -191,7 +191,7 @@ export default function AppLicensesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#06030a] px-4 py-8 text-white">
+    <main className="court-admin min-h-screen bg-[#06030a] px-4 py-8 text-white">
       <section className="relative mx-auto max-w-6xl rounded-[2rem] border border-fuchsia-200/15 bg-black/55 p-5 shadow-[0_0_44px_rgba(217,70,239,0.12)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
