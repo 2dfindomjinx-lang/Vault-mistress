@@ -9,7 +9,8 @@ const density: Record<string, number> = {
 const companions = [
   ['claim', 'number-pick'], ['review', 'false-hope'], ['review', 'review'],
   ['perfect-writing', 'favor-roulette'], ['confession-writing', 'ownership-oath'],
-  ['typing', 'wait-obediently'], ['worship', 'evil-wait'], ['case-open', 'timeout-risk'],
+  ['typing', 'case-open'], ['timeout-risk', 'irl-wheel'],
+  ['typing', 'wait-obediently'], ['worship', 'evil-wait'],
 ];
 export function arrangeTaskCards<T extends {kind: string}>(tasks: readonly T[]): T[] {
   const remaining = [...tasks];

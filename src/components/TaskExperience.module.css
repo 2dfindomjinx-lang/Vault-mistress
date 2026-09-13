@@ -10,6 +10,7 @@
 .cardHeader { display: grid; grid-template-columns: 66px minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 130px; padding: 24px; border-bottom: 1px solid #f5e6d31a; background: linear-gradient(105deg, #f5e6d306, transparent 70%); }
 .identityMark { position: relative; display: grid; place-items: center; height: 70px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 8px; color: var(--accent); background: #080508; }
 .identityMark span { font: 36px/1 Georgia, serif; letter-spacing: -.08em; z-index: 1; }
+.identityMark span > svg { display:block; width:32px; height:32px; }
 .identityMark i { position: absolute; height: 90px; width: 1px; background: color-mix(in srgb, var(--accent) 22%, transparent); transform: rotate(35deg); }
 .identityMark i:last-child { transform: rotate(-35deg); }
 .identityCopy { min-width: 0; }

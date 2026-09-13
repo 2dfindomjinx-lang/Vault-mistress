@@ -1,5 +1,7 @@
 "use client";
 
+import { profileSelect } from "@/lib/profile-columns";
+
 import { getCosmeticPurchasePrice, getWorldCupFarewell, isWorldCupBorder } from "@/lib/world-cup-farewell";
 
 import { normalizeWritingText as normalizeWritingComparisonText } from "@/lib/writing-comparison";
@@ -368,8 +370,7 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
   return undefined;
 }
 
-const profileSelect =
-  "id, username, twitter_handle, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, avatar_presets, unlocked_avatar_preset_slots, coins, principessa_money, pm_burned_total, affection, tribute_total, tribute_code, pet_tribute_code, lifetime_spent_coins, shame_count, is_admin, loyalty_streak, last_loyalty_at, last_login_at, timeout_until, timeout_reason, pet_score, owner_likeness, user_level, user_xp, stored_rights, right_expirations, daily_purchase_count, right_purchase_date, pet_unlocked_at, last_pet_decay_at, last_owner_likeness_at, last_pet_tax_at, address_term, runway_rewarded_votes_today, runway_rewarded_votes_date, created_at, updated_at";
+
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -4097,50 +4098,77 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     void refreshDisplayName();
   }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode, refreshDisplayName]);
 
-  const applyProfile = useCallback(async (profile: Profile) => {
-    setAuthUserId(profile.id);
-    setUsername(profile.twitter_handle ?? profile.username);
-    const nextDisplayName = resolveProfileDisplayName(profile);
-    if (nextDisplayName !== undefined) {
-      setDisplayName(nextDisplayName);
-    } else {
-      void refreshDisplayName(profile.id);
+  // Missing fields mean "unchanged"; explicit zero/null values remain authoritative.
+  // Initial loads and subsequent action/realtime responses share the same updater.
+  const applyProfileStats = useCallback((profile: Partial<Profile>) => {
+    if (profile.id !== undefined) setAuthUserId(profile.id);
+    if (profile.twitter_handle != null || profile.username !== undefined) {
+      setUsername(profile.twitter_handle ?? profile.username!);
     }
-    setCoins(profile.coins);
-    setPrincipessaMoney(profile.principessa_money ?? 0);
-    setBurnedTotal(profile.pm_burned_total ?? 0);
-    setAffection(profile.affection);
-    setTributeTotal(profile.tribute_total ?? 0);
-    setTributeCode(profile.tribute_code ?? null);
-    setPetTributeCode(profile.pet_tribute_code ?? null);
-    setTotalDevotion(profile.total_devotion ?? 0);
-    setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
-    setUserLevel(profile.user_level ?? getUserLevelProgress(profile.user_xp ?? 0).level);
-    setUserXp(profile.user_xp ?? 0);
-    setPetScore(profile.pet_score ?? 0);
-    setOwnerLikeness(profile.owner_likeness ?? 100);
-    setStoredRights(profile.stored_rights ?? 0);
-    setRightExpirations(Array.isArray(profile.right_expirations) ? profile.right_expirations : []);
-    setDailyPurchaseCount(profile.daily_purchase_count ?? 0);
-    setRightPurchaseDate(profile.right_purchase_date ?? null);
-    setPetUnlockedAt(profile.pet_unlocked_at ?? null);
-    setLastPetTaxAt(profile.last_pet_tax_at ?? null);
-    setLoyaltyStreak(profile.loyalty_streak ?? 0);
-    setStreakFreezes(profile.streak_freezes ?? 2);
-    setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
-    setEquippedAvatarSlots(slots);
-    setCommittedEquippedSlots(slots);
-    setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
-    setEquippedFullSetId(profile.equipped_full_set_id ?? null);
-    const rawPresets = Array.isArray(profile.avatar_presets) ? profile.avatar_presets : [];
-    setAvatarPresets([0, 1, 2].map((index) => rawPresets[index] ?? null));
-    setUnlockedAvatarPresetSlots(
-      Math.max(1, Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1))),
-    );
+    const nextDisplayName = resolveProfileDisplayName(profile);
+    if (nextDisplayName !== undefined) setDisplayName(nextDisplayName);
+    else if (profile.id !== undefined) void refreshDisplayName(profile.id);
+    if (profile.coins !== undefined) setCoins(profile.coins ?? 0);
+    if (profile.principessa_money !== undefined) setPrincipessaMoney(profile.principessa_money ?? 0);
+    if (profile.pm_burned_total !== undefined) setBurnedTotal(profile.pm_burned_total ?? 0);
+    if (profile.affection !== undefined) setAffection(profile.affection ?? 0);
+    if (profile.tribute_total !== undefined) setTributeTotal(profile.tribute_total ?? 0);
+    if (profile.total_devotion !== undefined) setTotalDevotion(profile.total_devotion ?? 0);
+    if (profile.lifetime_spent_coins !== undefined) setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
+    if (profile.pet_score !== undefined) setPetScore(profile.pet_score ?? 0);
+    if (profile.owner_likeness !== undefined) setOwnerLikeness(profile.owner_likeness ?? 100);
+    if (profile.user_xp !== undefined) setUserXp(profile.user_xp ?? 0);
+    if (profile.stored_rights !== undefined) setStoredRights(profile.stored_rights ?? 0);
+    if (profile.daily_purchase_count !== undefined) setDailyPurchaseCount(profile.daily_purchase_count ?? 0);
+    if (profile.loyalty_streak !== undefined) setLoyaltyStreak(profile.loyalty_streak ?? 0);
+    if (profile.streak_freezes !== undefined) setStreakFreezes(profile.streak_freezes ?? 2);
+    if (profile.tribute_code !== undefined) setTributeCode(profile.tribute_code ?? null);
+    if (profile.pet_tribute_code !== undefined) setPetTributeCode(profile.pet_tribute_code ?? null);
+    if (profile.right_purchase_date !== undefined) setRightPurchaseDate(profile.right_purchase_date ?? null);
+    if (profile.pet_unlocked_at !== undefined) setPetUnlockedAt(profile.pet_unlocked_at ?? null);
+    if (profile.last_pet_tax_at !== undefined) setLastPetTaxAt(profile.last_pet_tax_at ?? null);
+    if (profile.last_loyalty_at !== undefined) setLastLoyaltyAt(profile.last_loyalty_at ?? null);
+    if (profile.equipped_full_set_id !== undefined) setEquippedFullSetId(profile.equipped_full_set_id ?? null);
+    if (profile.user_level !== undefined) setUserLevel(profile.user_level);
+    else if (profile.user_xp !== undefined) setUserLevel(getUserLevelProgress(profile.user_xp ?? 0).level);
+    if (profile.right_expirations !== undefined) setRightExpirations(Array.isArray(profile.right_expirations) ? profile.right_expirations : []);
+    if (profile.timeout_until !== undefined) {
+      timeoutUntilRef.current = profile.timeout_until;
+      setTimeoutUntil(profile.timeout_until);
+      setTasks(current => current.map(task =>
+        task.id === "timeout-risk" || task.id === "irl-task-wheel"
+          ? { ...task, timeoutUntil: profile.timeout_until }
+          : task,
+      ));
+    }
+    if (profile.timeout_reason !== undefined) {
+      timeoutReasonRef.current = profile.timeout_reason;
+      setTimeoutReason(profile.timeout_reason);
+    }
+    if (profile.equipped_avatar_slots !== undefined) {
+      const slots = normalizeEquipment(profile.equipped_avatar_slots ?? {});
+      setEquippedAvatarSlots(slots);
+      setCommittedEquippedSlots(slots);
+    }
+    if (profile.has_uncensored_avatar !== undefined) setHasUncensoredAvatar(Boolean(profile.has_uncensored_avatar));
+    if (profile.avatar_presets !== undefined) {
+      const presets = Array.isArray(profile.avatar_presets) ? profile.avatar_presets : [];
+      setAvatarPresets([0, 1, 2].map(index => presets[index] ?? null));
+    }
+    if (profile.unlocked_avatar_preset_slots !== undefined) {
+      setUnlockedAvatarPresetSlots(Math.max(1, Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1))));
+    }
+    if (profile.address_term !== undefined) {
+      const term = normalizeAddressTerm(profile.address_term);
+      setAddressTerm(term);
+      addressTermRef.current = term;
+    }
+    if (profile.id !== undefined) setIsLoggedIn(true);
+  }, [refreshDisplayName]);
+
+  const applyProfile = useCallback(async (profile: Profile) => {
+    applyProfileStats(profile);
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
-    setAddressTerm(nextAddressTerm);
-    addressTermRef.current = nextAddressTerm;
 
     const { data: cosmeticData, error: cosmeticError } = await supabase
       .from("user_cosmetics")
@@ -4427,6 +4455,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     void loadLeadershipTop();
     void loadShameTop();
   }, [
+    applyProfileStats,
     crateInventory,
     loadLeadershipTop,
     loadShameTop,
@@ -4434,63 +4463,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setAvatarMistressReply,
     unlockProgressionTitles,
   ]);
-
-  const applyProfileStats = useCallback((profile: Profile) => {
-    setAuthUserId(profile.id);
-    setUsername(profile.twitter_handle ?? profile.username);
-    const nextDisplayName = resolveProfileDisplayName(profile);
-    if (nextDisplayName !== undefined) {
-      setDisplayName(nextDisplayName);
-    } else {
-      void refreshDisplayName(profile.id);
-    }
-    setCoins(profile.coins);
-    setPrincipessaMoney(profile.principessa_money ?? 0);
-    setAffection(profile.affection);
-    setTributeTotal(profile.tribute_total ?? 0);
-    // Callers hand us a row selected with `profileSelect`, which does NOT carry
-    // either tribute code. Coercing the absent key to null wiped them out of
-    // state after any coin/money action, so the Throne modal fell back to
-    // "VM-CODE-UNAVAILABLE" until a full profile reload. Only a key that is
-    // actually present is allowed to overwrite them.
-    if (profile.tribute_code !== undefined) setTributeCode(profile.tribute_code);
-    if (profile.pet_tribute_code !== undefined) setPetTributeCode(profile.pet_tribute_code);
-    setTotalDevotion(profile.total_devotion ?? 0);
-    setLifetimeSpentCoins(profile.lifetime_spent_coins ?? 0);
-    setPetScore(profile.pet_score ?? 0);
-    setOwnerLikeness(profile.owner_likeness ?? 100);
-    setPetUnlockedAt(profile.pet_unlocked_at ?? null);
-    setLastPetTaxAt(profile.last_pet_tax_at ?? null);
-    setLoyaltyStreak(profile.loyalty_streak ?? 0);
-    setStreakFreezes(profile.streak_freezes ?? 2);
-    setLastLoyaltyAt(profile.last_loyalty_at ?? null);
-    timeoutUntilRef.current = profile.timeout_until ?? null;
-    timeoutReasonRef.current = profile.timeout_reason ?? null;
-    setTimeoutUntil(profile.timeout_until ?? null);
-    setTimeoutReason(profile.timeout_reason ?? null);
-    if (profile.timeout_until !== undefined) {
-      setTasks(current => current.map(task =>
-        task.id === "timeout-risk" || task.id === "irl-task-wheel"
-          ? { ...task, timeoutUntil: profile.timeout_until ?? null }
-          : task,
-      ));
-    }
-    const slots = normalizeEquipment(profile.equipped_avatar_slots || {});
-    setEquippedAvatarSlots(slots);
-    setCommittedEquippedSlots(slots);
-    setHasUncensoredAvatar(profile.has_uncensored_avatar || false);
-    setEquippedFullSetId(profile.equipped_full_set_id ?? null);
-    const rawPresets = Array.isArray(profile.avatar_presets) ? profile.avatar_presets : [];
-    setAvatarPresets([0, 1, 2].map((index) => rawPresets[index] ?? null));
-    setUnlockedAvatarPresetSlots(
-      Math.max(1, Math.min(MAX_AVATAR_PRESET_SLOTS, Number(profile.unlocked_avatar_preset_slots ?? 1))),
-    );
-    const nextAddressTerm = normalizeAddressTerm(profile.address_term);
-    setAddressTerm(nextAddressTerm);
-    addressTermRef.current = nextAddressTerm;
-    setIsLoggedIn(true);
-    // Do not force "home" here — updates from other tabs (e.g. crates open) should not kick user out of current panel.
-  }, [refreshDisplayName]);
 
   const handleMoneyConvert = useCallback(async (amount: number) => {
     setMoneyConverting(true);

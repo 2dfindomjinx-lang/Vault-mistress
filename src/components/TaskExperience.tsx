@@ -2,14 +2,15 @@
 
 import { type CSSProperties, type ReactNode } from "react";
 import ui from "./TaskExperience.module.css";
+import { CourtGlyph } from "./court/CourtVisuals";
 
-const identities: Record<string, { label: string; mark: string; instruction: string }> = {
-  claim: { label: "Daily audience", mark: "01", instruction: "Your place in her court." },
+const identities: Record<string, { label: string; mark: ReactNode; instruction: string }> = {
+  claim: { label: "Daily audience", mark: <CourtGlyph symbol="gift" />, instruction: "Your place in her court." },
   typing: { label: "The writing desk", mark: "Aa", instruction: "Every character matters." },
   "confession-writing": { label: "The confession desk", mark: "Aa", instruction: "Write it. Mean it. Repeat it." },
   "ownership-oath": { label: "The oath", mark: "Aa", instruction: "Her words. Your promise." },
   "perfect-writing": { label: "The precision test", mark: "Aa", instruction: "A perfect line, from beginning to end." },
-  "number-pick": { label: "A single choice", mark: "03", instruction: "Three numbers. One decision." },
+  "number-pick": { label: "A single choice", mark: <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="10" y="10" width="44" height="44" rx="10"/><g fill="currentColor" stroke="none"><circle cx="22" cy="22" r="3"/><circle cx="42" cy="22" r="3"/><circle cx="32" cy="32" r="3"/><circle cx="22" cy="42" r="3"/><circle cx="42" cy="42" r="3"/></g></svg>, instruction: "Three numbers. One decision." },
   "case-open": { label: "The reward vault", mark: "▣", instruction: "Break the seal. Watch it land." },
   "timeout-risk": { label: "The risk table", mark: "½", instruction: "Your reward. Your risk." },
   "wait-obediently": { label: "The stillness room", mark: "60", instruction: "Stay with her. Touch nothing." },
@@ -112,5 +113,4 @@ export function TaskInputSignal({ count, label, total }: { count: number; label:
     <span>{label}</span><div>{Array.from({ length: total }, (_, i) => <i key={i} data-remaining={i < count} />)}</div><strong>{count}/{total}</strong>
   </div>;
 }
-
 

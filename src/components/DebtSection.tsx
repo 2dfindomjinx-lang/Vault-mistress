@@ -571,6 +571,7 @@ function ThroneDebtCard({
 }) {
   const [money, setMoney] = useState<number | null>(null);
   const [historyId, setHistoryId] = useState("");
+  const [isDrafting, setIsDrafting] = useState(false);
   const [paymentThrough, setPaymentThrough] = useState(0);
   const pmRequest = useRef<{id: string; key: string} | null>(null);
   const [contracts, setContracts] = useState<ThroneDebtContract[]>([]);
@@ -588,6 +589,7 @@ function ThroneDebtCard({
   const openContract = contracts.find((contract) =>
     ["pending_review", "active", "overdue", "timeout", "paused"].includes(contract.status),
   ) ?? null;
+  const showingDraft = isDrafting && !openContract;
   const activeContract = contracts.find(contract => contract.id === historyId) ?? openContract ?? contracts[0] ?? null;
   useEffect(() => { onContractChange?.(openContract); }, [openContract, onContractChange]);
   const cleanLengthWeeks = contractLengthWeeks === "custom"
@@ -670,6 +672,7 @@ function ThroneDebtCard({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Request failed.");
       setHistoryId(payload.contract.id);
+      setIsDrafting(false);
       await loadThroneDebts(); setUserNote(""); setStatusText("Your request is awaiting approval.");
     } catch(error) {setStatusText(error instanceof Error ? error.message : "Request failed.");}
     finally {setIsBusy(false);}
@@ -688,6 +691,8 @@ function ThroneDebtCard({
   const payable = installments.filter(item => getThroneDebtInstallmentRemaining(item) > 0);
   const through = payable.some(item => item.installment_number === paymentThrough) ? paymentThrough : payable[0]?.installment_number ?? 0;
   const pmCost = Math.round(payable.filter(item => item.installment_number <= through).reduce((sum,item) => sum + getThroneDebtInstallmentRemaining(item),0)*100)/100;
+  const paymentNow = useDeadlineClock(payable.map(item => item.due_date), 60000);
+  const includesEarlyPayment = payable.some(item => item.installment_number <= through && Date.parse(item.due_date) > paymentNow);
   const hasReview = activeContract?.payment_reviews?.some(review => review.status === "pending");
   const canPay = !!activeContract && ["active","overdue"].includes(activeContract.status) && !hasReview;
   const usd = (amount: number) => "$" + Number(amount).toFixed(2);
@@ -711,10 +716,10 @@ function ThroneDebtCard({
     finally {setIsBusy(false);}
   };
   return (
-    <ContractDocument kind="throne" recorded={Boolean(activeContract)} status={activeContract ? label(activeContract.status) : "Draft · Not signed"}>
+    <ContractDocument kind="throne" recorded={Boolean(activeContract) && !showingDraft} status={activeContract && !showingDraft ? label(activeContract.status) : "Draft · Not signed"}>
       <div className="throne-agreement__body">
-      {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
-      {activeContract ? <>
+      {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {setIsDrafting(false);setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
+      {activeContract && !showingDraft ? <>
         <div className="throne-agreement__reference"><div><small>CONTRACT REFERENCE</small><strong>{activeContract.debt_code}</strong></div><span className="throne-agreement__status">{label(activeContract.status)}</span></div>
         <dl className="throne-agreement__figures">
           <div><dt>Original commitment</dt><dd>{usd(activeContract.total_amount_usd)}</dd></div>
@@ -734,7 +739,7 @@ function ThroneDebtCard({
             </div>)}</div>
           </section>
           <aside className="throne-agreement__payment"><h4>Honor your agreement</h4><p>Your balance: <strong>{money === null ? "Loading…" : money + " PM"}</strong></p>
-            {canPay && payable.length ? <><label>Pay installments through<select aria-label="Pay installments through" value={through} disabled={isBusy} onChange={event => setPaymentThrough(Number(event.target.value))}>{payable.map(item => <option key={item.id} value={item.installment_number}>{item.installment_number === payable[0].installment_number ? "Next installment" : item.installment_number === payable[payable.length-1].installment_number ? "Full remaining balance" : "Through installment #"+item.installment_number} · {usd(payable.filter(row=>row.installment_number<=item.installment_number).reduce((sum,row)=>sum+getThroneDebtInstallmentRemaining(row),0))}</option>)}</select></label><p className="throne-agreement__quote">{pmCost} PM <span>reduces your debt by {usd(pmCost)}</span></p><p>Balance after payment: {money === null ? "—" : Math.max(0,money-pmCost)+" PM"}</p><button type="button" disabled={disabled || isBusy || money === null || money<pmCost || !Number.isInteger(pmCost)} onClick={()=>void payPm()}>{isBusy ? "Processing…" : "Pay "+pmCost+" PM"}</button>{money !== null && money<pmCost ? <p>Not enough PM for this payment.</p> : null}{!Number.isInteger(pmCost) ? <p>This payment contains cents. Use Throne or request a manual review.</p> : null}</> : <p>{hasReview ? "A payment is awaiting review. Please wait before paying again." : activeContract.status === "completed" ? "Your agreement is fulfilled. No balance remains." : "PM payments are available for active and overdue contracts."}</p>}
+            {canPay && payable.length ? <><label>Pay installments through<select aria-label="Pay installments through" value={through} disabled={isBusy} onChange={event => setPaymentThrough(Number(event.target.value))}>{payable.map(item => <option key={item.id} value={item.installment_number}>{item.installment_number === payable[0].installment_number ? "Next installment" : item.installment_number === payable[payable.length-1].installment_number ? "Full remaining balance" : "Through installment #"+item.installment_number} · {usd(payable.filter(row=>row.installment_number<=item.installment_number).reduce((sum,row)=>sum+getThroneDebtInstallmentRemaining(row),0))}</option>)}</select></label><p className="throne-agreement__quote">{pmCost} PM <span>reduces your debt by {usd(pmCost)}</span></p><p>Balance after payment: {money === null ? "—" : Math.max(0,money-pmCost)+" PM"}</p>{includesEarlyPayment ? <h4>Want to pay early?</h4> : null}<button type="button" disabled={disabled || isBusy || money === null || money<pmCost || !Number.isInteger(pmCost)} onClick={()=>void payPm()}>{isBusy ? "Processing…" : (includesEarlyPayment ? "Pay early · " : "Pay ")+pmCost+" PM"}</button>{money !== null && money<pmCost ? <p>Not enough PM for this payment.</p> : null}{!Number.isInteger(pmCost) ? <p>This payment contains cents. Use Throne or request a manual review.</p> : null}</> : <p>{hasReview ? "A payment is awaiting review. Please wait before paying again." : activeContract.status === "completed" ? "Your agreement is fulfilled. No balance remains." : "PM payments are available for active and overdue contracts."}</p>}
             <div className="throne-agreement__throne"><strong>Prefer Throne?</strong><p>Include this exact code in your message:</p><code>{activeContract.debt_code}</code><p>Extra funds cover future installments. Any excess after the final installment is recorded separately and does not become PM.</p></div>
           </aside>
         </div>
@@ -748,7 +753,7 @@ function ThroneDebtCard({
         {activeContract.user_note ? <p><strong>Your note:</strong> {activeContract.user_note}</p> : null}{activeContract.admin_note ? <p><strong>Principessa’s note:</strong> {activeContract.admin_note}</p> : null}
         <footer className="throne-agreement__signature"><span>Principessa<small>THE COURT</small></span><span>{activeContract.debt_code}<small>{activeContract.approved_at ? "APPROVED · "+date(activeContract.approved_at) : "AWAITING APPROVAL"}</small></span></footer>
       </> : null}
-      {!openContract ? <details open={!activeContract} className="throne-agreement__request"><summary>{activeContract ? "Request another agreement" : "Draft your agreement"}</summary><p>Minimum $10 per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
+      {!openContract ? <details open={!activeContract || showingDraft} onToggle={event => { if (activeContract && !openContract) setIsDrafting(event.currentTarget.open); }} className="throne-agreement__request"><summary>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>Minimum $10 per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
         <div className={styles.draftForm}><div className={styles.form}>
         <ContractClause number="I" title="The terms of your promise">
         <div className="throne-agreement__draft">

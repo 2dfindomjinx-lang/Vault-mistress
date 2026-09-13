@@ -844,22 +844,7 @@ export function TaskList({
                     </div>
 </TaskExperienceCard>
 
-                  {waitTask && (
-          <TaskExperienceCard kind="wait-obediently" taskId={waitTask.id} title={waitTask.title} reward={<>{waitTask.reward} Principessa Coins</>} status={renderStatus(waitTask, isWaitCoolingDown)} state={taskExperienceState(waitTask, now, isTaskActionPending(waitTask.id))} notice={<>{isWaitCoolingDown && <p>Available again in {formatRemaining(waitCooldownRemaining)}</p>}{disabled && <p>{disabledReason}</p>}</>}>
-<WaitObedientlyPanel
-                        cooldownRemaining={waitCooldownRemaining}
-                        formatRemaining={formatRemaining}
-                        isCoolingDown={isWaitCoolingDown}
-                        isGloballyDisabled={disabled}
-                        isActionPending={isTaskActionPending("wait-obediently")}
-                        onComplete={onWaitObedientlyComplete}
-                        onCooldownAttempt={handleCooldownAttempt}
-                        onFail={onWaitObedientlyFail}
-                        onStart={onWaitObedientlyStart}
-                        task={waitTask}
-                      />
-</TaskExperienceCard>
-                  )}
+
                 </div>
 
                 {irlTask && (
@@ -977,6 +962,22 @@ export function TaskList({
                     </div>
 </TaskExperienceCard>
                 )}
+                  {waitTask && (
+          <TaskExperienceCard kind="wait-obediently" taskId={waitTask.id} title={waitTask.title} reward={<>{waitTask.reward} Principessa Coins</>} status={renderStatus(waitTask, isWaitCoolingDown)} state={taskExperienceState(waitTask, now, isTaskActionPending(waitTask.id))} notice={<>{isWaitCoolingDown && <p>Available again in {formatRemaining(waitCooldownRemaining)}</p>}{disabled && <p>{disabledReason}</p>}</>}>
+<WaitObedientlyPanel
+                        cooldownRemaining={waitCooldownRemaining}
+                        formatRemaining={formatRemaining}
+                        isCoolingDown={isWaitCoolingDown}
+                        isGloballyDisabled={disabled}
+                        isActionPending={isTaskActionPending("wait-obediently")}
+                        onComplete={onWaitObedientlyComplete}
+                        onCooldownAttempt={handleCooldownAttempt}
+                        onFail={onWaitObedientlyFail}
+                        onStart={onWaitObedientlyStart}
+                        task={waitTask}
+                      />
+</TaskExperienceCard>
+                  )}
               </div>
             );
           }
