@@ -1,0 +1,248 @@
+{
+  "checkedFiles": 39,
+  "alternatives": 26,
+  "originalsUnchanged": 14,
+  "htmlFilePlayback": true,
+  "wavDownload": true,
+  "filters": true,
+  "choicePersistence": true,
+  "escapeStopsPlayback": true,
+  "mobileOverflow": false,
+  "browserErrors": [],
+  "decoded": [
+    {
+      "id": "button_click",
+      "version": "current",
+      "seconds": 1.097,
+      "peak": 0.1192
+    },
+    {
+      "id": "button_click",
+      "version": "velvet",
+      "seconds": 0.16,
+      "peak": 0.125
+    },
+    {
+      "id": "button_click",
+      "version": "obsidian",
+      "seconds": 0.13,
+      "peak": 0.1364
+    },
+    {
+      "id": "error",
+      "version": "current",
+      "seconds": 0.34,
+      "peak": 0.5
+    },
+    {
+      "id": "error",
+      "version": "velvet",
+      "seconds": 0.48,
+      "peak": 0.1766
+    },
+    {
+      "id": "error",
+      "version": "obsidian",
+      "seconds": 0.48,
+      "peak": 0.1576
+    },
+    {
+      "id": "task_completion",
+      "version": "current",
+      "seconds": 0.55,
+      "peak": 0.6206
+    },
+    {
+      "id": "task_completion",
+      "version": "velvet",
+      "seconds": 1,
+      "peak": 0.1877
+    },
+    {
+      "id": "task_completion",
+      "version": "obsidian",
+      "seconds": 0.84,
+      "peak": 0.1564
+    },
+    {
+      "id": "task_fail",
+      "version": "current",
+      "seconds": 0.45,
+      "peak": 0.58
+    },
+    {
+      "id": "task_fail",
+      "version": "velvet",
+      "seconds": 0.82,
+      "peak": 0.1698
+    },
+    {
+      "id": "task_fail",
+      "version": "obsidian",
+      "seconds": 0.75,
+      "peak": 0.1852
+    },
+    {
+      "id": "crate_reel_tick",
+      "version": "current",
+      "seconds": 0.5,
+      "peak": 0.5886
+    },
+    {
+      "id": "crate_reel_tick",
+      "version": "velvet",
+      "seconds": 0.075,
+      "peak": 0.0927
+    },
+    {
+      "id": "crate_reel_tick",
+      "version": "obsidian",
+      "seconds": 0.062,
+      "peak": 0.0879
+    },
+    {
+      "id": "crate_reveal",
+      "version": "current",
+      "seconds": 0.705,
+      "peak": 0.9987
+    },
+    {
+      "id": "crate_reveal",
+      "version": "velvet",
+      "seconds": 1.45,
+      "peak": 0.2181
+    },
+    {
+      "id": "crate_reveal",
+      "version": "obsidian",
+      "seconds": 1.35,
+      "peak": 0.2213
+    },
+    {
+      "id": "crate_legendary_reveal",
+      "version": "current",
+      "seconds": 3,
+      "peak": 1.0202
+    },
+    {
+      "id": "crate_legendary_reveal",
+      "version": "velvet",
+      "seconds": 3.15,
+      "peak": 0.3449
+    },
+    {
+      "id": "crate_legendary_reveal",
+      "version": "obsidian",
+      "seconds": 3.25,
+      "peak": 0.318
+    },
+    {
+      "id": "tribute_sent",
+      "version": "current",
+      "seconds": 0.6,
+      "peak": 0.6594
+    },
+    {
+      "id": "tribute_sent",
+      "version": "velvet",
+      "seconds": 1.24,
+      "peak": 0.2561
+    },
+    {
+      "id": "tribute_sent",
+      "version": "obsidian",
+      "seconds": 1.13,
+      "peak": 0.2744
+    },
+    {
+      "id": "cosmetic_purchased",
+      "version": "current",
+      "seconds": 0.62,
+      "peak": 0.6204
+    },
+    {
+      "id": "cosmetic_purchased",
+      "version": "velvet",
+      "seconds": 1.05,
+      "peak": 0.2077
+    },
+    {
+      "id": "cosmetic_purchased",
+      "version": "obsidian",
+      "seconds": 0.94,
+      "peak": 0.1894
+    },
+    {
+      "id": "debt_contract_signed",
+      "version": "current",
+      "seconds": 1.777,
+      "peak": 0.1573
+    },
+    {
+      "id": "debt_contract_signed",
+      "version": "velvet",
+      "seconds": 1.85,
+      "peak": 0.3057
+    },
+    {
+      "id": "debt_contract_signed",
+      "version": "obsidian",
+      "seconds": 1.55,
+      "peak": 0.229
+    },
+    {
+      "id": "gallery_unlock",
+      "version": "current",
+      "seconds": 2.081,
+      "peak": 0.2145
+    },
+    {
+      "id": "gallery_unlock",
+      "version": "velvet",
+      "seconds": 1.72,
+      "peak": 0.2219
+    },
+    {
+      "id": "gallery_unlock",
+      "version": "obsidian",
+      "seconds": 1.65,
+      "peak": 0.2379
+    },
+    {
+      "id": "affection_level_up",
+      "version": "current",
+      "seconds": 4.338,
+      "peak": 0.135
+    },
+    {
+      "id": "affection_level_up",
+      "version": "velvet",
+      "seconds": 2.55,
+      "peak": 0.2496
+    },
+    {
+      "id": "affection_level_up",
+      "version": "obsidian",
+      "seconds": 2.3,
+      "peak": 0.2079
+    },
+    {
+      "id": "random_event_activation",
+      "version": "current",
+      "seconds": 4.851,
+      "peak": 0.2408
+    },
+    {
+      "id": "random_event_activation",
+      "version": "velvet",
+      "seconds": 1.6,
+      "peak": 0.2029
+    },
+    {
+      "id": "random_event_activation",
+      "version": "obsidian",
+      "seconds": 1.45,
+      "peak": 0.2378
+    }
+  ]
+}

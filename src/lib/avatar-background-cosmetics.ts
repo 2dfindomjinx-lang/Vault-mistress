@@ -106,6 +106,14 @@ export const avatarBackgroundCosmeticItems: AvatarBackgroundCatalogItem[] = [
     backgroundOverlayPath: null,
   }),
   backgroundItem({
+    id: "avatar-background-stable",
+    name: "Royal Stable",
+    description: "Warm timber, brass lanterns and a quiet place in her royal stables.",
+    price: 5000,
+    backgroundPath: "/avatar/background/stable.webp",
+    backgroundOverlayPath: null,
+  }),
+  backgroundItem({
     id: "avatar-background-park",
     name: "Park",
     description: "A green park backdrop that keeps the frame feeling airy and open.",

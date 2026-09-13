@@ -1,4 +1,5 @@
 "use client";
+import { emitSoundEvent } from "@/lib/sound";
 
 import styles from "./CollectionSurfaces.module.css";
 
@@ -206,6 +207,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
           await loadCandidate();
           return;
         }
+        emitSoundEvent("runway_vote");
         if (typeof data?.rewardGranted === "boolean") {
           setRewardedVotesToday((prev) => {
             if (!data.rewardGranted) return prev ?? 0;
@@ -263,6 +265,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         await loadCandidate();
         return;
       }
+      emitSoundEvent("runway_supervote");
       if (typeof data?.superVotesUsedToday === "number") {
         setSuperVotesToday(data.superVotesUsedToday);
       }

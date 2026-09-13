@@ -1,0 +1,437 @@
+{
+  "collection": "Principessa Sound Atelier · Round 2",
+  "created": "2026-09-12T22:33:20.581Z",
+  "status": "audition-only",
+  "selections": [
+    {
+      "event": "error",
+      "title": "İşlem reddedildi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-error.wav"
+    },
+    {
+      "event": "task_completion",
+      "title": "Başarı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-task-completion.wav"
+    },
+    {
+      "event": "task_fail",
+      "title": "Başarısızlık",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-task-fail.wav"
+    },
+    {
+      "event": "crate_reel_tick",
+      "title": "Kasa / çark tıkırtısı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-crate-reel-tick.wav"
+    },
+    {
+      "event": "crate_reveal",
+      "title": "Kasa açılışı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-crate-reveal.wav"
+    },
+    {
+      "event": "crate_legendary_reveal",
+      "title": "Efsanevi ödül",
+      "choice": "velvet",
+      "collection": "A · Velvet Court",
+      "file": "velvet-crate-legendary-reveal.wav"
+    },
+    {
+      "event": "tribute_sent",
+      "title": "Tribute",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-tribute-sent.wav"
+    },
+    {
+      "event": "cosmetic_purchased",
+      "title": "Shop alışverişi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-cosmetic-purchased.wav"
+    },
+    {
+      "event": "debt_contract_signed",
+      "title": "Kontrat imzası",
+      "choice": "current",
+      "collection": "Mevcut",
+      "file": "debt-contract-signed.wav"
+    },
+    {
+      "event": "gallery_unlock",
+      "title": "Galeri açılışı",
+      "choice": "current",
+      "collection": "Mevcut",
+      "file": "gallery-unlock.mp3"
+    },
+    {
+      "event": "affection_level_up",
+      "title": "Affection yükselişi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-affection-level-up.wav"
+    },
+    {
+      "event": "random_event_activation",
+      "title": "Principessa etkinliği",
+      "choice": "velvet",
+      "collection": "A · Velvet Court",
+      "file": "velvet-random-event-activation.wav"
+    },
+    {
+      "event": "button_click",
+      "title": "Buton tıklaması",
+      "choice": "round2",
+      "collection": "C27 · Pixel",
+      "file": "click-pixel.wav",
+      "audioKey": "click_pixel"
+    }
+  ],
+  "eventSelections": [
+    {
+      "event": "card_flip",
+      "title": "Kart çevirme",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "round_correct",
+      "title": "Doğru hamle / eşleşme",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "round-correct-b.wav",
+      "audioKey": "round_correct:b"
+    },
+    {
+      "event": "life_lost",
+      "title": "Bir hak kaybı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "life-lost-a.wav",
+      "audioKey": "life_lost:a"
+    },
+    {
+      "event": "countdown_tick",
+      "title": "3 · 2 · 1",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "countdown-tick-b.wav",
+      "audioKey": "countdown_tick:b"
+    },
+    {
+      "event": "countdown_go",
+      "title": "Oyun başladı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "countdown-go-a.wav",
+      "audioKey": "countdown_go:a"
+    },
+    {
+      "event": "guard_parry",
+      "title": "Royal Guard · engelleme",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "guard-parry-a.wav",
+      "audioKey": "guard_parry:a"
+    },
+    {
+      "event": "slot_stop",
+      "title": "Slot · makara duruşu",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "slot-stop-a.wav",
+      "audioKey": "slot_stop:a"
+    },
+    {
+      "event": "dice_roll",
+      "title": "Zar · masa teması",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "dice-roll-b.wav",
+      "audioKey": "dice_roll:b"
+    },
+    {
+      "event": "roulette_roll",
+      "title": "Rulet · topun yolu",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "roulette-roll-a.wav",
+      "audioKey": "roulette_roll:a"
+    },
+    {
+      "event": "plinko_hit",
+      "title": "Plinko · pim teması",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "plinko-hit-b.wav",
+      "audioKey": "plinko_hit:b"
+    },
+    {
+      "event": "gem_found",
+      "title": "Jewelry Box · güvenli kutu",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "gem-found-a.wav",
+      "audioKey": "gem_found:a"
+    },
+    {
+      "event": "mine_bust",
+      "title": "Jewelry Box · tuzak",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "mine-bust-a.wav",
+      "audioKey": "mine_bust:a"
+    },
+    {
+      "event": "casino_cashout",
+      "title": "Kazancı masadan alma",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "casino-cashout-a.wav",
+      "audioKey": "casino_cashout:a"
+    },
+    {
+      "event": "crash_break",
+      "title": "Her Patience · kırılma",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "crash-break-a.wav",
+      "audioKey": "crash_break:a"
+    },
+    {
+      "event": "wheel_tick",
+      "title": "Wheel · dilim geçişi",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "wheel-tick-a.wav",
+      "audioKey": "wheel_tick:a"
+    },
+    {
+      "event": "wheel_verdict",
+      "title": "Wheel · hüküm",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "wheel-verdict-b.wav",
+      "audioKey": "wheel_verdict:b"
+    },
+    {
+      "event": "timeout_lock",
+      "title": "Timeout başladı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "timeout-lock-a.wav",
+      "audioKey": "timeout_lock:a"
+    },
+    {
+      "event": "timeout_release",
+      "title": "Timeout kaldırıldı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "timeout-release-a.wav",
+      "audioKey": "timeout_release:a"
+    },
+    {
+      "event": "furnace_ignite",
+      "title": "Furnace · tutuşma",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "furnace_burn",
+      "title": "Furnace · ateş dokusu",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "furnace_note",
+      "title": "Furnace · tek PM yanışı",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "furnace-note-b.wav",
+      "audioKey": "furnace_note:b"
+    },
+    {
+      "event": "furnace_ash",
+      "title": "Furnace · son kül",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "furnace-ash-b.wav",
+      "audioKey": "furnace_ash:b"
+    },
+    {
+      "event": "drain_pulse",
+      "title": "Drain Session · akış",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "drain_start",
+      "title": "Drain Session · başlangıç",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "drain_popup",
+      "title": "Drain Session · görsel beliriyor",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "drain_stop",
+      "title": "Drain Session · kapanış",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "click_pulse",
+      "title": "Click Game · her temas",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "click-pulse-a.wav",
+      "audioKey": "click_pulse:a"
+    },
+    {
+      "event": "click_stage",
+      "title": "Click Game · yeni aşama",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "click-stage-b.wav",
+      "audioKey": "click_stage:b"
+    },
+    {
+      "event": "level_surrender",
+      "title": "Strengthen Principessa",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "level-surrender-b.wav",
+      "audioKey": "level_surrender:b"
+    },
+    {
+      "event": "sacrifice_resolve",
+      "title": "Sacrifice · karşılıksız sonuç",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "sacrifice-resolve-a.wav",
+      "audioKey": "sacrifice_resolve:a"
+    },
+    {
+      "event": "daily_reward",
+      "title": "Günlük ödül",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "daily-reward-b.wav",
+      "audioKey": "daily_reward:b"
+    },
+    {
+      "event": "money_convert",
+      "title": "PM → Coins",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "money-convert-a.wav",
+      "audioKey": "money_convert:a"
+    },
+    {
+      "event": "item_equip",
+      "title": "Avatar · item kuşanma",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "item-equip-b.wav",
+      "audioKey": "item_equip:b"
+    },
+    {
+      "event": "item_sell",
+      "title": "Item satışı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "item-sell-a.wav",
+      "audioKey": "item_sell:a"
+    },
+    {
+      "event": "debt_installment",
+      "title": "Kontrat · taksit kabulü",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "debt-installment-b.wav",
+      "audioKey": "debt_installment:b"
+    },
+    {
+      "event": "debt_completed",
+      "title": "Kontrat · borç kapandı",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "debt-completed-a.wav",
+      "audioKey": "debt_completed:a"
+    },
+    {
+      "event": "notification_received",
+      "title": "Yeni bildirim",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "notification-received-a.wav",
+      "audioKey": "notification_received:a"
+    },
+    {
+      "event": "runway_vote",
+      "title": "Runway · oy kabulü",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "runway-vote-b.wav",
+      "audioKey": "runway_vote:b"
+    },
+    {
+      "event": "runway_supervote",
+      "title": "Runway · Super Vote",
+      "choice": "b",
+      "collection": "B · Kristal",
+      "file": "runway-supervote-b.wav",
+      "audioKey": "runway_supervote:b"
+    },
+    {
+      "event": "loyalty_milestone",
+      "title": "Loyalty · dönüm noktası",
+      "choice": "a",
+      "collection": "A · Dokulu",
+      "file": "loyalty-milestone-a.wav",
+      "audioKey": "loyalty_milestone:a"
+    },
+    {
+      "event": "crawl_contact",
+      "title": "The Crawl · zemine temas",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    },
+    {
+      "event": "jigsaw_reveal",
+      "title": "Jigsaw · bağlantı açılışı",
+      "choice": "silent",
+      "collection": "Sessiz",
+      "file": null,
+      "audioKey": null
+    }
+  ]
+}

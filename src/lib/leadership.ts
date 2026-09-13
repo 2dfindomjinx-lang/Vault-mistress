@@ -11,6 +11,7 @@ export const LEADERSHIP_RANKS = [
 ] as const;
 
 export type LeadershipEntry = {
+  avatarUrl?: string | null;
   username: string;
   rawUsername?: string;
   displayName?: string | null;
@@ -25,6 +26,7 @@ export type LeadershipEntry = {
 };
 
 export type ShameEntry = {
+  avatarUrl?: string | null;
   username: string;
   rawUsername?: string;
   displayName?: string | null;

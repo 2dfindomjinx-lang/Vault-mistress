@@ -282,7 +282,7 @@ function PrincipessaSays({ challengeSeed, disabled, onClose, onComplete, onFail,
     setMistakes(nextMistakes);
     setFeedback(correct ? "correct" : "wrong");
     setVisualAction(action);
-    emitSoundEvent(correct ? "button_click" : "task_fail");
+    emitSoundEvent(correct ? "round_correct" : "life_lost");
 
     window.setTimeout(() => {
       if (roundIndex < rounds.length - 1) {
@@ -419,12 +419,13 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail, onRe
   };
   useEffect(() => {
     const pending = timers.current;
+    emitSoundEvent("countdown_tick");
     for (let remaining = Math.ceil(CROWN_MATCH_PREVIEW_MS / 1000) - 1; remaining > 0; remaining--) {
-      pending.add(window.setTimeout(() => setPreviewCount(remaining), CROWN_MATCH_PREVIEW_MS - remaining * 1000));
+      pending.add(window.setTimeout(() => { setPreviewCount(remaining); emitSoundEvent("countdown_tick"); }, CROWN_MATCH_PREVIEW_MS - remaining * 1000));
     }
     const previewTimer = window.setTimeout(() => {
       setPhase("conceal");
-      const concealTimer = window.setTimeout(() => setPhase("play"), CROWN_MATCH_FLIP_MS);
+      const concealTimer = window.setTimeout(() => { setPhase("play"); emitSoundEvent("countdown_go"); }, CROWN_MATCH_FLIP_MS);
       pending.add(concealTimer);
     }, CROWN_MATCH_PREVIEW_MS);
     pending.add(previewTimer);
@@ -437,7 +438,7 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail, onRe
     const [first, second] = pair;
     const correct = cards[first].symbol === cards[second].symbol;
     setVerdict(correct ? "correct" : "wrong");
-    emitSoundEvent(correct ? "button_click" : "task_fail");
+    emitSoundEvent(correct ? "round_correct" : "life_lost");
     const nextMistakes = mistakes + (correct ? 0 : 1);
     if (!correct) setMistakes(nextMistakes);
     after(() => {
@@ -455,7 +456,7 @@ function CrownMatch({ challengeSeed, disabled, onClose, onComplete, onFail, onRe
 
   const chooseCard = (id: number) => {
     if (phase !== "play" || disabled || saving || finishedRef.current || openRef.current.length >= 2 || openRef.current.includes(id) || matched.includes(id)) return;
-    emitSoundEvent("button_click");
+    emitSoundEvent("card_flip");
     // eslint-disable-next-line react-hooks/purity -- This handler records a user click, never a render-time timestamp.
     actionsRef.current.push({action:String(id),atMs:Date.now()-startedAt});
     const pair = [...openRef.current, id];
@@ -539,7 +540,7 @@ function RoyalGuard({ challengeSeed, disabled, onClose, onComplete, onFail, onRe
     const nextMistakes = mistakes + (correct ? 0 : 1);
     setScore(nextScore);
     setMistakes(nextMistakes);
-    emitSoundEvent(correct ? "button_click" : "task_fail");
+    emitSoundEvent(correct ? (hit ? "guard_parry" : "round_correct") : "life_lost");
     window.setTimeout(() => {
       setOutcome(null);
       if (index >= targets.length - 1) {

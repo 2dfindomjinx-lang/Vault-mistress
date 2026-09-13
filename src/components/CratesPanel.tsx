@@ -212,6 +212,8 @@ export function CratesPanel({
   const WINNER_SLOT = 43; // fixed position in the built sequence where the real winner is placed (for exact final centering in result phase too)
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
+  const animationMounted = useRef(true);
+  useEffect(() => { animationMounted.current = true; return () => { animationMounted.current = false; }; }, []);
   const stripRef = useRef<HTMLDivElement>(null);
   const horizontalReelViewportRef = useRef<HTMLDivElement>(null);
   // React can re-render during an open when coins/inventory update. Keep the
@@ -238,6 +240,27 @@ export function CratesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only the measured centre matters here
   }, [reelCenterOffset]);
 
+  useEffect(() => {
+    if (!isOpening && wonItems.length && stripRef.current) {
+      const first = stripRef.current.children[0] as HTMLElement | undefined;
+      const second = stripRef.current.children[1] as HTMLElement | undefined;
+      const viewport = horizontalReelViewportRef.current;
+      if (!first || !second || !viewport) return;
+      const x = viewport.clientWidth / 2 - first.offsetWidth / 2 - first.offsetLeft - WINNER_SLOT * (second.offsetLeft - first.offsetLeft);
+      horizontalReelTransformRef.current = `translate3d(${x}px, 0, 0)`;
+      stripRef.current.style.transform = horizontalReelTransformRef.current;
+    }
+  }, [reelStep, reelCenterOffset, wonItems.length, isOpening]);
+
+  const setHorizontalReelProgress = (progress: number) => {
+    const strip = stripRef.current;
+    const viewport = horizontalReelViewportRef.current;
+    const first = strip?.children[0] as HTMLElement | undefined;
+    const second = strip?.children[1] as HTMLElement | undefined;
+    if (!strip || !viewport || !first || !second) return;
+    const step = second.offsetLeft - first.offsetLeft;
+    setHorizontalReelTransform(viewport.clientWidth / 2 - first.offsetWidth / 2 - first.offsetLeft - progress * step);
+  };
   const setHorizontalReelTransform = (x: number) => {
     const transform = `translate3d(${x}px, 0, 0)`;
     horizontalReelTransformRef.current = transform;
@@ -553,6 +576,7 @@ export function CratesPanel({
       }
 
       setWonItems(results);
+      if (!animationMounted.current) return;
       window.dispatchEvent(new Event("court:crate-opened"));
       // Play reveal sound based on whether the batch result includes a legendary (for multi or single)
       // This ensures the special legendary reveal sound plays when a legendary is won, tied to the result reveal.
@@ -593,7 +617,7 @@ export function CratesPanel({
   async function runCrateAnimation(fakeReel: WonItem[], realItem: WonItem, sequence: WonItem[] | WonItem[][], isVertical: boolean = false) {
     // Proper optimized animation using requestAnimationFrame for true smooth 60fps+ slide.
     // Time-based easing over ~8.2 seconds. Direct ref.style.transform updates (no per-frame React re-renders of the strip).
-    // Sounds scheduled separately to preserve the dramatic slowing "reel tick" rhythm without affecting visual smoothness.
+    // Audio follows the same centered item index as the visual reel.
     // The pre-built sequence already has near-miss bias (mostly epic/rare teases, few legendary) + winner placement for classic case opening feel.
     return new Promise<void>((resolve) => {
       const duration = 8200; // ms — solid 8+ seconds as requested
@@ -608,24 +632,10 @@ export function CratesPanel({
       const VERTICAL_STEP = VERTICAL_ITEM_SIZE + 8;
       const VERTICAL_CENTER_OFFSET = (120 - VERTICAL_ITEM_SIZE) / 2;
 
-      // Sound scheduler: mimics the old variable-delay ticks for authentic feel (independent of visual rAF)
       let soundTick = 0;
-      const maxSoundTicks = 65;
-      const scheduleSoundTick = (delay: number) => {
-        setTimeout(() => {
-          if (soundTick < maxSoundTicks) {
-            emitSoundEvent("crate_reel_tick");
-            soundTick++;
-            const p = soundTick / maxSoundTicks;
-            const nextDelay = Math.floor(38 + (240 - 38) * Math.pow(p, 1.7));
-            scheduleSoundTick(nextDelay);
-          }
-        }, delay);
-      };
-      scheduleSoundTick(38); // kick off the rhythmic ticks
-
       // Pure rAF visual animation — buttery smooth motion
       const animate = (now: number) => {
+        if (!animationMounted.current) { resolve(); return; }
         const elapsed = now - startTime;
         const p = Math.min(1, elapsed / duration);
 
@@ -634,6 +644,9 @@ export function CratesPanel({
         // Using ease-out on the reel progress (opposite of ease-in).
         const eased = 1 - Math.pow(1 - p, 1.85);
         const newProg = Math.min(TARGET_PROGRESS, eased * TARGET_PROGRESS);
+
+        const crossed = Math.round(newProg);
+        if (crossed !== soundTick) { soundTick = crossed; emitSoundEvent("crate_reel_tick"); }
 
         // Direct DOM update = high FPS, no React overhead during spin
         if (isVertical) {
@@ -646,8 +659,7 @@ export function CratesPanel({
             }
           });
         } else if (stripRef.current) {
-          const x = -newProg * reelStep + reelCenterOffset;
-          setHorizontalReelTransform(x);
+          setHorizontalReelProgress(newProg);
         }
 
         // Very light state for mobile single-view sampling (throttled) - skip for vertical multi
@@ -676,8 +688,7 @@ export function CratesPanel({
               }
             });
           } else if (stripRef.current) {
-            const exactX = -(winnerIndexInSeq * reelStep) + reelCenterOffset;
-            setHorizontalReelTransform(exactX);
+            setHorizontalReelProgress(winnerIndexInSeq);
           }
 
           // Ensure mobile shows the winner (skip for vertical)
@@ -688,8 +699,7 @@ export function CratesPanel({
             setReelProgress(TARGET_PROGRESS);
           }
 
-          // One final reel tick just as the slide settles (landing clunk), before the reveal sound
-          emitSoundEvent("crate_reel_tick");
+
 
           // Reveal sound (after the slide has stopped)
           setTimeout(() => {
@@ -732,7 +742,7 @@ export function CratesPanel({
     try {
       const res = await onSellItem(item.item_id, item.variant, qty);
       if (res.success) {
-        emitSoundEvent("cosmetic_purchased");
+        emitSoundEvent("item_sell");
         // Parent component should refetch or update state
       } else {
         // The server explains why - a Money Shop copy has to be returned for PM,
@@ -785,7 +795,7 @@ export function CratesPanel({
       return;
     }
 
-    emitSoundEvent("cosmetic_purchased");
+    emitSoundEvent("item_sell");
     closeReveal();
   };
 
@@ -806,7 +816,7 @@ export function CratesPanel({
       const res = await (onSellAll ? onSellAll() : Promise.resolve({ success: false, error: "This action is unavailable." }));
       if (res.success) {
         // Play one purchase sound for the bulk operation
-        emitSoundEvent("cosmetic_purchased");
+        emitSoundEvent("item_sell");
       } else {
         notice(res?.error || "Sale failed. You may no longer own some of these items.");
       }
@@ -831,7 +841,7 @@ export function CratesPanel({
     try {
       const res = await (onSellDuplicates ? onSellDuplicates() : Promise.resolve({ success: false, error: "This action is unavailable." }));
       if (res.success) {
-        emitSoundEvent("cosmetic_purchased");
+        emitSoundEvent("item_sell");
       } else {
         notice(res?.error || "Duplicate sale failed.");
       }
@@ -1137,7 +1147,7 @@ export function CratesPanel({
                     <div
                       key={idx}
                       className={`shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
-                      style={{ width: reelCardWidth, height: reelCardWidth }}
+                      style={{ boxSizing: "border-box", width: reelCardWidth, minWidth: reelCardWidth, maxWidth: reelCardWidth, height: reelCardWidth, flex: "0 0 auto" }}
                     >
                       <img
                         src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
@@ -1297,7 +1307,7 @@ export function CratesPanel({
                             if (!confirmSell) return;
                           }
                           await onSellItem(item.item_id, item.variant, 1);
-                          emitSoundEvent("cosmetic_purchased");
+                          emitSoundEvent("item_sell");
                           setWonItems(prev => prev.filter((_, i) => i !== idx));
                           if (wonItems.length <= 1) {
                             closeReveal();
@@ -1366,7 +1376,7 @@ export function CratesPanel({
                       if (!confirmSell) return;
                     }
                     await onSellItem(item.item_id, item.variant, 1);
-                    emitSoundEvent("cosmetic_purchased");
+                    emitSoundEvent("item_sell");
                     closeReveal();
                   }}
                   disabled={wonItems[0].item_id === "classic"}

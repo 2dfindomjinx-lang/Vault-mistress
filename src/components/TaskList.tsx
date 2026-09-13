@@ -16,6 +16,7 @@ import {
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
 import { CASE_OPEN_REWARD_WEIGHTS } from "@/lib/server-task-actions";
+import { useWheelSound } from "@/lib/use-animation-sound";
 import { emitSoundEvent } from "@/lib/sound";
 import type { TaskItem } from "@/lib/types";
 import { useDeadlineClock } from "@/hooks/useDeadlineClock";
@@ -1633,6 +1634,8 @@ function WheelSpinner({
   segmentCount: number;
   spinning: boolean;
 }) {
+  const wheelRef = useRef<HTMLDivElement>(null);
+  useWheelSound(wheelRef, spinning, segmentCount);
   const safeSegmentCount = Math.max(1, segmentCount);
   const segmentDegrees = 360 / safeSegmentCount;
   const settledRotation =
@@ -1656,6 +1659,8 @@ function WheelSpinner({
     <div className="relative mx-auto flex max-w-[20rem] flex-col items-center">
       <div data-spinning={spinning} className="court-wheel-pointer absolute -top-1 z-20 h-0 w-0 border-x-[12px] border-t-[22px] border-x-transparent border-t-pink-100 drop-shadow-[0_0_10px_rgba(244,114,182,0.9)]" />
       <div
+        ref={wheelRef}
+        onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === "transform") emitSoundEvent("wheel_verdict"); }}
         className="relative aspect-square w-full max-w-[18rem] rounded-full border border-pink-100/35 shadow-[0_0_34px_rgba(236,72,153,0.28)] transition-transform duration-[3600ms] ease-out"
         style={{
           background: `conic-gradient(from ${-segmentDegrees / 2}deg, ${wheelGradient})`,

@@ -32,9 +32,17 @@ export async function GET() {
     shame_count: number;
   }>;
   const userIds = profiles.map((profile) => String(profile.id)).filter(Boolean);
-  const { data: cosmeticRows, error: cosmeticError } = await supabase.rpc("get_public_username_cosmetics", {
-    p_user_ids: userIds.length > 0 ? userIds : [],
-  });
+  const [{ data: cosmeticRows, error: cosmeticError }, avatarResult] = await Promise.all([
+    supabase.rpc("get_public_username_cosmetics", { p_user_ids: userIds }),
+    supabase.rpc("get_public_profile_snippets", { p_user_ids: userIds }),
+  ]);
+  if (avatarResult.error) {
+    console.error("Leaderboard avatar lookup failed", avatarResult.error);
+  }
+  const avatarById = new Map(
+    ((avatarResult.data ?? []) as Array<{ id: string; avatar_url: string | null }>)
+      .map((profile) => [profile.id, profile.avatar_url]),
+  );
 
   if (cosmeticError) {
     console.error("Public shame board username cosmetic lookup failed", cosmeticError);
@@ -45,6 +53,7 @@ export async function GET() {
   return Response.json(
     {
       shame: profiles.map((profile) => ({
+        avatarUrl: avatarById.get(String(profile.id)) ?? null,
         shameCount: Number(profile.shame_count ?? 0),
         username: getDisplayNameOrUsername(profile.display_name ?? null, profile.username),
         rawUsername: profile.username,

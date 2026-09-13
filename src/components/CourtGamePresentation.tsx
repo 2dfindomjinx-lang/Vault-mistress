@@ -59,7 +59,7 @@ export function GameTimer({ remaining, total }: { remaining: number; total: numb
 export function CommandGesture({ action }: { action: "kneel" | "bow" }) {
   return <svg viewBox="0 0 80 72" fill="none" aria-hidden="true" className={styles.gesture}>
     <path d="M9 62H71" stroke="currentColor" opacity=".3" strokeWidth="2"/>
-    {action === "kneel" ? <><circle cx="38" cy="15" r="7" fill="currentColor"/><path d="m37 27-5 17 15 4-1 12H31M35 30l14 9 9-5M32 43l-9 17H13" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></> : <><path d="M29 29 35 45 34 60H42M44 34 51 45 47 50" stroke="currentColor" opacity=".45" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><path d="M27 60 26 44 28 29 46 34 51 38M27 60H19M45 35 43 47 35 49" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="58" cy="41" r="6.5" fill="currentColor"/></>}
+    {action === "kneel" ? <><circle cx="38" cy="15" r="7" fill="currentColor"/><path d="m37 27-5 17 15 4-1 12H31M35 30l14 9 9-5M32 43l-9 17H13" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></> : <><path d="M31 34 36 47 37 61H44" stroke="currentColor" opacity=".38" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><path d="M29 34 27 47 26 61H18M29 34 41 37 49 43 52 46M47 42 43 51 35 48" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="58" cy="49" r="6" fill="currentColor"/></>}
   </svg>;
 }
 

@@ -349,7 +349,8 @@ export async function POST(request: Request) {
   if (body.action === "crash-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
     const requestedMultiplier = Number(body.requestedMultiplier);
-    const { data, error } = await supabase.rpc("gamble_crash_cashout", {
+    const { data, error } = await supabase.rpc("gamble_crash_cashout_at", {
+      p_received_at: new Date(serverReceivedAtMs).toISOString(),
       p_round_id: body.roundId,
       p_requested_multiplier: Number.isFinite(requestedMultiplier) ? requestedMultiplier : null,
       p_user_id: user.id,

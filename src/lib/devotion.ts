@@ -6,6 +6,7 @@ export type DevotionPeriod = "weekly" | "monthly" | "all_time";
 export type DevotionFrameVariant = "rainbow" | "runner" | null;
 
 export type DevotionLeaderboardEntry = {
+  avatarUrl?: string | null;
   userId: string;
   rank: number;
   devotion: number;

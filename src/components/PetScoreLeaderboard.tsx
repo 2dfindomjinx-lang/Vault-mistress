@@ -1,4 +1,5 @@
 export type PetScoreLeaderboardEntry = {
+  avatarUrl?: string | null;
   displayName: string | null;
   petScore: number;
   rank: number;

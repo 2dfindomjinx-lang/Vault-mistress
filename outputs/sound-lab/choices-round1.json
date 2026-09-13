@@ -1,0 +1,90 @@
+{
+  "collection": "Principessa Sound Atelier",
+  "created": "2026-09-12T20:34:30.859Z",
+  "selections": [
+    {
+      "event": "error",
+      "title": "İşlem reddedildi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-error.wav"
+    },
+    {
+      "event": "task_completion",
+      "title": "Başarı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-task-completion.wav"
+    },
+    {
+      "event": "task_fail",
+      "title": "Başarısızlık",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-task-fail.wav"
+    },
+    {
+      "event": "crate_reel_tick",
+      "title": "Kasa / çark tıkırtısı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-crate-reel-tick.wav"
+    },
+    {
+      "event": "crate_reveal",
+      "title": "Kasa açılışı",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-crate-reveal.wav"
+    },
+    {
+      "event": "crate_legendary_reveal",
+      "title": "Efsanevi ödül",
+      "choice": "velvet",
+      "collection": "A · Velvet Court",
+      "file": "velvet-crate-legendary-reveal.wav"
+    },
+    {
+      "event": "tribute_sent",
+      "title": "Tribute",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-tribute-sent.wav"
+    },
+    {
+      "event": "cosmetic_purchased",
+      "title": "Shop alışverişi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-cosmetic-purchased.wav"
+    },
+    {
+      "event": "debt_contract_signed",
+      "title": "Kontrat imzası",
+      "choice": "current",
+      "collection": "Mevcut",
+      "file": "debt-contract-signed.wav"
+    },
+    {
+      "event": "gallery_unlock",
+      "title": "Galeri açılışı",
+      "choice": "current",
+      "collection": "Mevcut",
+      "file": "gallery-unlock.mp3"
+    },
+    {
+      "event": "affection_level_up",
+      "title": "Affection yükselişi",
+      "choice": "obsidian",
+      "collection": "B · Obsidian",
+      "file": "obsidian-affection-level-up.wav"
+    },
+    {
+      "event": "random_event_activation",
+      "title": "Principessa etkinliği",
+      "choice": "velvet",
+      "collection": "A · Velvet Court",
+      "file": "velvet-random-event-activation.wav"
+    }
+  ]
+}

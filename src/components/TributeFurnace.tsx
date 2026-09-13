@@ -1,4 +1,6 @@
 "use client";
+import { emitSoundEvent } from "@/lib/sound";
+import { useSoundLoop } from "@/lib/use-animation-sound";
 import Image from "next/image";
 import {useCallback,useEffect,useRef,useState,type CSSProperties} from "react";
 import {postSealToX} from "@/lib/share-seal";
@@ -14,6 +16,7 @@ type Burn={amount:number;before:number;reduced:boolean};
 export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money,onBurn}:{burnedTotal:number;disabled?:boolean;error?:string;isBurning:boolean;money:number;onBurn:(amount:number)=>Promise<boolean>}) {
   const [amount,setAmount]=useState("");
   const [phase,setPhase]=useState<Phase>("idle");
+  useSoundLoop("furnace_burn", phase === "burning");
   const [burn,setBurn]=useState<Burn|null>(null);
   const [elapsed,setElapsed]=useState(0);
   const [confirm,setConfirm]=useState(false);
@@ -50,6 +53,8 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
     const duration=furnaceDuration(session.amount);
     timers.current.forEach(clearTimeout);timers.current.length=0;
     setPhase("burning");
+    emitSoundEvent("furnace_ignite");
+    let lastConsumed=0;
     let elapsedMs=0,lastTime=performance.now();
     const tick=(now:number)=>{
       if(!mounted.current)return;
@@ -58,8 +63,10 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
       lastTime=now;
       elapsedMs=Math.min(duration,elapsedMs+delta*(session.reduced?duration/240:1));
       setElapsed(elapsedMs);
+      const consumedNow=furnaceFrame(session.amount,elapsedMs).consumed;
+      if(consumedNow>lastConsumed){lastConsumed=consumedNow;emitSoundEvent("furnace_note");}
       if(elapsedMs<duration){frame.current=requestAnimationFrame(tick);return;}
-      frame.current=null;setPhase("ash");
+      frame.current=null;setPhase("ash");emitSoundEvent("furnace_ash");
       void loadLeaders();
       timers.current.push(window.setTimeout(()=>setPhase("cooling"),session.reduced?100:700));
       timers.current.push(window.setTimeout(()=>{
@@ -87,6 +94,7 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
     }
   };
   return <section className={styles.furnace} data-furnace-phase={phase}>
+    <a href="/sounds/selected/credits.txt" target="_blank" rel="noreferrer" className="text-xs text-zinc-500">Sound credits</a>
     <header className={styles.header}><div><p>Nothing comes back</p><h3>The Tribute Furnace</h3><span>Money becomes ash. Your devotion remains.</span></div><CourtCompanion>Feed it. I’m watching.</CourtCompanion></header>
     <div className={styles.workbench}>
       <div className={styles.machineArea}>

@@ -86,9 +86,17 @@ export async function GET() {
   }
 
   const allCosUserIds = Array.from(new Set([...userIds, ...invUids]));
-  const { data: cosmeticRows, error: cosmeticError } = await supabase.rpc("get_public_username_cosmetics", {
-    p_user_ids: allCosUserIds.length > 0 ? allCosUserIds : [],
-  });
+  const [{ data: cosmeticRows, error: cosmeticError }, avatarResult] = await Promise.all([
+    supabase.rpc("get_public_username_cosmetics", { p_user_ids: allCosUserIds }),
+    supabase.rpc("get_public_profile_snippets", { p_user_ids: userIds }),
+  ]);
+  if (avatarResult.error) {
+    console.error("Leaderboard avatar lookup failed", avatarResult.error);
+  }
+  const avatarById = new Map(
+    ((avatarResult.data ?? []) as Array<{ id: string; avatar_url: string | null }>)
+      .map((profile) => [profile.id, profile.avatar_url]),
+  );
 
   if (cosmeticError) {
     console.error("Leadership username cosmetic lookup failed", cosmeticError);
@@ -132,6 +140,7 @@ export async function GET() {
       })
       .slice(0, 5)
       .map((leader) => ({
+        avatarUrl: avatarById.get(leader.id) ?? null,
         addressTerm: leader.addressTerm,
         rankTitle: leader.rankTitle,
         tributeTotal: leader.tributeTotal,

@@ -154,3 +154,14 @@
  .documents[data-visible-count="1"] .columns { grid-template-columns:minmax(0,1.3fr) minmax(240px,1fr); gap:23px; }
  .documents[data-visible-count="2"] .columns,.documents[data-visible-count="2"] .fields { grid-template-columns:1fr; }
 }
+
+.commitmentColumn { display:grid; align-content:start; gap:20px; min-width:0; color:#eee4d6; --line:#c7a37736; --muted:#b3a493; --accent:#d2b17b; --surface:#211b17; }
+.index button:disabled { opacity:.35; cursor:default; }
+.documents[data-recorded-layout=true] .columns { grid-template-columns:minmax(0,1fr); }
+@media(min-width:1180px) {
+ .documents[data-recorded-layout=true] { grid-template-columns:repeat(3,minmax(0,1fr)); justify-content:stretch; }
+ .documents[data-recorded-layout=true] > :global(#coin-contract-panel), .documents[data-recorded-layout=true] > :global(#evil-contract-panel) { grid-column:1; grid-row:2; }
+ .documents[data-recorded-layout=true] > .commitmentColumn { grid-column:2; grid-row:2; }
+ .documents[data-recorded-layout=true] > :global(#throne-contract-panel) { grid-column:3; grid-row:2; }
+}
+@media(max-width:1179px) { .documents[data-recorded-layout=true] { grid-template-columns:1fr; } }

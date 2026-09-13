@@ -1,10 +1,12 @@
 "use client";
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
+import { emitSoundEvent } from "@/lib/sound";
 import Image from "next/image";
 import styles from "./ExperienceSurfaces.module.css";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { ClickStageTrack, DrainScene } from "@/components/court/ShrineSessionVisuals";
+import { DrainSessionAudio } from "@/components/court/DrainSessionAudio";
 import { createPortal } from "react-dom";
 import {
   SHRINE_BONUS_LEVEL_STEP,
@@ -79,6 +81,8 @@ type TributePanelProps = {
   onClickGameCategoryChange?: (categoryId: ClickGameCategoryId) => void;
   clickGameStatusCategory?: ClickGameCategoryId | null;
   onDrainSessionSync?: (amount: number, isFinal?: boolean) => Promise<boolean>;
+  soundVolume?: number;
+  gameplaySoundEnabled?: boolean;
   drainLeaderboard?: Array<{ rank: number; userId: string; username: string; displayName: string | null; drained: number }>;
 };
 
@@ -137,6 +141,8 @@ export function TributePanel({
   onClickGameCategoryChange,
   clickGameStatusCategory = null,
   onDrainSessionSync,
+  soundVolume = 1,
+  gameplaySoundEnabled = true,
   drainLeaderboard = [],
 }: TributePanelProps) {
   const [showThroneCode, setShowThroneCode] = useState(false);
@@ -145,6 +151,7 @@ export function TributePanel({
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
   const categoryReady = Boolean(clickGame && clickGameStatusCategory === clickGameCategory);
   const [optimisticClicks, setOptimisticClicks] = useState(0);
+  const [revealPreview, setRevealPreview] = useState<{ category: ClickGameCategoryId; stage: number } | null>(null);
   const [tapBursts, setTapBursts] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const tapId = useRef(0);
   const pendingClicksRef = useRef(0);
@@ -389,6 +396,7 @@ export function TributePanel({
     }
     const rect = event.currentTarget.getBoundingClientRect();
     const burst = { id: tapId.current++, x: event.detail === 0 ? 50 : (event.clientX - rect.left) / rect.width * 100, y: event.detail === 0 ? 50 : (event.clientY - rect.top) / rect.height * 100 };
+    emitSoundEvent("click_pulse");
     setTapBursts(current => [...current.slice(-7), burst]);
     pendingClicksRef.current += 1;
     setOptimisticClicks((current) => current + 1);
@@ -414,7 +422,9 @@ export function TributePanel({
 
   const displayedProgress = (clickGame?.progress ?? 0) + optimisticClicks;
   const displayedStage = clickGame ? getClickGameStage(displayedProgress, clickGame.thresholds) : 0;
-  const displayedStageImagePath = categoryReady ? getClickGameStageImagePath(displayedStage, clickGameCategory) : null;
+  const previewStage = revealPreview?.category === clickGameCategory && revealPreview.stage < displayedStage ? revealPreview.stage : displayedStage;
+  const reviewingReveal = previewStage !== displayedStage;
+  const displayedStageImagePath = categoryReady ? getClickGameStageImagePath(previewStage, clickGameCategory) : null;
 
   return (
     <section className={`${styles.surface} ${styles.tribute}`}>
@@ -464,6 +474,7 @@ export function TributePanel({
                   >
                     Stop
                   </button>
+                  <DrainSessionAudio volume={soundVolume} muted={!gameplaySoundEnabled} />
                 </>
               ) : (
                 <>
@@ -823,7 +834,7 @@ export function TributePanel({
             <div className="relative mt-4 min-h-[28rem] w-full overflow-hidden bg-black/50 sm:min-h-[34rem]">
               {displayedStageImagePath ? (
                 <Image
-                  alt={`Click Game stage ${displayedStage}`}
+                  alt={`Click Game stage ${previewStage}`}
                   className="court-stage-image object-contain p-3 transition-opacity"
                   key={displayedStageImagePath}
                   fill
@@ -835,32 +846,34 @@ export function TributePanel({
                   {categoryReady ? "Every reveal begins with your first offering." : "Loading category…"}
                 </div>
               )}
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.05)_30%,rgba(0,0,0,0.15)_65%,rgba(0,0,0,0.75)_100%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.05)_30%,rgba(0,0,0,0.15)_65%,rgba(0,0,0,0.08)_100%)]" />
 
               <div className="pointer-events-none absolute left-4 top-4 right-4 flex flex-wrap items-start justify-between gap-2">
                 <p className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-pink-50/90 backdrop-blur-sm">
                   {clickGame?.costPerClick ?? 1} coins / click
                 </p>
                 <div className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-pink-50 backdrop-blur-sm">
-                  Stage {displayedStage}/10
+                  {reviewingReveal ? "Viewing reveal" : "Stage"} {previewStage}/{clickGame?.thresholds.length ?? 10}
                 </div>
               </div>
 
-              <div className="absolute inset-0 bottom-36">
+              <div className="absolute inset-0">
                 <button
                   aria-label="Click the current stage"
                   className="court-click-surface absolute inset-0 flex w-full items-center justify-center focus-visible:outline-2 focus-visible:outline-pink-200 disabled:cursor-not-allowed"
-                  disabled={disabled || !categoryReady || !clickGame?.isActive || coins < (optimisticClicks + 1) * (clickGame?.costPerClick ?? 1)}
+                  disabled={reviewingReveal || disabled || !categoryReady || !clickGame?.isActive || coins < (optimisticClicks + 1) * (clickGame?.costPerClick ?? 1)}
                   onClick={registerClickGameTap}
                   type="button"
                 >
-                  <span className="court-click-invitation">{clickGame?.isActive ? "Tap to offer" : "Begin your session below"}</span>
+                  <span className="court-click-invitation">{reviewingReveal ? "A reveal you earned" : clickGame?.isActive ? "Tap to offer" : "Begin your session below"}</span>
                   {tapBursts.map(burst => <span key={burst.id} className="court-click-burst" aria-hidden="true" style={{ left: `${burst.x}%`, top: `${burst.y}%` }} onAnimationEnd={() => setTapBursts(current => current.filter(item => item.id !== burst.id))}>+1<span>✦</span></span>)}
                 </button>
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-4">
-                <ClickStageTrack stage={displayedStage} progress={displayedProgress} thresholds={clickGame?.thresholds ?? []} />
+            </div>
+              <div className="court-click-console flex flex-col gap-3 border-t border-pink-200/15 bg-[#180c14] p-4">
+                {reviewingReveal && <button type="button" className="self-end text-sm text-pink-200 underline underline-offset-4" onClick={() => setRevealPreview(null)}>Back to current stage →</button>}
+                <ClickStageTrack selectedStage={previewStage} onStageSelect={stage => setRevealPreview({ category: clickGameCategory, stage })} key={`${clickGameCategory}-${displayedStage}`} stage={displayedStage} progress={displayedProgress} thresholds={clickGame?.thresholds ?? []} />
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] font-semibold text-pink-50/85 drop-shadow">
@@ -905,7 +918,6 @@ export function TributePanel({
                   </div>
                 </div>
               </div>
-            </div>
 
             <div className="flex flex-wrap items-center gap-4 px-4 py-3 text-xs text-pink-50/70">
               <p>Weekly clicks: <span className="font-black text-pink-50">{(clickGame?.weeklyClicks ?? 0).toLocaleString()}</span></p>

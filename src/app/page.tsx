@@ -1073,7 +1073,7 @@ function buildPetTasksFromRows(
     if (task.id === "pet-voice-proof") {
       return {
         ...task,
-        status: baseStatus,
+        status: baseStatus === "pending" || getPetTaskCooldownUntil(cooldownAnchor) ? baseStatus : "available",
         completedAt,
         reviewedAt,
         cooldownUntil: getPetTaskCooldownUntil(cooldownAnchor),
@@ -1083,7 +1083,7 @@ function buildPetTasksFromRows(
 
     return {
       ...task,
-      status: baseStatus,
+      status: baseStatus === "pending" || getPetTaskCooldownUntil(cooldownAnchor) ? baseStatus : "available",
       completedAt,
         reviewedAt,
       cooldownUntil: getPetTaskCooldownUntil(cooldownAnchor),
@@ -4509,6 +4509,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       applyProfileStats(payload.profile);
       coinsRef.current = payload.profile.coins;
       setMoneyShopError("");
+      emitSoundEvent("money_convert");
     } catch (error) {
       setMoneyShopError(error instanceof Error ? error.message : "Conversion failed.");
     } finally {
@@ -5718,7 +5719,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         result.message ??
           `Timeout cleared for ${(result.clearFee ?? timeoutClearFee).toLocaleString()} coins.`,
       );
-      emitSoundEvent("task_completion");
+      emitSoundEvent("timeout_release");
     } catch (error) {
       console.error("Timeout clear failed", error);
       setAvatarMistressReply(describeError(error));
@@ -6977,7 +6978,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             ),
           );
           setAvatarMistressReply(`Bad roll. ${timeoutMs / (60 * 60 * 1000)} hours of timeout have been added.`);
-          emitSoundEvent("task_fail");
+          emitSoundEvent("timeout_lock");
           return "timeout";
         }
 
@@ -7057,7 +7058,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         setAvatarMistressReply(
           getTaskMetadataString(payload.task.metadata, "lastResult") ?? "Bad roll. Timeout has been added.",
         );
-        emitSoundEvent("task_fail");
+        emitSoundEvent("timeout_lock");
         return "timeout";
       }
 
@@ -7146,7 +7147,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ),
         );
       }
-      emitSoundEvent("task_completion");
+      emitSoundEvent("level_surrender");
       setAvatarMistressReply(
         result.drainedLevels && result.drainedLevels > 1
           ? `All ${result.drainedLevels} levels were drained in one offering.`
@@ -7228,7 +7229,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? `Right purchased. ${result.price ?? 0} coins spent.`
           : "Right used.",
       );
-      emitSoundEvent(action === "buy" ? "cosmetic_purchased" : "task_completion");
+      emitSoundEvent(action === "buy" ? "cosmetic_purchased" : "item_sell");
       void resyncAuthenticatedProfile(`Rights ${action}`).catch((error) => {
         console.error("[profile-resync] failed after rights action", error);
       });
@@ -7556,8 +7557,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? `${randomFrom(getSacrificeSuccessLines(addressTerm))} ${unlockedItem.title} joins the collection.`
           : randomFrom(sacrificeFailureLines),
       );
-      emitSoundEvent(unlockedItem ? "gallery_unlock" : "tribute_sent");
-      emitSoundEvent(unlockedItem ? "task_completion" : "task_fail");
+      emitSoundEvent(unlockedItem ? "gallery_unlock" : "sacrifice_resolve");
     } catch (error) {
       console.error("Failed to complete sacrifice mechanic", error);
       emitSoundEvent("error");
@@ -7624,7 +7624,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }));
       setAvatarMistressReply(message);
       emitSoundEvent("tribute_sent");
-      emitSoundEvent("task_completion");
     } catch (error) {
       console.error("Failed to complete support mechanic", error);
       emitSoundEvent("error");
@@ -7969,10 +7968,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     setTributeTotal(nextTributeTotal);
-    emitSoundEvent("tribute_sent");
+    emitSoundEvent(nextAffection > affection ? "affection_level_up" : "tribute_sent");
     if (nextAffection > affection) {
       setAffectionStageRevealToken((current) => current + 1);
-      emitSoundEvent("affection_level_up");
+
     }
     if (nextAffection >= 50) {
       void completeTask("affection");
@@ -8101,6 +8100,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       applyProfileStats(payload.profile);
       void loadCommunityStatus();
       setJigsawLink({ label: payload.label ?? "Jigsaw", url: payload.url });
+      emitSoundEvent("jigsaw_reveal");
     } catch (error) {
       console.error("Failed to unlock jigsaw", error);
       setJigsawError("The jigsaw stayed locked. Try again.");
@@ -8217,7 +8217,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         setCoins(payload.profile.coins);
         coinsRef.current = payload.profile.coins;
       }
-      if (payload.status.stage > previousStage) {
+      if (category === clickGameCategory && payload.status.stage > previousStage) {
+        emitSoundEvent("click_stage");
         void loadClickGameLeaderboard();
       }
     } catch (error) {
@@ -8450,6 +8451,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       );
       setEquippedCosmeticIds((current) => ({ ...current, [item.type]: item.id }));
       setAvatarMistressReply(`${item.name} equipped.`);
+      emitSoundEvent("item_equip");
       finishTaskAction(actionId);
     } catch (error) {
       console.error("Failed to equip cosmetic", error);
@@ -8729,7 +8731,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           : entry,
       ),
     );
-    emitSoundEvent("task_completion");
+    emitSoundEvent(task.id === "daily-login" ? "daily_reward" : "task_completion");
     setAvatarMistressReply(
       `Fine. ${rewardCoins} coins added. Spend them carefully.`,
     );
@@ -8759,7 +8761,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ),
         );
         setAvatarMistressReply(`Loyalty rewards claimed. +${totalReward} coins.`);
-        emitSoundEvent("task_completion");
+        emitSoundEvent("loyalty_milestone");
         return;
       }
 
@@ -8789,7 +8791,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAvatarMistressReply(
         `Loyalty rewards claimed. +${payload.totalReward ?? 0} coins.`,
       );
-      emitSoundEvent("task_completion");
+      emitSoundEvent("loyalty_milestone");
     } catch (error) {
       console.error("Failed to claim loyalty rewards", error);
       setAuthError(describeError(error));
@@ -9883,6 +9885,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             contractId: petDebtContract.id,
           });
 
+          if ((result.paidAmount ?? 0) > 0) emitSoundEvent(result.plan?.completed ? "debt_completed" : "debt_installment");
           setPetDebtContract((result.contract as PetDebtContract | null) ?? null);
           setAvatarMistressReply(
             (result.paidAmount ?? 0) <= 0
@@ -9899,6 +9902,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           return;
         }
       } else {
+        if (paidAmount > 0) emitSoundEvent(completed ? "debt_completed" : "debt_installment");
         const guestNextCoins = coinsRef.current - paidAmount;
         setCoins(guestNextCoins);
         coinsRef.current = guestNextCoins;
@@ -11104,6 +11108,25 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
+  useEffect(() => {
+    const resetReviewedTasks = () => {
+      setPetTaskStateOptimistic(current => {
+        let changed = false;
+        const next = current.map(task => {
+        if (task.kind !== "review" || (task.status !== "approved" && task.status !== "rejected")) return task;
+        const anchor = getPetTaskCooldownAnchor(task.status, task.completedAt ?? null, task.reviewedAt ?? null);
+        if (!anchor || getPetTaskCooldownUntil(anchor)) return task;
+        changed = true;
+        return { ...task, status: "available" as const, cooldownUntil: null, completedAt: null, reviewedAt: null };
+        });
+        return changed ? next : current;
+      });
+    };
+    const timer = window.setInterval(resetReviewedTasks, 15_000);
+    document.addEventListener("visibilitychange", resetReviewedTasks);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", resetReviewedTasks); };
+  }, [setPetTaskStateOptimistic]);
+
   const handleConfirmAddressTermChange = async (term: AddressTerm) => {
     if (!authUserId || term === addressTerm) return;
     setIsSavingAddressTerm(true);
@@ -11447,11 +11470,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     { target: "tribute", label: "Shrine of Principessa", action: "Visit the shrine", detail: "Make an offering. Discover her memories." },
     { target: "moneyShop", label: "Money Shop", action: "Browse the shop", detail: "Spend Principessa Money on something worth keeping." },
   ];
-  const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
-  const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
-  const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
-  const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
-  const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 5).map((entry, index) => ({ name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
+  const homeDevotionEntries: HomeLeaderboardEntry[] = devotionLeaders.slice(0, 5).map((entry) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.devotion.toLocaleString() }));
+  const homePetEntries: HomeLeaderboardEntry[] = petScoreLeaders.slice(0, 5).map((entry) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.username, username: entry.displayName ? entry.username : undefined, rank: entry.rank, value: entry.petScore.toLocaleString() }));
+  const homeLeadershipEntries: HomeLeaderboardEntry[] = leadershipTop.slice(0, 5).map((entry, index) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.tributeTotal.toLocaleString() }));
+  const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 5).map((entry, index) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
+  const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 5).map((entry, index) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
 
   return (
     <main
@@ -11718,6 +11741,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             <TributePanel
               affection={affection}
               coins={coins}
+              soundVolume={soundSettings.masterVolume}
+              gameplaySoundEnabled={soundSettings.gameplayEnabled}
               tributeCode={tributeCode}
               petTributeCode={petTributeCode}
               isPetUnlocked={isPetUnlocked}

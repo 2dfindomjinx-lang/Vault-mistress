@@ -1,0 +1,16 @@
+{
+  "generated": 60,
+  "perEvent": 12,
+  "decoded": 107,
+  "previousSoundChoicesPreserved": 46,
+  "allPriorDecisionsRetained": 55,
+  "drainGenerated": 0,
+  "defaultDrainOff": true,
+  "exportRoundTrip": true,
+  "wavDownloadMatches": true,
+  "maximumConcurrentVoices": 1,
+  "mobileOverflow": false,
+  "protectedFilesUnchanged": 147,
+  "liveSoundsUnchanged": 15,
+  "pageErrors": []
+}

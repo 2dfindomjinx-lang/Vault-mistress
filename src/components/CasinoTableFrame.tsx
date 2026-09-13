@@ -1,5 +1,6 @@
 "use client";
 
+import { emitSoundEvent } from "@/lib/sound";
 import { type ReactNode } from "react";
 import c from "./CasinoExperience.module.css";
 
@@ -16,7 +17,7 @@ export function CasinoDie({ value, rolling }: { value: number; rolling: boolean 
   return <span aria-label={`Die ${value}`} className={c.die} data-rolling={rolling}>{Array.from({ length:9 }, (_, index) => <i data-dot={DOTS[Math.max(0, Math.min(5,value-1))].includes(index)} key={index} />)}</span>;
 }
 
-export function CasinoRunner({ running, color }: { running: boolean; color: string }) {
+export function CasinoRunner({ running, color, audible = false }: { running: boolean; color: string; audible?: boolean }) {
   return (
     <svg role="img" aria-label="Crawling contender" className={c.runner} data-running={running} viewBox="0 0 70 45">
       <g fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="5">
@@ -25,8 +26,8 @@ export function CasinoRunner({ running, color }: { running: boolean; color: stri
         <g transform="translate(44 21)" opacity=".48"><path className={c.runnerRearArm} d="M0 0 -2 11 6 14" /></g>
         <path d="M23 23 C28 18 37 18 45 22 L50 16" />
         <circle cx="54" cy="11" r="6" fill={color} stroke="none" />
-        <g transform="translate(23 24)"><path className={c.runnerLeg} d="M0 0 2 12 -10 12" /></g>
-        <g transform="translate(45 23)"><path className={c.runnerArm} d="M0 0 7 8 5 14" /></g>
+        <g transform="translate(23 24)"><path onAnimationIteration={() => { if (running && audible) emitSoundEvent("crawl_contact"); }} className={c.runnerLeg} d="M0 0 2 12 -10 12" /></g>
+        <g transform="translate(45 23)"><path onAnimationIteration={() => { if (running && audible) emitSoundEvent("crawl_contact"); }} className={c.runnerArm} d="M0 0 7 8 5 14" /></g>
         <path d="m47 18 5 3" stroke="#f6d1e0" strokeWidth="2" />
       </g>
     </svg>

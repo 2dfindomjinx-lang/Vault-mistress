@@ -1,0 +1,3262 @@
+{
+  "counts": {
+    "speech-avatar": 26,
+    "username-color": 12,
+    "username-glow": 13,
+    "display-name-change": 1,
+    "avatar-background": 15,
+    "profile-border": 107,
+    "profile-frame-bottom": 17,
+    "profile-frame-top": 9,
+    "profile-frame-side": 15,
+    "profile-frame-corner": 8,
+    "profile-frame-overlay": 8,
+    "profile-frame-particles": 8,
+    "money-shop-item": 41
+  },
+  "duplicateIds": [],
+  "duplicateNames": [],
+  "missing": [],
+  "identicalAssets": [
+    [
+      {
+        "id": "default-principessa",
+        "asset": "/character-icon.webp"
+      },
+      {
+        "id": "speech-avatar-random",
+        "asset": "/character-icon.webp"
+      }
+    ],
+    [
+      {
+        "id": "avatar-custom-1",
+        "asset": "/cosmetics/avatar-cuckold.webp"
+      },
+      {
+        "id": "avatar-lesbian-cuckold",
+        "asset": "/cosmetics/avatar-cuckold.webp"
+      }
+    ],
+    [
+      {
+        "id": "avatar-denialqueen",
+        "asset": "/cosmetics/avatar-denialqueen.webp"
+      },
+      {
+        "id": "avatar-denialgoddess",
+        "asset": "/cosmetics/avatar-denialqueen.webp"
+      }
+    ],
+    [
+      {
+        "id": "avatar-edging-coach",
+        "asset": "/cosmetics/avatar-edging-coach.webp"
+      },
+      {
+        "id": "avatar-edging-mistress",
+        "asset": "/cosmetics/avatar-edging-coach.webp"
+      }
+    ]
+  ],
+  "items": [
+    {
+      "id": "default-principessa",
+      "name": "Principessa Classic",
+      "description": "The default speech bubble avatar.",
+      "type": "speech-avatar",
+      "price": 0,
+      "image": "/character-icon.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "speech-avatar-random",
+      "name": "Random",
+      "description": "Uses a random speech bubble persona each time.",
+      "type": "speech-avatar",
+      "price": 50000,
+      "image": "/character-icon.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-catgirl",
+      "name": "Catgirl",
+      "description": "Playful, sharp, and smug.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-catgirl.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-goth",
+      "name": "Goth Girl",
+      "description": "Darker, colder, and more expensive.",
+      "type": "speech-avatar",
+      "price": 7500,
+      "image": "/cosmetics/avatar-goth.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-tsundere",
+      "name": "Tsundere",
+      "description": "Dismissive, then barely pleased.",
+      "type": "speech-avatar",
+      "price": 5000,
+      "image": "/cosmetics/avatar-tsundere.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-yandere",
+      "name": "Yandere",
+      "description": "Possessive, intense, and locked on.",
+      "type": "speech-avatar",
+      "price": 5000,
+      "image": "/cosmetics/avatar-yandere.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-lovely",
+      "name": "Lovely",
+      "description": "A softer presentation.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-lovely.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-arrogant",
+      "name": "Arrogant",
+      "description": "Superior, polished, and impossible to ignore.",
+      "type": "speech-avatar",
+      "price": 2500,
+      "image": "/cosmetics/avatar-arrogant.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-maid",
+      "name": "Maid",
+      "description": "Polished service with strict expectations.",
+      "type": "speech-avatar",
+      "price": 5000,
+      "image": "/cosmetics/avatar-maid.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-debtcollector",
+      "name": "Debt Collector",
+      "description": "Ledger-focused, cold, and exacting.",
+      "type": "speech-avatar",
+      "price": 5000,
+      "image": "/cosmetics/avatar-debtcollector.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-egirl",
+      "name": "Egirl",
+      "description": "Online, teasing, and notification-ready.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-egirl.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-himedere",
+      "name": "Himedere",
+      "description": "Royal, demanding, and impossible to please.",
+      "type": "speech-avatar",
+      "price": 10000,
+      "image": "/cosmetics/avatar-himedere.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-strictteacher",
+      "name": "Strict Teacher",
+      "description": "Disciplined lessons with expensive standards.",
+      "type": "speech-avatar",
+      "price": 5000,
+      "image": "/cosmetics/avatar-strictteacher.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-custom-1",
+      "name": "Cuckold",
+      "description": "Sub cuckold. Spoiled wife who fucks better men while you pay.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-cuckold.webp",
+      "audience": "sub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-lesbian-cuckold",
+      "name": "Lesbian Cuckold",
+      "description": "Femsub cuckold. Spoiled wife who fucks better women while you pay.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-cuckold.webp",
+      "audience": "femsub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-lezdom-mistress",
+      "name": "Lezdom Mistress",
+      "description": "Femsub lezdom. Foot worship, soles, and expensive obedience.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-lezdom-mistress.webp",
+      "audience": "femsub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-custom-2",
+      "name": "Keyholder",
+      "description": "Your pleasure is locked. Your wallet is not.",
+      "type": "speech-avatar",
+      "price": 10000,
+      "image": "/cosmetics/avatar-keyholder.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-hypnotist",
+      "name": "Hypnotist",
+      "description": "Pixel trance, mind control, and financial surrender.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-hypnotist.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-succubus",
+      "name": "Succubus",
+      "description": "Hungry, seductive, and ruinously expensive.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-succubus.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-bully",
+      "name": "Bully",
+      "description": "Cruel, bratty, and impossible to ignore.",
+      "type": "speech-avatar",
+      "price": 7500,
+      "image": "/cosmetics/avatar-bully.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-petowner",
+      "name": "Pet Owner",
+      "description": "Strict owner energy for obedient pets.",
+      "type": "speech-avatar",
+      "price": 10000,
+      "image": "/cosmetics/avatar-petowner.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-blackmail",
+      "name": "Blackmail",
+      "description": "Exposure pressure with a cruel smile.",
+      "type": "speech-avatar",
+      "price": 20000,
+      "image": "/cosmetics/avatar-blackmail.webp",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-denialqueen",
+      "name": "Denial Queen",
+      "description": "Sub denial. No release, no mercy, only obedience.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-denialqueen.webp",
+      "audience": "sub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-edging-coach",
+      "name": "Edging Coach",
+      "description": "Sub edging. Teasing control with strict timing.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-edging-coach.webp",
+      "audience": "sub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-denialgoddess",
+      "name": "Denial Goddess",
+      "description": "Femsub denial. No orgasm, no mercy, only obedience.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-denialqueen.webp",
+      "audience": "femsub",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-edging-mistress",
+      "name": "Edging Mistress",
+      "description": "Femsub edging. Slow, cruel control over every rub.",
+      "type": "speech-avatar",
+      "price": 15000,
+      "image": "/cosmetics/avatar-edging-coach.webp",
+      "audience": "femsub",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-pink",
+      "name": "Hot Pink Name",
+      "description": "A vivid pink username color.",
+      "type": "username-color",
+      "price": 5000,
+      "color": "#f472b6",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-purple",
+      "name": "Royal Purple Name",
+      "description": "A rich purple username color.",
+      "type": "username-color",
+      "price": 3000,
+      "color": "#c084fc",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-gold",
+      "name": "Gold Name",
+      "description": "A premium gold username color.",
+      "type": "username-color",
+      "price": 5000,
+      "color": "#facc15",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-emerald",
+      "name": "Emerald Name",
+      "description": "A sharp emerald username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#34d399",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-cyan",
+      "name": "Electric Cyan Name",
+      "description": "A bright cyan username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#22d3ee",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-crimson",
+      "name": "Crimson Name",
+      "description": "A bold red username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#fb7185",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-silver",
+      "name": "Silver Name",
+      "description": "A clean silver username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#e5e7eb",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-ice-blue",
+      "name": "Ice Blue Name",
+      "description": "A pale blue username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#93c5fd",
+      "source": "Permanent"
+    },
+    {
+      "id": "username-lavender",
+      "name": "Lavender Name",
+      "description": "A soft lavender username color.",
+      "type": "username-color",
+      "price": 2000,
+      "color": "#ddd6fe",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-pink",
+      "name": "Pink Glow",
+      "description": "A soft pink username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 16px rgba(244,114,182,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-purple",
+      "name": "Purple Glow",
+      "description": "A deeper violet username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(192,132,252,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-gold",
+      "name": "Gold Glow",
+      "description": "A prestigious gold username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 20px rgba(250,204,21,0.95)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-emerald",
+      "name": "Emerald Glow",
+      "description": "A clean green username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(52,211,153,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-cyan",
+      "name": "Cyan Glow",
+      "description": "A bright electric username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(34,211,238,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-crimson",
+      "name": "Crimson Glow",
+      "description": "A dramatic red username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(251,113,133,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-white",
+      "name": "White Glow",
+      "description": "A bright clean username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(255,255,255,0.85)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-ice-blue",
+      "name": "Ice Blue Glow",
+      "description": "A cold pale blue username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(147,197,253,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "glow-lavender",
+      "name": "Lavender Glow",
+      "description": "A soft violet-white username glow.",
+      "type": "username-glow",
+      "price": 1000,
+      "glow": "0 0 18px rgba(221,214,254,0.9)",
+      "source": "Permanent"
+    },
+    {
+      "id": "display-name-change",
+      "name": "Display Name Change",
+      "description": "Change your public-facing display name. @username stays your permanent identity.",
+      "type": "display-name-change",
+      "price": 2500,
+      "image": "/icons/coin.png",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-none",
+      "name": "No Background",
+      "description": "Keeps the frame clean with no backdrop behind Principessa.",
+      "price": 0,
+      "backgroundPath": null,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-bar",
+      "name": "Bar",
+      "description": "A polished bar backdrop for a louder late-night profile mood.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/bar.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-beach",
+      "name": "Beach",
+      "description": "A bright beach scene that makes the profile feel lighter and more open.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/beach.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-bedroom",
+      "name": "Bedroom",
+      "description": "A private bedroom backdrop with a softer, more intimate room feel.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/bedroom.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-cherry-park",
+      "name": "Cherry Park",
+      "description": "A cherry-blossom park backdrop with softer outdoor color.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/cherry-park.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-dressing-room",
+      "name": "Dressing Room",
+      "description": "A dressing room backdrop that leans more stylish and performative.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v7/dressing-room.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-kitchen",
+      "name": "Kitchen",
+      "description": "A domestic kitchen backdrop for a more grounded everyday scene.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/kitchen.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-living-room",
+      "name": "Living Room",
+      "description": "A lounge-style living room backdrop with a calmer home setting.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/living-room.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-stable",
+      "name": "Royal Stable",
+      "description": "Warm timber, brass lanterns and a quiet place in her royal stables.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/stable.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-park",
+      "name": "Park",
+      "description": "A green park backdrop that keeps the frame feeling airy and open.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v7/park.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-rainy-street",
+      "name": "Rainy Street",
+      "description": "A rain-soaked street backdrop with colder atmosphere and mood.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v7/rainy-street.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-rooftop",
+      "name": "Rooftop",
+      "description": "A rooftop backdrop that gives the profile a higher, cleaner city feel.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/rooftop.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-seaside-sidewalk",
+      "name": "Seaside Sidewalk",
+      "description": "A seaside walkway backdrop with brighter coast-side depth.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v7/seaside-sidewalk.webp",
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-throne-antechamber",
+      "name": "Throne Antechamber",
+      "description": "Wine marble and gilded doors at the entrance to her private court.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/throne-antechamber.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "avatar-background-moonlit-conservatory",
+      "name": "Moonlit Conservatory",
+      "description": "Silver moonlight, antique glass and roses in her palace garden.",
+      "price": 5000,
+      "backgroundPath": "/avatar/background/v6/moonlit-conservatory.webp",
+      "backgroundCanvasWidth": 1024,
+      "backgroundOverlayPath": null,
+      "type": "avatar-background",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-rainbow-animated",
+      "name": "Rainbow Animated Border",
+      "description": "A flashy rainbow frame that keeps moving around your avatar.",
+      "type": "profile-border",
+      "price": 10000,
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-popular-pink",
+      "name": "Pink Border",
+      "description": "A simple solid pink profile header frame.",
+      "type": "profile-border",
+      "price": 5000,
+      "color": "#ec4899",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-popular-purple",
+      "name": "Purple Border",
+      "description": "A simple solid purple profile header frame.",
+      "type": "profile-border",
+      "price": 5000,
+      "color": "#a855f7",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-popular-emerald",
+      "name": "Emerald Border",
+      "description": "A simple solid emerald profile header frame.",
+      "type": "profile-border",
+      "price": 5000,
+      "color": "#10b981",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-popular-gold",
+      "name": "Gold Border",
+      "description": "A simple solid gold profile header frame.",
+      "type": "profile-border",
+      "price": 5000,
+      "color": "#f59e0b",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-popular-ice",
+      "name": "Ice Border",
+      "description": "A simple solid ice-blue profile header frame.",
+      "type": "profile-border",
+      "price": 5000,
+      "color": "#38bdf8",
+      "source": "Permanent"
+    },
+    {
+      "id": "profile-border-rotating-vaultfire",
+      "name": "Vaultfire Border",
+      "description": "A molten gold frame that feels pulled from the community vault.",
+      "type": "profile-border",
+      "price": 7000,
+      "color": "#f59e0b",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-rotating-solar-flare",
+      "name": "Solar Flare Border",
+      "description": "A radiant event frame with a bright late-summer glow.",
+      "type": "profile-border",
+      "price": 7000,
+      "color": "#fb7185",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-rotating-gilded-noir",
+      "name": "Gilded Noir Border",
+      "description": "Dark lacquer with a gold rim for colder prestige.",
+      "type": "profile-border",
+      "price": 7000,
+      "color": "#facc15",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-rotating-afterglow",
+      "name": "Afterglow Border",
+      "description": "A soft neon frame that lingers like expensive attention.",
+      "type": "profile-border",
+      "price": 7000,
+      "color": "#a855f7",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-akatsuki",
+      "name": "Akatsuki Border",
+      "description": "Crimson clouds across black lacquer, with a slow storm glow.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#d92b4d",
+      "borderPalette": [
+        "#d92b4d",
+        "#130f1b",
+        "#fff0ed"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-sharingan",
+      "name": "Sharingan Border",
+      "description": "Three-tomoe eyes set into a fractured crimson frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e72c45",
+      "borderPalette": [
+        "#e72c45",
+        "#130d18",
+        "#ffc7bb"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-hidden-leaf",
+      "name": "Hidden Leaf Border",
+      "description": "An engraved leaf crest, steel headband and forest-green cord.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#68b482",
+      "borderPalette": [
+        "#68b482",
+        "#16231d",
+        "#d5e0c9"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-sand-seal",
+      "name": "Sand Seal Border",
+      "description": "A sealed gourd and wind-cut sandstone around the portrait.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#d4a364",
+      "borderPalette": [
+        "#d4a364",
+        "#402523",
+        "#f7dfab"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-nine-tails",
+      "name": "Nine Tails Border",
+      "description": "Nine fox tails unfurl through a burning chakra seal.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ff8a32",
+      "borderPalette": [
+        "#ff8a32",
+        "#32131d",
+        "#ffe2a3"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-paper-angel",
+      "name": "Paper Angel Border",
+      "description": "Folded paper wings and a violet origami rose.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#b6a2ee",
+      "borderPalette": [
+        "#b6a2ee",
+        "#26213b",
+        "#f8f4ff"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Naruto",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-straw-hat",
+      "name": "Straw Hat Border",
+      "description": "A red-banded straw hat, ship rope and brass rivets.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e3b654",
+      "borderPalette": [
+        "#e3b654",
+        "#392327",
+        "#ed5b58"
+      ],
+      "collection": "Anime / Manga",
+      "series": "One Piece",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-three-sword-style",
+      "name": "Three Sword Style Border",
+      "description": "Three blades cross a jade frame wrapped in sword cord.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#64caa0",
+      "borderPalette": [
+        "#64caa0",
+        "#123329",
+        "#e8d9af"
+      ],
+      "collection": "Anime / Manga",
+      "series": "One Piece",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-heart-pirates",
+      "name": "Heart Pirates Border",
+      "description": "A grinning heart-pirate crest on black and yellow steel.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#efc64b",
+      "borderPalette": [
+        "#efc64b",
+        "#242024",
+        "#fff3c7"
+      ],
+      "collection": "Anime / Manga",
+      "series": "One Piece",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-flame-fist",
+      "name": "Flame Fist Border",
+      "description": "A burnt orange hat, beadwork and curling fire.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ff9b43",
+      "borderPalette": [
+        "#ff9b43",
+        "#351921",
+        "#f6dfab"
+      ],
+      "collection": "Anime / Manga",
+      "series": "One Piece",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-ghost-princess",
+      "name": "Ghost Princess Border",
+      "description": "Little ghosts drift between gothic pink ribbons.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f18cbc",
+      "borderPalette": [
+        "#f18cbc",
+        "#2d1734",
+        "#eee4ff"
+      ],
+      "collection": "Anime / Manga",
+      "series": "One Piece",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-hollow-mask",
+      "name": "Hollow Mask Border",
+      "description": "A striped ivory mask breaks through black spirit metal.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e9e4d5",
+      "borderPalette": [
+        "#e9e4d5",
+        "#21151e",
+        "#cf3447"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Bleach",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-thousand-petals",
+      "name": "Thousand Petals Border",
+      "description": "A thousand-blade bloom, pale pink petals and polished steel.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#eaa7cf",
+      "borderPalette": [
+        "#eaa7cf",
+        "#342039",
+        "#f8e4f1"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Bleach",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-ice-dragon",
+      "name": "Ice Dragon Border",
+      "description": "A crystalline dragon curls around a frozen silver edge.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#7de3ee",
+      "borderPalette": [
+        "#7de3ee",
+        "#142e42",
+        "#ecfbff"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Bleach",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-soul-butterfly",
+      "name": "Soul Butterfly Border",
+      "description": "Black swallowtail wings outlined in violet spirit light.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#bd9df1",
+      "borderPalette": [
+        "#bd9df1",
+        "#24182e",
+        "#eddefb"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Bleach",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-water-breathing",
+      "name": "Water Breathing Border",
+      "description": "Cresting blue waves and a green-black checked sword wrap.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#45c0c5",
+      "borderPalette": [
+        "#45c0c5",
+        "#17352b",
+        "#c0f4fa"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Demon Slayer",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-flame-hashira",
+      "name": "Flame Hashira Border",
+      "description": "A flame-shaped sword guard inside a white-hot red mantle.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f15735",
+      "borderPalette": [
+        "#f15735",
+        "#3e1320",
+        "#ffe4a3"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Demon Slayer",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-butterfly-estate",
+      "name": "Butterfly Estate Border",
+      "description": "Lavender butterfly wings, dotted hems and a needle-fine blade.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#b48de8",
+      "borderPalette": [
+        "#b48de8",
+        "#281d3d",
+        "#d6f6e9"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Demon Slayer",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-thunder-breathing",
+      "name": "Thunder Breathing Border",
+      "description": "Golden lightning cuts through a triangle-patterned haori edge.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f1be46",
+      "borderPalette": [
+        "#f1be46",
+        "#35263d",
+        "#fff6c6"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Demon Slayer",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-limitless",
+      "name": "Limitless Border",
+      "description": "An ice-blue eye and two opposing infinity rings.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#74d9ff",
+      "borderPalette": [
+        "#74d9ff",
+        "#151e3e",
+        "#eae6ff"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Jujutsu Kaisen",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-king-of-curses",
+      "name": "King of Curses Border",
+      "description": "Cursed markings and a dark shrine crowned in crimson.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e66880",
+      "borderPalette": [
+        "#e66880",
+        "#311b2e",
+        "#f5c0a4"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Jujutsu Kaisen",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-ten-shadows",
+      "name": "Ten Shadows Border",
+      "description": "Twin divine-dog silhouettes emerge from indigo shadow.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#a6adf7",
+      "borderPalette": [
+        "#a6adf7",
+        "#19162c",
+        "#e1dffa"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Jujutsu Kaisen",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-wings-of-freedom",
+      "name": "Wings of Freedom Border",
+      "description": "Blue and silver feathers over weathered expedition steel.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#8cb8df",
+      "borderPalette": [
+        "#8cb8df",
+        "#23323f",
+        "#e6e8dc"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Attack on Titan",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-the-walls",
+      "name": "The Walls Border",
+      "description": "Three concentric stone walls, gate towers and ember-lit seams.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#c9b49b",
+      "borderPalette": [
+        "#c9b49b",
+        "#35302e",
+        "#e7d8b7"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Attack on Titan",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-thunder-spears",
+      "name": "Thunder Spears Border",
+      "description": "Paired thunder spears and taut grappling cables.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#b8c9ce",
+      "borderPalette": [
+        "#b8c9ce",
+        "#223d40",
+        "#e8bd75"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Attack on Titan",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-four-star",
+      "name": "Four-Star Dragon Ball Border",
+      "description": "Four red stars suspended in amber glass and a coiled dragon rim.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f4a62e",
+      "borderPalette": [
+        "#f4a62e",
+        "#382029",
+        "#eb5545"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Dragon Ball",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-saiyan-armor",
+      "name": "Saiyan Armor Border",
+      "description": "White armor plates, gold ribs and a ruby scouter lens.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#9fa9f4",
+      "borderPalette": [
+        "#9fa9f4",
+        "#222740",
+        "#e8ce73"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Dragon Ball",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-capsule-corp",
+      "name": "Capsule Corp. Border",
+      "description": "A capsule case in clean white, turquoise and cobalt.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#64d8de",
+      "borderPalette": [
+        "#64d8de",
+        "#182e46",
+        "#eaf8f9"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Dragon Ball",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-scarlet-chains",
+      "name": "Scarlet Chains Border",
+      "description": "A scarlet eye suspended between silver chains and a cross pendant.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e65a62",
+      "borderPalette": [
+        "#e65a62",
+        "#2c192c",
+        "#e1e6ec"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Hunter x Hunter",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-phantom-troupe",
+      "name": "Phantom Troupe Border",
+      "description": "A twelve-legged spider on a dark, thread-bound frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#bd8cbc",
+      "borderPalette": [
+        "#bd8cbc",
+        "#201a29",
+        "#dfcbd9"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Hunter x Hunter",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-bungee-gum",
+      "name": "Bungee Gum Border",
+      "description": "Playing cards, a star and a teardrop linked by elastic pink strands.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ef84b7",
+      "borderPalette": [
+        "#ef84b7",
+        "#33214b",
+        "#acb4ff"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Hunter x Hunter",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-brand-of-sacrifice",
+      "name": "Brand of Sacrifice Border",
+      "description": "A red sacrificial mark carved into eclipse-black iron.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#bf3d4c",
+      "borderPalette": [
+        "#bf3d4c",
+        "#21141c",
+        "#d89979"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Berserk",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-dragonslayer",
+      "name": "Dragonslayer Border",
+      "description": "A massive scarred blade, riveted iron and fractured sparks.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#adb7c5",
+      "borderPalette": [
+        "#adb7c5",
+        "#24252d",
+        "#d88656"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Berserk",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-death-note",
+      "name": "Death Note Border",
+      "description": "A black notebook, a silver quill and fine ruled edges.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ced0d8",
+      "borderPalette": [
+        "#ced0d8",
+        "#191922",
+        "#a78cbf"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Death Note",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-shinigami-apple",
+      "name": "Shinigami Apple Border",
+      "description": "A lacquer-red apple hangs among sharp black feathers.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#c9425c",
+      "borderPalette": [
+        "#c9425c",
+        "#241524",
+        "#d4b2e5"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Death Note",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-transmutation-circle",
+      "name": "Transmutation Circle Border",
+      "description": "Nested alchemical geometry engraved in brass and blue light.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#6cd9e7",
+      "borderPalette": [
+        "#6cd9e7",
+        "#1b3044",
+        "#e8c676"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Fullmetal Alchemist",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-blood-seal",
+      "name": "Blood Seal Border",
+      "description": "A red seal inside a riveted suit of dark silver armor.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#d25c63",
+      "borderPalette": [
+        "#d25c63",
+        "#28252e",
+        "#c3c8d4"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Fullmetal Alchemist",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-unit-01",
+      "name": "Unit-01 Border",
+      "description": "Horned violet armor with acid-green vents and warning ticks.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#9864df",
+      "borderPalette": [
+        "#9864df",
+        "#291b40",
+        "#c7f467"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Neon Genesis Evangelion",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-at-field",
+      "name": "A.T. Field Border",
+      "description": "Nested amber octagons cross a black hazard frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f4a644",
+      "borderPalette": [
+        "#f4a644",
+        "#342033",
+        "#fff1b6"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Neon Genesis Evangelion",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-moon-prism",
+      "name": "Moon Prism Border",
+      "description": "A jeweled lunar compact, gold crescent and flowing pink ribbons.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#f2a8cf",
+      "borderPalette": [
+        "#f2a8cf",
+        "#352141",
+        "#f3d782"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Sailor Moon",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-mars-flame",
+      "name": "Mars Flame Border",
+      "description": "A red talisman, bow and sacred flame in a ruby frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#dc526e",
+      "borderPalette": [
+        "#dc526e",
+        "#381b2f",
+        "#edc981"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Sailor Moon",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-saturn-silence",
+      "name": "Saturn Silence Border",
+      "description": "A long silver glaive and violet rings beneath a quiet starfield.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ab8bd9",
+      "borderPalette": [
+        "#ab8bd9",
+        "#261e3b",
+        "#ede6fa"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Sailor Moon",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-gold-experience",
+      "name": "Gold Experience Border",
+      "description": "A gilded ladybird and heart-shaped pink metalwork.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#deb34d",
+      "borderPalette": [
+        "#deb34d",
+        "#352336",
+        "#ef96c3"
+      ],
+      "collection": "Anime / Manga",
+      "series": "JoJo’s Bizarre Adventure",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-star-platinum",
+      "name": "Star Platinum Border",
+      "description": "An armored fist strikes through amethyst stars and speed lines.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ad87e3",
+      "borderPalette": [
+        "#ad87e3",
+        "#27203d",
+        "#e5c879"
+      ],
+      "collection": "Anime / Manga",
+      "series": "JoJo’s Bizarre Adventure",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-heavens-door",
+      "name": "Heaven’s Door Border",
+      "description": "An open book, fountain-pen nib and emerald manuscript trim.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#79bd9f",
+      "borderPalette": [
+        "#79bd9f",
+        "#20382e",
+        "#eddfaa"
+      ],
+      "collection": "Anime / Manga",
+      "series": "JoJo’s Bizarre Adventure",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-chainsaw-devil",
+      "name": "Chainsaw Devil Border",
+      "description": "Chainsaw teeth, an orange engine shell and a pull-cord grip.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#ee8e45",
+      "borderPalette": [
+        "#ee8e45",
+        "#30212b",
+        "#ced1cd"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Chainsaw Man",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-control-devil",
+      "name": "Control Devil Border",
+      "description": "Concentric golden eyes watch from a red chain-bound frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#e08b72",
+      "borderPalette": [
+        "#e08b72",
+        "#38202d",
+        "#eed787"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Chainsaw Man",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-forest-guardian",
+      "name": "Forest Guardian Border",
+      "description": "A broad green leaf shelters acorns and soft forest silhouettes.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#85b590",
+      "borderPalette": [
+        "#85b590",
+        "#253d32",
+        "#e4d7b8"
+      ],
+      "collection": "Anime / Manga",
+      "series": "My Neighbor Totoro",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-no-face",
+      "name": "No-Face Border",
+      "description": "A pale spirit mask, purple markings and scattered gold.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#d6b9e5",
+      "borderPalette": [
+        "#d6b9e5",
+        "#261d35",
+        "#e4c78c"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Spirited Away",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-anime-swordfish-ii",
+      "name": "Swordfish II Border",
+      "description": "A red racing ship, blue engine light and a star-map frame.",
+      "type": "profile-border",
+      "price": 10000,
+      "color": "#de5a64",
+      "borderPalette": [
+        "#de5a64",
+        "#192b3f",
+        "#a1dce9"
+      ],
+      "collection": "Anime / Manga",
+      "series": "Cowboy Bebop",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-color-rotating-sunset",
+      "name": "Sunset Name",
+      "description": "A warm rose-gold username reserved for the rotating vault.",
+      "type": "username-color",
+      "price": 5000,
+      "color": "#e8b07d",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-color-rotating-lagoon",
+      "name": "Lagoon Name",
+      "description": "A cool tropical teal username color from the rotating vault.",
+      "type": "username-color",
+      "price": 5000,
+      "color": "#2dd4bf",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-glow-rotating-embers",
+      "name": "Ember Glow",
+      "description": "A hot orange halo for public recognition.",
+      "type": "username-glow",
+      "price": 5000,
+      "glow": "0 0 2px #ffddbc, 0 0 8px #f97316, 0 0 17px #c2410c",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-glow-rotating-aurora",
+      "name": "Aurora Glow",
+      "description": "A layered mint-cyan glow that reads instantly on public cards.",
+      "type": "username-glow",
+      "price": 3000,
+      "glow": "0 0 2px #c4fff1, 0 -2px 8px #2dd4bf, 0 2px 15px #3b82f6",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-glow-rotating-frostline",
+      "name": "Frostline Glow",
+      "description": "A cold silver-blue highlight for polished prestige.",
+      "type": "username-glow",
+      "price": 3000,
+      "glow": "0 0 1px #ffffff, 0 0 6px #dbeafe, 0 0 13px #7dd3fc",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-color-event-summer-2026",
+      "name": "Summer Support Name",
+      "description": "A vivid coral-orange name from the Summer collection.",
+      "type": "username-color",
+      "price": 7000,
+      "color": "#f97316",
+      "source": "Rotating"
+    },
+    {
+      "id": "username-glow-event-summer-2026",
+      "name": "Summer Heat Glow",
+      "description": "A seasonal rotating glow with bright amber heat.",
+      "type": "username-glow",
+      "price": 3000,
+      "glow": "0 0 2px #fff1be, 0 0 7px #fbbf24, 0 2px 15px #ea580c",
+      "source": "Rotating"
+    },
+    {
+      "description": "A heart-cut jewel, a polished golden key and her wine-red ribbon.",
+      "id": "frame-bottom-royal-key",
+      "name": "Her Private Key",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A hammered crescent, a floating violet star and a suspended crystal.",
+      "id": "frame-top-eclipse-crescent",
+      "name": "Eclipse Diadem",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Two of her birthday plush sitting either side of the frame. Yours while you keep the plush.",
+      "id": "frame-side-principessa-plush",
+      "name": "Her Plush Pair",
+      "price": 0,
+      "requiresItemId": "fatass_principessa_plush",
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Dark enamel swags and chain drops turn the lower frame into a collector-piece clasp.",
+      "id": "frame-bottom-satin-noir",
+      "name": "Satin Noir Medallion",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Pastel chain swags and a glossy heart centerpiece make the frame feel gift-box expensive.",
+      "id": "frame-bottom-sugar-heart",
+      "name": "Sugar Heart Festoon",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "An ornate lockplate with polished wings and a suspended heart jewel for possessive luxury.",
+      "id": "frame-bottom-heart-lock",
+      "name": "Heart Lock Reliquary",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Layered silk fans and a moon-bright drop crystal give the bottom edge a ceremonial finish.",
+      "id": "frame-bottom-moon-bell",
+      "name": "Moonlit Tassel Reliquary",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A formal medallion seal framed by velvet swags and pearl-set chainwork.",
+      "id": "frame-bottom-royal-seal",
+      "name": "Royal House Seal",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A black-lacquer lockplate with a cold crest insert and heavier metallic depth.",
+      "id": "frame-bottom-obsidian-crest",
+      "name": "Obsidian Crest Reliquary",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A luminous cathedral fan with split tassels and a cold glass centerpiece.",
+      "id": "frame-bottom-aurora-clasp",
+      "name": "Aurora Cathedral Tassel",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Sculpted roses, leafwork, and gem chains create a softer but still premium lower flourish.",
+      "id": "frame-bottom-rose-bouquet",
+      "name": "Rose Opera Swag",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Glossy rosettes and petal-metal leaves make the frame corners feel boutique rather than basic.",
+      "id": "frame-corner-sugarpink",
+      "name": "Sugarpink Rosette Guards",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Angular metal claws and lacquer inserts grip the corners like jewelry settings.",
+      "id": "frame-corner-noir-gold",
+      "name": "Noir Gold Claw Guards",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Mint metal scrollwork lifts the corners with airy premium detail instead of a plain ribbon silhouette.",
+      "id": "frame-corner-mint-lace",
+      "name": "Mint Filigree Corners",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Velvet-backed gem clusters sit in the corners like tailored couture settings.",
+      "id": "frame-corner-wine-velvet",
+      "name": "Wine Velvet Gem Corners",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "A raised tiara arc with taller jewel points makes the top edge read instantly premium.",
+      "id": "frame-top-gilded-crown",
+      "name": "Gilded Tiara Arc",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Rose-pink stones and a wider jeweled sweep give the frame a softer luxury silhouette.",
+      "id": "frame-top-roseglass-crown",
+      "name": "Roseglass Tiara Arc",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "A dark ceremonial emblem with halo spikes and a colder center stone.",
+      "id": "frame-top-night-crest",
+      "name": "Night Halo Emblem",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "A pearl-trimmed heart medallion keeps the sweetness while still feeling collectible.",
+      "id": "frame-top-pearl-heart-pin",
+      "name": "Pearl Heart Medallion",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Long side tassels with darker cords and brighter tips.",
+      "id": "frame-side-noir-tassels",
+      "name": "Noir Tassel Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Beaded tassels with lighter satin cords and a warm metallic tip.",
+      "id": "frame-side-rosegold-tassels",
+      "name": "Rosegold Tassel Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Two peeking cats holding the lower frame corners like plush guards.",
+      "id": "frame-side-sleepy-cats",
+      "name": "Sleepy Cat Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "A softer puppy pair for a friendlier lower-frame silhouette.",
+      "id": "frame-side-guardian-pups",
+      "name": "Guardian Pup Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Two upright bunnies peeking in with tall ears and tiny hearts.",
+      "id": "frame-side-cupid-bunnies",
+      "name": "Cupid Bunny Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Sharper fox faces that make the frame feel a bit more cunning.",
+      "id": "frame-side-velvet-foxes",
+      "name": "Velvet Fox Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Rounder bear faces for a toy-shelf kind of sweetness.",
+      "id": "frame-side-plush-bears",
+      "name": "Plush Bear Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "A falling veil of pearl chains makes the whole frame feel more dressed and expensive.",
+      "id": "frame-overlay-pearl-lace",
+      "name": "Pearl Bead Veil",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Dark chain loops and jewel catches add dramatic stage-dressing without hiding the avatar.",
+      "id": "frame-overlay-noir-lace",
+      "name": "Noir Chain Curtain",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "A layered canopy with jewel tassels turns the frame into a little ceremonial stage.",
+      "id": "frame-overlay-royal-drape",
+      "name": "Royal Stage Canopy",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Faceted glass panels and candy-colored highlights make the overlay look like a premium filter, not trim.",
+      "id": "frame-overlay-candy-drape",
+      "name": "Candy Crystal Veil",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Small floating hearts that sit comfortably around the frame edges.",
+      "id": "frame-particles-soft-hearts",
+      "name": "Soft Heart Particles",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "Tiny rose petals drifting lightly inside the showcase area.",
+      "id": "frame-particles-rose-petals",
+      "name": "Rose Petal Drift",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "Warm gold dust and sparkles for a richer premium finish.",
+      "id": "frame-particles-gilded-dust",
+      "name": "Gilded Dust",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "Hot drifting embers for darker or more dramatic frame looks.",
+      "id": "frame-particles-embers",
+      "name": "Velvet Embers",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "An icy enamel medallion with silver chains brings opera-house polish to colder palettes.",
+      "id": "frame-bottom-frosted-opera",
+      "name": "Frosted Opera Festoon",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A three-tone cathedral tassel with prism metalwork gives the frame a louder premium finish.",
+      "id": "frame-bottom-prism-cabaret",
+      "name": "Prism Cabaret Tassel",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Wine lacquer, pearl trim, and a suspended heart locket turn the bottom edge into jewelry.",
+      "id": "frame-bottom-cherry-locket",
+      "name": "Cherry Locket Reliquary",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Midnight silk fans and pale star-metal drops give the showcase a colder cathedral finish.",
+      "id": "frame-bottom-starlit-bell",
+      "name": "Starlit Cathedral Tassel",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Champagne enamel, cream swags, and a polished seal read soft but unmistakably premium.",
+      "id": "frame-bottom-ivory-seal",
+      "name": "Ivory House Medallion",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "A navy-black lockplate with cold silver crestwork sharpens the whole showcase silhouette.",
+      "id": "frame-bottom-midnight-crest",
+      "name": "Midnight Crest Reliquary",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Teal, orchid, and pearl meet in a glassy festoon centerpiece with hanging chain accents.",
+      "id": "frame-bottom-prism-clasp",
+      "name": "Prism Festoon Clasp",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Lilac roses, blush chainwork, and leaf-metal details give the frame a softer couture finish.",
+      "id": "frame-bottom-lavender-bouquet",
+      "name": "Lavender Rose Swag",
+      "price": 5000,
+      "type": "profile-frame-bottom",
+      "source": "Rotating"
+    },
+    {
+      "description": "Airy pearl-metal scrollwork lifts the corners without falling back to ribbon shapes again.",
+      "id": "frame-corner-pearl-sky",
+      "name": "Pearl Sky Filigree",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Coral and amber stones mounted in corner settings add a louder collectible sparkle.",
+      "id": "frame-corner-sunset-ribbon",
+      "name": "Sunset Gem Corners",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Layered frosted rosettes give the corners a boutique floral silhouette with better presence.",
+      "id": "frame-corner-lilac-frost",
+      "name": "Lilac Frost Rosettes",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "Dark metal claw guards cut into the corners with emerald-lit accents and sharper prestige.",
+      "id": "frame-corner-emerald-noir",
+      "name": "Emerald Noir Claws",
+      "price": 5000,
+      "type": "profile-frame-corner",
+      "source": "Rotating"
+    },
+    {
+      "description": "A sapphire plume pin adds height and shape variety instead of another crown recolor.",
+      "id": "frame-top-sapphire-crown",
+      "name": "Sapphire Aigrette",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Peach, rose, and gold stones sweep wider across the top for a more couture tiara read.",
+      "id": "frame-top-sunset-tiara",
+      "name": "Sunset Tiara Arc",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "A ruby-centered sunburst emblem gives the frame top a stronger ceremonial identity.",
+      "id": "frame-top-ruby-crest",
+      "name": "Ruby Halo Emblem",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Mint glass and pearl trim now sit in a proper medallion mount instead of a tiny basic pin.",
+      "id": "frame-top-mint-heart-pin",
+      "name": "Mint Heart Medallion",
+      "price": 5000,
+      "type": "profile-frame-top",
+      "source": "Rotating"
+    },
+    {
+      "description": "Long cream tassels with pearl cords for a cleaner romantic look.",
+      "id": "frame-side-ivory-tassels",
+      "name": "Ivory Tassel Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "A purple-blue tassel mix that feels colder and more luxurious.",
+      "id": "frame-side-twilight-tassels",
+      "name": "Twilight Tassel Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Peeking cats recolored in moonstone blues and silver instead of pink.",
+      "id": "frame-side-moon-cats",
+      "name": "Moon Cat Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Warmer puppy guards with caramel fur and soft cream details.",
+      "id": "frame-side-cinnamon-pups",
+      "name": "Cinnamon Pup Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "A frosted bunny version with icy whites and pale lavender accents.",
+      "id": "frame-side-snow-bunnies",
+      "name": "Snow Bunny Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Fox guards recolored with ember orange, gold, and a hotter dramatic finish.",
+      "id": "frame-side-ember-foxes",
+      "name": "Ember Fox Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Bear guards in honey, caramel, and cream for a richer toy-box palette.",
+      "id": "frame-side-honey-bears",
+      "name": "Honey Bear Pair",
+      "price": 5000,
+      "type": "profile-frame-side",
+      "source": "Rotating"
+    },
+    {
+      "description": "Icy faceted panels and pearl-silver lines make the overlay feel engineered, not decorative filler.",
+      "id": "frame-overlay-silver-lace",
+      "name": "Silver Prism Veil",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Rose-threaded chain loops and darker catches make the overlay feel heavier and more deliberate.",
+      "id": "frame-overlay-rose-noir-lace",
+      "name": "Rose Noir Chain Curtain",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "A cobalt-sapphire canopy with pearl catches gives the profile frame a colder premium staging.",
+      "id": "frame-overlay-sapphire-drape",
+      "name": "Sapphire Stage Canopy",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Mint, lilac, and pearl strands turn the overlay into a hanging jewel veil instead of a recolored drape.",
+      "id": "frame-overlay-aurora-drape",
+      "name": "Aurora Bead Veil",
+      "price": 5000,
+      "type": "profile-frame-overlay",
+      "source": "Rotating"
+    },
+    {
+      "description": "Brighter candy hearts in pink, coral, and cream drifting around the frame.",
+      "id": "frame-particles-candy-hearts",
+      "name": "Candy Heart Sprinkle",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "A softer petal variant leaning blossom-pink instead of deep rose.",
+      "id": "frame-particles-sakura-petals",
+      "name": "Sakura Petal Drift",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "Sparkle dust with blue, lilac, and pale gold mixed together.",
+      "id": "frame-particles-prism-dust",
+      "name": "Prism Dust",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "description": "Dark floating embers recolored into magenta-violet heat.",
+      "id": "frame-particles-amethyst-embers",
+      "name": "Amethyst Embers",
+      "price": 5000,
+      "type": "profile-frame-particles",
+      "source": "Rotating"
+    },
+    {
+      "id": "profile-border-rotating-manchester-city",
+      "name": "Manchester City Border",
+      "description": "Sky blue chrome with thin gold guides and a sharp geometric city-grid finish.",
+      "price": 10000,
+      "color": "#6CABDD",
+      "borderPalette": [
+        "#6CABDD",
+        "#F8FBFF",
+        "#D8B15A"
+      ],
+      "borderStyle": "city-grid",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-arsenal",
+      "name": "Arsenal Border",
+      "description": "Red and gold with premium corner accents shaped to hint at a cannon silhouette.",
+      "price": 10000,
+      "color": "#C8102E",
+      "borderPalette": [
+        "#C8102E",
+        "#7A0015",
+        "#D4AF37"
+      ],
+      "borderStyle": "cannon-corners",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-liverpool",
+      "name": "Liverpool Border",
+      "description": "Deep red lacquer streaked with ember-like light trails and soft flame motion.",
+      "price": 10000,
+      "color": "#A50034",
+      "borderPalette": [
+        "#A50034",
+        "#6F0020",
+        "#FF7A45"
+      ],
+      "borderStyle": "flame-lights",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-chelsea",
+      "name": "Chelsea Border",
+      "description": "Royal blue prestige with a noble gold ring and restrained crown-like detailing.",
+      "price": 10000,
+      "color": "#034694",
+      "borderPalette": [
+        "#034694",
+        "#0D2240",
+        "#D4AF37"
+      ],
+      "borderStyle": "royal-ring",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-manchester-united",
+      "name": "Manchester United Border",
+      "description": "Heavy red metal charged by yellow-red energy lines and a stronger forged frame.",
+      "price": 10000,
+      "color": "#DA020E",
+      "borderPalette": [
+        "#DA020E",
+        "#6F0006",
+        "#F6B800"
+      ],
+      "borderStyle": "energy-rush",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-tottenham",
+      "name": "Tottenham Border",
+      "description": "White and navy kept clean and sparse with a minimalist premium edge treatment.",
+      "price": 10000,
+      "color": "#F5F8FD",
+      "borderPalette": [
+        "#F5F8FD",
+        "#0E1B4D",
+        "#90A4C3"
+      ],
+      "borderStyle": "navy-minimal",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-dortmund",
+      "name": "Borussia Dortmund Border",
+      "description": "Bright yellow and black with a stadium-wall honeycomb shell.",
+      "price": 10000,
+      "color": "#FDE100",
+      "borderPalette": [
+        "#FDE100",
+        "#111111",
+        "#F7C600"
+      ],
+      "borderStyle": "honeycomb",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-bayern-munich",
+      "name": "Bayern Munich Border",
+      "description": "Red and white prestige structured with crisp Bavarian diamond geometry.",
+      "price": 10000,
+      "color": "#DC052D",
+      "borderPalette": [
+        "#DC052D",
+        "#FFFFFF",
+        "#B9D9FF"
+      ],
+      "borderStyle": "bavarian-diamond",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-hertha-berlin",
+      "name": "Hertha Berlin Border",
+      "description": "Blue and white crossed by a clean diagonal sash like a waving club flag.",
+      "price": 10000,
+      "color": "#005CA9",
+      "borderPalette": [
+        "#005CA9",
+        "#FFFFFF",
+        "#77B7E5"
+      ],
+      "borderStyle": "flag-sash",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-rb-leipzig",
+      "name": "RB Leipzig Border",
+      "description": "White and red cut by sharp forward speed lines for a modern sprinting feel.",
+      "price": 10000,
+      "color": "#FFFFFF",
+      "borderPalette": [
+        "#FFFFFF",
+        "#D60F2E",
+        "#8B0014"
+      ],
+      "borderStyle": "speed-lines",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-union-berlin",
+      "name": "Union Berlin Border",
+      "description": "A clean Union Berlin frame built from bold red-white horizontal striping with a subtle animated sheen.",
+      "price": 10000,
+      "color": "#C81E2A",
+      "borderPalette": [
+        "#C81E2A",
+        "#FFFFFF",
+        "#8E121B"
+      ],
+      "borderStyle": "stadium-steel",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-inter-milan",
+      "name": "Inter Milan Border",
+      "description": "Black and blue gloss with neon blue striping running through the frame.",
+      "price": 10000,
+      "color": "#0058A3",
+      "borderPalette": [
+        "#0058A3",
+        "#0B0C10",
+        "#3FD6FF"
+      ],
+      "borderStyle": "neon-stripes",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-ac-milan",
+      "name": "AC Milan Border",
+      "description": "Red-black vertical metal bars with a more elegant Rossoneri severity.",
+      "price": 10000,
+      "color": "#B60017",
+      "borderPalette": [
+        "#B60017",
+        "#101010",
+        "#5C0B0E"
+      ],
+      "borderStyle": "pinstripe",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-napoli",
+      "name": "Napoli Border",
+      "description": "Azure blue layered with sea-wave shimmer and bay-light reflections.",
+      "price": 10000,
+      "color": "#12A0D7",
+      "borderPalette": [
+        "#12A0D7",
+        "#66D3FF",
+        "#0B5FFF"
+      ],
+      "borderStyle": "wave-glow",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-juventus",
+      "name": "Juventus Border",
+      "description": "Minimal black and white with a polished noir-marble finish.",
+      "price": 10000,
+      "color": "#111111",
+      "borderPalette": [
+        "#111111",
+        "#F5F5F5",
+        "#8F8F8F"
+      ],
+      "borderStyle": "marble-noir",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-roma",
+      "name": "AS Roma Border",
+      "description": "Burgundy and gold enriched by laurel trim and old-imperial luxury.",
+      "price": 10000,
+      "color": "#7A263A",
+      "borderPalette": [
+        "#7A263A",
+        "#D4AF37",
+        "#F2D574"
+      ],
+      "borderStyle": "laurel-luxe",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-atalanta",
+      "name": "Atalanta Border",
+      "description": "Black and blue shaped by sweeping windflow lines rather than hard stripes.",
+      "price": 10000,
+      "color": "#1856A6",
+      "borderPalette": [
+        "#1856A6",
+        "#0A0D12",
+        "#58C0FF"
+      ],
+      "borderStyle": "windflow",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-lazio",
+      "name": "Lazio Border",
+      "description": "Sky blue built from feathered wing lines that feel light and aerial.",
+      "price": 10000,
+      "color": "#8FD5FF",
+      "borderPalette": [
+        "#8FD5FF",
+        "#DDF6FF",
+        "#6AA7D8"
+      ],
+      "borderStyle": "eagle-feathers",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-psg",
+      "name": "Paris Saint-Germain Border",
+      "description": "Navy and red nightlife framed by subtle gold and city-light sparkle.",
+      "price": 10000,
+      "color": "#0A1D46",
+      "borderPalette": [
+        "#0A1D46",
+        "#C8113B",
+        "#D4AF37"
+      ],
+      "borderStyle": "paris-lights",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-real-madrid",
+      "name": "Real Madrid Border",
+      "description": "White chrome and royal gold with a bright regal sheen across the frame.",
+      "price": 10000,
+      "color": "#F7F7F7",
+      "borderPalette": [
+        "#F7F7F7",
+        "#D5B15A",
+        "#CFCFCF"
+      ],
+      "borderStyle": "royal-chrome",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-barcelona",
+      "name": "Barcelona Border",
+      "description": "Blaugrana metal split into burgundy and navy with a heavier forged divide.",
+      "price": 10000,
+      "color": "#A50044",
+      "borderPalette": [
+        "#A50044",
+        "#004D98",
+        "#6B1839"
+      ],
+      "borderStyle": "split-metal",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-atletico-madrid",
+      "name": "Atletico Madrid Border",
+      "description": "Red, white, and navy pulled into aggressive diagonal battle stripes.",
+      "price": 10000,
+      "color": "#C9342F",
+      "borderPalette": [
+        "#C9342F",
+        "#FFFFFF",
+        "#0B2C62"
+      ],
+      "borderStyle": "tricolor-diagonal",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-galatasaray",
+      "name": "Galatasaray Border",
+      "description": "Red and yellow heated by a firestorm glow and embered edges.",
+      "price": 10000,
+      "color": "#C71432",
+      "borderPalette": [
+        "#C71432",
+        "#F6C200",
+        "#FF7A00"
+      ],
+      "borderStyle": "firestorm",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-fenerbahce",
+      "name": "Fenerbahce Border",
+      "description": "Navy and yellow prestige with subtle starburst glints across the frame.",
+      "price": 10000,
+      "color": "#0B2C62",
+      "borderPalette": [
+        "#0B2C62",
+        "#F2C200",
+        "#FFF2A1"
+      ],
+      "borderStyle": "starburst",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-besiktas",
+      "name": "Besiktas Border",
+      "description": "Black-white marble and softened feather texture for a colder eagle finish.",
+      "price": 10000,
+      "color": "#111111",
+      "borderPalette": [
+        "#111111",
+        "#F2F2F2",
+        "#6B6B6B"
+      ],
+      "borderStyle": "tricolor-feathers",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-trabzonspor",
+      "name": "Trabzonspor Border",
+      "description": "Claret and blue wrapped in misty glow with a quieter Black Sea shimmer.",
+      "price": 10000,
+      "color": "#6C1D45",
+      "borderPalette": [
+        "#6C1D45",
+        "#2D67A7",
+        "#A8D3FF"
+      ],
+      "borderStyle": "stadium-glow",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-goztepe",
+      "name": "Goztepe Border",
+      "description": "Yellow-red vintage metal with classic striping and warmer aged highlights.",
+      "price": 10000,
+      "color": "#D8A100",
+      "borderPalette": [
+        "#D8A100",
+        "#A81E2A",
+        "#F2D57A"
+      ],
+      "borderStyle": "edge-stripe",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-england-nt",
+      "name": "England National Border",
+      "description": "White and red crossed by a crisp St. George band structure.",
+      "price": 10000,
+      "color": "#F8FAFC",
+      "borderPalette": [
+        "#F8FAFC",
+        "#C8102E",
+        "#A9B6C9"
+      ],
+      "borderStyle": "saint-cross",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-germany-nt",
+      "name": "Germany National Border",
+      "description": "Black and gold authority with feathered detailing and a restrained tricolor pulse.",
+      "price": 10000,
+      "color": "#111111",
+      "borderPalette": [
+        "#111111",
+        "#D4AF37",
+        "#D10D1A"
+      ],
+      "borderStyle": "tricolor-feathers",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-italy-nt",
+      "name": "Italy National Border",
+      "description": "Azzurri blue recast as polished Roman marble with cooler depth.",
+      "price": 10000,
+      "color": "#0C58B5",
+      "borderPalette": [
+        "#0C58B5",
+        "#E7EEF8",
+        "#6A7EA8"
+      ],
+      "borderStyle": "marble-noir",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-france-nt",
+      "name": "France National Border",
+      "description": "Deep blue nobility with subtle fleur-royale ornament and luminous trim.",
+      "price": 10000,
+      "color": "#123C8D",
+      "borderPalette": [
+        "#123C8D",
+        "#1E62D0",
+        "#E9EEF7"
+      ],
+      "borderStyle": "fleur-royale",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-belgium-nt",
+      "name": "Belgium National Border",
+      "description": "Black, gold, and red fused into a strong diagonal national blend.",
+      "price": 10000,
+      "color": "#111111",
+      "borderPalette": [
+        "#111111",
+        "#F0C419",
+        "#C8102E"
+      ],
+      "borderStyle": "tricolor-diagonal",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-netherlands-nt",
+      "name": "Netherlands National Border",
+      "description": "A hot orange frame with energetic glow and cleaner high-voltage motion.",
+      "price": 10000,
+      "color": "#F97316",
+      "borderPalette": [
+        "#F97316",
+        "#FDBA74",
+        "#7C2D12"
+      ],
+      "borderStyle": "sun-ember",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-spain-nt",
+      "name": "Spain National Border",
+      "description": "Red and gold with rich royal embroidery and warmer ceremonial shine.",
+      "price": 10000,
+      "color": "#B91C1C",
+      "borderPalette": [
+        "#B91C1C",
+        "#F1BF00",
+        "#7F1D1D"
+      ],
+      "borderStyle": "laurel-luxe",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-turkey-nt",
+      "name": "Turkiye National Border",
+      "description": "True Turkish crimson with silver crescent-star detailing and premium Ottoman-inspired engraving.",
+      "price": 10000,
+      "color": "#C8102E",
+      "borderPalette": [
+        "#C8102E",
+        "#7A0F20",
+        "#F3F4F6"
+      ],
+      "borderStyle": "crescent-luxe",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-austria-nt",
+      "name": "Austria National Border",
+      "description": "Red and white with clean horizontal restraint and colder precision.",
+      "price": 10000,
+      "color": "#C8102E",
+      "borderPalette": [
+        "#C8102E",
+        "#FFFFFF",
+        "#9D1127"
+      ],
+      "borderStyle": "tricolor-band",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-denmark-nt",
+      "name": "Denmark National Border",
+      "description": "Red and white crossed in a stark Nordic frame layout.",
+      "price": 10000,
+      "color": "#B91C1C",
+      "borderPalette": [
+        "#B91C1C",
+        "#FFFFFF",
+        "#7F1D1D"
+      ],
+      "borderStyle": "nordic-cross",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-sweden-nt",
+      "name": "Sweden National Border",
+      "description": "Blue and yellow built with Scandinavian geometry rather than plain stripes.",
+      "price": 10000,
+      "color": "#005293",
+      "borderPalette": [
+        "#005293",
+        "#FECB00",
+        "#B9D7F8"
+      ],
+      "borderStyle": "scandi-geo",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-switzerland-nt",
+      "name": "Switzerland National Border",
+      "description": "White and red polished into a crystalline glass finish with sharp depth.",
+      "price": 10000,
+      "color": "#D52B1E",
+      "borderPalette": [
+        "#D52B1E",
+        "#FFFFFF",
+        "#FFC9C4"
+      ],
+      "borderStyle": "crystal-glass",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-poland-nt",
+      "name": "Poland National Border",
+      "description": "White and red softened by feathered texture inspired by an eagle motif.",
+      "price": 10000,
+      "color": "#FFFFFF",
+      "borderPalette": [
+        "#FFFFFF",
+        "#DC143C",
+        "#B0B8C4"
+      ],
+      "borderStyle": "eagle-feathers",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-norway-nt",
+      "name": "Norway National Border",
+      "description": "Red and navy crossed by layered Nordic lines with a colder sea-state finish.",
+      "price": 10000,
+      "color": "#BA0C2F",
+      "borderPalette": [
+        "#BA0C2F",
+        "#00205B",
+        "#FFFFFF"
+      ],
+      "borderStyle": "nordic-cross",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-finland-nt",
+      "name": "Finland National Border",
+      "description": "White and blue refracted through ice-crystal highlights.",
+      "price": 10000,
+      "color": "#FFFFFF",
+      "borderPalette": [
+        "#FFFFFF",
+        "#003580",
+        "#BFE7FF"
+      ],
+      "borderStyle": "ice-crystal",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-usa-nt",
+      "name": "United States National Border",
+      "description": "An unmistakable stars-and-stripes frame with a navy canton, crisp white bands, and premium lacquered red trim.",
+      "price": 10000,
+      "color": "#1C2B4F",
+      "borderPalette": [
+        "#1C2B4F",
+        "#B22234",
+        "#FFFFFF"
+      ],
+      "borderStyle": "chrome-command",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-canada-nt",
+      "name": "Canada National Border",
+      "description": "Red and white with maple-inspired corner detailing and a cold clean body.",
+      "price": 10000,
+      "color": "#D52B1E",
+      "borderPalette": [
+        "#D52B1E",
+        "#FFFFFF",
+        "#F3B2AC"
+      ],
+      "borderStyle": "maple-corners",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-argentina-nt",
+      "name": "Argentina National Border",
+      "description": "Sky blue and white with radiant sun rays breaking through the frame.",
+      "price": 10000,
+      "color": "#6CB4EE",
+      "borderPalette": [
+        "#6CB4EE",
+        "#FFFFFF",
+        "#F1C84C"
+      ],
+      "borderStyle": "sun-rays",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-brazil-nt",
+      "name": "Brazil National Border",
+      "description": "Yellow and green layered with tropical leaf rhythm and warmer movement.",
+      "price": 10000,
+      "color": "#009C3B",
+      "borderPalette": [
+        "#009C3B",
+        "#FFDF00",
+        "#1B5E20"
+      ],
+      "borderStyle": "tropical-leaves",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "id": "profile-border-rotating-japan-nt",
+      "name": "Japan National Border",
+      "description": "White and red with a minimal rising-sun core and drifting sakura softness.",
+      "price": 10000,
+      "color": "#FFFFFF",
+      "borderPalette": [
+        "#FFFFFF",
+        "#BC002D",
+        "#F4A8B8"
+      ],
+      "borderStyle": "sakura-sun",
+      "type": "profile-border",
+      "source": "Farewell"
+    },
+    {
+      "name": "Shiny Bra",
+      "description": "Glossy and attention-grabbing. Made to be stared at.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 9300,
+      "id": "shiny-bra",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-bra.webp"
+    },
+    {
+      "name": "Shiny Panties",
+      "description": "Reflective and tight. Humiliation has never looked so polished.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 9300,
+      "id": "shiny-panties",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-panties.webp"
+    },
+    {
+      "name": "Shiny Thighhighs",
+      "description": "High-gloss thigh highs. The shine draws the eye.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 9300,
+      "id": "shiny-thighhighs",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-thighhighs.webp"
+    },
+    {
+      "name": "Shiny Skirt",
+      "description": "A short, glossy skirt that leaves nothing hidden.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 9300,
+      "id": "shiny-skirt",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-skirt.webp"
+    },
+    {
+      "name": "Shiny High Heels",
+      "description": "Patent leather heels with a mirror finish.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 9300,
+      "id": "shiny-highheels",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-highheels.webp"
+    },
+    {
+      "name": "Principessa's Pet",
+      "description": "The ultimate symbol. You have been claimed.",
+      "rarity": "legendary",
+      "collection": "special",
+      "sell_value": 9300,
+      "id": "principessas-pet",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/principessas-pet.webp"
+    },
+    {
+      "name": "Vibrator",
+      "description": "A sleek wand-style massager. Hands-free pleasure, or punishment.",
+      "rarity": "legendary",
+      "collection": "toy",
+      "sell_value": 11250,
+      "id": "vibrator",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/vibrator.webp"
+    },
+    {
+      "name": "Ultra Vibrator",
+      "description": "Ultra vibrator with powerful vibrations and dedicated clitoral stimulator for intense dual pleasure.",
+      "rarity": "legendary",
+      "collection": "toy",
+      "sell_value": 17000,
+      "id": "ultra-vibrator",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/ultra-vibrator.webp"
+    },
+    {
+      "name": "Shiny Maid Outfit",
+      "description": "Glossy, eye-catching maid uniform. You’ll sparkle while you serve.",
+      "rarity": "legendary",
+      "collection": "maid",
+      "sell_value": 7650,
+      "id": "shiny-maid-outfit",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-maid-outfit.webp"
+    },
+    {
+      "name": "Shiny Bunnysuit",
+      "description": "Ultra glossy purple bunny leotard. Reflective, tight, and impossible to ignore.",
+      "rarity": "legendary",
+      "collection": "bunny",
+      "sell_value": 7100,
+      "id": "shiny-bunnysuit",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-bunnysuit.webp"
+    },
+    {
+      "name": "Shiny Thong",
+      "description": "Glossy, skin-tight shiny thong. Every curve catches the light.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 6250,
+      "id": "shiny-thong",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-thong.webp"
+    },
+    {
+      "name": "Shiny Corset",
+      "description": "High-gloss corset that hugs and shines. Restriction has never looked so polished.",
+      "rarity": "legendary",
+      "collection": "shiny",
+      "sell_value": 8500,
+      "id": "shiny-corset",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/shiny-corset.webp"
+    },
+    {
+      "name": "2B Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 25000,
+      "id": "2b_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/2b_cosplay.png"
+    },
+    {
+      "name": "Ada Wong Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 17500,
+      "id": "ada_wong_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/ada_wong_cosplay.png"
+    },
+    {
+      "name": "Astolfo Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 21250,
+      "id": "astolfo_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/astolfo_cosplay.png"
+    },
+    {
+      "name": "Asuka Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 20000,
+      "id": "asuka_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/asuka_cosplay.png"
+    },
+    {
+      "name": "Asuna Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 17500,
+      "id": "asuna_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/asuna_cosplay.png"
+    },
+    {
+      "name": "Chun-Li Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 22500,
+      "id": "chunli_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/chunli_cosplay.png"
+    },
+    {
+      "name": "Frieren Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 17500,
+      "id": "frieren_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/frieren_cosplay.png"
+    },
+    {
+      "name": "Jinx Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 27500,
+      "id": "jinx_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/jinx_cosplay.png"
+    },
+    {
+      "name": "Lara Croft Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 20000,
+      "id": "lara_croft_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/lara_croft_cosplay.png"
+    },
+    {
+      "name": "Megumin Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 17500,
+      "id": "megumin_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/megumin_cosplay.png"
+    },
+    {
+      "name": "Misa Amane Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 27500,
+      "id": "misa_amane_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/misa_amane_cosplay.png"
+    },
+    {
+      "name": "Mona Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 22500,
+      "id": "mona_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/mona_cosplay.png"
+    },
+    {
+      "name": "Raiden Shogun Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 25000,
+      "id": "raiden_shogun_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/raiden_shogun_cosplay.png"
+    },
+    {
+      "name": "Ryuko Matoi Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 30000,
+      "id": "ryuko_matoi_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/ryuko_matoi_cosplay.png"
+    },
+    {
+      "name": "Tifa Lockhart Cosplay",
+      "description": "A fully rendered cosplay set.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 18750,
+      "id": "tifa_lockhart_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/tifa_lockhart_cosplay.png"
+    },
+    {
+      "name": "Red Fishnet Shorts",
+      "description": "Fishnet shorts with a bold red trim.",
+      "rarity": "legendary",
+      "collection": "fishnet",
+      "sell_value": 12000,
+      "id": "red_fishnet_shorts",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/red_fishnet_shorts.webp"
+    },
+    {
+      "name": "Red Fishnet Croptop",
+      "description": "Fishnet crop top with a fiery red trim.",
+      "rarity": "legendary",
+      "collection": "fishnet",
+      "sell_value": 12500,
+      "id": "red_fishnet_croptop",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/red_fishnet_croptop.webp"
+    },
+    {
+      "name": "Dominatrix Boots",
+      "description": "Tall latex boots built for command.",
+      "rarity": "legendary",
+      "collection": "latex",
+      "sell_value": 10000,
+      "id": "dominatrix_boots",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/dominatrix_boots.webp"
+    },
+    {
+      "name": "Blacked Panties",
+      "description": "Branded black panties. A statement, not a secret.",
+      "rarity": "legendary",
+      "collection": "blacked",
+      "sell_value": 11000,
+      "id": "blacked_panties",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/blacked_panties.webp"
+    },
+    {
+      "name": "Blacked Bra",
+      "description": "A branded black bra to match.",
+      "rarity": "legendary",
+      "collection": "blacked",
+      "sell_value": 11500,
+      "id": "blacked_bra",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/blacked_bra.webp"
+    },
+    {
+      "name": "Slingshot Swimsuit",
+      "description": "A minimal slingshot one-piece. Barely a swimsuit.",
+      "rarity": "legendary",
+      "collection": "swim",
+      "sell_value": 10500,
+      "id": "slingshot_swimsuit",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/slingshot_swimsuit.webp"
+    },
+    {
+      "name": "Ponyplay",
+      "description": "A fully rendered ponyplay set.",
+      "rarity": "legendary",
+      "collection": "ponyplay",
+      "sell_value": 13500,
+      "id": "ponyplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/ponyplay.webp"
+    },
+    {
+      "name": "Ripped Denim Thong",
+      "description": "Denim cut down until only the idea is left.",
+      "rarity": "legendary",
+      "collection": "grunge",
+      "sell_value": 12000,
+      "id": "ripped_denim_thong",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/ripped_denim_thong.webp"
+    },
+    {
+      "name": "Bat Hairpins",
+      "description": "Small silver bats holding it all back.",
+      "rarity": "legendary",
+      "collection": "gothic",
+      "sell_value": 10750,
+      "id": "bat_hairpins",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/bat_hairpins.webp"
+    },
+    {
+      "name": "Gothic Lolita Dress",
+      "description": "Layered black frills, ribbon, and a great deal of lace.",
+      "rarity": "legendary",
+      "collection": "gothic",
+      "sell_value": 13500,
+      "id": "gothic_lolita_dress",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/gothic_lolita_dress.webp"
+    },
+    {
+      "name": "Jiangshi Cosplay",
+      "description": "Talisman on the forehead, arms out, hopping.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 18000,
+      "id": "jiangshi_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/jiangshi_cosplay.png"
+    },
+    {
+      "name": "Nezuko Cosplay",
+      "description": "Bamboo, pink kimono, and a muzzled mouth.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 16000,
+      "id": "nezuko_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/nezuko_cosplay.png"
+    },
+    {
+      "name": "Spider Man Cosplay",
+      "description": "Skin-tight webbing from neck to toe.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 17000,
+      "id": "spider_man_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/spider_man_cosplay.png"
+    },
+    {
+      "name": "Venom Cosplay",
+      "description": "Black, wet-looking, and far too tight.",
+      "rarity": "legendary",
+      "collection": "cosplay",
+      "sell_value": 15000,
+      "id": "venom_cosplay",
+      "type": "money-shop-item",
+      "source": "Money Shop",
+      "image": "/crate-items/venom_cosplay.png"
+    }
+  ]
+}

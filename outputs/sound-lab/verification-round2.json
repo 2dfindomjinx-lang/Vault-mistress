@@ -1,0 +1,935 @@
+{
+  "newWavs": 116,
+  "uniqueNewWavs": 116,
+  "playableEmbeddedClips": 131,
+  "previousChoicesPreserved": 12,
+  "protectedFilesUnchanged": 58,
+  "filePlayback": true,
+  "search": true,
+  "selectionPersistence": true,
+  "selectionExport": true,
+  "furnaceOneNoteTiming": true,
+  "escapeStop": true,
+  "mobileOverflow": false,
+  "pageErrors": [],
+  "decoded": [
+    {
+      "key": "click_felt",
+      "seconds": 0.09,
+      "peak": 0.1398,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_silk",
+      "seconds": 0.12,
+      "peak": 0.1206,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_velvet",
+      "seconds": 0.15,
+      "peak": 0.1364,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_rubber",
+      "seconds": 0.085,
+      "peak": 0.1256,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_switch",
+      "seconds": 0.115,
+      "peak": 0.131,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_scissor",
+      "seconds": 0.072,
+      "peak": 0.1185,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_snap",
+      "seconds": 0.055,
+      "peak": 0.2047,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_thock",
+      "seconds": 0.17,
+      "peak": 0.1741,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_walnut",
+      "seconds": 0.12,
+      "peak": 0.1434,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_bamboo",
+      "seconds": 0.11,
+      "peak": 0.1406,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_mahogany",
+      "seconds": 0.16,
+      "peak": 0.1556,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_woodblock",
+      "seconds": 0.075,
+      "peak": 0.1008,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_brass",
+      "seconds": 0.16,
+      "peak": 0.1204,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_silver",
+      "seconds": 0.125,
+      "peak": 0.1149,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_detent",
+      "seconds": 0.095,
+      "peak": 0.1404,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_lock",
+      "seconds": 0.14,
+      "peak": 0.1324,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_smoke",
+      "seconds": 0.2,
+      "peak": 0.1114,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_frost",
+      "seconds": 0.145,
+      "peak": 0.1359,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_porcelain",
+      "seconds": 0.14,
+      "peak": 0.142,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_crystal",
+      "seconds": 0.21,
+      "peak": 0.0869,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_bubble",
+      "seconds": 0.14,
+      "peak": 0.1309,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_drop",
+      "seconds": 0.22,
+      "peak": 0.1156,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_finger",
+      "seconds": 0.075,
+      "peak": 0.1344,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_paper",
+      "seconds": 0.12,
+      "peak": 0.1586,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_softbit",
+      "seconds": 0.095,
+      "peak": 0.1058,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_vector",
+      "seconds": 0.13,
+      "peak": 0.1212,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_pixel",
+      "seconds": 0.11,
+      "peak": 0.1299,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_hush",
+      "seconds": 0.17,
+      "peak": 0.1279,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_ring",
+      "seconds": 0.19,
+      "peak": 0.1749,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_seal",
+      "seconds": 0.18,
+      "peak": 0.1353,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_pearl",
+      "seconds": 0.185,
+      "peak": 0.1386,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_heartbeat",
+      "seconds": 0.21,
+      "peak": 0.1473,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "card_flip:a",
+      "seconds": 0.24,
+      "peak": 0.1208,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "card_flip:b",
+      "seconds": 0.24,
+      "peak": 0.1235,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "round_correct:a",
+      "seconds": 0.46,
+      "peak": 0.2403,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "round_correct:b",
+      "seconds": 0.46,
+      "peak": 0.1424,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "life_lost:a",
+      "seconds": 0.34,
+      "peak": 0.1666,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "life_lost:b",
+      "seconds": 0.34,
+      "peak": 0.153,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "countdown_tick:a",
+      "seconds": 0.16,
+      "peak": 0.1877,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "countdown_tick:b",
+      "seconds": 0.16,
+      "peak": 0.1736,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "countdown_go:a",
+      "seconds": 0.43,
+      "peak": 0.1685,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "countdown_go:b",
+      "seconds": 0.43,
+      "peak": 0.1606,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "guard_parry:a",
+      "seconds": 0.38,
+      "peak": 0.26,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "guard_parry:b",
+      "seconds": 0.38,
+      "peak": 0.1877,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "slot_stop:a",
+      "seconds": 0.24,
+      "peak": 0.2281,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "slot_stop:b",
+      "seconds": 0.24,
+      "peak": 0.2267,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "dice_roll:a",
+      "seconds": 0.91,
+      "peak": 0.1762,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "dice_roll:b",
+      "seconds": 0.91,
+      "peak": 0.192,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "roulette_roll:a",
+      "seconds": 3.4,
+      "peak": 0.2245,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "roulette_roll:b",
+      "seconds": 3.4,
+      "peak": 0.2026,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "plinko_hit:a",
+      "seconds": 0.095,
+      "peak": 0.1029,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "plinko_hit:b",
+      "seconds": 0.095,
+      "peak": 0.0864,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "gem_found:a",
+      "seconds": 0.47,
+      "peak": 0.1446,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "gem_found:b",
+      "seconds": 0.47,
+      "peak": 0.1271,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "mine_bust:a",
+      "seconds": 0.73,
+      "peak": 0.2851,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "mine_bust:b",
+      "seconds": 0.73,
+      "peak": 0.2662,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "casino_cashout:a",
+      "seconds": 0.88,
+      "peak": 0.2421,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "casino_cashout:b",
+      "seconds": 0.88,
+      "peak": 0.187,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "crash_break:a",
+      "seconds": 0.88,
+      "peak": 0.1983,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "crash_break:b",
+      "seconds": 0.88,
+      "peak": 0.173,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "wheel_tick:a",
+      "seconds": 0.095,
+      "peak": 0.1081,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "wheel_tick:b",
+      "seconds": 0.095,
+      "peak": 0.0972,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "wheel_verdict:a",
+      "seconds": 1,
+      "peak": 0.211,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "wheel_verdict:b",
+      "seconds": 1,
+      "peak": 0.2074,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "timeout_lock:a",
+      "seconds": 0.64,
+      "peak": 0.2318,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "timeout_lock:b",
+      "seconds": 0.64,
+      "peak": 0.2365,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "timeout_release:a",
+      "seconds": 0.69,
+      "peak": 0.1856,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "timeout_release:b",
+      "seconds": 0.69,
+      "peak": 0.1487,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_ignite:a",
+      "seconds": 0.85,
+      "peak": 0.13,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_ignite:b",
+      "seconds": 0.85,
+      "peak": 0.1303,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_burn:a",
+      "seconds": 4,
+      "peak": 0.0587,
+      "loop": true,
+      "maxLoopJumpRatio": 1.78
+    },
+    {
+      "key": "furnace_burn:b",
+      "seconds": 4,
+      "peak": 0.0976,
+      "loop": true,
+      "maxLoopJumpRatio": 0.92
+    },
+    {
+      "key": "furnace_note:a",
+      "seconds": 0.17,
+      "peak": 0.1219,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_note:b",
+      "seconds": 0.17,
+      "peak": 0.1753,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_ash:a",
+      "seconds": 1.05,
+      "peak": 0.1231,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "furnace_ash:b",
+      "seconds": 1.05,
+      "peak": 0.1954,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_start:a",
+      "seconds": 0.86,
+      "peak": 0.1389,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_start:b",
+      "seconds": 0.86,
+      "peak": 0.1234,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_pulse:a",
+      "seconds": 0.38,
+      "peak": 0.0981,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_pulse:b",
+      "seconds": 0.38,
+      "peak": 0.0954,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_popup:a",
+      "seconds": 0.43,
+      "peak": 0.0966,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_popup:b",
+      "seconds": 0.43,
+      "peak": 0.0866,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_stop:a",
+      "seconds": 0.73,
+      "peak": 0.0991,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "drain_stop:b",
+      "seconds": 0.73,
+      "peak": 0.0939,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_pulse:a",
+      "seconds": 0.075,
+      "peak": 0.0886,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_pulse:b",
+      "seconds": 0.075,
+      "peak": 0.0912,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_stage:a",
+      "seconds": 1.18,
+      "peak": 0.2168,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "click_stage:b",
+      "seconds": 1.18,
+      "peak": 0.1658,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "level_surrender:a",
+      "seconds": 1.3,
+      "peak": 0.2881,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "level_surrender:b",
+      "seconds": 1.3,
+      "peak": 0.2619,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "sacrifice_resolve:a",
+      "seconds": 1.06,
+      "peak": 0.1409,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "sacrifice_resolve:b",
+      "seconds": 1.06,
+      "peak": 0.1388,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "daily_reward:a",
+      "seconds": 0.91,
+      "peak": 0.2091,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "daily_reward:b",
+      "seconds": 0.91,
+      "peak": 0.1878,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "money_convert:a",
+      "seconds": 0.99,
+      "peak": 0.1639,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "money_convert:b",
+      "seconds": 0.99,
+      "peak": 0.1586,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "item_equip:a",
+      "seconds": 0.48,
+      "peak": 0.2218,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "item_equip:b",
+      "seconds": 0.48,
+      "peak": 0.1787,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "item_sell:a",
+      "seconds": 0.8,
+      "peak": 0.2063,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "item_sell:b",
+      "seconds": 0.8,
+      "peak": 0.1815,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "debt_installment:a",
+      "seconds": 0.85,
+      "peak": 0.2364,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "debt_installment:b",
+      "seconds": 0.85,
+      "peak": 0.2362,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "debt_completed:a",
+      "seconds": 1.7,
+      "peak": 0.2629,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "debt_completed:b",
+      "seconds": 1.7,
+      "peak": 0.2678,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "notification_received:a",
+      "seconds": 0.65,
+      "peak": 0.1662,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "notification_received:b",
+      "seconds": 0.65,
+      "peak": 0.1069,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "runway_vote:a",
+      "seconds": 0.55,
+      "peak": 0.1754,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "runway_vote:b",
+      "seconds": 0.55,
+      "peak": 0.1042,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "runway_supervote:a",
+      "seconds": 1.02,
+      "peak": 0.2138,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "runway_supervote:b",
+      "seconds": 1.02,
+      "peak": 0.1558,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "loyalty_milestone:a",
+      "seconds": 1.39,
+      "peak": 0.2635,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "loyalty_milestone:b",
+      "seconds": 1.39,
+      "peak": 0.1718,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "crawl_contact:a",
+      "seconds": 0.28,
+      "peak": 0.1485,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "crawl_contact:b",
+      "seconds": 0.28,
+      "peak": 0.1633,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "jigsaw_reveal:a",
+      "seconds": 0.79,
+      "peak": 0.2463,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "jigsaw_reveal:b",
+      "seconds": 0.79,
+      "peak": 0.1983,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:error",
+      "seconds": 0.48,
+      "peak": 0.1576,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:task_completion",
+      "seconds": 0.84,
+      "peak": 0.1564,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:task_fail",
+      "seconds": 0.75,
+      "peak": 0.1852,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:crate_reel_tick",
+      "seconds": 0.062,
+      "peak": 0.0879,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:crate_reveal",
+      "seconds": 1.35,
+      "peak": 0.2213,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:crate_legendary_reveal",
+      "seconds": 3.15,
+      "peak": 0.3449,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:tribute_sent",
+      "seconds": 1.13,
+      "peak": 0.2744,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:cosmetic_purchased",
+      "seconds": 0.94,
+      "peak": 0.1894,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:debt_contract_signed",
+      "seconds": 1.777,
+      "peak": 0.1573,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:gallery_unlock",
+      "seconds": 2.081,
+      "peak": 0.2145,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:affection_level_up",
+      "seconds": 2.3,
+      "peak": 0.2079,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "selected:random_event_activation",
+      "seconds": 1.6,
+      "peak": 0.2029,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "reference:current",
+      "seconds": 1.097,
+      "peak": 0.1192,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "reference:velvet",
+      "seconds": 0.16,
+      "peak": 0.125,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    },
+    {
+      "key": "reference:obsidian",
+      "seconds": 0.13,
+      "peak": 0.1364,
+      "loop": false,
+      "maxLoopJumpRatio": 0
+    }
+  ],
+  "tabChangeStartsAtTop": true
+}

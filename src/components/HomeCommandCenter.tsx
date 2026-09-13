@@ -15,6 +15,7 @@ export type HomeAction = {
 };
 
 export type HomeLeaderboardEntry = {
+  avatarUrl?: string | null;
   name: string;
   value: string;
   username?: string;
@@ -35,6 +36,14 @@ type HomeCommandCenterProps = {
   onNavigate: (page: DashboardPage) => void;
   onLeaderboardTabChange?: (tab: "devotion" | "pet" | "leadership" | "shame" | "inventory") => void;
 };
+
+function LeaderboardAvatar({ src }: { src?: string | null }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const imageSrc = src && src !== failedSrc ? src : "/default-tribute-avatar.webp";
+  return <Image src={imageSrc} alt="" width={64} height={64} unoptimized
+    className={panels.leaderAvatar}
+    onError={() => { if (src && imageSrc === src) setFailedSrc(src); }} />;
+}
 
 const tabs = [
   ["devotion", "Devotion"],
@@ -124,11 +133,11 @@ export function HomeCommandCenter({
       ) : null}
 
       <section className={panels.panel} aria-label="Leaderboard">
-        <header className={panels.panelHeader}><div><p className={panels.kicker}>Court standings</p><h2>Leaderboard</h2></div><span>Her leading five</span></header>
+        <header className={panels.panelHeader}><div><p className={panels.kicker}>Court standings</p><h2>Leaderboard</h2></div><span>{tab === "shame" ? "Most recorded fails" : "Her leading five"}</span></header>
         <div className={panels.tabs} aria-label="Leaderboard category">{tabs.map(([key,label])=><button aria-pressed={tab===key} key={key} onClick={()=>selectTab(key)} type="button">{label}</button>)}</div>
-        {entries.length ? <div className={panels.standings}>
-          <article className={panels.champion}><CourtGlyph symbol="crown"/><small>First in {tabs.find(([key])=>key===tab)?.[1]}</small><h3>{entries[0].name}</h3><span>{entries[0].username}</span><strong>{entries[0].value}</strong></article>
-          <div className={panels.ranks}>{entries.slice(1,5).map(entry=><div className={panels.rankRow} key={entry.rank}><span>{String(entry.rank).padStart(2,"0")}</span><span className={panels.initial} aria-hidden="true">{entry.name.slice(0,1)}</span><div><p>{entry.name}</p>{entry.username&&<small>{entry.username}</small>}</div><strong>{entry.value}</strong></div>)}</div>
+        {entries.length ? <div className={`${panels.standings} ${tab === "shame" ? panels.shameStandings : ""}`}>
+          {tab !== "shame" && <article className={panels.champion}><div className={panels.championPortrait}><LeaderboardAvatar src={entries[0].avatarUrl}/><CourtGlyph symbol="crown"/></div><small>First in {tabs.find(([key])=>key===tab)?.[1]}</small><h3>{entries[0].name}</h3><span>{entries[0].username}</span><strong>{entries[0].value}</strong></article>}
+          <div className={panels.ranks}>{entries.slice(tab === "shame" ? 0 : 1,5).map(entry=><div className={panels.rankRow} key={entry.rank}><span>{String(entry.rank).padStart(2,"0")}</span><LeaderboardAvatar src={entry.avatarUrl}/><div><p>{entry.name}</p>{entry.username&&<small>{entry.username}</small>}</div><strong>{entry.value}</strong></div>)}</div>
         </div> : <p className={panels.empty}>No standings available yet.</p>}
       </section>
     </div>

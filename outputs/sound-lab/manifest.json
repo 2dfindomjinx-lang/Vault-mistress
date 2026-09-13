@@ -1,0 +1,612 @@
+{
+  "format": "48 kHz, 16-bit stereo PCM WAV",
+  "generation": "Original deterministic procedural sound design; no voice, no external samples.",
+  "scope": "Separate audition only. No site files changed.",
+  "dryRevision": "dry-2026-09-13",
+  "originalHashes": {
+    "src/lib/sound.ts": "ccfafa29698506c595a82a5d718e626316cd5b3abfd298ba432f1f0b503d890b",
+    "public/sounds/button-click.mp3": "3380df4b2845c976c3f52d687b7a40935830abc88e42a636a6fa1e7241569d30",
+    "public/sounds/error.wav": "aa45228de12107198e13d65a768a8d3b81b2402ea573cfca7c9cacac52eaa4d7",
+    "public/sounds/task-completion.wav": "c6488ba9ae6e4af87f9c34b9bf7b276e14084c7a2894bc93f141f963731a9e94",
+    "public/sounds/task-fail.wav": "dcd7b60839932db245bb9b87442baa82805c99f26c62c66aa0a13b24ef13cd48",
+    "public/sounds/crate-reel-tick.mp3": "00270a1847195cddb82d1b10c9407880ce311f522284afaefdc218fbba70d3ed",
+    "public/sounds/crate-reveal.mp3": "5c97a623043145ca42c6b32a5ffd15d2deeab46ec8dfd6d6abe48493b189f123",
+    "public/sounds/crate-legendary-reveal.mp3": "1403241fba1db6b31e464e99e8e6fd694950e30f8ba148e8ec8de7d38da2d85c",
+    "public/sounds/tribute-sent.wav": "2b933080fdaab8e23ac2079b0a6ebb1090b8ec348cab5bf5fb65830d5c5c02cf",
+    "public/sounds/cosmetic-purchased.wav": "35996c5d4159d8fb3da52462557cc4d2fb1f6f565187cf9fda5fa30912614f21",
+    "public/sounds/debt-contract-signed.wav": "e8f1742158d7923bdeba2a55c922474c6e2ceb039789bb6afec1a87ef6ec97e1",
+    "public/sounds/gallery-unlock.mp3": "c3b45f48e849598ce7a14d2cc6bda0afa25d21b8d12513301eb62e59abc88d5f",
+    "public/sounds/affection-level-up.mp3": "4ae2d116507d99ada734a618834514e387d421ff418b7fd75229e0df7be1686e",
+    "public/sounds/random-event-activation.mp3": "458234c690f82f2da6ebf37b764744692de8ade410c7a723ec3e3b8914a5587f"
+  },
+  "palettes": [
+    {
+      "id": "velvet",
+      "title": "Velvet Court",
+      "short": "Velvet",
+      "letter": "A",
+      "description": "Sıcak metal, mühür, ipek. Daha dokulu ve törensel."
+    },
+    {
+      "id": "obsidian",
+      "title": "Obsidian",
+      "short": "Obsidian",
+      "letter": "B",
+      "description": "Cam, mekanik kilitler, derin vuruşlar. Daha keskin ve modern."
+    }
+  ],
+  "events": [
+    {
+      "id": "button_click",
+      "title": "Buton tıklaması",
+      "group": "Arayüz",
+      "usage": "Menüler ve oyun içi seçimler",
+      "offset": -5,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Deri kaplı, tok bir mekanik dokunuş.",
+        "obsidian": "Kısa, temiz bir cam ve krom dokunuşu."
+      },
+      "clips": {
+        "current": {
+          "filename": "button-click.mp3",
+          "siteVolume": 0.55
+        },
+        "velvet": {
+          "filename": "velvet-button-click.wav",
+          "path": "audio/velvet/button-click.wav",
+          "seconds": 0.16,
+          "peak": 0.1181,
+          "lufs": -27,
+          "bytes": 30764,
+          "sha256": "9ab700ade99e6e8e81d1f6bb56873d0156e1f5894019a867fcc9404a4a5f4330",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-button-click.wav",
+          "path": "audio/obsidian/button-click.wav",
+          "seconds": 0.13,
+          "peak": 0.13302,
+          "lufs": -27,
+          "bytes": 25004,
+          "sha256": "0d81d7c601766d5a5d51dd08fe47e0a957c1da21d863169e20593f30e9ea15cd",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "error",
+      "title": "İşlem reddedildi",
+      "group": "Arayüz",
+      "usage": "Geçersiz veya tamamlanamayan işlemler",
+      "offset": -2,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Kapanan kilit; kısa ve kesin.",
+        "obsidian": "İki kuru darbe, aşağı inen bir ton."
+      },
+      "clips": {
+        "current": {
+          "filename": "error.wav",
+          "siteVolume": 0.15
+        },
+        "velvet": {
+          "filename": "velvet-error.wav",
+          "path": "audio/velvet/error.wav",
+          "seconds": 0.48,
+          "peak": 0.16541,
+          "lufs": -24,
+          "bytes": 92204,
+          "sha256": "1eb053fdb31b53b8f635da7e1019a324731680b5dc236694a96853b2bf16d56c",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-error.wav",
+          "path": "audio/obsidian/error.wav",
+          "seconds": 0.48,
+          "peak": 0.15031,
+          "lufs": -24,
+          "bytes": 92204,
+          "sha256": "6eeb3e9a8358da91ff23af2742385141cd2b2a37a4fac4cf9d405b194ab33bd8",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "task_completion",
+      "title": "Başarı",
+      "group": "Oyunlar",
+      "usage": "Görev tamamlama ve oyun kazanma",
+      "offset": 0,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Yukarı açılan üç sıcak tel vuruşu.",
+        "obsidian": "Hızlı, parlak bir kristal onay."
+      },
+      "clips": {
+        "current": {
+          "filename": "task-completion.wav",
+          "siteVolume": 0.17
+        },
+        "velvet": {
+          "filename": "velvet-task-completion.wav",
+          "path": "audio/velvet/task-completion.wav",
+          "seconds": 1,
+          "peak": 0.16979,
+          "lufs": -22,
+          "bytes": 192044,
+          "sha256": "bf790d23f6544851f6d408d3fc2342cd62f21362fcc6aa091cb18ac7487d1911",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 0,
+          "cleanPlucks": 2,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-task-completion.wav",
+          "path": "audio/obsidian/task-completion.wav",
+          "seconds": 0.84,
+          "peak": 0.15711,
+          "lufs": -22,
+          "bytes": 161324,
+          "sha256": "22284cb1c5c860e5f8a8386a196e26daca63deb9b5aa75b99a7e7c0a5d905f10",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "task_fail",
+      "title": "Başarısızlık",
+      "group": "Oyunlar",
+      "usage": "Kaybedilen turlar ve yanlış seçimler",
+      "offset": -2,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Gevşeyen tel ve yumuşak bir zincir düşüşü.",
+        "obsidian": "Doğrudan başlayan derin düşüş."
+      },
+      "clips": {
+        "current": {
+          "filename": "task-fail.wav",
+          "siteVolume": 0.14
+        },
+        "velvet": {
+          "filename": "velvet-task-fail.wav",
+          "path": "audio/velvet/task-fail.wav",
+          "seconds": 0.82,
+          "peak": 0.16357,
+          "lufs": -24,
+          "bytes": 157484,
+          "sha256": "a52b3d3456d534f9edbea9ceedb35eb35dc01d8b0724399fe9bdadb4952483a2",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 0,
+          "cleanPlucks": 1,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-task-fail.wav",
+          "path": "audio/obsidian/task-fail.wav",
+          "seconds": 0.75,
+          "peak": 0.17413,
+          "lufs": -24,
+          "bytes": 144044,
+          "sha256": "ca93d4006c4a456c7d5035115722db5e13ed3f83ec35d3eb1609756b14ff0f15",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "crate_reel_tick",
+      "title": "Kasa / çark tıkırtısı",
+      "group": "Oyunlar",
+      "usage": "Kasa şeridi, çarklar ve casino animasyonları",
+      "offset": -7,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Küçük pirinç dişli; kısa ve kuru.",
+        "obsidian": "Seramik fiş; daha belirgin, çok kısa."
+      },
+      "clips": {
+        "current": {
+          "filename": "crate-reel-tick.mp3",
+          "siteVolume": 0.21
+        },
+        "velvet": {
+          "filename": "velvet-crate-reel-tick.wav",
+          "path": "audio/velvet/crate-reel-tick.wav",
+          "seconds": 0.075,
+          "peak": 0.09301,
+          "lufs": -29,
+          "bytes": 14444,
+          "sha256": "3eb83f59e1abbf70430ceef496065c722692d148f5ed89a8b9e233e026aef982",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-crate-reel-tick.wav",
+          "path": "audio/obsidian/crate-reel-tick.wav",
+          "seconds": 0.062,
+          "peak": 0.09095,
+          "lufs": -29,
+          "bytes": 11948,
+          "sha256": "c5318fb38c6aa06d680f51a01e93a0c9b5af023fd3abfb1a9cdfa2a273ec0f8a",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "crate_reveal",
+      "title": "Kasa açılışı",
+      "group": "Oyunlar",
+      "usage": "Standart ödülün ortaya çıkışı",
+      "offset": -1,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Kutu mandalı ve mücevher.",
+        "obsidian": "Tok kutu açılışı, cilalı cam parıltısı."
+      },
+      "clips": {
+        "current": {
+          "filename": "crate-reveal.mp3",
+          "siteVolume": 0.13
+        },
+        "velvet": {
+          "filename": "velvet-crate-reveal.wav",
+          "path": "audio/velvet/crate-reveal.wav",
+          "seconds": 1.45,
+          "peak": 0.19061,
+          "lufs": -23,
+          "bytes": 278444,
+          "sha256": "f128514e4d6e8fe26094dd2350094dd86eea847f41ddc9d3c0a06b7ec00a6e57",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 1,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-crate-reveal.wav",
+          "path": "audio/obsidian/crate-reveal.wav",
+          "seconds": 1.35,
+          "peak": 0.17142,
+          "lufs": -23,
+          "bytes": 259244,
+          "sha256": "6b0f67809415a90ef8f4000e79193f24938242ce253507f623133e8d724cd323",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "crate_legendary_reveal",
+      "title": "Efsanevi ödül",
+      "group": "Oyunlar",
+      "usage": "Nadir açılışın büyük anı",
+      "offset": 3,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Derin taç vuruşu ve yükselen dört notalı imza.",
+        "obsidian": "Ters kristal yükselişi, güçlü vuruş ve geniş parıltı."
+      },
+      "clips": {
+        "current": {
+          "filename": "crate-legendary-reveal.mp3",
+          "siteVolume": 0.18
+        },
+        "velvet": {
+          "filename": "velvet-crate-legendary-reveal.wav",
+          "path": "audio/velvet/crate-legendary-reveal.wav",
+          "seconds": 3.15,
+          "peak": 0.3086,
+          "lufs": -19,
+          "bytes": 604844,
+          "sha256": "5a0a6aad1cc21c194de5191a357a6b117a83a940ba0c4677b289231c2d658dcf",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 3,
+          "cleanPlucks": 4,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-crate-legendary-reveal.wav",
+          "path": "audio/obsidian/crate-legendary-reveal.wav",
+          "seconds": 3.25,
+          "peak": 0.29344,
+          "lufs": -19,
+          "bytes": 624044,
+          "sha256": "a6b240741bd382a08603bd2ef1391f5b3fe46e57fa921d4fb2b3d040551a2be9",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "tribute_sent",
+      "title": "Tribute",
+      "group": "Ekonomi",
+      "usage": "Tribute gönderildiğinde",
+      "offset": 1,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Altın tepsiye düşen üç farklı para.",
+        "obsidian": "Işıltılı para akışı ve net bir son vuruş."
+      },
+      "clips": {
+        "current": {
+          "filename": "tribute-sent.wav",
+          "siteVolume": 0.19
+        },
+        "velvet": {
+          "filename": "velvet-tribute-sent.wav",
+          "path": "audio/velvet/tribute-sent.wav",
+          "seconds": 1.24,
+          "peak": 0.25726,
+          "lufs": -21,
+          "bytes": 238124,
+          "sha256": "45689615fb9e77573ac0d147d8cddad99cffa4325a7bc2c3d22a3c8171282be6",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 4,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-tribute-sent.wav",
+          "path": "audio/obsidian/tribute-sent.wav",
+          "seconds": 1.13,
+          "peak": 0.27443,
+          "lufs": -21,
+          "bytes": 217004,
+          "sha256": "acd5a33ef2cc7fd13c086f19ea0dc504012162f3fea4d2acfa9e26c0d30f3818",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "cosmetic_purchased",
+      "title": "Shop alışverişi",
+      "group": "Ekonomi",
+      "usage": "Kozmetik alımı ve ilgili shop işlemleri",
+      "offset": -1,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "İpek açılışı, küçük bir takı klipsi.",
+        "obsidian": "Parlak vitrin açılışı ve iki cam vuruşu."
+      },
+      "clips": {
+        "current": {
+          "filename": "cosmetic-purchased.wav",
+          "siteVolume": 0.12
+        },
+        "velvet": {
+          "filename": "velvet-cosmetic-purchased.wav",
+          "path": "audio/velvet/cosmetic-purchased.wav",
+          "seconds": 1.05,
+          "peak": 0.15422,
+          "lufs": -23,
+          "bytes": 201644,
+          "sha256": "07a579737b6effd2310bb57a13b60ccbe3f79e117ced4d0d907c6764ff9716c1",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 1,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-cosmetic-purchased.wav",
+          "path": "audio/obsidian/cosmetic-purchased.wav",
+          "seconds": 0.94,
+          "peak": 0.18002,
+          "lufs": -23,
+          "bytes": 180524,
+          "sha256": "ba2b4a9b85f14fc2bde13522f1f27c079a39a9fbcea9f1d66cb7dcf65c27b22d",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "debt_contract_signed",
+      "title": "Kontrat imzası",
+      "group": "Ekonomi",
+      "usage": "Debt contract imzalandığında",
+      "offset": 0,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Kalem izi, ağır mühür ve kilit kapanışı.",
+        "obsidian": "Kısa onay taraması ve çift mekanik mühür."
+      },
+      "clips": {
+        "current": {
+          "filename": "debt-contract-signed.wav",
+          "siteVolume": 1
+        },
+        "velvet": {
+          "filename": "velvet-debt-contract-signed.wav",
+          "path": "audio/velvet/debt-contract-signed.wav",
+          "seconds": 1.85,
+          "peak": 0.26698,
+          "lufs": -22,
+          "bytes": 355244,
+          "sha256": "82a40c5579f75ffb8ab25b8118856b61e2199cc1d864d742ab89f4bebfe45024",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 4,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-debt-contract-signed.wav",
+          "path": "audio/obsidian/debt-contract-signed.wav",
+          "seconds": 1.55,
+          "peak": 0.22835,
+          "lufs": -22,
+          "bytes": 297644,
+          "sha256": "531ed58930c7840fe7f2df4ad8b543c2b2b67318d48c3b9564c79a2523250270",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 3,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "gallery_unlock",
+      "title": "Galeri açılışı",
+      "group": "Principessa",
+      "usage": "Yeni galeri içeriğinin kilidi açıldığında",
+      "offset": 1,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Anahtar ve sıcak bir açılış.",
+        "obsidian": "Kilit açılır; temiz kristal notalar."
+      },
+      "clips": {
+        "current": {
+          "filename": "gallery-unlock.mp3",
+          "siteVolume": 0.71
+        },
+        "velvet": {
+          "filename": "velvet-gallery-unlock.wav",
+          "path": "audio/velvet/gallery-unlock.wav",
+          "seconds": 1.72,
+          "peak": 0.24575,
+          "lufs": -21,
+          "bytes": 330284,
+          "sha256": "aa30a8768ee882d5c1088a3aaab3a8e924b2bd510b02168be5ba0aecef073122",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 1,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-gallery-unlock.wav",
+          "path": "audio/obsidian/gallery-unlock.wav",
+          "seconds": 1.65,
+          "peak": 0.1935,
+          "lufs": -21,
+          "bytes": 316844,
+          "sha256": "96178706d02170b17001c1b699a13718bbd5d93d3fa9af5549f3719cba175d40",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "affection_level_up",
+      "title": "Affection yükselişi",
+      "group": "Principessa",
+      "usage": "Yakınlık seviyesi yükseldiğinde",
+      "offset": 1,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "Sıcak, yavaş açılan tel ve celesta cümlesi.",
+        "obsidian": "Yükselen kristal motif ve yumuşak ışık halkası."
+      },
+      "clips": {
+        "current": {
+          "filename": "affection-level-up.mp3",
+          "siteVolume": 0.97
+        },
+        "velvet": {
+          "filename": "velvet-affection-level-up.wav",
+          "path": "audio/velvet/affection-level-up.wav",
+          "seconds": 2.55,
+          "peak": 0.20861,
+          "lufs": -21,
+          "bytes": 489644,
+          "sha256": "9e92b70ba8da5be94aade6ed5c47148fa8855fd87239e5e9fd5e1db1b7b9ed5e",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 4,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-affection-level-up.wav",
+          "path": "audio/obsidian/affection-level-up.wav",
+          "seconds": 2.3,
+          "peak": 0.20608,
+          "lufs": -21,
+          "bytes": 441644,
+          "sha256": "677b1b834e64aee4eb89356c60f34f97fa5496d118624b61da631cb8eefe1291",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    },
+    {
+      "id": "random_event_activation",
+      "title": "Principessa etkinliği",
+      "group": "Principessa",
+      "usage": "Özel bir etkinlik başladığında",
+      "offset": 0,
+      "descriptions": {
+        "current": "Sitedeki mevcut kayıt.",
+        "velvet": "İki davetkâr metal vuruşu ve karanlık bir kuyruk.",
+        "obsidian": "Yaklaşan bir sinyal ve derin, tek bir vurgu."
+      },
+      "clips": {
+        "current": {
+          "filename": "random-event-activation.mp3",
+          "siteVolume": 0.43
+        },
+        "velvet": {
+          "filename": "velvet-random-event-activation.wav",
+          "path": "audio/velvet/random-event-activation.wav",
+          "seconds": 1.6,
+          "peak": 0.18285,
+          "lufs": -22,
+          "bytes": 307244,
+          "sha256": "83fc904ce252c2e0985e58c89d9031170d064737e91d46d9a222a11b012e19d3",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 1,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        },
+        "obsidian": {
+          "filename": "obsidian-random-event-activation.wav",
+          "path": "audio/obsidian/random-event-activation.wav",
+          "seconds": 1.45,
+          "peak": 0.25041,
+          "lufs": -22,
+          "bytes": 278444,
+          "sha256": "f7065bdfeeee2f78ef3bc5fc6cb7627cbbd5fb66bbbb5191e41bba4c763a435a",
+          "dryRevision": "dry-2026-09-13",
+          "removedNoiseLayers": 2,
+          "cleanPlucks": 0,
+          "proposedSiteVolume": 0.3758
+        }
+      }
+    }
+  ]
+}

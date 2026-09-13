@@ -22,12 +22,14 @@ export function DrainScene({ active, total, balance, rate, memory }: {
     <p className={styles.caption}>{running ? "Less in your hands. More in hers." : displayedTotal > 0 ? "She will remember this offering." : "Set the pace. Give her your attention."}</p>
   </div>;
 }
-export function ClickStageTrack({ stage, progress, thresholds }: {
+export function ClickStageTrack({ stage, progress, thresholds, selectedStage = stage, onStageSelect }: {
     stage: number;
     progress: number;
     thresholds: readonly number[];
+    selectedStage?: number;
+    onStageSelect?: (stage: number) => void;
 }) {
     const previous = stage > 0 ? thresholds[stage - 1] : 0, next = thresholds[stage];
     const percent = next === undefined ? 100 : Math.min(100, Math.max(0, ((progress - previous) / (next - previous)) * 100));
-    return <div className={styles.clickJourney}><div className={styles.clickLabel}><span>Her attention, earned</span><strong>{stage} / {thresholds.length}</strong></div><div className={styles.stations} aria-label={'Stage ' + stage + ' of ' + thresholds.length}>{thresholds.map((threshold, index) => <span key={threshold} data-reached={stage > index} data-next={stage === index} title={'Stage ' + (index + 1) + ' · ' + threshold.toLocaleString() + ' clicks'}>{stage > index ? "✓" : index + 1}</span>)}</div><div className={styles.progress} role="progressbar" aria-label="Progress to next stage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><span style={{ width: percent + "%" }}/></div><p className={styles.next}>{next === undefined ? "Every stage revealed." : Math.max(0, next - progress).toLocaleString() + " clicks to the next reveal"}</p></div>;
+    return <div className={styles.clickJourney} data-stage={stage}><div className={styles.clickLabel}><span>{stage === thresholds.length ? "Every reveal is yours" : stage > 0 ? "Reveal " + stage + " unlocked" : "Earn her attention"}</span><strong>{stage} / {thresholds.length}</strong></div><div className={styles.stations} aria-label={'Stage ' + stage + ' of ' + thresholds.length}>{thresholds.map((threshold, index) => <button type="button" disabled={!onStageSelect || stage <= index} onClick={() => onStageSelect?.(index + 1)} aria-pressed={selectedStage === index + 1} aria-label={"View unlocked reveal " + (index + 1)} key={threshold} data-reached={stage > index} data-next={stage === index} title={'Stage ' + (index + 1) + ' · ' + threshold.toLocaleString() + ' clicks'}>{stage > index ? "✓" : index + 1}</button>)}</div><div className={styles.progress} role="progressbar" aria-label="Progress to next stage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><span style={{ width: percent + "%" }}/></div><p className={styles.next}>{next === undefined ? "Every stage revealed." : Math.max(0, next - progress).toLocaleString() + " clicks to the next reveal"}</p></div>;
 }

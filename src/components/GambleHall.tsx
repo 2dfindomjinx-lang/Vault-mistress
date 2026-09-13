@@ -7,6 +7,7 @@ import { CasinoTableFrame, CasinoMetric, CasinoDie, CasinoRunner } from "./Casin
 import { estimateGambleClock } from "@/lib/gamble-clock";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSoundLoop } from "@/lib/use-animation-sound";
 import { emitSoundEvent } from "@/lib/sound";
 import {
   CRAWL_LANES,
@@ -43,6 +44,7 @@ async function callGamble(body: Record<string, unknown>): Promise<Record<string,
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
     method: "POST",
+    signal: AbortSignal.timeout(15_000),
   });
   const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok) throw new Error((payload?.error as string) ?? "The table refused.");
@@ -112,6 +114,9 @@ function SlotReel({ duration, spinKey, strip }: { duration: number; spinKey: num
     void node.offsetHeight;
     node.style.transition = `transform ${duration}ms cubic-bezier(0.16, 0.7, 0.18, 1)`;
     node.style.transform = `translateY(-${(strip.length - 1) * REEL_CELL}px)`;
+    const stop = () => emitSoundEvent("slot_stop");
+    node.addEventListener("transitionend", stop);
+    return () => node.removeEventListener("transitionend", stop);
   }, [duration, spinKey, strip]);
 
   return (
@@ -138,18 +143,14 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
   const timers = useRef<number[]>([]);
-  const reelSound = useRef<number | null>(null);
 
-  const stopReelSound = () => {
-    if (reelSound.current !== null) window.clearInterval(reelSound.current);
-    reelSound.current = null;
-  };
+
+
 
   useEffect(() => {
     const captured = timers.current;
     return () => {
       captured.forEach((id) => window.clearTimeout(id));
-      if (reelSound.current !== null) window.clearInterval(reelSound.current);
     };
   }, []);
 
@@ -165,9 +166,6 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setLine(null);
       setWin(null);
       setPhase("waiting");
-      emitSoundEvent("crate_reel_tick");
-      stopReelSound();
-      reelSound.current = window.setInterval(() => emitSoundEvent("crate_reel_tick"), 85);
       try {
         const result = await callGamble({ action: "slots", bet });
         if (result.profile && onProfile) onProfile(result.profile);
@@ -177,8 +175,6 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
         setPhase("sliding");
         timers.current.push(
           window.setTimeout(() => {
-            stopReelSound();
-            emitSoundEvent("crate_reel_tick");
             setReels(landed);
             setPhase("idle");
             const payout = Number(result.payout) || 0;
@@ -193,7 +189,6 @@ function SlotsTable({ bet, busy, onPlay, onProfile }: TableProps) {
           }, REEL_DURATIONS[2] + 80),
         );
       } catch (error) {
-        stopReelSound();
         setPhase("idle");
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
       }
@@ -277,7 +272,7 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
           window.setTimeout(() => {
             setShown((current) => ({ ...current, mine }));
             lock("mine", true);
-            emitSoundEvent("crate_reel_tick");
+
           }, 800),
         );
         timers.current.push(
@@ -286,7 +281,7 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
             tumble.current = null;
             setShown({ hers, mine });
             lock("both", true);
-            emitSoundEvent("crate_reel_tick");
+
           }, 1_350),
         );
         timers.current.push(
@@ -313,6 +308,7 @@ function DiceTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
+  useSoundLoop("dice_roll", rolling && (!locked.mine || !locked.hers));
   const viewRolling = rolling;
   const viewLocked = locked;
   const viewShown = shown;
@@ -372,7 +368,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
           const delta = (((-targetAngle - previous) % 360) + 360) % 360;
           return previous + 4 * 360 + delta;
         });
-        emitSoundEvent("crate_reel_tick");
+
         timers.current.push(
           window.setTimeout(() => {
             setSpinning(false);
@@ -395,6 +391,7 @@ function RouletteTable({ bet, busy, onPlay, onProfile }: TableProps) {
       }
     });
 
+  useSoundLoop("roulette_roll", spinning);
   const viewSpinning = spinning;
   const viewNumber = landedNumber;
 
@@ -425,9 +422,16 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
   const [line, setLine] = useState<Line>(null);
   const [win, setWin] = useState<WinState>(null);
   const frame = useRef<number | null>(null);
+  const mounted = useRef(true);
+  const landingTimer = useRef<number | null>(null);
+  const resolveAnimation = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    mounted.current = true;
     return () => {
+      mounted.current = false;
+      if (landingTimer.current !== null) clearTimeout(landingTimer.current);
+      resolveAnimation.current?.();
       if (frame.current !== null) window.cancelAnimationFrame(frame.current);
     };
   }, []);
@@ -441,8 +445,10 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setBall({ x: 50, y: 2 });
       try {
         const result = await callGamble({ action: "plinko", bet });
+        if (!mounted.current) return;
         if (result.profile && onProfile) onProfile(result.profile);
         const path = result.path as number[];
+        if (!Array.isArray(path) || path.length !== PLINKO_ROWS || path.some(step => step !== 0 && step !== 1)) throw new Error("The ball could not be displayed. Please refresh your balance before playing again.");
         let offset = 0;
         const points = [{ x: 50, y: 2 }];
         path.forEach((step, row) => {
@@ -457,7 +463,18 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
         const hopMs = 155;
         const startedAt = performance.now();
         let lastPeg = -1;
+        await new Promise<void>(resolve => {
+        resolveAnimation.current = resolve;
+        let finished = false;
         const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (frame.current !== null) cancelAnimationFrame(frame.current);
+          if (landingTimer.current !== null) clearTimeout(landingTimer.current);
+          frame.current = null;
+          resolveAnimation.current = null;
+          resolve();
+          if (!mounted.current) return;
           setBall(null);
           setLanded(Number(result.bucket));
           const payout = Number(result.payout) || 0;
@@ -473,6 +490,7 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
           }
         };
         const animate = (now: number) => {
+          if (!mounted.current) { finish(); return; }
           const raw = Math.min(points.length - 1, (now - startedAt) / hopMs);
           const segment = Math.min(points.length - 2, Math.floor(raw));
           const local = Math.min(1, raw - segment);
@@ -486,7 +504,8 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
           setTrail([...points.slice(0, segment + 1), current]);
           if (segment !== lastPeg && segment > 0) {
             lastPeg = segment;
-            emitSoundEvent("crate_reel_tick");
+            emitSoundEvent("plinko_hit");
+
           }
           if (raw < points.length - 1) {
             frame.current = window.requestAnimationFrame(animate);
@@ -495,8 +514,11 @@ function PlinkoTable({ bet, busy, onPlay, onProfile }: TableProps) {
             finish();
           }
         };
+        landingTimer.current = window.setTimeout(finish, points.length * hopMs + 250);
         frame.current = window.requestAnimationFrame(animate);
+        });
       } catch (error) {
+        if (!mounted.current) return;
         setBall(null);
         setTrail([]);
         setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
@@ -572,10 +594,10 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
         setBustCell(cell);
         setRoundId(null);
         setLine({ text: "A mine. Everything on the table is hers.", tone: "lose" });
-        emitSoundEvent("task_fail");
+        emitSoundEvent("mine_bust");
       } else {
         setPicks(result.picks as number[]);
-        emitSoundEvent("button_click");
+        emitSoundEvent("gem_found");
       }
     } catch (error) {
       setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
@@ -594,7 +616,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setLine({ text: `${result.multiplier}x · ${payout.toLocaleString()} Coins returned · +${(payout - wager).toLocaleString()} net`, tone: payout > wager ? "win" : "info" });
       setWin({ payout, roundId });
       setRoundId(null);
-      emitSoundEvent("task_completion");
+      emitSoundEvent("casino_cashout");
     } catch (error) {
       setLine({ text: error instanceof Error ? error.message : "The table refused.", tone: "info" });
     } finally {
@@ -614,7 +636,7 @@ function MinesTable({ bet, busy, onPlay, onProfile }: TableProps) {
   return (
     <CasinoTableFrame label="Twenty-five sealed compartments" phase={pending ? "Opening" : roundId ? "Choose a box" : line ? "Result" : "Sealed"} result={<>{line ? <ResultLine {...line} /> : null}{win ? <DoubleBanner onDone={() => setWin(null)} onProfile={onProfile} payout={win.payout} roundId={win.roundId} /> : null}</>} controls={<>
       <CasinoMetric label={roundId ? "Round stake" : "Your stake"} value={(roundId ? wager : bet).toLocaleString()} detail="Coins · return includes your stake" />
-      {!roundId && bustCell === null ? <div><p className={c.controlTitle}>Choose the traps</p><div className={c.choices} style={{marginTop:10}}>{MINES_OPTIONS.map(option => <button aria-pressed={mineCount === option} disabled={pending || busy} key={option} onClick={() => {reset();setMineCount(option);setLine(null);}} type="button">{option}<small>traps</small></button>)}</div></div> : null}
+      {!roundId ? <div><p className={c.controlTitle}>Choose the traps</p><div className={c.choices} style={{marginTop:10}}>{MINES_OPTIONS.map(option => <button aria-pressed={mineCount === option} disabled={pending || busy} key={option} onClick={() => {reset();setMineCount(option);setLine(null);}} type="button">{option}<small>traps</small></button>)}</div></div> : null}
       <p className={c.controlCopy}>Profit begins at {minesProfitPicks(mineCount)} safe {minesProfitPicks(mineCount) === 1 ? "box" : "boxes"}. Earlier takes return your stake. Maximum return {MINES_MAX_MULTIPLIER}×.</p>
       {roundId ? <><CasinoMetric label="Available return" value={picks.length > 0 ? `${currentMultiplier}×` : "Open a box"} detail={nextMultiplier !== null ? `Next gem: ${nextMultiplier}×` : currentMultiplier >= MINES_MAX_MULTIPLIER ? "Maximum reached" : "All gems found"} /><button className={c.action} disabled={pending || picks.length === 0} onClick={() => void cashout()} type="button">Take {Math.floor(wager*currentMultiplier).toLocaleString()}</button></> : <button className={c.action} disabled={busy || pending} onClick={open} type="button">Buy in · {bet.toLocaleString()} coins</button>}
 
@@ -658,13 +680,13 @@ function CrashTable({ bet, busy, onPlay, onProfile }: TableProps) {
       setDisplay(multiplier);
       setLine({ text: `${multiplier.toFixed(2)}x — ${payout.toLocaleString()} Coins returned.`, tone: "win" });
       setWin({ payout, roundId: id });
-      emitSoundEvent("task_completion");
+      emitSoundEvent("casino_cashout");
     } else {
       const point = Number(result.crashPoint) || 1;
       setDisplay(point);
       setCrashed(true);
       setLine({ text: `Her patience ran out at ${point.toFixed(2)}x.`, tone: "lose" });
-      emitSoundEvent("task_fail");
+      emitSoundEvent("crash_break");
     }
   }, [onProfile]);
 
@@ -863,7 +885,7 @@ function CrawlTable({ bet, busy, onPlay, onProfile }: TableProps) {
       {!raceId && !racing ? <button className={c.action} disabled={busy} onClick={draw} type="button">Draw a race sheet</button> : raceId ? <p className={c.controlCopy}>Pick a collar · {bet.toLocaleString()} coins</p> : null}
 
     </>}>
-      <div className={c.raceField}><div className={c.raceBanner}><span>The starting line</span><span>Principessa awaits</span></div>{CRAWL_LANES.map((entry,index) => <div className={c.raceRow} data-selected={viewLane === index} data-winner={!viewRacing && viewProgress[index] >= 100} key={entry.id}><span className={c.raceBadge} style={{color:entry.color}}>{index+1}</span><div className={c.raceLane}><span aria-hidden="true" className={c.raceFinish} /><div className={c.runnerWrap} style={{left:"calc("+viewProgress[index]+"% - "+(viewProgress[index]*.65)+"px)"}}><CasinoRunner color={entry.color} running={viewRacing} /></div></div><span className="h-6 w-6 shrink-0 text-pink-200/60"><CourtGlyph /></span></div>)}<div className={c.raceFooter}><span>{viewRacing ? "Every collar is moving." : "Choose who you believe will reach her."}</span><span>Finish →</span></div></div>
+      <div className={c.raceField}><div className={c.raceBanner}><span>The starting line</span><span>Principessa awaits</span></div>{CRAWL_LANES.map((entry,index) => <div className={c.raceRow} data-selected={viewLane === index} data-winner={!viewRacing && viewProgress[index] >= 100} key={entry.id}><span className={c.raceBadge} style={{color:entry.color}}>{index+1}</span><div className={c.raceLane}><span aria-hidden="true" className={c.raceFinish} /><div className={c.runnerWrap} style={{left:"calc("+viewProgress[index]+"% - "+(viewProgress[index]*.65)+"px)"}}><CasinoRunner color={entry.color} audible={viewLane === index} running={viewRacing && viewProgress[index] < 100} /></div></div><span className="h-6 w-6 shrink-0 text-pink-200/60"><CourtGlyph /></span></div>)}<div className={c.raceFooter}><span>{viewRacing ? "Every collar is moving." : "Choose who you believe will reach her."}</span><span>Finish →</span></div></div>
     </CasinoTableFrame>
   );
 }type TableProps = {
@@ -906,13 +928,15 @@ function TableCard({ children, game }: { children: React.ReactNode; game: TableP
 export function GambleHall({disabled=false,onProfile}:HallProps) {
   const [bet,setBet]=useState(250);
   const [busy,setBusy]=useState(false);
+  const busyRef=useRef(false);
   const [activeTable,setActiveTable]=useState<TableId>("slots");
   const [visited,setVisited]=useState<TableId[]>(["slots"]);
   const onPlay=useCallback((run:()=>Promise<void>)=>{
-    if(disabled||busy)return;
+    if(disabled||busyRef.current)return;
+    busyRef.current=true;
     setBusy(true);
-    void run().finally(()=>setBusy(false));
-  },[busy,disabled]);
+    void run().finally(()=>{busyRef.current=false;setBusy(false);});
+  },[disabled]);
   const tableProps:TableProps={bet,busy:busy||disabled,onPlay,onProfile};
   const select=(id:TableId)=>{
     setActiveTable(id);

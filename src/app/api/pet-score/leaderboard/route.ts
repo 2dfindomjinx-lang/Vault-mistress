@@ -29,7 +29,7 @@ export async function GET() {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, display_name, pet_score, created_at")
+    .select("id, username, display_name, avatar_url, pet_score, created_at")
     .eq("hide_from_leaderboard", false)
     .eq("is_admin", false)
     .gt("pet_score", 0)
@@ -44,6 +44,7 @@ export async function GET() {
 
   return Response.json({
     leaders: (data ?? []).map((profile, index) => ({
+      avatarUrl: profile.avatar_url ?? null,
       displayName: profile.display_name ?? null,
       petScore: Number(profile.pet_score ?? 0),
       rank: index + 1,

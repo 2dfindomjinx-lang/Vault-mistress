@@ -1,4 +1,5 @@
 "use client";
+import { emitSoundEvent } from "@/lib/sound";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -288,12 +289,16 @@ export function DebtSection({
   const [evilDebtDuration, setEvilDebtDuration] = useState("");
   const [evilDebtPeriodType, setEvilDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
   const [evilPurchasePledge, setEvilPurchasePledge] = useState(false);
+  const [throneSummary, setThroneSummary] = useState<ThroneDebtContract | null>(null);
   const [contractFilters, setContractFilters] = useState<Array<"coin" | "evil" | "throne">>([]);
   const toggleContractFilter = (kind: "coin" | "evil" | "throne") => setContractFilters(current => {
     const next = current.includes(kind) ? current.filter(value => value !== kind) : [...current, kind];
     return next.length === 3 ? [] : next;
   });
-  const contractVisible = (kind: "coin" | "evil" | "throne") => contractFilters.length === 0 || contractFilters.includes(kind);
+  const contractVisible = (kind: "coin" | "evil" | "throne") => {
+    if (hasOpenDebtContract && (kind === "coin" && activeDebtContractType === "evil" || kind === "evil" && activeDebtContractType === "normal")) return false;
+    return contractFilters.length === 0 || contractFilters.includes(kind);
+  };
   const [showDebtSigningImage, setShowDebtSigningImage] = useState<"normal" | "evil" | null>(null);
 
   const isPetActionPending = (actionId: string) => pendingPetActionIds.includes(actionId);
@@ -449,9 +454,9 @@ export function DebtSection({
   }
 
   return (
-    <section className={styles.documents} aria-label="Debt agreements" data-visible-count={contractFilters.length || 3}>
+    <section className={styles.documents} aria-label="Debt agreements" data-recorded-layout={hasOpenDebtContract} data-visible-count={(["coin", "evil", "throne"] as const).filter(contractVisible).length}>
       <nav className={styles.index} aria-label="Filter agreements">
-        {([{kind:"coin",label:"Coin Debt"},{kind:"evil",label:"Evil Debt"},{kind:"throne",label:"Throne Debt"}] as const).map((item,index)=><button type="button" key={item.kind} aria-pressed={contractFilters.includes(item.kind)} aria-controls={item.kind+"-contract-panel"} onClick={()=>toggleContractFilter(item.kind)}><span>{String(index+1).padStart(2,"0")}</span>{item.label}</button>)}
+        {([{kind:"coin",label:"Coin Debt"},{kind:"evil",label:"Evil Debt"},{kind:"throne",label:"Throne Debt"}] as const).map((item,index)=><button type="button" key={item.kind} disabled={hasOpenDebtContract && (item.kind === "coin" && activeDebtContractType === "evil" || item.kind === "evil" && activeDebtContractType === "normal")} aria-pressed={contractFilters.includes(item.kind)} aria-controls={item.kind+"-contract-panel"} onClick={()=>toggleContractFilter(item.kind)}><span>{String(index+1).padStart(2,"0")}</span>{item.label}</button>)}
       </nav>
       <div className={styles.contractSlot} id="coin-contract-panel" hidden={!contractVisible("coin")}><DebtCard
         active={activeDebtContractType === "normal"}
@@ -537,18 +542,29 @@ export function DebtSection({
         remainingDebtBalance={remainingDebtBalance}
         now={now}
       /></div>
-      <div className={styles.contractSlot} id="throne-contract-panel" hidden={!contractVisible("throne")}><ThroneDebtCard onMoneyChange={onMoneyChange} previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} /></div>
+      {hasOpenDebtContract && petDebtContract && <aside className={styles.commitmentColumn} aria-label="Recorded commitments">
+        {(contractVisible("coin") || contractVisible("evil")) && <CoinContractSummary amount="" duration="" period={petDebtContract.period_type} contract={petDebtContract} remaining={remainingDebtBalance}/>}
+        {contractVisible("throne") && throneSummary && ["active","overdue","timeout","paused"].includes(throneSummary.status) && <div className={styles.schedule}>
+          <p className={styles.edition}>RECORDED COMMITMENT · THRONE</p><h4>The Throne account</h4>
+          <div className={styles.total}>${Number(throneSummary.total_amount_usd).toLocaleString()}<small>ORIGINAL COMMITMENT</small></div>
+          <dl className={styles.facts}><div><dt>Settled</dt><dd>${getThroneDebtPaidTotal(throneSummary).toLocaleString()}</dd></div><div><dt>Remaining</dt><dd>${Math.max(0, throneSummary.total_amount_usd - (throneSummary.rounding_waived_usd ?? 0) - getThroneDebtPaidTotal(throneSummary)).toLocaleString()}</dd></div><div><dt>Reference</dt><dd>{throneSummary.debt_code}</dd></div></dl>
+          <p className={styles.scheduleNote}>Pay with PM or Throne. Your installment schedule and payment controls are in the Throne agreement.</p>
+        </div>}
+      </aside>}
+      <div className={styles.contractSlot} id="throne-contract-panel" hidden={!contractVisible("throne")}><ThroneDebtCard onContractChange={setThroneSummary} onMoneyChange={onMoneyChange} previewMode={previewMode} disabled={disabled} isTimeoutActive={isTimeoutActive} /></div>
     </section>
   );
 }
 
 function ThroneDebtCard({
+  onContractChange,
   onMoneyChange,
   previewMode = false,
   disabled = false,
   isTimeoutActive = false,
 }: {
   onMoneyChange?: (money: number) => void;
+  onContractChange?: (contract: ThroneDebtContract | null) => void;
   disabled?: boolean;
   previewMode?: boolean;
   isTimeoutActive?: boolean;
@@ -573,6 +589,7 @@ function ThroneDebtCard({
     ["pending_review", "active", "overdue", "timeout", "paused"].includes(contract.status),
   ) ?? null;
   const activeContract = contracts.find(contract => contract.id === historyId) ?? openContract ?? contracts[0] ?? null;
+  useEffect(() => { onContractChange?.(openContract); }, [openContract, onContractChange]);
   const cleanLengthWeeks = contractLengthWeeks === "custom"
     ? Math.floor(Number(customLengthWeeks))
     : Math.floor(Number(contractLengthWeeks));
@@ -622,6 +639,7 @@ function ThroneDebtCard({
       setContracts(payload.contracts ?? []);
       if (typeof payload.money === "number") setMoney(payload.money);
       setStatusText("");
+      return payload.contracts ?? [];
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : "Throne Debt could not be loaded.");
     }
@@ -686,7 +704,8 @@ function ThroneDebtCard({
       if (!response.ok) throw new Error(payload.error ?? "Payment could not be confirmed. Please retry.");
       pmRequest.current=null;
       setMoney(payload.money); onMoneyChange?.(payload.money);
-      await loadThroneDebts();
+      const updated = await loadThroneDebts();
+      if (!payload.duplicate) emitSoundEvent(updated?.find(contract => contract.id === activeContract.id)?.status === "completed" ? "debt_completed" : "debt_installment");
       setStatusText(payload.spent + " PM paid toward your contract.");
     } catch(error) { setStatusText(error instanceof Error ? error.message : "Payment could not be confirmed. Please retry."); }
     finally {setIsBusy(false);}
@@ -1006,7 +1025,7 @@ function EvilDebtCard(props: {
   );
 }
 
-function CoinAccount({ contract, now, installmentNumber, remaining, due, missed, disabled, busy, autoPay, onAutoPay, onPay }: {
+function CoinAccount({ contract, now, installmentNumber, due, missed, disabled, busy, autoPay, onAutoPay, onPay }: {
   contract: PetDebtContract; now: number; installmentNumber: number; remaining: number;
   due: boolean; missed: boolean; disabled: boolean; busy: boolean; autoPay: boolean;
   onAutoPay: (enabled: boolean) => void; onPay: () => void;
@@ -1041,7 +1060,7 @@ function CoinAccount({ contract, now, installmentNumber, remaining, due, missed,
         </ContractClause>
         {contract.custom_note ? <p className={styles.note}>{contract.custom_note}</p> : null}
       </div>
-      <CoinContractSummary amount="" duration="" period={contract.period_type} contract={contract} remaining={remaining}/>
+
     </div>
     <ContractSignature name={contract.full_name || contract.pet_name} state={pending ? "SIGNED · AWAITING APPROVAL" : "SIGNED · ACTIVE AGREEMENT"}/>
   </>;

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Principessa · Sound Atelier</title>
+  <style>
+    :root{--bg:#0d0b11;--panel:#151119;--line:#302631;--text:#f4eaf0;--muted:#b19eac;--pink:#efabc9;--gold:#ddbf8a;--ice:#b3bfef}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 8% 0,#30182255,transparent 45%),var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input,select{font:inherit}button,select{color:inherit}button,a,input,select{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:wait;opacity:.5}
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--pink);outline-offset:4px}
+    button{border:1px solid var(--line);background:#211922;border-radius:9px}button:hover{border-color:#856173;background:#2c202c}a{color:inherit}
+    .wrap{max-width:1280px;margin:auto;padding:42px 34px 105px}.eyebrow{color:var(--pink);font-size:10px;letter-spacing:.24em;text-transform:uppercase;margin:0 0 14px;display:flex;align-items:center;gap:12px}.eyebrow:before{content:"";width:26px;height:1px;background:var(--pink)}
+    header{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:26px}h1{font:normal clamp(32px,4.4vw,51px)/1.1 Georgia,serif;letter-spacing:-.035em;margin:0 0 14px}h1 em{color:var(--pink);font-weight:normal}header p{margin:0;color:var(--muted);max-width:600px}.badge{border:1px solid #5a3747;border-radius:99px;padding:8px 14px;color:#deb6c9;font-size:11px;white-space:nowrap}
+    .directions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}.direction{display:flex;gap:16px;padding:17px 20px;background:linear-gradient(115deg,#221a1d,#151119);border:1px solid var(--line);border-radius:13px}.direction:last-child{background:linear-gradient(115deg,#1b1b28,#151119)}.letter{font:29px/1.2 Georgia,serif;color:var(--gold);align-self:center}.direction:last-child .letter{color:var(--ice)}.direction b{font-weight:550;font-size:15px}.direction p{color:var(--muted);font-size:12px;margin:3px 0 0}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 18px}.filters{display:flex;gap:5px;flex-wrap:wrap}.filters button{padding:7px 12px;font-size:12px;background:transparent;border-color:transparent;color:var(--muted)}.filters button[aria-pressed=true]{background:#30202a;border-color:#62404f;color:#ffdae9}
+    .volume{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}input[type=range]{accent-color:var(--pink);width:100px}output{font-variant-numeric:tabular-nums;min-width:30px}.quiet-button{font-size:12px;padding:7px 11px;background:transparent;color:var(--muted)}
+    .scenario{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:23px;background:#151119}.scenario-label{font-size:12px;margin-right:auto}.scenario-label span{display:block;font-size:11px;color:var(--muted);margin-top:2px}select{border:1px solid #40323f;background:#1b161f;border-radius:7px;padding:7px 27px 7px 9px;font-size:12px;max-width:100%}.scenario-actions{display:flex;gap:6px}.scenario-actions button{font-size:11px;padding:7px 10px}.scenario-actions button[data-palette=velvet]{color:var(--gold)}.scenario-actions button[data-palette=obsidian]{color:var(--ice)}
+    .column-head,.sound-row{display:grid;grid-template-columns:minmax(185px,.88fr) repeat(3,minmax(0,1fr));gap:12px}.column-head{padding:0 0 11px;color:var(--muted);font-size:11px}.column-head>span:first-child{padding-left:2px}.column-head b{font-weight:500;color:var(--text)}.column-head .a{color:var(--gold)}.column-head .b{color:var(--ice)}.sound-row{padding:15px 0;border-top:1px solid var(--line);align-items:stretch}.event{padding:5px 10px 5px 0;align-self:center}.event .category{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#9a7e90}.event h2{font-weight:550;font-size:14px;line-height:1.3;margin:5px 0}.event p{font-size:11px;line-height:1.5;margin:0;color:var(--muted)}.repeat{font-size:10px;padding:4px 7px;margin-top:8px;background:transparent;color:var(--muted)}
+    .clip{--accent:#b7a9b3;position:relative;min-width:0;border:1px solid #302631;border-radius:11px;background:#17131b;overflow:hidden;display:flex;flex-direction:column;isolation:isolate}.clip[data-palette=velvet]{--accent:var(--gold);background:linear-gradient(135deg,#201b1b,#161219)}.clip[data-palette=obsidian]{--accent:var(--ice);background:linear-gradient(135deg,#1c1c29,#161219)}.clip.playing{border-color:var(--accent);box-shadow:0 0 18px #c480b011}.clip.chosen:after{content:"";height:2px;position:absolute;bottom:0;left:14px;right:14px;background:var(--accent)}
+    .clip-main{display:flex;align-items:center;gap:10px;padding:12px 11px 0}.play{flex-shrink:0;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;background:#ffffff07;border-color:#ffffff20;color:var(--accent);padding:0}.play svg{width:13px;height:13px}.play:hover{background:#ffffff15;border-color:var(--accent)}.play .pause-icon{display:none}.playing .play .play-icon{display:none}.playing .play .pause-icon{display:block}
+    .wave-wrap{flex:1;min-width:0;position:relative;height:32px}.wave{width:100%;height:32px;display:block;color:var(--accent);opacity:.55}.wave-progress{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 100% 0 0)}.wave-progress .wave{opacity:1}.clip-meta{display:flex;align-items:center;gap:7px;justify-content:space-between;padding:6px 12px 0;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}.version-label{color:var(--accent)}.clip-desc{margin:7px 12px 9px;font-size:11px;line-height:1.5;color:var(--muted);flex:1}.clip-bottom{display:flex;justify-content:space-between;align-items:center;padding:0 9px 8px;gap:6px}.favorite{font-size:10px;border-color:transparent;background:transparent;padding:3px 4px;color:#a08b9a}.favorite[aria-pressed=true]{color:var(--accent)}.download{font-size:10px;padding:3px 4px;color:#a08b9a;text-decoration:none}.download:hover{color:var(--text)}
+    footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px;border-top:1px solid var(--line);padding-top:20px;font-size:11px;color:var(--muted)}footer p{margin:0;max-width:660px}.selection-export{font-size:11px;padding:8px 12px}.transport{position:fixed;bottom:0;left:0;right:0;border-top:1px solid #483340;background:#141017f5;z-index:5}.transport-inner{max-width:1280px;margin:auto;padding:12px 34px;display:flex;align-items:center;gap:14px}.status-dot{width:6px;height:6px;flex-shrink:0;border-radius:50%;background:#685362}.transport.active .status-dot{background:var(--pink);box-shadow:0 0 10px #ee94bf70}.status{font-size:12px;margin-right:auto}.status small{display:block;font-size:10px;color:var(--muted)}.stop{font-size:12px;padding:8px 14px;border-color:#704659;color:#f3bfd4}.stop span{font-size:10px;color:var(--muted);margin-left:8px}.empty{padding:35px;color:var(--muted);text-align:center}
+    @media(min-width:1024px){.column-head{position:sticky;top:0;padding-top:12px;background:var(--bg);z-index:2}}
+    @media(max-width:1000px){.wrap{padding:30px 20px 100px}.column-head,.sound-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.column-head{display:none}.event{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:0}.event .category{order:-1}.event h2{margin:0}.event p{flex:1;min-width:170px}.repeat{margin-top:0}.transport-inner{padding:12px 20px}.clip-desc{font-size:11px}}
+    @media(max-width:620px){.wrap{padding:25px 14px 112px}header{align-items:start;flex-direction:column;gap:14px;margin-bottom:18px}header p{font-size:12px}.badge{padding:5px 10px}.directions{gap:8px;margin-bottom:18px}.direction{padding:11px;gap:9px}.direction b{font-size:13px}.direction p{font-size:10px}.letter{font-size:24px}.toolbar{gap:11px}.filters{gap:0}.filters button{padding:6px 8px;font-size:11px}.volume{width:100%;justify-content:end}.volume input{flex:1;max-width:170px}.scenario{padding:11px;gap:9px}.scenario-label{width:100%}.scenario-label span{display:inline;margin-left:5px}.scenario select{flex:1;min-width:130px}.scenario-actions{flex:1}.scenario-actions button{flex:1;padding:7px}.sound-row{gap:6px;padding:14px 0}.event{gap:6px 9px}.event h2{font-size:13px}.event p{flex-basis:100%;font-size:10px}.clip-main{flex-direction:column;gap:3px;padding:11px 6px 0}.wave-wrap{width:100%;flex:auto;height:22px}.wave{height:22px}.clip-meta{padding:5px 6px 0;flex-direction:column;gap:2px;font-size:9px}.clip-desc{margin:7px 7px 9px;font-size:10px}.clip-bottom{flex-direction:column;align-items:center;gap:1px;padding:0 3px 7px}.favorite,.download{font-size:9px}.transport-inner{padding:11px 14px;gap:9px}.stop{padding:8px 10px}.stop span{display:none}.status{font-size:11px}.status small{font-size:9px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">Principessa · Private listening room</p>
+  <header>
+    <div><h1>Sound <em>Atelier.</em></h1><p>13 an, iki yeni ses karakteri. Mevcut kaydı dinle, alternatifleri karşılaştır, beğendiğini işaretle.</p></div>
+    <span class="badge">Temiz girişler · 26 alternatif</span>
+  </header>
+  <section class="directions" aria-label="Ses koleksiyonları">
+    <div class="direction"><span class="letter">A</span><div><b>Velvet Court</b><p>Sıcak metal, mühür, ipek.<br>Daha dokulu ve törensel.</p></div></div>
+    <div class="direction"><span class="letter">B</span><div><b>Obsidian</b><p>Cam, mekanik kilitler, derin vuruşlar.<br>Daha keskin ve modern.</p></div></div>
+  </section>
+  <div class="toolbar">
+    <nav class="filters" aria-label="Ses kategorisi">
+      <button type="button" data-filter="Tümü" aria-pressed="true">Tümü <span>13</span></button>
+      <button type="button" data-filter="Arayüz" aria-pressed="false">Arayüz</button>
+      <button type="button" data-filter="Oyunlar" aria-pressed="false">Oyunlar</button>
+      <button type="button" data-filter="Ekonomi" aria-pressed="false">Ekonomi</button>
+      <button type="button" data-filter="Principessa" aria-pressed="false">Principessa</button>
+    </nav>
+    <label class="volume" for="volume">Ses <input id="volume" type="range" min="0" max="100" value="65"><output id="volume-value" for="volume">65%</output></label>
+  </div>
+  <section class="scenario" aria-label="Akış dinleme">
+    <div class="scenario-label">Akış içinde dinle <span>Sesler birlikte nasıl hissettiriyor?</span></div>
+    <select id="scenario" aria-label="Dinlenecek akış">
+      <option value="case">Kasa → efsanevi ödül</option>
+      <option value="game">Oyun → hata → başarı</option>
+      <option value="shop">Shop → tribute → affection</option>
+      <option value="clicks">Art arda buton tıklaması</option>
+      <option value="ticks">Art arda kasa tıkırtısı</option>
+    </select>
+    <div class="scenario-actions">
+      <button type="button" data-scene="true" data-palette="current">▶ Mevcut</button>
+      <button type="button" data-scene="true" data-palette="velvet">▶ A</button>
+      <button type="button" data-scene="true" data-palette="obsidian">▶ B</button>
+    </div>
+  </section>
+  <div class="column-head" aria-hidden="true"><span>SESİN KULLANILDIĞI AN</span><span>00 / <b>Mevcut</b></span><span class="a">A / <b>Velvet Court</b></span><span class="b">B / <b>Obsidian</b></span></div>
+  <section id="sounds" aria-label="Ses karşılaştırmaları"></section>
+  <footer><p>Alternatiflerdeki ortak hava/hışırtı katmanı kaldırıldı. Ses seviyeleri karşılaştırma için dengelendi. Mevcut site kayıtları karşılaştırma için aynen duruyor; bu HTML tek başına, internetsiz çalışır.</p><button id="export" type="button" class="selection-export">Seçimlerimi indir <span id="choice-count">0/13</span></button></footer>
+</main>
+<div class="transport" id="transport"><div class="transport-inner"><span class="status-dot" aria-hidden="true"></span><div class="status" role="status"><span id="status">Dinlemeye hazır</span><small id="status-detail">Bir ses seç. Yenisine bastığında önceki durur.</small></div><button type="button" id="stop" class="stop">■ Durdur <span>Esc</span></button></div></div>
+<noscript>Dinleme düğmelerinin çalışması için JavaScript açık olmalı.</noscript>
+<script id="sound-data" type="application/json">__SOUND_LAB_DATA__</script>
+<script>
+(() => {
+  'use strict';
+  const data = JSON.parse(document.getElementById('sound-data').textContent);
+  const names = {current:'Mevcut',velvet:'A · Velvet Court',obsidian:'B · Obsidian'};
+  const shortNames = {current:'Mevcut',velvet:'A · Velvet',obsidian:'B · Obsidian'};
+  const events = new Map(data.events.map(event => [event.id,event]));
+  const cache = new Map(), cells = new Map(), voices = new Set();
+  const storageKey = 'principessa-sound-atelier-choices-v1';
+  let choices = {}, ctx, master, epoch = 0, raf = 0, filter = 'Tümü', sequence = false, lastStatus = '';
+  try { const stored = JSON.parse(localStorage.getItem(storageKey) || '{}'); if (stored && typeof stored === 'object' && !Array.isArray(stored)) choices = stored; } catch {}
+  for (const [id, version] of Object.entries(choices)) if (!events.has(id) || !Object.hasOwn(names, version)) delete choices[id];
+  const $ = id => document.getElementById(id);
+  const escape = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const durationText = seconds => seconds < 1 ? `${Math.round(seconds * 1000)} ms` : `${seconds.toFixed(2).replace('.',',')} sn`;
+  const playIcon = '<svg class="play-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.2 13 8l-9 5.8z"/></svg><svg class="pause-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"/></svg>';
+  function wave(values) {
+    if (!values) return '<svg class="wave" viewBox="0 0 192 32" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16H192" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3"/></svg>';
+    return '<svg class="wave" viewBox="0 0 192 32" preserveAspectRatio="none" aria-hidden="true">' + values.map((v,i) => { const h = Math.max(1.5,Math.sqrt(v)*28); return `<rect x="${i*3}" y="${(32-h)/2}" width="1.5" height="${h}" rx=".7" fill="currentColor"/>`; }).join('') + '</svg>';
+  }
+  for (const event of data.events) {
+    const row = document.createElement('article'); row.className = 'sound-row'; row.dataset.group = event.group;
+    row.innerHTML = `<div class="event"><span class="category">${escape(event.group)}</span><h2>${escape(event.title)}</h2><p>${escape(event.usage)}</p></div>`;
+    for (const version of ['current','velvet','obsidian']) {
+      const clip = event.clips[version], key = `${event.id}:${version}`, node = document.createElement('div');
+      node.className = 'clip'; node.dataset.palette = version; node.dataset.key = key;
+      node.innerHTML = `<div class="clip-main"><button type="button" class="play" aria-label="${escape(event.title+' — '+names[version])} dinle" aria-pressed="false">${playIcon}</button><div class="wave-wrap">${wave(clip.waveform)}<div class="wave-progress">${wave(clip.waveform)}</div></div></div><div class="clip-meta"><span class="version-label">${shortNames[version]}</span><span class="duration">${clip.seconds ? durationText(clip.seconds) : 'Orijinal kayıt'}</span></div><p class="clip-desc">${escape(event.descriptions[version])}</p><div class="clip-bottom"><button type="button" class="favorite" aria-pressed="false" aria-label="${escape(event.title+' için '+names[version])} seç">☆ Tercihim</button><a class="download" download="${escape(clip.filename)}" href="${clip.uri}" aria-label="${escape(event.title+' — '+names[version])} indir">↓ ${version==='current' ? 'İndir' : 'WAV indir'}</a></div>`;
+      row.append(node); cells.set(key, node);
+      node.querySelector('.play').addEventListener('click', () => {
+        if (node.classList.contains('playing')) { stop(); return; }
+        playOne(event.id, version);
+      });
+      node.querySelector('.favorite').addEventListener('click', () => {
+        if (choices[event.id] === version) delete choices[event.id]; else choices[event.id] = version;
+        try { localStorage.setItem(storageKey,JSON.stringify(choices)); } catch { setStatus('Seçim bu oturumda tutuluyor','Kalıcı bir kopya için “Seçimlerimi indir”i kullan.'); }
+        updateChoices();
+      });
+    }
+    $('sounds').append(row);
+  }
+  function updateChoices() {
+    for (const [key,node] of cells) {
+      const [id,version] = key.split(':'), chosen = choices[id] === version;
+      node.classList.toggle('chosen',chosen);
+      const button = node.querySelector('.favorite'); button.setAttribute('aria-pressed',String(chosen)); button.textContent = chosen ? '★ Tercihim' : '☆ Tercihim';
+    }
+    $('choice-count').textContent = `${Object.keys(choices).length}/13`;
+  }
+  updateChoices();
+  document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
+    filter = button.dataset.filter;
+    document.querySelectorAll('[data-filter]').forEach(b => b.setAttribute('aria-pressed',String(b === button)));
+    document.querySelectorAll('.sound-row').forEach(row => { row.hidden = filter !== 'Tümü' && row.dataset.group !== filter; row.style.display = row.hidden ? 'none' : ''; });
+  }));
+  function setStatus(title, detail = '') { $('status').textContent = title; $('status-detail').textContent = detail; }
+  async function audioContext() {
+    if (!ctx) {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) throw new Error('Tarayıcı ses oynatmayı desteklemiyor. Dosyayı Chrome veya Edge ile aç.');
+      ctx = new Audio({sampleRate:48000}); master = ctx.createGain(); master.gain.value = Number($('volume').value)/100;
+      // Output safety for rapid overlapping ticks; no processing baked into exports.
+      const limiter = ctx.createDynamicsCompressor(); limiter.threshold.value = -3; limiter.knee.value = 3; limiter.ratio.value = 16; limiter.attack.value = .003; limiter.release.value = .12;
+      master.connect(limiter).connect(ctx.destination);
+    }
+    if (ctx.state !== 'running') await ctx.resume();
+    return ctx;
+  }
+  function analyze(buffer) {
+    const channels = Array.from({length:buffer.numberOfChannels}, (_,i) => buffer.getChannelData(i));
+    const sampleRate = buffer.sampleRate, windowSize = Math.min(buffer.length,Math.round(sampleRate*.3));
+    const energy = new Float64Array(Math.max(1,windowSize)), states = channels.map(() => new Float64Array(8));
+    const shape = Array(64).fill(0); let peak = 0, sum = 0, maxMean = 0;
+    // AudioContext decodes/resamples at 48 kHz, matching these K-weighting filters.
+    for (let i = 0; i < buffer.length; i++) {
+      let square = 0;
+      for (let ch = 0; ch < channels.length; ch++) {
+        const x = channels[ch][i], s = states[ch];
+        peak = Math.max(peak,Math.abs(x));
+        const y = 1.53512485958697*x - 2.69169618940638*s[0] + 1.19839281085285*s[1] + 1.69065929318241*s[2] - .73248077421585*s[3];
+        s[1]=s[0];s[0]=x;s[3]=s[2];s[2]=y;
+        const z = y - 2*s[4] + s[5] + 1.99004745483398*s[6] - .99007225036621*s[7];
+        s[5]=s[4];s[4]=y;s[7]=s[6];s[6]=z;
+        square += z*z;
+        const bucket = Math.min(63,Math.floor(i/buffer.length*64)); shape[bucket] = Math.max(shape[bucket],Math.abs(x));
+      }
+      const pos = i % windowSize; sum += square - energy[pos]; energy[pos] = square;
+      if (i >= windowSize - 1) maxMean = Math.max(maxMean,sum/windowSize);
+    }
+    return { peak, lufs: -.691 + 10*Math.log10(maxMean+1e-15), waveform: shape.map(v => v/Math.max(peak,1e-8)) };
+  }
+  async function decoded(id, version) {
+    const key = `${id}:${version}`;
+    if (!cache.has(key)) {
+      const promise = (async () => {
+        const event = events.get(id), clip = event.clips[version];
+        const binary = atob(clip.uri.slice(clip.uri.indexOf(',')+1)), bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const buffer = await ctx.decodeAudioData(bytes.buffer);
+        const stats = version === 'current' ? analyze(buffer) : clip;
+        // Match the event's intended prominence, not the long silent/music tail.
+        const gain = Math.min(10**((-22 + event.offset - stats.lufs)/20), .88/Math.max(stats.peak,1e-8));
+        const node = cells.get(key); node.querySelector('.duration').textContent = durationText(buffer.duration);
+        node.querySelector('.wave-wrap').innerHTML = wave(stats.waveform) + '<div class="wave-progress">'+wave(stats.waveform)+'</div>';
+        return {buffer,gain};
+      })();
+      cache.set(key,promise); promise.catch(() => { if (cache.get(key)===promise) cache.delete(key); });
+    }
+    return cache.get(key);
+  }
+  function clearVisuals() {
+    for (const node of cells.values()) { node.classList.remove('playing'); node.querySelector('.play').setAttribute('aria-pressed','false'); node.querySelector('.wave-progress').style.clipPath = 'inset(0 100% 0 0)'; }
+    $('transport').classList.remove('active');
+  }
+  function stop(announce = true) {
+    epoch++; sequence = false; lastStatus = '';
+    if (raf) cancelAnimationFrame(raf); raf = 0;
+    for (const voice of voices) {
+      try {
+        const now = ctx.currentTime;
+        voice.gain.gain.cancelScheduledValues(now); voice.gain.gain.setValueAtTime(voice.gain.gain.value,now); voice.gain.gain.linearRampToValueAtTime(0,now+.012); voice.source.stop(now+.015);
+      } catch {}
+    }
+    voices.clear(); clearVisuals();
+    if (announce) setStatus('Durduruldu','Bir ses seçerek devam edebilirsin.');
+  }
+  function schedule(id, version, sound, time, token, maxDuration) {
+    const source = ctx.createBufferSource(), gain = ctx.createGain();
+    source.buffer = sound.buffer; source.connect(gain).connect(master); gain.gain.value = sound.gain;
+    const duration = Math.min(sound.buffer.duration,maxDuration || Infinity);
+    const voice = {id,version,key:`${id}:${version}`,source,gain,start:time,end:time+duration,token};
+    voices.add(voice);
+    source.onended = () => { voices.delete(voice); source.disconnect(); gain.disconnect(); };
+    if (duration < sound.buffer.duration) { gain.gain.setValueAtTime(sound.gain,time+Math.max(0,duration-.018)); gain.gain.linearRampToValueAtTime(0,time+duration); }
+    source.start(time); source.stop(time+duration);
+  }
+  function animate() {
+    const now = ctx.currentTime, active = new Map();
+    for (const voice of voices) if (voice.token === epoch && now >= voice.start && now < voice.end) active.set(voice.key,voice);
+    for (const [key,node] of cells) {
+      const voice = active.get(key), playing = Boolean(voice);
+      node.classList.toggle('playing',playing); node.querySelector('.play').setAttribute('aria-pressed',String(playing));
+      node.querySelector('.wave-progress').style.clipPath = `inset(0 ${voice ? Math.max(0,100-(now-voice.start)/(voice.end-voice.start)*100) : 100}% 0 0)`;
+    }
+    const latest = [...active.values()].at(-1);
+    $('transport').classList.toggle('active',voices.size>0);
+    if (latest && latest.key !== lastStatus) { lastStatus = latest.key; setStatus(`${events.get(latest.id).title} · ${names[latest.version]}`,sequence ? 'Akış çalıyor · İstediğin an durdurabilirsin.' : events.get(latest.id).usage); }
+    if (voices.size) raf = requestAnimationFrame(animate);
+    else { raf = 0; clearVisuals(); setStatus('Dinleme tamamlandı','Diğer alternatife geçebilir veya tercihini işaretleyebilirsin.'); }
+  }
+  async function playOne(id, version) {
+    stop(false); const token = epoch;
+    setStatus('Ses hazırlanıyor…',`${events.get(id).title} · ${names[version]}`);
+    try {
+      await audioContext(); if (token !== epoch) return;
+      const sound = await decoded(id,version); if (token !== epoch) return;
+      schedule(id,version,sound,ctx.currentTime+.025,token); animate();
+    } catch (error) { if (token === epoch) setStatus('Ses açılamadı',error.message); }
+  }
+  function timeline(scene) {
+    if (scene === 'clicks') return Array.from({length:7},(_,i) => [i*.18,'button_click',.65]);
+    if (scene === 'ticks') return Array.from({length:24},(_,i) => [i*.085,'crate_reel_tick',.30]);
+    if (scene === 'case') {
+      const plan = [[0,'button_click',.4]]; let t = .25;
+      for (let i = 0; i < 23; i++) { plan.push([t,'crate_reel_tick',.30]); t += .065 + (i/22)**3*.18; }
+      plan.push([t+.17,'crate_legendary_reveal',5]); return plan;
+    }
+    if (scene === 'game') return [[0,'button_click',.4],[.48,'button_click',.4],[1,'task_fail',1.1],[2.3,'button_click',.4],[2.8,'button_click',.4],[3.4,'task_completion',2]];
+    return [[0,'cosmetic_purchased',1.5],[1.8,'tribute_sent',1.5],[3.6,'affection_level_up',5]];
+  }
+  async function playScene(version) {
+    const plan = timeline($('scenario').value); stop(false); const token = epoch; sequence = true;
+    setStatus('Akış hazırlanıyor…',names[version]);
+    try {
+      await audioContext(); if (token !== epoch) return;
+      const prepared = new Map();
+      await Promise.all([...new Set(plan.map(item => item[1]))].map(async id => prepared.set(id,await decoded(id,version))));
+      if (token !== epoch) return;
+      const base = ctx.currentTime+.05;
+      for (const [offset,id,maxDuration] of plan) schedule(id,version,prepared.get(id),base+offset,token,maxDuration);
+      animate();
+    } catch (error) { if (token === epoch) { stop(false); setStatus('Akış açılamadı',error.message); } }
+  }
+  document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click',() => playScene(button.dataset.palette)));
+  $('stop').addEventListener('click',() => stop());
+  document.addEventListener('keydown',event => { if (event.key === 'Escape') stop(); });
+  $('volume').addEventListener('input',() => { const value = Number($('volume').value)/100; $('volume-value').value = `${Math.round(value*100)}%`; if (master) master.gain.setTargetAtTime(value,ctx.currentTime,.02); });
+  $('export').addEventListener('click',() => {
+    const selection = data.events.filter(e => choices[e.id]).map(e => ({event:e.id,title:e.title,choice:choices[e.id],collection:names[choices[e.id]],file:e.clips[choices[e.id]].filename}));
+    if (!selection.length) { setStatus('Henüz bir tercih seçmedin','Her sesin altındaki ☆ Tercihim düğmesini kullan.'); return; }
+    const blob = new Blob([JSON.stringify({collection:'Principessa Sound Atelier',created:new Date().toISOString(),selections:selection},null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = 'principessa-ses-tercihlerim.json'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url),1500);
+    setStatus('Tercihler indirildi',`${selection.length} ses için seçimin kaydedildi.`);
+  });
+  window.addEventListener('pagehide',() => stop(false));
+})();
+</script>
+</body>
+</html>

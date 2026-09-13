@@ -56,7 +56,7 @@ export function taskExperienceState(task: VisualTask, now: number, pending = fal
   return "ready";
 }
 
-export function TaskExperienceCard({ kind, taskId, title, reward, status, notice, rules, state = "ready", wide = false, reaction, children }: {
+export function TaskExperienceCard({ kind, taskId, title, reward, status, notice, state = "ready", wide = false, reaction, children }: {
   kind: string; taskId: string; title: ReactNode; reward?: ReactNode; status?: ReactNode;
   notice?: ReactNode; rules?: ReactNode; state?: string; wide?: boolean;
   reaction?: string | number; children: ReactNode;
@@ -73,7 +73,6 @@ export function TaskExperienceCard({ kind, taskId, title, reward, status, notice
       {reward && <div className={ui.reward}><span className={ui.rewardLabel}>At stake</span><div>{reward}</div></div>}
       {notice && <div className={ui.notice}>{notice}</div>}
       <div className={ui.cardBody}>{children}</div>
-      {rules && <details className={ui.rules}><summary>How it works <span aria-hidden="true">+</span></summary><div>{rules}</div></details>}
 
     </article>
   );

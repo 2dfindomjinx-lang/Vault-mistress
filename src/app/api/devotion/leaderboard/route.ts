@@ -69,7 +69,7 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select(
-        "id, username, display_name, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total, address_term",
+        "id, username, display_name, avatar_url, equipped_avatar_slots, equipped_full_set_id, has_uncensored_avatar, lifetime_spent_coins, total_devotion, tribute_total, address_term",
       )
       .in("id", userIds),
     supabase
@@ -140,6 +140,7 @@ export async function GET(request: Request) {
           const badge = getSpendBadge(Number(profile.lifetime_spent_coins ?? 0));
           return badge.isEarned ? badge.imagePath : null;
         })(),
+        avatarUrl: profile.avatar_url ?? null,
         displayName: profile.display_name ?? null,
         equippedAvatarSlots: (profile.equipped_avatar_slots as Record<string, string> | null) ?? null,
         equippedFullSetId: (profile.equipped_full_set_id as string | null) ?? null,
@@ -163,6 +164,7 @@ export async function GET(request: Request) {
     const fallbackTitleName = getLeadershipRank(profile.tributeTotal).currentRank.title;
 
     return {
+      avatarUrl: profile.avatarUrl,
       addressTerm: profile.addressTerm,
       badgeImagePath: profile.badgeImagePath,
       backgroundItemId: backgroundByUserId.get(String(row.user_id)) ?? null,

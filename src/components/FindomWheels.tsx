@@ -7,6 +7,7 @@ import { CasinoMetric } from "./CasinoTableFrame";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ThronePublicMessageNotice } from "@/components/ThronePublicMessageNotice";
+import { useWheelSound } from "@/lib/use-animation-sound";
 import { emitSoundEvent } from "@/lib/sound";
 import { buildWheelVisualSlices, WHEEL_IDS, WHEELS, type WheelId, type WheelSpinRecord } from "@/lib/wheels";
 
@@ -76,6 +77,8 @@ function WheelFace({
   rotation: number;
   spinning: boolean;
 }) {
+  const wheelRef = useRef<HTMLDivElement>(null);
+  useWheelSound(wheelRef, spinning, labels.length);
   const slice = 360 / labels.length;
   const gradient = labels
     .map((_, index) => {
@@ -89,7 +92,7 @@ function WheelFace({
     })
     .join(", ");
 
-  return <div className={c.wheelFace}><span aria-hidden="true" className={c.wheelPointer} data-spinning={spinning} /><div className={c.wheelBody} data-material={material} style={{background:`conic-gradient(${gradient})`,transform:`rotate(${rotation}deg)`,transition:spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none"}}><svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">{labels.map((label,index) => {const angle=index*slice+slice/2-90;const radians=angle*Math.PI/180;const x=120+108*Math.cos(radians),y=120+108*Math.sin(radians);return <text dominantBaseline="central" fill="#f0dceb" fontSize="7" fontWeight="600" key={index} textAnchor="end" transform={`rotate(${angle} ${x} ${y})`} x={x} y={y}>{label}</text>;})}</svg></div><span aria-hidden="true" className={c.wheelHub}><CourtGlyph symbol={material === "chastity" ? "lock" : "crown"} /></span></div>;
+  return <div className={c.wheelFace}><span aria-hidden="true" className={c.wheelPointer} data-spinning={spinning} /><div ref={wheelRef} className={c.wheelBody} data-material={material} style={{background:`conic-gradient(${gradient})`,transform:`rotate(${rotation}deg)`,transition:spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none"}}><svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">{labels.map((label,index) => {const angle=index*slice+slice/2-90;const radians=angle*Math.PI/180;const x=120+108*Math.cos(radians),y=120+108*Math.sin(radians);return <text dominantBaseline="central" fill="#f0dceb" fontSize="7" fontWeight="600" key={index} textAnchor="end" transform={`rotate(${angle} ${x} ${y})`} x={x} y={y}>{label}</text>;})}</svg></div><span aria-hidden="true" className={c.wheelHub}><CourtGlyph symbol={material === "chastity" ? "lock" : "crown"} /></span></div>;
 }
 
 function SendButton({ href }: { href: string }) {
@@ -246,7 +249,6 @@ export function FindomWheels({
 
       // Land the pointer mid-slice of the server's verdict, several full turns
       // out so every spin looks committed.
-      const wheel = WHEELS[wheelId];
       const visualSlices = buildWheelVisualSlices(wheelId);
       const matchingSlices = visualSlices
         .map((slice, index) => (slice.segmentIndex === payload.segmentIndex ? index : -1))
@@ -270,7 +272,7 @@ export function FindomWheels({
             segmentIndex: payload.segmentIndex,
             wheelId,
           });
-          emitSoundEvent(wheel.kind === "chastity" ? "task_fail" : "crate_reveal");
+          emitSoundEvent("wheel_verdict");
           void loadStatus();
         }, SPIN_MS + 150),
       );

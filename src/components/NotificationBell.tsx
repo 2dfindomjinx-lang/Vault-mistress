@@ -1,4 +1,5 @@
 "use client";
+import { emitSoundEvent } from "@/lib/sound";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -49,6 +50,7 @@ function getAdminToneClasses(tone: AdminNotificationItem["tone"]) {
 }
 
 export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps) {
+  const seenNotifications = useRef<Set<string> | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [userNotifications, setUserNotifications] = useState<UserNotificationRecord[]>([]);
@@ -74,6 +76,7 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
 
   const loadNotifications = useCallback(async () => {
     if (!isLoggedIn) {
+      seenNotifications.current = null;
       setUserNotifications([]);
       setUserUnreadCount(0);
       setAdminNotifications([]);
@@ -113,7 +116,10 @@ export function NotificationBell({ isAdmin, isLoggedIn }: NotificationBellProps)
         throw new Error(userPayload.error ?? "User notifications failed.");
       }
 
-      setUserNotifications(userPayload.notifications ?? []);
+      const incoming = userPayload.notifications ?? [];
+      if (seenNotifications.current && incoming.some(item => !item.read_at && !seenNotifications.current!.has(item.id))) emitSoundEvent("notification_received");
+      seenNotifications.current = new Set(incoming.map(item => item.id));
+      setUserNotifications(incoming);
       setUserUnreadCount(userPayload.unreadCount ?? 0);
 
       if (isAdmin && adminResponse) {

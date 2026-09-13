@@ -1,26 +1,5 @@
-// Sound playback for the court.
-//
-// The palette is mixed on purpose: five cues are generated (see
-// scripts/generate-sounds.mjs for the synthesis and the reasoning) and the rest
-// are hand-made assets kept by preference. Formats differ too - some .wav, some
-// .mp3, mono and stereo - so never assume an extension from a neighbour. The
-// registry below is the only source of truth for paths.
-
-export type SoundEventName =
-  | "button_click"
-  | "tribute_sent"
-  | "gallery_unlock"
-  | "task_completion"
-  | "task_fail"
-  | "error"
-  | "affection_level_up"
-  | "debt_contract_signed"
-  | "cosmetic_purchased"
-  | "random_event_activation"
-  | "crate_reel_tick"
-  | "crate_reveal"
-  | "crate_legendary_reveal";
-
+import { selectedSounds } from "./selected-sounds";
+export type SoundEventName = keyof typeof selectedSounds;
 export type SoundCategory = "ui" | "gameplay";
 
 export type SoundSettings = {
@@ -61,81 +40,7 @@ const SOUND_SETTINGS_STORAGE_KEY = "vault:sound-settings";
 /** Upper bound on simultaneous elements per source, so a stuck loop cannot pile up. */
 const MAX_VOICES_PER_SOURCE = 4;
 
-// LEVELS ARE MEASURED, NOT GUESSED.
-//
-// The assets come from two sources - some generated, some hand-made - and at
-// unity gain they spanned 25dB, from -38.5 to -12.7 LUFS. No master-volume
-// slider can rescue that: the setting that makes the quiet cues audible makes
-// the loud ones painful. That is what "perfect ses ayari imkansiz" was.
-//
-// Each `volume` below is therefore computed, not chosen:
-//
-//   volume = 10 ^ ((BASE_LUFS + offset - measuredLufs) / 20)
-//
-// `measuredLufs` is ITU-R BS.1770 K-weighted loudness over the loudest 300ms
-// window. Integrated loudness is the wrong measure for one-shots - it averages
-// in the decay tail and reports a long ringing bell as quiet.
-//
-// BASE_LUFS is -30.5. It is set by the quietest asset that cannot be re-encoded
-// (affection-level-up.mp3 at -29.2): every other cue has to come DOWN to meet
-// it, because HTMLAudioElement.volume caps at 1.0 and cannot push anything up.
-// debt-contract-signed.wav was 8dB below even that, so its PCM was rescaled
-// with scripts/normalize-sound-asset.mjs rather than left unreachable.
-//
-// `offset` is the only judgement call: how loud a cue SHOULD be relative to the
-// others. Matching everything to the same number would be its own mistake - a
-// reel tick and a legendary pull are not equally important.
-//
-// To retune: re-measure, do not nudge by ear. Nudging by ear is how the 25dB
-// spread happened.
-//
-//   asset                        measured   offset   volume
-//   button-click.mp3              -30.3dB    -5dB     0.55  (replaced asset)
-//   crate-reel-tick.mp3           -24.0dB    -7dB     0.21
-//   error.wav                     -16.2dB    -2dB     0.15
-//   task-completion.wav           -15.2dB     0dB     0.17
-//   task-fail.wav                 -15.1dB    -2dB     0.14
-//   tribute-sent.wav              -15.1dB    +1dB     0.19
-//   cosmetic-purchased.wav        -13.2dB    -1dB     0.12
-//   debt-contract-signed.wav      -30.5dB     0dB     1.00  (rescaled asset)
-//   gallery-unlock.mp3            -26.5dB    +1dB     0.71
-//   affection-level-up.mp3        -29.2dB    +1dB     0.97
-//   random-event-activation.mp3   -23.1dB     0dB     0.43
-//   crate-reveal.mp3              -13.8dB    -1dB     0.13
-//   crate-legendary-reveal.mp3    -12.7dB    +3dB     0.18
-const soundRegistry: Record<SoundEventName, SoundDefinition> = {
-  // Quietest things in the app: they fire constantly and must never draw
-  // attention to themselves.
-  // Replaced by hand with an .mp3, so it is no longer generated. It measures
-  // 8.4dB quieter at source than the file it replaced, hence 0.55 where the
-  // old one needed 0.21 - leaving that number alone would have made the click
-  // almost inaudible.
-  //
-  // The file is 1.10s long but only ~0.30s of it is audible; the rest is
-  // silent padding. That is harmless for overlap, but each clone stays held
-  // until `ended` fires, so rapid clicking reaches MAX_VOICES_PER_SOURCE
-  // sooner and falls back to restarting the primary voice.
-  button_click: { category: "ui", src: "/sounds/button-click.mp3", volume: 0.55, minIntervalMs: 45, polyphonic: true },
-  // Original hand-made asset. Not produced by scripts/generate-sounds.mjs - do
-  // not "fix" the extension to .wav.
-  crate_reel_tick: { category: "ui", src: "/sounds/crate-reel-tick.mp3", volume: 0.21, minIntervalMs: 28, polyphonic: true },
-  error: { category: "ui", src: "/sounds/error.wav", volume: 0.15, minIntervalMs: 450 },
-
-  task_completion: { category: "gameplay", src: "/sounds/task-completion.wav", volume: 0.17, minIntervalMs: 180 },
-  task_fail: { category: "gameplay", src: "/sounds/task-fail.wav", volume: 0.14, minIntervalMs: 400 },
-  tribute_sent: { category: "gameplay", src: "/sounds/tribute-sent.wav", volume: 0.19 },
-  cosmetic_purchased: { category: "gameplay", src: "/sounds/cosmetic-purchased.wav", volume: 0.12, minIntervalMs: 180 },
-
-  // Everything below keeps its ORIGINAL hand-made asset, by preference. Several
-  // are .mp3 - do not "tidy" the extensions to match the generated ones above.
-  debt_contract_signed: { category: "gameplay", src: "/sounds/debt-contract-signed.wav", volume: 1 },
-  gallery_unlock: { category: "gameplay", src: "/sounds/gallery-unlock.mp3", volume: 0.71 },
-  affection_level_up: { category: "gameplay", src: "/sounds/affection-level-up.mp3", volume: 0.97 },
-  random_event_activation: { category: "gameplay", src: "/sounds/random-event-activation.mp3", volume: 0.43 },
-  crate_reveal: { category: "gameplay", src: "/sounds/crate-reveal.mp3", volume: 0.13 },
-  // Loudest cue in the app by design, and now by only 3dB rather than by luck.
-  crate_legendary_reveal: { category: "gameplay", src: "/sounds/crate-legendary-reveal.mp3", volume: 0.18 },
-};
+const soundRegistry: Record<SoundEventName, SoundDefinition> = { ...selectedSounds };
 
 let soundSettings = { ...DEFAULT_SOUND_SETTINGS };
 let hydrated = false;
@@ -144,6 +49,7 @@ let playbackUnlocked = false;
 /** One reusable element per source, plus clones only when overlap is allowed. */
 const primaryVoices = new Map<string, HTMLAudioElement>();
 const activeVoices = new Set<HTMLAudioElement>();
+const voiceDefinitions = new WeakMap<HTMLAudioElement, SoundDefinition>();
 const lastPlayedAt = new Map<SoundEventName, number>();
 const failedSources = new Set<string>();
 
@@ -160,11 +66,13 @@ export function updateSoundSettings(settings: Partial<SoundSettings>) {
     masterVolume: clampVolume(settings.masterVolume ?? soundSettings.masterVolume),
   };
   persistSoundSettings();
+  window.dispatchEvent(new Event("vault:sound-settings-changed"));
 
-  // Turning a category off should silence what is already playing, not wait it
-  // out. Cheap to be thorough: nothing here loops.
-  if (!soundSettings.uiEnabled || !soundSettings.gameplayEnabled) {
-    stopAllSounds();
+  for (const audio of activeVoices) {
+    const definition = voiceDefinitions.get(audio);
+    if (!definition) continue;
+    audio.volume = clampVolume((definition.volume ?? 1) * soundSettings.masterVolume);
+    audio.muted = !isCategoryEnabled(definition.category);
   }
 }
 
@@ -172,17 +80,17 @@ export function registerSoundEvent(eventName: SoundEventName, definition: Partia
   soundRegistry[eventName] = { ...soundRegistry[eventName], ...definition };
 }
 
-export function emitSoundEvent(eventName: SoundEventName) {
+export function emitSoundEvent(eventName: SoundEventName, options: { loop?: boolean } = {}): (() => void) | undefined {
   if (typeof window === "undefined") return;
 
   hydrateSoundSettings();
   const definition = soundRegistry[eventName];
   if (!definition?.src || failedSources.has(definition.src)) return;
-  if (!isCategoryEnabled(definition.category)) return;
+  if (!isCategoryEnabled(definition.category) || document.hidden) return;
 
   const now = Date.now();
   const minInterval = definition.minIntervalMs ?? 0;
-  if (minInterval > 0) {
+  if (minInterval > 0 && !options.loop) {
     const previous = lastPlayedAt.get(eventName);
     if (previous !== undefined && now - previous < minInterval) return;
   }
@@ -194,6 +102,9 @@ export function emitSoundEvent(eventName: SoundEventName) {
 
     audio.volume = clampVolume((definition.volume ?? 1) * soundSettings.masterVolume);
     audio.currentTime = 0;
+    audio.muted = false;
+    audio.loop = options.loop ?? false;
+    voiceDefinitions.set(audio, definition);
     activeVoices.add(audio);
 
     void audio.play().then(
@@ -207,6 +118,7 @@ export function emitSoundEvent(eventName: SoundEventName) {
         activeVoices.delete(audio);
       },
     );
+    return () => { audio.pause(); audio.currentTime = 0; audio.loop = false; activeVoices.delete(audio); };
   } catch {
     // Audio must never be able to break an interaction.
   }
@@ -226,7 +138,7 @@ export function unlockSoundPlayback() {
 
   // Primed with the click because it is the smallest asset, not because the
   // event matters - keep this in step with button_click's src in the registry.
-  const primer = getPrimaryVoice("/sounds/button-click.mp3");
+  const primer = new Audio(soundRegistry.button_click.src);
   if (!primer) return;
   primer.muted = true;
   void primer
