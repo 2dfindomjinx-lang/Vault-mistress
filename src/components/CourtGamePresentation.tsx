@@ -73,7 +73,7 @@ export function MemoryCard({ id, symbol, state, disabled, onClick, onReveal }: {
     aria-pressed={revealed} disabled={disabled} onClick={onClick}>
     <span className={styles.cardRotor} onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === "transform" && state === "open") onReveal?.(); }}>
       <span className={styles.cardBack} aria-hidden="true"><span className={styles.cardCorner}>{String(id+1).padStart(2,"0")}</span><span className={styles.cardMonogram}>P<span>✦</span></span><small>THE COURT</small></span>
-      <span className={styles.cardFront} aria-hidden="true"><span className={styles.cardCorner}>{state === "matched" ? "✓" : "✦"}</span><CourtGlyph symbol={symbol}/><small>{state === "matched" ? "Paired" : "Royal seal"}</small></span>
+      <span className={styles.cardFront} data-symbol={symbol} aria-hidden="true"><span className={styles.cardCorner}>{state === "matched" ? "✓" : "✦"}</span><CourtGlyph symbol={symbol}/><small>{state === "matched" ? "Paired" : "Royal seal"}</small></span>
     </span>
   </button>;
 }

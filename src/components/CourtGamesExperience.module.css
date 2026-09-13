@@ -88,7 +88,20 @@
 .cardBack { color:#b99bd1; background:repeating-linear-gradient(135deg,transparent 0 10px,#d2b3e80a 10px 11px),linear-gradient(160deg,#382a49,#20162c); }
 .cardBack::after { content:""; position:absolute; inset:6px; border:1px solid #b6a0ce29; border-radius:4px; }
 .cardFront { transform:rotateY(180deg); color:#dabceb; background:radial-gradient(circle at 50% 30%,#6c50884d,transparent 70%),#241a31; }
-.cardFront > svg { width:43%; height:auto; }.cardCorner { position:absolute; top:7px; left:8px; font-size:9px; line-height:1; }
+.cardFront > svg { width:43%; height:auto; color:var(--symbol-color,#dabceb); stroke-width:2.5; }
+/* Color belongs to the face only: hidden cards stay identical, and pair/error
+   feedback changes the frame without changing the symbol's identity. */
+.cardFront[data-symbol="♥"] { --symbol-color:#ff626d; }
+.cardFront[data-symbol="♛"] { --symbol-color:#ffd166; }
+.cardFront[data-symbol="♦"] { --symbol-color:#52d9f5; }
+.cardFront[data-symbol="✦"] { --symbol-color:#f4f1ff; }
+.cardFront[data-symbol="⚜"] { --symbol-color:#70e6a5; }
+.cardFront[data-symbol="◈"] { --symbol-color:#c49aff; }
+.cardFront[data-symbol="lock"] { --symbol-color:#79aaff; }
+.cardFront[data-symbol="coin"] { --symbol-color:#ffab66; }
+.cardFront[data-symbol="pet"] { --symbol-color:#ff8ed8; }
+.cardFront[data-symbol="♥"] > svg { fill:#ff626d33; }
+.cardCorner { position:absolute; top:7px; left:8px; font-size:9px; line-height:1; }
 .cardMonogram { position:relative; font:italic 36px/1 Georgia,serif; }.cardMonogram > span { position:absolute; top:-9px; right:-12px; font:12px/1 Georgia,serif; }
 .cardBack small,.cardFront small { font-size:6px; letter-spacing:.16em; text-transform:uppercase; }
 .memoryCard:hover:enabled .cardBack { border-color:#e3c5ff; background-color:#45305c; }
