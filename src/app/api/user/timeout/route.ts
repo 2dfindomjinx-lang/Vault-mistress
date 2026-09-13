@@ -1,4 +1,5 @@
-import { getTimeoutClearFee, profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
+import { getTimeoutClearFee } from "@/lib/server-game-rules";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

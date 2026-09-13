@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { isWheelId, pickWheelSegmentIndex, WHEELS, type WheelSpinRecord } from "@/lib/wheels";
 import {

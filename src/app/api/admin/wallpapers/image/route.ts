@@ -1,5 +1,5 @@
 import { requireAdminProfile } from "@/lib/admin-guard";
-import { streamWallpaperAsset } from "@/lib/wallpaper-admin";
+import { streamWallpaperAsset } from "@/lib/wallpaper-stream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

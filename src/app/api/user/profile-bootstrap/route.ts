@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { cleanUsernameCandidate } from "@/lib/supabase/client";
 import {
   createSupabaseAdminClient,

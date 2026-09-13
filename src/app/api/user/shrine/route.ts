@@ -1,8 +1,7 @@
-import { readdir } from "node:fs/promises";
-import path from "node:path";
+import assetNames from "@/lib/generated/asset-names.json";
 import { normalizeAddressTerm, type AddressTerm } from "@/lib/address-term";
 import { awardDevotion } from "@/lib/devotion";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   buildShrineBonusStatus,
   buildShrineStatus,
@@ -43,25 +42,7 @@ function jsonError(message: string, status = 400) {
 }
 
 async function getShrineImageFileNames(subdir?: string) {
-  const shrineDir = subdir
-    ? path.join(process.cwd(), "public", "shrine", subdir)
-    : path.join(process.cwd(), "public", "shrine");
-
-  try {
-    const entries = await readdir(shrineDir, { withFileTypes: true });
-
-    return entries
-      .filter((entry) => entry.isFile() && /\.(avif|gif|jfif|jpe?g|png|webp)$/i.test(entry.name))
-      .map((entry) => entry.name);
-  } catch (error) {
-    const nodeError = error as NodeJS.ErrnoException | null;
-
-    if (nodeError?.code !== "ENOENT") {
-      console.error("[shrine] image directory read failed", error);
-    }
-
-    return [] as string[];
-  }
+  return (assetNames.shrine as Record<string, string[]>)[subdir || "."] ?? [];
 }
 
 function resolveMainShrineMemories(

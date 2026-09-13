@@ -1,5 +1,5 @@
 import { requireMobileAdmin } from "@/lib/mobile-admin";
-import { streamWallpaperAsset } from "@/lib/wallpaper-admin";
+import { streamWallpaperAsset } from "@/lib/wallpaper-stream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

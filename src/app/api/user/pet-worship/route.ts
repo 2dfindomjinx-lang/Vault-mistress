@@ -1,5 +1,5 @@
 import { awardDevotion } from "@/lib/devotion";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { PET_TASK_REWARD, PET_WORSHIP_MIN_AMOUNT, PET_WORSHIP_DOWNLOAD_COST } from "@/lib/pet-tasks-content";
 import { getTodaysWorshipImage } from "@/lib/pet-worship";
 import { getDailyGmt3CooldownUntil, getGmt3DateKey } from "@/lib/time";

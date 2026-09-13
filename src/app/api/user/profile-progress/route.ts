@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { randomUUID } from "node:crypto";
 import { commitEconomyAction } from "@/lib/economy-command";
 import {

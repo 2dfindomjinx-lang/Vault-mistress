@@ -31,7 +31,7 @@ for(const source of sources){
  try{
   if(!source.url){
    const html=(await fetchBytes(source.page,3*1048576)).toString('utf8');
-   fs.writeFileSync(path.join(OUT,source.id+'-source.html'),html);
+   // Parse source pages in memory; do not retain third-party HTML or embedded credentials.
    const urls=[...html.matchAll(/(?:https:)?\/\/[^\s<>"']+/g)].map(m=>m[0].replaceAll('&amp;','&'));
    source.url=urls.find(u=>source.pattern==='zip'?u.startsWith('https://kenney.nl/')&&u.endsWith('.zip'):source.pattern==='wikimedia'?u.includes('upload.wikimedia.org/')&&u.endsWith('/Cheap_cigarette_lighter.ogg'):u.includes('cdn.freesound.org/previews/')&&u.endsWith('-hq.mp3'));
    if(!source.url)throw new Error('No public recording URL on the source page');

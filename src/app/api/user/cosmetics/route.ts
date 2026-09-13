@@ -1,7 +1,7 @@
 import { getCosmeticPurchasePrice, getWorldCupFarewell, isWorldCupBorder } from "@/lib/world-cup-farewell";
 import { cosmeticItems, isCosmeticAvailableForAddressTerm, type CosmeticType } from "@/lib/cosmetics";
 import { normalizeAddressTerm } from "@/lib/address-term";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { DRAIN_SESSION_MAX_RATE, DRAIN_SESSION_MIN_RATE } from "@/lib/drain-session";
 import {
   createSupabaseAdminClient,

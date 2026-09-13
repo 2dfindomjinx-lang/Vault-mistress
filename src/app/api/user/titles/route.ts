@@ -1,6 +1,6 @@
 import { getTitleItem, type TitleItem } from "@/lib/cosmetics";
 import { PREMIUM_TITLE_ID } from "@/lib/premium-title";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

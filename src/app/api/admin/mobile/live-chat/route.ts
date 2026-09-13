@@ -1,4 +1,4 @@
-import { markAdminMobileChatRead } from "@/lib/admin-mobile-push";
+import { markAdminMobileChatRead } from "@/lib/admin-mobile-chat-read";
 import { requireMobileAdmin } from "@/lib/mobile-admin";
 
 export const dynamic = "force-dynamic";

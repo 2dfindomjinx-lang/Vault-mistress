@@ -1,6 +1,6 @@
 import { ALL_LEGENDARY_ITEM_IDS, getCrateItemImageUrl, SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 import { getMoneyBuybackAmount, getMoneyShopPrice, type MoneyShopEntry } from "@/lib/principessa-money";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
   createSupabaseAdminClient,

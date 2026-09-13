@@ -1,7 +1,7 @@
 import { userDebtContractSelect } from "@/lib/debt-contract-select";
 import { calculateDebtCapacity } from "@/lib/debt-capacity";
 import { awardDevotion } from "@/lib/devotion";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

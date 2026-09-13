@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   generateNumberPickOptions,

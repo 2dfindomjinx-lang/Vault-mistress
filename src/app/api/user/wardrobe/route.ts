@@ -16,7 +16,7 @@ import {
   type AvatarSlot,
   type AvatarPreset,
 } from "@/lib/avatar-slots";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 
 type Body = {
   equippedSlots?: Record<string, unknown>;

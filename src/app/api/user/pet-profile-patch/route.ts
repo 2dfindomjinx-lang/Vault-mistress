@@ -1,4 +1,5 @@
-import { PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
+import { PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD } from "@/lib/server-game-rules";
 // Same constants the client rewards from. Re-declaring them here is what let
 // 1.14 move one side without the other and break every pet task for five days.
 import { PET_TASK_REWARD, PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";

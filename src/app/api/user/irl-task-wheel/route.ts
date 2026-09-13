@@ -8,7 +8,7 @@ import {
   isFreeTaskFriday,
 } from "@/lib/irl-task-wheel";
 import { normalizeAddressTerm } from "@/lib/address-term";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

@@ -8,10 +8,8 @@ import {
   type CourtGameMetrics,
 } from "@/lib/court-games";
 import { DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
-import {
-  profileSelect,
-  roundRewardToNearestFive,
-} from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
+import { roundRewardToNearestFive } from "@/lib/server-game-rules";
 import { getActiveEventMultipliers } from "@/lib/server-task-actions";
 import {
   createSupabaseAdminClient,

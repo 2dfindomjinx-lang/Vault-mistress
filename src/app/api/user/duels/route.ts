@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { formatHandle } from "@/lib/username";
 import {

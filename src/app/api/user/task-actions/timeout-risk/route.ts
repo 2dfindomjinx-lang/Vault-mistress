@@ -1,4 +1,5 @@
-import { roundRewardToNearestFive, profileSelect, TIMEOUT_RISK_DAILY_SAFE_LIMIT } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
+import { roundRewardToNearestFive, TIMEOUT_RISK_DAILY_SAFE_LIMIT } from "@/lib/server-game-rules";
 import { awardDevotion, DEVOTION_REWARD_BASIC_TASK } from "@/lib/devotion";
 import {
   createSupabaseAdminClient,

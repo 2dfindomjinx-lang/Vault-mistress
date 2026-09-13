@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import { PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
 import {
   createSupabaseAdminClient,

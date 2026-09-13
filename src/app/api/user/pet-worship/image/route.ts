@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { getTodaysWorshipImage, getWorshipFilePath } from "@/lib/pet-worship";
+import path from "node:path";
+import { getTodaysWorshipImage } from "@/lib/pet-worship";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const filePath = getWorshipFilePath(category, fileName);
+  const filePath = path.join(process.cwd(), "private", "worship", category, fileName);
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "jpg";
 
   try {

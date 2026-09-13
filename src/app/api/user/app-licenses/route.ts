@@ -1,5 +1,5 @@
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { profileSelect } from "@/lib/server-game-rules";
+import { profileSelect } from "@/lib/profile-columns";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,

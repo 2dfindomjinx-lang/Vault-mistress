@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { crateImageReaders } from "@/lib/generated/crate-image-readers";
 import { ImageResponse } from "next/og";
 import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 import { resolveSealPayload } from "@/lib/court-seal";
@@ -28,9 +27,9 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ tok
   let itemIcon: string | null = null;
   if (payload.board === "crate" && payload.itemId) {
     const imageUrl = SAMPLE_CRATE_ITEMS[payload.itemId]?.image_url;
-    if (imageUrl && !imageUrl.includes("..")) {
+    if (imageUrl && crateImageReaders[imageUrl]) {
       try {
-        const file = await readFile(path.join(process.cwd(), "public", imageUrl));
+        const file = await crateImageReaders[imageUrl]();
         const mime = imageUrl.endsWith(".webp") ? "image/webp" : "image/png";
         itemIcon = `data:${mime};base64,${file.toString("base64")}`;
       } catch {
