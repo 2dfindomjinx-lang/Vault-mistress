@@ -48,3 +48,16 @@
 
 .card[data-page=tasks] .art { object-fit:cover; object-position:center; width:100%!important; height:100%!important; left:0!important; right:0!important; top:0!important; }.card[data-page=tribute] .art { object-position:center; }.card[data-page=debt] .art { object-position:70% 32%; }
 @media(min-width:1100px) { .grid { grid-template-columns:1.1fr 1fr 1fr; } }
+
+/* Keep all six destinations within a short mobile browse. */
+@media(max-width:640px) {
+ .heading { margin-bottom:12px; }.heading h2 { font-size:25px; }
+ .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+ .card,.card:first-child { min-height:205px; grid-column:auto; }
+ .cardEyebrow { padding:12px; font-size:0; }.cardEyebrow>span { font-size:16px; }
+ .content { padding:26px 12px 12px; }.title { font-size:22px; line-height:1.08; }
+ .detail { display:none; }.cta { min-height:32px; margin-top:10px; padding-top:9px; gap:5px; font-size:10px; }
+ .shade { background:linear-gradient(180deg,#10071012 10%,#10071055 40%,#100710f5 100%); }
+ .card:active { border-color:var(--accent); transform:scale(.98); }
+}
+@media(max-width:360px) { .card,.card:first-child { min-height:190px; }.title { font-size:20px; }.content { padding-inline:10px; }.cta { font-size:9px; } }

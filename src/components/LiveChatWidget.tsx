@@ -297,7 +297,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
   };
 
   return (
-    <div data-court-chat className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
+    <div data-court-chat data-open={isOpen} className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
       {isOpen && guestMode ? <section className="w-full rounded-xl border border-[#c89a55]/30 bg-[#13090f] p-5 text-sm text-zinc-200"><p>Sign in with X to join the conversation.</p><button className="mt-3 underline" onClick={() => setIsOpen(false)} type="button">Close</button></section> : isOpen ? (
         <section className="w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -315,6 +315,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
           </div>
 
           <div
+            data-chat-messages
             className="flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 [overflow-anchor:none] [&>article]:shrink-0"
             ref={messagesScrollRef}
             onScroll={(event) => {
@@ -377,6 +378,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
               </p>
             ) : null}
             <textarea
+              aria-label="Chat message"
               className="min-h-20 w-full resize-none rounded-2xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-pink-200/45"
               disabled={Boolean(mutedText) || isSending}
               maxLength={250}
@@ -397,7 +399,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
                 <CoinAmount amount={2000} iconSize={14} label="" prefix="Highlight " />
               </button>
               <button
-                className="hidden sm:inline-flex rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-11 items-center rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2 text-xs font-black text-white transition hover:shadow-[0_0_20px_rgba(236,72,153,0.28)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!draft.trim() || isSending || Boolean(mutedText)}
                 onClick={() => void sendMessage()}
                 type="button"
@@ -411,6 +413,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
       ) : null}
 
       <button
+        aria-expanded={isOpen}
         className="group inline-flex items-center gap-2 rounded-full border border-pink-200/30 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-[0_0_30px_rgba(236,72,153,0.28)] transition hover:scale-[1.02]"
         onClick={() => { followLatestRef.current = true; setIsOpen((current) => !current); }}
         type="button"

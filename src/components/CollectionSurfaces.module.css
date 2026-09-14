@@ -205,3 +205,14 @@
 .originalPrice { display:flex; align-items:center; flex-wrap:wrap; gap:7px; font-size:11px; color:#b29aab; }
 .originalPrice s { text-decoration-thickness:1px; }
 .discountBadge { border:1px solid #c89a5540; border-radius:4px; padding:2px 5px; color:#f5d299; background:#c89a5515; font-size:10px; font-weight:650; }
+
+@media(max-width:760px) {
+ .caseDialog { max-height:calc(100dvh - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); inset:max(8px,env(safe-area-inset-top)) 0 auto; }
+ .caseDialogHeader button { width:44px; height:44px; }
+ .caseCard :global(.crate-quantity) { flex-wrap:wrap; gap:6px; }
+ .caseCard :global(.crate-quantity) button { min-width:40px; min-height:44px; }
+ .caseCard :global(.crate-open-button),.productActions button { min-height:44px; }
+ .caseDialog button:not(:disabled) { touch-action:manipulation; }
+ .animeSeriesFilter { max-width:100%; min-height:44px; }
+ .exchange { padding:15px; }.exchange input { max-width:100%; }
+}

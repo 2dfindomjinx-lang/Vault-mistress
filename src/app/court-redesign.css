@@ -81,3 +81,36 @@
 .court-admin :is(button,a)[class*=rounded] { border-radius:7px; }
 .court-admin :is(section,article)[class*=rounded] { border-radius:12px; border-color:#cda4b925; box-shadow:none; }
 .court-admin :is(.text-zinc-500,.text-zinc-600,.text-zinc-700) { color:#b19cab; }
+
+/* Mobile comfort: retain the dressed avatar while trimming surrounding chrome. */
+@media(max-width:767px) {
+ .court-theme .court-profile-layout { grid-template-columns:88px minmax(0,1fr); padding:14px; gap:10px 14px; }
+ .court-theme .court-profile-portrait { padding:5px 0; }
+ .court-theme .court-profile-name { font-size:25px; }
+ .court-theme .court-profile-identity>p { line-height:1.4; }
+ .court-theme .court-profile-identity button { min-height:36px; min-width:44px; }
+ .court-theme .court-profile-actions { padding-top:10px; gap:8px; }
+ .court-theme .court-profile-actions>div { gap:6px; }
+ .court-theme .court-profile-actions :is(button,a) { min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
+ .court-theme .court-profile-stat { padding:9px 10px; }
+ .court-theme .court-profile-stat>div { font-size:16px; }
+ .court-theme .court-profile-stat>p:last-child:not(:first-child) { line-height:1.35; }
+ .court-theme .home-stats { padding:12px 14px; }
+ .court-theme .home-stats p:last-child { font-size:19px; }
+ .court-theme :is(.principessa-court-ui,dialog) :is(input:not([type=range]):not([type=checkbox]):not([type=radio]),textarea,select) { font-size:16px; }
+ .court-theme .court-button { min-height:44px; }
+}
+@media(max-width:1023px) {
+ .court-theme [data-court-chat] { bottom:calc(148px + env(safe-area-inset-bottom)); right:max(12px,env(safe-area-inset-right)); width:calc(100% - 24px); }
+ .court-theme [data-court-chat]>section { display:flex; flex-direction:column; max-height:calc(100dvh - 180px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y:auto; overscroll-behavior:contain; }
+ .court-theme [data-court-chat] [data-chat-messages] { min-height:60px; flex:1 1 auto; }
+ .court-theme [data-court-chat] textarea { min-height:60px; font-size:16px; }
+ .court-theme [data-court-chat] button { min-height:44px; }
+ html:has(body.court-theme) { scroll-padding-bottom:calc(155px + env(safe-area-inset-bottom)); }
+}
+
+@media(max-width:767px) {
+ .court-theme .court-profile-actions div:has(>button[aria-label="Mute sound"]),
+ .court-theme .court-profile-actions div:has(>button[aria-label="Unmute sound"]) { padding-block:2px; }
+ .court-theme .court-profile-actions input[type=range] { min-height:44px; }
+}

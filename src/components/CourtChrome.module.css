@@ -67,3 +67,34 @@
 .directory .navItem { flex:1; min-height:28px; max-height:42px; margin:0; padding-block:6px; }
 .brand { padding:23px 24px 19px; }.sidebarFooter { padding:14px 24px; }.wallet { margin-bottom:10px; }
 @media(max-height:760px) and (min-width:1024px) { .brand { padding:15px 22px; }.brand img { height:35px; width:30px; }.brand strong { font-size:21px; }.brand small { display:none; }.sidebarFooter { display:none; }.wallet { padding:9px 12px; margin:0 14px 9px; }.walletCoins { padding-top:6px; }.directory { padding-bottom:12px; }.directory .navItem { min-height:26px; font-size:11px; padding-block:4px; }.wallet .balance { margin:0 0 6px; } }
+
+/* Mobile navigation: a thumb-height dock and a scroll-contained directory sheet. */
+.sheetWallet { display:flex; align-items:center; flex-wrap:wrap; gap:12px 22px; margin-bottom:16px; padding:14px; border:1px solid #c89a5533; border-radius:12px; background:linear-gradient(120deg,#3b1728,#1c1018); }
+.sheetWallet>div { min-width:0; }
+.sheetWallet small,.dialogHeading small { display:block; color:#c2a7b7; font-size:10px; letter-spacing:.06em; }
+.sheetWallet strong { display:flex; align-items:center; gap:5px; margin-top:5px; color:#f5e6d3; font-size:17px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.sheetWallet strong span { font-size:11px; color:#c5b5bf; }
+.sheetWallet button { margin-left:auto; min-height:44px; padding:10px 13px; border:1px solid #cc8dab55; border-radius:9px; background:#57213b; color:#fff0f6; font-size:12px; font-weight:600; }
+.directoryDialog :is(button,a):focus-visible { outline:2px solid #edc782; outline-offset:2px; }
+@media(max-width:1023px) {
+ .content { padding-bottom:calc(155px + env(safe-area-inset-bottom)); padding-left:max(16px,env(safe-area-inset-left)); padding-right:max(16px,env(safe-area-inset-right)); }
+ .sidebar { border-top:1px solid #c89a5538; box-shadow:0 -8px 28px #0005; background:#10090ff5; }
+ .mobileNav { padding:5px max(8px,env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); }
+ .mobileNav button { position:relative; min-height:54px; border-radius:10px; color:#bea9b8; font-size:11px; touch-action:manipulation; transition:background .15s,color .15s; }
+ .mobileNav button>span { font-size:20px; line-height:23px; margin-bottom:2px; }
+ .mobileNav button:is([aria-current=page],[data-active=true]) { color:#ffe4ee; background:linear-gradient(180deg,#6c2b464d,#3d1a2c33); }
+ .mobileNav button:is([aria-current=page],[data-active=true])::before { content:""; position:absolute; top:0; left:calc(50% - 10px); width:20px; height:2px; border-radius:3px; background:#e1a0b8; }
+ .mobileNav .indicator { position:absolute; top:9px; right:calc(50% - 18px); }
+ .mobileNav button:disabled { opacity:.4; }
+ .mobileNav button:active:enabled { background:#6c2b4666; }
+ .directoryDialog { inset:auto 0 0; width:100%; max-width:560px; max-height:calc(100dvh - max(16px,env(safe-area-inset-top))); margin:0 auto; padding:20px 16px calc(20px + env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; border-bottom:0; overflow-y:auto; overscroll-behavior:contain; background:linear-gradient(160deg,#24101b,#10090f 60%); }
+ .directoryDialog::backdrop { background:#050306b8; }
+ .dialogHeading { margin-bottom:16px; }
+ .dialogHeading h2 { margin-top:4px; font-size:25px; }
+ .dialogHeading button { border:1px solid #c89a5526; border-radius:50%; color:#eac7d7; }
+ .dialogGrid { gap:7px; }
+ .dialogGrid .navItem { min-height:48px; margin:0; padding:10px; gap:9px; font-size:12px; }
+ .dialogGrid .navItem[aria-current=page]::before { left:0; }
+ .dialogGrid .badge { letter-spacing:0; }
+}
+@media(max-width:360px) { .content { padding-inline:12px; }.sheetWallet { gap:10px 15px; }.sheetWallet button { padding-inline:10px; }.dialogGrid .navItem { gap:6px; font-size:11px; } }

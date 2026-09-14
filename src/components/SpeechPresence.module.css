@@ -8,3 +8,9 @@
 @media(prefers-reduced-motion:reduce) { .portrait,.message { transition:none!important; }.portrait:hover { transform:none; } }
 
 @media(max-width:1023px) { :global(body:has(dialog[data-court-game][open])) .presence:global(.court-floating-character) { bottom:calc(12px + env(safe-area-inset-bottom)); } }
+
+/* The directory must remain unobstructed; chat already has its own close control. */
+@media(max-width:1023px) {
+ :global(body:has(dialog[aria-label="Court directory"][open])) .presence { visibility:hidden; }
+ :global(body:has([data-court-chat][data-open=true])) .message { visibility:hidden; }
+}
