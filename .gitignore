@@ -54,6 +54,7 @@ next-env.d.ts
 !/supabase/202609110004_throne_debt_contracts.sql
 !/supabase/202609110005_premium_title_schema.sql
 !/supabase/202609120001_recent_tribute_payment_details.sql
+!/supabase/202609170001_wallpaper_nightly_rotation.sql
 !/supabase/throne-debts.sql
 !/supabase/gamble-hall.sql
 !/supabase/README.md

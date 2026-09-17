@@ -26,6 +26,7 @@ type Assignment = {
   id: string;
   activation_id: string | null;
   scope: "global" | "device";
+  assignment_source: "manual" | "automatic";
   wallpaper_url: string;
   version: string;
   created_at: string;
@@ -463,9 +464,18 @@ export default function WallpaperAdminPage() {
                     <p className="text-sm font-semibold">Active wallpaper</p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {!directAssignment && target !== "global" && effectiveAssignment
-                        ? "Using the global wallpaper"
-                        : "Assigned directly to this target"}
+                        ? effectiveAssignment.assignment_source === "automatic"
+                          ? "Using the nightly ALL wallpaper"
+                          : "Using the global wallpaper"
+                        : effectiveAssignment?.assignment_source === "automatic"
+                          ? "Selected automatically for ALL"
+                          : "Assigned directly to this target"}
                     </p>
+                    {target === "global" && (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Around 02:00 Türkiye time, a library image is chosen if you made no ALL assignment in the previous 24 hours. Older images are favored.
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {target !== "global" && directAssignment && (

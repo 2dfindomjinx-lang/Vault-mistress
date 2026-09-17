@@ -52,7 +52,7 @@ export async function loadWallpaperAdminState(supabase: SupabaseClient) {
       .order("owner_name", { ascending: true }),
     supabase
       .from("wallpaper_assignments")
-      .select("id, activation_id, scope, wallpaper_url, version, created_at")
+      .select("id, activation_id, scope, wallpaper_url, version, assignment_source, created_at")
       .eq("app_key", PRINCIPESSA_WALLPAPER_APP_KEY)
       .eq("active", true)
       .order("created_at", { ascending: false }),

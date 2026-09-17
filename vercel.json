@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/click-game-weekly-reset",
       "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron/wallpaper-nightly-rotation",
+      "schedule": "0 23 * * *"
     }
   ]
 }
