@@ -1758,6 +1758,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [siteAnnouncement, setSiteAnnouncement] = useState<SiteAnnouncement | null>(null);
   const [siteAnnouncementLoadFailed, setSiteAnnouncementLoadFailed] = useState(false);
   const [freeFridaySpinAvailable, setFreeFridaySpinAvailable] = useState(false);
+  const [freeFridayWheelJump, setFreeFridayWheelJump] = useState(0);
   const [temporarySpeechAvatar, setTemporarySpeechAvatar] =
     useState<TemporarySpeechAvatarState | null>(null);
   const [randomSpeechAvatarId, setRandomSpeechAvatarId] = useState<string>(DEFAULT_SPEECH_AVATAR_ID);
@@ -11558,7 +11559,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             </section>
           )}
 
-        {isFreeFridayActive && <aside className="court-event-notice"><div><strong>Free Task Friday</strong><span>One free IRL Task Wheel spin.</span></div><div><small>Ends in {formatEventCountdown(freeFridayRemainingMs)}</small><button type="button" onClick={() => { setActivePanel("wheels"); resetViewportScroll(); }}>Visit Wheels ↗</button></div></aside>}
+        {isFreeFridayActive && <aside className="court-event-notice"><div><strong>Free Task Friday</strong><span>One free IRL Task Wheel spin.</span></div><div><small>Ends in {formatEventCountdown(freeFridayRemainingMs)}</small><button type="button" onClick={() => { setFreeFridayWheelJump((current) => current + 1); setActivePanel("tasks"); }}>Visit IRL Task Wheel ↗</button></div></aside>}
 
         {activeEvents.length > 0 && (
           <section className="overflow-hidden rounded-[1.5rem] border border-yellow-200/35 bg-[linear-gradient(135deg,rgba(250,204,21,0.2),rgba(236,72,153,0.14),rgba(88,28,135,0.32),rgba(0,0,0,0.62))] px-4 py-4 shadow-[0_0_38px_rgba(250,204,21,0.16)]">
@@ -11825,6 +11826,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
               isFreeFridaySpinAvailable={isFreeFridaySpinAvailable}
+              focusIrlWheelRequest={freeFridayWheelJump}
+              onIrlWheelFocused={() => setFreeFridayWheelJump(0)}
               onFreeFridaySpinConsumed={() => setFreeFridaySpinAvailable(false)}
               globalPrincipessaLevel={globalPrincipessa.level}
               globalPrincipessaProgressPercent={globalPrincipessaProgressPercent}

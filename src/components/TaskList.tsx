@@ -136,6 +136,7 @@ function CooldownButtonContent({ label }: { label: string }) {
 
 type TaskListProps = {
   addressTerm?: AddressTerm;
+  focusIrlWheelRequest?: number;
   coins: number;
   disabled?: boolean;
   disabledReason?: string;
@@ -159,6 +160,7 @@ type TaskListProps = {
   onCaseOpenRevealed?: (reward: number) => void;
   onLevelDrain: () => DrainVisualResult | void | Promise<DrainVisualResult | void>;
   onIrlTaskSpin: (wheelIndex: number, useFreeFridaySpin?: boolean) => Promise<void> | void;
+  onIrlWheelFocused?: () => void;
   onFreeFridaySpinConsumed?: () => void;
   onNumberPick: (selectedNumber: number) => void;
   onMovementFail: () => void;
@@ -225,6 +227,7 @@ function RiskCoin({ state }: { state: "idle" | "spin" | "safe" | "timeout" }) {
 
 export function TaskList({
   addressTerm = DEFAULT_ADDRESS_TERM,
+  focusIrlWheelRequest = 0,
   coins,
   disabled = false,
   disabledReason = "Timeout active. This task is locked.",
@@ -238,6 +241,7 @@ export function TaskList({
   onCaseOpenRevealed,
   onLevelDrain,
   onIrlTaskSpin,
+  onIrlWheelFocused,
   onFreeFridaySpinConsumed,
   onNumberPick,
   onMovementFail,
@@ -265,6 +269,18 @@ export function TaskList({
   tasks,
   usernameStyle,
 }: TaskListProps) {
+  const hasIrlWheel = tasks.some((task) => task.id === "irl-task-wheel");
+  useEffect(() => {
+    if (focusIrlWheelRequest === 0 || !hasIrlWheel) return;
+    const wheel = document.querySelector<HTMLElement>('[data-task-id="irl-task-wheel"]');
+    if (!wheel) return;
+    wheel.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+    onIrlWheelFocused?.();
+  }, [focusIrlWheelRequest, hasIrlWheel, onIrlWheelFocused]);
+
   const now = useDeadlineClock(
     tasks.flatMap((task) => [task.cooldownUntil, task.timeoutUntil, task.assignedIrlDueAt]),
     30_000,
