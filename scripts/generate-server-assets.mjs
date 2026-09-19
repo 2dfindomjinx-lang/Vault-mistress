@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { buildOverlayManifest } from "./overlay-media-manifest.mjs";
 
 // Only this build-time script enumerates asset folders. Runtime modules receive
 // filenames, not filesystem globs that pull unrelated media into every function.
@@ -29,16 +29,9 @@ fs.writeFileSync(path.join(output, "asset-names.json"), JSON.stringify({
 }, null, 2) + "\n");
 
 const overlayRoot = path.join(root, "public/principessa-discipline/overlay-pool");
-const overlays = fs.readdirSync(overlayRoot, { withFileTypes: true })
-  .filter(entry => entry.isFile() && /\.(jpg|jpeg|png|webp)$/i.test(entry.name))
-  .map(entry => entry.name).sort((a, b) => a.localeCompare(b)).map(fileName => {
-    const file = path.join(overlayRoot, fileName);
-    const bytes = fs.readFileSync(file);
-    if (!bytes.length || bytes.length > 25 * 1024 * 1024) throw new Error(`Invalid overlay size: ${fileName}`);
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
-    return { key: fileName, fileName, imageUrl: `https://vault-mistress.vercel.app/principessa-discipline/overlay-pool/${encodeURIComponent(fileName)}?v=${sha256}`, updatedAt: fs.statSync(file).mtime.toISOString(), sizeBytes: bytes.length, sha256 };
-  });
-fs.writeFileSync(path.join(output, "overlay-manifest.json"), JSON.stringify({ images: overlays, generatedAt: new Date(Math.max(0, ...overlays.map(image => Date.parse(image.updatedAt)))).toISOString() }, null, 2) + "\n");
+for (const [name, includeMedia] of [["overlay-manifest.json", false], ["overlay-media-manifest.json", true]]) {
+  fs.writeFileSync(path.join(output, name), JSON.stringify(buildOverlayManifest(overlayRoot, includeMedia), null, 2) + "\n");
+}
 
 // Explicit literal paths let Next trace only the crate art needed by OG cards.
 const crateFiles = walk(path.join(root, "public/crate-items")).filter(file => images.test(file));
