@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AddressTerm } from "@/lib/address-term";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 
 export type DevotionPeriod = "weekly" | "monthly" | "all_time";
 
@@ -12,7 +13,7 @@ export type DevotionLeaderboardEntry = {
   devotion: number;
   username: string;
   displayName: string | null;
-  equippedAvatarSlots: Record<string, string> | null;
+  equippedAvatarSlots: EquippedAvatarSlots | null;
   equippedFullSetId: string | null;
   hasUncensoredAvatar: boolean;
   usernameStyle?: {

@@ -3,6 +3,7 @@ import {
   normalizeDevotionPeriod,
   type DevotionLeaderboardEntry,
 } from "@/lib/devotion";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import { normalizeAddressTerm } from "@/lib/address-term";
 import { getCosmeticItem, getTitleItem, getSpendBadge } from "@/lib/cosmetics";
 import { getLeadershipRank } from "@/lib/leadership";
@@ -142,7 +143,7 @@ export async function GET(request: Request) {
         })(),
         avatarUrl: profile.avatar_url ?? null,
         displayName: profile.display_name ?? null,
-        equippedAvatarSlots: (profile.equipped_avatar_slots as Record<string, string> | null) ?? null,
+        equippedAvatarSlots: (profile.equipped_avatar_slots as EquippedAvatarSlots | null) ?? null,
         equippedFullSetId: (profile.equipped_full_set_id as string | null) ?? null,
         hasUncensoredAvatar: Boolean(profile.has_uncensored_avatar),
         totalDevotion: Number(profile.total_devotion ?? 0),

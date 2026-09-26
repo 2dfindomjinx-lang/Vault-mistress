@@ -6,6 +6,8 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getItemAvatarSlot,
+  getEquippedAvatarItemIds,
+  getEquippedTattooIds,
   isFullSetItem,
   normalizeEquipment,
   type EquippedAvatarSlots,
@@ -87,7 +89,7 @@ export async function POST(request: Request) {
     ...(inventoryRows ?? [])
       .filter((row) => Number(row.quantity ?? 0) >= 1)
       .map((row) => String(row.item_id)),
-    ...Object.values(equippedSlots).filter((value): value is string => typeof value === "string" && value.length > 0),
+    ...getEquippedAvatarItemIds(equippedSlots as EquippedAvatarSlots),
     ...(typeof profile.equipped_full_set_id === "string" && profile.equipped_full_set_id.length > 0
       ? [profile.equipped_full_set_id]
       : []),
@@ -96,6 +98,7 @@ export async function POST(request: Request) {
 
   const candidateSlots: EquippedAvatarSlots = {};
   for (const [slot, value] of Object.entries(rawSlots)) {
+    if (slot === "tattoos") continue;
     if (typeof value !== "string" || value.length === 0) continue;
     if (!isOwned(value)) {
       return jsonError(`You do not own "${value}".`, 403);
@@ -104,6 +107,12 @@ export async function POST(request: Request) {
       return jsonError(`"${value}" does not belong in the "${slot}" slot.`, 400);
     }
     (candidateSlots as Record<string, string>)[slot] = value;
+  }
+  for (const tattooId of getEquippedTattooIds(rawSlots as EquippedAvatarSlots)) {
+    if (!isOwned(tattooId)) {
+      return jsonError(`You do not own "${tattooId}".`, 403);
+    }
+    (candidateSlots.tattoos ??= []).push(tattooId);
   }
 
   let fullSetId: string | null = null;

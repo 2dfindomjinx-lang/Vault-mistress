@@ -1,6 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import type { AddressTerm } from "@/lib/address-term";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 
 export type Profile = {
   id: string;
@@ -9,7 +10,7 @@ export type Profile = {
   displayName?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
-  equipped_avatar_slots?: Record<string, string> | null;
+  equipped_avatar_slots?: EquippedAvatarSlots | null;
   equipped_full_set_id?: string | null;
   has_uncensored_avatar?: boolean;
   avatar_presets?: import("@/lib/avatar-slots").AvatarPreset[] | null;

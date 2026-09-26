@@ -121,7 +121,10 @@ function preloadDashboardPanel(page: DashboardPage) {
 import {
   AVATAR_SLOT_ORDER,
   resolveAvatarItemIconPath,
+  getEquippedAvatarItemIds,
+  getEquippedTattooIds,
   getItemAvatarSlot,
+  isAvatarItemEquipped,
   isAvatarEquippableItem,
   isFullSetItem,
   normalizeEquipment,
@@ -2899,17 +2902,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         .filter((item) => item.quantity > 0)
         .map((item) => item.item_id),
     );
-    Object.values(equippedAvatarSlots).forEach((itemId) => {
-      if (itemId) {
-        ownedItemIds.add(itemId);
-      }
-    });
+    getEquippedAvatarItemIds(equippedAvatarSlots).forEach((itemId) => ownedItemIds.add(itemId));
     // "classic" fullbody is a default always-unlocked item (no need for DB inventory entry)
     ownedItemIds.add("classic");
 
-    const next = Object.fromEntries(
-      Object.entries(equippedAvatarSlots).filter(([, itemId]) => ownedItemIds.has(itemId)),
-    ) as EquippedAvatarSlots;
+    const next: EquippedAvatarSlots = {};
+    for (const slot of AVATAR_SLOT_ORDER) {
+      if (slot === "tattoo") continue;
+      const itemId = equippedAvatarSlots[slot];
+      if (itemId && ownedItemIds.has(itemId)) next[slot] = itemId;
+    }
+    const tattoos = getEquippedTattooIds(equippedAvatarSlots).filter((itemId) => ownedItemIds.has(itemId));
+    if (tattoos.length > 0) next.tattoos = tattoos;
 
     const cleaned = normalizeEquipment(next);
     if (JSON.stringify(cleaned) === JSON.stringify(currentNormalized)) {
@@ -10721,6 +10725,24 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const equippableInventoryItems = useMemo(
     () => {
       const fromInv = crateInventory.filter((item) => item.quantity > 0 && isAvatarEquippableItem(item.item_id));
+      // Equipped items are reserved out of inventory. Keep worn tattoos in the
+      // picker so each one can still be toggled off independently.
+      for (const itemId of getEquippedTattooIds(equippedAvatarSlots)) {
+        if (fromInv.some((item) => item.item_id === itemId)) continue;
+        const definition = SAMPLE_CRATE_ITEMS[itemId];
+        if (!definition) continue;
+        fromInv.push({
+          item_id: itemId,
+          name: definition.name,
+          description: definition.description || "",
+          image_url: definition.image_url ?? null,
+          rarity: definition.rarity,
+          collection: definition.collection || null,
+          sell_value: definition.sell_value || 0,
+          variant: "normal",
+          quantity: 1,
+        });
+      }
       const hasClassic = fromInv.some((item) => item.item_id === "classic");
       if (hasClassic) return fromInv;
       // Always inject the default "classic" fullbody so it appears in wardrobe and is equippable
@@ -10739,7 +10761,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         },
       ];
     },
-    [crateInventory],
+    [crateInventory, equippedAvatarSlots],
   );
   const inventoryItemNameById = useMemo(
     () => {
@@ -11517,6 +11539,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           currentTitle={equippedTitle?.name}
           displayName={effectiveDisplayName}
           equippedAvatarSlots={equippedAvatarSlots}
+          showToyEffect
           equippedFullSetId={equippedFullSetId}
           equippedCosmeticIds={effectiveEquippedCosmeticIds}
           hasUncensoredAvatar={hasUncensoredAvatar}
@@ -12183,6 +12206,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
                             className="absolute inset-0"
                             equipped={isAvatarActionPending ? committedEquippedSlots : equippedAvatarSlots}
+                            showToyEffect
                             equippedFullSetId={equippedFullSetId}
                             hasUncensored={hasUncensoredAvatar}
                             imageClassName="object-contain object-center"
@@ -12260,7 +12284,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                           );
                         })()}
                         {AVATAR_SLOT_ORDER.map((slot) => {
-                          const equippedItemId = equippedAvatarSlots[slot];
+                          const equippedTattooIds = slot === "tattoo" ? getEquippedTattooIds(equippedAvatarSlots) : [];
+                          const equippedItemId = slot === "tattoo" ? equippedTattooIds[0] : equippedAvatarSlots[slot];
                           const isFiltered = wardrobeCategoryFilter === slot;
 
                           if (!equippedItemId) {
@@ -12276,10 +12301,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                             );
                           }
 
-                          const equippedItemName =
-                            inventoryItemNameById.get(equippedItemId) ??
-                            SAMPLE_CRATE_ITEMS[equippedItemId]?.name ??
-                            equippedItemId;
+                          const equippedItemName = slot === "tattoo" && equippedTattooIds.length > 1
+                            ? `${equippedTattooIds.length} tattoos`
+                            : inventoryItemNameById.get(equippedItemId) ??
+                              SAMPLE_CRATE_ITEMS[equippedItemId]?.name ??
+                              equippedItemId;
                           const equippedItemIcon = resolveAvatarItemIconPath(equippedItemId);
 
                           return (
@@ -12525,11 +12551,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                 <p className="text-xs font-black uppercase tracking-[0.2em] text-pink-100/70">
                                   {SLOT_LABELS[slot]}
                                 </p>
-                                <span className="text-[10px] text-zinc-500">{items.length} items</span>
+                                <span className="text-[10px] text-zinc-500">
+                                  {slot === "tattoo"
+                                    ? `Multiple allowed · ${getEquippedTattooIds(equippedAvatarSlots).length} selected`
+                                    : `${items.length} items`}
+                                </span>
                               </div>
                               <div className="grid gap-2 sm:grid-cols-2">
                                 {items.map((item) => {
-                                  const isEquipped = equippedAvatarSlots[slot] === item.item_id;
+                                  const isEquipped = isAvatarItemEquipped(equippedAvatarSlots, item.item_id);
 
                                   return (
                                     <button
@@ -12539,8 +12569,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                       onClick={async () => {
                                         if (isAvatarActionPending) return;
                                         const action = isEquipped ? "unequip" : "equip";
-                                        const body: { action: "unequip"; slot: AvatarSlot } | { action: "equip"; itemId: string } = isEquipped
-                                          ? { action: "unequip", slot }
+                                        const body: { action: "unequip"; slot: AvatarSlot; itemId?: string } | { action: "equip"; itemId: string } = isEquipped
+                                          ? { action: "unequip", slot, itemId: item.item_id }
                                           : { action: "equip", itemId: item.item_id };
                                         setIsAvatarActionPending(true);
                                         try {

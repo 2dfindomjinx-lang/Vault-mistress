@@ -33,7 +33,7 @@ type EventRow = {
   created_at: string;
 };
 
-type AppKey = "principessas-discipline" | "principessa-wallpaper-control";
+type AppKey = "principessas-discipline" | "principessa-wallpaper-control" | "principessa-techdom";
 
 export default function AppLicensesPage() {
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
@@ -199,14 +199,14 @@ export default function AppLicensesPage() {
             <h1 className="text-3xl font-black">
               {appKey === "principessas-discipline"
                 ? "Principessa's Discipline Licenses"
-                : "Wallpaper Control Licenses"}
+                : appKey === "principessa-techdom" ? "Principessa Techdom Licenses" : "Wallpaper Control Licenses"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Generate a code, see who used it, and reset or revoke it when needed.
             </p>
             <p className="mt-2 text-xs leading-5 text-zinc-400">
-              {appKey === "principessas-discipline"
-                ? "Revoke blocks future activation. Previously activated offline copies of Discipline keep working until the app supports online license checks."
+              {appKey === "principessas-discipline" || appKey === "principessa-techdom"
+                ? "Revoke blocks future activation. Already activated offline copies keep working until the app supports online license checks."
                 : "Revoke blocks activation and the old device's next Wallpaper request. Use Reset to move the existing code to a replacement phone."}
             </p>
           </div>
@@ -227,6 +227,7 @@ export default function AppLicensesPage() {
           {([
             ["principessas-discipline", "Discipline"],
             ["principessa-wallpaper-control", "Wallpaper Control"],
+            ["principessa-techdom", "Techdom"],
           ] as const).map(([key, label]) => (
             <button
               className={`rounded-full border px-4 py-2 text-sm font-black ${

@@ -242,7 +242,12 @@ AVATAR_SLOT_ASSIGNMENTS.forEach(([itemId, slot]) => {
 });
 
 
-export type EquippedAvatarSlots = Partial<Record<AvatarSlot, string>>;
+// Every wardrobe category is exclusive except tattoos. `tattoo` remains in the
+// shape so profiles saved before multi-tattoo support keep loading; normalized
+// data stores ink in `tattoos`.
+export type EquippedAvatarSlots = Partial<Record<AvatarSlot, string>> & {
+  tattoos?: string[];
+};
 
 export type AvatarPreset = {
   name: string;
@@ -379,14 +384,51 @@ export function resolveAvatarLayer(itemId: string): string | null {
   return `/avatar/${SLOT_FOLDER_MAP[slot]}/${fileName}`;
 }
 
+export function getEquippedTattooIds(equipped: EquippedAvatarSlots): string[] {
+  const candidates = [
+    ...(Array.isArray(equipped.tattoos) ? equipped.tattoos : []),
+    ...(typeof equipped.tattoo === "string" ? [equipped.tattoo] : []),
+  ];
+
+  return [...new Set(candidates)].filter(
+    (itemId): itemId is string => typeof itemId === "string" && getItemAvatarSlot(itemId) === "tattoo",
+  );
+}
+
+export function getEquippedAvatarItemIds(equipped: EquippedAvatarSlots): string[] {
+  const normalized = normalizeEquipment(equipped);
+  const itemIds = AVATAR_SLOT_ORDER.flatMap((slot) => {
+    if (slot === "tattoo") return [];
+    const itemId = normalized[slot];
+    return typeof itemId === "string" ? [itemId] : [];
+  });
+  return [...getEquippedTattooIds(normalized), ...itemIds];
+}
+
+export function isAvatarItemEquipped(equipped: EquippedAvatarSlots, itemId: string): boolean {
+  const slot = getItemAvatarSlot(itemId);
+  return slot === "tattoo"
+    ? getEquippedTattooIds(equipped).includes(itemId)
+    : Boolean(slot && equipped[slot] === itemId);
+}
+
 export function normalizeEquipment(equipped: EquippedAvatarSlots): EquippedAvatarSlots {
   const normalized: EquippedAvatarSlots = {};
 
   for (const slot of AVATAR_SLOT_ORDER) {
+    if (slot === "tattoo") continue;
     const itemId = equipped[slot];
     if (typeof itemId === "string" && itemId.length > 0) {
       normalized[slot] = itemId;
     }
+  }
+
+  const tattoos = getEquippedTattooIds(equipped);
+  if (tattoos.length > 0) {
+    // Keep the first item in the legacy scalar key for older profile/runway
+    // consumers. Extra ink lives in the additive list.
+    normalized.tattoo = tattoos[0];
+    if (tattoos.length > 1) normalized.tattoos = tattoos;
   }
 
   if (normalized.fullBody) {
@@ -423,10 +465,16 @@ export function equipAvatarItem(
     return normalizeEquipment(equipped);
   }
 
-  const next: EquippedAvatarSlots = {
-    ...normalizeEquipment(equipped),
-    [slot]: itemId,
-  };
+  const next = normalizeEquipment(equipped);
+
+  if (slot === "tattoo") {
+    next.tattoos = [...getEquippedTattooIds(next), itemId].filter(
+      (candidate, index, all) => all.indexOf(candidate) === index,
+    );
+    return normalizeEquipment(next);
+  }
+
+  next[slot] = itemId;
 
   if (slot === "fullBody") {
     delete next.top;
@@ -466,6 +514,25 @@ export function unequipAvatarSlot(
 ): EquippedAvatarSlots {
   const next = { ...equipped };
   delete next[slot];
+  if (slot === "tattoo") delete next.tattoos;
+  return normalizeEquipment(next);
+}
+
+export function unequipAvatarItem(
+  equipped: EquippedAvatarSlots,
+  itemId: string,
+): EquippedAvatarSlots {
+  const slot = getItemAvatarSlot(itemId);
+  if (!slot) return normalizeEquipment(equipped);
+  if (slot !== "tattoo") {
+    return equipped[slot] === itemId ? unequipAvatarSlot(equipped, slot) : normalizeEquipment(equipped);
+  }
+
+  const next = normalizeEquipment(equipped);
+  const remainingTattooIds = getEquippedTattooIds(next).filter((tattooId) => tattooId !== itemId);
+  delete next.tattoo;
+  next.tattoos = remainingTattooIds;
+  if (next.tattoos.length === 0) delete next.tattoos;
   return normalizeEquipment(next);
 }
 
@@ -473,20 +540,24 @@ export function getRenderedAvatarLayers(
   equipped: EquippedAvatarSlots,
 ): RenderedAvatarLayer[] {
   const normalized = normalizeEquipment(equipped);
+  const layers: RenderedAvatarLayer[] = [];
 
-  return RENDER_LAYER_ORDER.flatMap((slot) => {
-    const itemId = normalized[slot];
-    if (!itemId) {
-      return [];
+  for (const slot of RENDER_LAYER_ORDER) {
+    if (slot === "tattoo") {
+      for (const itemId of getEquippedTattooIds(normalized)) {
+        const src = resolveAvatarLayer(itemId);
+        if (src) layers.push({ itemId, slot, src });
+      }
+      continue;
     }
+    const itemId = normalized[slot];
+    if (!itemId) continue;
 
     const src = resolveAvatarLayer(itemId);
-    if (!src) {
-      return [];
-    }
+    if (src) layers.push({ itemId, slot, src });
+  }
 
-    return [{ itemId, slot, src }];
-  });
+  return layers;
 }
 
 // "Full Set" items are single pre-rendered whole-character illustrations that

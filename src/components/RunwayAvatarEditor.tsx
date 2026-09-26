@@ -10,10 +10,12 @@ import {
   SLOT_LABELS,
   equipAvatarItem,
   getItemAvatarSlot,
+  isAvatarItemEquipped,
   isAvatarEquippableItem,
   isFullSetItem,
   resolveAvatarItemIconPath,
   unequipAvatarSlot,
+  unequipAvatarItem,
   type AvatarSlot,
   type EquippedAvatarSlots,
 } from "@/lib/avatar-slots";
@@ -72,7 +74,9 @@ export function RunwayAvatarEditor({
 
   const equipSlotItem = (itemId: string) => {
     setDraftFullSetId(null);
-    setDraftSlots((prev) => equipAvatarItem(prev, itemId));
+    setDraftSlots((prev) => isAvatarItemEquipped(prev, itemId)
+      ? unequipAvatarItem(prev, itemId)
+      : equipAvatarItem(prev, itemId));
   };
 
   const unequipSlot = (slot: AvatarSlot) => {
@@ -211,7 +215,7 @@ export function RunwayAvatarEditor({
                 </div>
                 <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-7 lg:grid-cols-8">
                   {itemsBySlot[slot]!.map((item) => {
-                    const isEquipped = draftSlots[slot] === item.item_id;
+                    const isEquipped = isAvatarItemEquipped(draftSlots, item.item_id);
                     const icon = resolveAvatarItemIconPath(item.item_id);
                     return (
                       <button

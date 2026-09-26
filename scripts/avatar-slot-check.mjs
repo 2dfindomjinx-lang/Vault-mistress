@@ -25,12 +25,13 @@ registerHooks({
   },
 });
 
-const { equipAvatarItem, normalizeEquipment, ITEM_SLOT_MAP, getRenderedAvatarLayers } =
+const { equipAvatarItem, unequipAvatarItem, normalizeEquipment, ITEM_SLOT_MAP, getRenderedAvatarLayers } =
   await import("../src/lib/avatar-slots.ts");
 
 // Stand-in ids so the check does not depend on the live catalogue.
 const F = {
   TATTOO: "test_tattoo",
+  TATTOO_2: "test_tattoo_2",
   FULL_LEGS: "test_thigh_boots",
   SHOES: "test_shoes",
   THIGHHIGHS: "test_thighhighs",
@@ -40,6 +41,7 @@ const F = {
   FULL_BODY: "test_bodysuit",
 };
 ITEM_SLOT_MAP[F.TATTOO] = "tattoo";
+ITEM_SLOT_MAP[F.TATTOO_2] = "tattoo";
 ITEM_SLOT_MAP[F.FULL_LEGS] = "fullLegs";
 ITEM_SLOT_MAP[F.SHOES] = "shoes";
 ITEM_SLOT_MAP[F.THIGHHIGHS] = "thighhighs";
@@ -107,12 +109,28 @@ check("tattoo survives fullLegs", () => {
   assert.equal(result.fullLegs, F.FULL_LEGS);
 });
 
+check("tattoos accumulate instead of replacing each other", () => {
+  const result = equip({}, F.TATTOO, F.TATTOO_2);
+  assert.deepEqual(result.tattoos, [F.TATTOO, F.TATTOO_2]);
+});
+
+check("one tattoo can be removed without clearing the others", () => {
+  const result = unequipAvatarItem(equip({}, F.TATTOO, F.TATTOO_2), F.TATTOO);
+  assert.equal(result.tattoo, F.TATTOO_2);
+  assert.equal(result.tattoos, undefined);
+});
+
 // --- tattoo renders first, on the skin ---------------------------------------
 check("tattoo is the bottom render layer", () => {
   const layers = getRenderedAvatarLayers(
     normalizeEquipment({ tattoo: F.TATTOO, top: F.TOP, bottom: F.BOTTOM, shoes: F.SHOES }),
   );
   assert.equal(layers[0]?.slot, "tattoo", `first layer was ${layers[0]?.slot}`);
+});
+
+check("all selected tattoos render below clothing", () => {
+  const layers = getRenderedAvatarLayers(equip({}, F.TATTOO, F.TATTOO_2, F.TOP));
+  assert.deepEqual(layers.map((layer) => layer.itemId), [F.TATTOO, F.TATTOO_2, F.TOP]);
 });
 
 // --- a conflict already saved in the database is repaired on read ------------

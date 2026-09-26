@@ -1,11 +1,13 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createPublicKey, createSign, createVerify, randomBytes } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, createSign, createVerify, randomBytes } from "node:crypto";
 
 export const PRINCIPESSA_DISCIPLINE_APP_KEY = "principessas-discipline";
 export const PRINCIPESSA_WALLPAPER_APP_KEY = "principessa-wallpaper-control";
+export const PRINCIPESSA_TECHDOM_APP_KEY = "principessa-techdom";
 export const SUPPORTED_APP_LICENSE_KEYS = [
   PRINCIPESSA_DISCIPLINE_APP_KEY,
   PRINCIPESSA_WALLPAPER_APP_KEY,
+  PRINCIPESSA_TECHDOM_APP_KEY,
 ] as const;
 export type SupportedAppLicenseKey = (typeof SUPPORTED_APP_LICENSE_KEYS)[number];
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -434,7 +436,8 @@ export async function resetAppLicense(licenseId: string, appKey: string) {
 }
 
 export function createSignedLicenseToken(payload: SignedLicensePayload) {
-  const privateKey = process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
+  const privateKey = payload.appKey === PRINCIPESSA_TECHDOM_APP_KEY
+    ? techdomPrivateKey() : process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
   const payloadPart = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const signer = createSign("RSA-SHA256");
   signer.update(payloadPart);
@@ -443,12 +446,25 @@ export function createSignedLicenseToken(payload: SignedLicensePayload) {
   return `${payloadPart}.${signaturePart}`;
 }
 
+const TECHDOM_PUBLIC_KEY_SHA256 = "2edd11a0cff1baeec49537eecdfe412df1615eb1ee61696d6d453f517410ac9d";
+export function techdomPrivateKey() {
+  const pem = process.env.PRINCIPESSA_TECHDOM_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
+  if (!pem) throw new Error("Techdom signing key is not configured.");
+  const key = createPrivateKey(pem);
+  const fingerprint = createHash("sha256").update(createPublicKey(key).export({ type: "spki", format: "der" })).digest("hex");
+  if (fingerprint !== TECHDOM_PUBLIC_KEY_SHA256) throw new Error("Techdom signing key does not match the desktop app.");
+  return key;
+}
+
 export function verifySignedLicenseToken(token: string): SignedLicensePayload | null {
   const [payloadPart, signaturePart, extraPart] = token.split(".");
   if (!payloadPart || !signaturePart || extraPart) return null;
 
   try {
-    const privateKey = process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
+    const untrusted = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8")) as Partial<SignedLicensePayload>;
+    const privateKey = untrusted.appKey === PRINCIPESSA_TECHDOM_APP_KEY
+      ? techdomPrivateKey()
+      : process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
     const verifier = createVerify("RSA-SHA256");
     verifier.update(payloadPart);
     verifier.end();

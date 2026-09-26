@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 
 type LeaderboardRow = {
   rank: number;
@@ -18,7 +19,7 @@ type LeaderboardRow = {
 
 type VotingAvatarSnapshot = {
   id: string;
-  equipped_avatar_slots: Record<string, string> | null;
+  equipped_avatar_slots: EquippedAvatarSlots | null;
   equipped_full_set_id: string | null;
   has_uncensored_avatar: boolean | null;
   super_vote_count: number | null;

@@ -1,4 +1,5 @@
 import type { AddressTerm } from "@/lib/address-term";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import {
   getCosmeticItem,
   rotatingCosmeticItems,
@@ -28,7 +29,7 @@ export type CommunityProfileSnippet = {
   badges: UserPrestigeBadge[];
   backgroundItemId: string | null;
   displayName: string | null;
-  equippedAvatarSlots: Record<string, string> | null;
+  equippedAvatarSlots: EquippedAvatarSlots | null;
   equippedFullSetId: string | null;
   frameColor: string | null;
   frameItemId: string | null;

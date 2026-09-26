@@ -6,8 +6,11 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getItemAvatarSlot,
+  getEquippedAvatarItemIds,
+  getEquippedTattooIds,
   normalizeEquipment,
   equipAvatarItem,
+  unequipAvatarItem,
   unequipAvatarSlot,
   isFullSetItem,
   MAX_AVATAR_PRESET_SLOTS,
@@ -139,7 +142,7 @@ export async function POST(request: Request) {
     return jsonError("Profile not found.", 404);
   }
 
-  const currentSlots: EquippedAvatarSlots = (profile.equipped_avatar_slots as EquippedAvatarSlots) || {};
+  const currentSlots = normalizeEquipment((profile.equipped_avatar_slots as EquippedAvatarSlots) || {});
   const currentUncensored = !!profile.has_uncensored_avatar;
   const currentFullSetId: string | null = (profile.equipped_full_set_id as string | null) ?? null;
 
@@ -167,8 +170,8 @@ export async function POST(request: Request) {
 
     // Server-side apply logic (trust only server)
     const next = equipAvatarItem(currentSlots, itemId);
-    const previousItemIds = new Set(Object.values(currentSlots).filter((value): value is string => typeof value === "string"));
-    const nextItemIds = new Set(Object.values(next).filter((value): value is string => typeof value === "string"));
+    const previousItemIds = new Set(getEquippedAvatarItemIds(currentSlots));
+    const nextItemIds = new Set(getEquippedAvatarItemIds(next));
 
     try {
       for (const removedItemId of previousItemIds) {
@@ -207,11 +210,22 @@ export async function POST(request: Request) {
     const slot = body?.slot;
     if (!slot) return jsonError("slot required.", 400);
 
-    const removedItemId = currentSlots[slot];
-    const next = unequipAvatarSlot(currentSlots, slot);
-    if (removedItemId && removedItemId !== "classic") {
+    const requestedItemId = typeof body?.itemId === "string" ? body.itemId : null;
+    if (requestedItemId && getItemAvatarSlot(requestedItemId) !== slot) {
+      return jsonError("Item does not belong to that slot.", 400);
+    }
+    const next = requestedItemId
+      ? unequipAvatarItem(currentSlots, requestedItemId)
+      : unequipAvatarSlot(currentSlots, slot);
+    const nextItemIds = new Set(getEquippedAvatarItemIds(next));
+    const removedItemIds = getEquippedAvatarItemIds(currentSlots).filter((itemId) => !nextItemIds.has(itemId));
+    if (removedItemIds.length > 0) {
       try {
-        await adjustInventoryQuantity(supabase, userId, removedItemId, "normal", 1);
+        for (const removedItemId of removedItemIds) {
+          if (removedItemId !== "classic") {
+            await adjustInventoryQuantity(supabase, userId, removedItemId, "normal", 1);
+          }
+        }
       } catch (inventoryErr) {
         console.error("[wardrobe] inventory restore failed", inventoryErr);
         return jsonError("Failed to restore inventory.", 500);
@@ -255,8 +269,8 @@ export async function POST(request: Request) {
 
         // Full Set replaces the base model + every layer entirely - unequip
         // and restore any currently equipped wardrobe slot items.
-        for (const equippedItemId of Object.values(currentSlots)) {
-          if (typeof equippedItemId === "string" && equippedItemId !== "classic") {
+        for (const equippedItemId of getEquippedAvatarItemIds(currentSlots)) {
+          if (equippedItemId !== "classic") {
             await adjustInventoryQuantity(supabase, userId, equippedItemId, "normal", 1);
           }
         }
@@ -351,14 +365,13 @@ export async function POST(request: Request) {
     // check would drop them here - and this handler writes equipped_avatar_slots
     // without returning anything to the inventory, so a dropped item would be
     // gone from both places. Anything currently equipped counts as owned.
-    const reservedItemIds = new Set<string>(
-      Object.values(currentSlots).filter((value): value is string => typeof value === "string" && value.length > 0),
-    );
+    const reservedItemIds = new Set<string>(getEquippedAvatarItemIds(currentSlots));
     if (currentFullSetId) reservedItemIds.add(currentFullSetId);
 
     // harden: only set items the user actually owns
     const cleaned: EquippedAvatarSlots = {};
-    for (const [s, iid] of Object.entries(slots as Record<string, string>)) {
+    for (const [s, iid] of Object.entries(slots)) {
+      if (s === "tattoos") continue;
       if (!iid || typeof iid !== "string") continue;
       if (iid === "classic" || reservedItemIds.has(iid)) {
         // default item always allowed; reserved items are held, not missing
@@ -373,6 +386,22 @@ export async function POST(request: Request) {
         .maybeSingle();
       if (inv && (inv.quantity ?? 0) > 0) {
         cleaned[s as AvatarSlot] = iid;
+      }
+    }
+    const tattooIds = getEquippedTattooIds(slots as EquippedAvatarSlots);
+    for (const tattooId of tattooIds) {
+      if (reservedItemIds.has(tattooId)) {
+        (cleaned.tattoos ??= []).push(tattooId);
+        continue;
+      }
+      const { data: inv } = await supabase
+        .from("user_crate_inventory")
+        .select("quantity")
+        .eq("user_id", userId)
+        .eq("item_id", tattooId)
+        .maybeSingle();
+      if (inv && (inv.quantity ?? 0) > 0) {
+        (cleaned.tattoos ??= []).push(tattooId);
       }
     }
     const normalized = normalizeEquipment(cleaned);
@@ -480,9 +509,7 @@ export async function POST(request: Request) {
     // never be applied while the first one was active - the ownership check
     // would see the item's reserved quantity and reject it.
     const previousItemIds = new Set<string>();
-    Object.values(currentSlots).forEach((value) => {
-      if (typeof value === "string") previousItemIds.add(value);
-    });
+    getEquippedAvatarItemIds(currentSlots).forEach((value) => previousItemIds.add(value));
     if (currentFullSetId) previousItemIds.add(currentFullSetId);
 
     const isAvailable = async (itemId: string) => {
@@ -505,17 +532,21 @@ export async function POST(request: Request) {
       const rawSlots = preset.equippedAvatarSlots || {};
       const validated: EquippedAvatarSlots = {};
       for (const [slot, itemId] of Object.entries(rawSlots)) {
+        if (slot === "tattoos") continue;
         if (typeof itemId === "string" && (await isAvailable(itemId))) {
           validated[slot as AvatarSlot] = itemId;
+        }
+      }
+      for (const tattooId of getEquippedTattooIds(rawSlots)) {
+        if (await isAvailable(tattooId)) {
+          (validated.tattoos ??= []).push(tattooId);
         }
       }
       targetSlots = normalizeEquipment(validated);
     }
 
     const nextItemIds = new Set<string>();
-    Object.values(targetSlots).forEach((value) => {
-      if (typeof value === "string") nextItemIds.add(value);
-    });
+    getEquippedAvatarItemIds(targetSlots).forEach((value) => nextItemIds.add(value));
     if (targetFullSetId) nextItemIds.add(targetFullSetId);
 
     try {

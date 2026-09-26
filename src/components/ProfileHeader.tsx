@@ -29,6 +29,7 @@ type ProfileHeaderProps = {
   currentTitle?: string;
   displayName?: string | null;
   equippedAvatarSlots?: EquippedAvatarSlots;
+  showToyEffect?: boolean;
   equippedFullSetId?: string | null;
   hasUncensoredAvatar?: boolean;
   pageLabel: string;
@@ -63,6 +64,7 @@ export function ProfileHeader({
   coins,
   currentTitle,
   equippedAvatarSlots = {},
+  showToyEffect = false,
   equippedFullSetId = null,
   hasUncensoredAvatar = false,
   pageLabel,
@@ -161,6 +163,7 @@ export function ProfileHeader({
                 backgroundStyle={avatarBackgroundPresentation.backgroundStyle}
                 className="absolute inset-0"
                 equipped={equippedAvatarSlots}
+                showToyEffect={showToyEffect}
                 equippedFullSetId={equippedFullSetId}
                 hasUncensored={hasUncensoredAvatar}
                 priority

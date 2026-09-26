@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
+import { EquippedToyEffect } from "@/components/EquippedToyEffect";
 import {
   getAvatarBaseModelPath,
   resolveFullSetImagePath,
@@ -19,6 +20,7 @@ type LayeredAvatarProps = {
   backgroundOverlayPath?: string | null;
   backgroundStyle?: CSSProperties;
   priority?: boolean;
+  showToyEffect?: boolean;
 };
 
 export function LayeredAvatar({
@@ -33,6 +35,7 @@ export function LayeredAvatar({
   backgroundOverlayPath = null,
   backgroundStyle,
   priority = false,
+  showToyEffect = false,
 }: LayeredAvatarProps) {
   // Keep the floor visible in portrait backgrounds; full scenes can retain their own framing.
   const backgroundImageClassName = backgroundAlignment === "bottom"
@@ -68,6 +71,7 @@ export function LayeredAvatar({
           unoptimized
         />
       ) : null}
+      {showToyEffect && !equippedFullSetId ? <EquippedToyEffect equipped={equipped} /> : null}
       {equippedFullSetId ? (
         // Full Set: a single pre-rendered illustration replaces the base model
         // and every layer entirely - nothing else below this renders.

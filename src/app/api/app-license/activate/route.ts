@@ -10,6 +10,8 @@ import {
   normalizeLicenseCode,
   normalizeOwnerName,
   isSupportedAppLicenseKey,
+  PRINCIPESSA_TECHDOM_APP_KEY,
+  techdomPrivateKey,
   rebindAppLicenseForKnownDevice,
   touchAppLicenseValidation,
 } from "@/lib/app-licenses";
@@ -58,6 +60,11 @@ export async function POST(request: Request) {
 
   if (!activationCode || !installationId || !ownerName) {
     return Response.json({ error: "Activation code, installation id, and unique name are required." }, { status: 400 });
+  }
+
+  if (appKey === PRINCIPESSA_TECHDOM_APP_KEY) {
+    try { techdomPrivateKey(); }
+    catch { return Response.json({ error: "Techdom activation is temporarily unavailable." }, { status: 503 }); }
   }
 
   try {

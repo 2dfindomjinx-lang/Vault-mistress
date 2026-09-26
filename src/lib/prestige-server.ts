@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import { normalizeAddressTerm } from "@/lib/address-term";
 import { getCosmeticItem, getSpendBadge, getTitleItem } from "@/lib/cosmetics";
 import { getDevotionFrameVariant } from "@/lib/devotion";
@@ -16,7 +17,7 @@ import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/l
 
 type ProfilePresentationRow = {
   address_term?: string | null;
-  equipped_avatar_slots: Record<string, string> | null;
+  equipped_avatar_slots: EquippedAvatarSlots | null;
   equipped_full_set_id?: string | null;
   has_uncensored_avatar: boolean | null;
   id: string;
