@@ -220,6 +220,9 @@ export default function AppLicensesPage() {
             <Link className="rounded-full border border-sky-200/20 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-100 transition hover:border-sky-300/40 hover:text-white" href="/admin/wallpapers">
               Wallpapers
             </Link>
+            <Link className="rounded-full border border-pink-200/20 bg-pink-500/10 px-4 py-2 text-sm font-semibold text-pink-100 transition hover:border-pink-300/40 hover:text-white" href="/admin/lock-transfers">
+              Lock Transfers
+            </Link>
           </div>
         </div>
 
