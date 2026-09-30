@@ -209,6 +209,11 @@ export async function POST(request: Request) {
     success: true,
     won,
     chancePercent: Math.round(chance * 1000) / 10,
+    // Where the outcome roll actually landed on the 0-100 bar - the win/lose
+    // decision is already final by this point, so revealing it only lets the
+    // client's marker animate to the exact spot that decided it, the same
+    // way Her Patience reveals its real crash point after the fact.
+    rollPercent: Math.round(outcomeRoll * 1000) / 10,
     rewardItemId,
     rewardVariant,
   });

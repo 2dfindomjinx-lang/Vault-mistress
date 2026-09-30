@@ -27,7 +27,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export const CRATE_DUEL_EXPIRES_HOURS = 48;
-export const CRATE_DUEL_MAX_QUANTITY = 5;
+// Deliberately higher than the normal crate-open batch cap (5): a duel's
+// escrowed haul isn't opened by the player's own click, so the reel/reveal
+// performance ceiling that limits a solo batch open doesn't apply here.
+export const CRATE_DUEL_MAX_QUANTITY = 10;
 
 type SealedItem = { itemId: string; sellValue: number; variant: string };
 

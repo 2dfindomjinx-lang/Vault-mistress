@@ -3,7 +3,7 @@
 import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
@@ -19,6 +19,7 @@ import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
 import { postSealToX } from "@/lib/share-seal";
+import { CrateUpgradeModal, type CrateUpgradeModalItem } from "@/components/CrateUpgradeModal";
 
 export type CrateDefinition = {
   crate_type: string;
@@ -86,6 +87,13 @@ type CratesPanelProps = {
   onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
   pending?: boolean;
+  // Rendered between the case grid and the Inventory section (Inventory is
+  // pinned to the bottom of this panel's flex stack) - Crate Duels lives
+  // here so it always sits above Inventory without needing its own page slot.
+  extraSections?: ReactNode;
+  // Fired after an Upgrade attempt resolves, win or lose, so the host can
+  // refresh inventory/coins the same way it does after a sell.
+  onUpgraded?: () => void | Promise<void>;
 };
 
 function CrateResultIconFrame({ item }: { item: WonItem }) {
@@ -141,6 +149,8 @@ export function CratesPanel({
   onCrateOpen,
   onCrateResult,
   pending = false,
+  extraSections,
+  onUpgraded,
 }: CratesPanelProps) {
   // Falls back to a blocking dialog only if the host forgot to wire onNotice -
   // losing the reason a sale failed is worse than an ugly popup.
@@ -162,6 +172,7 @@ export function CratesPanel({
   const [lastOpenedCrateType, setLastOpenedCrateType] = useState<string | null>(null);
   const [lastOpenedBatchCost, setLastOpenedBatchCost] = useState(0);
   const [ratesCrate, setRatesCrate] = useState<CrateDefinition | null>(null);
+  const [upgradeModalItem, setUpgradeModalItem] = useState<CrateUpgradeModalItem | null>(null);
   const ratesDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (ratesCrate && !ratesDialog.current?.open) ratesDialog.current?.showModal();
@@ -972,6 +983,10 @@ export function CratesPanel({
       </dialog>
 
       <div className="cases-stack relative z-[5] mt-6 flex flex-col">
+      {/* Crate Duels (and anything else the host wants above Inventory) - no
+          order class, so it sits before the order-last Inventory block below
+          regardless of where a future addition slots into this JSX. */}
+      {extraSections}
       {/* INVENTORY under Cases static */}
       <div className={`${styles.inventory} inventory-section relative z-[1] order-last`}>
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
@@ -1106,6 +1121,23 @@ export function CratesPanel({
                                 : `Sell for ${item.sell_value} coins`}
                           </button>
                         )}
+                        {!isProtected && item.sell_value > 0 ? (
+                          <button
+                            onClick={() =>
+                              setUpgradeModalItem({
+                                item_id: item.item_id,
+                                name: item.name,
+                                rarity: item.rarity,
+                                sell_value: item.sell_value,
+                                variant: item.variant,
+                              })
+                            }
+                            disabled={disabled || isSelling}
+                            className="mt-1.5 w-full rounded-2xl border border-pink-200/20 bg-pink-500/5 py-1.5 text-xs font-semibold text-pink-100 transition hover:bg-pink-500/10 disabled:opacity-50"
+                          >
+                            Upgrade
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </article>
@@ -1416,6 +1448,17 @@ export function CratesPanel({
         </CourtDialog>
       )}
       </div>
+      {upgradeModalItem ? (
+        <CrateUpgradeModal
+          disabled={disabled}
+          item={upgradeModalItem}
+          onClose={() => setUpgradeModalItem(null)}
+          onNotice={notice}
+          onUpgraded={async () => {
+            if (onUpgraded) await onUpgraded();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

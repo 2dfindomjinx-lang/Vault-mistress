@@ -24,7 +24,9 @@ import { emitSoundEvent } from "@/lib/sound";
 // commitments cannot collide the way a blind Throne-tribute window could.
 
 const SEEN_REVEALS_STORAGE_KEY = "vm-crate-duel-seen-reveals";
-const ROUND_MS = 900;
+// One crate opens per turn, alternating sides - not a pair at once - so with
+// up to 10 crates a side (20 turns total) this stays brisk rather than slow.
+const TURN_MS = 550;
 
 type DuelItem = { itemId: string; name: string; rarity: CrateRarity | null; sellValue: number; variant: string };
 
@@ -113,6 +115,11 @@ function ItemSlot({ item, revealed }: { item: DuelItem | undefined; revealed: bo
 }
 
 function RevealAnimation({ duel, onDone }: { duel: Duel; onDone: () => void }) {
+  // Both sides' crate #i open together each turn - a real per-turn stagger,
+  // just not split into single-crate steps. This is deliberately different
+  // from a normal multi-crate open, which dumps every result on screen at
+  // once with no pacing at all; a duel earns its drama by revealing one
+  // matched pair at a time instead of the whole haul in one flash.
   const [round, setRound] = useState(0);
   const timerRef = useRef<number | null>(null);
 
@@ -136,7 +143,7 @@ function RevealAnimation({ duel, onDone }: { duel: Duel; onDone: () => void }) {
         return next;
       });
     };
-    timerRef.current = window.setInterval(advance, ROUND_MS);
+    timerRef.current = window.setInterval(advance, TURN_MS);
     return () => {
       if (timerRef.current !== null) window.clearInterval(timerRef.current);
     };
@@ -334,7 +341,7 @@ export function CrateDuels({
           {pickingCrate ? (
             <>
               <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">How many crates?</p>
-              <div className="mt-1.5 flex gap-1.5">
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
                   <button
                     className={`h-9 w-9 rounded-lg border text-xs font-black transition ${quantity === n ? "border-[#e6ba73]/60 bg-[#c89a55]/15 text-[#ffe2ad]" : "border-white/10 bg-black/30 text-zinc-400"}`}

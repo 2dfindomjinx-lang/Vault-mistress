@@ -67,7 +67,6 @@ function VaultPanelLoading() {
 
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
-const CrateUpgradePanel = dynamic(() => import("@/components/CrateUpgradePanel").then((module) => module.CrateUpgradePanel), { loading: VaultPanelLoading });
 const CrateDuels = dynamic(() => import("@/components/CrateDuels").then((module) => module.CrateDuels), { loading: VaultPanelLoading });
 const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
 const FindomWheels = dynamic(() => import("@/components/FindomWheels").then((module) => module.FindomWheels), { loading: VaultPanelLoading });
@@ -11932,7 +11931,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )} />}
           {activePanel === "crates" && (
-            <>
               <CratesPanel
 
                 coins={coins}
@@ -11949,6 +11947,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onSellDuplicates={handleSellDuplicateCrateItems}
                 onSellWonItems={handleSellWonCrateItems}
                 onNotice={setSpeechBubbleReply}
+                onUpgraded={loadCratesData}
                 pityStats={pityStats}
                 onCrateOpen={() => {
                   const avatarId = resolveSpeechAvatarIdForMessage();
@@ -11970,24 +11969,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);
                   setSpeechBubbleReply(msg);
                 }}
+                extraSections={
+                  <CrateDuels
+                    previewMode={isPreviewMode || isGuestMode}
+                    disabled={isTimeoutActive || isPreviewRestricted}
+                    onProfile={(profile) => {
+                      applyProfileStats(profile as Profile);
+                      void loadCratesData();
+                    }}
+                  />
+                }
               />
-              <CrateUpgradePanel
-                disabled={isTimeoutActive || isPreviewRestricted || cratePending}
-                inventory={crateInventory}
-                onNotice={setSpeechBubbleReply}
-                onUpgraded={loadCratesData}
-              />
-              <div className="mt-4">
-                <CrateDuels
-                  previewMode={isPreviewMode || isGuestMode}
-                  disabled={isTimeoutActive || isPreviewRestricted}
-                  onProfile={(profile) => {
-                    applyProfileStats(profile as Profile);
-                    void loadCratesData();
-                  }}
-                />
-              </div>
-            </>
           )}
           {activePanel === "runway" && (
             <RunwayPanel
