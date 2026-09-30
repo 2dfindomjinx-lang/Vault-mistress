@@ -165,7 +165,7 @@ export type PetTaskItem = {
   debtContract?: PetDebtContract | null;
   favorPickedIndex?: number | null;
   favorResult?: "win" | "loss" | "empty-day" | null;
-  favorWinningIndex?: number | null;
+  favorWinningIndices?: number[] | null;
   sentence?: string;
   attemptsRemaining?: number;
   reviewedAt?: string | null;

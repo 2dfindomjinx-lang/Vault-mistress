@@ -67,6 +67,8 @@ function VaultPanelLoading() {
 
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
+const CrateUpgradePanel = dynamic(() => import("@/components/CrateUpgradePanel").then((module) => module.CrateUpgradePanel), { loading: VaultPanelLoading });
+const CrateDuels = dynamic(() => import("@/components/CrateDuels").then((module) => module.CrateDuels), { loading: VaultPanelLoading });
 const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
 const FindomWheels = dynamic(() => import("@/components/FindomWheels").then((module) => module.FindomWheels), { loading: VaultPanelLoading });
 const TributeDuels = dynamic(() => import("@/components/TributeDuels").then((module) => module.TributeDuels), { loading: VaultPanelLoading });
@@ -386,6 +388,15 @@ const PET_DAILY_CLICK_FLUSH_BATCH_SIZE = 100;
 const PET_DAILY_CLICK_MAX_COIN_REWARD = 200;
 const PET_EVIL_WAIT_MS = 2 * 60 * 1000;
 const PET_FAVOR_EMPTY_DAY_CHANCE = 0.12;
+// On a day that isn't empty, how many of the 5 cards actually hold the
+// Special Favor - almost always just one, occasionally two, rarely three.
+// Weighted, not a plain average: most days should still feel like the
+// classic single-card gamble.
+const PET_FAVOR_CARD_COUNT_WEIGHTS: ReadonlyArray<{ count: number; weight: number }> = [
+  { count: 1, weight: 80 },
+  { count: 2, weight: 15 },
+  { count: 3, weight: 5 },
+];
 const PET_OWNER_LIKENESS_DAILY_TASK_TARGET = 5;
 const IMAGE_DOWNLOAD_ALLOW_SELECTOR = "[data-allow-image-download]";
 const LOCAL_GUEST_USER_ID = "local-guest-user";
@@ -444,7 +455,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "daily-login",
     title: "Login Reward",
-    reward: 150,
+    reward: 500,
     completed: true,
     claimed: false,
     kind: "claim",
@@ -452,7 +463,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "typing-accuracy",
     title: "Typing Accuracy",
-    reward: 100,
+    reward: 150,
     completed: false,
     claimed: false,
     kind: "typing",
@@ -461,7 +472,7 @@ const startingTasks: TaskItem[] = [
   {
     id: "number-pick",
     title: "Number Pick",
-    reward: 100,
+    reward: 150,
     completed: false,
     claimed: false,
     kind: "number-pick",
@@ -1048,7 +1059,16 @@ function buildPetTasksFromRows(
         cooldownUntil,
         favorPickedIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "pickedIndex", -1) : null,
         favorResult: isCoolingDown ? typedResult : null,
-        favorWinningIndex: isCoolingDown ? getTaskMetadataNumber(row?.metadata, "winningIndex", -1) : null,
+        // Falls back to the old singular "winningIndex" field for rounds
+        // recorded before multi-card days existed, so an in-progress cooldown
+        // from before this change still renders its correct card.
+        favorWinningIndices: isCoolingDown
+          ? (getTaskMetadataNumberArray(row?.metadata, "winningIndices") ??
+              (() => {
+                const legacy = getTaskMetadataNumber(row?.metadata, "winningIndex", -1);
+                return legacy >= 0 ? [legacy] : [];
+              })())
+          : null,
         reviewedAt: isCoolingDown ? reviewedAt : null,
         status: isCoolingDown ? baseStatus : "available",
       };
@@ -1127,6 +1147,29 @@ function randomFrom<T>(items: T[]) {
 
 function randomChance(probability: number) {
   return Math.random() < probability;
+}
+
+// Weighted pick of how many Favor Roulette cards are winners today.
+function pickFavorCardCount(weights: ReadonlyArray<{ count: number; weight: number }>) {
+  const total = weights.reduce((sum, entry) => sum + entry.weight, 0);
+  let cursor = Math.random() * total;
+  for (const entry of weights) {
+    cursor -= entry.weight;
+    if (cursor < 0) return entry.count;
+  }
+  return weights[weights.length - 1]?.count ?? 1;
+}
+
+// N distinct indices out of [0, size) - a Fisher-Yates partial shuffle.
+function sampleDistinctIndices(size: number, count: number) {
+  const pool = Array.from({ length: size }, (_, index) => index);
+  const picked: number[] = [];
+  for (let i = 0; i < Math.min(count, size); i += 1) {
+    const j = Math.floor(Math.random() * pool.length);
+    picked.push(pool[j]);
+    pool.splice(j, 1);
+  }
+  return picked;
 }
 
 
@@ -10543,8 +10586,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const now = new Date().toISOString();
     const emptyDay = randomChance(PET_FAVOR_EMPTY_DAY_CHANCE);
-    const winningIndex = emptyDay ? -1 : Math.floor(Math.random() * 5);
-    const won = !emptyDay && pickedIndex === winningIndex;
+    const winningIndices = emptyDay ? [] : sampleDistinctIndices(5, pickFavorCardCount(PET_FAVOR_CARD_COUNT_WEIGHTS));
+    const won = !emptyDay && winningIndices.includes(pickedIndex);
     const result: NonNullable<PetTaskItem["favorResult"]> = emptyDay
       ? "empty-day"
       : won
@@ -10581,7 +10624,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             emptyDay,
             pickedIndex,
             result,
-            winningIndex,
+            winningIndices,
           },
         },
         );
@@ -10605,7 +10648,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               cooldownUntil: getPetTaskCooldownUntil(now),
               favorPickedIndex: pickedIndex,
               favorResult: result,
-              favorWinningIndex: winningIndex,
+              favorWinningIndices: winningIndices,
               reviewedAt: now,
               status: won ? "approved" : "failed",
             }
@@ -11889,6 +11932,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )} />}
           {activePanel === "crates" && (
+            <>
               <CratesPanel
 
                 coins={coins}
@@ -11927,6 +11971,23 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   setSpeechBubbleReply(msg);
                 }}
               />
+              <CrateUpgradePanel
+                disabled={isTimeoutActive || isPreviewRestricted || cratePending}
+                inventory={crateInventory}
+                onNotice={setSpeechBubbleReply}
+                onUpgraded={loadCratesData}
+              />
+              <div className="mt-4">
+                <CrateDuels
+                  previewMode={isPreviewMode || isGuestMode}
+                  disabled={isTimeoutActive || isPreviewRestricted}
+                  onProfile={(profile) => {
+                    applyProfileStats(profile as Profile);
+                    void loadCratesData();
+                  }}
+                />
+              </div>
+            </>
           )}
           {activePanel === "runway" && (
             <RunwayPanel

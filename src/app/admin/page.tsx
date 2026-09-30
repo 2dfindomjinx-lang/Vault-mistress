@@ -1888,12 +1888,6 @@ export default function AdminPage() {
                   Activation Codes
                 </Link>
                 <Link
-                  className="rounded-md border border-pink-200/20 bg-pink-500/10 px-3 py-1.5 text-xs font-bold text-pink-100 transition hover:border-pink-300/50 hover:text-white"
-                  href="/admin/lock-transfers"
-                >
-                  Lock Transfers
-                </Link>
-                <Link
                   className="rounded-md border border-sky-200/20 bg-sky-400/10 px-3 py-1.5 text-xs font-bold text-sky-100 transition hover:border-sky-300/50 hover:text-white"
                   href="/admin/wallpapers"
                 >

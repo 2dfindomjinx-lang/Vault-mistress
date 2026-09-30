@@ -85,6 +85,7 @@ export type SignedLicensePayload = {
   installationId: string;
   ownerName: string;
   issuedAtMillis: number;
+  validUntilMillis?: number;
 };
 
 export function normalizeLicenseCode(code: string) {
@@ -438,7 +439,10 @@ export async function resetAppLicense(licenseId: string, appKey: string) {
 export function createSignedLicenseToken(payload: SignedLicensePayload) {
   const privateKey = payload.appKey === PRINCIPESSA_TECHDOM_APP_KEY
     ? techdomPrivateKey() : process.env.PRINCIPESSA_ACTIVATION_PRIVATE_KEY?.trim() || DEFAULT_ACTIVATION_PRIVATE_KEY;
-  const payloadPart = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signedPayload = payload.appKey === PRINCIPESSA_DISCIPLINE_APP_KEY
+    ? { ...payload, validUntilMillis: payload.validUntilMillis ?? Date.now() + 7 * 24 * 60 * 60 * 1000 }
+    : payload;
+  const payloadPart = Buffer.from(JSON.stringify(signedPayload), "utf8").toString("base64url");
   const signer = createSign("RSA-SHA256");
   signer.update(payloadPart);
   signer.end();
@@ -478,7 +482,8 @@ export function verifySignedLicenseToken(token: string): SignedLicensePayload | 
       typeof payload.activationCode !== "string" ||
       typeof payload.installationId !== "string" ||
       typeof payload.ownerName !== "string" ||
-      typeof payload.issuedAtMillis !== "number"
+      typeof payload.issuedAtMillis !== "number" ||
+      (payload.validUntilMillis !== undefined && typeof payload.validUntilMillis !== "number")
     ) {
       return null;
     }

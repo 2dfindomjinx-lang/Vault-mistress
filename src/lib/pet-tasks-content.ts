@@ -140,7 +140,7 @@ function basePetTasks(): PetTaskItem[] {
     {
       id: "pet-favor-roulette",
       title: "Favor Roulette",
-      description: "Choose one hidden card. One may hold a Special Favor; the rest are disappointments.",
+      description: "Choose one hidden card. At least one may hold a Special Favor; the rest are disappointments.",
       reward: PET_TASK_REWARD,
       kind: "favor-roulette",
     },

@@ -16,8 +16,6 @@
     "test:linkify": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/linkify-check.mjs",
     "test:gamble": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/gamble-odds-check.mjs",
     "test:slots": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/avatar-slot-check.mjs",
-    "test:lock-transfers": "node scripts/lock-transfers-check.cjs",
-    "test:lock-transfers:browser": "node scripts/lock-transfers-browser-check.mjs",
     "test:outfits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/runway-outfit-check.mjs",
     "test:security:integration": "node scripts/admin-security-checks.mjs && node scripts/security-integration-tests.mjs",
     "test": "npm run test:security && npm run test:gamble && npm run test:slots && npm run test:outfits && npm run test:linkify && npm run test:femsub-speech && npm run test:recent-openings && npm run test:gameplay:sql && npm run test:throne-debt",

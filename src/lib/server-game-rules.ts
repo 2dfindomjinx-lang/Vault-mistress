@@ -81,19 +81,23 @@ export const PET_TASK_COIN_REWARD = 200;
 export const PET_FAVOR_ROULETTE_COIN_REWARD = 500;
 
 const baseTaskRewards = new Map<string, number>([
-  ["daily-login", 150],
+  ["daily-login", 500],
   ["streak-bonus-1", 50],
   ["streak-bonus-3", 125],
   ["streak-bonus-7", 250],
   ["streak-bonus-15", 500],
   ["streak-bonus-30", 1000],
-  ["typing-accuracy", 100],
+  ["typing-accuracy", 150],
   ["wait-obediently", 100],
-  ["number-pick", 100],
+  ["number-pick", 150],
   ["timeout-risk", 125],
-  ["principessa-says", 100],
-  ["crown-match", 100],
-  ["royal-guard", 100],
+  // Court Games' actual payout lives in COURT_GAME_RULES (src/lib/court-games.ts)
+  // and is read from there by /api/user/court-games. These three entries exist
+  // only so getAllowedTaskRewards' event-multiplier allow-list matches the same
+  // base number - keep them in sync by hand if either changes.
+  ["principessa-says", 200],
+  ["crown-match", 200],
+  ["royal-guard", 200],
   ["beg", 50],
   ["affection", 250],
   ["affection-80", 250],

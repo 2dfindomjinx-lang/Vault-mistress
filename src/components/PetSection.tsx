@@ -2093,7 +2093,7 @@ export function PetSection({
                         {Array.from({ length: 5 }, (_, index) => {
                           const revealed = typeof task.favorPickedIndex === "number" && task.favorPickedIndex >= 0;
                           const picked = task.favorPickedIndex === index;
-                          const winning = task.favorWinningIndex === index && task.favorResult !== "empty-day";
+                          const winning = (task.favorWinningIndices?.includes(index) ?? false) && task.favorResult !== "empty-day";
                           const label = !revealed
                             ? "?"
                             : winning
