@@ -346,7 +346,7 @@ export function CratesPanel({
 
   // Inventory filters. Counts read the frozen snapshot like every other
   // inventory number here, so they cannot spoil a reveal that is mid-slide.
-  const [inventoryRarity, setInventoryRarity] = useState<CrateRarity | "all">("all");
+  const [inventoryRarities, setInventoryRarities] = useState<CrateRarity[]>([]);
   const [inventoryDuplicatesOnly, setInventoryDuplicatesOnly] = useState(false);
   const inventoryRarityCounts = useMemo(() => {
     const counts: Partial<Record<CrateRarity, number>> = {};
@@ -357,17 +357,31 @@ export function CratesPanel({
     () => displayInventory.filter((item) => (item.quantity || 0) > 1).length,
     [displayInventory],
   );
-  // A rarity you no longer own anything of falls back to "all" instead of
-  // leaving an empty grid behind a filter you can no longer see.
-  const activeInventoryRarity = inventoryRarity === "all" || inventoryRarityCounts[inventoryRarity] ? inventoryRarity : "all";
+  // Rarities are a multi-select. "All" is the empty selection, and selecting
+  // every rarity you own is the same thing, so that collapses back to "All".
+  // A rarity you no longer own anything of drops out of the selection instead
+  // of leaving an empty grid behind a filter you can no longer see. The
+  // Duplicates toggle is separate and never counts toward "everything".
+  const ownedRarities = useMemo(() => RARITY_ORDER.filter((rarity) => inventoryRarityCounts[rarity]), [inventoryRarityCounts]);
+  const selectedRarities = useMemo(
+    () => inventoryRarities.filter((rarity) => inventoryRarityCounts[rarity]),
+    [inventoryRarities, inventoryRarityCounts],
+  );
+  const allRaritiesActive = selectedRarities.length === 0 || selectedRarities.length === ownedRarities.length;
+  const toggleInventoryRarity = (rarity: CrateRarity) => {
+    const next = selectedRarities.includes(rarity)
+      ? selectedRarities.filter((entry) => entry !== rarity)
+      : [...selectedRarities, rarity];
+    setInventoryRarities(next.length === ownedRarities.length ? [] : next);
+  };
   const visibleInventory = useMemo(
     () =>
       inventory.filter(
         (item) =>
-          (activeInventoryRarity === "all" || item.rarity === activeInventoryRarity) &&
+          (allRaritiesActive || selectedRarities.includes(item.rarity)) &&
           (!inventoryDuplicatesOnly || (item.quantity || 0) > 1),
       ),
-    [activeInventoryRarity, inventory, inventoryDuplicatesOnly],
+    [allRaritiesActive, inventory, inventoryDuplicatesOnly, selectedRarities],
   );
 
   const duplicateStackCount = useMemo(() => {
@@ -1057,9 +1071,18 @@ export function CratesPanel({
 
           {inventory.length > 0 ? (
             <div className="mb-3 flex flex-wrap items-center gap-1.5">
-              {(["all", ...RARITY_ORDER.filter((rarity) => inventoryRarityCounts[rarity])] as Array<CrateRarity | "all">).map((rarity) => {
-                const active = activeInventoryRarity === rarity;
-                const hex = rarity === "all" ? undefined : RARITY_HEX[rarity];
+              <button
+                aria-pressed={allRaritiesActive}
+                className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
+                  allRaritiesActive ? "border-white/35 bg-white/10 text-white" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"
+                }`}
+                onClick={() => setInventoryRarities([])}
+                type="button"
+              >
+                all
+              </button>
+              {ownedRarities.map((rarity) => {
+                const active = !allRaritiesActive && selectedRarities.includes(rarity);
                 return (
                   <button
                     aria-pressed={active}
@@ -1067,12 +1090,12 @@ export function CratesPanel({
                       active ? "border-white/35 bg-white/10 text-white" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"
                     }`}
                     key={rarity}
-                    onClick={() => setInventoryRarity(rarity)}
-                    style={!active && hex ? { color: hex } : undefined}
+                    onClick={() => toggleInventoryRarity(rarity)}
+                    style={!active ? { color: RARITY_HEX[rarity] } : undefined}
                     type="button"
                   >
                     {rarity}
-                    {rarity !== "all" ? <span className="ml-1 opacity-60">{inventoryRarityCounts[rarity]}</span> : null}
+                    <span className="ml-1 opacity-60">{inventoryRarityCounts[rarity]}</span>
                   </button>
                 );
               })}
