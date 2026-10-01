@@ -372,6 +372,13 @@ function TributeCard({
   );
 }
 
+// How many openings are fetched into the strip. Phones show the first
+// RECENT_OPENINGS_MOBILE and scroll; desktop shows the whole run, clipped at
+// the container edge with no scrolling, so the last card is always cut off -
+// the strip reads as "there is more" instead of a row that fits exactly.
+const RECENT_OPENINGS_RENDERED = 14;
+const RECENT_OPENINGS_MOBILE = 6;
+
 export function RecentCaseOpenings() {
   const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
   const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
@@ -410,7 +417,7 @@ export function RecentCaseOpenings() {
             })),
           )
           .sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime())
-          .slice(0, 6);
+          .slice(0, RECENT_OPENINGS_RENDERED);
 
         if (mounted) {
           setRecentCaseOpenings(flattened);
@@ -451,10 +458,20 @@ export function RecentCaseOpenings() {
         </div>
         {recentCaseOpeningsError && <p role="status" className="mt-3 text-xs text-amber-100/80">{recentCaseOpenings.length ? "Refresh unavailable. Showing the last loaded openings." : "Openings are temporarily unavailable. We will retry shortly."}</p>}
         {recentCaseOpenings.length > 0 ? (
-          <div className="recent-openings-strip mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {recentCaseOpenings.map((opening) => (
+          <div
+            className="recent-openings-strip mt-3 flex gap-3 overflow-x-auto pb-1 md:overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            // overflow-x-hidden still lets the browser scroll a clipped card into
+            // view when it takes keyboard focus; on desktop the strip is meant
+            // to stay put, so any such scroll is undone.
+            onScroll={(event) => {
+              if (event.currentTarget.scrollLeft !== 0 && window.matchMedia("(min-width: 768px)").matches) {
+                event.currentTarget.scrollLeft = 0;
+              }
+            }}
+          >
+            {recentCaseOpenings.map((opening, openingIndex) => (
               <article
-                className={`recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${openingIndex >= RECENT_OPENINGS_MOBILE ? "hidden md:block" : ""} ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}

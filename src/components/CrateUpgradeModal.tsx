@@ -451,13 +451,13 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
               <input
                 className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-[#c89a55]/50 sm:w-56"
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search items or cases"
+                placeholder="Search"
                 value={search}
               />
             </div>
             {visibleTargets.length === 0 ? (
               <p className="mt-3 rounded-xl border border-white/10 bg-black/30 px-3 py-6 text-center text-sm text-zinc-500">
-                {eligible.length === 0 ? "Nothing on the shelves is worth more than this item." : "No items match."}
+                {eligible.length === 0 ? "No higher-value items." : "No items match."}
               </p>
             ) : (
               <div className="mt-3 grid max-h-[300px] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-5">

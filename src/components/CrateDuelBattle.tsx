@@ -394,13 +394,11 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
         </div>
 
         {/* Lead line */}
-        {!done ? (
+        {!done && revealed > 0 ? (
           <p className="mt-4 text-center text-xs font-black text-zinc-400">
-            {revealed === 0
-              ? "First crates are spinning."
-              : leaderIndex === -1
-                ? "Dead even."
-                : `${sides[leaderIndex].isMe ? "You lead" : `${sides[leaderIndex].name} leads`} by ${Math.abs(totals[0] - totals[1]).toLocaleString()}.`}
+            {leaderIndex === -1
+              ? "Tied."
+              : `${sides[leaderIndex].isMe ? "You lead" : `${sides[leaderIndex].name} leads`} by ${Math.abs(totals[0] - totals[1]).toLocaleString()}.`}
           </p>
         ) : null}
 
@@ -409,18 +407,18 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
           <div className="mt-5 flex flex-col items-center rounded-[1.5rem] border border-[#c89a55]/30 bg-[radial-gradient(circle_at_50%_0%,rgba(230,186,115,.18),transparent_60%),rgba(0,0,0,.4)] px-4 py-5 text-center">
             {winnerIndex === -1 ? (
               <>
-                <p className="font-serif text-2xl text-white">A perfect tie</p>
-                <p className="mt-1 text-xs text-zinc-400">Each of you keeps what you opened.</p>
+                <p className="font-serif text-2xl text-white">Tie</p>
+                <p className="mt-1 text-xs text-zinc-400">Each keeps their own.</p>
               </>
             ) : (
               <>
                 <span className="text-2xl" aria-hidden="true">👑</span>
                 <Avatar name={sides[winnerIndex].name} ring="#34d399" size={72} src={sides[winnerIndex].avatar} />
                 <p className="mt-3 font-serif text-2xl text-white">
-                  {sides[winnerIndex].isMe ? "You take the whole haul" : `${sides[winnerIndex].name} takes the whole haul`}
+                  {sides[winnerIndex].isMe ? "You win" : `${sides[winnerIndex].name} wins`}
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
-                  {totals[winnerIndex].toLocaleString()} vs {totals[1 - winnerIndex].toLocaleString()} · all {rounds * 2} items go to the winner
+                  {totals[winnerIndex].toLocaleString()} vs {totals[1 - winnerIndex].toLocaleString()}
                 </p>
               </>
             )}

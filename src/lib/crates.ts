@@ -50,6 +50,17 @@ export const RARITY_COLORS: Record<CrateRarity, string> = {
   ultimate: "border-fuchsia-300 text-fuchsia-100 bg-fuchsia-950/70",
 };
 
+// Principessa Case Bad Luck Protection. Shared by the crate-open route and
+// Crate Duels so the rule can never drift between them: after
+// PRINCIPESSA_PITY_THRESHOLD opens in a row that did not reset the counter,
+// the next open keeps a natural legendary but otherwise becomes an epic.
+export const PRINCIPESSA_PITY_CRATE = "principessa_case";
+export const PRINCIPESSA_PITY_THRESHOLD = 4;
+
+export function isPityResettingRarity(rarity: CrateRarity | null | undefined) {
+  return rarity === "rare" || rarity === "epic" || rarity === "legendary";
+}
+
 // The same palette as plain hex, for inline styles (glows, SVG strokes,
 // gradients) - RARITY_COLORS above is Tailwind class lists and is not a
 // valid CSS colour value.

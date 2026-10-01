@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { Avatar, CrateDuelBattle, type BattleItem } from "@/components/CrateDuelBattle";
 import { CRATE_TYPES } from "@/lib/crates";
@@ -11,20 +11,17 @@ import { emitSoundEvent } from "@/lib/sound";
 // Structured exactly like Tribute Duels (open challenge -> async accept ->
 // reveal) so nobody needs to be online at the same moment as anybody else.
 //
-// The reveal (CrateDuelBattle) is dramatized client-side for whoever is
-// looking at it - the opponent sees it the instant they accept, and the
-// challenger sees the identical replay the next time this panel loads and
-// notices a duel of theirs went from open to revealed. Neither is watching
-// the other live - that would require both online at once, exactly what this
-// feature exists to avoid - but each gets the full battle independently,
-// once automatically, and any revealed duel can be re-watched from history.
+// The reveal (CrateDuelBattle) is dramatized client-side from stored data.
+// The opponent gets it the instant they accept. The challenger, who is
+// usually elsewhere when that happens, gets a "Watch" card instead of a
+// surprise full-screen popup. Whether a reveal was watched is stored on the
+// account, so it follows the player across devices; any revealed duel can be
+// re-watched from the results list.
 //
 // One asymmetry from Tribute Duels on purpose: accepting here is instant and
 // atomic (it settles the moment you click), so holding your own open
 // challenge never blocks you from accepting someone else's - the two
 // commitments cannot collide the way a blind Throne-tribute window could.
-
-const SEEN_REVEALS_STORAGE_KEY = "vm-crate-duel-seen-reveals";
 
 type Duel = {
   acceptedAt: string | null;
@@ -45,6 +42,7 @@ type Duel = {
   opponentItems: BattleItem[];
   opponentTotal: number | null;
   quantity: number;
+  seenByMe: boolean;
   status: string;
   winner: string | null;
   wonByMe: boolean;
@@ -66,29 +64,6 @@ function remainingLabel(expiresAt: string, now: number) {
   return `${minutes}m left to accept`;
 }
 
-function loadSeenReveals(): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(SEEN_REVEALS_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? new Set(parsed.filter((entry) => typeof entry === "string")) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function markRevealSeen(seen: Set<string>, duelId: string) {
-  seen.add(duelId);
-  try {
-    // Cap what's stored - this is a "don't replay the same animation twice"
-    // marker, not a history, so only the most recent ones matter.
-    const trimmed = Array.from(seen).slice(-50);
-    window.localStorage.setItem(SEEN_REVEALS_STORAGE_KEY, JSON.stringify(trimmed));
-  } catch {
-    // Best effort. Worst case a reveal replays once more than it should.
-  }
-}
-
 const ENABLED_CRATES = Object.entries(CRATE_TYPES).filter(([, crate]) => crate.enabled);
 
 export function CrateDuels({
@@ -105,42 +80,50 @@ export function CrateDuels({
   const [pending, setPending] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [pickingCrate, setPickingCrate] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [animatingDuel, setAnimatingDuel] = useState<Duel | null>(null);
-  const seenRevealsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const load = useCallback(async () => {
-    if (previewMode) return;
+  const load = useCallback(async (): Promise<DuelState | null> => {
+    if (previewMode) return null;
     try {
       const response = await fetch("/api/user/crate-duels", { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as DuelState | { error?: string } | null;
       if (!response.ok || !payload || "error" in payload) {
         setError((payload as { error?: string } | null)?.error ?? "The crate duels are unavailable.");
-        return;
+        return null;
       }
       const nextState = payload as DuelState;
       setState(nextState);
       setError("");
-
-      // The first time THIS browser sees one of my duels go from open to
-      // revealed, play the round-by-round reveal - whether I was the
-      // challenger who has been waiting, or the opponent who just accepted.
-      if (seenRevealsRef.current === null) seenRevealsRef.current = loadSeenReveals();
-      const seen = seenRevealsRef.current;
-      const unseenReveal = nextState.duels.find((duel) => duel.isMine && duel.status === "revealed" && !seen.has(duel.id));
-      if (unseenReveal) {
-        markRevealSeen(seen, unseenReveal.id);
-        setAnimatingDuel(unseenReveal);
-      }
+      return nextState;
     } catch {
       setError("The crate duels are unavailable.");
+      return null;
     }
   }, [previewMode]);
+
+  // Opens a reveal and, the first time this account watches it, records that
+  // on the server so no other device offers it again.
+  const watch = (duel: Duel) => {
+    setAnimatingDuel(duel);
+    if (duel.seenByMe || previewMode) return;
+    setState((current) =>
+      current
+        ? { ...current, duels: current.duels.map((entry) => (entry.id === duel.id ? { ...entry, seenByMe: true } : entry)) }
+        : current,
+    );
+    void fetch("/api/user/crate-duels", {
+      body: JSON.stringify({ action: "seen", duelId: duel.id }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    }).catch(() => undefined);
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount against an external system
@@ -166,7 +149,13 @@ export function CrateDuels({
       emitSoundEvent("button_click");
       setPickingCrate(false);
       setQuantity(1);
-      await load();
+      const fresh = await load();
+      // Accepting settles the duel on the spot, so the accepter sees the
+      // reveal right away - they are watching for exactly this.
+      if (body.action === "accept" && fresh) {
+        const accepted = fresh.duels.find((entry) => entry.id === body.duelId);
+        if (accepted) watch(accepted);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The duel action failed.");
     } finally {
@@ -178,6 +167,7 @@ export function CrateDuels({
   const live = state?.myLiveDuel ?? null;
   const openDuels = (state?.duels ?? []).filter((duel) => duel.status === "open");
   const revealed = (state?.duels ?? []).filter((duel) => duel.status === "revealed").slice(0, 6);
+  const unwatched = (state?.duels ?? []).filter((duel) => duel.isMine && duel.status === "revealed" && !duel.seenByMe);
 
   return (
     <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-amber-300/25 bg-[radial-gradient(circle_at_8%_0%,rgba(245,158,11,.19),transparent_32%),radial-gradient(circle_at_88%_8%,rgba(236,72,153,.28),transparent_34%),linear-gradient(145deg,rgba(31,8,19,.98),rgba(4,2,7,.98))] p-5 shadow-[0_24px_80px_rgba(109,35,8,.18)]">
@@ -186,12 +176,24 @@ export function CrateDuels({
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Sub versus sub</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-white [text-shadow:0_0_24px_rgba(245,158,11,.22)]">Crate Duels</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-            Pick a crate and how many, pay the price, and it opens instantly - sealed, unseen by anyone including
-            you. Whoever accepts opens the same crates; the higher total takes the whole haul.
-          </p>
         </div>
+        <button
+          className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-black text-zinc-300 transition hover:text-white"
+          onClick={() => setShowRules((current) => !current)}
+          type="button"
+        >
+          ⓘ How it works
+        </button>
       </div>
+      {showRules ? (
+        <p className="mt-3 max-w-2xl rounded-xl border border-[#c89a55]/20 bg-black/40 px-4 py-3 text-xs leading-5 text-zinc-400">
+          Pick a crate and how many (up to {maxQuantity}) and pay the normal price. Your crates open right away and the
+          result stays sealed - nobody sees it, you included - until someone accepts. They open the same crates, both
+          hauls are revealed round by round, and the higher total takes every item. A tie leaves each side with their
+          own. Odds are the crate&apos;s listed ones, no discounts; the Principessa Case keeps its Bad Luck Protection.
+          If nobody accepts within {state?.expiresHours ?? 48} hours, or you withdraw, you keep your haul.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-100">
@@ -203,34 +205,54 @@ export function CrateDuels({
 
       {animatingDuel ? <CrateDuelBattle duel={animatingDuel} onClose={() => setAnimatingDuel(null)} /> : null}
 
+      {unwatched.map((duel) => {
+        const rival = duel.isMyChallenge ? duel.opponent : duel.challenger;
+        return (
+          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#c89a55]/35 bg-[#c89a55]/10 px-4 py-3" key={duel.id}>
+            <Avatar name={rival ?? "?"} size={40} src={duel.isMyChallenge ? duel.opponentAvatar : duel.challengerAvatar} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-black text-white">Duel vs {rival} is settled</p>
+              <p className="text-[11px] text-zinc-400">
+                {duel.quantity}x {duel.crateName}
+              </p>
+            </div>
+            <button
+              className="shrink-0 rounded-xl bg-[linear-gradient(100deg,#e6ba73,#c89a55)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-[#1a1008]"
+              onClick={() => watch(duel)}
+              type="button"
+            >
+              ▶ Watch
+            </button>
+          </div>
+        );
+      })}
+
       {/* My live challenge takes over the top of the panel. */}
       {live ? (
         <div className="mt-5 rounded-[1.75rem] border border-pink-300/25 bg-pink-950/25 p-5">
           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/60">Your open challenge</p>
           <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">
-            {live.quantity}x {live.crateName} - waiting for an opponent
+            {live.quantity}x {live.crateName}
           </h3>
-          <p className="mt-2 text-xs leading-5 text-zinc-500">
-            Already opened and sealed. Nobody can see the haul, including you, until someone accepts.
-          </p>
+          <p className="mt-1 text-xs text-zinc-500">Sealed until someone accepts.</p>
           <p className="mt-3 inline-block rounded-full border border-[#c89a55]/25 bg-black/40 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#ffe2ad]">
             {remainingLabel(live.expiresAt, now)}
           </p>
           <button
             className="mt-4 block rounded-2xl border border-white/15 px-5 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 transition hover:border-rose-300/40 hover:text-rose-100 disabled:opacity-40"
             disabled={pending}
-            onClick={() => void act({ action: "cancel", duelId: live.id }, "Withdraw this challenge? You'll get the haul you already rolled.")}
+            onClick={() => void act({ action: "cancel", duelId: live.id }, "Withdraw? You keep your haul.")}
             type="button"
           >
-            Withdraw - claim the sealed haul
+            Withdraw
           </button>
         </div>
       ) : (
         <div className="mt-5 rounded-[1.75rem] border border-white/10 bg-white/[.04] p-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">Open a challenge</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#d7ad69]/55">New duel</p>
           {pickingCrate ? (
             <>
-              <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">How many crates?</p>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Crates</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
                   <button
@@ -252,14 +274,14 @@ export function CrateDuels({
                     onClick={() =>
                       void act(
                         { action: "create", crateType, quantity },
-                        `Open ${quantity}x ${crate.name} for ${(crate.cost * quantity).toLocaleString()} coins and seal it into a duel?`,
+                        `Open ${quantity}x ${crate.name} for ${(crate.cost * quantity).toLocaleString()} coins?`,
                       )
                     }
                     type="button"
                   >
                     {crate.name}
                     <span className="block text-[10px] font-normal text-zinc-500">
-                      {(crate.cost * quantity).toLocaleString()} coins for {quantity}
+                      {(crate.cost * quantity).toLocaleString()} coins
                     </span>
                   </button>
                 ))}
@@ -272,13 +294,9 @@ export function CrateDuels({
               onClick={() => setPickingCrate(true)}
               type="button"
             >
-              Choose a crate to duel with
+              Pick a crate
             </button>
           )}
-          <p className="mt-2 text-[11px] leading-5 text-zinc-600">
-            You pay the crates&apos; normal price and they open right away - the odds are the crate&apos;s plain
-            listed ones, no discounts either side.
-          </p>
         </div>
       )}
 
@@ -289,7 +307,7 @@ export function CrateDuels({
           <div className="mt-2 grid gap-2">
             {openDuels.length === 0 ? (
               <p className="rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-5 text-center text-xs text-zinc-600">
-                Nobody is waiting. Start one.
+                No open duels.
               </p>
             ) : (
               openDuels.map((duel) => (
@@ -311,7 +329,7 @@ export function CrateDuels({
                       onClick={() =>
                         void act(
                           { action: "accept", duelId: duel.id },
-                          `Open ${duel.quantity}x ${duel.crateName} for ${(duel.crateCost * duel.quantity).toLocaleString()} coins against ${duel.challenger}? Higher total takes the whole haul.`,
+                          `Open ${duel.quantity}x ${duel.crateName} for ${(duel.crateCost * duel.quantity).toLocaleString()} coins against ${duel.challenger}?`,
                         )
                       }
                       type="button"
@@ -327,11 +345,11 @@ export function CrateDuels({
 
         {/* Reveal history: public by design - items and values included. */}
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#c89a55]/50">Revealed</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#c89a55]/50">Results</p>
           <div className="mt-2 grid gap-2">
             {revealed.length === 0 ? (
               <p className="rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-5 text-center text-xs text-zinc-600">
-                No crate duels have been revealed yet.
+                No results yet.
               </p>
             ) : (
               revealed.map((duel) => (
@@ -368,7 +386,7 @@ export function CrateDuels({
                     </p>
                     <button
                       className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-400 transition hover:border-pink-300/40 hover:text-pink-100"
-                      onClick={() => setAnimatingDuel(duel)}
+                      onClick={() => watch(duel)}
                       type="button"
                     >
                       ▶ Watch

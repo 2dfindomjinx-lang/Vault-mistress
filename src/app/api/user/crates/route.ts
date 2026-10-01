@@ -6,10 +6,13 @@ import {
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   CRATE_TYPES,
+  PRINCIPESSA_PITY_CRATE,
+  PRINCIPESSA_PITY_THRESHOLD,
   SAMPLE_CRATE_ITEMS,
   getCrateIconUrl,
   getCrateItemImageUrl,
   isBulkSellProtectedRarity,
+  isPityResettingRarity,
   type CrateItem,
   type CrateRarity,
   type UserCrateInventoryItem,
@@ -357,7 +360,7 @@ async function openCrateBatch(
   let principessaBadLuck = profile.principessa_case_bad_luck_count ?? 0;
 
   for (let i = 0; i < quantity; i += 1) {
-    const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
+    const isPrincipessaPity = crateType === PRINCIPESSA_PITY_CRATE && principessaBadLuck >= PRINCIPESSA_PITY_THRESHOLD;
 
     let rolled = weightedRandom(possibleDrops);
     if (!rolled) {
@@ -378,11 +381,8 @@ async function openCrateBatch(
     });
 
     const resultRarity = SAMPLE_CRATE_ITEMS[rolled.item_id]?.rarity;
-    if (crateType === "principessa_case") {
-      principessaBadLuck =
-        resultRarity === "rare" || resultRarity === "epic" || resultRarity === "legendary"
-          ? 0
-          : principessaBadLuck + 1;
+    if (crateType === PRINCIPESSA_PITY_CRATE) {
+      principessaBadLuck = isPityResettingRarity(resultRarity) ? 0 : principessaBadLuck + 1;
     }
   }
 
@@ -778,7 +778,7 @@ export async function POST(request: Request) {
     }));
 
     let rolled;
-    const isPrincipessaPity = crateType === "principessa_case" && principessaBadLuck >= 4;
+    const isPrincipessaPity = crateType === PRINCIPESSA_PITY_CRATE && principessaBadLuck >= PRINCIPESSA_PITY_THRESHOLD;
 
     if (isPrincipessaPity) {
       // Bad luck protection: 
@@ -956,10 +956,8 @@ export async function POST(request: Request) {
     let updatedBadLuck = principessaBadLuck;
     const resultRarity = wonItemDef.rarity;
 
-    if (crateType === "principessa_case") {
-      updatedBadLuck = (resultRarity === "rare" || resultRarity === "epic" || resultRarity === "legendary")
-        ? 0
-        : (principessaBadLuck + 1);
+    if (crateType === PRINCIPESSA_PITY_CRATE) {
+      updatedBadLuck = isPityResettingRarity(resultRarity) ? 0 : principessaBadLuck + 1;
     }
 
     await supabase.from("profiles").update({

@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
-import { computeCrateUpgradeChance, findCrateUpgradeTargetItem } from "@/lib/crate-upgrade";
+import { computeCrateUpgradeChance, findCrateUpgradeTargetItem, isUpgradeExcluded } from "@/lib/crate-upgrade";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -55,26 +55,26 @@ export async function POST(request: Request) {
   const targetVariant = body?.targetVariant?.trim() || "normal";
 
   if (!itemId || !targetItemId) {
-    return jsonError("Missing item or target.");
+    return jsonError("Pick a target.");
   }
 
   // Only items that really drop from an enabled crate can be targets -
   // exclusives kept out of every drop table stay out of reach here too.
   const target = findCrateUpgradeTargetItem(targetItemId, targetVariant);
   if (!target) {
-    return jsonError("That item cannot be an upgrade target.", 422);
+    return jsonError("Invalid target.", 422);
   }
 
   const itemDef = SAMPLE_CRATE_ITEMS[itemId];
   // Same rule as a plain sell: the classic starter item has no value and
   // cannot be fed into anything.
-  if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic") {
-    return jsonError("This item cannot be used for an upgrade.", 422);
+  if (!itemDef || itemDef.sell_value <= 0 || itemId === "classic" || isUpgradeExcluded(itemId)) {
+    return jsonError("This item cannot be upgraded.", 422);
   }
 
   const chance = computeCrateUpgradeChance(itemDef.sell_value, target.sellValue);
   if (chance === null) {
-    return jsonError("The target must be worth more than the item you are risking.", 422);
+    return jsonError("Target must be worth more.", 422);
   }
 
   // Verify current ownership.
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
 
   const { data: consumed, error: consumeErr } = await consumeQuery;
   if (consumeErr || !consumed) {
-    return jsonError("Upgrade collided with another inventory update. Try again.", 409);
+    return jsonError("Try again.", 409);
   }
 
   const restoreFodder = async () => {
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     if (grantErr) {
       console.error("[crate-upgrade] reward grant failed", grantErr);
       await restoreFodder();
-      return jsonError("Failed to grant the reward. Your item was not consumed.", 500);
+      return jsonError("Upgrade failed. Your item is safe.", 500);
     }
 
     rewardItemId = target.itemId;

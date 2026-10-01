@@ -4,7 +4,7 @@ import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
+import { PRINCIPESSA_PITY_CRATE, PRINCIPESSA_PITY_THRESHOLD, isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
   getRarityColor,
@@ -20,6 +20,7 @@ import { CoinAmount } from "@/components/CoinAmount";
 import { emitSoundEvent } from "@/lib/sound";
 import { postSealToX } from "@/lib/share-seal";
 import { CrateUpgradeModal, type CrateUpgradeModalItem } from "@/components/CrateUpgradeModal";
+import { isUpgradeExcluded } from "@/lib/crate-upgrade";
 
 export type CrateDefinition = {
   crate_type: string;
@@ -949,7 +950,7 @@ export function CratesPanel({
                     {free && <span className="crate-benefit">Free open today</span>}
                     {keys > 0 && <span className="crate-benefit">{keys} Premium Key{keys === 1 ? "" : "s"}</span>}
                     {!free && keys === 0 && getDisplayedCost(crate) < crate.cost && <span className="crate-benefit">Golden Key applied</span>}
-                    {crate.crate_type === "principessa_case" && <span className="text-amber-100/80">Bad Luck Protection · {pityStats.principessa_bad_luck ?? 0}/4</span>}
+                    {crate.crate_type === PRINCIPESSA_PITY_CRATE && <span className="text-amber-100/80">Bad Luck Protection · {pityStats.principessa_bad_luck ?? 0}/{PRINCIPESSA_PITY_THRESHOLD}</span>}
                   </div>
                   <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-white/[.08] pt-4">
                     <div>
@@ -1121,7 +1122,7 @@ export function CratesPanel({
                                 : `Sell for ${item.sell_value} coins`}
                           </button>
                         )}
-                        {!isProtected && item.sell_value > 0 ? (
+                        {!isProtected && item.sell_value > 0 && !isUpgradeExcluded(item.item_id) ? (
                           <button
                             onClick={() =>
                               setUpgradeModalItem({

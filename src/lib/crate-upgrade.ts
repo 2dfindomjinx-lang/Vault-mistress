@@ -5,6 +5,7 @@
 // player commits. Client and server both import this file so the number shown
 // is exactly the number used.
 
+import { PLUSH_ITEM_ID } from "@/lib/birthday-plush";
 import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 
 // Every upgrade pays out at this expected value. 0.90 matches the generous
@@ -22,6 +23,14 @@ export const CRATE_UPGRADE_MAX_CHANCE = 0.8;
 // Quick-pick buttons: "find me something worth about N times my item".
 export const CRATE_UPGRADE_MULTIPLIERS = [1.5, 2, 3, 5, 10, 20] as const;
 
+// Special items stay out of the Upgrader on both sides: they cannot be fed in
+// and cannot be won. The ultimate rarity covers every item handed out by an
+// event; the plush is named as well so it stays excluded even if its rarity
+// is ever changed.
+export function isUpgradeExcluded(itemId: string) {
+  return itemId === PLUSH_ITEM_ID || SAMPLE_CRATE_ITEMS[itemId]?.rarity === "ultimate";
+}
+
 export type CrateUpgradeTargetItem = {
   crateName: string;
   crateType: string;
@@ -34,8 +43,8 @@ export type CrateUpgradeTargetItem = {
 };
 
 // Built once from the live crate drop tables - the only source of what an
-// upgrade can pay out. An item deliberately kept out of every crate (the
-// birthday plush) can therefore never be a target, by construction.
+// upgrade can pay out. Anything kept out of every crate can never be a
+// target by construction; isUpgradeExcluded makes that explicit as well.
 const TARGET_ITEMS: CrateUpgradeTargetItem[] = (() => {
   const seen = new Set<string>();
   const items: CrateUpgradeTargetItem[] = [];
@@ -43,7 +52,7 @@ const TARGET_ITEMS: CrateUpgradeTargetItem[] = (() => {
     if (!crate.enabled) continue;
     for (const drop of crate.drops) {
       const def = SAMPLE_CRATE_ITEMS[drop.item_id];
-      if (!def || def.sell_value <= 0) continue;
+      if (!def || def.sell_value <= 0 || isUpgradeExcluded(drop.item_id)) continue;
       const variant = drop.variant ?? "normal";
       const key = `${drop.item_id}:${variant}`;
       if (seen.has(key)) continue;

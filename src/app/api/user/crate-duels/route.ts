@@ -3,6 +3,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { profileSelect } from "@/lib/profile-columns";
 import { formatHandle } from "@/lib/username";
 import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
+import { rollDuelHaul, type DuelSealedItem } from "@/lib/crate-duel-rolls";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -18,10 +19,11 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 // see it. The client replays the reveal round by round from stored data for
 // whoever looks at it next - see CrateDuels.tsx.
 //
-// Deliberately priced and rolled at each crate's PLAIN listed cost and drop
-// table - no event discounts, no free-open grants, no pity counter. Both
-// sides of a duel must face identical odds for the contest to mean anything,
-// and those modifiers are per-account and per-moment.
+// Deliberately priced at each crate's PLAIN listed cost - no event discounts,
+// no free-open grants. Both sides of a duel must face identical odds, and
+// those modifiers are per-account and per-moment. How the haul itself is
+// rolled, including the Principessa Case's reproduced Bad Luck Protection,
+// lives in src/lib/crate-duel-rolls.ts.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,12 +34,13 @@ export const CRATE_DUEL_EXPIRES_HOURS = 48;
 // performance ceiling that limits a solo batch open doesn't apply here.
 export const CRATE_DUEL_MAX_QUANTITY = 10;
 
-type SealedItem = { itemId: string; sellValue: number; variant: string };
+type SealedItem = DuelSealedItem;
 
 type DuelRow = {
   accepted_at: string | null;
   challenger_id: string;
   challenger_items: SealedItem[];
+  challenger_seen_at: string | null;
   challenger_total_value: number;
   crate_cost: number;
   crate_type: string;
@@ -46,6 +49,7 @@ type DuelRow = {
   id: string;
   opponent_id: string | null;
   opponent_items: SealedItem[] | null;
+  opponent_seen_at: string | null;
   opponent_total_value: number | null;
   quantity: number;
   status: string;
@@ -65,39 +69,6 @@ async function requireUser() {
 
 function roll(): number {
   return randomInt(0, 1_000_000) / 1_000_000;
-}
-
-// Draws from the crate's plain, unadjusted drop table - see the module note
-// on why duels never use the event-adjusted or pity-affected odds. Called
-// once per crate in the batch, each with its own independent roll.
-function rollBaselineCrateDrops(crateType: string, quantity: number): SealedItem[] | null {
-  const crate = CRATE_TYPES[crateType];
-  if (!crate) return null;
-  const totalWeight = crate.drops.reduce((sum, drop) => sum + drop.weight, 0);
-  if (totalWeight <= 0) return null;
-
-  const results: SealedItem[] = [];
-  for (let i = 0; i < quantity; i += 1) {
-    let cursor = Math.max(0, Math.min(0.999999, roll())) * totalWeight;
-    let picked: SealedItem | null = null;
-    for (const drop of crate.drops) {
-      cursor -= drop.weight;
-      if (cursor < 0) {
-        const item = SAMPLE_CRATE_ITEMS[drop.item_id];
-        if (!item) continue;
-        picked = { itemId: drop.item_id, sellValue: item.sell_value, variant: drop.variant ?? "normal" };
-        break;
-      }
-    }
-    if (!picked) {
-      const last = crate.drops[crate.drops.length - 1];
-      const lastItem = last ? SAMPLE_CRATE_ITEMS[last.item_id] : null;
-      if (!last || !lastItem) return null;
-      picked = { itemId: last.item_id, sellValue: lastItem.sell_value, variant: last.variant ?? "normal" };
-    }
-    results.push(picked);
-  }
-  return results;
 }
 
 function itemsView(items: SealedItem[] | null | undefined) {
@@ -131,7 +102,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("crate_duels")
     .select(
-      "id, challenger_id, opponent_id, crate_type, crate_cost, quantity, status, created_at, accepted_at, expires_at, challenger_items, challenger_total_value, opponent_items, opponent_total_value, winner_id",
+      "id, challenger_id, opponent_id, crate_type, crate_cost, quantity, status, created_at, accepted_at, expires_at, challenger_items, challenger_total_value, opponent_items, opponent_total_value, winner_id, challenger_seen_at, opponent_seen_at",
     )
     .in("status", ["open", "revealed"])
     .order("created_at", { ascending: false })
@@ -178,6 +149,8 @@ export async function GET() {
       opponentItems: revealed ? itemsView(row.opponent_items) : [],
       opponentTotal: revealed ? row.opponent_total_value : null,
       quantity: row.quantity,
+      // Whether THIS account has watched the reveal, on any device.
+      seenByMe: row.challenger_id === user.id ? row.challenger_seen_at !== null : row.opponent_seen_at !== null,
       status: row.status,
       winner: row.winner_id ? nameById.get(row.winner_id) ?? "unknown" : null,
       wonByMe: row.winner_id === user.id,
@@ -200,7 +173,7 @@ export async function POST(request: Request) {
   if (!user) return jsonError("Authentication required.", 401);
 
   const body = (await request.json().catch(() => null)) as
-    | { action?: "accept" | "cancel" | "create"; crateType?: string; duelId?: string; quantity?: number }
+    | { action?: "accept" | "cancel" | "create" | "seen"; crateType?: string; duelId?: string; quantity?: number }
     | null;
 
   const supabase = createSupabaseAdminClient();
@@ -218,7 +191,7 @@ export async function POST(request: Request) {
     if (!crateDef || !crateDef.enabled) return jsonError("Invalid or disabled crate.", 422);
 
     const quantity = Math.max(1, Math.min(CRATE_DUEL_MAX_QUANTITY, Math.floor(Number(body.quantity) || 1)));
-    const rolled = rollBaselineCrateDrops(crateType, quantity);
+    const rolled = rollDuelHaul(crateType, quantity, roll);
     if (!rolled) return jsonError("Crate is empty. Contact support.", 500);
 
     const { data, error } = await supabase.rpc("create_crate_duel", {
@@ -234,10 +207,10 @@ export async function POST(request: Request) {
       return jsonError("The duel could not be created.", 500);
     }
     const result = (data ?? {}) as { coins?: number; duelId?: string; error?: string };
-    if (result.error === "already_in_duel") return jsonError("You already have an open crate duel. Finish or cancel it first.", 409);
+    if (result.error === "already_in_duel") return jsonError("You already have an open duel.", 409);
     if (result.error === "insufficient_coins") {
       const total = crateDef.cost * quantity;
-      return jsonError(`Opening ${quantity}x ${crateDef.name} costs ${total.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
+      return jsonError(`${quantity}x ${crateDef.name} costs ${total.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
     }
     if (result.error) return jsonError("The duel could not be created.");
     return respondWithProfile({ created: true, duelId: result.duelId });
@@ -253,7 +226,7 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (!duelRow || duelRow.status !== "open") return jsonError("Someone else got there first.", 409);
 
-    const rolled = rollBaselineCrateDrops(duelRow.crate_type, duelRow.quantity);
+    const rolled = rollDuelHaul(duelRow.crate_type, duelRow.quantity, roll);
     if (!rolled) return jsonError("Crate is empty. Contact support.", 500);
 
     const { data, error } = await supabase.rpc("accept_crate_duel", {
@@ -287,6 +260,28 @@ export async function POST(request: Request) {
       winnerId: result.winnerId ?? null,
       wonByMe: result.winnerId === user.id,
     });
+  }
+
+  if (body?.action === "seen") {
+    if (typeof body.duelId !== "string" || !body.duelId) return jsonError("Missing duel.");
+    // Only the caller's own side is touched, only once, and only for a duel
+    // that has actually been revealed.
+    const seenAt = new Date().toISOString();
+    await supabase
+      .from("crate_duels")
+      .update({ challenger_seen_at: seenAt })
+      .eq("id", body.duelId)
+      .eq("challenger_id", user.id)
+      .eq("status", "revealed")
+      .is("challenger_seen_at", null);
+    await supabase
+      .from("crate_duels")
+      .update({ opponent_seen_at: seenAt })
+      .eq("id", body.duelId)
+      .eq("opponent_id", user.id)
+      .eq("status", "revealed")
+      .is("opponent_seen_at", null);
+    return Response.json({ ok: true });
   }
 
   if (body?.action === "cancel") {
