@@ -1,3 +1,5 @@
+import { PLUSH_WEEKLY_COIN_REWARD } from "@/lib/birthday-plush";
+
 export type CrateRarity =
   | "common"
   | "uncommon"
@@ -2037,7 +2039,7 @@ export const SAMPLE_CRATE_ITEMS: Record<string, Omit<CrateItem, "item_id" | "ena
   // because the resolver defaults to .webp and this asset is a .png.
   "fatass_principessa_plush": {
     name: "Fatass Plush",
-    description: "Principessa herself, stitched fat and soft for her birthday. Handed only to the court that showed up for it.",
+    description: `Her birthday plush. Pays ${PLUSH_WEEKLY_COIN_REWARD.toLocaleString("en-US")} coins every week and unlocks a profile title and frame. Sell it and they go.`,
     rarity: "ultimate",
     collection: "birthday",
     sell_value: 25000,

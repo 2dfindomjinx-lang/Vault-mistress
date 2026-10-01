@@ -11,6 +11,7 @@ import {
   CRATE_TYPES,
   SAMPLE_CRATE_ITEMS,
   RARITY_ORDER,
+  RARITY_HEX,
   getCrateIconUrl,
   getCrateItemImageUrl,
 } from "@/lib/crates";
@@ -21,6 +22,7 @@ import { emitSoundEvent } from "@/lib/sound";
 import { postSealToX } from "@/lib/share-seal";
 import { CrateUpgradeModal, type CrateUpgradeModalItem } from "@/components/CrateUpgradeModal";
 import { isUpgradeExcluded } from "@/lib/crate-upgrade";
+import { plushSellNote } from "@/lib/birthday-plush";
 
 export type CrateDefinition = {
   crate_type: string;
@@ -341,6 +343,32 @@ export function CratesPanel({
       return sum + duplicateCount * (item.sell_value || 0);
     }, 0);
   }, [displayInventory]);
+
+  // Inventory filters. Counts read the frozen snapshot like every other
+  // inventory number here, so they cannot spoil a reveal that is mid-slide.
+  const [inventoryRarity, setInventoryRarity] = useState<CrateRarity | "all">("all");
+  const [inventoryDuplicatesOnly, setInventoryDuplicatesOnly] = useState(false);
+  const inventoryRarityCounts = useMemo(() => {
+    const counts: Partial<Record<CrateRarity, number>> = {};
+    for (const item of displayInventory) counts[item.rarity] = (counts[item.rarity] ?? 0) + 1;
+    return counts;
+  }, [displayInventory]);
+  const inventoryDuplicateCount = useMemo(
+    () => displayInventory.filter((item) => (item.quantity || 0) > 1).length,
+    [displayInventory],
+  );
+  // A rarity you no longer own anything of falls back to "all" instead of
+  // leaving an empty grid behind a filter you can no longer see.
+  const activeInventoryRarity = inventoryRarity === "all" || inventoryRarityCounts[inventoryRarity] ? inventoryRarity : "all";
+  const visibleInventory = useMemo(
+    () =>
+      inventory.filter(
+        (item) =>
+          (activeInventoryRarity === "all" || item.rarity === activeInventoryRarity) &&
+          (!inventoryDuplicatesOnly || (item.quantity || 0) > 1),
+      ),
+    [activeInventoryRarity, inventory, inventoryDuplicatesOnly],
+  );
 
   const duplicateStackCount = useMemo(() => {
     return displayInventory.reduce((sum, item) => {
@@ -744,7 +772,7 @@ export function CratesPanel({
     // Only show confirmation for Legendary items
     if (isBulkSellProtectedRarity(item.rarity)) {
       const confirmSell = window.confirm(
-        `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?`
+        `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?${plushSellNote(item.item_id)}`
       );
       if (!confirmSell) return;
     }
@@ -1027,13 +1055,52 @@ export function CratesPanel({
             </div>
           </div>
 
+          {inventory.length > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              {(["all", ...RARITY_ORDER.filter((rarity) => inventoryRarityCounts[rarity])] as Array<CrateRarity | "all">).map((rarity) => {
+                const active = activeInventoryRarity === rarity;
+                const hex = rarity === "all" ? undefined : RARITY_HEX[rarity];
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
+                      active ? "border-white/35 bg-white/10 text-white" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"
+                    }`}
+                    key={rarity}
+                    onClick={() => setInventoryRarity(rarity)}
+                    style={!active && hex ? { color: hex } : undefined}
+                    type="button"
+                  >
+                    {rarity}
+                    {rarity !== "all" ? <span className="ml-1 opacity-60">{inventoryRarityCounts[rarity]}</span> : null}
+                  </button>
+                );
+              })}
+              <span className="mx-1 h-4 w-px bg-white/10" aria-hidden="true" />
+              <button
+                aria-pressed={inventoryDuplicatesOnly}
+                className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
+                  inventoryDuplicatesOnly ? "border-pink-300/50 bg-pink-500/15 text-pink-100" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"
+                }`}
+                onClick={() => setInventoryDuplicatesOnly((current) => !current)}
+                type="button"
+              >
+                Duplicates<span className="ml-1 opacity-60">{inventoryDuplicateCount}</span>
+              </button>
+            </div>
+          ) : null}
+
           {inventory.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-400">
               Your collection starts here. Open a case to discover your first piece.
             </div>
+          ) : visibleInventory.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-center text-sm text-zinc-500">
+              No items match.
+            </div>
           ) : (
             <div className="court-grid court-grid--collection grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {inventory.map((item) => {
+              {visibleInventory.map((item) => {
                 const key = item.item_id + item.variant;
                 const isSelling = sellPending === key || sellPending === "all";
                 const isClassicDefault = item.item_id === "classic";
@@ -1073,7 +1140,7 @@ export function CratesPanel({
                             {item.rarity}
                           </span>
                         </div>
-                        <p className="mt-1 line-clamp-2 text-xs text-pink-100/80">{item.description}</p>
+                        <p className={`mt-1 text-xs text-pink-100/80 ${item.rarity === "ultimate" ? "" : "line-clamp-2"}`}>{item.description}</p>
 
                         <div className="mt-3 flex items-center justify-between text-xs">
                           <div>
@@ -1336,7 +1403,7 @@ export function CratesPanel({
                           }
                           if (isLegendary) {
                             const confirmSell = window.confirm(
-                              `Sell "${item.name}" for ${item.sell_value} coins?`
+                              `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`
                             );
                             if (!confirmSell) return;
                           }
@@ -1405,7 +1472,7 @@ export function CratesPanel({
                     }
                     if (isBulkSellProtectedRarity(item.rarity)) {
                       const confirmSell = window.confirm(
-                        `Sell "${item.name}" for ${item.sell_value} coins?`
+                        `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`
                       );
                       if (!confirmSell) return;
                     }

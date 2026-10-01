@@ -24,6 +24,23 @@ export const PLUSH_WEEKLY_COIN_REWARD = 1_000;
  */
 export const PLUSH_SELL_VALUE = 25_000;
 
+// What holding the plush gives, in the words shown to the player (item card
+// and sell confirmation). The three perks live elsewhere - the weekly cron,
+// the item-gated title and the item-gated profile frame - so this list is the
+// one place their plain-language summary is kept; update it with them.
+export const PLUSH_PERKS = [
+  `${PLUSH_WEEKLY_COIN_REWARD.toLocaleString("en-US")} coins every week`,
+  "A profile title",
+  "A profile frame",
+] as const;
+
+/** Appended to any "sell this?" prompt; empty for every other item. */
+export function plushSellNote(itemId: string) {
+  if (itemId !== PLUSH_ITEM_ID) return "";
+  const perks = PLUSH_PERKS.map((perk) => `- ${perk}`).join("\n");
+  return `\n\nWhile you hold it you get:\n${perks}\n\nSelling it ends all of them.`;
+}
+
 export function ownsPlush(inventory: Array<{ item_id: string; quantity?: number | null }>): boolean {
   return inventory.some((row) => row.item_id === PLUSH_ITEM_ID && Number(row.quantity ?? 0) > 0);
 }
