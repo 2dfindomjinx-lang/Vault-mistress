@@ -3,7 +3,7 @@
 import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PRINCIPESSA_PITY_CRATE, PRINCIPESSA_PITY_THRESHOLD, isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
@@ -90,10 +90,6 @@ type CratesPanelProps = {
   onCrateOpen?: () => void;
   onCrateResult?: (item: WonItem) => void;
   pending?: boolean;
-  // Rendered between the case grid and the Inventory section (Inventory is
-  // pinned to the bottom of this panel's flex stack) - Crate Duels lives
-  // here so it always sits above Inventory without needing its own page slot.
-  extraSections?: ReactNode;
   // Fired after an Upgrade attempt resolves, win or lose, so the host can
   // refresh inventory/coins the same way it does after a sell.
   onUpgraded?: () => void | Promise<void>;
@@ -152,7 +148,6 @@ export function CratesPanel({
   onCrateOpen,
   onCrateResult,
   pending = false,
-  extraSections,
   onUpgraded,
 }: CratesPanelProps) {
   // Falls back to a blocking dialog only if the host forgot to wire onNotice -
@@ -1026,10 +1021,6 @@ export function CratesPanel({
       </dialog>
 
       <div className="cases-stack relative z-[5] mt-6 flex flex-col">
-      {/* Crate Duels (and anything else the host wants above Inventory) - no
-          order class, so it sits before the order-last Inventory block below
-          regardless of where a future addition slots into this JSX. */}
-      {extraSections}
       {/* INVENTORY under Cases static */}
       <div className={`${styles.inventory} inventory-section relative z-[1] order-last`}>
           {/* Inventory header: value on left, global Sell All on top-right as requested */}

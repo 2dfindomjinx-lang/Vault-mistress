@@ -11931,6 +11931,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )} />}
           {activePanel === "crates" && (
+            <>
+              <CrateDuels
+                previewMode={isPreviewMode || isGuestMode}
+                disabled={isTimeoutActive || isPreviewRestricted}
+                onProfile={(profile) => {
+                  applyProfileStats(profile as Profile);
+                  void loadCratesData();
+                }}
+              />
               <CratesPanel
 
                 coins={coins}
@@ -11969,17 +11978,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   const msg = getSpeechBubbleResponseMessage(avatarId, rarityKey);
                   setSpeechBubbleReply(msg);
                 }}
-                extraSections={
-                  <CrateDuels
-                    previewMode={isPreviewMode || isGuestMode}
-                    disabled={isTimeoutActive || isPreviewRestricted}
-                    onProfile={(profile) => {
-                      applyProfileStats(profile as Profile);
-                      void loadCratesData();
-                    }}
-                  />
-                }
               />
+            </>
           )}
           {activePanel === "runway" && (
             <RunwayPanel

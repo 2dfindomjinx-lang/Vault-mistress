@@ -227,19 +227,18 @@ export function CrateDuels({
         );
       })}
 
-      {/* My live challenge takes over the top of the panel. */}
+      {/* Keep a live challenge visible without letting it crowd the public lobby. */}
       {live ? (
-        <div className="mt-5 rounded-[1.75rem] border border-pink-300/25 bg-pink-950/25 p-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/60">Your open challenge</p>
-          <h3 className="mt-2 font-serif text-2xl text-[#fff0d2]">
-            {live.quantity}x {live.crateName}
-          </h3>
-          <p className="mt-1 text-xs text-zinc-500">Sealed until someone accepts.</p>
-          <p className="mt-3 inline-block rounded-full border border-[#c89a55]/25 bg-black/40 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#ffe2ad]">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-pink-300/20 bg-pink-950/20 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-pink-200/60">Your open challenge <span className="text-zinc-500">· Sealed</span></p>
+            <p className="mt-1 truncate text-sm font-black text-[#fff0d2]">{live.quantity}x {live.crateName}</p>
+          </div>
+          <p className="rounded-full border border-[#c89a55]/25 bg-black/40 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#ffe2ad]">
             {remainingLabel(live.expiresAt, now)}
           </p>
           <button
-            className="mt-4 block rounded-2xl border border-white/15 px-5 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 transition hover:border-rose-300/40 hover:text-rose-100 disabled:opacity-40"
+            className="rounded-xl border border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-300 transition hover:border-rose-300/40 hover:text-rose-100 disabled:opacity-40"
             disabled={pending}
             onClick={() => void act({ action: "cancel", duelId: live.id }, "Withdraw? You keep your haul.")}
             type="button"
@@ -301,18 +300,18 @@ export function CrateDuels({
       )}
 
       {/* Lobby */}
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#c89a55]/50">Open challenges</p>
-          <div className="mt-2 grid gap-2">
+          <div className="mt-2 grid gap-2.5">
             {openDuels.length === 0 ? (
               <p className="rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-5 text-center text-xs text-zinc-600">
                 No open duels.
               </p>
             ) : (
               openDuels.map((duel) => (
-                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
-                  <Avatar name={duel.challenger} size={36} src={duel.challengerAvatar} />
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3.5 py-3" key={duel.id}>
+                  <Avatar name={duel.challenger} size={42} src={duel.challengerAvatar} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-black text-pink-50">{duel.challenger}</p>
                     <p className="text-[10px] text-zinc-600">
@@ -346,20 +345,20 @@ export function CrateDuels({
         {/* Reveal history: public by design - items and values included. */}
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#c89a55]/50">Results</p>
-          <div className="mt-2 grid gap-2">
+          <div className="mt-2 grid gap-2.5">
             {revealed.length === 0 ? (
               <p className="rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-5 text-center text-xs text-zinc-600">
                 No results yet.
               </p>
             ) : (
               revealed.map((duel) => (
-                <div className="court-duel-reveal rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
+                <div className="court-duel-reveal rounded-2xl border border-white/10 bg-black/30 px-3.5 py-3" key={duel.id}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <Avatar
                         name={duel.challenger}
                         ring={duel.winner === duel.challenger ? "#34d399" : undefined}
-                        size={30}
+                        size={36}
                         src={duel.challengerAvatar}
                       />
                       <p className={`min-w-0 truncate text-xs font-black ${duel.winner === duel.challenger ? "text-emerald-100" : "text-zinc-400"}`}>
@@ -371,7 +370,7 @@ export function CrateDuels({
                       <Avatar
                         name={duel.opponent ?? "?"}
                         ring={duel.winner === duel.opponent ? "#34d399" : undefined}
-                        size={30}
+                        size={36}
                         src={duel.opponentAvatar}
                       />
                       <p className={`min-w-0 truncate text-right text-xs font-black ${duel.winner === duel.opponent ? "text-emerald-100" : "text-zinc-400"}`}>
