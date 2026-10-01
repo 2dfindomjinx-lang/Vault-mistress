@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { profileSelect } from "@/lib/profile-columns";
 import { formatHandle } from "@/lib/username";
-import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, type CrateRarity } from "@/lib/crates";
+import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -104,6 +104,7 @@ function itemsView(items: SealedItem[] | null | undefined) {
   return (items ?? []).map((entry) => {
     const def = SAMPLE_CRATE_ITEMS[entry.itemId];
     return {
+      imageUrl: getCrateItemImageUrl(entry.itemId, def?.image_url ?? null),
       itemId: entry.itemId,
       name: def?.name ?? entry.itemId,
       rarity: (def?.rarity ?? null) as CrateRarity | null,
@@ -144,15 +145,14 @@ export async function GET() {
     userIds.add(row.challenger_id);
     if (row.opponent_id) userIds.add(row.opponent_id);
   }
+  type ProfileLite = { avatar_url: string | null; display_name: string | null; id: string; username: string | null };
   const { data: profiles } = userIds.size
-    ? await supabase.from("profiles").select("id, username, display_name").in("id", Array.from(userIds))
-    : { data: [] as Array<{ display_name: string | null; id: string; username: string | null }> };
+    ? await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", Array.from(userIds))
+    : { data: [] as ProfileLite[] };
   const nameById = new Map(
-    ((profiles ?? []) as Array<{ display_name: string | null; id: string; username: string | null }>).map((row) => [
-      row.id,
-      row.display_name?.trim() || formatHandle(row.username),
-    ]),
+    ((profiles ?? []) as ProfileLite[]).map((row) => [row.id, row.display_name?.trim() || formatHandle(row.username)]),
   );
+  const avatarById = new Map(((profiles ?? []) as ProfileLite[]).map((row) => [row.id, row.avatar_url ?? null]));
 
   const duels = rows.map((row) => {
     const isMine = row.challenger_id === user.id || row.opponent_id === user.id;
@@ -162,6 +162,7 @@ export async function GET() {
     return {
       acceptedAt: row.accepted_at,
       challenger: nameById.get(row.challenger_id) ?? "unknown",
+      challengerAvatar: avatarById.get(row.challenger_id) ?? null,
       challengerItems: revealed ? itemsView(row.challenger_items) : [],
       challengerTotal: revealed ? row.challenger_total_value : null,
       crateCost: row.crate_cost,
@@ -173,6 +174,7 @@ export async function GET() {
       isMine,
       isMyChallenge: row.challenger_id === user.id,
       opponent: row.opponent_id ? nameById.get(row.opponent_id) ?? "unknown" : null,
+      opponentAvatar: row.opponent_id ? avatarById.get(row.opponent_id) ?? null : null,
       opponentItems: revealed ? itemsView(row.opponent_items) : [],
       opponentTotal: revealed ? row.opponent_total_value : null,
       quantity: row.quantity,

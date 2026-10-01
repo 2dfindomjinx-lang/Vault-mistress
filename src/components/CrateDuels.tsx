@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
-import { CRATE_TYPES, RARITY_COLORS, type CrateRarity } from "@/lib/crates";
+import { Avatar, CrateDuelBattle, type BattleItem } from "@/components/CrateDuelBattle";
+import { CRATE_TYPES } from "@/lib/crates";
 import { emitSoundEvent } from "@/lib/sound";
 
 // Crate Duels: two subs each pay for N crates of the same type, each open
@@ -10,13 +11,13 @@ import { emitSoundEvent } from "@/lib/sound";
 // Structured exactly like Tribute Duels (open challenge -> async accept ->
 // reveal) so nobody needs to be online at the same moment as anybody else.
 //
-// The reveal is dramatized client-side, round by round, for whoever is
+// The reveal (CrateDuelBattle) is dramatized client-side for whoever is
 // looking at it - the opponent sees it the instant they accept, and the
 // challenger sees the identical replay the next time this panel loads and
 // notices a duel of theirs went from open to revealed. Neither is watching
-// the other type it out live - that would require both online at once,
-// exactly what this feature exists to avoid - but each gets the full
-// dramatized experience independently, once, the first time they see it.
+// the other live - that would require both online at once, exactly what this
+// feature exists to avoid - but each gets the full battle independently,
+// once automatically, and any revealed duel can be re-watched from history.
 //
 // One asymmetry from Tribute Duels on purpose: accepting here is instant and
 // atomic (it settles the moment you click), so holding your own open
@@ -24,16 +25,12 @@ import { emitSoundEvent } from "@/lib/sound";
 // commitments cannot collide the way a blind Throne-tribute window could.
 
 const SEEN_REVEALS_STORAGE_KEY = "vm-crate-duel-seen-reveals";
-// One crate opens per turn, alternating sides - not a pair at once - so with
-// up to 10 crates a side (20 turns total) this stays brisk rather than slow.
-const TURN_MS = 550;
-
-type DuelItem = { itemId: string; name: string; rarity: CrateRarity | null; sellValue: number; variant: string };
 
 type Duel = {
   acceptedAt: string | null;
   challenger: string;
-  challengerItems: DuelItem[];
+  challengerAvatar: string | null;
+  challengerItems: BattleItem[];
   challengerTotal: number | null;
   crateCost: number;
   crateName: string;
@@ -44,7 +41,8 @@ type Duel = {
   isMine: boolean;
   isMyChallenge: boolean;
   opponent: string | null;
-  opponentItems: DuelItem[];
+  opponentAvatar: string | null;
+  opponentItems: BattleItem[];
   opponentTotal: number | null;
   quantity: number;
   status: string;
@@ -92,114 +90,6 @@ function markRevealSeen(seen: Set<string>, duelId: string) {
 }
 
 const ENABLED_CRATES = Object.entries(CRATE_TYPES).filter(([, crate]) => crate.enabled);
-
-function ItemSlot({ item, revealed }: { item: DuelItem | undefined; revealed: boolean }) {
-  if (!revealed || !item) {
-    return (
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-white/10 bg-black/50 text-lg text-zinc-700">
-        ?
-      </div>
-    );
-  }
-  return (
-    <div
-      className="flex h-14 w-14 flex-col items-center justify-center rounded-xl border bg-black/60 text-center"
-      style={{ animation: "vm-crate-duel-flip 0.35s ease-out", borderColor: item.rarity ? `${RARITY_COLORS[item.rarity]}55` : undefined }}
-      title={item.name}
-    >
-      <span className="text-[9px] font-black tabular-nums" style={{ color: item.rarity ? RARITY_COLORS[item.rarity] : "#fff" }}>
-        {item.sellValue.toLocaleString()}
-      </span>
-    </div>
-  );
-}
-
-function RevealAnimation({ duel, onDone }: { duel: Duel; onDone: () => void }) {
-  // Both sides' crate #i open together each turn - a real per-turn stagger,
-  // just not split into single-crate steps. This is deliberately different
-  // from a normal multi-crate open, which dumps every result on screen at
-  // once with no pacing at all; a duel earns its drama by revealing one
-  // matched pair at a time instead of the whole haul in one flash.
-  const [round, setRound] = useState(0);
-  const timerRef = useRef<number | null>(null);
-
-  const myItems = duel.isMyChallenge ? duel.challengerItems : duel.opponentItems;
-  const myTotal = duel.isMyChallenge ? duel.challengerTotal : duel.opponentTotal;
-  const theirItems = duel.isMyChallenge ? duel.opponentItems : duel.challengerItems;
-  const theirTotal = duel.isMyChallenge ? duel.opponentTotal : duel.challengerTotal;
-  const theirName = duel.isMyChallenge ? duel.opponent ?? "Opponent" : duel.challenger;
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets the reveal to round 0 whenever a new duel starts animating
-    setRound(0);
-    const advance = () => {
-      setRound((current) => {
-        const next = current + 1;
-        if (next >= duel.quantity) {
-          if (timerRef.current !== null) window.clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-        emitSoundEvent("crate_reel_tick");
-        return next;
-      });
-    };
-    timerRef.current = window.setInterval(advance, TURN_MS);
-    return () => {
-      if (timerRef.current !== null) window.clearInterval(timerRef.current);
-    };
-  }, [duel.id, duel.quantity]);
-
-  const finished = round >= duel.quantity;
-  const runningMine = myItems.slice(0, round).reduce((sum, item) => sum + item.sellValue, 0);
-  const runningTheirs = theirItems.slice(0, round).reduce((sum, item) => sum + item.sellValue, 0);
-
-  return (
-    <div className="mt-5 rounded-[1.75rem] border border-pink-300/25 bg-pink-950/25 p-5">
-      <style>{`@keyframes vm-crate-duel-flip { from { transform: scale(0.4) rotateY(90deg); opacity: 0; } to { transform: scale(1) rotateY(0); opacity: 1; } }`}</style>
-      <p className="text-center text-[9px] font-black uppercase tracking-[0.3em] text-pink-200/60">
-        {duel.crateName} · {duel.quantity}x
-      </p>
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <div className="text-center">
-          <p className="text-xs font-black text-pink-50">You</p>
-          <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-            {Array.from({ length: duel.quantity }, (_, i) => (
-              <ItemSlot item={myItems[i]} key={i} revealed={i < round} />
-            ))}
-          </div>
-          <p className="mt-2 font-serif text-lg text-[#ffe2ad] tabular-nums">{runningMine.toLocaleString()}</p>
-        </div>
-        <div className="text-center">
-          <p className="truncate text-xs font-black text-pink-50">{theirName}</p>
-          <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-            {Array.from({ length: duel.quantity }, (_, i) => (
-              <ItemSlot item={theirItems[i]} key={i} revealed={i < round} />
-            ))}
-          </div>
-          <p className="mt-2 font-serif text-lg text-[#ffe2ad] tabular-nums">{runningTheirs.toLocaleString()}</p>
-        </div>
-      </div>
-
-      {finished ? (
-        <div className="mt-4 text-center">
-          <p className={`text-sm font-black ${duel.wonByMe ? "text-emerald-200" : duel.winner ? "text-rose-200" : "text-zinc-300"}`}>
-            {duel.winner ? (duel.wonByMe ? "You took the whole haul." : `${theirName} took the whole haul.`) : "Tie. Each kept their own."}
-          </p>
-          <p className="mt-1 text-[10px] text-zinc-500">
-            {(myTotal ?? runningMine).toLocaleString()} vs {(theirTotal ?? runningTheirs).toLocaleString()}
-          </p>
-          <button
-            className="mt-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 hover:text-zinc-300"
-            onClick={onDone}
-            type="button"
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function CrateDuels({
   disabled = false,
@@ -311,7 +201,7 @@ export function CrateDuels({
 
       <div className="court-duel-seal" aria-hidden="true"><CourtGlyph symbol="seal" /><span>vs</span><CourtGlyph symbol="crown" /></div>
 
-      {animatingDuel ? <RevealAnimation duel={animatingDuel} onDone={() => setAnimatingDuel(null)} /> : null}
+      {animatingDuel ? <CrateDuelBattle duel={animatingDuel} onClose={() => setAnimatingDuel(null)} /> : null}
 
       {/* My live challenge takes over the top of the panel. */}
       {live ? (
@@ -404,6 +294,7 @@ export function CrateDuels({
             ) : (
               openDuels.map((duel) => (
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
+                  <Avatar name={duel.challenger} size={36} src={duel.challengerAvatar} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-black text-pink-50">{duel.challenger}</p>
                     <p className="text-[10px] text-zinc-600">
@@ -445,19 +336,44 @@ export function CrateDuels({
             ) : (
               revealed.map((duel) => (
                 <div className="court-duel-reveal rounded-2xl border border-white/10 bg-black/30 px-3 py-2.5" key={duel.id}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className={`min-w-0 truncate text-xs font-black ${duel.winner === duel.challenger ? "text-emerald-100" : "text-zinc-400"}`}>
-                      {duel.challenger} · {(duel.challengerTotal ?? 0).toLocaleString()}
-                    </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Avatar
+                        name={duel.challenger}
+                        ring={duel.winner === duel.challenger ? "#34d399" : undefined}
+                        size={30}
+                        src={duel.challengerAvatar}
+                      />
+                      <p className={`min-w-0 truncate text-xs font-black ${duel.winner === duel.challenger ? "text-emerald-100" : "text-zinc-400"}`}>
+                        {(duel.challengerTotal ?? 0).toLocaleString()}
+                      </p>
+                    </div>
                     <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">vs</span>
-                    <p className={`min-w-0 truncate text-right text-xs font-black ${duel.winner === duel.opponent ? "text-emerald-100" : "text-zinc-400"}`}>
-                      {duel.opponent} · {(duel.opponentTotal ?? 0).toLocaleString()}
-                    </p>
+                    <div className="flex min-w-0 flex-row-reverse items-center gap-2">
+                      <Avatar
+                        name={duel.opponent ?? "?"}
+                        ring={duel.winner === duel.opponent ? "#34d399" : undefined}
+                        size={30}
+                        src={duel.opponentAvatar}
+                      />
+                      <p className={`min-w-0 truncate text-right text-xs font-black ${duel.winner === duel.opponent ? "text-emerald-100" : "text-zinc-400"}`}>
+                        {(duel.opponentTotal ?? 0).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 text-center text-[10px] text-zinc-600">
-                    {duel.quantity}x {duel.crateName} ·{" "}
-                    {duel.winner ? `${duel.winner} won the crate duel` : "Tie. Each kept their own."}
-                  </p>
+                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <p className="min-w-0 truncate text-[10px] text-zinc-600">
+                      {duel.quantity}x {duel.crateName} ·{" "}
+                      {duel.winner ? `${duel.winner} won` : "Tie"}
+                    </p>
+                    <button
+                      className="shrink-0 rounded-lg border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-400 transition hover:border-pink-300/40 hover:text-pink-100"
+                      onClick={() => setAnimatingDuel(duel)}
+                      type="button"
+                    >
+                      ▶ Watch
+                    </button>
+                  </div>
                 </div>
               ))
             )}

@@ -50,6 +50,18 @@ export const RARITY_COLORS: Record<CrateRarity, string> = {
   ultimate: "border-fuchsia-300 text-fuchsia-100 bg-fuchsia-950/70",
 };
 
+// The same palette as plain hex, for inline styles (glows, SVG strokes,
+// gradients) - RARITY_COLORS above is Tailwind class lists and is not a
+// valid CSS colour value.
+export const RARITY_HEX: Record<CrateRarity, string> = {
+  common: "#a1a1aa",
+  uncommon: "#34d399",
+  rare: "#38bdf8",
+  epic: "#a78bfa",
+  legendary: "#fcd34d",
+  ultimate: "#f0abfc",
+};
+
 export const RARITY_ORDER: CrateRarity[] = ["common", "uncommon", "rare", "epic", "legendary", "ultimate"];
 
 /**

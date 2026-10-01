@@ -1,12 +1,7 @@
 import { randomInt } from "node:crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, type CrateRarity } from "@/lib/crates";
-import {
-  CRATE_UPGRADE_RARITY_ORDER,
-  computeCrateUpgradeChance,
-  getCrateRarityAvgSellValue,
-  pickCrateUpgradeReward,
-} from "@/lib/crate-upgrade";
+import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
+import { computeCrateUpgradeChance, findCrateUpgradeTargetItem } from "@/lib/crate-upgrade";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -14,19 +9,19 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-// The Upgrade table's only endpoint. One item in, a coin flip, and either a
-// pricier item out or nothing. The chance is recomputed here from the same
-// shared module the client used to show a preview - the client's number is
-// never trusted, only reproduced.
+// The Upgrader's only endpoint. One item in, one roll, and either exactly the
+// named target item out or nothing. The chance is recomputed here from the
+// same shared module the client used to show a preview - the client's number
+// is never trusted, only reproduced.
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type UpgradeBody = {
   itemId?: string;
+  targetItemId?: string;
+  targetVariant?: string;
   variant?: string;
-  toCrateType?: string;
-  toRarity?: string;
 };
 
 function jsonError(message: string, status = 400) {
@@ -56,18 +51,18 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as UpgradeBody | null;
   const itemId = body?.itemId?.trim();
   const variant = body?.variant?.trim() || "normal";
-  const toCrateType = body?.toCrateType?.trim();
-  const toRarity = body?.toRarity?.trim() as CrateRarity | undefined;
+  const targetItemId = body?.targetItemId?.trim();
+  const targetVariant = body?.targetVariant?.trim() || "normal";
 
-  if (!itemId || !toCrateType || !toRarity) {
+  if (!itemId || !targetItemId) {
     return jsonError("Missing item or target.");
   }
-  if (!CRATE_UPGRADE_RARITY_ORDER.includes(toRarity)) {
-    return jsonError("Invalid target rarity.");
-  }
-  const targetCrate = CRATE_TYPES[toCrateType];
-  if (!targetCrate || !targetCrate.enabled) {
-    return jsonError("Invalid or disabled target crate.");
+
+  // Only items that really drop from an enabled crate can be targets -
+  // exclusives kept out of every drop table stay out of reach here too.
+  const target = findCrateUpgradeTargetItem(targetItemId, targetVariant);
+  if (!target) {
+    return jsonError("That item cannot be an upgrade target.", 422);
   }
 
   const itemDef = SAMPLE_CRATE_ITEMS[itemId];
@@ -77,11 +72,7 @@ export async function POST(request: Request) {
     return jsonError("This item cannot be used for an upgrade.", 422);
   }
 
-  const targetAvgSellValue = getCrateRarityAvgSellValue(toCrateType, toRarity);
-  if (targetAvgSellValue === null) {
-    return jsonError("That crate has no items at that rarity.", 422);
-  }
-  const chance = computeCrateUpgradeChance(itemDef.sell_value, targetAvgSellValue);
+  const chance = computeCrateUpgradeChance(itemDef.sell_value, target.sellValue);
   if (chance === null) {
     return jsonError("The target must be worth more than the item you are risking.", 422);
   }
@@ -99,9 +90,7 @@ export async function POST(request: Request) {
     return jsonError("You do not own this item.", 422);
   }
 
-  // Two independent rolls: one decides win/lose, the other (only spent on a
-  // win) decides which item from the target rarity comes back. Keeping them
-  // separate avoids any correlation between the outcome and the reward.
+  // One roll decides everything: under the chance wins the named item.
   const outcomeRoll = roll();
   const won = outcomeRoll < chance;
 
@@ -150,32 +139,17 @@ export async function POST(request: Request) {
   let rewardVariant: string | null = null;
 
   if (won) {
-    const reward = pickCrateUpgradeReward(toCrateType, toRarity, roll());
-    if (!reward) {
-      await restoreFodder();
-      return jsonError("Could not draw a reward for that target. Try again.", 500);
-    }
-    const rewardDef = SAMPLE_CRATE_ITEMS[reward.item_id];
-    // Legendary+ items stay individually visible even when won this way -
-    // the bulk-sell shield on them is unrelated to how they were acquired,
-    // but this check protects against a malformed drop table ever handing
-    // out something with no sell value at all.
-    if (!rewardDef) {
-      await restoreFodder();
-      return jsonError("Could not resolve the reward item. Try again.", 500);
-    }
-
     const { data: existingReward } = await supabase
       .from("user_crate_inventory")
       .select("quantity")
       .eq("user_id", userId)
-      .eq("item_id", reward.item_id)
-      .eq("variant", reward.variant)
+      .eq("item_id", target.itemId)
+      .eq("variant", target.variant)
       .maybeSingle();
 
     const newRewardQty = (existingReward?.quantity ?? 0) + 1;
     const { error: grantErr } = await supabase.from("user_crate_inventory").upsert(
-      { user_id: userId, item_id: reward.item_id, variant: reward.variant, quantity: newRewardQty },
+      { user_id: userId, item_id: target.itemId, variant: target.variant, quantity: newRewardQty },
       { onConflict: "user_id,item_id,variant" },
     );
     if (grantErr) {
@@ -184,8 +158,8 @@ export async function POST(request: Request) {
       return jsonError("Failed to grant the reward. Your item was not consumed.", 500);
     }
 
-    rewardItemId = reward.item_id;
-    rewardVariant = reward.variant;
+    rewardItemId = target.itemId;
+    rewardVariant = target.variant;
   }
 
   // Best-effort audit log. Nothing financial hinges on this row - the coins
@@ -196,8 +170,8 @@ export async function POST(request: Request) {
     from_item_id: itemId,
     from_variant: variant,
     from_sell_value: itemDef.sell_value,
-    to_crate_type: toCrateType,
-    to_rarity: toRarity,
+    to_crate_type: target.crateType,
+    to_rarity: target.rarity,
     win_chance_percent: Math.round(chance * 100_000) / 1_000,
     won,
     to_item_id: rewardItemId,

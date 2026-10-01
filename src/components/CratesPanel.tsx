@@ -1125,6 +1125,7 @@ export function CratesPanel({
                           <button
                             onClick={() =>
                               setUpgradeModalItem({
+                                image_url: item.image_url ?? null,
                                 item_id: item.item_id,
                                 name: item.name,
                                 rarity: item.rarity,
