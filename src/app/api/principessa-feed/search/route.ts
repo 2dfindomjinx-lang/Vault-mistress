@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadCommunityProfiles } from "@/lib/prestige-server";
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   const usernameQuery = query.replace(/^@+/, "");
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData } = await authSupabase.auth.getUser();
+  const authData = { user: await getFastUser(authSupabase) }; // read-only: no Auth round trip (see fast-auth.ts)
   const supabase = createSupabaseAdminClient();
   const [{ data: postRows, error: postError }, usernameResult, displayNameResult] = await Promise.all([
     supabase.from("principessa_posts")

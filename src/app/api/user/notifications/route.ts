@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient, getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserNotificationRecord } from "@/lib/user-notifications";
 
@@ -9,8 +10,12 @@ type NotificationBody = {
   notificationId?: string;
 };
 
-async function getCurrentUserId() {
+async function getCurrentUserId(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) {
+    const fastUser = await getFastUser(authSupabase);
+    return fastUser ? { error: null, userId: fastUser.id } : { error: "Authentication required.", userId: null };
+  }
   const { data, error } = await authSupabase.auth.getUser();
 
   if (error || !data.user) {
@@ -56,7 +61,7 @@ export async function GET() {
     );
   }
 
-  const { error: authError, userId } = await getCurrentUserId();
+  const { error: authError, userId } = await getCurrentUserId(true);
 
   if (authError || !userId) {
     return Response.json({ error: authError ?? "Authentication required." }, { status: 401 });

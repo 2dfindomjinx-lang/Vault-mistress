@@ -1,4 +1,5 @@
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
   try {
     const channel = new URL(request.url).searchParams.get("channel") === "sub" ? "sub" : "principessa";
     const authSupabase = await createSupabaseServerClient();
-    const { data: authData } = await authSupabase.auth.getUser();
+    const authData = { user: await getFastUser(authSupabase) }; // read-only: no Auth round trip (see fast-auth.ts)
     const posts = await listPrincipessaFeedPosts(createSupabaseAdminClient(), {
       channel: channel === "sub" ? "all" : "principessa",
       viewerId: authData.user?.id,

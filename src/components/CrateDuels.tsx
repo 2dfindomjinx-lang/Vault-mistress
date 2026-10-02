@@ -130,8 +130,19 @@ export function CrateDuels({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount against an external system
     void load();
-    const timer = window.setInterval(() => void load(), 45_000);
-    return () => window.clearInterval(timer);
+    // Paused while the tab is hidden; coming back refreshes at most once a minute.
+    let lastLoadAt = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastLoadAt < 60_000) return;
+      lastLoadAt = Date.now();
+      void load();
+    };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [load]);
 
   const act = async (body: Record<string, unknown>, confirmText?: string) => {

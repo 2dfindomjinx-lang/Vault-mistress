@@ -1,10 +1,14 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
   if (!isSupabaseAdminConfigured) return Response.json({ error: "Supabase is not configured." }, { status: 500 });
   const auth = await createSupabaseServerClient();
-  const { data, error } = await auth.auth.getUser();
+  // Read-only: skip the Auth server round trip (see fast-auth.ts).
+  const fastUser = await getFastUser(auth);
+  const data = { user: fastUser };
+  const error = fastUser ? null : new Error("Authentication required.");
   if (error || !data.user) return Response.json({ error: "Authentication required." }, { status: 401 });
   const supabase = createSupabaseAdminClient();
   const { data: snapshots, error: snapshotError } = await supabase

@@ -660,8 +660,16 @@ function ThroneDebtCard({
       void loadThroneDebts();
     }, 0);
 
-    const refresh = () => { if (document.visibilityState === "visible") void loadThroneDebts(); };
-    const interval = window.setInterval(refresh, 10000);
+    // focus and visibilitychange both fire when the tab comes back; the gap
+    // keeps that to one request. The 10s poll was one of the heaviest
+    // recurring callers in the Supabase request log.
+    let lastRefreshAt = 0;
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastRefreshAt < 5_000) return;
+      lastRefreshAt = Date.now();
+      void loadThroneDebts();
+    };
+    const interval = window.setInterval(refresh, 45_000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {

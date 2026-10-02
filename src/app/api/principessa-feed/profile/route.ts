@@ -1,4 +1,5 @@
 import { isTrustedAdminUserId } from "@/lib/admin-identity";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { listPrincipessaFeedPosts } from "@/lib/principessa-feed";
 import { getPrincipessaFeedSignedUrlMap } from "@/lib/principessa-feed-media";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) return Response.json({ error: "Invalid profile id." }, { status: 400 });
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData } = await authSupabase.auth.getUser();
+  const authData = { user: await getFastUser(authSupabase) }; // read-only: no Auth round trip (see fast-auth.ts)
   const viewerId = authData.user?.id;
   const supabase = createSupabaseAdminClient();
   const [identityResult, feedProfileResult, posts] = await Promise.all([

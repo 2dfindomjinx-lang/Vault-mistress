@@ -1,4 +1,5 @@
 import type { ClickGameLeaderboardEntry, ClickGameWinHistoryEntry } from "@/lib/click-game";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -15,7 +16,10 @@ function jsonError(message: string, status = 400) {
 
 async function getAuthedUserId() {
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+  // Read-only, own data: skip the Auth server round trip (see fast-auth.ts).
+  const fastUser = await getFastUser(authSupabase);
+  const authData = { user: fastUser };
+  const authError = fastUser ? null : new Error("Authentication required.");
 
   if (authError || !authData.user) {
     return { error: jsonError(authError?.message ?? "Authentication required.", 401), userId: null };

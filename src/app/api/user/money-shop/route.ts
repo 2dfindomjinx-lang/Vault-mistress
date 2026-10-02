@@ -1,4 +1,5 @@
 import { ALL_LEGENDARY_ITEM_IDS, getCrateItemImageUrl, SAMPLE_CRATE_ITEMS } from "@/lib/crates";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { getMoneyBuybackAmount, getMoneyShopPrice, type MoneyShopEntry } from "@/lib/principessa-money";
 import { profileSelect } from "@/lib/profile-columns";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -32,8 +33,10 @@ function getShopItem(itemId: string) {
   return { ...item, item_id: itemId };
 }
 
-async function requireUser() {
+// `fast` skips the Auth server round trip (see fast-auth.ts); GET only.
+async function requireUser(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) return (await getFastUser(authSupabase))?.id ?? null;
   const { data, error } = await authSupabase.auth.getUser();
   if (error || !data.user) return null;
   return data.user.id;
@@ -44,7 +47,7 @@ export async function GET() {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
 
-  const userId = await requireUser();
+  const userId = await requireUser(true);
   if (!userId) return jsonError("Authentication required.", 401);
 
   const supabase = createSupabaseAdminClient();

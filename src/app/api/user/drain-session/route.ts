@@ -1,4 +1,5 @@
 import { profileSelect } from "@/lib/profile-columns";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { DRAIN_SESSION_MAX_RATE, DRAIN_SESSION_MIN_RATE } from "@/lib/drain-session";
 import {
   createSupabaseAdminClient,
@@ -12,8 +13,14 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-async function getAuthedUserId() {
+// `fast` skips the Auth server round trip (see fast-auth.ts); GET only.
+async function getAuthedUserId(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) {
+    const fastUser = await getFastUser(authSupabase);
+    if (!fastUser) return { error: jsonError("Authentication required.", 401), userId: null };
+    return { error: null, userId: fastUser.id };
+  }
   const { data: authData, error: authError } = await authSupabase.auth.getUser();
 
   if (authError || !authData.user) {
@@ -29,7 +36,7 @@ export async function GET() {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
 
-  const authResult = await getAuthedUserId();
+  const authResult = await getAuthedUserId(true);
   if (authResult.error) return authResult.error;
 
   const supabase = createSupabaseAdminClient();

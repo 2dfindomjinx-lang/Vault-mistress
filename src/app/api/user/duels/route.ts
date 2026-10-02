@@ -1,4 +1,5 @@
 import { profileSelect } from "@/lib/profile-columns";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { formatHandle } from "@/lib/username";
 import {
@@ -36,8 +37,11 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-async function requireUser() {
+// `fast` skips the Auth server round trip (see fast-auth.ts); only the
+// read-only GET uses it. Anything that moves coins keeps the full check.
+async function requireUser(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) return getFastUser(authSupabase);
   const { data, error } = await authSupabase.auth.getUser();
   if (error || !data.user) return null;
   return data.user;
@@ -47,7 +51,7 @@ export async function GET() {
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
-  const user = await requireUser();
+  const user = await requireUser(true);
   if (!user) return jsonError("Authentication required.", 401);
 
   const supabase = createSupabaseAdminClient();

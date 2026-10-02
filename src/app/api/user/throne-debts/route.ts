@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import {
   normalizeThroneDebtFrequency,
   type ThroneDebtContract,
@@ -23,8 +24,13 @@ function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-async function getCurrentUserId() {
+// `fast` skips the Auth server round trip (see fast-auth.ts); GET only.
+async function getCurrentUserId(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) {
+    const fastUser = await getFastUser(authSupabase);
+    return fastUser ? { error: null, userId: fastUser.id } : { error: "Authentication required.", userId: null };
+  }
   const { data, error } = await authSupabase.auth.getUser();
 
   if (error || !data.user) {
@@ -49,7 +55,7 @@ export async function GET() {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
 
-  const { error, userId } = await getCurrentUserId();
+  const { error, userId } = await getCurrentUserId(true);
 
   if (error || !userId) {
     return jsonError(error ?? "Authentication required.", 401);

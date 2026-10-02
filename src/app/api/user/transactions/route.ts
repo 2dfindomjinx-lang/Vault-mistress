@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import {
   createSupabaseAdminClient,
   isSupabaseAdminConfigured,
@@ -10,7 +11,10 @@ export async function GET(request: Request) {
       { status: 503 },
     );
   const auth = await createClient();
-  const { data, error } = await auth.auth.getUser();
+  // Read-only: skip the Auth server round trip (see fast-auth.ts).
+  const fastUser = await getFastUser(auth);
+  const data = { user: fastUser };
+  const error = fastUser ? null : new Error("Authentication required.");
   if (error || !data.user)
     return Response.json(
       { error: "Sign in to view your history." },

@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 const FEED_KINDS = [
@@ -11,12 +12,13 @@ const FEED_KINDS = [
   "principessa_feed_dm",
 ];
 
-async function requireUser() {
+async function requireUser(fast = false) {
   if (!isSupabaseAdminConfigured) return { error: "Supabase admin is not configured.", status: 500 } as const;
   const authSupabase = await createSupabaseServerClient();
-  const { data } = await authSupabase.auth.getUser();
-  if (!data.user) return { error: "Sign in to view Feed notifications.", status: 401 } as const;
-  return { supabase: createSupabaseAdminClient(), userId: data.user.id } as const;
+  // `fast` skips the Auth server round trip (see fast-auth.ts); GET only.
+  const user = fast ? await getFastUser(authSupabase) : (await authSupabase.auth.getUser()).data.user;
+  if (!user) return { error: "Sign in to view Feed notifications.", status: 401 } as const;
+  return { supabase: createSupabaseAdminClient(), userId: user.id } as const;
 }
 
 async function listNotifications(supabase: ReturnType<typeof createSupabaseAdminClient>, userId: string) {
@@ -29,7 +31,7 @@ async function listNotifications(supabase: ReturnType<typeof createSupabaseAdmin
 }
 
 export async function GET() {
-  const auth = await requireUser();
+  const auth = await requireUser(true);
   if ("error" in auth) return Response.json({ error: auth.error }, { status: auth.status });
   try { return Response.json(await listNotifications(auth.supabase, auth.userId)); }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Feed notifications could not be loaded." }, { status: 500 }); }

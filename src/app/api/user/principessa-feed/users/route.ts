@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -7,7 +8,7 @@ export async function GET(request: Request) {
   }
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData } = await authSupabase.auth.getUser();
+  const authData = { user: await getFastUser(authSupabase) }; // read-only: no Auth round trip (see fast-auth.ts)
   if (!authData.user) return Response.json({ error: "Sign in to tag users." }, { status: 401 });
 
   const searchParams = new URL(request.url).searchParams;

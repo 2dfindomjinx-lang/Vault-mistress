@@ -1,4 +1,5 @@
 import assetNames from "@/lib/generated/asset-names.json";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { normalizeAddressTerm, type AddressTerm } from "@/lib/address-term";
 import { awardDevotion } from "@/lib/devotion";
 import { profileSelect } from "@/lib/profile-columns";
@@ -148,8 +149,14 @@ async function getTopShrineWorshippers(supabase: ReturnType<typeof createSupabas
     });
 }
 
-async function getAuthedUserId() {
+// `fast` skips the Auth server round trip (see fast-auth.ts); GET only.
+async function getAuthedUserId(fast = false) {
   const authSupabase = await createSupabaseServerClient();
+  if (fast) {
+    const fastUser = await getFastUser(authSupabase);
+    if (!fastUser) return { error: jsonError("Authentication required.", 401), userId: null };
+    return { error: null, userId: fastUser.id };
+  }
   const { data: authData, error: authError } = await authSupabase.auth.getUser();
 
   if (authError || !authData.user) {
@@ -170,7 +177,7 @@ export async function GET() {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
   }
 
-  const authResult = await getAuthedUserId();
+  const authResult = await getAuthedUserId(true);
 
   if (authResult.error) {
     return authResult.error;

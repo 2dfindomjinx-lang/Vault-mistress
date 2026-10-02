@@ -14,7 +14,7 @@ import { groupLineup, lineupLabel } from "@/lib/crate-duel-lineup";
 // being offered (crates and cost), never who opened it.
 
 type CrateDuelPreview = { crates: string[]; expiresAt: string; totalCost: number };
-type Counts = { active: number; crateDuels: CrateDuelPreview[]; crateOpen: number; open: number };
+type Counts = { crateDuels: CrateDuelPreview[]; crateOpen: number; open: number };
 
 function SwordsIcon() {
   return (
@@ -63,7 +63,6 @@ export function DuelCallBanner() {
         const payload = (await response.json().catch(() => null)) as Partial<Counts> | null;
         if (!cancelled && payload) {
           setCounts({
-            active: payload.active ?? 0,
             crateDuels: payload.crateDuels ?? [],
             crateOpen: payload.crateOpen ?? 0,
             open: payload.open ?? 0,
@@ -75,10 +74,19 @@ export function DuelCallBanner() {
       }
     };
     void load();
-    const timer = window.setInterval(() => void load(), 60_000);
+    // Hidden tabs do not poll, and coming back only refreshes stale data.
+    let lastLoadAt = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastLoadAt < 90_000) return;
+      lastLoadAt = Date.now();
+      void load();
+    };
+    const timer = window.setInterval(refresh, 120_000);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
 

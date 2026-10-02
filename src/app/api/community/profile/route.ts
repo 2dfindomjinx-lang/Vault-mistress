@@ -1,4 +1,5 @@
 import { loadCommunityProfiles } from "@/lib/prestige-server";
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { getGmt3MonthStart } from "@/lib/prestige";
 import {
   createSupabaseAdminClient,
@@ -20,7 +21,10 @@ export async function GET(request: Request) {
   }
 
   const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
+  // Read-only: skip the Auth server round trip (see fast-auth.ts).
+  const fastUser = await getFastUser(authSupabase);
+  const authData = { user: fastUser };
+  const authError = fastUser ? null : new Error("Authentication required.");
 
   if (authError || !authData.user) {
     return jsonError(authError?.message ?? "Authentication required.", 401);
