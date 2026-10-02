@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
 import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
@@ -158,7 +159,7 @@ export function CratesPanel({
         onNotice(message);
         return;
       }
-      window.alert(message);
+      void alertDialog(message);
     },
     [onNotice],
   );
@@ -780,9 +781,7 @@ export function CratesPanel({
 
     // Only show confirmation for Legendary items
     if (isBulkSellProtectedRarity(item.rarity)) {
-      const confirmSell = window.confirm(
-        `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?${plushSellNote(item.item_id)}`
-      );
+      const confirmSell = await confirmDialog({ title: "Sell item", message: `Sell ${qty} "${item.name}" for ${item.sell_value * qty} coins?${plushSellNote(item.item_id)}`, confirmLabel: "Sell", tone: "danger" });
       if (!confirmSell) return;
     }
 
@@ -816,9 +815,7 @@ export function CratesPanel({
     }
 
     const totalValue = sellableWonItems.reduce((sum, item) => sum + item.sell_value, 0);
-    const confirmSell = window.confirm(
-      `Sell ${sellableWonItems.length} sellable won items for ${totalValue} coins?\n\nLegendary items in this batch will stay locked and are not included.`
-    );
+    const confirmSell = await confirmDialog({ title: "Sell won items", message: `Sell ${sellableWonItems.length} sellable won items for ${totalValue} coins?\n\nLegendary items in this batch will stay locked and are not included.`, confirmLabel: "Sell", tone: "danger" });
     if (!confirmSell) return;
 
     const grouped = Array.from(
@@ -854,9 +851,7 @@ export function CratesPanel({
   const sellAll = async () => {
     if (disabled || sellPending || inventory.length === 0 || inventoryValue <= 0) return;
 
-    const confirmSell = window.confirm(
-      `Sell ALL non-legendary items in your inventory for ${inventoryValue} coins?\n\nLegendary items will remain in your inventory and must be sold one by one with the extra confirmation.`
-    );
+    const confirmSell = await confirmDialog({ title: "Sell everything", message: `Sell ALL non-legendary items in your inventory for ${inventoryValue} coins?\n\nLegendary items will remain in your inventory and must be sold one by one with the extra confirmation.`, confirmLabel: "Sell all", tone: "danger" });
     if (!confirmSell) return;
 
     setSellPending("all");
@@ -880,9 +875,7 @@ export function CratesPanel({
   const sellDuplicates = async () => {
     if (disabled || sellPending || duplicateStackCount === 0 || duplicateInventoryValue <= 0) return;
 
-    const confirmSell = window.confirm(
-      `Sell duplicate copies only for ${duplicateInventoryValue} coins?\n\nOne copy of each sellable item will remain in your inventory. Legendary items and Classic stay untouched.`
-    );
+    const confirmSell = await confirmDialog({ title: "Sell duplicates", message: `Sell duplicate copies only for ${duplicateInventoryValue} coins?\n\nOne copy of each sellable item will remain in your inventory. Legendary items and Classic stay untouched.`, confirmLabel: "Sell", tone: "danger" });
     if (!confirmSell) return;
 
     setSellPending("duplicates");
@@ -1416,9 +1409,7 @@ export function CratesPanel({
                             return;
                           }
                           if (isLegendary) {
-                            const confirmSell = window.confirm(
-                              `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`
-                            );
+                            const confirmSell = await confirmDialog({ title: "Sell item", message: `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`, confirmLabel: "Sell", tone: "danger" });
                             if (!confirmSell) return;
                           }
                           await onSellItem(item.item_id, item.variant, 1);
@@ -1485,9 +1476,7 @@ export function CratesPanel({
                       return;
                     }
                     if (isBulkSellProtectedRarity(item.rarity)) {
-                      const confirmSell = window.confirm(
-                        `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`
-                      );
+                      const confirmSell = await confirmDialog({ title: "Sell item", message: `Sell "${item.name}" for ${item.sell_value} coins?${plushSellNote(item.item_id)}`, confirmLabel: "Sell", tone: "danger" });
                       if (!confirmSell) return;
                     }
                     await onSellItem(item.item_id, item.variant, 1);

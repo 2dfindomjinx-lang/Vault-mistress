@@ -74,16 +74,21 @@ function sampleStartingCounter(drops: readonly WeightedDrop[], random: () => num
   return weights.length - 1;
 }
 
-export function rollDuelHaul(crateType: string, quantity: number, random: () => number): DuelSealedItem[] | null {
-  const crate = CRATE_TYPES[crateType];
-  if (!crate) return null;
-  const drops = crate.drops as readonly WeightedDrop[];
-  const usesPity = crateType === PRINCIPESSA_PITY_CRATE;
-  const epicDrops = drops.filter((drop) => SAMPLE_CRATE_ITEMS[drop.item_id]?.rarity === "epic");
-  let counter = usesPity ? sampleStartingCounter(drops, random) : 0;
+// `crates` is the lineup: one crate type per round, in opening order, so a
+// duel can mix crate types. The pity counter belongs to the Principessa Case
+// only - other crates in the lineup neither move it nor are changed by it.
+export function rollDuelHaul(crates: readonly string[], random: () => number): DuelSealedItem[] | null {
+  if (crates.length === 0) return null;
+  const pityDrops = CRATE_TYPES[PRINCIPESSA_PITY_CRATE]?.drops as readonly WeightedDrop[] | undefined;
+  let counter = crates.includes(PRINCIPESSA_PITY_CRATE) && pityDrops ? sampleStartingCounter(pityDrops, random) : 0;
 
   const haul: DuelSealedItem[] = [];
-  for (let index = 0; index < quantity; index += 1) {
+  for (const crateType of crates) {
+    const crate = CRATE_TYPES[crateType];
+    if (!crate) return null;
+    const drops = crate.drops as readonly WeightedDrop[];
+    const usesPity = crateType === PRINCIPESSA_PITY_CRATE;
+    const epicDrops = drops.filter((drop) => SAMPLE_CRATE_ITEMS[drop.item_id]?.rarity === "epic");
     let drop = pick(drops, random);
     if (!drop) return null;
     // The same protected open a normal Principessa Case uses: a natural

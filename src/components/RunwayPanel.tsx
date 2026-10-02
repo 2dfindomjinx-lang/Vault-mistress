@@ -1,4 +1,5 @@
 "use client";
+import { alertDialog } from "@/lib/confirm-dialog";
 import { emitSoundEvent } from "@/lib/sound";
 
 import styles from "./CollectionSurfaces.module.css";
@@ -171,14 +172,14 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          alert(data?.error ?? "Submission failed.");
+          await alertDialog(data?.error ?? "Submission failed.");
           return;
         }
         await loadMe();
         await loadLeaderboard(section);
       } catch (err) {
         console.error("Runway submit error", err);
-        alert("Submission failed.");
+        await alertDialog("Submission failed.");
       } finally {
         setSubmitting(false);
       }
@@ -203,7 +204,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          alert(data?.error ?? "Vote failed.");
+          await alertDialog(data?.error ?? "Vote failed.");
           await loadCandidate();
           return;
         }
@@ -261,7 +262,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        alert(data?.error ?? "Super Vote failed.");
+        await alertDialog(data?.error ?? "Super Vote failed.");
         await loadCandidate();
         return;
       }
@@ -273,7 +274,7 @@ export function RunwayPanel({ disabled = false, ownedItems, liveEquippedSlots, l
       void loadLeaderboard(section);
     } catch (err) {
       console.error("Runway Super Vote error", err);
-      alert("Super Vote failed.");
+      await alertDialog("Super Vote failed.");
     } finally {
       setVoting(false);
     }

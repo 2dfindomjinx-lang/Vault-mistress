@@ -133,6 +133,8 @@ export type ClickGameLeaderboardEntry = {
   username: string;
   displayName: string | null;
   weeklyClicks: number;
+  /** Only set on all-time entries; weeklyClicks is 0 there. */
+  lifetimeClicks?: number;
 };
 
 export type ClickGameWinHistoryEntry = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/lib/confirm-dialog";
 import { profileSelect } from "@/lib/profile-columns";
 
 import { getCosmeticPurchasePrice, getWorldCupFarewell, isWorldCupBorder } from "@/lib/world-cup-farewell";
@@ -1727,6 +1728,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     leaders: ClickGameLeaderboardEntry[];
     viewerEntry: ClickGameLeaderboardEntry | null;
     winHistory: ClickGameWinHistoryEntry[];
+    allTimeLeaders: ClickGameLeaderboardEntry[];
+    allTimeViewerEntry: ClickGameLeaderboardEntry | null;
   } | null>(null);
   const [lifetimeSpentCoins, setLifetimeSpentCoins] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
@@ -3860,6 +3863,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         leaders?: ClickGameLeaderboardEntry[];
         viewerEntry?: ClickGameLeaderboardEntry | null;
         winHistory?: ClickGameWinHistoryEntry[];
+        allTimeLeaders?: ClickGameLeaderboardEntry[];
+        allTimeViewerEntry?: ClickGameLeaderboardEntry | null;
       } | null;
 
       if (!response.ok || !payload) {
@@ -3870,6 +3875,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         leaders: payload.leaders ?? [],
         viewerEntry: payload.viewerEntry ?? null,
         winHistory: payload.winHistory ?? [],
+        allTimeLeaders: payload.allTimeLeaders ?? [],
+        allTimeViewerEntry: payload.allTimeViewerEntry ?? null,
       });
     } catch (error) {
       console.error("Failed to load click game leaderboard", error);
@@ -11239,11 +11246,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
   };
 
-  const handleAddressTermPillClick = (term: AddressTerm) => {
+  const handleAddressTermPillClick = async (term: AddressTerm) => {
     if (isSavingAddressTerm || term === addressTerm) return;
     if (
-      typeof window !== "undefined" &&
-      !window.confirm(`Change address preference to "${ADDRESS_TERM_LABELS[term]}"? Are you sure you want to change this?`)
+      !(await confirmDialog({
+        title: "Change address",
+        message: `Change address preference to "${ADDRESS_TERM_LABELS[term]}"? Are you sure you want to change this?`,
+        confirmLabel: "Change",
+      }))
     ) {
       return;
     }
@@ -12134,9 +12144,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
                                 if (isLocked) {
                                   if (
-                                    !window.confirm(
-                                      `Unlock preset slot ${index + 1} for ${AVATAR_PRESET_SLOT_UNLOCK_COST.toLocaleString()} coins? This will be spent immediately.`,
-                                    )
+                                    !(await confirmDialog({
+                                      title: "Unlock preset slot",
+                                      message: `Unlock preset slot ${index + 1} for ${AVATAR_PRESET_SLOT_UNLOCK_COST.toLocaleString()} coins? This will be spent immediately.`,
+                                      confirmLabel: "Unlock",
+                                    }))
                                   ) {
                                     return;
                                   }

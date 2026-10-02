@@ -39,6 +39,7 @@ type LiveChatResponse = {
 type LiveChatSummaryResponse = {
   newestCreatedAt?: string | null;
   unreadCount?: number;
+  lastReadAt?: string | null;
 };
 
 type LiveChatWidgetProps = {
@@ -85,10 +86,19 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
 
   const markLatestMessageRead = useCallback((latestCreatedAt: string | null) => {
     if (!latestCreatedAt) return;
+    const changed = lastReadAtRef.current !== latestCreatedAt;
     lastReadAtRef.current = latestCreatedAt;
     window.localStorage.setItem("vault-live-chat-last-read-at", latestCreatedAt);
     setUnreadCount(0);
-  }, []);
+    // Account-level pointer, so other devices and browsers see these as read too.
+    if (changed && !guestMode) {
+      void fetch("/api/live-chat", {
+        body: JSON.stringify({ action: "read", readAt: latestCreatedAt }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }).catch(() => undefined);
+    }
+  }, [guestMode]);
 
   const loadMessages = async (older = false) => {
     if (readRequestRef.current || guestMode || !isOpen || document.visibilityState === "hidden" || (older && !historyCursorRef.current)) return;
@@ -164,13 +174,13 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
 
       if (!response.ok) throw new Error(payload.error ?? "Live Chat could not be loaded.");
 
-      if (!storedLastReadAt && payload.newestCreatedAt) {
-        lastReadAtRef.current = payload.newestCreatedAt;
-        window.localStorage.setItem("vault-live-chat-last-read-at", payload.newestCreatedAt);
-        setUnreadCount(0);
-      } else {
-        setUnreadCount(payload.unreadCount ?? 0);
+      // The server pointer is the source of truth; adopt it so this browser
+      // matches whatever was read on another device.
+      if (payload.lastReadAt) {
+        lastReadAtRef.current = payload.lastReadAt;
+        window.localStorage.setItem("vault-live-chat-last-read-at", payload.lastReadAt);
       }
+      setUnreadCount(payload.unreadCount ?? 0);
       hasLoadedRef.current = true;
     } catch (loadError) {
       if (!controller.signal.aborted) setError(loadError instanceof Error ? loadError.message : "Live Chat could not be loaded.");

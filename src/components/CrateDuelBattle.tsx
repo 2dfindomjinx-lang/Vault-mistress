@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { CRATE_TYPES, RARITY_HEX, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
+import { lineupLabel } from "@/lib/crate-duel-lineup";
 import { emitSoundEvent } from "@/lib/sound";
 
 // The Crate Duel reveal, case-battle style: both players side by side with
@@ -30,6 +31,8 @@ export type BattleDuel = {
   challengerTotal: number | null;
   crateName: string;
   crateType: string;
+  /** One crate type per round, in opening order. */
+  crates?: string[];
   id: string;
   isMine: boolean;
   isMyChallenge: boolean;
@@ -200,12 +203,16 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
   }, [duel, iAmOpponent]);
 
   const rounds = duel.quantity;
+  const roundCrates = useMemo(
+    () => Array.from({ length: rounds }, (_, round) => duel.crates?.[round] ?? duel.crateType),
+    [duel.crateType, duel.crates, rounds],
+  );
   const strips = useMemo(
     () =>
       Array.from({ length: rounds }, (_, round) =>
-        sides.map((side) => buildStrip(duel.crateType, side.items[round], `${duel.id}:${side.key}:${round}`)),
+        sides.map((side) => buildStrip(roundCrates[round], side.items[round], `${duel.id}:${side.key}:${round}`)),
       ),
-    [duel.crateType, duel.id, rounds, sides],
+    [duel.id, roundCrates, rounds, sides],
   );
 
   const [round, setRound] = useState(0);
@@ -259,8 +266,10 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
   const totals = sides.map((side) => side.items.slice(0, revealed).reduce((sum, item) => sum + item.sellValue, 0));
   const leaderIndex = totals[0] === totals[1] ? -1 : totals[0] > totals[1] ? 0 : 1;
   const winnerIndex = duel.winner === null ? -1 : sides.findIndex((side) => side.name === duel.winner);
-  const crateIcon = getCrateIconUrl(duel.crateType);
-  const crateName = CRATE_TYPES[duel.crateType]?.name ?? duel.crateName;
+  const currentCrate = roundCrates[Math.min(round, rounds - 1)] ?? duel.crateType;
+  const crateIcon = getCrateIconUrl(currentCrate, CRATE_TYPES[currentCrate]?.icon_url);
+  const crateName = lineupLabel(roundCrates);
+  const currentCrateName = CRATE_TYPES[currentCrate]?.name ?? duel.crateName;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 px-3 py-6 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -275,8 +284,11 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#d7ad69]/60">Crate duel</p>
               <p className="text-sm font-black text-white">
-                {rounds}x {crateName}
+                {crateName}
               </p>
+              {new Set(roundCrates).size > 1 ? (
+                <p className="text-[10px] text-zinc-500">Now opening: {currentCrateName}</p>
+              ) : null}
             </div>
           </div>
           <p className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em] text-[#ffe2ad]">

@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/lib/confirm-dialog";
 import { useCallback, useEffect, useState } from "react";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { emitSoundEvent } from "@/lib/sound";
@@ -82,7 +83,7 @@ export function TributeDuels({
 
   const act = async (body: Record<string, unknown>, confirmText?: string) => {
     if (disabled || pending) return;
-    if (confirmText && !window.confirm(confirmText)) return;
+    if (confirmText && !(await confirmDialog(confirmText))) return;
     setPending(true);
     setError("");
     try {

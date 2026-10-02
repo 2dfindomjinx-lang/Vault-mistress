@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import {arrangeTaskCards} from "./task-layout";
 
 import ui from "./TaskExperience.module.css";
@@ -1246,7 +1247,14 @@ export function PetSection({
   }
 
   async function handleEvilDebtSign() {
-    if (!window.confirm("Are you absolutely sure you want to sign the Evil Debt Contract?")) {
+    if (
+      !(await confirmDialog({
+        title: "Evil Debt Contract",
+        message: "Are you absolutely sure you want to sign the Evil Debt Contract?",
+        confirmLabel: "Sign",
+        tone: "danger",
+      }))
+    ) {
       return;
     }
 

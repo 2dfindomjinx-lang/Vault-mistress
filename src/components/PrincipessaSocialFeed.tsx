@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/lib/confirm-dialog";
 import Link from "next/link";
 
 import styles from "./StandaloneSurfaces.module.css";
@@ -384,7 +385,7 @@ function PostAdminActions({ onChanged, post }: { onChanged: (posts: PrincipessaF
   };
 
   const remove = async () => {
-    if (!window.confirm(`Delete "${post.title}"?`)) return;
+    if (!(await confirmDialog({ title: "Delete post", message: `Delete "${post.title}"?`, confirmLabel: "Delete", tone: "danger" }))) return;
     setBusy(true); setError("");
     try {
       const response = await fetch("/api/admin/principessa-feed", { body: JSON.stringify({ postId: post.id }), headers: { "Content-Type": "application/json" }, method: "DELETE" });
@@ -643,7 +644,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
   };
 
   const deleteOwnSubPost = async (post: PrincipessaFeedPost) => {
-    if (!window.confirm(`Delete "${post.title}"?`)) return;
+    if (!(await confirmDialog({ title: "Delete post", message: `Delete "${post.title}"?`, confirmLabel: "Delete", tone: "danger" }))) return;
     setError("");
     try {
       const response = await fetch("/api/user/principessa-feed/posts", { body: JSON.stringify({ postId: post.id }), headers: { "Content-Type": "application/json" }, method: "DELETE" });

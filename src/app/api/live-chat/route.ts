@@ -16,12 +16,13 @@ const CHAT_MAX_LENGTH = 250;
 const CHAT_COOLDOWN_MS = 8000;
 
 type ChatBody = {
-  action?: "send" | "delete" | "mute";
+  action?: "send" | "delete" | "mute" | "read";
   message?: string;
   messageId?: string;
   messageType?: string;
   mutedUntil?: string | null;
   reason?: string;
+  readAt?: string;
   userId?: string;
 };
 
@@ -58,6 +59,44 @@ async function getAuthedUser() {
   }
 
   return { error: null, userId: authData.user.id };
+}
+
+function parseTimestamp(value: string | null | undefined) {
+  if (!value) return null;
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? null : { ms, value };
+}
+
+// The later of two timestamps. Postgres returns microseconds but Date holds
+// milliseconds, so on a tie keep the longer (more precise) string.
+function laterTimestamp(a: string | null | undefined, b: string | null | undefined) {
+  const left = parseTimestamp(a);
+  const right = parseTimestamp(b);
+  if (!left) return right?.value ?? null;
+  if (!right) return left.value;
+  if (left.ms !== right.ms) return left.ms > right.ms ? left.value : right.value;
+  return left.value.length >= right.value.length ? left.value : right.value;
+}
+
+async function getServerLastRead(supabase: ReturnType<typeof createSupabaseAdminClient>, userId: string) {
+  const { data, error } = await supabase
+    .from("live_chat_reads")
+    .select("last_read_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  // Table missing (migration not run yet) must not break chat: fall back to the client value.
+  if (error) {
+    console.warn("[live-chat] read pointer lookup failed", error.message);
+    return null;
+  }
+  return (data?.last_read_at as string | undefined) ?? null;
+}
+
+async function saveServerLastRead(supabase: ReturnType<typeof createSupabaseAdminClient>, userId: string, lastReadAt: string) {
+  const { error } = await supabase
+    .from("live_chat_reads")
+    .upsert({ user_id: userId, last_read_at: lastReadAt, updated_at: new Date().toISOString() });
+  if (error) console.warn("[live-chat] read pointer save failed", error.message);
 }
 
 function sanitizeMessage(value: unknown) {
@@ -105,35 +144,49 @@ export async function GET(request: Request) {
   const summaryOnly = requestUrl.searchParams.get("summary") === "1";
 
   if (summaryOnly) {
-    const after = requestUrl.searchParams.get("after");
-    const afterDate = after ? new Date(after) : null;
-    // Use the original client-supplied timestamp (not afterDate.toISOString()) - Postgres
-    // returns microsecond precision but JS Date only holds milliseconds, so round-tripping
-    // through toISOString() truncates it, making the just-read message look "newer" than
-    // the truncated cutoff and re-counting it as unread.
-    const validAfter = afterDate && !Number.isNaN(afterDate.getTime()) ? after : null;
-    const [latestResult, unreadResult] = await Promise.all([
-      supabase
-        .from("live_chat_messages")
-        .select("created_at")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      validAfter
-        ? supabase
-          .from("live_chat_messages")
-          .select("id", { count: "exact", head: true })
-          .gt("created_at", validAfter)
-        : Promise.resolve({ count: 0, error: null }),
-    ]);
+    const userId = authResult.userId!;
+    // Client value only matters until the server has caught up with it (this
+    // device may be ahead of the server, or the server row may not exist yet).
+    // JS Date truncates to milliseconds, so keep the original string: passing
+    // afterDate.toISOString() back to Postgres would re-count the just-read message.
+    const clientAfter = requestUrl.searchParams.get("after");
+    const validClientAfter = parseTimestamp(clientAfter)?.value ?? null;
+    const serverLastRead = await getServerLastRead(supabase, userId);
+    const effective = laterTimestamp(serverLastRead, validClientAfter);
 
-    if (latestResult.error || unreadResult.error) {
-      return jsonError(latestResult.error?.message ?? unreadResult.error?.message ?? "Live Chat could not be loaded.", 500);
+    const latestResult = await supabase
+      .from("live_chat_messages")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestResult.error) {
+      return jsonError(latestResult.error.message, 500);
+    }
+    const newestCreatedAt = (latestResult.data?.created_at as string | undefined) ?? null;
+
+    // First time on this account anywhere: everything that exists is "read".
+    const readPoint = effective ?? newestCreatedAt;
+    let unreadCount = 0;
+    if (effective) {
+      const unreadResult = await supabase
+        .from("live_chat_messages")
+        .select("id", { count: "exact", head: true })
+        .gt("created_at", effective);
+      if (unreadResult.error) {
+        return jsonError(unreadResult.error.message, 500);
+      }
+      unreadCount = unreadResult.count ?? 0;
+    }
+
+    if (readPoint && readPoint !== serverLastRead) {
+      await saveServerLastRead(supabase, userId, readPoint);
     }
 
     return Response.json({
-      newestCreatedAt: latestResult.data?.created_at ?? null,
-      unreadCount: validAfter ? unreadResult.count ?? 0 : 0,
+      newestCreatedAt,
+      unreadCount,
+      lastReadAt: readPoint,
     }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
@@ -209,6 +262,18 @@ export async function POST(request: Request) {
   const supabase = createSupabaseAdminClient();
   const userId = authResult.userId!;
   const isAdmin = isTrustedAdminUserId(userId);
+
+  if (body?.action === "read") {
+    const readAt = parseTimestamp(body.readAt);
+    if (!readAt) return jsonError("Invalid read time.", 422);
+    // Never later than now, and only ever forward.
+    const clamped = readAt.ms > Date.now() ? new Date().toISOString() : readAt.value;
+    const current = await getServerLastRead(supabase, userId);
+    const next = laterTimestamp(current, clamped);
+    if (next && next !== current) await saveServerLastRead(supabase, userId, next);
+    return Response.json({ ok: true, lastReadAt: next });
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(profileSelect)

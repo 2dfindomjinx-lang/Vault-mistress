@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import { EconomyReviewPanel } from "@/components/admin/EconomyReviewPanel";
 
 import Link from "next/link";
@@ -46,67 +47,83 @@ type ConsoleArgKind = "value" | "caseType" | "titleKey";
 const CONSOLE_CASE_TYPE_VALUES = ["principessa_case", "premium_case"];
 const CONSOLE_TITLE_KEY_VALUES = ["chosen", "femsub"];
 
+type ConsoleParam = {
+  label: string;
+  note: string;
+  kind?: ConsoleArgKind;
+  optional?: boolean;
+};
+
+const USER_PARAM: ConsoleParam = { label: "@username", note: "Who it applies to. Type their username with the @." };
+const AMOUNT_PARAM: ConsoleParam = { label: "amount", note: "A whole number." };
+
 const CONSOLE_COMMANDS: Array<{
   name: string;
-  usage: string;
   description: string;
-  args: ConsoleArgKind[];
+  params: ConsoleParam[];
 }> = [
   {
     name: "/give",
-    usage: "/give amount @username",
     description: "Coins as a tribute. Pays the give bonus and devotion, and shows in Recent Tributes.",
-    args: ["value", "value"],
+    params: [AMOUNT_PARAM, USER_PARAM],
   },
   {
     name: "/money",
-    usage: "/money amount @username [throneOrderId]",
     description: "Principessa Money for a Throne payment that failed to match. Shows in Recent Tributes. Pass the Throne event id so a repeat cannot double-credit.",
-    args: ["value", "value"],
+    params: [
+      { label: "amount", note: "Money to credit (1 Money = 1 USD)." },
+      USER_PARAM,
+      { label: "throneOrderId", note: "Throne event id. Stops a repeat from double-crediting.", optional: true },
+    ],
   },
   {
     name: "/moneysilent",
-    usage: "/moneysilent amount @username [sourceKey]",
     description: "Principessa Money that is NOT a tribute — compensation, a correction, a bonus paid by hand. Hidden from Recent Tributes.",
-    args: ["value", "value"],
+    params: [
+      { label: "amount", note: "Money to credit (1 Money = 1 USD)." },
+      USER_PARAM,
+      { label: "sourceKey", note: "Any unique reference for this payment. Stops a repeat from double-crediting.", optional: true },
+    ],
   },
   {
     name: "/add",
-    usage: "/add amount @username",
     description: "Coins with no bonus and no devotion. Always needs Companion App approval.",
-    args: ["value", "value"],
+    params: [AMOUNT_PARAM, USER_PARAM],
   },
   {
     name: "/drain",
-    usage: "/drain amount @username",
     description: "Takes coins away. The amount is what gets removed, not the balance left behind.",
-    args: ["value", "value"],
+    params: [{ label: "amount", note: "Coins to remove." }, USER_PARAM],
   },
   {
     name: "/timeout",
-    usage: "/timeout @username minutes",
     description: "Locks the account out of everything for the given number of minutes.",
-    args: ["value", "value"],
+    params: [USER_PARAM, { label: "minutes", note: "How long the lockout lasts, in minutes." }],
   },
   {
     name: "/timeout remove",
-    usage: "/timeout remove @username",
     description: "Ends an active timeout immediately, with no fee charged.",
-    args: ["value"],
+    params: [USER_PARAM],
   },
   {
     name: "/title",
-    usage: "/title @username [chosen|femsub]",
     description: "Grants one of the two admin-only titles. Stays with the account permanently.",
-    args: ["value", "titleKey"],
+    params: [USER_PARAM, { label: "title", note: "chosen or femsub.", kind: "titleKey" }],
   },
   {
     name: "/key",
-    usage: "/key @username [principessa_case|premium_case] amount",
     description: "Free case openings. Spent on the named case only, and they never expire.",
-    args: ["value", "caseType", "value"],
+    params: [
+      USER_PARAM,
+      { label: "case", note: "principessa_case or premium_case.", kind: "caseType" },
+      { label: "amount", note: "How many free openings to give." },
+    ],
   },
 ];
+
+function consoleUsage(entry: { name: string; params: ConsoleParam[] }) {
+  return [entry.name, ...entry.params.map((param) => (param.optional ? `[${param.label}]` : param.label))].join(" ");
+}
 
 function getMatchedConsoleCommand(input: string) {
   const candidates = CONSOLE_COMMANDS.filter(
@@ -120,7 +137,7 @@ function getMatchedConsoleCommand(input: string) {
   return candidates.reduce((longest, entry) => (entry.name.length > longest.name.length ? entry : longest));
 }
 
-type ConsoleSuggestion = { kind: "command" | "argument"; value: string; hint?: string };
+type ConsoleSuggestion = { kind: "command" | "argument"; value: string; hint?: string; note?: string };
 
 type AdminIrlTask = {
   id: string;
@@ -630,7 +647,7 @@ export default function AdminPage() {
       return;
     }
 
-    if (action === "ignore" && !window.confirm("Dismiss this payment from the queue? It stops counting toward the tribute goal and the birthday cake.")) {
+    if (action === "ignore" && !(await confirmDialog({ title: "Dismiss payment", message: "Dismiss this payment from the queue? It stops counting toward the tribute goal and the birthday cake.", confirmLabel: "Dismiss", tone: "danger" }))) {
       return;
     }
 
@@ -1164,7 +1181,7 @@ export default function AdminPage() {
           ? "clear the Debt Timeout"
           : "close this debt without refund or penalty";
 
-    if (!window.confirm(`Confirm: ${actionLabel}?`)) {
+    if (!(await confirmDialog({ title: "Debt action", message: `Confirm: ${actionLabel}?` }))) {
       return;
     }
 
@@ -1423,18 +1440,28 @@ export default function AdminPage() {
   const matchedConsoleCommand = getMatchedConsoleCommand(command);
   const isTypingCommandName = !matchedConsoleCommand || !command.startsWith(`${matchedConsoleCommand.name} `);
 
+  // Which argument the cursor is on. Drives both the value completions and the
+  // highlighted slot in the usage bar, so the helper stays useful for the whole
+  // command instead of disappearing once the name is typed.
+  const consoleArgTokens = matchedConsoleCommand
+    ? command.slice(matchedConsoleCommand.name.length).trimStart().split(/\s+/)
+    : [];
+  const activeConsoleArgIndex = matchedConsoleCommand
+    ? command === matchedConsoleCommand.name
+      ? 0
+      : consoleArgTokens.length - 1
+    : -1;
+  const activeConsoleParam = matchedConsoleCommand?.params[activeConsoleArgIndex] ?? null;
+
   const commandSuggestions: ConsoleSuggestion[] = isTypingCommandName
-    ? command.length > 1 && command.startsWith("/")
+    ? command.startsWith("/")
       ? CONSOLE_COMMANDS.filter(
           (entry) => entry.name.length > command.length && entry.name.toLowerCase().startsWith(command.toLowerCase()),
-        ).map((entry) => ({ kind: "command", value: entry.name, hint: entry.description }))
+        ).map((entry) => ({ kind: "command", value: entry.name, hint: consoleUsage(entry), note: entry.description }))
       : []
     : (() => {
-        const rest = command.slice(matchedConsoleCommand.name.length + 1);
-        const tokens = rest.split(/\s+/);
-        const argIndex = tokens.length - 1;
-        const currentPartial = (tokens[argIndex] ?? "").toLowerCase();
-        const argKind = matchedConsoleCommand.args[argIndex];
+        const currentPartial = (consoleArgTokens[activeConsoleArgIndex] ?? "").toLowerCase();
+        const argKind = activeConsoleParam?.kind;
         const valuePool =
           argKind === "caseType" ? CONSOLE_CASE_TYPE_VALUES : argKind === "titleKey" ? CONSOLE_TITLE_KEY_VALUES : [];
 
@@ -1952,7 +1979,29 @@ export default function AdminPage() {
                   field it stole most of the typing width. */}
               {matchedConsoleCommand ? (
                 <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-2.5">
-                  <p className="font-mono text-[11px] text-fuchsia-200">{matchedConsoleCommand.usage}</p>
+                  <p className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-[12px]">
+                    <span className="font-black text-fuchsia-200">{matchedConsoleCommand.name}</span>
+                    {matchedConsoleCommand.params.map((param, index) => (
+                      <span
+                        className={
+                          index === activeConsoleArgIndex
+                            ? "rounded bg-fuchsia-500/25 px-1.5 text-pink-50 ring-1 ring-fuchsia-300/40"
+                            : index < activeConsoleArgIndex
+                              ? "text-zinc-600"
+                              : "text-zinc-400"
+                        }
+                        key={`${param.label}:${index}`}
+                      >
+                        {param.optional ? `[${param.label}]` : param.label}
+                      </span>
+                    ))}
+                  </p>
+                  {activeConsoleParam ? (
+                    <p className="mt-1.5 text-[11px] leading-4 text-pink-100/90">
+                      <span className="font-mono font-black text-fuchsia-200">{activeConsoleParam.label}</span>
+                      {activeConsoleParam.optional ? " (optional)" : ""} — {activeConsoleParam.note}
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
                 </div>
               ) : null}
@@ -2017,7 +2066,8 @@ export default function AdminPage() {
                             type="button"
                           >
                             <span className="font-black text-fuchsia-200">{suggestion.value}</span>
-                            {suggestion.hint ? <span className="text-[10px] text-zinc-500">{suggestion.hint}</span> : null}
+                            {suggestion.hint ? <span className="text-[10px] text-fuchsia-200/60">{suggestion.hint}</span> : null}
+                            {suggestion.note ? <span className="text-[10px] text-zinc-500">{suggestion.note}</span> : null}
                           </button>
                         </li>
                       ))}

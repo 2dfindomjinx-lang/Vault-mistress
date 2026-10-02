@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./court-redesign.css";
+import { ConfirmDialogHost } from "@/components/ConfirmDialogHost";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -70,6 +71,7 @@ export default function RootLayout({
     >
       <body className="court-theme min-h-full flex flex-col">
         {children}
+        <ConfirmDialogHost />
       </body>
     </html>
   );

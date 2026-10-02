@@ -6,7 +6,7 @@ import {
 } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-type RawLeaderRow = { rank: number; userId: string; weeklyClicks: number };
+type RawLeaderRow = { rank: number; userId: string; weeklyClicks?: number; lifetimeClicks?: number };
 type RawWinRow = { userId: string; winCount: number; lastWonWeekStart: string };
 
 function jsonError(message: string, status = 400) {
@@ -51,17 +51,21 @@ export async function GET() {
   const rawLeaders = (data?.leaders ?? []) as RawLeaderRow[];
   const rawViewer = data?.viewer as RawLeaderRow | null;
   const rawWinHistory = (data?.winHistory ?? []) as RawWinRow[];
+  const rawAllTime = (data?.allTime ?? []) as RawLeaderRow[];
+  const rawAllTimeViewer = data?.allTimeViewer as RawLeaderRow | null;
 
   const allUserIds = Array.from(
     new Set([
       ...rawLeaders.map((row) => row.userId),
       ...(rawViewer ? [rawViewer.userId] : []),
       ...rawWinHistory.map((row) => row.userId),
+      ...rawAllTime.map((row) => row.userId),
+      ...(rawAllTimeViewer ? [rawAllTimeViewer.userId] : []),
     ]),
   );
 
   if (allUserIds.length === 0) {
-    return Response.json({ leaders: [], viewerEntry: null, winHistory: [] });
+    return Response.json({ leaders: [], viewerEntry: null, winHistory: [], allTimeLeaders: [], allTimeViewerEntry: null });
   }
 
   const { data: profiles, error: profilesError } = await supabase
@@ -90,7 +94,8 @@ export async function GET() {
       userId: row.userId,
       username: profile?.username ?? "@unknown",
       displayName: profile?.displayName ?? null,
-      weeklyClicks: row.weeklyClicks,
+      weeklyClicks: row.weeklyClicks ?? 0,
+      lifetimeClicks: row.lifetimeClicks,
     };
   };
 
@@ -109,5 +114,7 @@ export async function GET() {
     leaders: rawLeaders.map(buildEntry),
     viewerEntry: rawViewer ? buildEntry(rawViewer) : null,
     winHistory,
+    allTimeLeaders: rawAllTime.map(buildEntry),
+    allTimeViewerEntry: rawAllTimeViewer ? buildEntry(rawAllTimeViewer) : null,
   });
 }

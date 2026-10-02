@@ -1,5 +1,6 @@
 "use client";
 
+import { confirmDialog } from "@/lib/confirm-dialog";
 import { useCallback, useEffect, useState } from "react";
 
 // Admin ledger for the findom wheels: who spun, what the pointer demanded, and
@@ -60,7 +61,7 @@ export function WheelSpinsPanel() {
   }, [load]);
 
   const waive = async (spinId: string) => {
-    if (!window.confirm("Waive this debt? The spin unblocks without payment.")) return;
+    if (!(await confirmDialog({ title: "Waive debt", message: "Waive this debt? The spin unblocks without payment.", confirmLabel: "Waive" }))) return;
     setWaivingId(spinId);
     try {
       const response = await fetch("/api/admin/wheel-spins", {

@@ -1,4 +1,5 @@
 "use client";
+import { confirmDialog } from "@/lib/confirm-dialog";
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import { emitSoundEvent } from "@/lib/sound";
@@ -49,6 +50,8 @@ type ClickGameLeaderboardData = {
   leaders: ClickGameLeaderboardEntry[];
   viewerEntry: ClickGameLeaderboardEntry | null;
   winHistory: ClickGameWinHistoryEntry[];
+  allTimeLeaders: ClickGameLeaderboardEntry[];
+  allTimeViewerEntry: ClickGameLeaderboardEntry | null;
 };
 
 type TributePanelProps = {
@@ -672,13 +675,13 @@ export function TributePanel({
                 </div>
 
                 {shrine.bonus.images.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:aspect-[950/382] lg:grid-cols-5 lg:grid-rows-2">
                     {shrine.bonus.images.map((image, index) => {
                       const isUnlocked = index < shrine.bonus!.unlockedCount;
 
                       return (
                         <div
-                          className="relative aspect-[4/5] overflow-hidden rounded-xl border border-pink-200/10 bg-black/40"
+                          className="relative aspect-[4/5] overflow-hidden rounded-xl border border-pink-200/10 bg-black/40 lg:aspect-auto"
                           key={image.fileName}
                         >
                           {isUnlocked ? (
@@ -906,8 +909,15 @@ export function TributePanel({
                     <button
                       className="rounded-full border border-white/15 bg-black/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-300 backdrop-blur-sm hover:bg-black/45 disabled:cursor-not-allowed disabled:opacity-45"
                       disabled={disabled || clickGameTogglePending || !clickGame?.progress}
-                      onClick={() => {
-                        if (window.confirm("Reset your Click Game progress to 0? Your weekly/lifetime click totals will not be affected.")) {
+                      onClick={async () => {
+                        if (
+                          await confirmDialog({
+                            title: "Reset progress",
+                            message: "Reset your Click Game progress to 0? Your weekly/lifetime click totals will not be affected.",
+                            confirmLabel: "Reset",
+                            tone: "danger",
+                          })
+                        ) {
                           onClickGameReset?.();
                         }
                       }}
@@ -930,10 +940,10 @@ export function TributePanel({
               </p>
             </div>
 
-            <div className="grid gap-3 p-4 pt-0 md:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">This Week&apos;s Cash Cows</p>
+            <div className="grid gap-3 p-4 pt-0 md:grid-cols-3">
+              <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-100/60">This Week&apos;s Cash Cows</p>
                   <button
                     className="shrink-0 rounded-full border border-amber-200/25 bg-amber-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-amber-50 transition hover:border-amber-200/45 hover:bg-amber-400/20 disabled:opacity-45"
                     disabled={clickSealDisabled}
@@ -943,30 +953,59 @@ export function TributePanel({
                     {clickSealPending ? "Sealing..." : "Seal my rank"}
                   </button>
                 </div>
-                <div className="mt-2 grid gap-1.5">
-                  {(clickGameLeaderboard?.leaders ?? []).length > 0 ? (
-                    clickGameLeaderboard!.leaders.map((entry) => (
-                      <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
-                        <p className="truncate text-xs font-bold text-white">
-                          #{entry.rank} {entry.displayName || entry.username}
-                        </p>
-                        <p className="shrink-0 text-xs font-black text-pink-100">{entry.weeklyClicks.toLocaleString()}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">No clicks logged this week yet.</p>
-                  )}
+                <div className="mt-2">
+                  <div className="grid max-h-52 gap-1.5 overflow-y-auto overscroll-contain pr-1">
+                    {(clickGameLeaderboard?.leaders ?? []).length > 0 ? (
+                      clickGameLeaderboard!.leaders.map((entry) => (
+                        <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
+                          <p className="truncate text-xs font-bold text-white">
+                            #{entry.rank} {entry.displayName || entry.username}
+                          </p>
+                          <p className="shrink-0 text-xs font-black text-pink-100">{entry.weeklyClicks.toLocaleString()}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">No clicks logged this week yet.</p>
+                    )}
+                  </div>
                   {clickGameLeaderboard?.viewerEntry && !clickGameLeaderboard.leaders.some((entry) => entry.userId === clickGameLeaderboard.viewerEntry?.userId) ? (
-                    <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-pink-200/20 bg-pink-500/10 px-2.5 py-1.5">
+                    <div className="mt-1.5 flex items-center justify-between gap-3 rounded-xl border border-pink-200/20 bg-pink-500/10 px-2.5 py-1.5">
                       <p className="truncate text-xs font-bold text-pink-50">You - #{clickGameLeaderboard.viewerEntry.rank}</p>
                       <p className="shrink-0 text-xs font-black text-pink-100">{clickGameLeaderboard.viewerEntry.weeklyClicks.toLocaleString()}</p>
                     </div>
                   ) : null}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-pink-100/60">Past Champions</p>
-                <div className="mt-2 grid gap-1.5">
+              <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-100/60">
+                  Click Legends <span className="text-pink-100/35">all time</span>
+                </p>
+                <div className="mt-2">
+                  <div className="grid max-h-52 gap-1.5 overflow-y-auto overscroll-contain pr-1">
+                    {(clickGameLeaderboard?.allTimeLeaders ?? []).length > 0 ? (
+                      clickGameLeaderboard!.allTimeLeaders.map((entry) => (
+                        <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>
+                          <p className="truncate text-xs font-bold text-white">
+                            #{entry.rank} {entry.displayName || entry.username}
+                          </p>
+                          <p className="shrink-0 text-xs font-black text-pink-100">{(entry.lifetimeClicks ?? 0).toLocaleString()}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="rounded-xl bg-black/25 px-2.5 py-2 text-xs text-zinc-500">No clicks logged yet.</p>
+                    )}
+                  </div>
+                  {clickGameLeaderboard?.allTimeViewerEntry && !clickGameLeaderboard.allTimeLeaders.some((entry) => entry.userId === clickGameLeaderboard.allTimeViewerEntry?.userId) ? (
+                    <div className="mt-1.5 flex items-center justify-between gap-3 rounded-xl border border-pink-200/20 bg-pink-500/10 px-2.5 py-1.5">
+                      <p className="truncate text-xs font-bold text-pink-50">You - #{clickGameLeaderboard.allTimeViewerEntry.rank}</p>
+                      <p className="shrink-0 text-xs font-black text-pink-100">{(clickGameLeaderboard.allTimeViewerEntry.lifetimeClicks ?? 0).toLocaleString()}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-pink-100/60">Past Champions</p>
+                <div className="mt-2 grid max-h-52 gap-1.5 overflow-y-auto overscroll-contain pr-1">
                   {(clickGameLeaderboard?.winHistory ?? []).length > 0 ? (
                     clickGameLeaderboard!.winHistory.map((entry) => (
                       <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-2.5 py-1.5" key={entry.userId}>

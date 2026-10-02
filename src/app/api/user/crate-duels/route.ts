@@ -4,6 +4,7 @@ import { profileSelect } from "@/lib/profile-columns";
 import { formatHandle } from "@/lib/username";
 import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 import { rollDuelHaul, type DuelSealedItem } from "@/lib/crate-duel-rolls";
+import { lineupCost, lineupLabel } from "@/lib/crate-duel-lineup";
 import {
   createSupabaseAdminClient,
   getSupabaseAdminConfigErrors,
@@ -44,6 +45,8 @@ type DuelRow = {
   challenger_total_value: number;
   crate_cost: number;
   crate_type: string;
+  crates: string[] | null;
+  total_cost: number | null;
   created_at: string;
   expires_at: string;
   id: string;
@@ -65,6 +68,13 @@ async function requireUser() {
   const { data, error } = await authSupabase.auth.getUser();
   if (error || !data.user) return null;
   return data.user;
+}
+
+// Older duels (one crate type x quantity) have no `crates` column value.
+function lineupOf(row: { crate_type: string; crates: string[] | null; quantity: number }) {
+  return Array.isArray(row.crates) && row.crates.length > 0
+    ? row.crates
+    : Array.from({ length: row.quantity }, () => row.crate_type);
 }
 
 function roll(): number {
@@ -102,7 +112,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("crate_duels")
     .select(
-      "id, challenger_id, opponent_id, crate_type, crate_cost, quantity, status, created_at, accepted_at, expires_at, challenger_items, challenger_total_value, opponent_items, opponent_total_value, winner_id, challenger_seen_at, opponent_seen_at",
+      "id, challenger_id, opponent_id, crate_type, crate_cost, crates, total_cost, quantity, status, created_at, accepted_at, expires_at, challenger_items, challenger_total_value, opponent_items, opponent_total_value, winner_id, challenger_seen_at, opponent_seen_at",
     )
     .in("status", ["open", "revealed"])
     .order("created_at", { ascending: false })
@@ -136,9 +146,9 @@ export async function GET() {
       challengerAvatar: avatarById.get(row.challenger_id) ?? null,
       challengerItems: revealed ? itemsView(row.challenger_items) : [],
       challengerTotal: revealed ? row.challenger_total_value : null,
-      crateCost: row.crate_cost,
-      crateName: CRATE_TYPES[row.crate_type]?.name ?? row.crate_type,
+      crateName: lineupLabel(lineupOf(row)),
       crateType: row.crate_type,
+      crates: lineupOf(row),
       createdAt: row.created_at,
       expiresAt: row.expires_at,
       id: row.id,
@@ -152,6 +162,7 @@ export async function GET() {
       // Whether THIS account has watched the reveal, on any device.
       seenByMe: row.challenger_id === user.id ? row.challenger_seen_at !== null : row.opponent_seen_at !== null,
       status: row.status,
+      totalCost: row.total_cost ?? row.crate_cost * row.quantity,
       winner: row.winner_id ? nameById.get(row.winner_id) ?? "unknown" : null,
       wonByMe: row.winner_id === user.id,
     };
@@ -173,7 +184,7 @@ export async function POST(request: Request) {
   if (!user) return jsonError("Authentication required.", 401);
 
   const body = (await request.json().catch(() => null)) as
-    | { action?: "accept" | "cancel" | "create" | "seen"; crateType?: string; duelId?: string; quantity?: number }
+    | { action?: "accept" | "cancel" | "create" | "seen"; crates?: unknown; duelId?: string }
     | null;
 
   const supabase = createSupabaseAdminClient();
@@ -186,20 +197,21 @@ export async function POST(request: Request) {
   };
 
   if (body?.action === "create") {
-    const crateType = body.crateType?.trim() ?? "";
-    const crateDef = CRATE_TYPES[crateType];
-    if (!crateDef || !crateDef.enabled) return jsonError("Invalid or disabled crate.", 422);
+    const crates = Array.isArray(body.crates) ? body.crates.map((entry) => String(entry).trim()) : [];
+    if (crates.length < 1 || crates.length > CRATE_DUEL_MAX_QUANTITY) {
+      return jsonError(`Pick 1 to ${CRATE_DUEL_MAX_QUANTITY} crates.`, 422);
+    }
+    if (crates.some((crateType) => !CRATE_TYPES[crateType]?.enabled)) return jsonError("Invalid or disabled crate.", 422);
 
-    const quantity = Math.max(1, Math.min(CRATE_DUEL_MAX_QUANTITY, Math.floor(Number(body.quantity) || 1)));
-    const rolled = rollDuelHaul(crateType, quantity, roll);
-    if (!rolled) return jsonError("Crate is empty. Contact support.", 500);
+    const totalCost = lineupCost(crates);
+    const rolled = rollDuelHaul(crates, roll);
+    if (!rolled || totalCost <= 0) return jsonError("Crate is empty. Contact support.", 500);
 
     const { data, error } = await supabase.rpc("create_crate_duel", {
-      p_crate_cost: crateDef.cost,
-      p_crate_type: crateType,
+      p_crates: crates,
       p_expires_hours: CRATE_DUEL_EXPIRES_HOURS,
       p_items: rolled,
-      p_quantity: quantity,
+      p_total_cost: totalCost,
       p_user_id: user.id,
     });
     if (error) {
@@ -209,8 +221,7 @@ export async function POST(request: Request) {
     const result = (data ?? {}) as { coins?: number; duelId?: string; error?: string };
     if (result.error === "already_in_duel") return jsonError("You already have an open duel.", 409);
     if (result.error === "insufficient_coins") {
-      const total = crateDef.cost * quantity;
-      return jsonError(`${quantity}x ${crateDef.name} costs ${total.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
+      return jsonError(`${lineupLabel(crates)} costs ${totalCost.toLocaleString()} coins. You have ${(result.coins ?? 0).toLocaleString()}.`, 402);
     }
     if (result.error) return jsonError("The duel could not be created.");
     return respondWithProfile({ created: true, duelId: result.duelId });
@@ -221,12 +232,12 @@ export async function POST(request: Request) {
 
     const { data: duelRow } = await supabase
       .from("crate_duels")
-      .select("crate_type, quantity, status")
+      .select("crate_type, crates, quantity, status")
       .eq("id", body.duelId)
       .maybeSingle();
     if (!duelRow || duelRow.status !== "open") return jsonError("Someone else got there first.", 409);
 
-    const rolled = rollDuelHaul(duelRow.crate_type, duelRow.quantity, roll);
+    const rolled = rollDuelHaul(lineupOf(duelRow as { crate_type: string; crates: string[] | null; quantity: number }), roll);
     if (!rolled) return jsonError("Crate is empty. Contact support.", 500);
 
     const { data, error } = await supabase.rpc("accept_crate_duel", {

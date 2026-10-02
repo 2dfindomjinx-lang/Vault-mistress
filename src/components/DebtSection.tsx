@@ -1,4 +1,5 @@
 "use client";
+import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
 import { emitSoundEvent } from "@/lib/sound";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -368,7 +369,7 @@ export function DebtSection({
     const draft = await getAffordableRandomDebtDraft(normalPurchasePledge);
 
     if (!draft) {
-      window.alert("Your current affordability limit is below the minimum for a random debt contract.");
+      await alertDialog("Your current affordability limit is below the minimum for a random debt contract.");
       return;
     }
     const petName = randomPetName();
@@ -426,7 +427,14 @@ export function DebtSection({
   }
 
   async function handleEvilDebtSign() {
-    if (!window.confirm("Are you absolutely sure you want to sign the Evil Debt Contract?")) {
+    if (
+      !(await confirmDialog({
+        title: "Evil Debt Contract",
+        message: "Are you absolutely sure you want to sign the Evil Debt Contract?",
+        confirmLabel: "Sign",
+        tone: "danger",
+      }))
+    ) {
       return;
     }
 
@@ -665,7 +673,7 @@ function ThroneDebtCard({
 
   const createThroneDebt = async () => {
     if (!planValid || isBusy || disabled || isTimeoutActive) return;
-    if (!window.confirm("Submit this real-money debt agreement for approval? Approved installments can be paid with PM or Throne.")) return;
+    if (!(await confirmDialog({ title: "Submit agreement", message: "Submit this real-money debt agreement for approval? Approved installments can be paid with PM or Throne.", confirmLabel: "Submit" }))) return;
     setIsBusy(true);
     try {
       const response = await fetch("/api/user/throne-debts", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",contractLengthWeeks:cleanLengthWeeks,repaymentFrequency,totalAmountUsd:Number(totalAmountUsd),optionalNote:userNote})});
