@@ -1,6 +1,7 @@
 export const THRONE_DEBT_FREQUENCIES = ["weekly", "bi_weekly", "monthly"] as const;
 export const THRONE_DEBT_LENGTH_OPTIONS = [4, 8, 12, 24] as const;
 export const THRONE_DEBT_MIN_WEEKLY_USD = 10;
+export const THRONE_DEBT_MAX_WEEKLY_USD = 200;
 export const THRONE_DEBT_TIMEOUT_REASON_PREFIX = "throne_debt_timeout:";
 export const THRONE_DEBT_TIMEOUT_REDEMPTION_MULTIPLIER = 1.3;
 
@@ -205,6 +206,10 @@ export function validateThroneDebtRequest(input: {
     repaymentFrequency: input.repaymentFrequency,
     totalAmountUsd: input.totalAmountUsd,
   });
+
+  if (input.totalAmountUsd > THRONE_DEBT_MAX_WEEKLY_USD * input.contractLengthWeeks) {
+    return { error: `Maximum commitment is $${THRONE_DEBT_MAX_WEEKLY_USD} per week ($${THRONE_DEBT_MAX_WEEKLY_USD * input.contractLengthWeeks} total for this length).`, plan };
+  }
 
   if (Math.min(...plan.installmentAmountsUsd) < plan.minimumInstallmentUsd) {
     return {

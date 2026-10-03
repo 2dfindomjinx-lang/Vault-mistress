@@ -8,11 +8,12 @@ import { ContractDocument, ContractClause, ContractField, ContractSignature, Coi
 import styles from "./DebtContracts.module.css";
 import {
   calculateThroneDebtPlan,
-  getThroneDebtMinimumInstallmentUsd,
   getThroneDebtPaidTotal,
   getThroneDebtInstallmentRemaining,
   THRONE_DEBT_LENGTH_OPTIONS,
   THRONE_DEBT_INSTALLMENT_LABELS,
+  THRONE_DEBT_MAX_WEEKLY_USD,
+  validateThroneDebtRequest,
   type ThroneDebtContract,
   type ThroneDebtFrequency,
 } from "@/lib/throne-debt";
@@ -612,16 +613,10 @@ function ThroneDebtCard({
     repaymentFrequency,
     totalAmountUsd: hasPlanInputs ? Number(totalAmountUsd) : 0,
   });
-  const minimumInstallmentUsd = getThroneDebtMinimumInstallmentUsd(repaymentFrequency);
-  const planValid =
-    hasPlanInputs &&
-    Number.isFinite(Number(totalAmountUsd)) &&
-    Number(totalAmountUsd) > 0 &&
-    Number.isSafeInteger(Number(totalAmountUsd)) &&
-    Number.isInteger(cleanLengthWeeks) &&
-    cleanLengthWeeks >= 4 &&
-    cleanLengthWeeks <= 104 &&
-    Math.min(...plan.installmentAmountsUsd) >= minimumInstallmentUsd;
+  const planValidation = validateThroneDebtRequest({
+    totalAmountUsd: Number(totalAmountUsd), contractLengthWeeks: cleanLengthWeeks, repaymentFrequency,
+  });
+  const planValid = hasPlanInputs && !planValidation.error;
   const paidUsd = activeContract ? getThroneDebtPaidTotal(activeContract) : 0;
   const remainingUsd = activeContract ? Math.max(0, Number(activeContract.total_amount_usd) - Number(activeContract.rounding_waived_usd ?? 0) - paidUsd) : 0;
   const installments = activeContract?.installments ?? [];
@@ -769,7 +764,7 @@ function ThroneDebtCard({
         {activeContract.user_note ? <p><strong>Your note:</strong> {activeContract.user_note}</p> : null}{activeContract.admin_note ? <p><strong>Principessa’s note:</strong> {activeContract.admin_note}</p> : null}
         <footer className="throne-agreement__signature"><span>Principessa<small>THE COURT</small></span><span>{activeContract.debt_code}<small>{activeContract.approved_at ? "APPROVED · "+date(activeContract.approved_at) : "AWAITING APPROVAL"}</small></span></footer>
       </> : null}
-      {!openContract ? <details open={!activeContract || showingDraft} onToggle={event => { if (activeContract && !openContract) setIsDrafting(event.currentTarget.open); }} className="throne-agreement__request"><summary>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>Minimum $10 per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
+      {!openContract ? <details open={!activeContract || showingDraft} onToggle={event => { if (activeContract && !openContract) setIsDrafting(event.currentTarget.open); }} className="throne-agreement__request"><summary>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>$10–${THRONE_DEBT_MAX_WEEKLY_USD} per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
         <div className={styles.draftForm}><div className={styles.form}>
         <ContractClause number="I" title="The terms of your promise">
         <div className="throne-agreement__draft">
@@ -784,7 +779,7 @@ function ThroneDebtCard({
         </div> : null}
         <p className={styles.hint}>1 PM = $1. Throne payments with your TD code settle this agreement without adding PM. Payment dates are set after approval.</p>
         </ContractClause>
-        {hasPlanInputs && !planValid ? <p className={styles.note}>Use a whole-dollar total, 4–104 weeks, and at least {usd(minimumInstallmentUsd)} per installment.</p> : null}
+        {hasPlanInputs && !planValid ? <p role="alert" className={styles.note}>{planValidation.error}</p> : null}
         <ContractClause number="II" title="A note with your promise"><label className={styles.field}>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label></ContractClause>
         <div className={styles.signing}><p>Submit these terms for Principessa’s approval.</p><button className={styles.primary} type="button" disabled={disabled || isBusy || isTimeoutActive || !planValid} onClick={()=>void createThroneDebt()}>Submit Throne Debt Request</button></div>
         {isTimeoutActive ? <p>You cannot create new debt while your account is in timeout.</p> : null}

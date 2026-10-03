@@ -14,6 +14,13 @@ for(const repaymentFrequency of ["weekly","bi_weekly","monthly"]) for(const cont
   assert.ok(Math.max(...plan.installmentAmountsUsd)-Math.min(...plan.installmentAmountsUsd)<=1);
 }
 for(const totalAmountUsd of [75.75,39.99,NaN,Infinity,-1]) assert.ok(validateThroneDebtRequest({totalAmountUsd,contractLengthWeeks:4,repaymentFrequency:"weekly"}).error);
+for (const repaymentFrequency of ["weekly", "bi_weekly", "monthly"]) {
+  for (const contractLengthWeeks of [4, 5, 24, 104]) {
+    assert.equal(validateThroneDebtRequest({ totalAmountUsd: 200 * contractLengthWeeks, contractLengthWeeks, repaymentFrequency }).error, null);
+    assert.match(validateThroneDebtRequest({ totalAmountUsd: 200 * contractLengthWeeks + 1, contractLengthWeeks, repaymentFrequency }).error, /Maximum commitment/);
+  }
+  assert.match(validateThroneDebtRequest({ totalAmountUsd: 10000, contractLengthWeeks: 24, repaymentFrequency }).error, /Maximum commitment/);
+}
 assert.equal(getThroneDebtInstallmentRemaining({amount_usd:18.75,status:"pending",webhook_paid_usd:18}),0.75);
 assert.equal(getThroneDebtPaidTotal({installments:[{amount_usd:18.75,status:"approved_paid",webhook_paid_usd:0},{amount_usd:18.75,status:"pending",webhook_paid_usd:0.25}]}),19);
 

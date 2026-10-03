@@ -1454,7 +1454,7 @@ export default function AdminPage() {
   const activeConsoleParam = matchedConsoleCommand?.params[activeConsoleArgIndex] ?? null;
 
   const commandSuggestions: ConsoleSuggestion[] = isTypingCommandName
-    ? command.startsWith("/")
+    ? command.startsWith("/") && command.trim().length > 1
       ? CONSOLE_COMMANDS.filter(
           (entry) => entry.name.length > command.length && entry.name.toLowerCase().startsWith(command.toLowerCase()),
         ).map((entry) => ({ kind: "command", value: entry.name, hint: consoleUsage(entry), note: entry.description }))
@@ -1471,13 +1471,14 @@ export default function AdminPage() {
       })();
 
   const showCommandSuggestions = !commandSuggestionsDismissed && commandSuggestions.length > 0;
+  const showCommandHelper = !commandSuggestionsDismissed && command.trim().length > 1 && (Boolean(matchedConsoleCommand) || commandSuggestions.length > 0);
   const activeCommandSuggestionIndex = Math.min(commandSuggestionIndex, Math.max(0, commandSuggestions.length - 1));
 
   const applyCommandSuggestion = (suggestion: ConsoleSuggestion) => {
     if (suggestion.kind === "command") {
       setCommand(`${suggestion.value} `);
       setCommandSuggestionIndex(0);
-      setCommandSuggestionsDismissed(true);
+      setCommandSuggestionsDismissed(false);
       return;
     }
 
@@ -1491,7 +1492,7 @@ export default function AdminPage() {
     tokens[tokens.length - 1] = suggestion.value;
     setCommand(`${prefix}${tokens.join(" ")} `);
     setCommandSuggestionIndex(0);
-    setCommandSuggestionsDismissed(true);
+    setCommandSuggestionsDismissed(false);
   };
 
   const handleIrlTaskReview = async (
@@ -1964,47 +1965,9 @@ export default function AdminPage() {
               <p className="text-xs uppercase tracking-[0.24em] text-fuchsia-200/70">
                 Command Console
               </p>
-              {/* This used to be a hand-maintained wall of usage strings that
-                  had already drifted (no /money, stale case list). The typed
-                  CONSOLE_COMMANDS list drives the completion dropdown and the
-                  hint bar below the input, so there is one source of truth. */}
               <p className="mt-2 text-xs text-zinc-500">
-                Type <span className="font-mono text-fuchsia-200/80">/</span> to list every command. Tab completes, ↑↓ selects.
+                Start typing a command, such as <span className="font-mono text-fuchsia-200/80">/give</span>. Tab completes, ↑↓ selects.
               </p>
-              {/* ABOVE the input, not below it. The completion dropdown is
-                  absolutely positioned off the field and opens downward, so a
-                  hint sitting underneath was covered by the dropdown at exactly
-                  the moment it was needed - while typing the arguments. It also
-                  cannot live inside the input's flex label; as a sibling of the
-                  field it stole most of the typing width. */}
-              {matchedConsoleCommand ? (
-                <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 px-4 py-2.5">
-                  <p className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-[12px]">
-                    <span className="font-black text-fuchsia-200">{matchedConsoleCommand.name}</span>
-                    {matchedConsoleCommand.params.map((param, index) => (
-                      <span
-                        className={
-                          index === activeConsoleArgIndex
-                            ? "rounded bg-fuchsia-500/25 px-1.5 text-pink-50 ring-1 ring-fuchsia-300/40"
-                            : index < activeConsoleArgIndex
-                              ? "text-zinc-600"
-                              : "text-zinc-400"
-                        }
-                        key={`${param.label}:${index}`}
-                      >
-                        {param.optional ? `[${param.label}]` : param.label}
-                      </span>
-                    ))}
-                  </p>
-                  {activeConsoleParam ? (
-                    <p className="mt-1.5 text-[11px] leading-4 text-pink-100/90">
-                      <span className="font-mono font-black text-fuchsia-200">{activeConsoleParam.label}</span>
-                      {activeConsoleParam.optional ? " (optional)" : ""} — {activeConsoleParam.note}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
-                </div>
-              ) : null}
 
               <div className="mt-4 flex flex-col gap-3 md:flex-row">
                 <label className="relative flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-black px-4 py-3 font-mono text-sm text-pink-100">
@@ -2035,7 +1998,7 @@ export default function AdminPage() {
                         return;
                       }
 
-                      if (event.key === "Escape" && showCommandSuggestions) {
+                      if (event.key === "Escape" && showCommandHelper) {
                         event.preventDefault();
                         setCommandSuggestionsDismissed(true);
                         return;
@@ -2048,8 +2011,37 @@ export default function AdminPage() {
                     placeholder="/"
                     value={command}
                   />
-                  {showCommandSuggestions ? (
-                    <ul className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0510] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+                  {showCommandHelper ? (
+                    <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-80 overflow-y-auto rounded-2xl border border-fuchsia-300/20 bg-[#0a0510] shadow-[0_12px_32px_rgba(0,0,0,0.5)]">
+                      {matchedConsoleCommand ? (
+                        <div className="border-b border-fuchsia-300/15 px-4 py-2.5">
+                          <p className="flex flex-wrap gap-x-2 gap-y-1 font-mono text-[12px]">
+                            <span className="font-black text-fuchsia-200">{matchedConsoleCommand.name}</span>
+                            {matchedConsoleCommand.params.map((param, index) => (
+                              <span
+                                className={
+                                  index === activeConsoleArgIndex
+                                    ? "rounded bg-fuchsia-500/25 px-1.5 text-pink-50 ring-1 ring-fuchsia-300/40"
+                                    : index < activeConsoleArgIndex
+                                      ? "text-zinc-600"
+                                      : "text-zinc-400"
+                                }
+                                key={`${param.label}:${index}`}
+                              >
+                                {param.optional ? `[${param.label}]` : param.label}
+                              </span>
+                            ))}
+                          </p>
+                          {activeConsoleParam ? (
+                            <p className="mt-1.5 text-[11px] leading-4 text-pink-100/90">
+                              <span className="font-mono font-black text-fuchsia-200">{activeConsoleParam.label}</span>
+                              {activeConsoleParam.optional ? " (optional)" : ""} — {activeConsoleParam.note}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-[11px] leading-4 text-zinc-400">{matchedConsoleCommand.description}</p>
+                        </div>
+                      ) : null}
+                    {showCommandSuggestions ? <ul>
                       {commandSuggestions.map((suggestion, index) => (
                         <li key={`${suggestion.kind}:${suggestion.value}`}>
                           <button
@@ -2074,7 +2066,8 @@ export default function AdminPage() {
                       <li className="px-4 py-1.5 text-[9px] uppercase tracking-[0.14em] text-zinc-600">
                         Tab to complete - ↑↓ to select
                       </li>
-                    </ul>
+                    </ul> : null}
+                    </div>
                   ) : null}
                 </label>
                 <button
