@@ -13,6 +13,7 @@ import {
   type CrateUpgradeTargetItem,
 } from "@/lib/crate-upgrade";
 import { emitSoundEvent } from "@/lib/sound";
+import { CourtDialog } from "@/components/CourtDialog";
 
 // The Upgrader, laid out like a skin-upgrade site: your item in a diamond on
 // the left, the target in a diamond on the right, and between them a diamond
@@ -71,7 +72,7 @@ function easeOutQuart(t: number) {
 
 function formatChance(chance: number) {
   const percent = chance * 100;
-  return `${percent.toFixed(percent < 1 ? 2 : percent < 10 ? 2 : 1)}%`;
+  return `${new Intl.NumberFormat("en-US", { maximumSignificantDigits: 3 }).format(percent)}%`;
 }
 
 function DiamondCard({
@@ -95,7 +96,7 @@ function DiamondCard({
   const frameColor = state === "won" ? "#34d399" : state === "lost" ? "#fb7185" : "#c89a55";
   return (
     <div className={`flex flex-col items-center transition-opacity duration-500 ${state === "dim" ? "opacity-40" : ""}`}>
-      <div className="relative aspect-square w-[150px] sm:w-[200px]">
+      <div className="relative aspect-square w-full max-w-[150px] sm:max-w-[200px]">
         <div
           className="absolute inset-[6%] rotate-45 rounded-[26%] border bg-[#110c14]"
           style={{ borderColor: `${frameColor}30` }}
@@ -159,7 +160,11 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
   const [pointer, setPointer] = useState(0);
   const [won, setWon] = useState<boolean | null>(null);
   const [showRules, setShowRules] = useState(false);
+  const [error, setError] = useState("");
+  const [settledChance, setSettledChance] = useState<number | null>(null);
   const frameRef = useRef<number | null>(null);
+  const attemptRef = useRef<{ id: string; targetKey: string } | null>(null);
+  const pendingRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -168,7 +173,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
     [],
   );
 
-  const chance = target ? computeCrateUpgradeChance(item.sell_value, target.sellValue) : null;
+  const chance = settledChance ?? (target ? computeCrateUpgradeChance(item.sell_value, target.sellValue) : null);
   const multiplier = target ? target.sellValue / item.sell_value : null;
   const itemImage = getCrateItemImageUrl(item.item_id, item.image_url ?? null);
   // Always gold, never the target's rarity colour: a grey "common" arc read
@@ -189,6 +194,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
     const picked = pickTargetForMultiplier(item.sell_value, value, eligible);
     if (picked) {
       setTarget(picked);
+      setSettledChance(null);
       setActiveMultiplier(value);
     }
   };
@@ -220,13 +226,20 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
   };
 
   const confirm = async () => {
-    if (disabled || phase !== "picking" || !target || chance === null) return;
+    if (disabled || pendingRef.current || phase !== "picking" || !target || chance === null) return;
+    pendingRef.current = true;
+    const targetKey = `${target.itemId}:${target.variant}`;
+    if (attemptRef.current?.targetKey !== targetKey) {
+      attemptRef.current = { id: crypto.randomUUID(), targetKey };
+    }
     setPhase("spinning");
+    setError("");
     setWon(null);
     setPointer(0);
     try {
       const response = await fetch("/api/user/crate-upgrade", {
         body: JSON.stringify({
+          requestId: attemptRef.current.id,
           itemId: item.item_id,
           targetItemId: target.itemId,
           targetVariant: target.variant,
@@ -236,7 +249,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
         method: "POST",
       });
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string; rollPercent?: number; success?: boolean; won?: boolean }
+        | { error?: string; chancePercent?: number; rollFraction?: number; success?: boolean; won?: boolean }
         | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error ?? "Upgrade failed.");
 
@@ -244,16 +257,32 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
       // The marker stops on the real roll. The lit arc starts at the top and
       // runs clockwise for exactly `chance` of the ring, so a roll under the
       // chance lands inside it - the picture and the outcome cannot disagree.
-      const rollFraction = Math.max(0, Math.min(0.9999, (payload.rollPercent ?? (didWin ? chance * 50 : 50 + chance * 50)) / 100));
-      animatePointer(rollFraction, () => {
+      if (typeof payload.rollFraction !== "number" || !Number.isFinite(payload.rollFraction) || payload.rollFraction < 0 || payload.rollFraction >= 1) {
+        throw new Error("Your result could not be confirmed. Retry to check the same attempt.");
+      }
+      if (typeof payload.chancePercent !== "number" || !Number.isFinite(payload.chancePercent) || payload.chancePercent <= 0 || payload.chancePercent > 80) {
+        throw new Error("Your result could not be confirmed. Retry to check the same attempt.");
+      }
+      setSettledChance(payload.chancePercent / 100);
+      const reveal = () => {
+        pendingRef.current = false;
         setWon(didWin);
         setPhase("result");
         emitSoundEvent(didWin ? "crate_legendary_reveal" : "task_fail");
         void onUpgraded();
-      });
+      };
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setPointer(payload.rollFraction);
+        reveal();
+      } else {
+        animatePointer(payload.rollFraction, reveal);
+      }
     } catch (error) {
+      pendingRef.current = false;
       setPhase("picking");
-      onNotice?.(error instanceof Error ? error.message : "Upgrade failed.");
+      const message = error instanceof Error ? error.message : "Upgrade failed.";
+      setError(message);
+      onNotice?.(message);
     }
   };
 
@@ -262,7 +291,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
   const rightState = phase === "result" ? (won ? "won" : "dim") : "idle";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 px-3 py-6 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <CourtDialog label="Upgrade an item" onClose={onClose} canClose={phase !== "spinning"} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-1.5rem)] max-w-5xl overflow-y-auto border-0 bg-transparent p-0 text-inherit backdrop:bg-black/80 backdrop:backdrop-blur-sm">
       <div className="mx-auto w-full max-w-5xl rounded-[2rem] border border-[#c89a55]/20 bg-[radial-gradient(circle_at_50%_30%,rgba(200,154,85,.08),transparent_45%),linear-gradient(160deg,#120d16,#07050a)] p-4 shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -287,7 +316,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
         {showRules ? (
           <p className="mx-auto mt-3 max-w-xl rounded-xl border border-[#c89a55]/20 bg-black/40 px-4 py-3 text-center text-xs leading-5 text-zinc-400">
             Your chance = {Math.round(CRATE_UPGRADE_TARGET_EV * 100)}% × your item&apos;s value ÷ the target&apos;s value,
-            capped at {Math.round(CRATE_UPGRADE_MAX_CHANCE * 100)}%. The marker stops on a server-side roll: inside the lit
+            capped at {Math.round(CRATE_UPGRADE_MAX_CHANCE * 100)}%. Inside the lit
             arc, your item becomes the target. Outside it, your item is gone. The house keeps{" "}
             {Math.round((1 - CRATE_UPGRADE_TARGET_EV) * 100)}% - more on near-equal swaps that hit the cap - printed, never
             hidden.
@@ -295,7 +324,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
         ) : null}
 
         {/* Stage */}
-        <div className="mt-6 grid items-center gap-6 md:grid-cols-[1fr_auto_1fr]">
+        <div className="mt-4 grid grid-cols-2 items-center gap-3 md:grid-cols-[1fr_auto_1fr] md:gap-6">
           <DiamondCard
             caption="Your item"
             imageUrl={itemImage}
@@ -306,7 +335,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
           />
 
           {/* The ring */}
-          <div className="relative mx-auto aspect-square w-[240px] sm:w-[280px]">
+          <div className="relative col-span-2 row-start-2 mx-auto aspect-square w-[200px] sm:w-[240px] md:col-span-1 md:row-auto md:w-[280px]">
             <svg className="h-full w-full overflow-visible" viewBox="0 0 260 260">
               <defs>
                 <filter id="vm-upgrade-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -340,7 +369,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
                   filter="url(#vm-upgrade-glow)"
                   pathLength={100}
                   stroke={winHex}
-                  strokeDasharray={`${(chance * 100).toFixed(3)} 100`}
+                  strokeDasharray={`${chance * 100} 100`}
                   strokeLinejoin="round"
                   strokeOpacity={phase === "result" && won === false ? 0.35 : 0.95}
                   strokeWidth="18"
@@ -373,6 +402,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
             </div>
           </div>
 
+          <div className="col-start-2 row-start-1 min-w-0 md:col-auto md:row-auto">
           <DiamondCard
             caption="Target"
             extra={multiplier !== null ? `${multiplier.toFixed(2)}x` : null}
@@ -382,9 +412,12 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
             state={rightState}
             value={target?.sellValue ?? null}
           />
+          </div>
         </div>
 
         {/* Action bar */}
+        {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-300/20 bg-rose-500/10 p-3 text-center text-xs text-rose-100">{error}</p> : null}
+        {phase === "picking" ? <p className="mt-4 text-center text-xs text-rose-200/80">If it misses, your {item.name} is lost.</p> : null}
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 md:flex-row md:items-center">
           <div className="flex flex-wrap gap-1.5">
             {CRATE_UPGRADE_MULTIPLIERS.map((value) => (
@@ -472,6 +505,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
                       key={`${entry.itemId}:${entry.variant}`}
                       onClick={() => {
                         setTarget(entry);
+                        setSettledChance(null);
                         setActiveMultiplier(null);
                       }}
                       style={{
@@ -500,6 +534,6 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
           </div>
         ) : null}
       </div>
-    </div>
+    </CourtDialog>
   );
 }

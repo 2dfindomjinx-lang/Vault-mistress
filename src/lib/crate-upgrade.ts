@@ -12,12 +12,12 @@ import { CRATE_TYPES, SAMPLE_CRATE_ITEMS, getCrateItemImageUrl, type CrateRarity
 // end of the Gamble Hall (Roulette, The Crawl).
 export const CRATE_UPGRADE_TARGET_EV = 0.9;
 
-// Floor and ceiling keep every upgrade a real roll with a real number on it,
-// never "basically guaranteed" and never a discouraging 0.0%. The ceiling only
+// The ceiling keeps near-equal swaps from being nearly guaranteed. There is
+// no minimum chance: a floor would overpay cheap inputs against expensive targets.
+// The ceiling only
 // binds when the target is worth less than EV/ceiling = 1.125x the input;
 // those near-swaps get the capped chance and so a worse EV than 0.90 - a
 // deliberate tax on using the Upgrader as a low-risk item exchange.
-export const CRATE_UPGRADE_MIN_CHANCE = 0.005;
 export const CRATE_UPGRADE_MAX_CHANCE = 0.8;
 
 // Quick-pick buttons: "find me something worth about N times my item".
@@ -86,7 +86,7 @@ export function findCrateUpgradeTargetItem(itemId: string, variant = "normal"): 
 export function computeCrateUpgradeChance(inputSellValue: number, targetSellValue: number): number | null {
   if (!(inputSellValue > 0) || !(targetSellValue > inputSellValue)) return null;
   const raw = (CRATE_UPGRADE_TARGET_EV * inputSellValue) / targetSellValue;
-  return Math.min(CRATE_UPGRADE_MAX_CHANCE, Math.max(CRATE_UPGRADE_MIN_CHANCE, raw));
+  return Math.min(CRATE_UPGRADE_MAX_CHANCE, raw);
 }
 
 // The target whose value is closest (on a ratio scale) to input x multiplier,

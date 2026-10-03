@@ -382,12 +382,12 @@ async function call(handler, body) {
   assert.equal(state.profiles[0].coins, 750);
   const login = await call(claims.POST, { taskId: "daily-login" });
   assert.equal(login.status, 200);
-  assert.equal(state.profiles[0].coins, 900);
+  assert.equal(state.profiles[0].coins, 1250); // 750 + current 500-coin daily reward
   assert.equal(
     (await call(claims.POST, { taskId: "daily-login" })).status,
     422,
   );
-  assert.equal(state.profiles[0].coins, 900);
+  assert.equal(state.profiles[0].coins, 1250);
   assert.equal((await call(claims.POST, { taskId: "affection" })).status, 422);
   const gallery = load("src/app/api/gallery/[...path]/route.ts");
   const imageContext = { params: Promise.resolve({ path: ["secret-1.webp"] }) };

@@ -56,6 +56,9 @@ next-env.d.ts
 !/supabase/202609120001_recent_tribute_payment_details.sql
 !/supabase/202609170001_wallpaper_nightly_rotation.sql
 !/supabase/202609270001_lock_lifetime_price.sql
+!/supabase/2026-10-03-crate-safety.sql
+!/supabase/crate-duels.sql
+!/supabase/crate-item-upgrades.sql
 !/supabase/throne-debts.sql
 !/supabase/gamble-hall.sql
 !/supabase/README.md

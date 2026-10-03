@@ -44,6 +44,13 @@ export async function GET() {
       .limit(3),
   ]);
 
+  if (openResult.error || crateResult.error) {
+    console.error("[public-duels] lookup failed", openResult.error ?? crateResult.error);
+    return Response.json({ error: "Duels are temporarily unavailable." }, {
+      status: 503, headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const crateDuels: CrateDuelPreview[] = (crateResult.data ?? []).map((row) => ({
     crates:
       Array.isArray(row.crates) && row.crates.length > 0

@@ -18,19 +18,19 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type UpgradeBody = {
-  itemId?: string;
-  targetItemId?: string;
-  targetVariant?: string;
-  variant?: string;
+  requestId?: unknown;
+  itemId?: unknown;
+  targetItemId?: unknown;
+  targetVariant?: unknown;
+  variant?: unknown;
 };
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function roll(): number {
-  return randomInt(0, 1_000_000) / 1_000_000;
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const textField = (value: unknown) => typeof value === "string" && value.length <= 160 ? value.trim() : "";
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured) {
@@ -49,10 +49,12 @@ export async function POST(request: Request) {
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit.retryAfterSeconds);
 
   const body = (await request.json().catch(() => null)) as UpgradeBody | null;
-  const itemId = body?.itemId?.trim();
-  const variant = body?.variant?.trim() || "normal";
-  const targetItemId = body?.targetItemId?.trim();
-  const targetVariant = body?.targetVariant?.trim() || "normal";
+  const requestId = textField(body?.requestId);
+  if (!UUID.test(requestId)) return jsonError("Refresh the page and try again.");
+  const itemId = textField(body?.itemId);
+  const variant = textField(body?.variant) || "normal";
+  const targetItemId = textField(body?.targetItemId);
+  const targetVariant = textField(body?.targetVariant) || "normal";
 
   if (!itemId || !targetItemId) {
     return jsonError("Pick a target.");
@@ -77,118 +79,22 @@ export async function POST(request: Request) {
     return jsonError("Target must be worth more.", 422);
   }
 
-  // Verify current ownership.
-  const { data: invRow, error: invErr } = await supabase
-    .from("user_crate_inventory")
-    .select("quantity")
-    .eq("user_id", userId)
-    .eq("item_id", itemId)
-    .eq("variant", variant)
-    .maybeSingle();
-
-  if (invErr || !invRow || invRow.quantity < 1) {
-    return jsonError("You do not own this item.", 422);
-  }
-
-  // One roll decides everything: under the chance wins the named item.
-  const outcomeRoll = roll();
-  const won = outcomeRoll < chance;
-
-  // Consume the fodder item first, with the same optimistic-concurrency
-  // pattern crates.ts already uses for sell/open: a conditional write against
-  // the quantity just read, rolled back on any later failure.
-  const previousQuantity = invRow.quantity;
-  const nextQuantity = previousQuantity - 1;
-  const consumeQuery =
-    nextQuantity > 0
-      ? supabase
-          .from("user_crate_inventory")
-          .update({ quantity: nextQuantity })
-          .eq("user_id", userId)
-          .eq("item_id", itemId)
-          .eq("variant", variant)
-          .eq("quantity", previousQuantity)
-          .select("item_id")
-          .maybeSingle()
-      : supabase
-          .from("user_crate_inventory")
-          .delete()
-          .eq("user_id", userId)
-          .eq("item_id", itemId)
-          .eq("variant", variant)
-          .eq("quantity", previousQuantity)
-          .select("item_id")
-          .maybeSingle();
-
-  const { data: consumed, error: consumeErr } = await consumeQuery;
-  if (consumeErr || !consumed) {
-    return jsonError("Try again.", 409);
-  }
-
-  const restoreFodder = async () => {
-    const { error } = await supabase
-      .from("user_crate_inventory")
-      .upsert(
-        { user_id: userId, item_id: itemId, variant, quantity: previousQuantity },
-        { onConflict: "user_id,item_id,variant" },
-      );
-    if (error) console.error("[crate-upgrade] fodder restore failed", error);
-  };
-
-  let rewardItemId: string | null = null;
-  let rewardVariant: string | null = null;
-
-  if (won) {
-    const { data: existingReward } = await supabase
-      .from("user_crate_inventory")
-      .select("quantity")
-      .eq("user_id", userId)
-      .eq("item_id", target.itemId)
-      .eq("variant", target.variant)
-      .maybeSingle();
-
-    const newRewardQty = (existingReward?.quantity ?? 0) + 1;
-    const { error: grantErr } = await supabase.from("user_crate_inventory").upsert(
-      { user_id: userId, item_id: target.itemId, variant: target.variant, quantity: newRewardQty },
-      { onConflict: "user_id,item_id,variant" },
-    );
-    if (grantErr) {
-      console.error("[crate-upgrade] reward grant failed", grantErr);
-      await restoreFodder();
-      return jsonError("Upgrade failed. Your item is safe.", 500);
-    }
-
-    rewardItemId = target.itemId;
-    rewardVariant = target.variant;
-  }
-
-  // Best-effort audit log. Nothing financial hinges on this row - the coins
-  // and inventory are already correct at this point - so a logging failure
-  // is reported but does not roll back a result the player already has.
-  const { error: logErr } = await supabase.from("crate_item_upgrades").insert({
-    user_id: userId,
-    from_item_id: itemId,
-    from_variant: variant,
-    from_sell_value: itemDef.sell_value,
-    to_crate_type: target.crateType,
-    to_rarity: target.rarity,
-    win_chance_percent: Math.round(chance * 100_000) / 1_000,
-    won,
-    to_item_id: rewardItemId,
-    to_variant: rewardVariant,
+  // Consume, grant and log atomically. A retry returns the original receipt.
+  // Extra precision prevents a discrete probability floor on tiny chances.
+  const { data, error } = await supabase.rpc("execute_crate_upgrade", {
+    p_user_id: userId, p_request_id: requestId,
+    p_from_item_id: itemId, p_from_variant: variant, p_from_value: itemDef.sell_value,
+    p_target_item_id: target.itemId, p_target_variant: target.variant, p_target_value: target.sellValue,
+    p_target_crate: target.crateType, p_target_rarity: target.rarity,
+    p_roll: randomInt(0, 2 ** 47) / 2 ** 47,
   });
-  if (logErr) console.error("[crate-upgrade] audit log insert failed", logErr);
-
-  return Response.json({
-    success: true,
-    won,
-    chancePercent: Math.round(chance * 1000) / 10,
-    // Where the outcome roll actually landed on the 0-100 bar - the win/lose
-    // decision is already final by this point, so revealing it only lets the
-    // client's marker animate to the exact spot that decided it, the same
-    // way Her Patience reveals its real crash point after the fact.
-    rollPercent: Math.round(outcomeRoll * 1000) / 10,
-    rewardItemId,
-    rewardVariant,
-  });
+  if (error) {
+    console.error("[crate-upgrade] transaction failed", error);
+    return jsonError("Upgrade could not be confirmed. Retry to check the same attempt.", 503);
+  }
+  const result = data as { success?: boolean; error?: string } | null;
+  if (result?.error === "not_owned") return jsonError("You do not own this item.", 422);
+  if (result?.error === "request_mismatch") return jsonError("This attempt belongs to a different target. Reopen Upgrade.", 409);
+  if (!result?.success) return jsonError("Upgrade is temporarily unavailable.", 503);
+  return Response.json(data, { headers: { "Cache-Control": "private, no-store" } });
 }

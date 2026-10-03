@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { CRATE_TYPES, RARITY_HEX, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 import { lineupLabel } from "@/lib/crate-duel-lineup";
 import { emitSoundEvent } from "@/lib/sound";
+import { CourtDialog } from "@/components/CourtDialog";
 
 // The Crate Duel reveal, case-battle style: both players side by side with
 // their avatars, and every round each of them spins ONE crate reel that lands
@@ -128,16 +129,20 @@ export function Avatar({ name, src, size = 56, ring }: { name: string; ring?: st
   );
 }
 
-function BattleReel({ cards, jitter }: { cards: StripCard[]; jitter: number }) {
+function BattleReel({ cards, jitter, instant = false }: { cards: StripCard[]; jitter: number; instant?: boolean }) {
   const stripRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const node = stripRef.current;
     if (!node) return;
     const centre = VIEW_H / 2 - CARD / 2;
     const startY = centre - 2 * STEP;
     const endY = centre - WIN_INDEX * STEP;
     node.style.transition = "none";
+    if (instant) {
+      node.style.transform = `translateY(${endY}px)`;
+      return;
+    }
     node.style.transform = `translateY(${startY}px)`;
     void node.offsetHeight;
     node.style.transition = `transform ${SPIN_MS}ms cubic-bezier(0.1, 0.72, 0.16, 1)`;
@@ -147,7 +152,7 @@ function BattleReel({ cards, jitter }: { cards: StripCard[]; jitter: number }) {
       node.style.transform = `translateY(${endY}px)`;
     }, SPIN_MS);
     return () => window.clearTimeout(settle);
-  }, [cards, jitter]);
+  }, [cards, jitter, instant]);
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-[#09060c]" style={{ height: VIEW_H }}>
@@ -218,6 +223,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
   const [round, setRound] = useState(0);
   const [revealed, setRevealed] = useState(0);
   const [done, setDone] = useState(false);
+  const [skipped, setSkipped] = useState(false);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -258,6 +264,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
   const skip = () => {
     timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
+    setSkipped(true);
     setRound(rounds - 1);
     setRevealed(rounds);
     setDone(true);
@@ -265,14 +272,15 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
 
   const totals = sides.map((side) => side.items.slice(0, revealed).reduce((sum, item) => sum + item.sellValue, 0));
   const leaderIndex = totals[0] === totals[1] ? -1 : totals[0] > totals[1] ? 0 : 1;
-  const winnerIndex = duel.winner === null ? -1 : sides.findIndex((side) => side.name === duel.winner);
+  // Display names are not unique; the higher haul identifies the winning seat.
+  const winnerIndex = duel.winner === null ? -1 : leaderIndex;
   const currentCrate = roundCrates[Math.min(round, rounds - 1)] ?? duel.crateType;
   const crateIcon = getCrateIconUrl(currentCrate, CRATE_TYPES[currentCrate]?.icon_url);
   const crateName = lineupLabel(roundCrates);
   const currentCrateName = CRATE_TYPES[currentCrate]?.name ?? duel.crateName;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 px-3 py-6 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <CourtDialog label="Crate duel" onClose={onClose} canClose={done} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-1.5rem)] max-w-3xl overflow-y-auto border-0 bg-transparent p-0 text-inherit backdrop:bg-black/85 backdrop:backdrop-blur-sm">
       <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#c89a55]/20 bg-[radial-gradient(circle_at_50%_0%,rgba(236,72,153,.14),transparent_45%),linear-gradient(160deg,#130d17,#07050a)] p-4 shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -351,7 +359,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                   <CoinAmount amount={totals[index]} className="font-serif text-xl text-[#ffe2ad] tabular-nums" iconSize={16} label="" />
                 </div>
                 <div className="mt-3">
-                  <BattleReel cards={strips[round][index].cards} jitter={strips[round][index].jitter} key={`${side.key}-${round}`} />
+                  <BattleReel cards={strips[round][index].cards} jitter={strips[round][index].jitter} instant={skipped} key={`${side.key}-${round}`} />
                 </div>
                 <div className={`mt-2 h-10 ${index === 1 ? "text-right" : ""}`}>
                   {landedItem ? (
@@ -444,6 +452,6 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
           </div>
         ) : null}
       </div>
-    </div>
+    </CourtDialog>
   );
 }

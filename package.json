@@ -12,6 +12,7 @@
     "test:throne-debt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/throne-debt-check.mjs && npm run test:throne-attribution",
     "test:throne-attribution:sql": "node scripts/throne-attribution-sql-check.mjs",
     "test:security": "node scripts/economy-route-check.cjs && node scripts/economy-sql-check.mjs",
+    "test:crate-safety": "node scripts/crate-safety-check.mjs && node scripts/crate-duel-browser-check.mjs",
     "test:security:http": "node scripts/security-integration-tests.mjs",
     "test:linkify": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/linkify-check.mjs",
     "test:gamble": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/gamble-odds-check.mjs",

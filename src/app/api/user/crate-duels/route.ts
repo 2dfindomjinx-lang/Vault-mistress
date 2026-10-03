@@ -108,21 +108,13 @@ export async function GET() {
 
   const supabase = createSupabaseAdminClient();
 
-  // Lazy expiry, exactly like Tribute Duels: whoever reads next sweeps
-  // whatever has gone stale. No cron job needed.
-  const { error: expireError } = await supabase.rpc("expire_stale_crate_duels", { p_limit: 20 });
-  if (expireError) console.error("[crate-duels] expire sweep failed", expireError);
-
-  const { data, error } = await supabase
-    .from("crate_duels")
-    .select(
-      "id, challenger_id, opponent_id, crate_type, crate_cost, crates, total_cost, quantity, status, created_at, accepted_at, expires_at, challenger_items, challenger_total_value, opponent_items, opponent_total_value, winner_id, challenger_seen_at, opponent_seen_at",
-    )
-    .in("status", ["open", "revealed"])
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) return jsonError(error.message, 500);
+  const readLimit = await checkRateLimit(supabase, `crate-duels-read:${user.id}`, 30, 60);
+  if (!readLimit.allowed) return rateLimitResponse(readLimit.retryAfterSeconds);
+  const { data, error } = await supabase.rpc("get_crate_duel_lobby", { p_user_id: user.id });
+  if (error) {
+    console.error("[crate-duels] lobby read failed", error);
+    return jsonError("The crate duels are temporarily unavailable.", 503);
+  }
 
   const rows = (data ?? []) as DuelRow[];
   const userIds = new Set<string>();
@@ -177,7 +169,7 @@ export async function GET() {
     expiresHours: CRATE_DUEL_EXPIRES_HOURS,
     maxQuantity: CRATE_DUEL_MAX_QUANTITY,
     myLiveDuel: duels.find((duel) => duel.isMyChallenge && duel.status === "open") ?? null,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: Request) {

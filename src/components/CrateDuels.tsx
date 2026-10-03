@@ -158,6 +158,9 @@ export function CrateDuels({
       });
       const payload = (await response.json().catch(() => null)) as { error?: string; profile?: unknown } | null;
       if (!response.ok) throw new Error(payload?.error ?? "The duel action failed.");
+      if (body.action === "accept" || body.action === "cancel") {
+        window.dispatchEvent(new Event("court:crate-opened"));
+      }
       if (payload?.profile && onProfile) onProfile(payload.profile);
       emitSoundEvent("button_click");
       setPicks({});
@@ -197,6 +200,7 @@ export function CrateDuels({
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#d7ad69]/60">Sub versus sub</p>
           <h2 className="mt-1 font-serif text-3xl font-semibold text-white [text-shadow:0_0_24px_rgba(245,158,11,.22)]">Crate Duels</h2>
+          <p className="mt-1 text-xs text-zinc-400">Same crates. Two hauls. The higher total takes both.</p>
         </div>
         <button
           className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] font-black text-zinc-300 transition hover:text-white"
@@ -436,11 +440,11 @@ export function CrateDuels({
                     <div className="flex min-w-0 items-center gap-2">
                       <Avatar
                         name={duel.challenger}
-                        ring={duel.winner === duel.challenger ? "#34d399" : undefined}
+                        ring={(duel.challengerTotal ?? 0) > (duel.opponentTotal ?? 0) ? "#34d399" : undefined}
                         size={36}
                         src={duel.challengerAvatar}
                       />
-                      <p className={`min-w-0 truncate text-xs font-black ${duel.winner === duel.challenger ? "text-emerald-100" : "text-zinc-400"}`}>
+                      <p className={`min-w-0 truncate text-xs font-black ${(duel.challengerTotal ?? 0) > (duel.opponentTotal ?? 0) ? "text-emerald-100" : "text-zinc-400"}`}>
                         {(duel.challengerTotal ?? 0).toLocaleString()}
                       </p>
                     </div>
@@ -448,11 +452,11 @@ export function CrateDuels({
                     <div className="flex min-w-0 flex-row-reverse items-center gap-2">
                       <Avatar
                         name={duel.opponent ?? "?"}
-                        ring={duel.winner === duel.opponent ? "#34d399" : undefined}
+                        ring={(duel.opponentTotal ?? 0) > (duel.challengerTotal ?? 0) ? "#34d399" : undefined}
                         size={36}
                         src={duel.opponentAvatar}
                       />
-                      <p className={`min-w-0 truncate text-right text-xs font-black ${duel.winner === duel.opponent ? "text-emerald-100" : "text-zinc-400"}`}>
+                      <p className={`min-w-0 truncate text-right text-xs font-black ${(duel.opponentTotal ?? 0) > (duel.challengerTotal ?? 0) ? "text-emerald-100" : "text-zinc-400"}`}>
                         {(duel.opponentTotal ?? 0).toLocaleString()}
                       </p>
                     </div>

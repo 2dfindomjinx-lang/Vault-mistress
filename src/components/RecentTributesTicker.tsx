@@ -389,11 +389,12 @@ export function RecentCaseOpenings() {
     let refreshing = false;
     const controller = new AbortController();
 
-    const loadRecentCaseOpenings = async () => {
+    const loadRecentCaseOpenings = async (fresh = false) => {
       if (refreshing) return;
       refreshing = true;
       try {
-        const response = await fetch("/api/recent-case-openings", { signal: controller.signal, cache: "no-store" });
+        const url = fresh ? `/api/recent-case-openings?refresh=${Date.now()}` : "/api/recent-case-openings";
+        const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
         const payload = (await response.json()) as {
           error?: string;
           openers?: RecentCaseOpener[];
@@ -434,7 +435,7 @@ export function RecentCaseOpenings() {
     };
 
     void loadRecentCaseOpenings();
-    const refresh = () => { if (document.visibilityState === "visible") void loadRecentCaseOpenings(); };
+    const refresh = (event?: Event) => { if (document.visibilityState === "visible") void loadRecentCaseOpenings(event?.type === "court:crate-opened"); };
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
     window.addEventListener("court:crate-opened", refresh);
