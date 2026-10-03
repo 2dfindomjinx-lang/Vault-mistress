@@ -281,7 +281,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
 
   return (
     <CourtDialog label="Crate duel" onClose={onClose} canClose={done} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-1.5rem)] max-w-3xl overflow-y-auto border-0 bg-transparent p-0 text-inherit backdrop:bg-black/85 backdrop:backdrop-blur-sm">
-      <div className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#c89a55]/20 bg-[radial-gradient(circle_at_50%_0%,rgba(236,72,153,.14),transparent_45%),linear-gradient(160deg,#130d17,#07050a)] p-4 shadow-[0_30px_100px_rgba(0,0,0,.6)] sm:p-6">
+      <div data-duel-battle className="relative mx-auto w-full max-w-[560px] overflow-hidden rounded-[2rem] border border-[#c89a55]/20 bg-[radial-gradient(circle_at_50%_0%,rgba(236,72,153,.14),transparent_45%),linear-gradient(160deg,#130d17,#07050a)] p-4 shadow-[0_30px_100px_rgba(0,0,0,.6)]">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
         </div>
 
         {/* Players */}
-        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-3 sm:gap-5">
+        <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
           {sides.map((side, index) => {
             const leading = leaderIndex === index;
             const isWinner = done && winnerIndex === index;

@@ -47,6 +47,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import type { PetScoreLeaderboardEntry } from "@/components/PetScoreLeaderboard";
 import { PrestigeBadgeList } from "@/components/PrestigeBadgeList";
 import { ProfileHeader } from "@/components/ProfileHeader";
+import { ProfileBorderFrame } from "@/components/ProfileBorderFrame";
+import { useMobileCourtLayout } from "@/lib/use-mobile-court-layout";
 import {
   RecentTributesTicker,
   RecentCaseOpenings,
@@ -67,6 +69,9 @@ function VaultPanelLoading() {
 }
 
 const CosmeticShop = dynamic(() => import("@/components/CosmeticShop").then((module) => module.CosmeticShop), { loading: VaultPanelLoading });
+const MobileCourtShell = dynamic(() => import("@/components/mobile/MobileCourtShell").then(module => module.MobileCourtShell));
+const MobileCourtHome = dynamic(() => import("@/components/mobile/MobileCourtHome").then(module => module.MobileCourtHome));
+const MobileCourtWelcome = dynamic(() => import("@/components/mobile/MobileCourtWelcome").then(module => module.MobileCourtWelcome));
 const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((module) => module.CratesPanel), { loading: VaultPanelLoading });
 const CrateDuels = dynamic(() => import("@/components/CrateDuels").then((module) => module.CrateDuels), { loading: VaultPanelLoading });
 const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
@@ -1616,6 +1621,7 @@ function getGalleryMechanicState(unlockedIds: string[]) {
 }
 
 export default function Home({ initialPanel = "home" }: { initialPanel?: DashboardPage } = {}) {
+  const mobileLayout = useMobileCourtLayout();
   const speechBubbleModuleRef = useRef<typeof import("@/lib/speech-bubble-messages") | null>(null);
   const addressTermRef = useRef<AddressTerm>(DEFAULT_ADDRESS_TERM);
   const getSpeechBubbleMessageForText = useCallback((avatarId: string | null | undefined, fallbackMessage: string) =>
@@ -1993,10 +1999,11 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   useEffect(() => {
     const handlePopState = () => {
       setActivePanelState(getPanelForPath(window.location.pathname));
+      if (mobileLayout && !window.history.state?.mobileCourtDirectory) resetViewportScroll();
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [mobileLayout, resetViewportScroll]);
   const [mistressReply, setMistressReply] = useState(
     "The vault is hungry. Drain yourself properly for Principessa.",
   );
@@ -7710,9 +7717,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         throw new Error("Sign-in is unavailable here. You can still explore Preview Mode.");
       }
 
+      // Keep the existing Supabase callback URL/allowlist. A short-lived,
+      // path-scoped flag only selects the local destination after sign-in.
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
       console.info("Starting Supabase OAuth", {
         provider: "x",
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
       });
 
       const result = await supabase.auth.signInWithOAuth({
@@ -7720,7 +7731,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         provider: "x" as any,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
 
@@ -11448,8 +11459,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }
 
   if (authBootstrapped && !isLoggedIn && !isPreviewMode) {
+    const WelcomeScreen = mobileLayout ? MobileCourtWelcome : LoginScreen;
     return (
-      <LoginScreen
+      <WelcomeScreen
         error={authError}
         isBusy={isAuthBusy}
         onEnterPreviewMode={handleEnterPreviewMode}
@@ -11523,18 +11535,49 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const homeShameEntries: HomeLeaderboardEntry[] = shameTop.slice(0, 5).map((entry, index) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.display_name || entry.username, username: entry.displayName || entry.display_name ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: `${entry.shameCount} fails` }));
   const homeInventoryEntries: HomeLeaderboardEntry[] = topValuableInventories.slice(0, 5).map((entry, index) => ({ avatarUrl: entry.avatarUrl, name: entry.displayName || entry.username, username: entry.displayName ? (entry.rawUsername || entry.username) : undefined, rank: index + 1, value: entry.value.toLocaleString() }));
 
+  const homeCommandCenter = (
+              <HomeCommandCenter
+                actions={mobileLayout ? [] : homeActions}
+                coins={coins}
+                devotion={homeDevotionEntries}
+                devotionRank={selectedDevotionRank}
+                inventories={homeInventoryEntries}
+                leadership={homeLeadershipEntries}
+                onLeaderboardTabChange={setHomeLeaderboardTab}
+                onNavigate={(page) => {
+                  void preloadDashboardPanel(page);
+                  resetViewportScroll();
+                  setActivePanel(page);
+                }}
+                petScore={petScore}
+                petScoreLeaders={homePetEntries}
+                shame={homeShameEntries}
+                streak={loyaltyStreak}
+              />
+  );
+
+  const DashboardShell = mobileLayout ? MobileCourtShell : AppShell;
+  const AnnouncementContainer = mobileLayout ? "details" : "section";
+  const CommunityContainer = mobileLayout ? "details" : "div";
+  const mobileAvatar = mobileLayout ? <ProfileBorderFrame presentation={profileBorderPresentation} className="relative h-full w-full rounded-xl" contentClassName="overflow-hidden rounded-[inherit]">
+    <LayeredAvatar alt="Your equipped avatar" equipped={equippedAvatarSlots} equippedFullSetId={equippedFullSetId} hasUncensored={hasUncensoredAvatar} showToyEffect/>
+  </ProfileBorderFrame> : null;
+
   return (
     <main
+      data-mobile-court={mobileLayout || undefined}
       className="relative min-h-screen overflow-x-clip bg-[#060305] text-white"
       onPointerDown={handleGlobalPointerDown}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-screen bg-[radial-gradient(circle_at_top_left,rgba(89,20,47,0.24),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(200,154,85,0.07),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0),#060305_78%)]" />
-      <AppShell
+      <DashboardShell
         guestMode={isGuestMode || isPreviewMode}
         activePage={activePanel}
         coins={coins}
         items={dashboardNavItems}
         money={principessaMoney}
+        mobileAccount={mobileAvatar}
+        mobileNotifications={mobileLayout && activePanel !== "profile" ? <NotificationBell isAdmin={isAdminUser} isLoggedIn={isLoggedIn && !isGuestMode && !isPreviewMode}/> : undefined}
         onAddMoney={() => setShowCoinCodeModal(true)}
         onCoinsChange={(nextCoins) => {
           setCoins(nextCoins);
@@ -11561,12 +11604,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             </div>
           </div>
         )}
-        <TopLevelNav active="main" />
+        {!mobileLayout && <TopLevelNav active="main" />}
         {isPreviewMode && <div className="court-guest-note"><p>Explore the court. Sign in to play and save your progress.</p><button onClick={() => void handleLogout()} type="button">Go to sign in ↗</button></div>}
         <BirthdayCourtBanner />
         <DuelCallBanner />
-        <div className="court-profile-stage relative isolate z-40">
-          {activePanel === "home" ? (
+        {(!mobileLayout || activePanel === "profile") && <div className="court-profile-stage relative isolate z-40">
+          {activePanel === "home" && !mobileLayout ? (
             <CourtHomeStage
               affection={affection}
               coins={coins}
@@ -11580,7 +11623,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               }}
             />
           ) : null}
-          {activePanel !== "home" && activePanel !== "tribute" && activePanel !== "wheels" ? <CourtChamberIntro page={activePanel} /> : null}
+          {!mobileLayout && activePanel !== "home" && activePanel !== "tribute" && activePanel !== "wheels" ? <CourtChamberIntro page={activePanel} /> : null}
           <div className="relative z-30 mt-3">
             <ProfileHeader
           actions={headerActions}
@@ -11621,17 +11664,18 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               onDisplayNameEditInputChange={setDisplayNameEditInput}
             />
           </div>
-        </div>
+        </div>}
 
           {showAccountAnnouncement && (
-            <section className="rounded-[1.25rem] border border-pink-200/30 bg-[linear-gradient(135deg,rgba(236,72,153,0.18),rgba(0,0,0,0.58))] px-4 py-3 shadow-[0_0_28px_rgba(236,72,153,0.14)]">
+            <AnnouncementContainer className="mobile-account-announcement rounded-[1.25rem] border border-pink-200/30 bg-[linear-gradient(135deg,rgba(236,72,153,0.18),rgba(0,0,0,0.58))] px-4 py-3 shadow-[0_0_28px_rgba(236,72,153,0.14)]">
+              {mobileLayout && <summary className="text-xs text-pink-100">Court notice</summary>}
               <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100/75">
                 {accountAnnouncement?.title}
               </p>
               <p className="mt-1 text-sm leading-6 text-pink-50">
                 <LinkifiedText text={accountAnnouncement?.body ?? ""} />
               </p>
-            </section>
+            </AnnouncementContainer>
           )}
 
         {isFreeFridayActive && <aside className="court-event-notice"><div><strong>Free Task Friday</strong><span>One free IRL Task Wheel spin.</span></div><div><small>Ends in {formatEventCountdown(freeFridayRemainingMs)}</small><button type="button" onClick={() => { setFreeFridayWheelJump((current) => current + 1); setActivePanel("tasks"); }}>Visit IRL Task Wheel ↗</button></div></aside>}
@@ -11676,7 +11720,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
         {activePanel === "crates" && <RecentCaseOpenings />}
 
-        {(activePanel === "home" || activePanel === "tribute") && <RecentTributesTicker
+        {((activePanel === "home" && !mobileLayout) || activePanel === "tribute") && <RecentTributesTicker
           currentUsername={effectiveDisplayName ?? username}
           topTributes={topTributes}
           tributes={recentTributes}
@@ -11755,24 +11799,15 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                   {communityStatusError}
                 </div>
               ) : null}
-              <HomeCommandCenter
-                actions={homeActions}
-                coins={coins}
-                devotion={homeDevotionEntries}
-                devotionRank={selectedDevotionRank}
-                inventories={homeInventoryEntries}
-                leadership={homeLeadershipEntries}
-                onLeaderboardTabChange={setHomeLeaderboardTab}
-                onNavigate={(page) => {
-                  void preloadDashboardPanel(page);
-                  resetViewportScroll();
-                  setActivePanel(page);
-                }}
-                petScore={petScore}
-                petScoreLeaders={homePetEntries}
-                shame={homeShameEntries}
-                streak={loyaltyStreak}
+              {mobileLayout ? <><MobileCourtHome
+                displayName={effectiveDisplayName ?? username} coins={coins} money={principessaMoney}
+                affection={affection} devotion={totalDevotion} streak={loyaltyStreak} avatar={mobileAvatar}
+                onAddMoney={() => setShowCoinCodeModal(true)}
+                onNavigate={page => { void preloadDashboardPanel(page); resetViewportScroll(); setActivePanel(page); }}
               />
+              </> : homeCommandCenter}
+              <CommunityContainer className={mobileLayout ? "mobile-court-standings" : "contents"}>
+              {mobileLayout && <><summary>Court standings <span>Community</span></summary>{homeCommandCenter}</>}
               <div className="grid min-w-0 gap-6 xl:grid-cols-2">
                 <AffectionRead affection={affection} message={scriptedMessage}/>
                 {communityGoal ? <CommunityGoalWidget badges={currentUserPrestigeBadges} goal={communityGoal} onBadgesChange={() => void loadCommunityStatus()} /> : null}
@@ -11783,6 +11818,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 isLoading={communityStatusLoading}
                 onSelectUser={(userId) => setSelectedCommunityProfileId(userId)}
               />
+              {mobileLayout && <RecentTributesTicker currentUsername={effectiveDisplayName ?? username} topTributes={topTributes} tributes={recentTributes} showRecentOpenings={false} usernameStyle={usernameStyle}/>}
+              </CommunityContainer>
+
             </div>
           )}
           {activePanel === "tribute" && (
@@ -11838,7 +11876,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
           {activePanel === "wheels" && (
-            <GambleWheelsLobby>
+            <GambleWheelsLobby mobileLayout={mobileLayout}>
               <GambleHall
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
@@ -11855,7 +11893,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               />
             </GambleWheelsLobby>
           )}
-          {activePanel === "tasks" && <GamesWorkspace courtGames={(
+          {activePanel === "tasks" && <GamesWorkspace mobileLayout={mobileLayout} courtGames={(
             <div className="mb-4">
               <CourtGames
                 coins={coins}
@@ -12041,6 +12079,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onPurchaseCosmetic={handlePurchaseCosmetic}
               />
               <CosmeticShop
+                mobileLayout={mobileLayout}
                 equippedAvatarSlots={equippedAvatarSlots}
                 equippedFullSetId={equippedFullSetId}
                 hasUncensoredAvatar={hasUncensoredAvatar}
@@ -12863,7 +12902,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             />
           )}
         </section>
-      </AppShell>
+      </DashboardShell>
       {selectedCommunityProfileId && <PublicProfileModal
         data={selectedCommunityProfile}
         error={selectedCommunityProfileError}

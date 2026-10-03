@@ -142,6 +142,17 @@
 .draftQuote strong { color:#eee4d6; font-weight:600; font-variant-numeric:tabular-nums; }
 
 .contractSlot { min-width:0; }.contractSlot[hidden] { display:none; }
+.documents[data-mobile-contracts=true] { grid-template-columns:minmax(0,1fr)!important; gap:12px; }
+.documents[data-mobile-contracts=true]>div { grid-column:1!important; grid-row:auto!important; }
+.documents[data-mobile-contracts=true] .index { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; padding:4px; border:1px solid #d2b17b22; border-radius:12px; background:#1a1016; position:sticky; top:60px; z-index:40; }
+.documents[data-mobile-contracts=true] .index button { justify-content:center; min-width:0; min-height:44px; padding:8px 4px; font-size:10px; gap:0; border-color:transparent; border-radius:9px; }
+.documents[data-mobile-contracts=true] .index button>span { display:none; }
+.documents[data-mobile-contracts=true] .contractHeading { padding:16px; }
+.documents[data-mobile-contracts=true] .contractHeading h3 { font-size:25px; margin:12px 0 8px; }
+.documents[data-mobile-contracts=true] .contractHeading p { margin-bottom:10px; }
+.documents[data-mobile-contracts=true] .body { padding:16px; }
+.documents[data-mobile-contracts=true] .commitmentColumn { grid-column:1!important; grid-row:auto!important; }
+.documents[data-mobile-contracts=true] .commitmentColumn:empty { display:none; }
 .index button { display:inline-flex; align-items:center; gap:12px; color:#d3c2a5; font:12px/1.4 var(--font-geist-sans,Arial),sans-serif; padding:10px 15px; border:1px solid #b8956035; background:#130e10; border-radius:5px; cursor:pointer; transition:background .15s,border-color .15s; }
 .index button>span { color:#8c7965; font-family:Georgia,serif; }
 .index button:hover { border-color:#d6b276; background:#b895601c; }.index button[aria-pressed=true] { border-color:#d6b276; background:#6d492734; color:#ffe7bb; }.index button[aria-pressed=true]>span { color:#e5b976; }

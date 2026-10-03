@@ -1,6 +1,7 @@
 "use client";
 
-import { type CSSProperties, type ReactNode } from "react";
+import { useContext, type CSSProperties, type ReactNode } from "react";
+import { MobileCourtContext } from "@/lib/mobile-court-context";
 import ui from "./TaskExperience.module.css";
 import { CourtGlyph } from "./court/CourtVisuals";
 
@@ -63,19 +64,22 @@ export function TaskExperienceCard({ kind, taskId, title, reward, status, notice
   reaction?: string | number; children: ReactNode;
 }) {
   const identity = identities[kind] ?? identities.review;
+  const mobile = useContext(MobileCourtContext);
+  const Container = mobile ? "details" : "article";
+  const Heading = mobile ? "summary" : "header";
   return (
-    <article className={`${ui.card} ${wide ? ui.wide : ""}`} data-task-id={taskId} data-task-kind={kind} data-task-state={state}>
-      <div className={ui.reaction} key={`${state}-${reaction ?? ""}`} aria-hidden="true" />
-      <header className={ui.cardHeader}>
+    <Container className={`${ui.card} ${wide ? ui.wide : ""}`} data-mobile-task={mobile || undefined} data-task-id={taskId} data-task-kind={kind} data-task-state={state}>
+      {!mobile && <div className={ui.reaction} key={`${state}-${reaction ?? ""}`} aria-hidden="true" />}
+      <Heading className={ui.cardHeader}>
         <div className={ui.identityMark} aria-hidden="true"><span>{identity.mark}</span><i /><i /></div>
         <div className={ui.identityCopy}><p>{identity.label}</p><h3>{title}</h3></div>
         <div className={ui.status}>{status ?? <span>{state}</span>}</div>
-      </header>
+      </Heading>
       {reward && <div className={ui.reward}><span className={ui.rewardLabel}>At stake</span><div>{reward}</div></div>}
       {notice && <div className={ui.notice}>{notice}</div>}
       <div className={ui.cardBody}>{children}</div>
 
-    </article>
+    </Container>
   );
 }
 
@@ -113,4 +117,3 @@ export function TaskInputSignal({ count, label, total }: { count: number; label:
     <span>{label}</span><div>{Array.from({ length: total }, (_, i) => <i key={i} data-remaining={i < count} />)}</div><strong>{count}/{total}</strong>
   </div>;
 }
-

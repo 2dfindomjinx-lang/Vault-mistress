@@ -35,6 +35,7 @@ function ShopCountdown({ target }: { target: string }) {
 }
 
 type CosmeticShopProps = {
+  mobileLayout?: boolean;
   equippedAvatarSlots?: EquippedAvatarSlots;
   equippedFullSetId?: string | null;
   hasUncensoredAvatar?: boolean;
@@ -55,6 +56,7 @@ type CosmeticShopProps = {
 };
 
 export function CosmeticShop({
+  mobileLayout = false,
   equippedAvatarSlots = {},
   equippedFullSetId = null,
   hasUncensoredAvatar = false,
@@ -73,6 +75,7 @@ export function CosmeticShop({
   onPurchaseCosmetic,
   onPurchaseTitle,
 }: CosmeticShopProps) {
+  const [mobileCategory, setMobileCategory] = useState("speech-avatar");
   const [farewell, setFarewell] = useState(() => getWorldCupFarewell());
   useEffect(() => {
     const interval = window.setInterval(() => setFarewell(getWorldCupFarewell()), 60_000);
@@ -265,13 +268,16 @@ export function CosmeticShop({
         Make her mark your signature. Cosmetics count toward coin spending, not Tribute Total.
       </p>
 
-      {farewell.active && farewell.endsAt && (
+      {mobileLayout && <nav className={styles.mobileCategories} aria-label="Shop categories">
+        {[...groupedItems.map(group => ({key:group.type,label:group.label})),{key:"identity",label:"Identity"},{key:"farewell",label:"Farewell"}].map(category => <button key={category.key} type="button" aria-pressed={mobileCategory === category.key} onClick={() => setMobileCategory(category.key)}>{category.label}</button>)}
+      </nav>}
+      {farewell.active && farewell.endsAt && (!mobileLayout || mobileCategory === "farewell") && (
         <section className={styles.farewell} aria-label="World Cup farewell collection">
           <div className={styles.farewellHeading}><div><span>Last call · World Cup</span><h3>One final appearance.</h3><p>All {worldCupFarewellBorders.length} club and national-team borders. Half price for seven days. Yours to keep.</p></div><span className={styles.farewellTime}><ShopCountdown target={farewell.endsAt} /></span></div>
           <div className={styles.farewellGrid}>{renderCosmeticCards(worldCupFarewellBorders)}</div>
         </section>
       )}
-      {groupedItems.map((group) => (
+      {groupedItems.filter(group => !mobileLayout || group.type === mobileCategory).map((group) => (
         <div className="mt-6" key={group.type}>
           <p className={styles.sectionLabel}>
             {group.label}
@@ -283,7 +289,7 @@ export function CosmeticShop({
       ))}
 
       {/* Profile Identity category with sub items: colors, glows, and minimal display name */}
-      <div className="mt-6">
+      <div className="mt-6" hidden={mobileLayout && mobileCategory !== "identity"}>
         <p className={styles.sectionLabel}>Profile Identity</p>
 
         {usernameColorItems.length > 0 && (

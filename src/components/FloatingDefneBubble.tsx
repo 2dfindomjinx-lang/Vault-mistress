@@ -136,6 +136,7 @@ export function FloatingDefneBubble({
       ref={presenceRef}
       popover="manual"
       aria-label="Principessa speech"
+      data-speaking={showInteractive}
       className={`court-floating-character ${styles.presence} ${showInteractive ? styles.speaking : ""}`}
     >
       {hasActiveMessage && (

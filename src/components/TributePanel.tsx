@@ -558,7 +558,7 @@ export function TributePanel({
 
       {!hideAffectionOffer && (
         <>
-      <div className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-3">
+      <div data-affection-offers className="court-grid court-grid--shop mt-5 grid gap-4 md:grid-cols-3">
             {tributeOptions.map((option) => (
               <button
             className="court-grid-card court-grid-card--gold group rounded-[1.5rem] border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.08),rgba(236,72,153,0.08),rgba(0,0,0,0.42))] p-5 text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-pink-300/50 enabled:hover:shadow-[0_0_30px_rgba(236,72,153,0.2)] disabled:cursor-not-allowed disabled:opacity-45"
@@ -619,7 +619,7 @@ export function TributePanel({
 
           <div className="mt-5 grid items-start gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(16rem,0.55fr)]">
             <div className="grid gap-4">
-            <div className="court-grid court-grid--shop grid items-start gap-3 md:grid-cols-3">
+            <div data-shrine-offers className="court-grid court-grid--shop grid items-start gap-3 md:grid-cols-3">
               {SHRINE_PURCHASE_OPTIONS.map((option) => (
                 <button
                   className="court-grid-card court-grid-card--gold group flex h-full flex-col self-stretch overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.24),rgba(88,28,135,0.12),rgba(0,0,0,0.52))] text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"

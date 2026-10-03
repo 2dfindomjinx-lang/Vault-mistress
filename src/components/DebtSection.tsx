@@ -2,7 +2,8 @@
 import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
 import { emitSoundEvent } from "@/lib/sound";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { MobileCourtContext } from "@/lib/mobile-court-context";
 import Image from "next/image";
 import { ContractDocument, ContractClause, ContractField, ContractSignature, CoinContractSummary } from "./DebtContractPresentation";
 import styles from "./DebtContracts.module.css";
@@ -269,6 +270,8 @@ export function DebtSection({
   petDebtContract,
   tasks,
 }: DebtSectionProps) {
+  const mobile = useContext(MobileCourtContext);
+  const [mobileContract, setMobileContract] = useState<"coin" | "evil" | "throne">("coin");
   const now = useDeadlineClock(
     [petDebtContract?.next_due_at, ...tasks.map((task) => task.cooldownUntil)],
     60_000,
@@ -293,12 +296,16 @@ export function DebtSection({
   const [evilPurchasePledge, setEvilPurchasePledge] = useState(false);
   const [throneSummary, setThroneSummary] = useState<ThroneDebtContract | null>(null);
   const [contractFilters, setContractFilters] = useState<Array<"coin" | "evil" | "throne">>([]);
-  const toggleContractFilter = (kind: "coin" | "evil" | "throne") => setContractFilters(current => {
+  const toggleContractFilter = (kind: "coin" | "evil" | "throne") => {
+    if (mobile) { setMobileContract(kind); return; }
+    setContractFilters(current => {
     const next = current.includes(kind) ? current.filter(value => value !== kind) : [...current, kind];
     return next.length === 3 ? [] : next;
-  });
+    });
+  };
   const contractVisible = (kind: "coin" | "evil" | "throne") => {
     if (hasOpenDebtContract && (kind === "coin" && activeDebtContractType === "evil" || kind === "evil" && activeDebtContractType === "normal")) return false;
+    if (mobile) return kind === (hasOpenDebtContract && mobileContract !== "throne" ? activeDebtContractType === "evil" ? "evil" : "coin" : mobileContract);
     return contractFilters.length === 0 || contractFilters.includes(kind);
   };
   const [showDebtSigningImage, setShowDebtSigningImage] = useState<"normal" | "evil" | null>(null);
@@ -463,9 +470,9 @@ export function DebtSection({
   }
 
   return (
-    <section className={styles.documents} aria-label="Debt agreements" data-recorded-layout={hasOpenDebtContract} data-visible-count={(["coin", "evil", "throne"] as const).filter(contractVisible).length}>
+    <section className={styles.documents} aria-label="Debt agreements" data-mobile-contracts={mobile || undefined} data-recorded-layout={hasOpenDebtContract} data-visible-count={(["coin", "evil", "throne"] as const).filter(contractVisible).length}>
       <nav className={styles.index} aria-label="Filter agreements">
-        {([{kind:"coin",label:"Coin Debt"},{kind:"evil",label:"Evil Debt"},{kind:"throne",label:"Throne Debt"}] as const).map((item,index)=><button type="button" key={item.kind} disabled={hasOpenDebtContract && (item.kind === "coin" && activeDebtContractType === "evil" || item.kind === "evil" && activeDebtContractType === "normal")} aria-pressed={contractFilters.includes(item.kind)} aria-controls={item.kind+"-contract-panel"} onClick={()=>toggleContractFilter(item.kind)}><span>{String(index+1).padStart(2,"0")}</span>{item.label}</button>)}
+        {([{kind:"coin",label:"Coin Debt"},{kind:"evil",label:"Evil Debt"},{kind:"throne",label:"Throne Debt"}] as const).map((item,index)=><button type="button" key={item.kind} disabled={hasOpenDebtContract && (item.kind === "coin" && activeDebtContractType === "evil" || item.kind === "evil" && activeDebtContractType === "normal")} aria-pressed={mobile ? contractVisible(item.kind) : contractFilters.includes(item.kind)} aria-controls={item.kind+"-contract-panel"} onClick={()=>toggleContractFilter(item.kind)}><span>{String(index+1).padStart(2,"0")}</span>{item.label}</button>)}
       </nav>
       <div className={styles.contractSlot} id="coin-contract-panel" hidden={!contractVisible("coin")}><DebtCard
         active={activeDebtContractType === "normal"}

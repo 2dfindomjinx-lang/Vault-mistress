@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
 import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { MobileCourtContext } from "@/lib/mobile-court-context";
 import { PRINCIPESSA_PITY_CRATE, PRINCIPESSA_PITY_THRESHOLD, isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
 import {
   RARITY_COLORS,
@@ -151,6 +152,8 @@ export function CratesPanel({
   pending = false,
   onUpgraded,
 }: CratesPanelProps) {
+  const mobile = useContext(MobileCourtContext);
+  const InventoryContainer = mobile ? "details" : "article";
   // Falls back to a blocking dialog only if the host forgot to wire onNotice -
   // losing the reason a sale failed is worse than an ugly popup.
   const notice = useCallback(
@@ -1014,6 +1017,7 @@ export function CratesPanel({
       </dialog>
 
       <div className="cases-stack relative z-[5] mt-6 flex flex-col">
+
       {/* INVENTORY under Cases static */}
       <div className={`${styles.inventory} inventory-section relative z-[1] order-last`}>
           {/* Inventory header: value on left, global Sell All on top-right as requested */}
@@ -1054,7 +1058,7 @@ export function CratesPanel({
           </div>
 
           {inventory.length > 0 ? (
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <div data-inventory-filters className="mb-3 flex flex-wrap items-center gap-1.5">
               <button
                 aria-pressed={allRaritiesActive}
                 className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
@@ -1114,10 +1118,15 @@ export function CratesPanel({
                 const isProtected = isClassicDefault;
 
                 return (
-                  <article
+                  <InventoryContainer
                     key={key}
                     className={`${styles.product} ${styles.inventoryCard} ${getRarityColor(item.rarity)}`}
+                    data-inventory-item={item.item_id}
                   >
+                    {mobile && <summary className="mobile-inventory-summary">
+                      <img alt="" src={getCrateItemImageUrl(item.item_id,item.image_url ?? null) ?? undefined} width={36} height={36} loading="lazy"/>
+                      <span><strong>{item.name}</strong><small style={{color:RARITY_HEX[item.rarity]}}>{item.rarity} · ×{item.quantity}</small></span><b aria-hidden="true">+</b>
+                    </summary>}
                     <div className="flex items-start gap-3">
                       <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
@@ -1208,7 +1217,7 @@ export function CratesPanel({
                                 variant: item.variant,
                               })
                             }
-                            disabled={disabled || isSelling}
+                            disabled={(!mobile && disabled) || isSelling}
                             className="mt-1.5 w-full rounded-2xl border border-pink-200/20 bg-pink-500/5 py-1.5 text-xs font-semibold text-pink-100 transition hover:bg-pink-500/10 disabled:opacity-50"
                           >
                             Upgrade
@@ -1216,7 +1225,7 @@ export function CratesPanel({
                         ) : null}
                       </div>
                     </div>
-                  </article>
+                  </InventoryContainer>
                 );
               })}
             </div>

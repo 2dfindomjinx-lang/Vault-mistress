@@ -3,7 +3,7 @@ import { LiveChatWidget } from "@/components/LiveChatWidget";
 import { SidebarNav, type DashboardPage, type SidebarNavItem } from "@/components/SidebarNav";
 import styles from "./CourtChrome.module.css";
 
-type AppShellProps = {
+export type AppShellProps = {
   activePage: DashboardPage;
   guestMode?: boolean;
   children: ReactNode;
@@ -13,6 +13,8 @@ type AppShellProps = {
   onAddMoney?: () => void;
   onCoinsChange?: (coins: number) => void;
   onNavigate: (page: DashboardPage) => void;
+  mobileAccount?: ReactNode;
+  mobileNotifications?: ReactNode;
 };
 
 export function AppShell({ guestMode = false, activePage, children, coins, items, money, onAddMoney, onCoinsChange, onNavigate }: AppShellProps) {
