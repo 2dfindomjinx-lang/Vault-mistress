@@ -504,7 +504,10 @@ export function RecentCaseOpenings() {
                 aria-label={`${opening.itemName}: opener details`}
                 aria-pressed={flippedOpening === opening.id}
                 data-flipped={flippedOpening === opening.id}
-                onClick={() => setFlippedOpening(current => current === opening.id ? null : opening.id)}
+                onClick={() => {
+                  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+                  setFlippedOpening(current => current === opening.id ? null : opening.id);
+                }}
                 onKeyDown={event => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -539,7 +542,8 @@ export function RecentCaseOpenings() {
                       </p>
                     </div>
                     <p className="text-[10px] text-zinc-300">
-                      Tap for opener details
+                      <span className={openingStyles.touchHint}>Tap for opener details</span>
+                      <span className={openingStyles.hoverHint}>Hover for opener details</span>
                     </p>
                   </div>
 
