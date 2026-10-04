@@ -1,0 +1,7 @@
+.card { cursor:pointer; touch-action:pan-x pan-y; outline-offset:3px; }
+.card[data-flipped=true] .faces { transform:rotateY(180deg); }
+@media (hover:hover) and (pointer:fine) {
+  .card:hover .faces { transform:rotateY(180deg); }
+}
+@media (min-width:768px) and (hover:hover) and (pointer:fine) { .strip { overflow-x:hidden; } .strip .card { width:var(--opening-card-width,188px); } }
+@media (prefers-reduced-motion:reduce) { .faces { transition-duration:0ms; } }

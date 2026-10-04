@@ -220,3 +220,12 @@
 .mobileCategories { display:flex; gap:6px; overflow-x:auto; overscroll-behavior-x:contain; padding:6px 0 12px; scrollbar-width:none; }
 .mobileCategories button { flex-shrink:0; min-height:42px; padding:8px 12px; border-radius:10px; border:1px solid #ee67b52b; color:#c9a9be; font-size:11px; background:#1b1019; }
 .mobileCategories button[aria-pressed=true] { color:#ffe8f4; background:#ee67b525; border-color:#ee67b570; }
+
+/* Prices and purchase actions must fit narrow wardrobe cards. */
+@media(max-width:760px) {
+ .cosmeticCard { min-width:0; }
+ .cosmeticCard > div:nth-child(2) { flex-wrap:wrap; gap:8px; }
+ .cosmeticCard .productActions { flex-wrap:wrap; min-width:0; gap:8px; }
+ .cosmeticCard .productActions button { min-width:0; width:100%; padding-inline:8px; overflow-wrap:anywhere; }
+ .cosmeticCard .salePrice { max-width:100%; }
+}

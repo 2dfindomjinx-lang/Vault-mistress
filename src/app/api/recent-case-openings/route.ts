@@ -54,11 +54,12 @@ type CaseOpener = {
 };
 
 // Keep the latest real openings regardless of age: inactivity must not empty
-// this feed. The homepage displays six opening cards. Fetching a small buffer lets us
+// this feed. Desktop needs enough cards to continue beyond the strip edge.
+// Fetching a small buffer lets us
 // skip malformed/legacy rows without turning the ticker into a 500-row API
 // payload on every visit.
 const CASE_OPENING_QUERY_LIMIT = 40;
-const CASE_OPENING_RESPONSE_LIMIT = 6;
+const CASE_OPENING_RESPONSE_LIMIT = 14;
 
 export async function GET() {
   if (!isSupabaseAdminConfigured) {

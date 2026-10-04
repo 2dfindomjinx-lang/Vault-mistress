@@ -1,7 +1,8 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useState } from "react";
+import openingStyles from "./RecentCaseOpenings.module.css";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MoneyIcon } from "@/components/MoneyIcon";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { DEFAULT_TRIBUTE_AVATAR_SRC } from "@/lib/avatar-fallbacks";
@@ -383,6 +384,28 @@ export function RecentCaseOpenings() {
   const [recentCaseOpenings, setRecentCaseOpenings] = useState<RecentCaseOpeningCard[]>([]);
   const [recentCaseOpeningsError, setRecentCaseOpeningsError] = useState("");
   const [openingsLoading, setOpeningsLoading] = useState(true);
+  const [flippedOpening, setFlippedOpening] = useState<string | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [desktopCardWidth, setDesktopCardWidth] = useState(188);
+
+  useEffect(() => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const resize = () => {
+      const width = strip.clientWidth;
+      if (!width) return;
+      // Fit whole cards plus half of the next card, with a 12px gap.
+      // A sparse feed stays at its natural width; never fabricate openings.
+      const wholeCards = Math.max(1, Math.floor((width + 12) / 200 - 0.5));
+      setDesktopCardWidth(recentCaseOpenings.length > wholeCards
+        ? (width - wholeCards * 12) / (wholeCards + 0.5)
+        : 188);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(strip);
+    resize();
+    return () => observer.disconnect();
+  }, [recentCaseOpenings.length]);
   useEffect(() => {
 
     let mounted = true;
@@ -460,24 +483,37 @@ export function RecentCaseOpenings() {
         {recentCaseOpeningsError && <p role="status" className="mt-3 text-xs text-amber-100/80">{recentCaseOpenings.length ? "Refresh unavailable. Showing the last loaded openings." : "Openings are temporarily unavailable. We will retry shortly."}</p>}
         {recentCaseOpenings.length > 0 ? (
           <div
-            className="recent-openings-strip mt-3 flex gap-3 overflow-x-auto pb-1 md:overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            ref={stripRef}
+            style={{ "--opening-card-width": `${desktopCardWidth}px` } as CSSProperties}
+            className={`${openingStyles.strip} recent-openings-strip mt-3 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
             // overflow-x-hidden still lets the browser scroll a clipped card into
             // view when it takes keyboard focus; on desktop the strip is meant
             // to stay put, so any such scroll is undone.
             onScroll={(event) => {
-              if (event.currentTarget.scrollLeft !== 0 && window.matchMedia("(min-width: 768px)").matches) {
+              if (event.currentTarget.scrollLeft !== 0 && window.matchMedia("(min-width: 768px) and (hover: hover) and (pointer: fine)").matches) {
                 event.currentTarget.scrollLeft = 0;
               }
             }}
           >
             {recentCaseOpenings.map((opening, openingIndex) => (
               <article
-                className={`recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${openingIndex >= RECENT_OPENINGS_MOBILE ? "hidden md:block" : ""} ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`${openingStyles.card} recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${openingIndex >= RECENT_OPENINGS_MOBILE ? "hidden md:block" : ""} ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
+                role="button"
+                aria-label={`${opening.itemName}: opener details`}
+                aria-pressed={flippedOpening === opening.id}
+                data-flipped={flippedOpening === opening.id}
+                onClick={() => setFlippedOpening(current => current === opening.id ? null : opening.id)}
+                onKeyDown={event => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setFlippedOpening(current => current === opening.id ? null : opening.id);
+                  } else if (event.key === "Escape") setFlippedOpening(null);
+                }}
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
               >
-                <div className="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] group-focus-visible:[transform:rotateY(180deg)]">
+                <div className={`${openingStyles.faces} relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]`}>
                   <div className={`absolute inset-0 flex flex-col gap-2 overflow-hidden rounded-2xl border p-2 ${getRarityGlowClass(opening.itemRarity)} [backface-visibility:hidden]`}>
                     <div className="flex h-[116px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
                       {opening.itemImageUrl ? (
@@ -503,7 +539,7 @@ export function RecentCaseOpenings() {
                       </p>
                     </div>
                     <p className="text-[10px] text-zinc-300">
-                      Hover for opener details
+                      Tap for opener details
                     </p>
                   </div>
 
