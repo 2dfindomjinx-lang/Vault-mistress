@@ -316,14 +316,16 @@ export const SLOT_LABELS: Record<AvatarSlot, string> = {
 // `fullLegs` sits with the other legwear (below `bottom`, so a skirt still
 // covers its top edge). It never coexists with shoes/thighhighs/leggings, so
 // its exact position among them is only about what a future overlap would do.
+// `bottom` follows `top`: skirt/short waistbands cover shirt and camisole hems
+// so the top looks tucked in, matching the Principessa wardrobe renderer.
 const RENDER_LAYER_ORDER: Array<Exclude<AvatarSlot, "toy">> = [
   "tattoo",
   "thighhighs",
   "leggings",
   "shoes",
   "fullLegs",
-  "bottom",
   "top",
+  "bottom",
   "fullBody",
   "collar",
   "hands",
