@@ -30,7 +30,10 @@
     "test:court-fixes:browser": "node scripts/court-fixes-browser-check.mjs",
     "test:debt:browser": "node scripts/throne-debt-browser-check.mjs && node scripts/debt-contracts-browser-check.mjs",
     "prebuild": "node scripts/generate-server-assets.mjs",
-    "predev": "node scripts/generate-server-assets.mjs"
+    "predev": "node scripts/generate-server-assets.mjs",
+    "media:upload": "node scripts/private-media-storage.mjs --upload",
+    "media:verify": "node scripts/private-media-storage.mjs --verify",
+    "test:paid-operations": "node scripts/paid-operation-check.mjs && node scripts/paid-route-check.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/paid-client-check.mjs && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/refresh-queue-check.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
@@ -38,7 +41,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "firebase-admin": "^14.2.0",
-    "next": "16.3.4",
+    "next": "16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -50,9 +53,15 @@
     "@types/react-dom": "^19",
     "esbuild": "^0.28.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.3.8",
     "playwright": "^1.63.0",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "gaxios@6": {
+      "uuid": "^11.1.1"
+    }
   }
 }

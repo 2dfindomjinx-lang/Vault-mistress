@@ -113,6 +113,7 @@ export async function GET() {
         }));
 
   return Response.json({
+    userId: user.id,
     chastityUntil: profile.chastity_until,
     debtors,
     money: Math.max(0, Number(profile.principessa_money) || 0),
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
   if (!user) return jsonError("Authentication required.", 401);
 
   const body = (await request.json().catch(() => null)) as
-    | { action?: "pay-pm" | "spin"; spinId?: string; wheelId?: string }
+    | { action?: "pay-pm" | "spin"; spinId?: string; wheelId?: string; requestId?: string }
     | null;
 
   const supabase = createSupabaseAdminClient();
@@ -140,32 +141,17 @@ export async function POST(request: Request) {
     if (!isWheelId(body.wheelId)) return jsonError("Unknown wheel.");
     const wheel = WHEELS[body.wheelId];
 
-    // Cross-site discipline: an unpaid wheel debt on Principessa2DFD (the
-    // Court site, court_wheel_debts in the shared DB) blocks spinning here
-    // too, exactly like a local unpaid spin. If the table does not exist yet
-    // the check is skipped rather than breaking the vault.
-    const courtDebtResult = await supabase
-      .from("court_wheel_debts")
-      .select("amount_usd, code")
-      .eq("user_id", user.id)
-      .eq("status", "unpaid")
-      .limit(1)
-      .maybeSingle();
-    if (courtDebtResult.error) {
-      console.warn("[wheels] court debt check unavailable", courtDebtResult.error.message);
-    } else if (courtDebtResult.data) {
-      return jsonError(
-        `You owe $${Number(courtDebtResult.data.amount_usd)} on the Principessa2DFD wheel (code ${courtDebtResult.data.code}). Pay that first.`,
-        409,
-      );
-    }
+    if (typeof body.requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestId)) return jsonError("Refresh the page and try again.", 422);
 
     // The outcome exists before the animation does. randomInt is crypto-backed
     // and unguessable; the client only ever receives the finished result.
     const segmentIndex = pickWheelSegmentIndex(wheel.id, randomInt(0, 1_000_000) / 1_000_000);
     const segment = wheel.segments[segmentIndex];
 
-    const { data, error } = await supabase.rpc("spin_findom_wheel", {
+    const { data, error } = await supabase.rpc("spin_findom_wheel_once", {
+      p_request_id: body.requestId,
+      p_segment_index: segmentIndex,
+      p_throne_url: segment.throneUrl ?? null,
       p_amount: segment.amount,
       p_cost_pm: wheel.spinCostPm,
       p_kind: wheel.kind,
@@ -180,6 +166,8 @@ export async function POST(request: Request) {
     }
 
     const result = (data ?? {}) as {
+      segmentIndex: number;
+      segment: { amount: number; label: string; throneUrl: string | null };
       amountOwed?: number;
       chastityUntil?: string;
       error?: string;
@@ -205,8 +193,8 @@ export async function POST(request: Request) {
       chastityUntil: result.chastityUntil ?? null,
       payCode: result.payCode ?? null,
       profile: profileData ?? null,
-      segment: { amount: segment.amount, label: segment.label, throneUrl: segment.throneUrl ?? null },
-      segmentIndex,
+      segment: result.segment,
+      segmentIndex: result.segmentIndex,
       spinId: result.spinId,
       wheelId: wheel.id,
     });

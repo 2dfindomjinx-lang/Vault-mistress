@@ -54,7 +54,8 @@ export async function GET() {
   const { data: inventory } = await supabase
     .from("user_crate_inventory")
     .select("item_id, quantity, pm_quantity")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("variant", "normal");
 
   const ownedFromShop = new Map<string, number>();
   const ownedInInventory = new Map<string, number>();
@@ -92,10 +93,11 @@ export async function POST(request: Request) {
   const userId = await requireUser();
   if (!userId) return jsonError("Authentication required.", 401);
 
-  const body = (await request.json().catch(() => null)) as { action?: string; itemId?: string } | null;
+  const body = (await request.json().catch(() => null)) as { action?: string; itemId?: string; requestId?: string } | null;
   if (body?.action !== "buy" && body?.action !== "sell") {
     return jsonError("Invalid Money Shop action.", 422);
   }
+  if (typeof body.requestId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.requestId)) return jsonError("Refresh the page and try again.", 422);
   const action = body.action;
   const itemId = typeof body?.itemId === "string" ? body.itemId : "";
   const item = getShopItem(itemId);
@@ -108,164 +110,28 @@ export async function POST(request: Request) {
   const pricePm = getMoneyShopPrice(item.sell_value);
   const refundPm = getMoneyBuybackAmount(pricePm);
 
-  const { data: profileData, error: profileError } = await supabase
-    .from("profiles")
-    .select(profileSelect)
-    .eq("id", userId)
-    .single();
-
-  if (profileError || !profileData) {
-    return jsonError(profileError?.message ?? "Profile not found.", 404);
-  }
-
-  const money = Math.max(0, Math.floor(Number((profileData as unknown as { principessa_money: number }).principessa_money) || 0));
-
-  const { data: inventoryRow } = await supabase
-    .from("user_crate_inventory")
-    .select("id, quantity, pm_quantity")
-    .eq("user_id", userId)
-    .eq("item_id", itemId)
-    .eq("variant", "normal")
-    .maybeSingle();
-
-  const current = inventoryRow as { id: string; pm_quantity: number | null; quantity: number } | null;
-  const currentQuantity = Math.max(0, Number(current?.quantity) || 0);
-  const currentPmQuantity = Math.max(0, Number(current?.pm_quantity) || 0);
-
-  if (action === "sell") {
-    if (currentPmQuantity < 1) {
-      return jsonError("You have no shop-bought copy of this item to return.", 409);
-    }
-
-    const nextMoney = money + refundPm;
-    // Inventory first: if the PM credit fails afterwards we roll the row back,
-    // whereas crediting first and failing here would mint PM out of nothing.
-    const nextQuantity = currentQuantity - 1;
-    const nextPmQuantity = currentPmQuantity - 1;
-
-    const inventoryUpdate =
-      nextQuantity <= 0
-        ? await supabase
-            .from("user_crate_inventory")
-            .delete()
-            .eq("id", current!.id)
-            .eq("quantity", currentQuantity)
-            .eq("pm_quantity", currentPmQuantity)
-            .select("id")
-            .maybeSingle()
-        : await supabase
-            .from("user_crate_inventory")
-            .update({ pm_quantity: nextPmQuantity, quantity: nextQuantity })
-            .eq("id", current!.id)
-            .eq("quantity", currentQuantity)
-            .eq("pm_quantity", currentPmQuantity)
-            .select("id")
-            .maybeSingle();
-
-    if (inventoryUpdate.error || !inventoryUpdate.data) {
-      return jsonError(inventoryUpdate.error?.message ?? "Inventory changed, try again.", inventoryUpdate.error ? 500 : 409);
-    }
-
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from("profiles")
-      .update({ principessa_money: nextMoney, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-      .eq("principessa_money", money)
-      .select(profileSelect)
-      .maybeSingle();
-
-    if (updateError || !updatedProfile) {
-      // Put the copy back so the user is not left with neither item nor refund.
-      await supabase.from("user_crate_inventory").upsert(
-        { item_id: itemId, pm_quantity: currentPmQuantity, quantity: currentQuantity, user_id: userId, variant: "normal" },
-        { onConflict: "user_id,item_id,variant" },
-      );
-      return jsonError(updateError?.message ?? "Balance changed, try again.", updateError ? 500 : 409);
-    }
-
-    const { error: transactionError } = await supabase.from("money_transactions").insert({
-      amount: refundPm,
-      balance_after: nextMoney,
-      balance_before: money,
-      metadata: { itemId, pricePm },
-      reason: "money-shop:buyback",
-      user_id: userId,
-    });
-
-    if (transactionError) {
-      await supabase
-        .from("profiles")
-        .update({ principessa_money: money, updated_at: new Date().toISOString() })
-        .eq("id", userId)
-        .eq("principessa_money", nextMoney);
-      await supabase.from("user_crate_inventory").upsert(
-        { item_id: itemId, pm_quantity: currentPmQuantity, quantity: currentQuantity, user_id: userId, variant: "normal" },
-        { onConflict: "user_id,item_id,variant" },
-      );
-      return jsonError("Buyback logging failed; nothing was changed.", 500);
-    }
-
-    return Response.json({ profile: updatedProfile, refundPm });
-  }
-
-  if (money < pricePm) {
-    return jsonError(`This costs ${pricePm.toLocaleString()} Principessa Money.`, 402);
-  }
-
-  const nextMoney = money - pricePm;
-  const { data: updatedProfile, error: updateError } = await supabase
-    .from("profiles")
-    .update({ principessa_money: nextMoney, updated_at: new Date().toISOString() })
-    .eq("id", userId)
-    .eq("principessa_money", money)
-    .select(profileSelect)
-    .maybeSingle();
-
-  if (updateError || !updatedProfile) {
-    return jsonError(updateError?.message ?? "Balance changed, try again.", updateError ? 500 : 409);
-  }
-
-  const { error: inventoryError } = await supabase.from("user_crate_inventory").upsert(
-    {
-      item_id: itemId,
-      pm_quantity: currentPmQuantity + 1,
-      quantity: currentQuantity + 1,
-      user_id: userId,
-      variant: "normal",
-    },
-    { onConflict: "user_id,item_id,variant" },
-  );
-
-  if (inventoryError) {
-    await supabase
-      .from("profiles")
-      .update({ principessa_money: money, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-      .eq("principessa_money", nextMoney);
-    return jsonError("Purchase failed, nothing was charged.", 500);
-  }
-
-  const { error: transactionError } = await supabase.from("money_transactions").insert({
-    amount: -pricePm,
-    balance_after: nextMoney,
-    balance_before: money,
-    metadata: { itemId, sellValueCoins: item.sell_value },
-    reason: "money-shop:purchase",
-    user_id: userId,
+  const { data, error } = await supabase.rpc("execute_money_shop", {
+    p_user_id: userId, p_request_id: body.requestId, p_action: action,
+    p_item_id: itemId, p_price_pm: pricePm, p_refund_pm: refundPm,
   });
-
-  if (transactionError) {
-    await supabase
-      .from("profiles")
-      .update({ principessa_money: money, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-      .eq("principessa_money", nextMoney);
-    await supabase.from("user_crate_inventory").upsert(
-      { item_id: itemId, pm_quantity: currentPmQuantity, quantity: currentQuantity, user_id: userId, variant: "normal" },
-      { onConflict: "user_id,item_id,variant" },
-    );
-    return jsonError("Purchase logging failed; nothing was changed.", 500);
+  if (error) {
+    console.error("[money-shop] transaction failed", error);
+    return jsonError("Purchase status unavailable. Retry to check the same request.", 503);
   }
-
-  return Response.json({ pricePm, profile: updatedProfile });
+  const result = data as { error?: string; success?: boolean; pricePm?: number; refundPm?: number } | null;
+  if (result?.error === "insufficient_money") return jsonError("Not enough Principessa Money.", 402);
+  if (result?.error === "no_shop_copy") return jsonError("You have no shop-bought copy to return.", 409);
+  if (result?.error) return jsonError("That request could not be completed.", 409);
+  if (!result?.success) return jsonError("Purchase status unavailable. Retry to check the same request.", 503);
+  // Always read current state, including on replay. A receipt must not rewind a
+  // balance/inventory changed by another tab since the original transaction.
+  const [profile, inventory] = await Promise.all([
+    supabase.from("profiles").select(profileSelect).eq("id", userId).single(),
+    supabase.from("user_crate_inventory").select("quantity, pm_quantity")
+      .eq("user_id", userId).eq("item_id", itemId).eq("variant", "normal").maybeSingle(),
+  ]);
+  if (profile.error || inventory.error || !profile.data) return jsonError("Your receipt is saved. Retry to refresh your balance.", 503);
+  return Response.json({ ...result, profile: profile.data,
+    ownedInInventory: inventory.data?.quantity ?? 0, ownedFromShop: inventory.data?.pm_quantity ?? 0,
+  }, { headers: { "Cache-Control": "no-store" } });
 }

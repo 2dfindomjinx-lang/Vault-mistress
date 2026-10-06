@@ -1,6 +1,7 @@
 "use client";
 
 import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
+import experience from "./PremiumExperience.module.css";
 import styles from "./CollectionSurfaces.module.css";
 import { CourtDialog } from "./CourtDialog";
 
@@ -167,6 +168,8 @@ export function CratesPanel({
     [onNotice],
   );
 
+  const [quickOpening, setQuickOpening] = useState(false);
+  const [newInventoryKeys, setNewInventoryKeys] = useState<string[]>([]);
   const [isOpening, setIsOpening] = useState(false);
   const [openingCrate, setOpeningCrate] = useState<string | null>(null);
   const [reelItems, setReelItems] = useState<WonItem[]>([]);
@@ -567,6 +570,7 @@ export function CratesPanel({
 
     setReelItems(fakeReel);
 
+    const ownedBefore = new Set(inventory.filter(item => item.quantity > 0).map(item => `${item.item_id}:${item.variant}`));
     const res: Awaited<ReturnType<CratesPanelProps["onOpenCrate"]>> = await onOpenCrate(crate.crate_type, qty);
     if (!(res.success && res.result)) {
       const msg = res?.error || "Case open failed.";
@@ -628,6 +632,8 @@ export function CratesPanel({
         await runCrateAnimation(fakeReel, results[0], sequence, false);
       }
 
+      if (!animationMounted.current) return;
+      setNewInventoryKeys([...new Set(results.filter(item => !ownedBefore.has(`${item.item_id}:${item.variant}`)).map(item => `${item.item_id}:${item.variant}`))]);
       setWonItems(results);
       if (!animationMounted.current) return;
       window.dispatchEvent(new Event("court:crate-opened"));
@@ -673,7 +679,7 @@ export function CratesPanel({
     // Audio follows the same centered item index as the visual reel.
     // The pre-built sequence already has near-miss bias (mostly epic/rare teases, few legendary) + winner placement for classic case opening feel.
     return new Promise<void>((resolve) => {
-      const duration = 8200; // ms — solid 8+ seconds as requested
+      const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : quickOpening ? 1800 : 8200;
       const startTime = performance.now();
 
       // Winner placement from buildSpinSequence.
@@ -952,6 +958,8 @@ export function CratesPanel({
           <CoinAmount amount={coins} iconSize={15} label="coins" />
         </p>
       </div>
+
+      <button type="button" className={experience.secondary + " mt-3 self-start"} aria-pressed={quickOpening} disabled={isOpening} onClick={() => setQuickOpening(value => !value)}>Quick opening · {quickOpening ? "On" : "Off"}</button>
 
       {/* The gallery stays mounted underneath the modal so its position is preserved. */}
       {(
@@ -1239,6 +1247,10 @@ export function CratesPanel({
             <button type="button" aria-label="Back to Cases" disabled={isOpening} onClick={closeReveal}>×</button>
           </header>
           <div ref={reelPanelRef} className={styles.caseOpening+" case-opening-panel"}>
+          <div className={experience.caseSeal} data-opening={isOpening}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={getCrateIconUrl(lastOpenedCrateType ?? "") ?? undefined} alt=""/><span>{isOpening ? "Her seal is breaking…" : "The seal is open."}</span>
+          </div>
           {/* DESKTOP SLIDING REEL - card count and card size follow the actual
               panel width, so the track remains natural with any case/item pool. */}
           {!isVerticalMode && !isMobile && (isOpening || wonItems.length > 0) && spinSequence.length > 0 && (
@@ -1350,6 +1362,7 @@ export function CratesPanel({
               {wonItems.length === 1 ? (
                 <div className="mx-auto mb-1 w-full max-w-[680px] text-center">
                   <CrateResultIconFrame item={wonItems[0]} />
+                  {newInventoryKeys.includes(`${wonItems[0].item_id}:${wonItems[0].variant}`) && <p><span className={experience.newDiscovery}>New to your inventory</span></p>}
                   <div className={`inline-flex items-center gap-2 rounded-xl border px-4 py-1 ${getRarityColor(wonItems[0].rarity)} bg-opacity-30`}>
                     <span className="font-black text-base text-white">{wonItems[0].name}</span>
                     <span className="text-[10px] uppercase tracking-widest opacity-70">{wonItems[0].rarity}</span>
@@ -1395,6 +1408,7 @@ export function CratesPanel({
                 <div className="flex gap-3 justify-center flex-wrap">
                   {wonItems.map((item, idx) => (
                     <div key={idx} className="flex flex-col items-center text-xs border border-white/10 rounded p-2.5 bg-black/20 w-40">
+                      {newInventoryKeys.includes(`${item.item_id}:${item.variant}`) && <span className={experience.newDiscovery}>New to your inventory</span>}
                       {(() => {
                         const isLockedItem = item.item_id === "classic";
                         const isLegendary = isBulkSellProtectedRarity(item.rarity);

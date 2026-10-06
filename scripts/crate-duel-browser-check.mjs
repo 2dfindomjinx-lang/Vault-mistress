@@ -20,12 +20,13 @@ window.fixtureInput=input;window.fixtureItems=SAMPLE_CRATE_ITEMS;
 const modal=new URLSearchParams(location.search).has('upgrade')?<CrateUpgradeModal item={{...input,item_id:inputId,variant:'normal'}} onClose={()=>{window.fixtureClosed=true}} onUpgraded={()=>{window.fixtureRefreshed=true}}/>:<CrateDuelBattle duel={duel} onClose={()=>{window.fixtureClosed=true}}/>;
 createRoot(document.getElementById('root')).render(<><button id="outside">Outside</button>{modal}</>);
 `;
-const built = await build({ tsconfigRaw: { compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } } }, stdin: { contents: fixture, resolveDir: process.cwd(), loader: "tsx" }, bundle: true, write: false, format: "iife", platform: "browser", jsx: "automatic", plugins: [{ name: "mute-fixture", setup(build) { build.onLoad({ filter: /[\\/]lib[\\/]sound\.ts$/ }, () => ({ contents: "export const emitSoundEvent=()=>{}", loader: "js" })); } }] });
-const js = built.outputFiles[0].text;
+const built = await build({ outfile: "tmp/duel-fixture.js", tsconfigRaw: { compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } } }, stdin: { contents: fixture, resolveDir: process.cwd(), loader: "tsx" }, bundle: true, write: false, format: "iife", platform: "browser", jsx: "automatic", plugins: [{ name: "mute-fixture", setup(build) { build.onLoad({ filter: /[\\/]lib[\\/]sound\.ts$/ }, () => ({ contents: "export const emitSoundEvent=()=>{}", loader: "js" })); } }] });
+const js = built.outputFiles.find(file => file.path.endsWith(".js")).text;
+const moduleCss = built.outputFiles.find(file => file.path.endsWith(".css"))?.text ?? "";
 const styles = await postcss([tailwind()]).process('@import "tailwindcss" source(none); @source "../src/components/CrateDuelBattle.tsx"; @source "../src/components/CrateUpgradeModal.tsx"; @source "../src/components/CourtDialog.tsx";', { from: path.resolve("scripts/crate-duel-fixture.css") });
 const server = createServer((request, response) => {
   if (request.url === "/fixture.js") { response.setHeader("Content-Type", "text/javascript"); response.end(js); }
-  else if (request.url === "/fixture.css") { response.setHeader("Content-Type", "text/css"); response.end(styles.css); }
+  else if (request.url === "/fixture.css") { response.setHeader("Content-Type", "text/css"); response.end(styles.css + moduleCss); }
   else { response.setHeader("Content-Type", "text/html"); response.end('<!doctype html><link rel="stylesheet" href="/fixture.css"><div id="root"></div><script src="/fixture.js"></script>'); }
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

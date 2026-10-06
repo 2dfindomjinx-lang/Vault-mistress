@@ -1,5 +1,7 @@
 "use client";
 
+import { CollectionVitrine } from "./CollectionVitrine";
+import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import styles from "./CollectionSurfaces.module.css";
 
 import Image from "next/image";
@@ -18,6 +20,10 @@ import {
 
 type MoneyShopPanelProps = {
   previewMode?: boolean;
+  equippedAvatarSlots?: EquippedAvatarSlots;
+  equippedFullSetId?: string | null;
+  hasUncensoredAvatar?: boolean;
+  onWardrobe?: () => void;
   coins: number;
   disabled?: boolean;
   error?: string;
@@ -40,6 +46,7 @@ type MoneyShopPanelProps = {
 
 export function MoneyShopPanel({
   previewMode = false,
+  equippedAvatarSlots = {}, equippedFullSetId = null, hasUncensoredAvatar = false, onWardrobe,
   burnError = "",
   burnedTotal = 0,
   coins,
@@ -58,6 +65,8 @@ export function MoneyShopPanel({
   onSell,
   pendingItemId = null,
 }: MoneyShopPanelProps) {
+  const [viewing, setViewing] = useState<{id:string; owned:number} | null>(null);
+  const viewedItem = items.find(item => item.itemId === viewing?.id);
   const [convertInput, setConvertInput] = useState("");
   const convertAmount = Math.max(0, Math.floor(Number(convertInput) || 0));
   const preview = getMoneyConversionBreakdown(convertAmount);
@@ -172,7 +181,7 @@ export function MoneyShopPanel({
                   className={`${styles.product} ${styles.moneyCard} flex min-w-0 flex-col`}
                   key={item.itemId}
                 >
-                  <div className={`${styles.moneyArt} relative w-full overflow-hidden`}>
+                  <button type="button" aria-label={`Preview ${item.name}`} onClick={() => setViewing({id:item.itemId,owned:item.ownedFromShop})} className={`${styles.moneyArt} relative w-full overflow-hidden cursor-pointer`}>
                     {item.imageUrl ? (
                       <Image alt={item.name} className="object-contain p-2" fill sizes="(min-width: 1280px) 28vw, (min-width: 640px) 44vw, 90vw" src={item.imageUrl} />
                     ) : (
@@ -186,7 +195,7 @@ export function MoneyShopPanel({
                         Owned {item.ownedFromShop}
                       </span>
                     ) : null}
-                  </div>
+                  </button>
 
                   <div className={`${styles.productCopy} flex flex-1 flex-col`}>
                     <p className="truncate text-sm font-black text-white">{item.name}</p>
@@ -208,10 +217,10 @@ export function MoneyShopPanel({
                         <button
                           className="rounded-xl border border-[#c89a55]/30 bg-[#e6ba73]/15 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-[#fff0d2] transition enabled:hover:border-[#c89a55]/60 disabled:cursor-not-allowed disabled:opacity-40"
                           disabled={disabled || isPending || !canAfford}
-                          onClick={() => onBuy(item.itemId)}
+                          onClick={() => setViewing({id:item.itemId,owned:item.ownedFromShop})}
                           type="button"
                         >
-                          {isPending ? "Working..." : canAfford ? "Buy" : "Not enough Money"}
+                          {isPending ? "Working..." : canAfford ? "Acquire" : "Not enough Money"}
                         </button>
                         {item.ownedFromShop > 0 ? (
                           <button
@@ -232,6 +241,7 @@ export function MoneyShopPanel({
           </div>
         )}
       </div>
+      {viewing && viewedItem && <CollectionVitrine item={viewedItem} initialOwned={viewing.owned} equipped={equippedAvatarSlots} fullSet={equippedFullSetId} hasUncensored={hasUncensoredAvatar} disabled={disabled} pending={Boolean(pendingItemId)} money={money} error={error} onBuy={() => onBuy(viewedItem.itemId)} onClose={() => setViewing(null)} onWardrobe={onWardrobe ? () => {setViewing(null); onWardrobe();} : undefined}/>}
     </section>
   );
 }

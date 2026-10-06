@@ -1,6 +1,6 @@
 import { crateImageReaders } from "@/lib/generated/crate-image-readers";
 import { ImageResponse } from "next/og";
-import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
+import { getCrateItemImageUrl, SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 import { resolveSealPayload } from "@/lib/court-seal";
 import {
   COURT_SEAL_BOARD_COPY,
@@ -21,17 +21,17 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ tok
   const metric = getCourtSealMetric(payload);
   const secondary = getCourtSealSecondary(payload);
 
-  // Crate receipts get the item's own icon. Read from the public dir and
+  // Crate receipts get the item's own build-time 256px PNG thumbnail,
   // embedded as a data URI - the CSP-safe way to put a local file into satori.
   // Any failure just means a text-only card, never a broken image.
   let itemIcon: string | null = null;
   if (payload.board === "crate" && payload.itemId) {
-    const imageUrl = SAMPLE_CRATE_ITEMS[payload.itemId]?.image_url;
+    const item = SAMPLE_CRATE_ITEMS[payload.itemId];
+    const imageUrl = item ? getCrateItemImageUrl(payload.itemId, item.image_url) : null;
     if (imageUrl && crateImageReaders[imageUrl]) {
       try {
         const file = await crateImageReaders[imageUrl]();
-        const mime = imageUrl.endsWith(".webp") ? "image/webp" : "image/png";
-        itemIcon = `data:${mime};base64,${file.toString("base64")}`;
+        itemIcon = `data:image/png;base64,${file.toString("base64")}`;
       } catch {
         itemIcon = null;
       }

@@ -1497,3 +1497,6 @@
   .shrine-drain-total, .court-click-burst { animation-duration: 1ms; }
   .shrine-reservoir > span, .court-click-invitation { transition: none; }
 }
+
+@keyframes court-tap-burst { 0% { opacity:1; transform:translate(-50%,-50%) scale(.9); } 30% { opacity:1; transform:translate(-50%,-30px) scale(1.12); } 100% { opacity:0; left:var(--tap-end-x,50%); top:100%; transform:translate(-50%,-4px) scale(.35); } }
+.court-stage-image { animation:court-stage-arrive .55s ease-out both; }@keyframes court-stage-arrive { from { opacity:0; transform:scale(1.025); } to { opacity:1; transform:scale(1); } }@media(prefers-reduced-motion:reduce) { .court-stage-image { animation:none; } }

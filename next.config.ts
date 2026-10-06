@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  outputFileTracingIncludes: {
-    "/api/gallery/[...path]": ["./private/gallery/**/*"],
-  },
   async rewrites() {
     return [{ source: "/gallery/:path*", destination: "/api/gallery/:path*" }];
   },

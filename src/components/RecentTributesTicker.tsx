@@ -1,5 +1,7 @@
 "use client";
 
+import { createRefreshQueue } from "@/lib/refresh-queue";
+
 import type { CSSProperties } from "react";
 import openingStyles from "./RecentCaseOpenings.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -409,12 +411,14 @@ export function RecentCaseOpenings() {
   useEffect(() => {
 
     let mounted = true;
-    let refreshing = false;
+    let freshRequested = false;
+    let lastLoadAt = 0;
     const controller = new AbortController();
 
-    const loadRecentCaseOpenings = async (fresh = false) => {
-      if (refreshing) return;
-      refreshing = true;
+    const loadRecentCaseOpenings = async () => {
+      const fresh = freshRequested;
+      freshRequested = false;
+      lastLoadAt = Date.now();
       try {
         const url = fresh ? `/api/recent-case-openings?refresh=${Date.now()}` : "/api/recent-case-openings";
         const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
@@ -451,22 +455,32 @@ export function RecentCaseOpenings() {
         if (mounted) {
           setRecentCaseOpeningsError(error instanceof Error ? error.message : "Recent openings could not be loaded.");
         }
+        freshRequested ||= fresh;
+        if (mounted) throw error;
       } finally {
-        refreshing = false;
         if (mounted) setOpeningsLoading(false);
       }
     };
 
-    void loadRecentCaseOpenings();
-    const refresh = (event?: Event) => { if (document.visibilityState === "visible") void loadRecentCaseOpenings(event?.type === "court:crate-opened"); };
+    const queue = createRefreshQueue(loadRecentCaseOpenings, {
+      minimumIntervalMs: 1500, visible: () => document.visibilityState === "visible",
+    });
+    queue.request();
+    const refresh = (event?: Event) => {
+      if (event?.type === "court:crate-opened") freshRequested = true;
+      if (freshRequested || Date.now() - lastLoadAt >= 60_000) queue.request();
+    };
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     window.addEventListener("court:crate-opened", refresh);
     return () => {
       mounted = false;
+      queue.dispose();
       controller.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
       window.removeEventListener("court:crate-opened", refresh);
     };
   }, []);

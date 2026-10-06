@@ -1,5 +1,7 @@
 "use client";
 
+import { CourtDialog } from "./CourtDialog";
+import ui from "./PremiumExperience.module.css";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { MoneyIcon } from "@/components/MoneyIcon";
@@ -43,6 +45,7 @@ const PROGRAM_ART: Record<string, string> = {
 };
 
 export function AppLicenseShelf({ previewMode = false, disabled = false, money, onPurchased }: AppLicenseShelfProps) {
+  const [film, setFilm] = useState<Program | null>(null);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -184,6 +187,7 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                 </div>
 
                 <p className="text-[11px] leading-5 text-zinc-400">{program.description}</p>
+                {PROGRAM_ART[program.slug] && <button type="button" className={ui.programPoster} onClick={() => setFilm(program)} aria-label={`Watch ${program.title} preview`}><Image alt="" src={`/programs/${program.slug}-poster.webp`} fill sizes="(max-width:700px) 85vw,380px"/><span>▶ Watch preview</span></button>}
 
                 {program.code ? (
                   <div className="rounded-xl border border-[#c89a55]/25 bg-[#e6ba73]/[0.07] p-3">
@@ -232,6 +236,7 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
           })}
         </div>
       )}
+      {film && <CourtDialog label={film.title + " preview"} className={ui.dialog} onClose={() => setFilm(null)}><header className={ui.dialogHeader}><h3>{film.title}</h3><button type="button" aria-label="Close preview" onClick={() => setFilm(null)}>×</button></header><video className={ui.film} controls playsInline preload="none" poster={`/programs/${film.slug}-poster.webp`} src={`/programs/principessa-${film.slug}.mp4`}/><p className="px-5 py-3 text-xs text-zinc-400">App preview {film.slug === "discipline" ? "· Popup scenes are illustrative." : ""}</p></CourtDialog>}
     </div>
   );
 }

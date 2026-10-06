@@ -1,8 +1,13 @@
 "use client";
 
+import { paidRequestId, finishPaidRequest, isDefinitiveRejection } from "@/lib/paid-request";
+
+import { WheelVerdict } from "./WheelVerdict";
 import Image from "next/image";
 import styles from "./ExperienceSurfaces.module.css";
 import c from "./CasinoExperience.module.css";
+import finish from "./WheelFinish.module.css";
+import type { CSSProperties } from "react";
 import { CasinoMetric } from "./CasinoTableFrame";
 import { CourtGlyph } from "@/components/court/CourtVisuals";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,6 +32,7 @@ type WheelDebtor = {
 };
 
 type WheelStatus = {
+  userId: string;
   chastityUntil: string | null;
   debtors: WheelDebtor[];
   money: number;
@@ -67,12 +73,14 @@ function formatChastityRemaining(until: string, now: number) {
 function WheelFace({
   accent,
   material,
+  landed,
   labels,
   rotation,
   spinning,
 }: {
   accent: string;
   material: WheelId;
+  landed: boolean;
   labels: string[];
   rotation: number;
   spinning: boolean;
@@ -92,7 +100,7 @@ function WheelFace({
     })
     .join(", ");
 
-  return <div className={c.wheelFace}><span aria-hidden="true" className={c.wheelPointer} data-spinning={spinning} /><div ref={wheelRef} className={c.wheelBody} data-material={material} style={{background:`conic-gradient(${gradient})`,transform:`rotate(${rotation}deg)`,transition:spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none"}}><svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">{labels.map((label,index) => {const angle=index*slice+slice/2-90;const radians=angle*Math.PI/180;const x=120+108*Math.cos(radians),y=120+108*Math.sin(radians);return <text dominantBaseline="central" fill="#f0dceb" fontSize="7" fontWeight="600" key={index} textAnchor="end" transform={`rotate(${angle} ${x} ${y})`} x={x} y={y}>{label}</text>;})}</svg></div><span aria-hidden="true" className={c.wheelHub}><CourtGlyph symbol={material === "chastity" ? "lock" : "crown"} /></span></div>;
+  return <div className={`${c.wheelFace} ${finish.finish}`} data-material={material} data-spinning={spinning}><span aria-hidden="true" className={c.wheelPointer} data-spinning={spinning} /><div ref={wheelRef} className={c.wheelBody} data-wheel-disc data-material={material} style={{background:`conic-gradient(${gradient})`,transform:`rotate(${rotation}deg)`,transition:spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.82, 0.16, 1)` : "none"}}>{landed && !spinning && <i aria-hidden="true" className={finish.landed} style={{"--slice-start": `${Math.floor(((360 - rotation % 360) % 360) / slice) * slice}deg`, "--slice-size": `${slice}deg`} as CSSProperties} />}<svg aria-hidden="true" className="absolute inset-0 h-full w-full" viewBox="0 0 240 240">{labels.map((label,index) => {const angle=index*slice+slice/2-90;const radians=angle*Math.PI/180;const x=120+108*Math.cos(radians),y=120+108*Math.sin(radians);return <text dominantBaseline="central" fill="#f0dceb" fontSize="7" fontWeight="600" key={index} textAnchor="end" transform={`rotate(${angle} ${x} ${y})`} x={x} y={y}>{label}</text>;})}</svg></div><span aria-hidden="true" className={c.wheelHub} data-wheel-hub><Image src="/crate-items/fatass_principessa_plush.png" alt="" width={48} height={48} />{material === "chastity" && <CourtGlyph symbol="lock" />}</span></div>;
 }
 
 function SendButton({ href }: { href: string }) {
@@ -191,10 +199,15 @@ export function FindomWheels({
   const [payError, setPayError] = useState("");
   const [now, setNow] = useState(() => Date.now());
   const timers = useRef<number[]>([]);
+  const spinInFlight = useRef(false);
+  const spinController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const captured = timers.current;
-    return () => captured.forEach((id) => window.clearTimeout(id));
+    return () => {
+      spinController.current?.abort();
+      captured.forEach((id) => window.clearTimeout(id));
+    };
   }, []);
 
   // Only the chastity countdown needs a clock, and only while one is running.
@@ -226,7 +239,11 @@ export function FindomWheels({
   }, [loadStatus]);
 
   const spin = async (wheelId: WheelId) => {
-    if (disabled || spinningWheel || !status) return;
+    if (disabled || spinningWheel || spinInFlight.current || !status?.userId) return;
+    spinInFlight.current = true;
+    const scope = `${status.userId}:wheel:${wheelId}`;
+    const controller = new AbortController();
+    spinController.current = controller;
     setError("");
     setResult(null);
     setSpinningWheel(wheelId);
@@ -234,17 +251,21 @@ export function FindomWheels({
 
     try {
       const response = await fetch("/api/user/wheels", {
-        body: JSON.stringify({ action: "spin", wheelId }),
+        signal: controller.signal,
+        body: JSON.stringify({ action: "spin", wheelId, requestId: paidRequestId(scope) }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
       const payload = (await response.json().catch(() => null)) as
         | (SpinResult & { error?: string; profile?: unknown })
         | null;
+      if (controller.signal.aborted) return;
       if (!response.ok || !payload || payload.error || typeof payload.segmentIndex !== "number") {
+        if (isDefinitiveRejection(response.status)) finishPaidRequest(scope);
         throw new Error(payload?.error ?? "The wheel refused to turn.");
       }
 
+      finishPaidRequest(scope);
       if (payload.profile && onProfile) onProfile(payload.profile);
 
       // Land the pointer mid-slice of the server's verdict, several full turns
@@ -263,6 +284,7 @@ export function FindomWheels({
 
       timers.current.push(
         window.setTimeout(() => {
+          spinInFlight.current = false;
           setSpinningWheel(null);
           setResult({
             amountOwed: payload.amountOwed,
@@ -277,6 +299,8 @@ export function FindomWheels({
         }, SPIN_MS + 150),
       );
     } catch (caught) {
+      spinInFlight.current = false;
+      if (controller.signal.aborted) return;
       setSpinningWheel(null);
       setError(caught instanceof Error ? caught.message : "The wheel refused to turn.");
     }
@@ -375,8 +399,8 @@ export function FindomWheels({
 
       <article className={c.wheelChamber} data-phase={viewSpinning ? "spinning" : "ready"}>
         <div className={c.wheelPlay}><Image alt="" aria-hidden="true" className={c.wheelPortrait} height={600} src="/gamble/principessa-wheel-chamber.webp" style={{objectPosition:WHEEL_IMAGE_POSITION}} width={400} /><div className={c.stageLabel}><span>{WHEEL_CARD_META[selectedWheel].kicker}</span><span className={c.phase}><i />{viewSpinning ? "The verdict is turning" : "Her wheel awaits"}</span></div>
-          <WheelFace accent={activeWheel.accent} labels={activeVisualSlices.map(segment => activeWheel.kind === "money" ? `$${segment.amount}` : segment.label)} material={selectedWheel} rotation={rotations[selectedWheel] ?? 0} spinning={viewSpinning} />
-          <div aria-live="polite" className={c.wheelOutcome}>{activeIsSpinning ? "Wait for her final word." : result?.wheelId === selectedWheel ? <>The wheel decided<strong>{result.segment.label}</strong></> : "A fixed pointer. Her final decision."}</div>
+          <WheelFace landed={result?.wheelId === selectedWheel} accent={activeWheel.accent} labels={activeVisualSlices.map(segment => activeWheel.kind === "money" ? `$${segment.amount}` : segment.label)} material={selectedWheel} rotation={rotations[selectedWheel] ?? 0} spinning={viewSpinning} />
+          <div aria-live="polite" key={`${selectedWheel}-${result?.wheelId}-${rotations[selectedWheel]}`} className={`${c.wheelOutcome} ${!activeIsSpinning && result?.wheelId === selectedWheel ? finish.reveal : ""}`}>{activeIsSpinning ? "Wait for her final word." : result?.wheelId === selectedWheel ? <WheelVerdict kind={activeWheel.kind} label={activeWheel.kind === "chastity" ? `+${result.segment.amount}h` : result.segment.label}/> : "A fixed pointer. Her final decision."}</div>
         </div>
         <aside className={c.controls}><div><p className={c.controlTitle}>Her verdict wheel</p><h3 className={c.wheelControlTitle} style={{marginTop:10}}>{activeWheel.title}</h3></div><CasinoMetric label="Price per spin" value={activeWheel.spinCostPm+" PM"} detail={activeIsChastity ? "Result adds hours to your lock" : "Result becomes an order to pay"} /><p className={c.controlCopy}>{activeWheel.blurb}</p>
           <details className={c.oddsDisclosure}><summary>View every outcome & chance</summary><div className={c.wheelOdds}>{activeWheel.segments.map(segment => <span key={selectedWheel+segment.label}>{activeWheel.kind === "money" ? `$${segment.amount}` : segment.label}<small>{Math.round(segment.weight/activeTotalWeight*100)}%</small></span>)}</div></details>

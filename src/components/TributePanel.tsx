@@ -1,11 +1,13 @@
 "use client";
+import { CourtDialog } from "./CourtDialog";
+import premium from "./PremiumExperience.module.css";
 import { confirmDialog } from "@/lib/confirm-dialog";
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 
 import { emitSoundEvent } from "@/lib/sound";
 import Image from "next/image";
 import styles from "./ExperienceSurfaces.module.css";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { ClickStageTrack, DrainScene } from "@/components/court/ShrineSessionVisuals";
 import { DrainSessionAudio } from "@/components/court/DrainSessionAudio";
 import { createPortal } from "react-dom";
@@ -68,7 +70,7 @@ type TributePanelProps = {
   pending?: boolean;
   shrine?: ShrineStatus | null;
   shrinePending?: boolean;
-  onShrinePurchase?: (amount: number) => void;
+  onShrinePurchase?: (amount: number) => Promise<ShrineStatus | null>;
   onTribute: (amount: number) => void;
   clickGame?: ClickGameStatus | null;
   clickGameLeaderboard?: ClickGameLeaderboardData | null;
@@ -149,6 +151,21 @@ export function TributePanel({
   drainLeaderboard = [],
 }: TributePanelProps) {
   const [showThroneCode, setShowThroneCode] = useState(false);
+  const offeringBusy = useRef(false);
+  const [offering, setOffering] = useState<{amount:number; phase:"confirming"|"accepted"|"failed"; levels:number; memory:ShrineStatus["currentMemory"]} | null>(null);
+  const offeringArt = (amount:number) => "/principessa-ui/ritual/" + (amount === 25000 ? "royal" : amount === 10000 ? "blessed" : "offering") + ".webp";
+  const makeOffering = async (amount:number) => {
+    if (disabled || shrinePending || offeringBusy.current || !onShrinePurchase) return;
+    offeringBusy.current = true;
+    const before = shrine;
+    setOffering({amount,phase:"confirming",levels:0,memory:null});
+    try {
+      const result = await onShrinePurchase(amount);
+      setOffering({amount,phase:result ? "accepted" : "failed",levels:result ? Math.max(0,result.level-(before?.level ?? 0)) : 0,memory:result && result.unlockedImageCount > (before?.unlockedImageCount ?? 0) ? result.currentMemory : null});
+    } catch { setOffering({amount,phase:"failed",levels:0,memory:null}); }
+    finally { offeringBusy.current=false; }
+  };
+
   const isMaxAffection = affection >= 100;
 
   const [clickGameCategory, setClickGameCategory] = useState<ClickGameCategoryId>(DEFAULT_CLICK_GAME_CATEGORY);
@@ -443,6 +460,17 @@ export function TributePanel({
         </p>
       </div>
 
+      {offering && <CourtDialog label="Shrine offering" className={premium.dialog} onClose={() => setOffering(null)} canClose={offering.phase !== "confirming"}>
+        <header className={premium.dialogHeader}><div><small>At Principessa’s altar</small><h3>{SHRINE_PURCHASE_OPTIONS.find(option => option.amount === offering.amount)?.label}</h3></div><button type="button" aria-label="Close offering" disabled={offering.phase === "confirming"} onClick={() => setOffering(null)}>×</button></header>
+        <div className={premium.ritual} data-phase={offering.phase}>
+          <div className={premium.ritualObject}><Image alt="Your offering" src={offeringArt(offering.amount)} fill sizes="230px" unoptimized/></div>
+          <div className={premium.seal} aria-hidden="true">♛</div>
+          <p role="status">{offering.phase === "confirming" ? "Presenting your offering…" : offering.phase === "accepted" ? "Accepted by Principessa." : "The offering was not completed. Please try again."}</p>
+          {offering.phase === "accepted" && <><div className={premium.ritualFacts}><span><strong>{offering.amount.toLocaleString()}</strong>Coins offered</span><span><strong>+{SHRINE_PURCHASE_OPTIONS.find(option => option.amount === offering.amount)?.devotionReward}</strong>Devotion</span><span><strong>+{offering.levels}</strong>Worship levels</span></div>{offering.memory && <><p>A new memory is yours.</p><div className={premium.memoryReveal}><Image alt={offering.memory.title} src={offering.memory.path} fill sizes="270px"/></div></>}</>}
+          {offering.phase !== "confirming" && <button type="button" className={premium.primary} onClick={() => setOffering(null)}>Return to the Shrine</button>}
+        </div>
+      </CourtDialog>}
+
       {/* Drain Session: its own top-level grid, same as Click Game below -
           not nested inside the Shrine grid/card. */}
       <div className={`${styles.shrineSession} mt-5`}>
@@ -625,9 +653,10 @@ export function TributePanel({
                   className="court-grid-card court-grid-card--gold group flex h-full flex-col self-stretch overflow-hidden rounded-[1.25rem] border border-amber-200/15 bg-[linear-gradient(155deg,rgba(120,53,15,0.24),rgba(88,28,135,0.12),rgba(0,0,0,0.52))] text-left transition enabled:hover:-translate-y-0.5 enabled:hover:border-amber-200/40 enabled:hover:shadow-[0_0_24px_rgba(251,191,36,0.16)] disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={disabled || shrinePending || coins < option.amount}
                   key={option.amount}
-                  onClick={() => onShrinePurchase?.(option.amount)}
+                  onClick={() => void makeOffering(option.amount)}
                   type="button"
                 >
+                  <span className={premium.offeringArt}><Image src={offeringArt(option.amount)} alt="" fill sizes="(max-width:700px) 28vw,200px" unoptimized/></span>
                   <div className="flex items-center justify-between gap-3 border-b border-amber-200/10 bg-amber-300/[0.035] px-4 py-3">
                     <p className="text-sm font-black text-amber-50">{option.label}</p>
                     <span className="rounded-full border border-amber-200/15 bg-black/25 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100/75 transition group-enabled:group-hover:border-amber-200/35 group-enabled:group-hover:text-amber-50">
@@ -869,7 +898,7 @@ export function TributePanel({
                   type="button"
                 >
                   <span className="court-click-invitation">{reviewingReveal ? "A reveal you earned" : clickGame?.isActive ? "Tap to offer" : "Begin your session below"}</span>
-                  {tapBursts.map(burst => <span key={burst.id} className="court-click-burst" aria-hidden="true" style={{ left: `${burst.x}%`, top: `${burst.y}%` }} onAnimationEnd={() => setTapBursts(current => current.filter(item => item.id !== burst.id))}>+1<span>✦</span></span>)}
+                  {tapBursts.map(burst => <span key={burst.id} className="court-click-burst" aria-hidden="true" style={{ left: `${burst.x}%`, top: `${burst.y}%`, "--tap-end-x": "50%" } as CSSProperties} onAnimationEnd={() => setTapBursts(current => current.filter(item => item.id !== burst.id))}>+1<span>✦</span></span>)}
                 </button>
               </div>
 

@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readPrivateMedia } from "@/lib/generated/gallery-media-reader";
 import { createClient } from "@/lib/supabase/server";
 import {
   createSupabaseAdminClient,
@@ -104,22 +103,12 @@ export async function GET(
       });
   }
   try {
-    let bytes: Buffer;
+    let bytes: Uint8Array;
     try {
-      bytes = await readFile(
-        path.join(
-          process.cwd(),
-          "private",
-          "gallery",
-          ...(variant ? [variant] : []),
-          file,
-        ),
-      );
+      bytes = await readPrivateMedia(`gallery/${variant ? variant + "/" : ""}${file}`);
     } catch {
       if (!variant) throw Error("missing");
-      bytes = await readFile(
-        path.join(process.cwd(), "private", "gallery", file),
-      );
+      bytes = await readPrivateMedia(`gallery/${file}`);
     }
     return new Response(new Uint8Array(bytes), {
       headers: {

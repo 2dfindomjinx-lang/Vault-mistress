@@ -65,3 +65,7 @@ next-env.d.ts
 
 !/supabase/schema.sql
 /tmp/
+
+!/supabase/202610060001_paid_operation_receipts.sql
+/private/generated-og/
+!/supabase/202610060002_private_media.sql

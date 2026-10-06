@@ -1,0 +1,50 @@
+VAULT MISTRESS + PRINCIPESSA2DFD — AUDIT DÜZELTMELERİ
+6 Ekim 2026
+
+UYGULANAN DÜZELTMELER
+1. İki proje Next.js 16.3.8 / eslint-config-next 16.3.8'e sabitlendi. Uyumlu bağımlılık güncellemeleri yapıldı. Firebase 14.5.0, grpc/busboy/source-map zincirleri güncellendi. Gaxios 6'nın kullandığı uuid.v4 için CommonJS uyumlu uuid 11.1.1+ override eklendi; UUID 13 gibi ESM-only bir major zorlanmadı. Sharp doğrudan build bağımlılığı olarak 0.35.5 kullanıyor.
+2. Money Shop buy/sell tek PostgreSQL transaction'ına taşındı. Profile sonra inventory kilidi, atomik debit/credit + eşya + ledger + kalıcı receipt. Hata halinde kısmi geri alma HTTP yazımları kaldırıldı. Fiyat hâlâ güvenilir sunucu kataloğundan; legendary ve PM-copy sınırı korunuyor. GET normal/shiny kayıtlarını aynı map anahtarında birbirine ezmiyor. Retry yanıtı güncel profil ve kesin adetleri döndürüyor; UI tekrar +1/-1 uygulamıyor.
+3. İki wheel istemcisi aynı spin_findom_wheel_once RPC'sini kullanıyor. Kullanıcı+istek benzersiz makbuz; yeniden denemede orijinal segment, saat, kod ve spin döner. Yeni random sonuç tekrar cevabına karışmaz. Receipt kontrolü borç kontrolünden önce; ilk spin'in oluşturduğu borç kendi retry'ını engellemez. Eski Court borcu kontrolü kilitli işlem içine taşındı. Bilinçli sonraki spin yeni UUID alır. SessionStorage istek kimliğini sayfa yenilemesinde korur; farklı kullanıcı/işlemler ayrı anahtar kullanır. Ağ hatası kilidi serbest bırakır; animasyon sırasında çift tık engellenir; panel kapanınca fetch/timer temizlenir. Court wheel aboneliği bütün viewer nesnesi yerine ilgili stabil alanlara bağlı.
+4. OG için 220 orijinal görsel yerine build sırasında 256px transparan PNG türevleri üretiliyor. Orijinal public/crate-items dosyaları korunuyor. Build çıktısı sadece gereken thumbnail dosyalarını trace ediyor. 220/220 kaynakta alfa kanalı türevde korundu. image_url açıkça yazılmamış katalog eşyalarının da getCrateItemImageUrl üzerinden paylaşım görselinde görünmesi sağlandı.
+5. Profil Realtime olayları değer olarak zaten işlem yanıtıyla alınmış profil ile eşleşiyorsa tekrar SELECT yapılmıyor. Eşleşmeyen/eksik veride 250ms birleştirme, tek uçuş, en az1.2s aralık ve tek takip okuması var. Başka sekme güncellemesi kaybolmaz. Yeni olay veya işlem yanıtı geldiyse önce başlamış okuma ekrana eski değer yazmaz. Gizli sekmede okumalar bekler; görünür olunca güncel SELECT yapılır. updated_at tek başına artan sürüm numarası varsayılmıyor.
+6. Recent Openings odak değişiminde en çok dakikada bir normal yenileme yapıyor. Yeni kasa olayı cache-bust davranışını koruyor ve in-flight okuma sırasında gelen olay artık düşürülmüyor. Kuyruk tek uçuş, aralık sınırı, görünürlük kontrolü ve hata backoff'u kullanıyor. Drain ve Click ücretlendirme/senkronizasyon ritmi değiştirilmedi.
+7. Özel galeri/worship dosyaları için ayrı private Supabase bucket ve build-time backend seçimi hazırlandı. Runtime'da iki backend'i aynı function'a trace eden fallback kullanılmıyor. Upload aracı her orijinali SHA-256 ile adlandırıp upload sonrası okuyarak doğrular; doğrulanmış asset manifest'i olmadan remote build reddedilir. Private RLS, mevcut geniş izinlerden de koruyan restrictive policy kullanır. Görsel URL'leri aynı authenticated proxy rotalarında kalır; sahiplik ve download kontrolleri korunur. BU TAŞIMA HENÜZ ETKİN DEĞİL.
+
+YEREL NEXT FUNCTION TRACE ÖLÇÜMÜ (WINDOWS)
+                         Önce       Sonra
+Vault tekil dosya        63.59 MiB  44.96 MiB (-%29.30)
+Vault rota toplamı      420.58 MiB 392.92 MiB
+/s/[token]               28.08 MiB   9.38 MiB
+/s/[token]/OG            27.90 MiB   9.21 MiB
+OG görsel kaynakları     21.62 MiB   2.86 MiB (-%86.75)
+
+Rota toplamı aynı dosyayı birden fazla sayar. Tekil ölçüm de Vercel faturası değildir; adapter gruplaması, Linux native paketleri, region ve retention sonucu etkiler. Güvenli framework patch'i bazı ortak runtime dosyalarını büyüttü; toplam net kazanç yukarıdaki rakamdır. Court'un trace toplamı güvenlik güncellemesiyle 65.57 MiB'den yaklaşık67.77 MiB'ye, tekil toplamı7.64 MiB'den7.81 MiB'ye çıktı. Her iki tarafta route sayısı değişmedi. Kaynaklar *function-traces-after.json.
+
+YAYIN / SQL SIRASI
+1. Mevcut paylaşılan Supabase projesinde supabase/202610060001_paid_operation_receipts.sql çalıştır.
+   İki site için BİR kez yeterli. Mevcut PM tabloları, inventory variant ve saat bazlı wheel RPC'si gerekiyor; eski temel SQL'leri tekrar çalıştırma. Yeni SQL veri/para dağıtmaz ve tekrar uygulanabilir. Eski wheel RPC deploy geçişi için korunur, anon/authenticated erişimi açık bırakılmaz. Yeni uçlar eski receipt'siz browser POST'larına refresh hatası verir; sessizce yeni ücretli istek üretmez.
+2. Ardından iki web projesinin bu sürümünü deploy et. Bu çalışmada push/deploy yapılmadı.
+3. İsteğe bağlı özel medya taşıması: supabase/202610060002_private_media.sql → Supabase env ile npm run media:upload → PRIVATE_MEDIA_STORAGE=supabase build env → Vault rebuild/deploy.
+   Yerel ortamda Supabase URL/service-role yok. Dolayısıyla canlı SQL/upload yapılmadı; ~29.27 MiB özel medya halen function paketlerinde. Yukarıdaki kazanca henüz taşınmamış dosyalar dahil DEĞİL. Taşıma Supabase Storage/egress tüketimini artırır; toplam bulut maliyetini sıfırlamaz. Geri dönüş: flag'i kaldırıp rebuild; orijinaller repoda duruyor.
+
+GÜVENLİK TARAMASI VE KALAN SINIRLAR
+- npm audit --omit=dev: Vault0, Court0. Önce Vault10 / Court1 dependency kaydı vardı.
+- Tam npm audit'te iki projede development zincirinde5 high kayıt kaldı: braces → micromatch → fast-glob → Next ESLint plugin/config. Tek kök advisory için henüz patched release yok. npm'in önerdiği Next ESLint14 downgrade'i uyumlu bir düzeltme değil; yapılmadı. Production dependency listesinde bu kayıtlar yok.
+- Kaynak: https://github.com/advisories/GHSA-vfj7-8cjw-p6xm
+- Düzeltilen Next OG advisory: https://github.com/advisories/GHSA-vcvr-r3jv-pc5j
+- Private bucket erişim modeli: https://supabase.com/docs/guides/storage/security/access-control
+- Firebase/AWS server-only subpath kullanımı korundu. FCM installation-id desteğini kaybetmemek ve teslimat/retry garantisi olmayan yeni bir worker oluşturmamak için SDK'lar rastgele kaldırılmadı. Sadece dynamic import'un function trace boyutunu düşürmeyeceği doğrulandı. Worker/queue ayrı operasyonel tasarım gerektiriyor; bu çalışmada açılmadı.
+- Statik kabuklar zaten statik; authenticated bakiye/özel medya rotaları public cache'e alınmadı. 243MiB statik public içeriği Functions Storage ile aynı sayılmadı; video bitrate'i/ilk oturum LCP'si ve gerçek query planları canlı ölçüm olmadan varsayımla değiştirilmedi.
+- Vercel account usage, retention, region, Supabase egress/cron/index ve production lock contention bu ortamda doğrulanmadı. Hesap ayarı/deployment silme yapılmadı.
+
+DOĞRULAMA
+- Her iki proje production build + TypeScript geçti (Next16.3.8). Windows sandbox junction izni nedeniyle normal kullanıcı yetkisiyle build gerekti.
+- Money Shop/wheel gerçek SQL'i PGlite: buy/sell, variant ayrımı, ledger ve receipt yazımı hata rollback'i, tekrar/yanlış-istek, chastity saatinin tekrar eklenmemesi, borç kontrol sırası, grants geçti. PGlite bağımsız Postgres bağlantı yarışını simüle etmez.
+- Gerçek API handler'ları fixture DB ile: fiyat sahteciliği, eksik requestId,401, belirsiz503, güncel envanter/bakiye, iki wheel için kayıtlı segment geçti.
+- Gerçek iki wheel event handler'ı fixture fetch/timer ile: yanıt kaybı sonrası retry, aynı UUID, animasyon çift tık engeli, bilinçli yeni spin UUID'si geçti.
+- Refresh kuyruğu: burst birleştirme, in-flight takip okuması, hidden-tab, hata backoff ve dispose geçti.
+- Private bucket SQL'i PGlite: geniş eski policy varken bile anon/authenticated erişim engeli; service_role erişimi; migration tekrar uygulama geçti.151 özel dosyanın manifest'i üretildi, credentials yokken remote mod guard'ı geçti.
+- npm run test:security (mevcut API+SQL regressions) ve Recent Openings testi geçti.
+-220 thumbnail format/ölçü/transparanlık kontrolü ve gerçek Next ImageResponse1200x630 render geçti. tmp/og-check/receipt.png görsel olarak incelendi.
+- Değişen Vault runtime modüllerinin hedefli ESLint'i0 error. page.tsx0 error,16 mevcut uyarı. Court'ta önceki23 hook/purity/ref hatasından22 mevcut hata kalıyor; bunlar giderilmiş sayılmadı. Wheel'daki random render hatası kaldırıldı. Ayrıntılı mevcut durum tmp/audit-court-lint-after.json dosyasında.
+- Canlı hesapta para harcanmadı, gerçek push bildirimi/Throne webhook'u ve telefon testi yapılmadı.

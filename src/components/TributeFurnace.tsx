@@ -15,6 +15,7 @@ type Burn={amount:number;before:number;reduced:boolean};
 
 export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money,onBurn}:{burnedTotal:number;disabled?:boolean;error?:string;isBurning:boolean;money:number;onBurn:(amount:number)=>Promise<boolean>}) {
   const [amount,setAmount]=useState("");
+  const [lastOffering,setLastOffering]=useState<number|null>(null);
   const [phase,setPhase]=useState<Phase>("idle");
   useSoundLoop("furnace_burn", phase === "burning");
   const [burn,setBurn]=useState<Burn|null>(null);
@@ -66,7 +67,7 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
       const consumedNow=furnaceFrame(session.amount,elapsedMs).consumed;
       if(consumedNow>lastConsumed){lastConsumed=consumedNow;emitSoundEvent("furnace_note");}
       if(elapsedMs<duration){frame.current=requestAnimationFrame(tick);return;}
-      frame.current=null;setPhase("ash");emitSoundEvent("furnace_ash");
+      frame.current=null;setLastOffering(session.amount);setPhase("ash");emitSoundEvent("furnace_ash");
       void loadLeaders();
       timers.current.push(window.setTimeout(()=>setPhase("cooling"),session.reduced?100:700));
       timers.current.push(window.setTimeout(()=>{
@@ -100,7 +101,7 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
       <div className={styles.machineArea}>
         <div className={styles.machine} style={{"--burn-progress":progress} as CSSProperties}>
           <Image src="/principessa-ui/atelier/furnace-voxel-v3.webp" alt="Principessa’s blackstone furnace" width={360} height={360} sizes="(max-width:700px) 280px,330px" className={styles.stone} unoptimized/>
-          <div className={styles.firebox} aria-hidden="true"><div className={styles.fireGlow}/><svg className={styles.fire} viewBox="0 0 160 95"><path d="M0 95V75H12V56H23V68H34V31H45V12H53V43H63V59H72V39H82V18H92V3H100V37H111V58H122V42H131V63H144V78H160V95Z" fill="#ec591c"/><path d="M5 95V82H24V70H40V81H52V52H65V73H80V45H91V60H103V78H117V65H130V85H150V95Z" fill="#ffb73f"/><path d="M34 95V85H59V77H73V65H85V79H102V87H133V95Z" fill="#ffedab"/></svg></div>
+          <div className={styles.heatHaze} aria-hidden="true"/><div className={styles.firebox} aria-hidden="true"><div className={styles.fireGlow}/><svg className={styles.fire} viewBox="0 0 160 95"><path d="M0 95V75H12V56H23V68H34V31H45V12H53V43H63V59H72V39H82V18H92V3H100V37H111V58H122V42H131V63H144V78H160V95Z" fill="#ec591c"/><path d="M5 95V82H24V70H40V81H52V52H65V73H80V45H91V60H103V78H117V65H130V85H150V95Z" fill="#ffb73f"/><path d="M34 95V85H59V77H73V65H85V79H102V87H133V95Z" fill="#ffedab"/></svg></div>
           <div className={styles.feed} aria-hidden="true">{phase==="burning"&&!burn?.reduced&&currentFrame.notes.map(note=>{
             const p=note.progress,burnEdge=Math.max(0,(p-.4)/.6)*100;
             const opacity=Math.min(1,p/.12,(1-p)/.12);
@@ -115,7 +116,7 @@ export function TributeFurnace({burnedTotal,disabled=false,error,isBurning,money
       <div className={styles.ledger}>
         <div className={styles.ashLedger}><div><p>Your ash</p><strong data-furnace-ash={displayedTotal}>{displayedTotal.toLocaleString()}<small>PM burned</small></strong></div><span className={styles.rank}>{rank.name}<small>{rank.blurb}</small></span></div>
         <div className={styles.burnTrack} role="progressbar" aria-label="Offering burned" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress*100)}><span style={{width:progress*100+"%"}}/></div>
-        <p className={styles.receipt} role="status">{phase==="awaiting"?"Confirming your offering…":phase==="burning"?"Another note. Another little surrender.":phase==="ash"||phase==="cooling"?"Gone. She smiles.":"No Coins, items or refunds."}</p>
+        <p className={styles.receipt} role="status">{phase==="awaiting"?"Confirming your offering…":phase==="burning"?"Another note. Another little surrender.":phase==="ash"||phase==="cooling"?"Gone. She smiles.":lastOffering ? `${lastOffering.toLocaleString()} received. Reduced to ash. Nothing returned.` : "No Coins, items or refunds."}</p>
         <form className={styles.burnForm} onSubmit={event=>{event.preventDefault();void submit();}}>
           <label htmlFor="furnace-amount">The offering <span>1 PM = $1</span></label>
           <div><input id="furnace-amount" aria-label="Money to burn" inputMode="numeric" placeholder={"1–"+max+" PM"} disabled={(disabled)||occupied} value={amount} onChange={event=>{setAmount(event.target.value.replace(/[^0-9]/g,""));setConfirm(false);}}/><button type="submit" disabled={!valid||disabled||occupied}>{phase==="awaiting"?"Confirming…":occupied?"Burning…":confirm?"Yes. Burn $"+parsed:"Burn"}</button></div>

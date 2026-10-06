@@ -1,5 +1,8 @@
 "use client";
 
+import { createRefreshQueue } from "@/lib/refresh-queue";
+import { paidRequestId, finishPaidRequest, isDefinitiveRejection } from "@/lib/paid-request";
+
 import { confirmDialog } from "@/lib/confirm-dialog";
 import { profileSelect } from "@/lib/profile-columns";
 
@@ -1705,6 +1708,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [moneyShopItems, setMoneyShopItems] = useState<MoneyShopEntry[]>([]);
   const [moneyShopLoading, setMoneyShopLoading] = useState(false);
   const [moneyShopError, setMoneyShopError] = useState("");
+  const moneyShopInFlight = useRef(false);
   const [moneyShopPendingItemId, setMoneyShopPendingItemId] = useState<string | null>(null);
   const [moneyConverting, setMoneyConverting] = useState(false);
   const [furnaceBurning, setFurnaceBurning] = useState(false);
@@ -4160,8 +4164,13 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [authBootstrapped, isGuestMode, isLoggedIn, isPreviewMode, refreshDisplayName]);
 
   // Missing fields mean "unchanged"; explicit zero/null values remain authoritative.
+  const latestProfileSnapshot = useRef<Partial<Profile>>({});
+  const profileRevision = useRef(0);
   // Initial loads and subsequent action/realtime responses share the same updater.
   const applyProfileStats = useCallback((profile: Partial<Profile>) => {
+    latestProfileSnapshot.current = profile.id && profile.id !== latestProfileSnapshot.current.id
+      ? profile : { ...latestProfileSnapshot.current, ...profile };
+    profileRevision.current++;
     if (profile.id !== undefined) setAuthUserId(profile.id);
     if (profile.twitter_handle != null || profile.username !== undefined) {
       setUsername(profile.twitter_handle ?? profile.username!);
@@ -4579,31 +4588,32 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   }, [applyProfileStats]);
 
   const handleMoneyShopAction = useCallback(async (itemId: string, action: "buy" | "sell") => {
+    if (moneyShopInFlight.current || !authUserId) return;
+    moneyShopInFlight.current = true;
+    const scope = `${authUserId}:shop:${action}:${itemId}`;
     setMoneyShopPendingItemId(itemId);
     try {
       const response = await fetch("/api/user/money-shop", {
-        body: JSON.stringify({ action, itemId }),
+        body: JSON.stringify({ action, itemId, requestId: paidRequestId(scope) }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
-      const payload = (await response.json().catch(() => null)) as { error?: string; profile?: Profile } | null;
+      const payload = (await response.json().catch(() => null)) as { error?: string; profile?: Profile; ownedFromShop: number; ownedInInventory: number } | null;
       if (!response.ok || !payload?.profile) {
+        if (isDefinitiveRejection(response.status)) finishPaidRequest(scope);
         throw new Error(payload?.error ?? "That did not go through.");
       }
+      finishPaidRequest(scope);
       applyProfileStats(payload.profile);
       setMoneyShopError("");
-      // The server mutation is exactly +-1 on this one item, so patch that card
-      // in place. A full refetch here re-rendered the whole catalogue through
-      // its loading placeholder, which read as the page reloading itself after
-      // every purchase.
-      const delta = action === "buy" ? 1 : -1;
+      // Authoritative quantities also make replayed receipts safe.
       setMoneyShopItems((current) =>
         current.map((entry) =>
           entry.itemId === itemId
             ? {
                 ...entry,
-                ownedFromShop: Math.max(0, entry.ownedFromShop + delta),
-                ownedInInventory: Math.max(0, entry.ownedInInventory + delta),
+                ownedFromShop: payload.ownedFromShop,
+                ownedInInventory: payload.ownedInInventory,
               }
             : entry,
         ),
@@ -4614,9 +4624,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } catch (error) {
       setMoneyShopError(error instanceof Error ? error.message : "That did not go through.");
     } finally {
+      moneyShopInFlight.current = false;
       setMoneyShopPendingItemId(null);
     }
-  }, [applyProfileStats, loadMoneyShop]);
+  }, [applyProfileStats, authUserId, loadMoneyShop]);
 
   const collectDuePetWeeklyTax = useCallback(async () => {
     if (
@@ -5959,32 +5970,46 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   useEffect(() => {
     if (!authUserId || isGuestMode) return;
 
-    const pull = async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(profileSelect)
-        .eq("id", authUserId)
-        .maybeSingle();
-      if (!error && data) applyProfileStats(data as Profile);
-    };
-
-    const channel = supabase
-      .channel(`vault-profile-${authUserId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${authUserId}` },
-        () => {
-          void pull();
-        },
-      )
-      .subscribe();
-
+    let disposed = false;
+    let eventRevision = 0;
+    let pendingFingerprint: string | null = null;
+    const allowed = profileSelect.split(",").map(key => key.trim());
+    const fingerprint = (row: Record<string, unknown>) => JSON.stringify(allowed.map(key => row[key]));
+    const queue = createRefreshQueue(async () => {
+      // A mutation response may have delivered this exact row during debounce.
+      // Compare values, not only timestamps: updated_at is not a DB sequence.
+      if (pendingFingerprint && pendingFingerprint === fingerprint(latestProfileSnapshot.current)) return;
+      const startedEvent = eventRevision;
+      const startedProfile = profileRevision.current;
+      const { data, error } = await supabase.from("profiles").select(profileSelect).eq("id", authUserId).maybeSingle();
+      if (disposed) return;
+      if (error) throw error;
+      if (startedEvent !== eventRevision || startedProfile !== profileRevision.current) {
+        queue.request(); // Never overwrite a newer event/action with a stale read.
+      } else if (data) {
+        applyProfileStats(data as Profile);
+      }
+    }, { visible: () => document.visibilityState === "visible" });
+    const channel = supabase.channel(`vault-profile-${authUserId}`).on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${authUserId}` },
+      (event) => {
+        eventRevision++;
+        const row = event.new;
+        pendingFingerprint = row.id === authUserId && allowed.every(key => Object.hasOwn(row, key))
+          ? fingerprint(row) : null;
+        if (!pendingFingerprint || pendingFingerprint !== fingerprint(latestProfileSnapshot.current)) queue.request();
+      },
+    ).subscribe();
     const onVisible = () => {
-      if (document.visibilityState === "visible") void pull();
+      if (document.visibilityState !== "visible") return;
+      pendingFingerprint = null; // A missed event must not be hidden by an old match.
+      queue.request();
     };
     document.addEventListener("visibilitychange", onVisible);
-
     return () => {
+      disposed = true;
+      queue.dispose();
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
     };
@@ -8028,19 +8053,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
   const handleShrinePurchase = async (amount: number) => {
     if (blockIfTimedOut()) {
-      return;
+      return null;
     }
 
     const actionId = `shrine:${amount}`;
 
     if (!beginTaskAction(actionId)) {
-      return;
+      return null;
     }
 
     if (affection < 100) {
       setAvatarMistressReply("The Shrine stays sealed until my affection reaches 100.");
       finishTaskAction(actionId);
-      return;
+      return null;
     }
 
     const currentCoins = coinsRef.current;
@@ -8049,7 +8074,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     if (currentCoins < amount) {
       setAvatarMistressReply("Not enough coins. Even the Shrine rejects empty pockets.");
       finishTaskAction(actionId);
-      return;
+      return null;
     }
 
     try {
@@ -8073,7 +8098,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
             : "Your offering was received. Tribute rose, and your devotion deepened.",
         );
         finishTaskAction(actionId);
-        return;
+        return nextShrineStatus;
       }
 
       const response = await fetch("/api/user/shrine", {
@@ -8103,10 +8128,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           ? "Principessa accepted the offering. A new Shrine Memory has been revealed."
           : "The offering was welcomed. Tribute rose, devotion deepened.",
       );
+      return payload.shrine;
     } catch (error) {
       console.error("Failed to complete shrine purchase", error);
       setAuthError(describeError(error));
       setAvatarMistressReply("The Shrine ledger refused that offering. Try again.");
+      return null;
     } finally {
       finishTaskAction(actionId);
     }
@@ -12039,6 +12066,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "moneyShop" && (
             <MoneyShopPanel
+              equippedAvatarSlots={equippedAvatarSlots}
+              equippedFullSetId={equippedFullSetId}
+              hasUncensoredAvatar={hasUncensoredAvatar}
+              onWardrobe={() => setActivePanel("profile")}
               previewMode={isPreviewMode || isGuestMode}
               coins={coins}
               disabled={isTimeoutActive || isPreviewRestricted}
@@ -12079,6 +12110,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onPurchaseCosmetic={handlePurchaseCosmetic}
               />
               <CosmeticShop
+                displayName={effectiveDisplayName ?? username}
                 mobileLayout={mobileLayout}
                 equippedAvatarSlots={equippedAvatarSlots}
                 equippedFullSetId={equippedFullSetId}

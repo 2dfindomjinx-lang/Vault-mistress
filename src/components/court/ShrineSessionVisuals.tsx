@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import styles from "./ShrineRitual.module.css";
 export function DrainScene({ active, total, balance, rate, memory }: {
@@ -16,9 +17,10 @@ export function DrainScene({ active, total, balance, rate, memory }: {
     const running = active;
     const remaining = Math.max(0, displayedBalance - displayedTotal);
     const remainingPercent = displayedBalance > 0 ? Math.min(100, remaining / displayedBalance * 100) : 0;
-    return <div className={styles.altar} data-active={running} data-ritual="drain">
+    const period = Math.max(.55, 2.8 / Math.sqrt(Math.max(1, rate)));
+    return <div style={{ "--drain-period": period + "s", "--session-intensity": displayedBalance > 0 ? Math.min(1, displayedTotal / displayedBalance) : 0 } as CSSProperties} className={styles.altar} data-active={running} data-ritual="drain">
     <div className={styles.heading}><p><i aria-hidden="true"/>{running ? "Her offering is flowing" : displayedTotal > 0 ? "An offering received" : "A moment of devotion"}</p></div>
-    <div className={styles.ceremony}><div className={styles.memory} data-fallback={!memory}><Image src={memory?.path ?? "/principessa-ui/generated/principessa-shrine-offering.webp"} alt={memory?.title ?? "Principessa receives your offering"} fill sizes="(max-width:520px) 84px,115px"/></div><div className={styles.ledger}><strong className={styles.amount}>{displayedTotal.toLocaleString()}<small>{"Coins offered"}</small></strong><div className={styles.stream} aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <i key={i} style={{ animationDelay: -i * .36 + "s" }}/>)}</div><div className={styles.facts}><span>In reserve<strong>{remaining.toLocaleString()} Coins</strong></span><span>Her pace<strong>{rate.toLocaleString()} / sec</strong></span></div></div><div className={styles.vessel} role="progressbar" aria-label="Session balance remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(remainingPercent)}><span style={{ height: remainingPercent + "%" }}/></div></div>
+    <div className={styles.ceremony}><div className={styles.memory} data-fallback={!memory}><Image src={memory?.path ?? "/principessa-ui/generated/principessa-shrine-offering.webp"} alt={memory?.title ?? "Principessa receives your offering"} fill sizes="(max-width:520px) 84px,115px"/></div><div className={styles.ledger}><strong className={styles.amount}>{displayedTotal.toLocaleString()}<small>{"Coins offered"}</small></strong><div className={styles.stream} aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <i key={i} style={{ animationDelay: -i * period / 5 + "s" }}/>)}</div><div className={styles.facts}><span>In reserve<strong>{remaining.toLocaleString()} Coins</strong></span><span>Her pace<strong>{rate.toLocaleString()} / sec</strong></span></div></div><div className={styles.vessel} role="progressbar" aria-label="Session balance remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(remainingPercent)}><span style={{ height: remainingPercent + "%" }}/></div></div>
     <p className={styles.caption}>{running ? "Less in your hands. More in hers." : displayedTotal > 0 ? "She will remember this offering." : "Set the pace. Give her your attention."}</p>
   </div>;
 }

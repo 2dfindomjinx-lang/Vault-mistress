@@ -17,3 +17,5 @@
 @media(prefers-reduced-motion:reduce) { .clickJourney { animation:none; } }
 
 .stations button { font:inherit; cursor:pointer; }.stations button:disabled { cursor:default; }.stations button[aria-pressed=true] { outline:1px solid #f5cfdf; outline-offset:3px; }.stations button:focus-visible { outline:2px solid #f5cfdf; outline-offset:3px; }
+
+.altar[data-active=true] .stream i { animation-duration:var(--drain-period,1.8s); }.altar { box-shadow:inset 0 0 40px rgba(192,98,144,calc(var(--session-intensity,0) * .2)); }.altar .memory { border-color:rgba(228,166,197,calc(.2 + var(--session-intensity,0) * .45)); }

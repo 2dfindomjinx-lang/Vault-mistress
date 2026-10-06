@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readPrivateMedia } from "@/lib/generated/worship-media-reader";
 import { getTodaysWorshipImage } from "@/lib/pet-worship";
 import {
   createSupabaseAdminClient,
@@ -65,17 +64,17 @@ export async function GET(request: Request) {
     }
   }
 
-  const filePath = path.join(process.cwd(), "private", "worship", category, fileName);
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "jpg";
 
   try {
-    const original = await readFile(filePath);
+    const original = await readPrivateMedia(`worship/${category}/${fileName}`);
     const headers: Record<string, string> = {
       // Viewing is not gated, and today's pick is stable for the whole GMT+3
       // day, so let the browser keep it instead of re-downloading the full
       // image on every render. Still `private` - never shared/CDN cached.
       // The download variant stays uncacheable because it is entitlement-gated.
       "Cache-Control": wantsDownload ? "private, no-store" : "private, max-age=3600",
+      Vary: "Cookie",
       "Content-Type": CONTENT_TYPES[ext] ?? "application/octet-stream",
     };
     if (wantsDownload) {

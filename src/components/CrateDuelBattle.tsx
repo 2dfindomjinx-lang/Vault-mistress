@@ -5,6 +5,7 @@ import { CoinAmount } from "@/components/CoinAmount";
 import { CRATE_TYPES, RARITY_HEX, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 import { lineupLabel } from "@/lib/crate-duel-lineup";
 import { emitSoundEvent } from "@/lib/sound";
+import experience from "./PremiumExperience.module.css";
 import { CourtDialog } from "@/components/CourtDialog";
 
 // The Crate Duel reveal, case-battle style: both players side by side with
@@ -356,7 +357,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                   }}
                 >
                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">Haul</p>
-                  <CoinAmount amount={totals[index]} className="font-serif text-xl text-[#ffe2ad] tabular-nums" iconSize={16} label="" />
+                  <div className={experience.duelTotal} key={revealed}><CoinAmount amount={totals[index]} className="font-serif text-xl text-[#ffe2ad] tabular-nums" iconSize={16} label="" />{landedItem && !skipped && <span className={experience.valueFlight} aria-hidden="true">+{landedItem.sellValue.toLocaleString()}</span>}</div>
                 </div>
                 <div className="mt-3">
                   <BattleReel cards={strips[round][index].cards} jitter={strips[round][index].jitter} instant={skipped} key={`${side.key}-${round}`} />
@@ -402,6 +403,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                 <div className="contents" key={side.key}>
                   {column}
                   <div className="flex flex-col items-center pt-4">
+                    {leaderIndex !== -1 && <span className={experience.leadCrown} data-side={leaderIndex === 0 ? "left" : "right"} aria-label={`${sides[leaderIndex].name} leads`}>♛</span>}
                     <span className="rounded-full border border-[#c89a55]/40 bg-black/60 px-2.5 py-1 font-serif text-sm text-[#ffe2ad] shadow-[0_0_20px_rgba(200,154,85,.25)]">
                       VS
                     </span>
@@ -442,6 +444,12 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                 </p>
               </>
             )}
+            <div className={experience.haul} aria-label={winnerIndex === -1 ? "Each player keeps their own items" : "Winner’s collection"}>
+              {sides.flatMap((side, sideIndex) => side.items.map((item, itemIndex) => <div key={side.key + itemIndex} title={item.name + (winnerIndex === -1 ? " · " + side.name : "")} style={{ borderColor: item.rarity ? RARITY_HEX[item.rarity] : undefined, animationDelay: Math.min(itemIndex + sideIndex * rounds, 10) * 35 + "ms" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {item.imageUrl ? <img alt={item.name} src={item.imageUrl} className="h-full w-full" /> : <span>♛</span>}
+              </div>))}
+            </div>
             <button
               className="mt-4 rounded-xl bg-[linear-gradient(100deg,#e6ba73,#c89a55)] px-8 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#1a1008]"
               onClick={onClose}

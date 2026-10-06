@@ -1,0 +1,805 @@
+{
+  "measuredAt": "2026-10-06T12:26:34.427Z",
+  "root": "C:\\Users\\Mert\\Documents\\Codex\\2026-08-25\\knk-yeni-bird",
+  "note": "Uncompressed Next output traces; dynamic-route sum counts duplicates, unique union does not. Neither is a billed deployment total.",
+  "summary": {
+    "tracedRoutes": 36,
+    "staticRoutes": 5,
+    "dynamicRoutes": 31,
+    "dynamicTraceSumBytes": 68755764,
+    "uniqueDynamicBytes": 8012918,
+    "publicBytes": 28923205,
+    "publicFiles": 390,
+    "jsBytes": 1251331,
+    "cssBytes": 172080
+  },
+  "routes": [
+    {
+      "route": "/api/share-card",
+      "static": false,
+      "bytes": 6468945,
+      "files": 201,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/apply",
+      "static": false,
+      "bytes": 2464079,
+      "files": 109,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/callback",
+      "static": false,
+      "bytes": 2462519,
+      "files": 108,
+      "missing": []
+    },
+    {
+      "route": "/api/cart/wardrobe",
+      "static": false,
+      "bytes": 2109063,
+      "files": 105,
+      "missing": []
+    },
+    {
+      "route": "/api/cart",
+      "static": false,
+      "bytes": 2105351,
+      "files": 104,
+      "missing": []
+    },
+    {
+      "route": "/api/cart/notifications",
+      "static": false,
+      "bytes": 2102190,
+      "files": 104,
+      "missing": []
+    },
+    {
+      "route": "/techdom/restore",
+      "static": true,
+      "bytes": 2099507,
+      "files": 113,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/restore",
+      "static": false,
+      "bytes": 2053892,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/disconnect",
+      "static": false,
+      "bytes": 2053858,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/packs/files",
+      "static": false,
+      "bytes": 2052824,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/start",
+      "static": false,
+      "bytes": 2052105,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/rebrand/status",
+      "static": false,
+      "bytes": 2051813,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/identity",
+      "static": false,
+      "bytes": 2051172,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/packs/public-previews",
+      "static": false,
+      "bytes": 2049386,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/packs",
+      "static": false,
+      "bytes": 2049306,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/packs",
+      "static": false,
+      "bytes": 2049110,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/wheels",
+      "static": false,
+      "bytes": 2048568,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/court-code",
+      "static": false,
+      "bytes": 2047225,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/claims",
+      "static": false,
+      "bytes": 2047069,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/packs/[slug]",
+      "static": false,
+      "bytes": 2045922,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/auth/callback",
+      "static": false,
+      "bytes": 2045808,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/chat",
+      "static": false,
+      "bytes": 2045559,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/links",
+      "static": false,
+      "bytes": 2045490,
+      "files": 103,
+      "missing": []
+    },
+    {
+      "route": "/api/programs",
+      "static": false,
+      "bytes": 2045424,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/auth/session",
+      "static": false,
+      "bytes": 2045241,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/tribute",
+      "static": false,
+      "bytes": 2044353,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/admin/users",
+      "static": false,
+      "bytes": 2044215,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/presence",
+      "static": false,
+      "bytes": 2044021,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/techdom/restore",
+      "static": false,
+      "bytes": 2043535,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/cart/wardrobe/notifications",
+      "static": false,
+      "bytes": 2043376,
+      "files": 102,
+      "missing": []
+    },
+    {
+      "route": "/api/avatar",
+      "static": false,
+      "bytes": 2007321,
+      "files": 101,
+      "missing": []
+    },
+    {
+      "route": "/[[...slug]]",
+      "static": false,
+      "bytes": 1937024,
+      "files": 114,
+      "missing": []
+    },
+    {
+      "route": "/_not-found",
+      "static": true,
+      "bytes": 1876502,
+      "files": 111,
+      "missing": []
+    },
+    {
+      "route": "/sitemap.xml",
+      "static": true,
+      "bytes": 1803898,
+      "files": 100,
+      "missing": []
+    },
+    {
+      "route": "/robots.txt",
+      "static": true,
+      "bytes": 1803859,
+      "files": 100,
+      "missing": []
+    },
+    {
+      "route": "/_global-error",
+      "static": true,
+      "bytes": 1749956,
+      "files": 105,
+      "missing": []
+    }
+  ],
+  "packages": [
+    {
+      "package": "next",
+      "uniqueBytes": 4703844,
+      "referencedBytes": 49103456,
+      "files": 95
+    },
+    {
+      "package": "sharp",
+      "uniqueBytes": 699508,
+      "referencedBytes": 699508,
+      "files": 76
+    },
+    {
+      "package": "@img/sharp-win32-x64",
+      "uniqueBytes": 443915,
+      "referencedBytes": 443915,
+      "files": 4
+    },
+    {
+      "package": "react",
+      "uniqueBytes": 65864,
+      "referencedBytes": 2041784,
+      "files": 4
+    },
+    {
+      "package": "@img/colour",
+      "uniqueBytes": 46700,
+      "referencedBytes": 46700,
+      "files": 3
+    },
+    {
+      "package": "@swc/helpers",
+      "uniqueBytes": 28106,
+      "referencedBytes": 871286,
+      "files": 3
+    },
+    {
+      "package": "detect-libc",
+      "uniqueBytes": 11429,
+      "referencedBytes": 11429,
+      "files": 5
+    },
+    {
+      "package": "semver",
+      "uniqueBytes": 981,
+      "referencedBytes": 981,
+      "files": 1
+    }
+  ],
+  "largestFiles": [
+    {
+      "path": "node_modules/next/dist/compiled/@vercel/og/resvg.wasm",
+      "bytes": 1378357,
+      "references": 1
+    },
+    {
+      "path": "node_modules/next/dist/compiled/@vercel/og/index.node.js",
+      "bytes": 872409,
+      "references": 1
+    },
+    {
+      "path": "node_modules/next/dist/compiled/@vercel/og/index.edge.js",
+      "bytes": 735420,
+      "references": 1
+    },
+    {
+      "path": "node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.prod.js",
+      "bytes": 695669,
+      "references": 31
+    },
+    {
+      "path": "node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node",
+      "bytes": 442368,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/ssr/[root-of-the-server]__0j26pto._.js",
+      "bytes": 217285,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/node_modules_@supabase_supabase-js_dist_index_mjs_0u-n9p7._.js",
+      "bytes": 204663,
+      "references": 30
+    },
+    {
+      "path": "node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js",
+      "bytes": 185638,
+      "references": 30
+    },
+    {
+      "path": ".next/server/chunks/[root-of-the-server]__0l3yhx4._.js",
+      "bytes": 173710,
+      "references": 30
+    },
+    {
+      "path": "public/principessa/property_avatar.webp",
+      "bytes": 158882,
+      "references": 2
+    },
+    {
+      "path": "node_modules/next/dist/compiled/@vercel/og/Geist-Regular.ttf",
+      "bytes": 125956,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/ssr/node_modules_02b103h._.js",
+      "bytes": 123135,
+      "references": 1
+    },
+    {
+      "path": "node_modules/next/dist/compiled/jsonwebtoken/index.js",
+      "bytes": 121051,
+      "references": 31
+    },
+    {
+      "path": "node_modules/sharp/dist/index.d.cts",
+      "bytes": 92867,
+      "references": 1
+    },
+    {
+      "path": "node_modules/sharp/dist/index.d.mts",
+      "bytes": 87968,
+      "references": 1
+    },
+    {
+      "path": "public/principessa/property_header.webp",
+      "bytes": 77242,
+      "references": 2
+    },
+    {
+      "path": "node_modules/next/dist/compiled/@vercel/og/yoga.wasm",
+      "bytes": 71736,
+      "references": 1
+    },
+    {
+      "path": "node_modules/sharp/dist/output.cjs",
+      "bytes": 65416,
+      "references": 1
+    },
+    {
+      "path": "node_modules/sharp/dist/output.mjs",
+      "bytes": 65399,
+      "references": 1
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/dynamic-rendering.js",
+      "bytes": 60962,
+      "references": 31
+    },
+    {
+      "path": ".next/server/chunks/ssr/_1m1muyo._.js",
+      "bytes": 54825,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/ssr/node_modules_next_dist_1c5ky4f._.js",
+      "bytes": 52759,
+      "references": 1
+    },
+    {
+      "path": "public/principessa/censored_header.webp",
+      "bytes": 50510,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/owned_header.webp",
+      "bytes": 50192,
+      "references": 2
+    },
+    {
+      "path": "node_modules/react/cjs/react.development.js",
+      "bytes": 47219,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/compiled/ws/index.js",
+      "bytes": 45840,
+      "references": 31
+    },
+    {
+      "path": "node_modules/@img/colour/color.cjs",
+      "bytes": 45136,
+      "references": 1
+    },
+    {
+      "path": "public/principessa/generic_avatar.webp",
+      "bytes": 42556,
+      "references": 2
+    },
+    {
+      "path": ".next/server/chunks/_11yum5t._.js",
+      "bytes": 37524,
+      "references": 29
+    },
+    {
+      "path": ".next/server/chunks/ssr/[turbopack]_runtime.js",
+      "bytes": 36634,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/[turbopack]_runtime.js",
+      "bytes": 36624,
+      "references": 30
+    },
+    {
+      "path": ".next/server/chunks/lib_1hzsc87._.js",
+      "bytes": 36158,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/lib_18lc4o6._.js",
+      "bytes": 36158,
+      "references": 1
+    },
+    {
+      "path": ".next/server/chunks/lib_0kcqs3r._.js",
+      "bytes": 36158,
+      "references": 1
+    },
+    {
+      "path": "node_modules/sharp/dist/input.cjs",
+      "bytes": 33741,
+      "references": 1
+    }
+  ],
+  "mostDuplicatedFiles": [
+    {
+      "path": "node_modules/next/dist/compiled/next-server/app-page-turbo.runtime.prod.js",
+      "bytes": 695669,
+      "references": 31
+    },
+    {
+      "path": ".next/server/chunks/node_modules_@supabase_supabase-js_dist_index_mjs_0u-n9p7._.js",
+      "bytes": 204663,
+      "references": 30
+    },
+    {
+      "path": "node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js",
+      "bytes": 185638,
+      "references": 30
+    },
+    {
+      "path": ".next/server/chunks/[root-of-the-server]__0l3yhx4._.js",
+      "bytes": 173710,
+      "references": 30
+    },
+    {
+      "path": "node_modules/next/dist/compiled/jsonwebtoken/index.js",
+      "bytes": 121051,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/dynamic-rendering.js",
+      "bytes": 60962,
+      "references": 31
+    },
+    {
+      "path": "node_modules/react/cjs/react.development.js",
+      "bytes": 47219,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/compiled/ws/index.js",
+      "bytes": 45840,
+      "references": 31
+    },
+    {
+      "path": ".next/server/chunks/[turbopack]_runtime.js",
+      "bytes": 36624,
+      "references": 30
+    },
+    {
+      "path": ".next/server/chunks/_11yum5t._.js",
+      "bytes": 37524,
+      "references": 29
+    },
+    {
+      "path": "node_modules/next/dist/compiled/source-map/source-map.js",
+      "bytes": 32291,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/compiled/@opentelemetry/api/index.js",
+      "bytes": 28576,
+      "references": 31
+    },
+    {
+      "path": "node_modules/@swc/helpers/package.json",
+      "bytes": 27807,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/node-environment-extensions/fast-set-immediate.external.js",
+      "bytes": 26901,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/node-environment-extensions/unhandled-rejection.external.js",
+      "bytes": 25457,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/patch-error-inspect.js",
+      "bytes": 24914,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/lib/trace/tracer.js",
+      "bytes": 17827,
+      "references": 31
+    },
+    {
+      "path": "node_modules/react/cjs/react.production.js",
+      "bytes": 17217,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/lib/constants.js",
+      "bytes": 15682,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/blocking-route-messages.js",
+      "bytes": 14406,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/dynamic-rendering-utils.js",
+      "bytes": 12905,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/staged-rendering.js",
+      "bytes": 12686,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/node-environment-extensions/console-dim.external.js",
+      "bytes": 12532,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/lib/source-maps.js",
+      "bytes": 10650,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/lib/trace/constants.js",
+      "bytes": 9312,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/work-unit-async-storage.external.js",
+      "bytes": 7741,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/app-render/cache-signal.js",
+      "bytes": 7589,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/lib/lru-cache.js",
+      "bytes": 6649,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js",
+      "bytes": 5917,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/client/lib/console.js",
+      "bytes": 5859,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/dev/browser-logs/file-logger.js",
+      "bytes": 5794,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/node-environment-extensions/node-crypto.js",
+      "bytes": 5531,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/server/node-environment-extensions/io-utils.js",
+      "bytes": 5429,
+      "references": 31
+    },
+    {
+      "path": "node_modules/next/dist/lib/picocolors.js",
+      "bytes": 5375,
+      "references": 31
+    },
+    {
+      "path": "public/principessa/property_avatar.webp",
+      "bytes": 158882,
+      "references": 2
+    }
+  ],
+  "largestClientChunks": [
+    {
+      "path": ".next/static/chunks/1g7lpdse5ejrg.js",
+      "bytes": 286114,
+      "gzipBytes": 87266
+    },
+    {
+      "path": ".next/static/chunks/01iqx2154p663.js",
+      "bytes": 252266,
+      "gzipBytes": 66603
+    },
+    {
+      "path": ".next/static/chunks/196x_tfexoucg.js",
+      "bytes": 228922,
+      "gzipBytes": 71576
+    },
+    {
+      "path": ".next/static/chunks/2eqtfvf-_s58k.js",
+      "bytes": 160633,
+      "gzipBytes": 43770
+    },
+    {
+      "path": ".next/static/chunks/0cz1d0mv5g_q7.js",
+      "bytes": 112594,
+      "gzipBytes": 39627
+    },
+    {
+      "path": ".next/static/chunks/1idi3jjca7cre.js",
+      "bytes": 60662,
+      "gzipBytes": 14400
+    },
+    {
+      "path": ".next/static/chunks/3450qyhportkm.js",
+      "bytes": 34015,
+      "gzipBytes": 9030
+    },
+    {
+      "path": ".next/static/chunks/2fzyycealj7f_.js",
+      "bytes": 30065,
+      "gzipBytes": 8581
+    },
+    {
+      "path": ".next/static/chunks/3-t0ph5p06pd_.js",
+      "bytes": 23118,
+      "gzipBytes": 8152
+    },
+    {
+      "path": ".next/static/chunks/3fntmmi971322.js",
+      "bytes": 14377,
+      "gzipBytes": 3661
+    },
+    {
+      "path": ".next/static/chunks/1zmfww8fp17yc.js",
+      "bytes": 13649,
+      "gzipBytes": 4170
+    },
+    {
+      "path": ".next/static/chunks/turbopack-16n2ai-_ic_et.js",
+      "bytes": 10946,
+      "gzipBytes": 4303
+    },
+    {
+      "path": ".next/static/chunks/0axdrs6tow-4n.js",
+      "bytes": 8868,
+      "gzipBytes": 3605
+    },
+    {
+      "path": ".next/static/chunks/3s6nzrbk-8mnv.js",
+      "bytes": 5598,
+      "gzipBytes": 2029
+    },
+    {
+      "path": ".next/static/chunks/1d-e9p2s68h_y.js",
+      "bytes": 5101,
+      "gzipBytes": 1812
+    }
+  ],
+  "bundledMedia": [
+    {
+      "path": "public/principessa/property_avatar.webp",
+      "bytes": 158882,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/property_header.webp",
+      "bytes": 77242,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/censored_header.webp",
+      "bytes": 50510,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/owned_header.webp",
+      "bytes": 50192,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/generic_avatar.webp",
+      "bytes": 42556,
+      "references": 2
+    },
+    {
+      "path": "public/principessa/sissy_avatar.webp",
+      "bytes": 28092,
+      "references": 2
+    }
+  ],
+  "newAssets": [
+    {
+      "path": "public/programs/discipline-poster.webp",
+      "bytes": 57168,
+      "functionReferences": 0
+    },
+    {
+      "path": "public/programs/principessa-discipline.mp4",
+      "bytes": 465971,
+      "functionReferences": 0
+    },
+    {
+      "path": "public/programs/principessa-wallpaper.mp4",
+      "bytes": 550177,
+      "functionReferences": 0
+    },
+    {
+      "path": "public/programs/wallpaper-poster.webp",
+      "bytes": 64178,
+      "functionReferences": 0
+    }
+  ]
+}

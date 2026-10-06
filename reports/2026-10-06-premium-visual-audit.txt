@@ -1,0 +1,154 @@
+VAULT MISTRESS + PRINCIPESSA2DFD — GÖRSEL GÜNCELLEME VE AUDIT
+Tarih: 6 Ekim 2026
+
+SONUÇ
+Görsel değişiklikler iki repoda yerel olarak hazır. Deploy/push yapılmadı.
+Yeni görseller ve iki tanıtım videosu toplam 1.32 MiB; güncel Next function trace dosyalarında bunların hiçbirine referans yok. Yeni API, cron, realtime aboneliği veya veritabanı tablosu eklenmedi. Görsel efektler mevcut işlem yanıtlarını kullanıyor.
+Audit sonucunda çözülmesi gereken mevcut güvenlik ve maliyet konuları var. Bu rapor güvenlik temizliği sertifikası değildir; özellikle aşağıdaki ilk iki konu yayın öncesi ele alınmalı.
+
+KAPSAM VE SINIRLAR
+- Vault: production build, Next output tracing, kaynak kod, production npm dependency audit, seçili API/SQL regresyonları ve yeni arayüz fixture'ları incelendi.
+- Principessa2DFD: wheel arayüzü, paylaşılan wheel RPC çağrıları, production build, TypeScript, output traces ve production dependency audit incelendi. Tüm Cart/pack/Techdom akışları için ayrı penetrasyon testi yapılmadı.
+- Vercel account usage, fatura, deployment sayısı/retention ve region sayısına canlı erişim yok. Supabase SQL editor, pg_stat_statements, gerçek RLS/grants, index boyutları ve egress ekranı sorgulanmadı. Vault yerel ortamında Supabase kimlik bilgileri bulunmuyor.
+- .next ölçümleri Windows yerel build'ine aittir; Vercel Linux bağımlılıkları ve route gruplaması farklı olabilir. NFT boyutlarının toplamı FATURALANAN Functions Storage değildir.
+- Gerçek kullanıcı hesabı, para harcama veya ödeme webhook'u çalıştırılmadı.
+
+UYGULANAN GÖRSEL KAPSAM
+1. Legendary Vault: satın alma öncesi vitrin, mevcut avatarda deneme, oyuncak efekti önizlemesi, sunucu kabulünden sonra edinim makbuzu, wardrobe geçişi. Katalogdaki Acquire artık bu vitrine açılıyor.
+2. Shrine: üç özgün transparan adak görseli; onay bekleme, başarısızlık ve kabul durumları; gerçek Worship Level farkı ve varsa yeni Memory gösterimi.
+3. Upgrade: kaynak-merkez enerji akışı, hedef rarity rengi, başarıda materyalleşme, kayıpta kaynak eşyanın sönmesi. Olasılık ve sonuç algoritması değişmedi.
+4. Wheels: iki repoda ayrı materyal hissi, mühürlü para emri ve kapanan kilit sonucu. Önceden mevcut segment geometrisi, pointer, fiziksel dilim eşleştirmesi ve ses akışı korundu.
+5. Crate Duel / Cases: skor artış geçişi, lider tacı, final eşya tepsisi; kasa mührü giriş hareketi; yeni envanter etiketi; isteğe bağlı 1.8 saniyelik hızlı açılış. Normal açılış 8.2 saniye, reduced motion anlık. Etiket ilk kez kazanılan tarihsel eşya iddiası taşımaz; açılış öncesi envanterde olmayan eşyayı belirtir.
+6. Furnace: ısı, parlayan yanık kenarı, animasyon ilerledikçe biriken kül ve oturum içi kalıcı son adak makbuzu. Her 1 PM banknot / tüketim sayacı aynı mevcut zaman çizelgesini kullanır.
+7. Drain / Click: hızla uyumlu akış, oturum ilerledikçe sahne vurgusu; tıklama parçacıkları ilerleme paneline gider, yeni aşama görseli geçişle gelir. Mevcut popup ve ses kontrolüne dokunulmadı. Parçacık sayısı en fazla 8.
+8. Kozmetik / programlar: kendi adında ve avatarında önizleme, isim/title için profil-leaderboard-chat bağlamı; mevcut Discipline/Wallpaper videoları yalnızca önizleme açılınca video elementine bağlanır, preload=none. Discipline popup sahneleri açıklayıcı demo olarak etiketli.
+
+ÖLÇÜLEN BUILD ÇIKTISI
+                         Vault                 Principessa2DFD
+Dynamic route trace      163                   31
+Static trace             31                    5
+Dynamic trace toplamı    420.58 MiB            65.57 MiB
+Tekil trace dosyaları    63.59 MiB             7.64 MiB
+Public varlıkları        242.94 MiB            27.58 MiB
+Tüm istemci JS chunkları 2.81 MiB              1.19 MiB
+Tüm CSS chunkları        0.69 MiB              0.16 MiB
+
+JS ve CSS rakamları bütün çıktı toplamıdır; bir ziyaretçinin ilk açılışta hepsini indirdiği anlamına gelmez. Ana paneller zaten dynamic import ile ayrılıyor.
+Vault'ta 158 dinamik API rotası, ayrıca /auth/callback, /principessa-feed/messages, /principessa-feed/profile/[userId], /s/[token], /s/[token]/opengraph-image var. Ayrı use-server Server Action tanımı bulunmadı.
+/, /cases, /games, /money-shop, /shop, /wheels, /tribute ve yönetim kabukları zaten statik. Discipline manifest API'leri de statik. Kimliğe/bakiyeye bağlı POST'ları statikleştirmek uygun değil.
+Tam rota, bağımlılık ve duplicate dosya listeleri yanındaki *function-traces.json dosyalarında.
+
+ÖNCELİKLİ BULGULAR — GÜVENLİK
+
+1) P1 — Next.js dependency'sinde kritik advisory
+Dosya: package.json / package-lock.json; src/app/s/[token]/opengraph-image.tsx
+Vault Next 16.3.4 kullanıyor. npm audit, GHSA-vcvr-r3jv-pc5j (next/og Node ImageResponse RCE) için kritik bulgu veriyor; düzeltme 16.3.6'da mevcut, audit 16.3.8 öneriyor.
+Önemli ayrım: advisory saldırganın kontrol ettiği SVG içerik/attribute/style değerlerini şart koşuyor. İncelenen OG kodu sabit div/style ve katalogdan yerel görseller kullanıyor; bu projeye özel çalışır exploit doğrulanmadı. Paket seviyesi kritik bulgu, doğrulanmış ele geçirilme demek değildir.
+Öneri: Next ve eslint-config-next'i uyumlu 16.3.x güvenli patch sürümüne yükselt; OG çıktısı ve auth rotalarını kontrol et. npm audit fix --force ile kör major geçiş yapılmamalı.
+Etki: bilinen kritik sürümü kaldırır. Risk: düşük-orta; framework patch regresyonları için build/OG smoke gerekli.
+Kaynak: https://github.com/advisories/GHSA-vcvr-r3jv-pc5j
+
+2) P1 — PM mağazası tam atomik değil
+Dosya: src/app/api/user/money-shop/route.ts:133-278
+Bakiye, inventory ve money_transactions ayrı HTTP veritabanı yazımlarıyla güncelleniyor. Bazı CAS koşulları var; fakat inventory upsert ve geri alma adımları bütün transaction'ı korumuyor. Örneğin para düşüldükten sonra inventory yazımı başarısız olur ve bu sırada başka bir işlem bakiyeyi değiştirirse geri alma CAS'i eşleşmeyebilir; kod yine nothing was charged döndürebilir. Aynı eşyanın eşzamanlı envanter değişimi de eski quantity üzerinden upsert ile ezilebilir.
+Öneri: buy/sell'i tek Postgres RPC transaction'ında profile/inventory kilitleri, ledger yazımı ve request receipt/idempotency ile çalıştır. Servis rolü dışına execute verme. UI pending tek başına güvenlik sınırı değil.
+Etki: bakiye/eşya kaybı ve belirsiz retry riskini ortadan kaldırır; ayrıca istek başına DB round-trip azalır.
+Risk: orta; migration ve eşzamanlı işlem/rollback/retry testleri gerekir. Bu görsel güncellemede ekonomi migration'ı yapılmadı.
+
+3) P2 — Production bağımlılıklarının kalan açıkları
+Vault npm audit: 1 critical, 4 high, 5 moderate (10 dependency kaydı; 10 ayrı doğrulanmış uygulama exploiti değildir).
+Öne çıkanlar: @grpc/grpc-js, @fastify/busboy, brace-expansion, source-map-js; Firebase zincirinde uuid/teeny-request/retry-request/@google-cloud/storage.
+Court npm audit: source-map-js için 1 high; Next 16.3.6 bu OG advisory'sinin düzeltmesini içeriyor.
+Öneri: lockfile patch güncellemeleri ve kullanılmayan transitif modüllerin runtime trace'e gerçekten girip girmediğini kontrol et. Firestore/GCS kitaplıklarının npm'de kurulu olması, hepsinin canlı function'da yüklendiği anlamına gelmez.
+Risk: düşük-orta. Ham sonuçlar *dependency-audit.json dosyalarında.
+
+4) P2 — Ücretli Wheel isteğinin belirsiz yanıtında receipt eksik
+Dosyalar: her iki app/api/.../wheels/route.ts, supabase/wheel-chastity-hours.sql
+Wheel, server randomInt ile sonucu seçiyor ve RPC profile satırını kilitleyerek debit+sonucu birlikte kaydediyor. Ancak istemci requestId'sine bağlı tekrar makbuzu yok. Yanıt kaybolursa özellikle chastity tekrarında yeni ücretli spin oluşabilir.
+Öneri: kullanıcı+requestId benzersiz receipt; ağ hatasında aynı spin sonucunu döndür. Bu, bilinçli yeni spin davranışını değiştirmemeli.
+Risk: orta; iki istemci ve ortak RPC birlikte ele alınmalı.
+
+ÖNCELİKLİ BULGULAR — VERCEL STORAGE / PERFORMANCE
+
+5) En büyük somut bundle azaltma fırsatı — OG için tüm büyük kasa görselleri
+Rotlar: /s/[token] 28.08 MiB; /s/[token]/opengraph-image 27.90 MiB.
+Dosyalar: scripts/generate-server-assets.mjs, src/lib/generated/crate-image-readers.ts, src/app/s/[token]/opengraph-image.tsx; public/crate-items içindeki 220 resim.
+Bu 220 resim tekil 21.62 MiB, iki trace'de de mevcut. OG'nin gösterdiği ikon 150px; örneğin witch_cosplay.png 1.24 MiB, nezuko_cosplay.png 1.14 MiB.
+Ölçülmüş deneme: kaynakları değiştirmeden bellekte 256px paletli PNG üretimi toplam 3,003,680 byte'a indi. Yalnızca OG için bu türevleri kullanmak yaklaşık 18.76 MiB/trace, iki trace'in aritmetik toplamında 37.52 MiB azaltabilir. Vercel route gruplamasına bağlı gerçek storage kazancı değişir.
+Öneri: build-time OG thumbnail katalogu; avatarın asıl görsellerini koru. Alternatif önceden render edilmiş imzalı paylaşım kartı.
+Risk: düşük-orta; şeffaflık ve nadir item ikonlarının görüntü kalitesi kontrol edilmeli. Dynamic import tek başına trace edilen resimleri function'dan çıkarmaz.
+
+6) Özel galeri varlıkları function'a gömülü
+/api/gallery/[...path]: 20.40 MiB trace; private/gallery medyası 18.35 MiB.
+/api/user/pet-worship/image: 12.91 MiB trace; private/worship medyası 10.92 MiB.
+Dosyalar: next.config.ts outputFileTracingIncludes, ilgili route.ts dosyaları, private/ dizinleri.
+Öneri: özel bucket/R2 + sahiplik kontrolünden sonra kısa ömürlü signed URL veya yetkili proxy. Function içindeki ~29.27 MiB görsel paketi taşınabilir. Ayrıca her resimde auth/ownership sorgusu maliyeti ayrı değerlendirilir.
+Risk: orta-yüksek; özel görseller public'e taşınmamalı, entitlement ve URL iptal/süre davranışı korunmalı. Taşıma storage/egress'i başka servise aktarır; bedelsiz hale getirmez.
+
+7) Bildirim SDK'ları ve paylaşılan function modülleri
+Dosyalar: src/lib/admin-mobile-push.ts, wallpaper-push.ts, pending-admin-actions.ts, admin-coin-security-alerts.ts, wallpaper-admin.ts, r2-wallpapers.ts.
+Firebase Admin app/messaging altmodülleri 10 function trace'inde. AWS S3/Smithy upload bağımlılıkları iki wallpaper admin trace'inde. En büyükleri /api/admin/wallpapers 4.49 MiB, /api/admin/mobile/wallpapers 4.41 MiB. Firebase sadece paket dosyası ~0.19 MiB; google-auth-library ~0.42 MiB ve diğer transitif modüller ayrıca var.
+Supabase'ın derlenmiş ~188 KiB ortak chunk'ı 160 trace'de; Next app runtime ~679 KiB 163 trace'de referanslı. Bunları aritmetik toplamdan çıkarıp otomatik tasarruf gibi sunmak doğru değil; adapter paylaşımı/gruplaması belirleyici.
+Öneri: bildirim işini güvenilir bir worker/queue sınırına ayırmayı değerlendir; SDK subpath importlarını koru. Sadece import() yazmak server trace maliyetini garanti azaltmaz. Supabase'ı kaldırmak uygun değil; esas iş bağımlılığı.
+Risk: orta; bildirim kaybı ve retry gereksinimi var. 2MB sınıfındaki authenticated rotaları sırf sayıyı azaltmak için tek dev endpoint'e toplama.
+
+8) Statik deployment boyutu ve frontend
+Public toplamı 242.94 MiB. Büyük yük Discipline overlay-pool videolarında; en büyük tek video yaklaşık 20 MiB. Bu dosyalar ilgili function trace medyasında görünmüyor; bunları küçültmek Deployment Storage/CDN transferine yardım eder, aynı oranda Functions Storage kazanımı değildir.
+Öneri: overlay video bitrate/resolution kontrolü veya ayrı medya dağıtımı. Yeni ritüel çizimleri zaten toplam ~240 KiB WebP. İki kısa program videosu ~0.97 MiB, kullanıcı açmadan indirilmez.
+Frontend toplamı 2.81 MiB JS, ~708 KiB CSS; en büyük JS chunk ~298 KiB (~80 KiB gzip). Bu toplamlar ilk yükleme ölçümü değildir. src/app/page.tsx büyük ortak state merkezi; katalog/rules importlarının ortak başlangıç chunk'larına etkisi analiz edilip panel bazında ayrılabilir.
+Öneri: gerçek oturumla network/long-task/LCP ölçümü; kritik CSS ayrımı ve ağır katalog panellerinde sanallaştırma. Vitrine'de önizleme yalnızca açıkken mount edilir. Yeni animasyonlarda reduced-motion uygulanır.
+Risk: düşük-orta; bundle küçültürken panel geçişlerinde loading flash yaratmama önemli.
+
+SUPABASE USAGE BULGULARI
+9) Profil Realtime sonrası ek SELECT
+Dosya: src/app/page.tsx, vault-profile subscription (~5970).
+Her UPDATE bildirimi pull() ile bir profiles select'i daha başlatıyor; işlem yanıtının zaten profil döndürdüğü durumlarda tekrar okuma oluşur. Abonelik kullanıcı id'si ile filtreli ve unmount'ta kapanıyor: olumlu.
+Öneri: eşzamanlı pull birleştirme/debounce ve kendi işlem yanıtından sonraki yakın tekrarların bastırılması; uygun doğrulanmış payload alanlarını doğrudan kullanma. Realtime'ı her görsel efekt için genişletme.
+Etki: yoğun oyun/harcama sırasında profil güncellemesi başına gereksiz bir DB okumasını azaltabilir. Canlı egress/mesaj adedi ölçülmedi.
+Risk: orta; başka sekmenin gerçek bakiye değişimi kaçırılmamalı.
+
+10) Polling ve yazım ritmi
+- Recent openings: görünürken 60 saniye, sunucu CDN cache 15s/stale60s; query limit40, sonuç14. crate-opened olayı cache-busting isteği yapıyor.
+- CrateDuels: görünürken 60 saniye; banner120 saniye; feed notifications60 saniye; NotificationBell180 saniye.
+- Drain: aktifken 5 saniyede sync (~720/saat); yeni görsel akış bu sıklığı artırmadı.
+- Click: 250ms debounce, sürekli tıklamada 600ms azami bekleme, 40 tık zorunlu flush. Görsel parçacıkları ayrı API çağrısı yapmıyor. Yoğun sürekli kullanım yaklaşık saniyede 1-2 yazım isteği üretebilir; rate limit/gerçek trafik birlikte incelenmeli.
+Öneri: ortak görünürlük kontrollü refresh koordinasyonu, background istek birleştirme, kritik olmayan sayımlarda backoff. Örnek: 100 kişi 8 saat aynı 60s-poll panelini açık tutarsa 48,000 istemci isteği/gün; bu hesap gerçek trafik değildir ve CDN cache DB çağrısını azaltabilir.
+Retention cron kodda var. Ancak canlı cron başarısı, SQL migration'ın uygulanması, coin_transactions/crate_opens boyutları ve query index planları bu ortamda doğrulanmadı.
+Supabase kaynakları: https://supabase.com/docs/guides/platform/manage-your-usage/egress
+https://supabase.com/docs/guides/platform/manage-your-usage/realtime-messages
+
+STATIC / ISR DEĞERLENDİRMESİ
+Ana sayfa kabukları zaten statik. Paylaşılan site-announcement, premium-title, leaderboard gibi salt okunur public verilerde mevcut CDN TTL'leri koru/ölç; gerekiyorsa ISR/tag invalidation düşün. Auth, ödeme, profil, özel galeri, inventory ve POST işlemleri public cache'e alınmamalı. ISR sunucu revalidation'ını bütünüyle ortadan kaldırmaz; otomatik sıfır-function garantisi yok.
+
+GÜVENLİKTE KORUNAN İYİ ÖZELLİKLER
+Wheel sonuçları sunucuda crypto ile seçiliyor; fiyat ve ödül istemciden güvenilir kabul edilmiyor. Wheel SQL profile kilidi kullanıyor; temel findom-wheels migration'ı anon/authenticated execute'u kaldırıyor. Crate Upgrade için request receipt ve retry yolu, Crate Duel için kapalı sonuçlar/atomik settlement mevcut. Gallery auth+sahiplik kontrolü ve no-store korunuyor. Throne webhook Ed25519 imza kontrolü, cron secret kontrolü mevcut. Bunların production grant/env yapılandırması kaynak koddan kanıtlanamaz.
+Yeni UI gizli anahtar, sunucu admin client import'u veya üçüncü parti script eklemedi. Next/CSP ve bağımlılık riskleri mevcut sürümün konuları olarak raporlandı.
+
+VERCEL METRİKLERİNİ OKURKEN
+Vercel'in güncel dokümanında Deployment Storage build/static çıktıyı; Functions Storage region'lara dağıtılan function bundle'larını kapsar. Günlük proje tepe değerleri üzerinden GB-month ölçülür. Retained deployment ve region sayısı sonucu değiştirir; bugün dosya silmek geçmiş günlerin kullanımını sıfırlamaz.
+Kaynak: https://vercel.com/docs/deployment-storage
+https://vercel.com/docs/deployment-retention
+Bu raporda retention değişikliği, deploy silme veya account ayarı yapılmadı.
+
+DOĞRULAMA
+- Her iki repo production build + TypeScript: geçti.
+- Değişen Vault bileşenleri ESLint: 0 error, CratesPanel'deki mevcut img/unused uyarıları (10) kaldı.
+- Court components/court-app.tsx ESLint: 23 error + 1 warning; git HEAD sürümünde de aynı 23 error + 1 warning ve aynı rule dizisi var. Bunlar mevcut purity/set-state/refs sorunları; yeni wheel-verdict.tsx temiz. Court lint bütünüyle yeşil değil.
+- npm run test:security: API ve PGlite SQL kontrolleri geçti.
+- node scripts/crate-safety-check.mjs: atomiklik, retry, payout, sealed history, mixed lineup, expiry/grants geçti.
+- node scripts/crate-duel-browser-check.mjs: desktop/mobile skip, timer iptali, focus/Escape ve Upgrade retry geçti.
+- node scripts/premium-experience-browser-check.mjs: 1440/768/390px; bekleme/başarısız/kabul Shrine, acquire makbuzu, kendi isim önizlemesi, video ön yükleme yapılmaması, hızlı açılış, dialog taşmaması ve 85px dar wheel sonuç sütunu geçti. API fixture'ları kullanıldı.
+- Recent openings regresyon testi eski 6 kayıt beklentisini taşıyordu. Mevcut 14 kayıt tasarımına güncellendi; geçmiş kayıtların kalması, doğru sıralama, yeni kayıtla en eskinin düşmesi ve hatalı kayıt elemesi geçti. Runtime limit değiştirilmedi.
+- Tarayıcı görüntüleri tmp/premium-review altında. Gerçek cihaz / üretim oturumu testi yapılmadı.
+
+YENİ GÖRSELLERİN KAYNAĞI
+Built-in imagegen: üç transparan raster obje; son dosyalar public/principessa-ui/ritual/{offering,blessed,royal}.webp, en fazla640x640.
+Prompt özeti: Üç çeyrek açı, koyu bordo/siyah/pembe/altın malzeme, aynı ışık; altın bozuk paralı siyah porselen kase; pembe mühürlü bordo kadife kutu; yakut tokalı ve taçlı siyah-altın mücevher sandığı. Yazı, sahne veya insan yok; gerçek şeffaf fon.
+Program videoları ve posterleri diğer repoda mevcut olan yerel tanıtımların kopyalarıdır; yeni video üretimi yapılmadı.
+
+ÖNERİLEN SIRA
+1. Next güvenli patch + PM mağazası atomik RPC/receipt.
+2. OG için küçük thumbnail kataloğu (ölçülmüş storage kazanımı yüksek, görsel kalite korunabilir).
+3. Profil refresh birleştirme ve gerçek Supabase query/egress ölçümü.
+4. Özel medyayı entitlement koruyarak object storage'a ayırma.
+5. Bildirim worker'ı ve ilk yükleme chunk/CSS iyileştirmeleri.

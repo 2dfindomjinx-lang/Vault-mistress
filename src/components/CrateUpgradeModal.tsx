@@ -1,5 +1,6 @@
 "use client";
 
+import experience from "./PremiumExperience.module.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { RARITY_HEX, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
@@ -95,7 +96,7 @@ function DiamondCard({
   const hex = rarity ? RARITY_HEX[rarity] : "#3f3f46";
   const frameColor = state === "won" ? "#34d399" : state === "lost" ? "#fb7185" : "#c89a55";
   return (
-    <div className={`flex flex-col items-center transition-opacity duration-500 ${state === "dim" ? "opacity-40" : ""}`}>
+    <div data-state={state} className={`${experience.upgradeCard} flex flex-col items-center transition-opacity duration-500 ${state === "dim" ? "opacity-40" : ""}`}>
       <div className="relative aspect-square w-full max-w-[150px] sm:max-w-[200px]">
         <div
           className="absolute inset-[6%] rotate-45 rounded-[26%] border bg-[#110c14]"
@@ -324,7 +325,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
         ) : null}
 
         {/* Stage */}
-        <div className="mt-4 grid grid-cols-2 items-center gap-3 md:grid-cols-[1fr_auto_1fr] md:gap-6">
+        <div data-phase={phase} style={{ "--target-color": target?.rarity ? RARITY_HEX[target.rarity] : "#c89a55" } as React.CSSProperties} className={`${experience.upgradeStage} mt-4 grid grid-cols-2 items-center gap-3 md:grid-cols-[1fr_auto_1fr] md:gap-6`}>
           <DiamondCard
             caption="Your item"
             imageUrl={itemImage}

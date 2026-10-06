@@ -109,7 +109,7 @@ function load(file) {
   const crate = Object.keys(CRATE_TYPES)[0],
     item = Object.keys(SAMPLE_CRATE_ITEMS)[0];
   // Nothing was opened in the last 24 hours, or even in the last year.
-  rows = Array.from({ length: 10 }, (_, i) => ({
+  rows = Array.from({ length: 20 }, (_, i) => ({
     id: "old-" + String(i).padStart(2, "0"),
     user_id: "u" + (i % 3),
     crate_type: crate,
@@ -124,12 +124,12 @@ function load(file) {
     .sort((a, b) => b.openedAt.localeCompare(a.openedAt));
   assert.equal(
     feed.length,
-    6,
+    14,
     "Old records must remain visible after inactivity",
   );
   assert.deepEqual(
     feed.map((x) => x.id),
-    ["old-09", "old-08", "old-07", "old-06", "old-05", "old-04"],
+    Array.from({ length: 14 }, (_, index) => "old-" + String(19 - index).padStart(2, "0")),
   );
   rows.push(
     {
@@ -158,10 +158,10 @@ function load(file) {
   feed = payload.openers
     .flatMap((x) => x.recentOpenings)
     .sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-  assert.equal(feed.length, 6);
+  assert.equal(feed.length, 14);
   assert.equal(feed[0].id, "latest");
-  assert.ok(feed.some((x) => x.id === "old-05"));
-  assert.ok(!feed.some((x) => ["invalid", "no-item", "old-04"].includes(x.id)));
+  assert.ok(feed.some((x) => x.id === "old-07"));
+  assert.ok(!feed.some((x) => ["invalid", "no-item", "old-06"].includes(x.id)));
   rows = [];
   payload = await (await GET()).json();
   assert.deepEqual(
@@ -180,7 +180,7 @@ function load(file) {
     console.error = original;
   }
   console.log(
-    "Recent Openings: old history retained, latest six ordered, new opening replaces oldest, invalid rows excluded, empty history and read failure distinguished.",
+    "Recent Openings: old history retained, latest fourteen ordered, new opening replaces oldest, invalid rows excluded, empty history and read failure distinguished.",
   );
 })().catch((e) => {
   console.error(e);
