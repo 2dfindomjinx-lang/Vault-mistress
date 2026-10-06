@@ -12110,7 +12110,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 onPurchaseCosmetic={handlePurchaseCosmetic}
               />
               <CosmeticShop
-                displayName={effectiveDisplayName ?? username}
                 mobileLayout={mobileLayout}
                 equippedAvatarSlots={equippedAvatarSlots}
                 equippedFullSetId={equippedFullSetId}

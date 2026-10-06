@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { MoneyIcon } from "@/components/MoneyIcon";
 import type { Profile } from "@/lib/supabase/client";
 
-// Her Android programs, bought with Principessa Money.
+// Her Android and Windows programs, bought with Principessa Money.
 //
 // This shelf and the Court's Links page sell the same thing through the same
 // shared licence table, so a program bought on either site shows as owned on
@@ -42,7 +42,12 @@ type AppLicenseShelfProps = {
 const PROGRAM_ART: Record<string, string> = {
   discipline: "/programs/principessas_discipline.webp",
   wallpaper: "/programs/principessa_wallpaper.webp",
+  techdom: "/programs/principessa_techdom.webp",
+  "techdom-windows": "/programs/principessa_techdom.webp",
+  "principessa-techdom": "/programs/principessa_techdom.webp",
 };
+const isTechdom = (slug: string) => ["techdom", "techdom-windows", "principessa-techdom"].includes(slug);
+const mediaSlug = (slug: string) => isTechdom(slug) ? "techdom" : slug;
 
 export function AppLicenseShelf({ previewMode = false, disabled = false, money, onPurchased }: AppLicenseShelfProps) {
   const [film, setFilm] = useState<Program | null>(null);
@@ -150,7 +155,7 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#d7ad69]/70">Yours to keep</p>
           <h3 className="mt-1 text-2xl font-black text-white">Her Programs</h3>
         </div>
-        <p className="text-[11px] text-zinc-500">One per account. The code locks to the first phone that uses it.</p>
+        <p className="text-[11px] text-zinc-500">One activation code per account.</p>
       </div>
 
       {error ? (
@@ -162,11 +167,12 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
           Loading her programs...
         </p>
       ) : (
-        <div className="court-grid mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="court-grid mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {programs.map((program) => {
             const isPending = pendingSlug === program.slug;
             const canAfford = money >= program.pricePm;
             const art = PROGRAM_ART[program.slug];
+            const techdom = isTechdom(program.slug);
 
             return (
               <article
@@ -179,15 +185,21 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-white">{program.title}</p>
-                    <p className="flex items-center gap-1.5 text-lg font-black leading-none text-[#fff0d2]">
+                    {techdom ? <p className="text-[10px] font-black uppercase tracking-wide text-[#fff0d2]">Windows · Free desktop pet</p> : <p className="flex items-center gap-1.5 text-lg font-black leading-none text-[#fff0d2]">
                       <MoneyIcon height={16} />
                       {program.pricePm.toLocaleString()}
-                    </p>
+                    </p>}
                   </div>
                 </div>
 
-                <p className="text-[11px] leading-5 text-zinc-400">{program.description}</p>
-                {PROGRAM_ART[program.slug] && <button type="button" className={ui.programPoster} onClick={() => setFilm(program)} aria-label={`Watch ${program.title} preview`}><Image alt="" src={`/programs/${program.slug}-poster.webp`} fill sizes="(max-width:700px) 85vw,380px"/><span>▶ Watch preview</span></button>}
+                <p className="text-[11px] leading-5 text-zinc-400">{techdom ? "Keep Principessa on your desktop for free. Unlock timed Techdom sessions when you want more." : program.description}</p>
+                {techdom && <ul className="space-y-1 text-[11px] leading-5 text-zinc-400">
+                  <li>Choose session duration &amp; intensity</li>
+                  <li>Choose apps for access, window &amp; audio control</li>
+                </ul>}
+                {art && <button type="button" className={ui.programPoster} onClick={() => setFilm(program)} aria-label={`Watch ${program.title} preview`}><Image alt="" src={`/programs/${mediaSlug(program.slug)}-poster.webp`} fill sizes="(max-width:640px) 85vw,(max-width:1024px) 45vw,30vw"/><span>▶ Watch preview</span></button>}
+
+                {techdom && <><a className="rounded-xl border border-[#c89a55]/30 bg-[#e6ba73]/15 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#fff0d2] transition hover:border-[#c89a55]/60" href={program.link} rel="noopener noreferrer" target="_blank">Download free desktop pet</a><p className="text-[10px] text-zinc-500">Windows · No activation code needed for the pet.</p><div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#c89a55]/20 pt-3"><p className="text-xs font-bold text-[#fff0d2]">Optional Techdom sessions</p><span className="flex items-center gap-1.5 text-xs font-bold text-[#fff0d2]">{program.code ? "Unlocked" : <><MoneyIcon height={13}/>{program.pricePm.toLocaleString()} PM</>}</span></div></>}
 
                 {program.code ? (
                   <div className="rounded-xl border border-[#c89a55]/25 bg-[#e6ba73]/[0.07] p-3">
@@ -207,7 +219,11 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                       </button>
                     </div>
                     <p className="mt-2 text-[10px] leading-4 text-zinc-500">
-                      {program.bound
+                      {techdom
+                        ? program.bound
+                          ? `Activated on ${program.deviceName ?? "a PC"}. Restore on a new PC with the purchasing X account.`
+                          : "Enter this code in the Windows app to unlock Techdom sessions. Your desktop pet is always free."
+                        : program.bound
                         ? `Already redeemed on ${program.deviceName ?? "your device"}. It stays with that phone.`
                         : "Enter it once in the app. It locks to that phone and cannot be moved."}
                     </p>
@@ -219,24 +235,24 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                     onClick={() => void buy(program)}
                     type="button"
                   >
-                    {isPending ? "Working..." : canAfford ? "Unlock" : "Not enough Money"}
+                    {isPending ? "Working..." : canAfford ? techdom ? "Unlock Techdom" : "Unlock" : "Not enough Money"}
                   </button>
                 )}
 
-                <a
-                  className="rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-300 transition hover:border-white/25"
+                {!techdom && <a
+                  className="mt-auto rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-300 transition hover:border-white/25"
                   href={program.link}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
                   Download the app
-                </a>
+                </a>}
               </article>
             );
           })}
         </div>
       )}
-      {film && <CourtDialog label={film.title + " preview"} className={ui.dialog} onClose={() => setFilm(null)}><header className={ui.dialogHeader}><h3>{film.title}</h3><button type="button" aria-label="Close preview" onClick={() => setFilm(null)}>×</button></header><video className={ui.film} controls playsInline preload="none" poster={`/programs/${film.slug}-poster.webp`} src={`/programs/principessa-${film.slug}.mp4`}/><p className="px-5 py-3 text-xs text-zinc-400">App preview {film.slug === "discipline" ? "· Popup scenes are illustrative." : ""}</p></CourtDialog>}
+      {film && <CourtDialog label={film.title + " preview"} className={ui.dialog} onClose={() => setFilm(null)}><header className={ui.dialogHeader}><h3>{film.title}</h3><button type="button" aria-label="Close preview" onClick={() => setFilm(null)}>×</button></header><video className={ui.film} controls playsInline preload="none" poster={`/programs/${mediaSlug(film.slug)}-poster.webp`} src={`/programs/principessa-${mediaSlug(film.slug)}.mp4`}/><p className="px-5 py-3 text-xs text-zinc-400">App preview {film.slug === "discipline" ? "· Popup scenes are illustrative." : isTechdom(film.slug) ? "· Actual interface with demo app selections." : ""}</p></CourtDialog>}
     </div>
   );
 }

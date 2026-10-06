@@ -1,7 +1,5 @@
 "use client";
 
-import { CourtDialog } from "./CourtDialog";
-import preview from "./PremiumExperience.module.css";
 import { LayeredAvatar } from "@/components/LayeredAvatar";
 import type { EquippedAvatarSlots } from "@/lib/avatar-slots";
 import { worldCupFarewellBorders } from "@/lib/cosmetics";
@@ -37,7 +35,6 @@ function ShopCountdown({ target }: { target: string }) {
 }
 
 type CosmeticShopProps = {
-  displayName?: string;
   mobileLayout?: boolean;
   equippedAvatarSlots?: EquippedAvatarSlots;
   equippedFullSetId?: string | null;
@@ -59,7 +56,6 @@ type CosmeticShopProps = {
 };
 
 export function CosmeticShop({
-  displayName = "Your name",
   mobileLayout = false,
   equippedAvatarSlots = {},
   equippedFullSetId = null,
@@ -79,7 +75,6 @@ export function CosmeticShop({
   onPurchaseCosmetic,
   onPurchaseTitle,
 }: CosmeticShopProps) {
-  const [previewItem, setPreviewItem] = useState<CosmeticItem | "title" | null>(null);
   const [mobileCategory, setMobileCategory] = useState("speech-avatar");
   const [farewell, setFarewell] = useState(() => getWorldCupFarewell());
   useEffect(() => {
@@ -110,7 +105,7 @@ export function CosmeticShop({
   const displayNameChangeItem = shopItems.find((item) => item.id === "display-name-change");
   const premiumOwned = ownedTitleIds.includes(premiumTitle.id);
 
-  const renderPreview = (item: CosmeticItem, personal = false) => {
+  const renderPreview = (item: CosmeticItem) => {
     if (item.type === "profile-border") {
       const presentation = getProfileBorderFramePresentation(item);
 
@@ -122,12 +117,12 @@ export function CosmeticShop({
               contentClassName="overflow-hidden rounded-[calc(1.35rem-3px)] bg-[linear-gradient(180deg,rgba(20,8,28,0.96),rgba(9,4,16,0.98))]"
               presentation={presentation}
             >
-              {personal ? <LayeredAvatar alt="Your avatar with this border" equipped={equippedAvatarSlots} equippedFullSetId={equippedFullSetId} hasUncensored={hasUncensoredAvatar}/> : <>
+              <>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_18%,rgba(255,255,255,0.05)_78%,rgba(0,0,0,0.2)_100%)]" />
               <div className="absolute inset-x-[22%] top-[14%] h-[18%] rounded-full bg-[radial-gradient(circle,rgba(255,214,230,0.9),rgba(255,152,194,0.42)_58%,transparent_72%)] blur-[2px]" />
               <div className="absolute inset-x-[28%] top-[30%] h-[42%] rounded-[999px] bg-[linear-gradient(180deg,rgba(255,182,212,0.24),rgba(255,255,255,0.05),rgba(244,114,182,0.18))]" />
               <div className="absolute inset-x-[30%] bottom-[12%] h-[14%] rounded-[999px] bg-[linear-gradient(180deg,rgba(244,114,182,0.22),rgba(255,255,255,0.05))]" />
-              </>}
+              </>
             </ProfileBorderFrame>
           </div>
         </div>
@@ -221,7 +216,6 @@ export function CosmeticShop({
               </span>
             </div>
           </div>
-          {!isDisplayNameChange && <button type="button" className={preview.secondary} onClick={() => setPreviewItem(item)}>Preview</button>}
           <div className={styles.productActions}>
             {item.price > 0 && !owned && (
               <div className={styles.salePrice}>
@@ -335,7 +329,6 @@ export function CosmeticShop({
               Premium Title
             </p>
             <h3 className="mt-1 text-xl font-black text-white">{premiumTitle.name}</h3>
-            <button type="button" className={preview.secondary + " mt-3"} onClick={() => setPreviewItem("title")}>Preview on your profile</button>
             <p className="mt-1 text-sm text-yellow-50/75">{premiumTitle.description}</p>
             {premiumTitleExpiresAt && (
               <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-yellow-200/70">
@@ -363,20 +356,6 @@ export function CosmeticShop({
           </button>
         </div>
       </div>
-      {previewItem && <CourtDialog label="Cosmetic preview" className={preview.dialog} onClose={() => setPreviewItem(null)}>
-        <header className={preview.dialogHeader}><div><small>Your look · Preview</small><h3>{previewItem === "title" ? premiumTitle.name : previewItem.name}</h3></div><button type="button" aria-label="Close preview" onClick={() => setPreviewItem(null)}>×</button></header>
-        <div className={preview.previewContexts}>
-          {previewItem !== "title" && renderPreview(previewItem, true)}
-          {["Profile", "Leaderboard", "Chat"].map(context => <div className={preview.contextRow} key={context}>
-            <div className={preview.contextPortrait}><LayeredAvatar alt="Your avatar" equipped={equippedAvatarSlots} equippedFullSetId={equippedFullSetId} hasUncensored={hasUncensoredAvatar}/></div>
-            <div><small>{context} preview</small><strong className={preview.contextName} style={{ color: previewItem !== "title" && previewItem.type === "username-color" ? previewItem.color : undefined, textShadow: previewItem !== "title" && previewItem.type === "username-glow" ? previewItem.glow : undefined }}>{displayName}</strong>
-            {previewItem === "title" && <p className="text-amber-200">{premiumTitle.name}</p>}
-            {context === "Chat" && <p>A little more devoted.</p>}</div>
-          </div>)}
-          {previewItem !== "title" && previewItem.type === "speech-avatar" && <div className={preview.contextRow}>{previewItem.image && <Image alt="Principessa" src={previewItem.image} width={64} height={64}/>}<p>That suits you. ♡</p></div>}
-          <button type="button" className={preview.secondary} onClick={() => setPreviewItem(null)}>Back to collection</button>
-        </div>
-      </CourtDialog>}
     </section>
   );
 }
