@@ -39,11 +39,29 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.route("**/*", (route) => route.request().resourceType() === "image" ? route.abort() : route.continue());
     await page.goto(`http://127.0.0.1:${server.address().port}`);
+    await page.waitForFunction(() => {
+      const reels = [...document.querySelectorAll('.will-change-transform')];
+      return reels.length === 2 && reels.every(node => node.getAnimations().some(animation => animation.playState === 'running'));
+    });
+    const firstPosition = await page.locator('.will-change-transform').first().evaluate(node => getComputedStyle(node).transform);
+    await page.waitForTimeout(180);
+    assert.notEqual(await page.locator('.will-change-transform').first().evaluate(node => getComputedStyle(node).transform), firstPosition, 'The first opening visibly travels instead of snapping to its result');
+    await page.locator('.will-change-transform').last().evaluate(node => node.getAnimations()[0].pause());
+    await page.waitForTimeout(3000);
+    assert.equal(await page.getByText('Opening...', {exact:true}).count(), 2, 'Neither result is revealed while one reel is still moving');
+    assert.equal(await page.getByText('Round 1 / 3', {exact:true}).count(), 1, 'The next round waits for both reels');
+    await page.locator('.will-change-transform').last().evaluate(node => node.getAnimations()[0].play());
+    await page.getByText('Item 5', {exact:true}).waitFor();
+    await page.getByText('Item 10', {exact:true}).waitFor();
+    assert.equal(await page.locator('.will-change-transform').evaluateAll(nodes => nodes.reduce((count,node) => count + node.getAnimations().length,0)), 0, 'Both reels settle before their results appear');
+    await page.getByText('Round 2 / 3', {exact:true}).waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll('.will-change-transform')].every(node => node.getAnimations().some(animation => animation.playState === 'running')));
     await page.getByRole("button", { name: "Skip ›", exact: true }).click();
     await page.getByText("Final", { exact: true }).waitFor();
     const reels = await page.locator(".will-change-transform").evaluateAll((nodes) => nodes.map((node) => ({ transform: node.style.transform, transition: node.style.transition })));
     assert.equal(reels.length, 2);
     assert.ok(reels.every((reel) => reel.transition === "none" && reel.transform === "translateY(-3202px)"), "Skip snaps both reels straight to their final cards");
+    assert.equal(await page.locator('.will-change-transform').evaluateAll(nodes => nodes.reduce((count,node) => count + node.getAnimations().length,0)), 0, 'Skip cancels all compositor animations');
     assert.equal(await page.getByText("You win", { exact: true }).count(), 0, "Matching display names cannot assign the winner to the wrong player");
     await page.getByText("Same name wins", { exact: true }).waitFor();
     await page.waitForTimeout(3000);
@@ -77,7 +95,7 @@ try {
     assert.equal(await upgradePage.evaluate(() => window.fixtureClosed), true);
     await upgradePage.close();
   }
-  console.log("Crate browser: skip, cancelled timers, duplicate names, focus, Escape, Upgrade retries and responsive modal passed at desktop and mobile widths.");
+  console.log("Crate browser: first-round movement, delayed reel synchronization, later-round animation, skip, cancelled animations/timers, duplicate names, focus, Escape, Upgrade retries and responsive modal passed at desktop and mobile widths.");
 } finally {
   await browser?.close();
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

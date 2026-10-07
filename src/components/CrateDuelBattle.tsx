@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { CRATE_TYPES, RARITY_HEX, SAMPLE_CRATE_ITEMS, getCrateIconUrl, getCrateItemImageUrl, type CrateRarity } from "@/lib/crates";
 import { lineupLabel } from "@/lib/crate-duel-lineup";
@@ -130,8 +130,10 @@ export function Avatar({ name, src, size = 56, ring }: { name: string; ring?: st
   );
 }
 
-function BattleReel({ cards, jitter, instant = false }: { cards: StripCard[]; jitter: number; instant?: boolean }) {
+function BattleReel({ cards, jitter, instant = false, onComplete }: { cards: StripCard[]; jitter: number; instant?: boolean; onComplete: () => void }) {
   const stripRef = useRef<HTMLDivElement | null>(null);
+  const completeRef = useRef(onComplete);
+  useLayoutEffect(() => { completeRef.current = onComplete; }, [onComplete]);
 
   useLayoutEffect(() => {
     const node = stripRef.current;
@@ -145,14 +147,42 @@ function BattleReel({ cards, jitter, instant = false }: { cards: StripCard[]; ji
       return;
     }
     node.style.transform = `translateY(${startY}px)`;
-    void node.offsetHeight;
-    node.style.transition = `transform ${SPIN_MS}ms cubic-bezier(0.1, 0.72, 0.16, 1)`;
-    node.style.transform = `translateY(${endY + jitter}px)`;
-    const settle = window.setTimeout(() => {
-      node.style.transition = `transform ${SETTLE_MS}ms ease-out`;
-      node.style.transform = `translateY(${endY}px)`;
-    }, SPIN_MS);
-    return () => window.clearTimeout(settle);
+    let cancelled = false;
+    let frame = 0;
+    let animation: Animation | undefined;
+    let imageDeadline = 0;
+    // The dialog is still closed during its children's layout effects. Allow
+    // it to open and its initial reel position to paint before starting.
+    const images = Array.from(node.querySelectorAll("img"));
+    const ready = Promise.all(images.map(image => image.decode().catch(() => {})));
+    const deadline = new Promise<void>(resolve => { imageDeadline = window.setTimeout(resolve, 350); });
+    void Promise.race([ready, deadline]).then(() => {
+      window.clearTimeout(imageDeadline);
+      if (cancelled) return;
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          if (cancelled) return;
+          const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          animation = node.animate([
+            { transform: `translateY(${startY}px)`, offset: 0, easing: "cubic-bezier(0.16, 0.72, 0.22, 1)" },
+            { transform: `translateY(${endY + jitter}px)`, offset: SPIN_MS / (SPIN_MS + SETTLE_MS), easing: "ease-out" },
+            { transform: `translateY(${endY}px)`, offset: 1 },
+          ], { duration: reduced ? 120 : SPIN_MS + SETTLE_MS, fill: "forwards" });
+          animation.onfinish = () => {
+            if (cancelled) return;
+            node.style.transform = `translateY(${endY}px)`;
+            animation?.cancel();
+            completeRef.current();
+          };
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(imageDeadline);
+      cancelAnimationFrame(frame);
+      animation?.cancel();
+    };
   }, [cards, jitter, instant]);
 
   return (
@@ -171,7 +201,7 @@ function BattleReel({ cards, jitter, instant = false }: { cards: StripCard[]; ji
           >
             {card.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="" className="h-[74%] w-[74%] object-contain" draggable={false} src={card.imageUrl} />
+              <img alt="" className="h-[74%] w-[74%] object-contain" decoding="async" draggable={false} src={card.imageUrl} />
             ) : null}
           </div>
         ))}
@@ -226,41 +256,33 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
   const [done, setDone] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const timers = useRef<number[]>([]);
+  const completedReels = useRef(new Set<string>());
 
   useEffect(() => {
-    const scheduled = timers.current;
-    emitSoundEvent("crate_reel_tick");
-    for (let r = 0; r < rounds; r += 1) {
-      const startAt = r * (SPIN_MS + SETTLE_MS + HOLD_MS);
-      if (r > 0) {
-        scheduled.push(
-          window.setTimeout(() => {
-            setRound(r);
-            emitSoundEvent("crate_reel_tick");
-          }, startAt),
-        );
+    if (!skipped) emitSoundEvent("crate_reel_tick");
+  }, [round, skipped]);
+
+  useEffect(() => () => { timers.current.forEach(id => window.clearTimeout(id)); }, []);
+
+  const completeRound = useCallback((finishedRound: number, sideIndex: number) => {
+    if (skipped || finishedRound !== round) return;
+    const key = `${finishedRound}:${sideIndex}`;
+    if (completedReels.current.has(key)) return;
+    completedReels.current.add(key);
+    if (!completedReels.current.has(`${finishedRound}:${1 - sideIndex}`)) return;
+    // Reveal and advance only after BOTH actual reel animations have finished.
+    // Fixed timers used to race dialog opening, decoding and delayed rendering.
+    setRevealed(finishedRound + 1);
+    const best = sides.some(side => ["legendary", "ultimate"].includes(side.items[finishedRound]?.rarity ?? ""));
+    emitSoundEvent(best ? "crate_legendary_reveal" : "crate_reel_tick");
+    timers.current.push(window.setTimeout(() => {
+      if (finishedRound + 1 < rounds) setRound(finishedRound + 1);
+      else {
+        setDone(true);
+        if (duel.isMine) emitSoundEvent(duel.wonByMe ? "task_completion" : duel.winner ? "task_fail" : "button_click");
       }
-      scheduled.push(
-        window.setTimeout(() => {
-          setRevealed(r + 1);
-          const best = sides
-            .map((side) => side.items[r]?.rarity)
-            .some((rarity) => rarity === "legendary" || rarity === "ultimate");
-          emitSoundEvent(best ? "crate_legendary_reveal" : "crate_reel_tick");
-        }, startAt + SPIN_MS + SETTLE_MS),
-      );
-    }
-    scheduled.push(
-      window.setTimeout(
-        () => {
-          setDone(true);
-          if (duel.isMine) emitSoundEvent(duel.wonByMe ? "task_completion" : duel.winner ? "task_fail" : "button_click");
-        },
-        rounds * (SPIN_MS + SETTLE_MS + HOLD_MS) - HOLD_MS + 500,
-      ),
-    );
-    return () => scheduled.forEach((id) => window.clearTimeout(id));
-  }, [duel.isMine, duel.winner, duel.wonByMe, rounds, sides]);
+    }, finishedRound + 1 < rounds ? HOLD_MS : 500));
+  }, [skipped, round, sides, rounds, duel.isMine, duel.wonByMe, duel.winner]);
 
   const skip = () => {
     timers.current.forEach((id) => window.clearTimeout(id));
@@ -360,7 +382,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                   <div className={experience.duelTotal} key={revealed}><CoinAmount amount={totals[index]} className="font-serif text-xl text-[#ffe2ad] tabular-nums" iconSize={16} label="" />{landedItem && !skipped && <span className={experience.valueFlight} aria-hidden="true">+{landedItem.sellValue.toLocaleString()}</span>}</div>
                 </div>
                 <div className="mt-3">
-                  <BattleReel cards={strips[round][index].cards} jitter={strips[round][index].jitter} instant={skipped} key={`${side.key}-${round}`} />
+                  <BattleReel cards={strips[round][index].cards} jitter={strips[round][index].jitter} instant={skipped} onComplete={() => completeRound(round, index)} key={`${side.key}-${round}`} />
                 </div>
                 <div className={`mt-2 h-10 ${index === 1 ? "text-right" : ""}`}>
                   {landedItem ? (
