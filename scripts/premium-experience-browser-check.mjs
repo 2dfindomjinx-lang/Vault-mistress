@@ -18,7 +18,7 @@ function App(){const [mode,setMode]=useState('vitrine'),[owned,setOwned]=useStat
 {mode==='shrine'&&<TributePanel coins={100000} affection={100} hideAffectionOffer shrine={shrine} onTribute={()=>{}} onShrinePurchase={async amount=>{window.offeringCalls=(window.offeringCalls||0)+1;return new Promise(resolve=>{window.resolveOffering=ok=>{const next=buildShrineStatus(amount,[]);if(ok)setShrine(next);resolve(ok?next:null)}})}}/>}
 {mode==='cosmetic'&&<CosmeticShop coins={100000} equippedCosmeticIds={{}} ownedCosmeticIds={[]} ownedTitleIds={[]} premiumTitle={title} shopItems={[cosmetic]} onEquipCosmetic={()=>{}} onPurchaseCosmetic={()=>{}} onPurchaseTitle={()=>{}}/>}
 {mode==='programs'&&<AppLicenseShelf money={100} onPurchased={()=>{}}/>}
-{mode==='cases'&&<CratesPanel coins={100000} crates={Object.entries(CRATE_TYPES).filter(([,c])=>c.enabled).map(([crate_type,c])=>({...c,crate_type}))} inventory={[]} onSellItem={async()=>({success:true})} onOpenCrate={async()=>{window.openCalls=(window.openCalls||0)+1;return {success:true,result:{item:{...item,item_id:itemId,variant:'normal'},newCoins:90000}}}}/>}
+{mode==='cases'&&<CratesPanel coins={100000} crates={Object.entries(CRATE_TYPES).filter(([,c])=>c.enabled).map(([crate_type,c])=>({...c,crate_type}))} inventory={[]} onSellItem={async()=>({success:true})} onOpenCrate={async(type,quantity=1)=>{window.openCalls=(window.openCalls||0)+1;return {success:true,result:{items:Array.from({length:quantity},()=>({...item,item_id:itemId,variant:'normal'})),item:{...item,item_id:itemId,variant:'normal'},newCoins:90000}}}}/>}
 {mode==='wheel'&&<div data-wheel-narrow style={{width:85}}><WheelVerdict kind='chastity' label='+4h'/></div>}</>};createRoot(document.getElementById('root')).render(<App/>);
 `;
 const built = await build({ outfile: "tmp/premium-fixture.js", stdin: { contents: fixture, resolveDir: process.cwd(), loader: "tsx" }, bundle: true, write: false, platform: "browser", define: { "process.env": "{}" }, jsx: "automatic", plugins: [{ name: "fixture", setup(b) {
@@ -49,6 +49,36 @@ try {
     const page=await browser.newPage({viewport:{width,height:950}});const errors=[],media=[];
     page.setDefaultTimeout(10000);page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});page.on('request',req=>{if(req.url().endsWith('.mp4'))media.push(req.url());});
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    if(process.argv.includes('--cases-only')){
+      await page.getByRole('button',{name:'Close preview',exact:true}).click();
+      await page.getByRole('button',{name:'cases',exact:true}).click();
+      await page.evaluate(()=>{window.caseReveals=0;window.addEventListener('court:crate-opened',()=>window.caseReveals++);});
+      await page.getByRole('button',{name:'Quick opening · Off'}).click();
+      const started=Date.now();
+      await page.getByRole('button').filter({hasText:/^Open(?: |$)/}).first().click();
+      await page.getByText('New to your inventory',{exact:true}).first().waitFor();
+      assert.ok(Date.now()-started<1600,'Quick opening reveals promptly with an immediate API response');
+      await page.getByRole('button',{name:'Back to Cases',exact:true}).click();
+      for(const quantity of [1,2]){
+        await page.getByRole('group').filter({has:page.getByRole('button',{name:'2',exact:true})}).first().getByRole('button',{name:String(quantity),exact:true}).click();
+        await page.evaluate(()=>{
+          window.originalRaf=window.requestAnimationFrame;
+          window.requestAnimationFrame=()=>0;
+          Object.defineProperty(document,'hidden',{configurable:true,value:true});
+          Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        // DOM click avoids Playwright's rAF-based actionability checks, also
+        // intentionally suspended here to simulate a background browser tab.
+        await page.getByRole('button').filter({hasText:/^Open(?: |$)/}).first().evaluate(button=>button.click());
+        await page.waitForFunction(expected=>window.caseReveals>=expected,quantity+1,{polling:50,timeout:3000});
+        await page.evaluate(()=>{window.requestAnimationFrame=window.originalRaf;delete document.hidden;delete document.visibilityState;document.dispatchEvent(new Event('visibilitychange'));});
+        assert.equal(await page.getByRole('button',{name:'Back to Cases',exact:true}).isDisabled(),false,'Background opening completes without a visible animation frame');
+        await page.getByRole('button',{name:'Back to Cases',exact:true}).click();
+      }
+      assert.equal(await page.evaluate(()=>window.openCalls),3,'Each opening requests and reveals exactly once');
+      assert.deepEqual(errors,[]);await page.close();continue;
+    }
     if(process.argv.includes('--programs-only')){
       await page.getByRole('button',{name:'Close preview',exact:true}).click();
       await page.getByRole('button',{name:'programs',exact:true}).click();
@@ -88,5 +118,5 @@ try {
     await page.getByRole('button',{name:'Back to Cases',exact:true}).click();await page.getByRole('button',{name:'wheel',exact:true}).click();assert.ok(await page.locator('[data-wheel-narrow]').evaluate(el=>el.scrollWidth<=el.clientWidth),'Wheel verdict fits its narrow mobile column');
     assert.deepEqual(errors,[]);await page.close();
   }
-  console.log(process.argv.includes('--programs-only')?'Programs passed at 1440/768/390px: 3/2/1 columns, loaded images, Techdom activation copy, free pet download, on-demand video, no overflow. API fixtures only; no real purchases.':'Premium UI passed at 1440/768/390px: accepted/failed offers, no premature reward, acquire receipt, inline shop previews, on-demand video, quick case reveal, viewport containment. API fixtures only; no real purchases.');
+  console.log(process.argv.includes('--cases-only')?'Cases passed at 1440/768/390px: fast quick reveal, single and multi opens with suspended rAF, hidden-tab completion and exactly-once reveals. API fixtures only; no real purchases.':process.argv.includes('--programs-only')?'Programs passed at 1440/768/390px: 3/2/1 columns, loaded images, Techdom activation copy, free pet download, on-demand video, no overflow. API fixtures only; no real purchases.':'Premium UI passed at 1440/768/390px: accepted/failed offers, no premature reward, acquire receipt, inline shop previews, on-demand video, quick case reveal, viewport containment. API fixtures only; no real purchases.');
 } finally { await browser?.close();await new Promise(resolve=>server.close(resolve)); }

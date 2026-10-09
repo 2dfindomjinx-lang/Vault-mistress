@@ -1,3 +1,4 @@
+import { getFastUser } from "@/lib/supabase/fast-auth";
 import { commitEconomyAction } from "@/lib/economy-command";
 import { verifyCourtActions } from "@/lib/court-game-challenges";
 import { randomInt, randomUUID } from "node:crypto";
@@ -99,9 +100,9 @@ export async function GET() {
     );
   }
 
-  const { error: authError, user } = await getAuthenticatedUser();
-  if (authError || !user) {
-    return jsonError(authError?.message ?? "Authentication required.", 401);
+  const user = await getFastUser(await createSupabaseServerClient());
+  if (!user) {
+    return jsonError("Authentication required.", 401);
   }
 
   const supabase = createSupabaseAdminClient();

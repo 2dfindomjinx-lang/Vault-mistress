@@ -16,6 +16,7 @@
     "test:security:http": "node scripts/security-integration-tests.mjs",
     "test:linkify": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/linkify-check.mjs",
     "test:gamble": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/gamble-odds-check.mjs",
+    "test:request-latency": "node scripts/request-latency-check.mjs",
     "test:slots": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/avatar-slot-check.mjs",
     "test:outfits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/runway-outfit-check.mjs",
     "test:security:integration": "node scripts/admin-security-checks.mjs && node scripts/security-integration-tests.mjs",

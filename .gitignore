@@ -69,3 +69,5 @@ next-env.d.ts
 !/supabase/202610060001_paid_operation_receipts.sql
 /private/generated-og/
 !/supabase/202610060002_private_media.sql
+!/supabase/202610090001_request_latency.sql
+!/supabase/202609130001_gamble_cashout_receipt.sql

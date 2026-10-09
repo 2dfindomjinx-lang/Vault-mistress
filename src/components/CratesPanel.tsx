@@ -229,7 +229,8 @@ export function CratesPanel({
 
   // Ref for direct style transform during spin (butter smooth, no React re-renders of the 50+ item list every tick)
   const animationMounted = useRef(true);
-  useEffect(() => { animationMounted.current = true; return () => { animationMounted.current = false; }; }, []);
+  const cancelOpeningAnimation = useRef<(() => void) | null>(null);
+  useEffect(() => { animationMounted.current = true; return () => { animationMounted.current = false; cancelOpeningAnimation.current?.(); }; }, []);
   const stripRef = useRef<HTMLDivElement>(null);
   const horizontalReelViewportRef = useRef<HTMLDivElement>(null);
   // React can re-render during an open when coins/inventory update. Keep the
@@ -628,7 +629,7 @@ export function CratesPanel({
         // The strip only exists after the sequence has rendered. Starting the
         // rAF loop earlier makes some opens appear static because every frame
         // runs before stripRef is attached.
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
         await runCrateAnimation(fakeReel, results[0], sequence, false);
       }
 
@@ -679,8 +680,23 @@ export function CratesPanel({
     // Audio follows the same centered item index as the visual reel.
     // The pre-built sequence already has near-miss bias (mostly epic/rare teases, few legendary) + winner placement for classic case opening feel.
     return new Promise<void>((resolve) => {
-      const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : quickOpening ? 1800 : 8200;
+      const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : quickOpening ? 650 : 8200;
       const startTime = performance.now();
+      let frame = 0;
+      let deadline = 0;
+      let revealTimer = 0;
+      let finished = false;
+      const cleanup = () => {
+        cancelAnimationFrame(frame);
+        window.clearTimeout(deadline);
+        window.clearTimeout(revealTimer);
+        document.removeEventListener("visibilitychange", onVisibility);
+        cancelOpeningAnimation.current = null;
+      };
+      const onVisibility = () => {
+        if (performance.now() - startTime >= duration) finish();
+      };
+      cancelOpeningAnimation.current = () => { finished = true; cleanup(); resolve(); };
 
       // Winner placement from buildSpinSequence.
       // We drive progress so that the item at WINNER_SLOT is the one centered at the end.
@@ -692,9 +708,33 @@ export function CratesPanel({
       const VERTICAL_CENTER_OFFSET = (120 - VERTICAL_ITEM_SIZE) / 2;
 
       let soundTick = 0;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        cancelAnimationFrame(frame);
+        window.clearTimeout(deadline);
+        document.removeEventListener("visibilitychange", onVisibility);
+        if (!animationMounted.current) { cleanup(); resolve(); return; }
+        if (isVertical) {
+          verticalReelRefs.current.forEach(strip => {
+            if (strip) strip.style.transform = `translateY(${-WINNER_SLOT * VERTICAL_STEP + VERTICAL_CENTER_OFFSET}px)`;
+          });
+        } else {
+          setHorizontalReelProgress(WINNER_SLOT);
+          const finalReel = [...fakeReel];
+          finalReel[finalReel.length - 1] = realItem;
+          setReelItems(finalReel);
+          setReelProgress(TARGET_PROGRESS);
+        }
+        // Background tabs stop rAF. Completion must use elapsed time rather
+        // than wait for a paint in the active tab, including quick openings.
+        if (document.hidden) { cleanup(); resolve(); }
+        else revealTimer = window.setTimeout(() => { cleanup(); resolve(); }, quickOpening ? 40 : 180);
+      };
       // Pure rAF visual animation — buttery smooth motion
       const animate = (now: number) => {
-        if (!animationMounted.current) { resolve(); return; }
+        if (finished) return;
+        if (!animationMounted.current) { finished = true; cleanup(); resolve(); return; }
         const elapsed = now - startTime;
         const p = Math.min(1, elapsed / duration);
 
@@ -705,7 +745,8 @@ export function CratesPanel({
         const newProg = Math.min(TARGET_PROGRESS, eased * TARGET_PROGRESS);
 
         const crossed = Math.round(newProg);
-        if (crossed !== soundTick) { soundTick = crossed; emitSoundEvent("crate_reel_tick"); }
+        const crossedCard = crossed !== soundTick;
+        if (crossedCard) { soundTick = crossed; if (!document.hidden) emitSoundEvent("crate_reel_tick"); }
 
         // Direct DOM update = high FPS, no React overhead during spin
         if (isVertical) {
@@ -722,7 +763,7 @@ export function CratesPanel({
         }
 
         // Very light state for mobile single-view sampling (throttled) - skip for vertical multi
-        if (!isVertical && isMobile && soundTick % 3 === 0) {
+        if (!isVertical && isMobile && crossedCard && soundTick % 3 === 0) {
           const approxCenter = Math.max(0, Math.min((sequence as WonItem[]).length - 1, Math.round(newProg)));
           const displayForMobile = (sequence as WonItem[])[approxCenter] || realItem;
           const newReel = [...fakeReel];
@@ -732,38 +773,9 @@ export function CratesPanel({
         }
 
         if (p < 1) {
-          requestAnimationFrame(animate);
+          frame = requestAnimationFrame(animate);
         } else {
-          // Final settle - force exact centering of the winner (the item we placed at WINNER_SLOT in the sequence)
-          // This guarantees that the item visually under the marker at the end of the spin is the exact real result.
-          const winnerIndexInSeq = WINNER_SLOT;
-          if (isVertical) {
-            const seqs = sequence as WonItem[][];
-            seqs.forEach((s, i) => {
-              const strip = verticalReelRefs.current[i];
-              if (strip) {
-                const exactY = -(winnerIndexInSeq * VERTICAL_STEP) + VERTICAL_CENTER_OFFSET;
-                strip.style.transform = `translateY(${exactY}px)`;
-              }
-            });
-          } else if (stripRef.current) {
-            setHorizontalReelProgress(winnerIndexInSeq);
-          }
-
-          // Ensure mobile shows the winner (skip for vertical)
-          if (!isVertical) {
-            const finalReel = [...fakeReel];
-            finalReel[finalReel.length - 1] = realItem;
-            setReelItems(finalReel);
-            setReelProgress(TARGET_PROGRESS);
-          }
-
-
-
-          // Reveal sound (after the slide has stopped)
-          setTimeout(() => {
-            resolve();
-          }, 280);
+          finish();
         }
       };
 
@@ -780,7 +792,9 @@ export function CratesPanel({
         setHorizontalReelTransform(reelCenterOffset);
       }
 
-      requestAnimationFrame(animate);
+      document.addEventListener("visibilitychange", onVisibility);
+      deadline = window.setTimeout(finish, duration);
+      frame = requestAnimationFrame(animate);
     });
   }
 

@@ -468,11 +468,18 @@ export async function GET() {
     }))
     .sort((a, b) => a.cost - b.cost);
 
-  // User's inventory (joined with sample data)
-  const { data: invRows, error: invError } = await supabase
-    .from("user_crate_inventory")
-    .select("item_id, variant, quantity")
-    .eq("user_id", userId);
+  // Independent reads share the same wait instead of four network round trips.
+  const [
+    { data: invRows, error: invError },
+    { data: pityProfile },
+    freeOpensUsedToday,
+    crateOpenCredits,
+  ] = await Promise.all([
+    supabase.from("user_crate_inventory").select("item_id, variant, quantity").eq("user_id", userId),
+    supabase.from("profiles").select("principessa_case_bad_luck_count").eq("id", userId).single(),
+    getFreeOpenUsageToday(supabase, userId),
+    getCrateOpenCredits(supabase, userId),
+  ]);
 
   if (invError) {
     console.error("[crates] inventory load failed", invError);
@@ -494,6 +501,8 @@ export async function GET() {
 
       if (restoreClassicErr && restoreClassicErr.code !== "23505") {
         console.error("[crates] classic restore failed", restoreClassicErr);
+      } else if (!restoreClassicErr) {
+        invRows?.push({ item_id: "classic", variant: "normal", quantity: 1 });
       }
     }
   } else if (classicRow.quantity > 1) {
@@ -506,36 +515,39 @@ export async function GET() {
 
     if (clampClassicErr) {
       console.error("[crates] classic quantity clamp failed", clampClassicErr);
+    } else {
+      classicRow.quantity = 1;
     }
   }
 
-  // Pity counters for display (server side only for logic)
-  const { data: pityProfile } = await supabase
-    .from("profiles")
-    .select("principessa_case_bad_luck_count")
-    .eq("id", userId)
-    .single();
+  // Custom DB items are fetched once, including inventories with many variants.
+  const unknownIds = [...new Set((invRows ?? []).map((row) => row.item_id as string))]
+    .filter((id) => !SAMPLE_CRATE_ITEMS[id]);
+  const { data: customItems, error: customError } = unknownIds.length
+    ? await supabase.from("crate_items")
+      .select("item_id, name, description, image_url, rarity, collection, sell_value")
+      .in("item_id", unknownIds).eq("enabled", true)
+    : { data: [], error: null };
+  if (customError) return jsonError("Failed to load inventory details.", 500);
+  const customById = new Map((customItems ?? []).map((item) => [item.item_id, item]));
 
   const inventory: UserCrateInventoryItem[] = [];
   for (const row of invRows ?? []) {
-    const def = await getItemDefinition(supabase, row.item_id);
+    const def = SAMPLE_CRATE_ITEMS[row.item_id] ?? customById.get(row.item_id);
     if (def) {
       inventory.push({
         item_id: row.item_id,
         name: def.name,
-        description: def.description,
-        image_url: def.image_url,
+        description: def.description ?? "",
+        image_url: getCrateItemImageUrl(row.item_id, def.image_url),
         rarity: def.rarity,
         collection: def.collection,
-        sell_value: def.sell_value,
+        sell_value: def.sell_value ?? 0,
         variant: row.variant ?? "normal",
         quantity: row.quantity,
       });
     }
   }
-
-  const freeOpensUsedToday = await getFreeOpenUsageToday(supabase, userId);
-  const crateOpenCredits = await getCrateOpenCredits(supabase, userId);
 
   // Sort by rarity then name for nice display, but keep classic pinned first.
   inventory.sort((a, b) => {
@@ -953,6 +965,7 @@ export async function POST(request: Request) {
         quantity: qtyToSell,
         value: totalSellValue,
       },
+      inventoryChanges: [{ item_id: itemId, variant, quantity: newQty }],
       newCoins: nextCoins,
     });
   }
@@ -1117,6 +1130,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       sold_all: true,
+      inventoryChanges: sellDetails.map((item) => ({ item_id: item.item_id, variant: item.variant, quantity: 0 })),
       total_value: totalSellValue,
       item_count: sellDetails.length,
       newCoins: nextCoins,
@@ -1333,6 +1347,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       sold_many: true,
+      inventoryChanges: details.map((item) => ({ item_id: item.item_id, variant: item.variant, quantity: (inventoryMap.get(buildInventoryKey(item.item_id, item.variant)) ?? 0) - item.quantity })),
       total_value: totalSellValue,
       item_count: details.length,
       newCoins: nextCoins,
@@ -1530,6 +1545,7 @@ export async function POST(request: Request) {
     return Response.json({
       success: true,
       sold_duplicates: true,
+      inventoryChanges: details.map((item) => ({ item_id: item.item_id, variant: item.variant, quantity: 1 })),
       total_value: totalSellValue,
       item_count: details.length,
       newCoins: nextCoins,

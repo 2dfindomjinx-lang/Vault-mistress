@@ -1,5 +1,7 @@
 "use client";
 
+import { applyInventoryQuantities, type InventoryQuantity } from "@/lib/inventory-quantities";
+import { loadThroneCoinTotal } from "@/lib/throne-coin-total";
 import { createRefreshQueue } from "@/lib/refresh-queue";
 import { paidRequestId, finishPaidRequest, isDefinitiveRejection } from "@/lib/paid-request";
 
@@ -1767,6 +1769,10 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [crateFreeOpensUsedToday, setCrateFreeOpensUsedToday] = useState<Record<string, boolean>>({});
   const [crateOpenCredits, setCrateOpenCredits] = useState<Record<string, number>>({});
   const [cratePending, setCratePending] = useState(false);
+  const crateReadVersion = useRef(0);
+  const crateReadSequence = useRef(0);
+  const crateMutationBusy = useRef(false);
+  const crateRefreshQueue = useRef<ReturnType<typeof createRefreshQueue> | null>(null);
   const [petUnlockedAt, setPetUnlockedAt] = useState<string | null>(null);
   const [lastPetTaxAt, setLastPetTaxAt] = useState<string | null>(null);
   const [petDebtContract, setPetDebtContract] = useState<PetDebtContract | null>(null);
@@ -3413,6 +3419,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       return;
     }
 
+    if (crateMutationBusy.current) return;
+    const version = crateReadVersion.current;
+    const sequence = ++crateReadSequence.current;
     try {
       const response = await fetch("/api/user/crates", { cache: "no-store" });
       const result = (await response.json()) as {
@@ -3430,6 +3439,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         throw new Error(result.error ?? "Failed to load crates.");
       }
 
+      // Ignore reads from before a sale/open, account change, or a newer read.
+      if (crateMutationBusy.current || version !== crateReadVersion.current || sequence !== crateReadSequence.current) return;
       setAvailableCrates(result.crates ?? []);
       setCrateInventory(result.inventory ?? []);
       setCrateOpenCredits(result.crate_open_credits ?? {});
@@ -3442,10 +3453,22 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } catch (error) {
       console.error("Failed to load crate data", error);
     }
-  }, [isPreviewMode, isGuestMode]);
+  }, [isPreviewMode, isGuestMode, authUserId]);
+
+  useEffect(() => {
+    const queue = createRefreshQueue(loadCratesData);
+    crateRefreshQueue.current = queue;
+    return () => {
+      queue.dispose();
+      crateRefreshQueue.current = null;
+      crateReadVersion.current++;
+    };
+  }, [loadCratesData]);
 
   const handleOpenCrate = async (crateType: string, quantity = 1) => {
-    if (cratePending) return { success: false };
+    if (crateMutationBusy.current) return { success: false };
+    crateMutationBusy.current = true;
+    crateReadVersion.current++;
 
     setCratePending(true);
 
@@ -3509,7 +3532,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       });
 
       // Refresh full data in background
-      void loadCratesData();
       void loadCommunityStatus();
       void loadLeadershipTop();
 
@@ -3520,12 +3542,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
+      crateMutationBusy.current = false;
+      crateReadVersion.current++;
+      crateRefreshQueue.current?.request();
       setCratePending(false);
     }
   };
 
   const handleSellCrateItem = async (itemId: string, variant: string, quantity = 1) => {
-    if (cratePending) return { success: false };
+    if (crateMutationBusy.current) return { success: false };
+    crateMutationBusy.current = true;
+    crateReadVersion.current++;
 
     setCratePending(true);
 
@@ -3539,6 +3566,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         newCoins?: number;
+        inventoryChanges?: InventoryQuantity[];
       };
 
       if (!response.ok || !payload.success) {
@@ -3550,8 +3578,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coinsRef.current = payload.newCoins;
       }
 
-      // Refresh inventory from server
-      await loadCratesData();
+      if (payload.inventoryChanges) {
+        setCrateInventory((items) => applyInventoryQuantities(items, payload.inventoryChanges!));
+      }
       void loadLeadershipTop();
 
       return { success: true, newCoins: payload.newCoins };
@@ -3561,12 +3590,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
+      crateMutationBusy.current = false;
+      crateReadVersion.current++;
+      crateRefreshQueue.current?.request();
       setCratePending(false);
     }
   };
 
   const handleSellAllCrateItems = async () => {
-    if (cratePending) return { success: false };
+    if (crateMutationBusy.current) return { success: false };
+    crateMutationBusy.current = true;
+    crateReadVersion.current++;
 
     setCratePending(true);
 
@@ -3580,6 +3614,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         newCoins?: number;
+        inventoryChanges?: InventoryQuantity[];
         total_value?: number;
         item_count?: number;
       };
@@ -3593,8 +3628,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coinsRef.current = payload.newCoins;
       }
 
-      // Refresh inventory + crates from server (now empty or reduced)
-      await loadCratesData();
+      if (payload.inventoryChanges) {
+        setCrateInventory((items) => applyInventoryQuantities(items, payload.inventoryChanges!));
+      }
       void loadLeadershipTop();
 
       return {
@@ -3609,12 +3645,17 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
+      crateMutationBusy.current = false;
+      crateReadVersion.current++;
+      crateRefreshQueue.current?.request();
       setCratePending(false);
     }
   };
 
   const handleSellDuplicateCrateItems = async () => {
-    if (cratePending) return { success: false };
+    if (crateMutationBusy.current) return { success: false };
+    crateMutationBusy.current = true;
+    crateReadVersion.current++;
 
     setCratePending(true);
 
@@ -3628,6 +3669,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         newCoins?: number;
+        inventoryChanges?: InventoryQuantity[];
         total_value?: number;
         item_count?: number;
       };
@@ -3641,7 +3683,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coinsRef.current = payload.newCoins;
       }
 
-      await loadCratesData();
+      if (payload.inventoryChanges) {
+        setCrateInventory((items) => applyInventoryQuantities(items, payload.inventoryChanges!));
+      }
       void loadLeadershipTop();
 
       return {
@@ -3656,6 +3700,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
+      crateMutationBusy.current = false;
+      crateReadVersion.current++;
+      crateRefreshQueue.current?.request();
       setCratePending(false);
     }
   };
@@ -3663,7 +3710,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const handleSellWonCrateItems = async (
     items: Array<{ itemId: string; variant: string; quantity: number }>,
   ) => {
-    if (cratePending) return { success: false };
+    if (crateMutationBusy.current) return { success: false };
+    crateMutationBusy.current = true;
+    crateReadVersion.current++;
 
     setCratePending(true);
 
@@ -3677,6 +3726,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         success?: boolean;
         error?: string;
         newCoins?: number;
+        inventoryChanges?: InventoryQuantity[];
         total_value?: number;
         item_count?: number;
       };
@@ -3690,7 +3740,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         coinsRef.current = payload.newCoins;
       }
 
-      await loadCratesData();
+      if (payload.inventoryChanges) {
+        setCrateInventory((items) => applyInventoryQuantities(items, payload.inventoryChanges!));
+      }
       void loadLeadershipTop();
 
       return {
@@ -3705,6 +3757,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setAuthError(errMsg);
       return { success: false, error: errMsg };
     } finally {
+      crateMutationBusy.current = false;
+      crateReadVersion.current++;
+      crateRefreshQueue.current?.request();
       setCratePending(false);
     }
   };
@@ -4240,10 +4295,49 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     applyProfileStats(profile);
     const nextAddressTerm = normalizeAddressTerm(profile.address_term);
 
-    const { data: cosmeticData, error: cosmeticError } = await supabase
-      .from("user_cosmetics")
-      .select("item_id, item_type, equipped")
-      .eq("user_id", profile.id);
+    const [
+      { data: cosmeticData, error: cosmeticError },
+      { data: throneTotal, error: throneError },
+      { data: titleData, error: titleError },
+      { data: galleryData, error: galleryError },
+      { data: legacyGalleryData, error: legacyGalleryError },
+      { data: petGalleryData, error: petGalleryError },
+      { data: debtData, error: debtError },
+      { data: taskData, error: taskError },
+      { data: petTaskData, error: petTaskError },
+      { data: irlTaskData, error: irlTaskError },
+    ] = await Promise.all([
+      supabase.from("user_cosmetics").select("item_id, item_type, equipped").eq("user_id", profile.id),
+      loadThroneCoinTotal(supabase, profile.id),
+      supabase.from("user_titles").select("title_id, equipped").eq("user_id", profile.id),
+      supabase.from("user_gallery").select("item_id").eq("user_id", profile.id),
+      supabase.from("unlocked_gallery_items").select("item_id").eq("user_id", profile.id),
+      supabase.from("user_pet_gallery").select("item_id").eq("user_id", profile.id),
+      supabase
+        .from("pet_debt_contracts")
+        .select(userDebtContractSelect)
+        .eq("user_id", profile.id)
+        .in("status", ["active", "pending"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("user_tasks")
+        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
+        .eq("user_id", profile.id),
+      supabase
+        .from("user_pet_tasks")
+        .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
+        .eq("user_id", profile.id),
+      supabase
+        .from("user_irl_tasks")
+        .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
+        .eq("user_id", profile.id)
+        .eq("status", "assigned")
+        .order("assigned_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (cosmeticError) {
       console.warn("Failed to load user cosmetics", cosmeticError);
@@ -4269,30 +4363,11 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setEquippedCosmeticIds(equipped);
     }
 
-    const { data: throneTransactions, error: throneError } = await supabase
-      .from("coin_transactions")
-      .select("amount, metadata, reason")
-      .eq("user_id", profile.id)
-      .in("reason", ["throne_tribute", "live_gift"]);
-
     if (throneError) {
       console.warn("Failed to load Throne coin milestone totals", throneError);
     }
 
-    const throneCoinTotal = (throneTransactions ?? []).reduce(
-      (sum, entry) => {
-        const metadata = (entry.metadata ?? {}) as Record<string, unknown>;
-        const command = typeof metadata.command === "string" ? metadata.command : null;
-        const kind = typeof metadata.kind === "string" ? metadata.kind : null;
-        const source = typeof metadata.source === "string" ? metadata.source : null;
-        const isThroneTribute =
-          entry.reason === "throne_tribute" ||
-          (entry.reason === "live_gift" && (command === "give" || kind === "manual_coin_purchase" || source === "throne"));
-
-        return isThroneTribute ? sum + Math.max(0, Number(entry.amount ?? 0)) : sum;
-      },
-      0,
-    );
+    const throneCoinTotal = Number(throneTotal ?? 0);
     const hasLegendary = crateInventory.some((item) => item.rarity === "legendary");
     const invValue = crateInventory.reduce((sum, item) => sum + (item.quantity || 0) * (item.sell_value || 0), 0);
 
@@ -4313,12 +4388,14 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       ]),
     );
 
-    if (autoTitleIds.length > 0) {
+    const storedTitles = new Set((titleData ?? []).map((entry) => entry.title_id));
+    const missingTitleIds = autoTitleIds.filter((id) => !storedTitles.has(id));
+    if (missingTitleIds.length > 0) {
       try {
         const response = await fetch("/api/user/titles", {
           body: JSON.stringify({
             action: "unlock",
-            titleIds: autoTitleIds,
+            titleIds: missingTitleIds,
           }),
           headers: { "Content-Type": "application/json" },
           method: "POST",
@@ -4332,11 +4409,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         console.warn("Failed to upsert automatic titles", error);
       }
     }
-
-    const { data: titleData, error: titleError } = await supabase
-      .from("user_titles")
-      .select("title_id, equipped")
-      .eq("user_id", profile.id);
 
     if (titleError) {
       console.warn("Failed to load user titles", titleError);
@@ -4372,44 +4444,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       setEquippedTitleId(equippedIsValid ? equippedTitle : fallbackTitle);
       setIsTitleManuallySelected(equippedTitle !== fallbackTitle);
     }
-
-    const [
-      { data: galleryData, error: galleryError },
-      { data: legacyGalleryData, error: legacyGalleryError },
-      { data: petGalleryData, error: petGalleryError },
-      { data: debtData, error: debtError },
-      { data: taskData, error: taskError },
-      { data: petTaskData, error: petTaskError },
-      { data: irlTaskData, error: irlTaskError },
-    ] = await Promise.all([
-      supabase.from("user_gallery").select("item_id").eq("user_id", profile.id),
-      supabase.from("unlocked_gallery_items").select("item_id").eq("user_id", profile.id),
-      supabase.from("user_pet_gallery").select("item_id").eq("user_id", profile.id),
-      supabase
-        .from("pet_debt_contracts")
-        .select(userDebtContractSelect)
-        .eq("user_id", profile.id)
-        .in("status", ["active", "pending"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("user_tasks")
-        .select("task_id, completed_at, claimed_at, reward_coins, metadata")
-        .eq("user_id", profile.id),
-      supabase
-        .from("user_pet_tasks")
-        .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
-        .eq("user_id", profile.id),
-      supabase
-        .from("user_irl_tasks")
-        .select("task_label, task_description, wheel_index, status, due_at, penalty_timeout_minutes")
-        .eq("user_id", profile.id)
-        .eq("status", "assigned")
-        .order("assigned_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
 
     if (galleryError) {
       console.error("Failed to load persisted gallery unlocks", galleryError);
@@ -12012,7 +12046,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => {
                   applyProfileStats(profile as Profile);
-                  void loadCratesData();
+                  crateRefreshQueue.current?.request();
                 }}
               />
               <CratesPanel
@@ -12273,7 +12307,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     setCommittedEquippedSlots(data.equipped ?? {});
                                     setEquippedFullSetId(data.equippedFullSetId ?? null);
                                     setActiveAvatarPresetIndex(index);
-                                    void loadCratesData();
+                                    crateRefreshQueue.current?.request();
                                     setAvatarMistressReply("Preset applied.");
                                   } else {
                                     setAvatarMistressReply(data.error || "Failed to apply preset.");
@@ -12404,7 +12438,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     const data = await res.json();
                                     if (res.ok) {
                                       setEquippedFullSetId(data.equippedFullSetId ?? null);
-                                      void loadCratesData();
+                                      crateRefreshQueue.current?.request();
                                     }
                                   } catch (err) {
                                     console.error("Full Set unequip error", err);
@@ -12479,7 +12513,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                     if (res.ok && data.equipped) {
                                       setEquippedAvatarSlots(data.equipped);
                                       setCommittedEquippedSlots(data.equipped);
-                                      void loadCratesData();
+                                      crateRefreshQueue.current?.request();
                                     }
                                   } catch (err) {
                                     console.error("Unequip error", err);
@@ -12627,7 +12661,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                           setEquippedAvatarSlots(data.equipped);
                                           setCommittedEquippedSlots(data.equipped);
                                         }
-                                        void loadCratesData();
+                                        crateRefreshQueue.current?.request();
                                       } catch (e) {
                                         console.error("Full Set equip error", e);
                                       } finally {
@@ -12722,7 +12756,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                                           if (data.equipped) {
                                             setEquippedAvatarSlots(data.equipped);
                                             setCommittedEquippedSlots(data.equipped);
-                                            void loadCratesData();
+                                            crateRefreshQueue.current?.request();
                                           }
                                           if (action === "equip") {
                                             setEquippedFullSetId(data.equippedFullSetId ?? null);

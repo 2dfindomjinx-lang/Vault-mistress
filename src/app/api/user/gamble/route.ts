@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
-import { profileSelect } from "@/lib/profile-columns";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { rateLimitResponse } from "@/lib/rate-limit";
+import { createGambleRequest, GambleRateLimitError, type GambleRpc } from "@/lib/gamble-request";
 import {
   crawlWinProbabilities,
   DICE_PAYOUT_MULTIPLIER,
@@ -30,8 +30,6 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 // The Gamble Hall's single API. Every outcome is rolled HERE, with crypto
 // randomness, before any coins move; the client is a renderer with buttons.
 
-type SupabaseAdmin = ReturnType<typeof createSupabaseAdminClient>;
-
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
@@ -48,13 +46,13 @@ async function requireUser() {
 }
 
 async function openRound(
-  supabase: SupabaseAdmin,
+  rpc: GambleRpc,
   userId: string,
   game: string,
   wager: number,
   state: Record<string, unknown>,
 ) {
-  const { data, error } = await supabase.rpc("gamble_open_round", {
+  const { data, error } = await rpc("gamble_open_round", {
     p_game: game,
     // Kept in the deployed RPC signature for backwards compatibility. Zero is
     // intentional: the hall no longer enforces a daily loss ceiling.
@@ -68,7 +66,7 @@ async function openRound(
 }
 
 async function playRound(
-  supabase: SupabaseAdmin,
+  rpc: GambleRpc,
   userId: string,
   game: string,
   wager: number,
@@ -76,7 +74,7 @@ async function playRound(
   payout: number,
   sourceRoundId: string | null = null,
 ) {
-  const { data, error } = await supabase.rpc("gamble_play_round", {
+  const { data, error } = await rpc("gamble_play_round", {
     p_game: game,
     p_payout: payout,
     p_source_round_id: sourceRoundId,
@@ -95,7 +93,7 @@ function openError(result: { error?: string }) {
   return jsonError("The table refused the bet.");
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const serverReceivedAtMs = Date.now();
   if (!isSupabaseAdminConfigured) {
     return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
@@ -120,17 +118,14 @@ export async function POST(request: Request) {
   if (!body?.action) return jsonError("Invalid gamble action.");
 
   const supabase = createSupabaseAdminClient();
-  // crash-status is a read-only poll fired every ~650ms while Her Patience
-  // runs, so it gets its own generous bucket instead of eating the play limit.
-  const isStatusPoll = body.action === "crash-status";
-  const limit = isStatusPoll
-    ? await checkRateLimit(supabase, `gamble-status:${user.id}`, 150, 60)
-    : await checkRateLimit(supabase, `gamble:${user.id}`, 30, 60);
-  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
-
+  // Status can settle a payout, so verified getUser authentication is retained.
+  // Crawl needs its stored odds before rolling; keep its existing limited path.
+  const operation = createGambleRequest(supabase, user.id, body.action === "crash-status", body.action === "crawl-bet");
+  if (body.action === "crawl-bet") await operation.checkLegacyLimit();
+  const rpc = operation.rpc;
   const finishWithProfile = async (extra: Record<string, unknown>) => {
-    const { data: profileData } = await supabase.from("profiles").select(profileSelect).eq("id", user.id).single();
-    return Response.json({ ...extra, profile: profileData ?? null, serverReceivedAtMs, serverNowMs: Date.now() });
+    const profile = await operation.getProfile();
+    return Response.json({ ...extra, profile: profile ?? null, serverReceivedAtMs, serverNowMs: Date.now() });
   };
 
   const bet = Math.floor(Number(body.bet));
@@ -142,7 +137,7 @@ export async function POST(request: Request) {
     const multiplier = slotsPayoutMultiplier(reels);
     const payout = Math.floor(bet * multiplier);
 
-    const opened = await playRound(supabase, user.id, "slots", bet, { multiplier, reels }, payout);
+    const opened = await playRound(rpc, user.id, "slots", bet, { multiplier, reels }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
     return finishWithProfile({ multiplier, payout, reels, roundId: opened.roundId });
   }
@@ -155,7 +150,7 @@ export async function POST(request: Request) {
     const win = diceSum(mine) > diceSum(hers);
     const payout = win ? Math.floor(bet * DICE_PAYOUT_MULTIPLIER) : 0;
 
-    const opened = await playRound(supabase, user.id, "dice", bet, { hers, mine, win }, payout);
+    const opened = await playRound(rpc, user.id, "dice", bet, { hers, mine, win }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
     return finishWithProfile({ hers, mine, payout, roundId: opened.roundId, win });
   }
@@ -170,7 +165,7 @@ export async function POST(request: Request) {
     const payout = win ? Math.floor(bet * rouletteBet.multiplier) : 0;
 
     const opened = await playRound(
-      supabase,
+      rpc,
       user.id,
       "roulette",
       bet,
@@ -190,7 +185,7 @@ export async function POST(request: Request) {
     const multiplier = PLINKO_MULTIPLIERS[bucket];
     const payout = Math.floor(bet * multiplier);
 
-    const opened = await playRound(supabase, user.id, "plinko", bet, { bucket, multiplier, path }, payout);
+    const opened = await playRound(rpc, user.id, "plinko", bet, { bucket, multiplier, path }, payout);
     if (opened.error || !opened.roundId) return openError(opened);
     return finishWithProfile({ bucket, multiplier, path, payout, roundId: opened.roundId });
   }
@@ -200,7 +195,7 @@ export async function POST(request: Request) {
     // A race sheet costs nothing: odds are drawn and pinned server-side so
     // the bet that follows cannot argue about them.
     const odds = drawCrawlOdds([roll(), roll(), roll(), roll()]);
-    const { data, error } = await supabase.rpc("gamble_open_round", {
+    const { data, error } = await rpc("gamble_open_round", {
       p_game: "crawl",
       p_loss_cap: 0,
       p_state: { odds },
@@ -247,7 +242,7 @@ export async function POST(request: Request) {
     const payout = win ? Math.floor(bet * odds[lane]) : 0;
 
     const opened = await playRound(
-      supabase,
+      rpc,
       user.id,
       "crawl",
       bet,
@@ -273,7 +268,7 @@ export async function POST(request: Request) {
     }
     const mines = cells.slice(0, mineCount).sort((a, b) => a - b);
 
-    const opened = await openRound(supabase, user.id, "mines", bet, { mineCount, mines, picks: [] });
+    const opened = await openRound(rpc, user.id, "mines", bet, { mineCount, mines, picks: [] });
     if (opened.error || !opened.roundId) return openError(opened);
     return finishWithProfile({ mineCount, roundId: opened.roundId });
   }
@@ -283,7 +278,7 @@ export async function POST(request: Request) {
     if (typeof body.roundId !== "string" || !Number.isInteger(cell) || cell < 0 || cell >= MINES_GRID) {
       return jsonError("Invalid pick.");
     }
-    const { data, error } = await supabase.rpc("gamble_mines_pick", {
+    const { data, error } = await rpc("gamble_mines_pick", {
       p_cell: cell,
       p_round_id: body.roundId,
       p_user_id: user.id,
@@ -305,7 +300,7 @@ export async function POST(request: Request) {
 
   if (body.action === "mines-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
-    const { data, error } = await supabase.rpc("gamble_mines_cashout", {
+    const { data, error } = await rpc("gamble_mines_cashout", {
       p_round_id: body.roundId,
       p_user_id: user.id,
     });
@@ -322,7 +317,7 @@ export async function POST(request: Request) {
     if (!isValidBet(bet)) return jsonError("Bets run 100 to 5,000 coins.");
     const autoCashout = body.autoCashout == null ? null : Number(body.autoCashout);
     if (autoCashout !== null && (!Number.isFinite(autoCashout) || autoCashout < 1.1 || autoCashout > 30)) return jsonError("Choose a take point from 1.10x to 30x.");
-    const { data, error } = await supabase.rpc("gamble_crash_open", {
+    const { data, error } = await rpc("gamble_crash_open", {
       p_user_id: user.id, p_wager: bet, p_crash_point: sampleCrashPoint(roll()),
       p_auto_cashout: autoCashout === null ? null : Math.round(autoCashout * 100) / 100,
     });
@@ -335,7 +330,7 @@ export async function POST(request: Request) {
   // Polls resolve an immutable target before exposing a final result.
   if (body.action === "crash-status") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
-    const { data, error } = await supabase.rpc("gamble_crash_status", {
+    const { data, error } = await rpc("gamble_crash_status", {
       p_round_id: body.roundId,
       p_user_id: user.id,
     });
@@ -349,7 +344,7 @@ export async function POST(request: Request) {
   if (body.action === "crash-cashout") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
     const requestedMultiplier = Number(body.requestedMultiplier);
-    const { data, error } = await supabase.rpc("gamble_crash_cashout_at", {
+    const { data, error } = await rpc("gamble_crash_cashout_at", {
       p_received_at: new Date(serverReceivedAtMs).toISOString(),
       p_round_id: body.roundId,
       p_requested_multiplier: Number.isFinite(requestedMultiplier) ? requestedMultiplier : null,
@@ -373,7 +368,7 @@ export async function POST(request: Request) {
   if (body.action === "double") {
     if (typeof body.roundId !== "string") return jsonError("Missing round.");
     const won = roll() < DOUBLE_OR_NOTHING_CHANCE;
-    const { data, error } = await supabase.rpc("gamble_double_round", {
+    const { data, error } = await rpc("gamble_double_round", {
       p_round_id: body.roundId,
       p_user_id: user.id,
       p_won: won,
@@ -390,4 +385,21 @@ export async function POST(request: Request) {
 
   if (isGambleGameId(body.action)) return jsonError("Unknown gamble step.");
   return jsonError("Invalid gamble action.");
+}
+
+export async function POST(request: Request) {
+  const started = performance.now();
+  let response: Response;
+  try {
+    response = await handlePost(request);
+  } catch (error) {
+    if (error instanceof GambleRateLimitError) response = rateLimitResponse(error.retryAfterSeconds);
+    else {
+      console.error("[gamble] request failed", error);
+      response = jsonError("The table is temporarily unavailable.", 503);
+    }
+  }
+  response.headers.set("Server-Timing", `app;dur=${(performance.now() - started).toFixed(1)}`);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
