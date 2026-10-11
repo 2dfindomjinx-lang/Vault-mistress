@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { CoinAmount } from "@/components/CoinAmount";
 import { chatCursor, mergeChatMessages } from "@/lib/live-chat-pagination";
+import styles from "./LiveChatWidget.module.css";
 
 type LiveChatProfile = {
   avatar_url?: string | null;
@@ -307,9 +308,9 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
   };
 
   return (
-    <div data-court-chat data-open={isOpen} className="fixed bottom-[6.5rem] right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:bottom-[7.25rem] sm:right-6">
+    <div data-court-chat data-open={isOpen} className={`${styles.dock} fixed right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-[390px] flex-col items-end gap-2 sm:right-6`}>
       {isOpen && guestMode ? <section className="w-full rounded-xl border border-[#c89a55]/30 bg-[#13090f] p-5 text-sm text-zinc-200"><p>Sign in with X to join the conversation.</p><button className="mt-3 underline" onClick={() => setIsOpen(false)} type="button">Close</button></section> : isOpen ? (
-        <section className="w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]">
+        <section className={`${styles.panel} w-full overflow-hidden rounded-[1.35rem] border border-pink-200/20 bg-[linear-gradient(145deg,rgba(24,3,18,0.96),rgba(74,8,47,0.9),rgba(0,0,0,0.92))] shadow-[0_0_42px_rgba(236,72,153,0.22)]`}>
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.26em] text-pink-100/70">Community</p>
@@ -326,7 +327,7 @@ export function LiveChatWidget({ guestMode = false, onCoinsChange }: LiveChatWid
 
           <div
             data-chat-messages
-            className="flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 [overflow-anchor:none] [&>article]:shrink-0"
+            className={`${styles.messages} flex max-h-[360px] flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 [overflow-anchor:none] [&>article]:shrink-0`}
             ref={messagesScrollRef}
             onScroll={(event) => {
               const container = event.currentTarget;

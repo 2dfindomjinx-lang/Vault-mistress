@@ -69,6 +69,32 @@ export function FloatingDefneBubble({
   }, [mounted]);
 
   useEffect(() => {
+    const presence = presenceRef.current;
+    if (!mounted || !presence) return;
+    const root = document.documentElement;
+    const updateChatClearance = () => {
+      const bounds = presence.getBoundingClientRect();
+      if (!bounds.height || !bounds.width) {
+        root.style.removeProperty("--court-chat-bottom");
+        return;
+      }
+      // Include the message and the full level frame, not just the avatar image.
+      root.style.setProperty("--court-chat-bottom", `${Math.ceil(window.innerHeight - bounds.top + 12)}px`);
+    };
+    const observer = new ResizeObserver(updateChatClearance);
+    observer.observe(presence);
+    window.addEventListener("resize", updateChatClearance);
+    document.addEventListener("toggle", updateChatClearance, true);
+    updateChatClearance();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateChatClearance);
+      document.removeEventListener("toggle", updateChatClearance, true);
+      root.style.removeProperty("--court-chat-bottom");
+    };
+  }, [mounted]);
+
+  useEffect(() => {
     const visibleDuration = Math.floor(Math.random() * 2001) + 4000;
     const hideTimer = window.setTimeout(() => {
       setHiddenBubbleKey(bubbleKey);

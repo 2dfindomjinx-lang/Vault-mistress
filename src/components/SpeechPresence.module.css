@@ -17,5 +17,7 @@
 /* The directory must remain unobstructed; chat already has its own close control. */
 @media(max-width:1023px) {
  :global(body:has(dialog[aria-label="Court directory"][open])) .presence { visibility:hidden; }
- :global(body:has([data-court-chat][data-open=true])) .message { visibility:hidden; }
 }
+
+/* Chat owns the conversation area while open; keep the portrait available. */
+:global(body:has([data-court-chat][data-open=true])) .message { display:none; }

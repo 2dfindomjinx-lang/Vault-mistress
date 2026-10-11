@@ -1,0 +1,17 @@
+.dock {
+  --chat-fallback-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  bottom: var(--court-chat-bottom, var(--chat-fallback-bottom));
+  max-height: calc(100dvh - var(--court-chat-bottom, var(--chat-fallback-bottom)) - 12px);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.messages { min-height: 0; }
+
+@media (min-width: 640px) {
+  .dock { --chat-fallback-bottom: calc(7.25rem + env(safe-area-inset-bottom)); }
+}

@@ -928,4 +928,4 @@ body:has([data-mobile-court=true]) .court-floating-character { bottom:calc(90px 
 body:has([data-mobile-court=true]):has(dialog[data-court-game][open]) .court-floating-character { bottom:calc(12px + env(safe-area-inset-bottom)); }
 body:has([data-mobile-court=true]) .court-floating-character[data-speaking=false] { display:none; }
 body:has([data-mobile-court=true]) .court-floating-character[data-speaking=true]:popover-open { display:flex; }
-body:has([data-mobile-court=true]) .court-floating-character>button { width:44px; height:44px; }
+body:has([data-mobile-court=true]) .court-floating-character>button { width:80px; height:auto; }
