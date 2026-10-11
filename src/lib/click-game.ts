@@ -101,14 +101,17 @@ export function getClickGameNextThreshold(progress: number, thresholds: readonly
  */
 export function computeIdleDecay(
   progress: number,
-  isActive: boolean,
-  lastClickAtMs: number | null,
-  lastSettledAtMs: number,
-  nowMs: number,
-  idleGraceMs: number = CLICK_GAME_IDLE_GRACE_MS,
-  decayIntervalMs: number = CLICK_GAME_DECAY_INTERVAL_MS,
-  decayPerTick: number = CLICK_GAME_DECAY_PER_TICK,
+  ...legacyTiming: [
+    isActive: boolean,
+    lastClickAtMs: number | null,
+    lastSettledAtMs: number,
+    nowMs: number,
+    idleGraceMs?: number,
+    decayIntervalMs?: number,
+    decayPerTick?: number,
+  ]
 ): number {
+  void legacyTiming; // Preserve the public call signature for older clients.
   // Compatibility helper retained for older callers. Decay is disabled;
   // progress changes only through accepted clicks or an explicit reset.
   return Math.max(0, progress);

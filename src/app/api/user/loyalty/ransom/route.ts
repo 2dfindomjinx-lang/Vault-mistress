@@ -2,7 +2,6 @@ import { profileSelect } from "@/lib/profile-columns";
 import { createSupabaseAdminClient, getSupabaseAdminConfigErrors, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const RANSOM_COSTS = [50, 125, 250, 500, 1000];
 
 function jsonError(message: string, status = 400) {

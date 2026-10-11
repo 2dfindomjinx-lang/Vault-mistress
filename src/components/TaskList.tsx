@@ -10,7 +10,7 @@ import {arrangeTaskCards} from "./task-layout";
 import { CourtGlyph, WritingLine } from "@/components/court/CourtVisuals";
 import { type DrainVisualResult } from "@/components/court/LevelDrainTransfer";
 import { CoinAmount } from "@/components/CoinAmount";
-import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
+
 import { DEFAULT_ADDRESS_TERM, type AddressTerm } from "@/lib/address-term";
 import {
   getIrlTaskWheelSegments,
@@ -81,8 +81,6 @@ function isHiddenClaimedOneTimeTask(task: TaskItem) {
   return task.kind === "claim" && task.claimed && task.id !== "daily-login";
 }
 
-
-
 function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
 }
@@ -90,7 +88,6 @@ function writingPreviewStartsWith(target: string, input: string) {
 function getMovementStageImage(progress: number) {
   return MOVEMENT_STAGE_IMAGES.find((image) => progress >= image.min)?.src ?? MOVEMENT_STAGE_IMAGES[0].src;
 }
-
 
 function getMovementLastResult(task: TaskItem) {
   if (task.movementOutcome === "success") {
@@ -171,7 +168,6 @@ type TaskListProps = {
   isFreeFridaySpinAvailable?: boolean;
 };
 
-
 // The Risk My Freedom coin. Spins while the server decides, then lands on the
 // face the ledger actually recorded - never on a guess. Shared by the grid
 // card and the expanded card so the two can never drift apart.
@@ -220,7 +216,6 @@ export function TaskList({
   coins,
   disabled = false,
   disabledReason = "Timeout active. This task is locked.",
-  currentUsername,
   globalPrincipessaLevel,
   globalPrincipessaProgressPercent,
   globalPrincipessaRequirement,
@@ -255,7 +250,6 @@ export function TaskList({
   onWaitObedientlyStart,
   isFreeFridaySpinAvailable = false,
   tasks,
-  usernameStyle,
 }: TaskListProps) {
   const hasIrlWheel = tasks.some((task) => task.id === "irl-task-wheel");
   useEffect(() => {
@@ -277,7 +271,7 @@ export function TaskList({
   // Risk My Freedom coin. "spin" while the server decides, then the coin lands
   // on the face the ledger actually recorded - never on a guess.
   const [riskFlip, setRiskFlip] = useState<"idle" | "spin" | "safe" | "timeout">("idle");
-  const [stake, setStake] = useState(10);
+
   const [irlWheelRotation, setIrlWheelRotation] = useState(0);
   const [isIrlWheelSpinning, setIsIrlWheelSpinning] = useState(false);
   const [showIrlTaskList, setShowIrlTaskList] = useState(false);
@@ -499,7 +493,7 @@ export function TaskList({
     return () => window.clearTimeout(timer);
   }, [isTaskActionPending, movementIdleRemaining, movementLocalActive, movementTask?.movementState, onMovementFail]);
 
-  const handleIrlWheelSpinClick = () => {
+  const handleIrlWheelSpinClick = useCallback(() => {
     if (disabled || isIrlWheelSpinning) {
       return;
     }
@@ -532,7 +526,7 @@ export function TaskList({
         setIsIrlWheelSpinning(false);
       });
     }, 3600);
-  };
+  }, [addressTerm, disabled, irlWheelRotation, isFreeFridaySpinAvailable, isIrlWheelSpinning, now, onFreeFridaySpinConsumed, onIrlTaskSpin]);
 
   const formatRemaining = (milliseconds: number) => {
     const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
@@ -835,7 +829,6 @@ export function TaskList({
                       </button>
                     </div>
 </TaskExperienceCard>
-
 
                 </div>
 

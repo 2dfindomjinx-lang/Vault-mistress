@@ -263,6 +263,7 @@ function pickFromPool(pool: string[]) {
 }
 
 export function getDailyPetVoiceSentence(_addressTerm?: AddressTerm) {
+  void _addressTerm; // The voice pool is shared by both address terms.
   return pickFromPool(petVoiceSentencePool);
 }
 

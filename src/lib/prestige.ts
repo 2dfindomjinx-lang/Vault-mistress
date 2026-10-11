@@ -6,7 +6,7 @@ import {
   type CosmeticItem,
 } from "@/lib/cosmetics";
 import { rotatingProfileFrameCosmeticItems } from "@/lib/profile-frame-cosmetics";
-import { DAY_MS, GMT3_OFFSET_MS, HALF_DAY_MS } from "@/lib/time";
+import { GMT3_OFFSET_MS, HALF_DAY_MS } from "@/lib/time";
 
 export type PrestigeBadgeTone = "gold" | "rose" | "cyan" | "emerald";
 

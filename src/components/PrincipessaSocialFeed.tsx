@@ -692,7 +692,7 @@ export function PrincipessaSocialFeed({ currentUserId = "", initialProfileUserId
       setError(commentError instanceof Error ? commentError.message : "Comment failed.");
       return false;
     } finally { setCommentBusy(null); }
-  }, [profile, reload]);
+  }, [currentUserId, profile, reload]);
 
   const toggleInteraction = useCallback(async (postId: string, action: "like" | "repost") => {
     if (!isLoggedIn) { setNotice("Sign in from Main Page to like or repost."); return; }

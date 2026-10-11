@@ -370,25 +370,6 @@ function resolveMotif(motif: LayeredBorderMotif | undefined, vars: BorderVars) {
   }
 }
 
-function resolveAnimationStyle(animation: LayeredBorderAnimation | undefined): CSSProperties | undefined {
-  switch (animation) {
-    case "ember-flicker":
-      return { animation: "profileBorderEmber 4.8s ease-in-out infinite" };
-    case "flag-sheen":
-      return { animation: "profileBorderSheen 7.4s linear infinite", backgroundSize: "180% 180%" };
-    case "neon-pulse":
-      return { animation: "profileBorderNeon 4.2s ease-in-out infinite" };
-    case "royal-shimmer":
-      return { animation: "profileBorderShimmer 6.8s ease-in-out infinite", backgroundSize: "180% 180%" };
-    case "subtle-glow":
-      return { animation: "profileBorderPulse 6.4s ease-in-out infinite" };
-    case "wave-drift":
-      return { animation: "profileBorderDrift 8.2s ease-in-out infinite", backgroundSize: "190% 190%" };
-    default:
-      return undefined;
-  }
-}
-
 function getLayeredPresentation(item: CosmeticItem, palette: [string, string, string?], config: LayeredBorderConfig) {
   const vars = varsFromPalette(palette);
   const layers: ProfileBorderLayerPresentation[] = [

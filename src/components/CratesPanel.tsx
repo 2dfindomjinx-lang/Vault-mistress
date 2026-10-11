@@ -1,5 +1,9 @@
 "use client";
 
+import Image from "next/image";
+// Assets are already encoded for the vault. Keep direct URLs and eager reel loading
+// so animation frames reuse preloaded images without extra optimizer variants.
+
 import { alertDialog, confirmDialog } from "@/lib/confirm-dialog";
 import experience from "./PremiumExperience.module.css";
 import styles from "./CollectionSurfaces.module.css";
@@ -8,16 +12,7 @@ import { CourtDialog } from "./CourtDialog";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { MobileCourtContext } from "@/lib/mobile-court-context";
 import { PRINCIPESSA_PITY_CRATE, PRINCIPESSA_PITY_THRESHOLD, isBulkSellProtectedRarity, type CrateRarity } from "@/lib/crates";
-import {
-  RARITY_COLORS,
-  getRarityColor,
-  CRATE_TYPES,
-  SAMPLE_CRATE_ITEMS,
-  RARITY_ORDER,
-  RARITY_HEX,
-  getCrateIconUrl,
-  getCrateItemImageUrl,
-} from "@/lib/crates";
+import { getRarityColor, CRATE_TYPES, SAMPLE_CRATE_ITEMS, RARITY_ORDER, RARITY_HEX, getCrateIconUrl, getCrateItemImageUrl } from "@/lib/crates";
 import { getAdjustedCrateDrops, getCrateCostMultiplier, hasFreeCrateOpen } from "@/lib/crate-events";
 import type { RandomEvent } from "@/lib/events";
 import { CoinAmount } from "@/components/CoinAmount";
@@ -114,7 +109,7 @@ function CrateResultIconFrame({ item }: { item: WonItem }) {
       </div>
       <div className="absolute inset-[10px] overflow-hidden rounded-[1rem] border border-white/10 bg-black/60 p-3">
         {imageUrl ? (
-          <img
+          <Image unoptimized loading="eager" width={92} height={92}
             src={imageUrl}
             alt={item.name}
             className="h-full w-full object-contain"
@@ -190,7 +185,6 @@ export function CratesPanel({
   const [isMobile, setIsMobile] = useState(false);
   const [reelViewportWidth, setReelViewportWidth] = useState(680);
   const [spinSequence, setSpinSequence] = useState<WonItem[]>([]);
-  const [reelProgress, setReelProgress] = useState(0);
 
   const [isVerticalMode, setIsVerticalMode] = useState(false);
   const [openQuantityByCase, setOpenQuantityByCase] = useState<Record<string, number>>({});
@@ -289,7 +283,6 @@ export function CratesPanel({
   // Real-looking item pool for the spinning reel visuals.
   // This lets us show actual item icons (from /crate-items/) during the slide instead of letters.
   // Rarity is conveyed via the colored frame/background (getRarityColor).
-
 
   // Mobile detection (affects only the reel visual, not logic)
   useEffect(() => {
@@ -608,7 +601,6 @@ export function CratesPanel({
       setLastOpenedCrateType(crate.crate_type);
     setWonItems([]);
     setSpinSequence([]);
-    setReelProgress(0);
     setReelItems([]);
 
       setIsVerticalMode(qty > 1);
@@ -724,7 +716,6 @@ export function CratesPanel({
           const finalReel = [...fakeReel];
           finalReel[finalReel.length - 1] = realItem;
           setReelItems(finalReel);
-          setReelProgress(TARGET_PROGRESS);
         }
         // Background tabs stop rAF. Completion must use elapsed time rather
         // than wait for a paint in the active tab, including quick openings.
@@ -769,7 +760,6 @@ export function CratesPanel({
           const newReel = [...fakeReel];
           newReel[newReel.length - 1] = displayForMobile;
           setReelItems(newReel);
-          setReelProgress(newProg);
         }
 
         if (p < 1) {
@@ -922,7 +912,6 @@ export function CratesPanel({
     setWonItems([]);
     setReelItems([]);
     setSpinSequence([]);
-    setReelProgress(0);
     horizontalReelTransformRef.current = `translate3d(${reelCenterOffset}px, 0, 0)`;
     setLastOpenedCrateType(null);
     setLastOpenedBatchCost(0);
@@ -995,7 +984,7 @@ export function CratesPanel({
               <article className={`${styles.product} ${styles.caseCard}`} key={crate.crate_type}>
                 <div className={styles.caseArt}>
                   <span className="crate-catalog-edition">Vault collection</span>
-                  <img alt={crate.name} src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? undefined} loading="lazy" decoding="async" width={166} height={166} />
+                  <Image unoptimized alt={crate.name} src={crate.icon_url ?? getCrateIconUrl(crate.crate_type) ?? ""} loading="lazy" decoding="async" width={166} height={166} />
                   <span className="crate-catalog-count">{getDropRates(crate.crate_type).length} items</span>
                 </div>
                 <div className="flex flex-1 flex-col p-5">
@@ -1030,7 +1019,7 @@ export function CratesPanel({
           <p className="mt-3 text-sm leading-6 text-zinc-400">{ratesCrate.description}</p>
           <div className="mt-5 max-h-[55vh] space-y-2 overflow-y-auto pr-1">
             {getDropRates(ratesCrate.crate_type).map(rate => <div className="flex items-center gap-3 rounded-xl border border-white/[.06] bg-white/[.025] p-3" key={rate.item_id}>
-              <img className="h-12 w-12 shrink-0 rounded-lg bg-black/25 object-contain p-1" src={getCrateItemImageUrl(rate.item_id,null) ?? undefined} alt="" loading="lazy" />
+              <Image unoptimized width={48} height={48} className="h-12 w-12 shrink-0 rounded-lg bg-black/25 object-contain p-1" src={getCrateItemImageUrl(rate.item_id,null) ?? ""} alt="" loading="lazy" />
               <div className="min-w-0 flex-1"><p className="text-sm font-medium text-zinc-100">{rate.name}</p><p className="mt-1 text-xs capitalize text-zinc-500">{rate.rarity}</p></div>
               <div className="text-right text-xs tabular-nums"><p className="font-semibold text-amber-100">{rate.percentage.toFixed(2)}%</p><p className="mt-1 text-zinc-500">{rate.sell_value ?? 0} Coins</p></div>
             </div>)}
@@ -1146,13 +1135,13 @@ export function CratesPanel({
                     data-inventory-item={item.item_id}
                   >
                     {mobile && <summary className="mobile-inventory-summary">
-                      <img alt="" src={getCrateItemImageUrl(item.item_id,item.image_url ?? null) ?? undefined} width={36} height={36} loading="lazy"/>
+                      <Image unoptimized alt="" src={getCrateItemImageUrl(item.item_id,item.image_url ?? null) ?? ""} width={36} height={36} loading="lazy"/>
                       <span><strong>{item.name}</strong><small style={{color:RARITY_HEX[item.rarity]}}>{item.rarity} · ×{item.quantity}</small></span><b aria-hidden="true">+</b>
                     </summary>}
                     <div className="flex items-start gap-3">
                       <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
-                          <img
+                          <Image unoptimized
                             src={item.image_url}
                             loading="lazy"
                             decoding="async"
@@ -1262,8 +1251,7 @@ export function CratesPanel({
           </header>
           <div ref={reelPanelRef} className={styles.caseOpening+" case-opening-panel"}>
           <div className={experience.caseSeal} data-opening={isOpening}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={getCrateIconUrl(lastOpenedCrateType ?? "") ?? undefined} alt=""/><span>{isOpening ? "Her seal is breaking…" : "The seal is open."}</span>
+            <Image unoptimized loading="eager" width={54} height={54} src={getCrateIconUrl(lastOpenedCrateType ?? "") ?? ""} alt=""/><span>{isOpening ? "Her seal is breaking…" : "The seal is open."}</span>
           </div>
           {/* DESKTOP SLIDING REEL - card count and card size follow the actual
               panel width, so the track remains natural with any case/item pool. */}
@@ -1292,7 +1280,7 @@ export function CratesPanel({
                       className={`shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)} ${isWinnerSlot ? "ring-1 ring-yellow-400/70" : "opacity-95"}`}
                       style={{ boxSizing: "border-box", width: reelCardWidth, minWidth: reelCardWidth, maxWidth: reelCardWidth, height: reelCardWidth, flex: "0 0 auto" }}
                     >
-                      <img
+                      <Image unoptimized loading="eager" width={120} height={120}
                         src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
                         alt={item.name}
                         className="w-full h-full object-contain"
@@ -1333,7 +1321,7 @@ export function CratesPanel({
                         key={sidx}
                         className={`w-[104px] h-[104px] shrink-0 rounded-xl border-2 p-2 flex items-center justify-center transition-all ${getRarityColor(item.rarity)}`}
                       >
-                        <img
+                        <Image unoptimized loading="eager" width={104} height={104}
                           src={getCrateItemImageUrl(item.item_id, item.image_url ?? null) ?? ""}
                           alt={item.name}
                           className="w-full h-full object-contain"
@@ -1432,7 +1420,7 @@ export function CratesPanel({
                           <>
                       <div className={`inline-block overflow-hidden rounded-lg border-2 ${getRarityColor(item.rarity)}`}>
                         {item.image_url ? (
-                          <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover" />
+                          <Image unoptimized loading="eager" width={56} height={56} src={item.image_url} alt={item.name} className="h-14 w-14 object-cover" />
                         ) : (
                           <div className="flex h-14 w-14 items-center justify-center bg-black/70 text-3xl">
                             {item.rarity === "ultimate" ? "🧸" : item.rarity === "legendary" ? "👑" : "📦"}

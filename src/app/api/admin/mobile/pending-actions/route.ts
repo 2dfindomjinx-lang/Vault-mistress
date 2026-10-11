@@ -2,13 +2,11 @@ import { requireMobileAdmin } from "@/lib/mobile-admin";
 import { syncThroneMilestoneTitles } from "@/lib/admin-pet-task-logs";
 import { awardDevotion } from "@/lib/devotion";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
+
 import { getMoneyGrantMetadata, getMoneyGrantReason, parseMoneyGrantVisibility } from "@/lib/money-grant-ledger";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const PENDING_EXPIRY_MINUTES = 5;
 
 type PendingActionRow = {
   id: string;
@@ -173,7 +171,6 @@ export async function POST(request: Request) {
     0,
     Number(claimedMetadata.extraAddAmount ?? 0),
   );
-  const targetSnap = claimed.target_username_snapshot || "unknown";
 
   // Principessa Money runs on its own balance and its own ledger, so it gets
   // its own execution path rather than being squeezed through the coin one.

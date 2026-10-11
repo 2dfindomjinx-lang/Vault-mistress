@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Scene, finish, wav, loudness, SR, TAU, seedOf, frames, fade, random } from './dry-synthesis.mjs';
+import { Scene, finish, wav, loudness, SR, TAU, seedOf, frames, random } from './dry-synthesis.mjs';
 
 const OUT=dirname(fileURLToPath(import.meta.url)),ROOT=resolve(OUT,'../..');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');

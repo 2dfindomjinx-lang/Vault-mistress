@@ -10,7 +10,6 @@ import {
   isSupabasePublicConfigured,
 } from "@/lib/supabase/public";
 import { getUsernameStylesByUserId, type EquippedUsernameCosmeticRow } from "@/lib/username-styles";
-import { SAMPLE_CRATE_ITEMS } from "@/lib/crates";
 
 export async function GET() {
   if (!isSupabasePublicConfigured) {

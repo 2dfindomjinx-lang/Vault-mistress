@@ -12,7 +12,6 @@ import {
   getMetadataString,
   HIGH_LOW_BET_ALLOWANCE,
   HIGH_LOW_PROFIT_LIMIT,
-  HIGH_LOW_REPLAY_COOLDOWN_MS,
   HIGH_LOW_REVEAL_DELAY_MS,
   randomHighLowNumber,
   type UserTaskActionRow,

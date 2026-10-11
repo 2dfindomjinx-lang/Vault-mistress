@@ -249,7 +249,7 @@ writeFileSync(join(OUT, 'index.html'), template.replace('__SOUND_LAB_DATA__', JS
 const manifest = {
   format: '48 kHz, 16-bit stereo PCM WAV', generation: 'Original deterministic procedural sound design; no voice, no external samples.',
   scope: 'Separate audition only. No site files changed.', dryRevision: DRY_REVISION, originalHashes: snapshot, palettes,
-  events: events.map(event => ({ ...event, clips: Object.fromEntries(Object.entries(event.clips).map(([key, { uri, waveform, ...meta }]) => [key, meta])) })),
+  events: events.map(event => ({ ...event, clips: Object.fromEntries(Object.entries(event.clips).map(([key, clip]) => [key, Object.fromEntries(Object.entries(clip).filter(([field]) => field !== "uri" && field !== "waveform"))])) })),
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2));
 for (const [relative, expected] of Object.entries(snapshot)) {

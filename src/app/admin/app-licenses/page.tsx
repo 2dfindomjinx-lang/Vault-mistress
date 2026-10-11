@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type LicenseRow = {
   id: string;
@@ -48,7 +48,7 @@ export default function AppLicensesPage() {
   const [resetTarget, setResetTarget] = useState<LicenseRow | null>(null);
   const [appKey, setAppKey] = useState<AppKey>("principessas-discipline");
 
-  const loadLicenses = async (requestedAppKey: AppKey = appKey) => {
+  const loadLicenses = useCallback(async (requestedAppKey: AppKey) => {
     setIsBusy(true);
     try {
       const response = await fetch(`/api/admin/app-licenses?appKey=${encodeURIComponent(requestedAppKey)}`, {
@@ -73,7 +73,7 @@ export default function AppLicensesPage() {
     } finally {
       setIsBusy(false);
     }
-  };
+  }, []);
 
   // Pages through the activation log alone - the license list on the left
   // stays as it is.
@@ -134,7 +134,7 @@ export default function AppLicensesPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadLicenses]);
 
   const runAction = async (body: Record<string, unknown>, successMessage: string) => {
     setIsBusy(true);
@@ -286,7 +286,7 @@ export default function AppLicensesPage() {
               <button
                 className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs font-bold text-zinc-200"
                 disabled={isBusy}
-                onClick={() => void loadLicenses()}
+                onClick={() => void loadLicenses(appKey)}
                 type="button"
               >
                 Refresh

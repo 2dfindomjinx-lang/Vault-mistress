@@ -1,10 +1,9 @@
 "use client";
-import { confirmDialog } from "@/lib/confirm-dialog";
+
 import {arrangeTaskCards} from "./task-layout";
 
 import ui from "./TaskExperience.module.css";
 import { TaskExperienceCard, TaskProgress, TaskWaitDial, TaskCardFace, TaskInputSignal, taskExperienceState } from "./TaskExperience";
-
 
 import { normalizeWritingText as normalizeWritingPreview } from "@/lib/writing-comparison";
 
@@ -41,38 +40,6 @@ const PET_RANKS = [
   { min: 1000, title: "Principessa's Perfect Pet" },
 ];
 
-const DEBT_PET_NAMES = ["Debt Piglet", "Wallet Worm", "Paypig Princess", "Debt Doll", "Tribute Toy", "Debt Addict", "Owned ATM", "Forever Indebted", "Drainlet", "Paywhore", "Cuckie"];
-const DEBT_SIGNING_IMAGE_PATH = "/pet/debt-contract-signed.webp";
-const DEBT_DURATION_LIMITS = {
-  monthly: { label: "Months", max: 24, min: 1 },
-  weekly: { label: "Weeks", max: 52, min: 1 },
-};
-const DEBT_MINIMUM_PAYMENTS = {
-  monthly: 50000,
-  weekly: 10000,
-};
-const EVIL_DEBT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
-const DEBT_RANDOM_AMOUNT_STEPS = {
-  monthly: 10000,
-  weekly: 5000,
-};
-const EVIL_DEBT_DURATION_MULTIPLIER = 2.5;
-const EVIL_CONSENT_PRIMARY_TEXT =
-  "I confirm that these images belong to me and I am sharing them with my own consent.";
-const EVIL_CONSENT_SECONDARY_TEXT =
-  "I consent that Principessa may use these images and I accept the consequences.";
-const EVIL_DEBT_TIMEZONE_OPTIONS = Array.from({ length: 25 }, (_, index) => {
-  const offset = index - 12;
-  return `UTC${offset >= 0 ? "+" : ""}${offset}`;
-});
-const DEBT_RANDOM_AMOUNT_LIMITS = {
-  monthly: { max: 200000, min: 50000 },
-  weekly: { max: 30000, min: 10000 },
-};
-const DEBT_RANDOM_DURATION_LIMITS = {
-  monthly: { label: "Months", max: 24, min: 4 },
-  weekly: { label: "Weeks", max: 52, min: 8 },
-};
 const CLICKABLE_COOLDOWN_BUTTON_CLASS = "cursor-not-allowed opacity-40";
 const CLICKABLE_COOLDOWN_TILE_CLASS = "cursor-not-allowed opacity-40";
 const RIGHTS_TASK_TITLE = "Owned Orgasm Permission";
@@ -327,8 +294,6 @@ function getPetRank(score: number) {
   return { current, next, progress };
 }
 
-
-
 function writingPreviewStartsWith(target: string, input: string) {
   return normalizeWritingPreview(target).startsWith(normalizeWritingPreview(input));
 }
@@ -386,14 +351,6 @@ function isPetTaskApprovedToday(task: PetTaskItem, now: number) {
   const taskDate = task.clickDate ?? null;
 
   return completedDate === today || reviewedDate === today || taskDate === today;
-}
-
-function randomInteger(minimum: number, maximum: number) {
-  return Math.floor(Math.random() * (maximum - minimum + 1)) + minimum;
-}
-
-function randomPetName() {
-  return DEBT_PET_NAMES[Math.floor(Math.random() * DEBT_PET_NAMES.length)] ?? DEBT_PET_NAMES[0];
 }
 
 function fileToDataUrl(file: File) {
@@ -478,81 +435,6 @@ function pickRandomWebsiteLink(state: RandomWebsiteState): RandomWebsiteState {
   };
 }
 
-function randomWeightedWeeklyDebtDuration(amount: number) {
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS.weekly;
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS.weekly;
-  const amountRange = amountLimit.max - amountLimit.min;
-  const lowAmountBias =
-    amountRange > 0 ? Math.max(0, (amountLimit.max - amount) / amountRange) : 0;
-  const durationOptions = Array.from(
-    { length: durationLimit.max - durationLimit.min + 1 },
-    (_, index) => durationLimit.min + index,
-  );
-  const weightedOptions = durationOptions.map((duration) => {
-    const durationRange = durationLimit.max - durationLimit.min;
-    const highDurationBias =
-      durationRange > 0 ? (duration - durationLimit.min) / durationRange : 0;
-
-    return {
-      duration,
-      weight: 1 + lowAmountBias * highDurationBias * 5,
-    };
-  });
-  const totalWeight = weightedOptions.reduce((sum, option) => sum + option.weight, 0);
-  let roll = Math.random() * totalWeight;
-
-  for (const option of weightedOptions) {
-    roll -= option.weight;
-
-    if (roll <= 0) {
-      return option.duration;
-    }
-  }
-
-  return durationLimit.max;
-}
-
-function randomDebtPeriodType(): "weekly" | "monthly" {
-  return Math.random() < 0.5 ? "weekly" : "monthly";
-}
-
-function getRandomDebtDraft(): {
-  amount: number;
-  duration: number;
-  periodType: "weekly" | "monthly";
-} {
-  const periodType = randomDebtPeriodType();
-  const durationLimit = DEBT_RANDOM_DURATION_LIMITS[periodType];
-  const amountLimit = DEBT_RANDOM_AMOUNT_LIMITS[periodType];
-  const amountStep = DEBT_RANDOM_AMOUNT_STEPS[periodType];
-  const minimumMultiplier = amountLimit.min / amountStep;
-  const maximumMultiplier = amountLimit.max / amountStep;
-  const installmentAmount = randomInteger(minimumMultiplier, maximumMultiplier) * amountStep;
-  const duration =
-    periodType === "weekly"
-      ? randomWeightedWeeklyDebtDuration(installmentAmount)
-      : randomInteger(durationLimit.min, durationLimit.max);
-
-  return {
-    amount: installmentAmount,
-    duration,
-    periodType,
-  };
-}
-
-const PET_CASE_DISPLAY_POOL = [
-  { value: 100, tier: "ice", weight: 90 },
-  { value: 150, tier: "ice", weight: 82 },
-  { value: 200, tier: "blue", weight: 64 },
-  { value: 250, tier: "blue", weight: 56 },
-  { value: 300, tier: "blue", weight: 44 },
-  { value: 400, tier: "pink", weight: 30 },
-  { value: 500, tier: "pink", weight: 20 },
-  { value: 650, tier: "red", weight: 12 },
-  { value: 800, tier: "red", weight: 6 },
-  { value: 1000, tier: "gold", weight: 2 },
-];
-
 const EVIL_DISTRACTION_TEXTS = [
   "Confirm Obedience",
   "Click to Prove Loyalty",
@@ -600,7 +482,7 @@ export function PetSection({
   coins,
   favorCoinReward,
   isGuest,
-  isDebtAutoPayEnabled = false,
+
   nextTaxDueAt,
   onCancelThroneTribute,
   onClaimAffection,
@@ -614,10 +496,9 @@ export function PetSection({
   worshipImageVersion = 0,
   onCompleteTask,
   onCooldownAttempt,
-  onDebtAutoPayChange = () => {},
-  onPayDebtPeriod = () => {},
+
   onBuyRight,
-  onSignDebtContract = async () => false,
+
   onUseRight,
   onFalseHopeKey,
   onFavorPick,
@@ -721,7 +602,7 @@ export function PetSection({
     60_000,
   );
   const [highLowStake, setHighLowStake] = useState(10);
-  const debtSignTimerRef = useRef<number | null>(null);
+
   const favorRevealTimerRef = useRef<number | null>(null);
   const [evilFloatingBoxes, setEvilFloatingBoxes] = useState<
     Array<{ id: number; left: string; rotate: string; text: string; top: string }>
@@ -743,21 +624,9 @@ export function PetSection({
   const [throneProofError, setThroneProofError] = useState("");
   const [throneProofImage, setThroneProofImage] = useState("");
   const [showThroneCode, setShowThroneCode] = useState(false);
-  const [debtPetName, setDebtPetName] = useState(DEBT_PET_NAMES[0]);
-  const [debtAmount, setDebtAmount] = useState("");
-  const [debtDuration, setDebtDuration] = useState("");
-  const [debtPeriodType, setDebtPeriodType] = useState<"weekly" | "monthly">("weekly");
-  const [debtMode, setDebtMode] = useState<"normal" | "evil">("normal");
-  const [evilAge, setEvilAge] = useState("");
-  const [evilFullName, setEvilFullName] = useState("");
-  const [evilTimezone, setEvilTimezone] = useState("UTC+3");
-  const [evilCustomNote, setEvilCustomNote] = useState("");
-  const [evilConsentPrimary, setEvilConsentPrimary] = useState("");
-  const [evilConsentSecondary, setEvilConsentSecondary] = useState("");
-  const [evilImageUrls, setEvilImageUrls] = useState<string[]>([]);
-  const [evilImageError, setEvilImageError] = useState("");
+
   const [randomWebsiteLink, setRandomWebsiteLink] = useState<string | null>(null);
-  const [showDebtSigningImage, setShowDebtSigningImage] = useState(false);
+
   const [falseHopeShaking, setFalseHopeShaking] = useState(false);
   const evilWaitFinishedRef = useRef(false);
   const onPetEvilWaitCompleteRef = useRef(onPetEvilWaitComplete);
@@ -796,45 +665,7 @@ export function PetSection({
   const weeklyTaxCoolingDown =
     Boolean(weeklyTaxTask?.cooldownUntil) &&
     new Date(weeklyTaxTask?.cooldownUntil ?? "").getTime() > now;
-  const debtTask =
-    tasks.find((task) => task.kind === "debt-contract") ??
-    ({
-      id: "pet-debt-contract",
-      title: "Debt Contract",
-      description: "Sign a recurring debt contract and pay the selected amount each period.",
-      reward: 0,
-      kind: "debt-contract",
-      status: "available",
-    } as PetTaskItem);
-  const baseDebtDurationLimit = DEBT_DURATION_LIMITS[debtPeriodType];
-  const debtDurationLimit = {
-    ...baseDebtDurationLimit,
-    min: debtMode === "evil" ? Math.ceil(baseDebtDurationLimit.min * EVIL_DEBT_DURATION_MULTIPLIER) : baseDebtDurationLimit.min,
-  };
-  const debtMinimumPayment =
-    debtMode === "evil"
-      ? debtPeriodType === "weekly"
-        ? 50000
-        : 200000
-      : DEBT_MINIMUM_PAYMENTS[debtPeriodType];
-  const debtAmountStep = debtMode === "evil" ? 5000 : DEBT_RANDOM_AMOUNT_STEPS[debtPeriodType];
-  const activeDebtContractType = petDebtContract?.contract_type === "evil" ? "evil" : "normal";
-  const hasOpenDebtContract = Boolean(
-    petDebtContract && ["active", "pending"].includes(petDebtContract.status),
-  );
-  const debtPaymentDue =
-    Boolean(petDebtContract) &&
-    new Date(petDebtContract?.next_due_at ?? "").getTime() <= now;
-  const debtInstallmentNumber = petDebtContract
-    ? Math.min(petDebtContract.paid_periods + 1, petDebtContract.duration_periods)
-    : 0;
-  const remainingDebtBalance = petDebtContract
-    ? Math.max(
-        0,
-        (Math.max(1, petDebtContract.current_installment_remaining || petDebtContract.debt_amount))
-          + Math.max(0, petDebtContract.duration_periods - petDebtContract.paid_periods - 1) * petDebtContract.debt_amount,
-      )
-    : 0;
+
   const dailyClickTask = tasks.find((task) => task.kind === "daily-click");
   const throneCoolingDown =
     Boolean(throneTask.cooldownUntil) &&
@@ -879,9 +710,6 @@ export function PetSection({
   }, [onFalseHopeKey]);
 
   useEffect(() => () => {
-    if (debtSignTimerRef.current !== null) {
-      window.clearTimeout(debtSignTimerRef.current);
-    }
     if (favorRevealTimerRef.current !== null) {
       window.clearTimeout(favorRevealTimerRef.current);
     }
@@ -1175,122 +1003,6 @@ export function PetSection({
 
   function handleClearThroneProof() {
     onCancelThroneTribute();
-  }
-
-  function showDebtSignedImage() {
-    setShowDebtSigningImage(true);
-    if (debtSignTimerRef.current !== null) {
-      window.clearTimeout(debtSignTimerRef.current);
-    }
-    debtSignTimerRef.current = window.setTimeout(() => setShowDebtSigningImage(false), 4500);
-  }
-
-  async function signDebtContract(form: {
-    age?: number | string;
-    consentPrimary?: boolean;
-    consentPrimaryText?: string;
-    consentSecondary?: boolean;
-    consentSecondaryText?: string;
-    contractType?: "normal" | "evil";
-    debtAmount: number;
-    durationPeriods: number;
-    fullName?: string;
-    customNote?: string;
-    imageUrls?: string[];
-    randomGenerated?: boolean;
-    periodType: "weekly" | "monthly";
-    petName: string;
-    timezone?: string;
-  }) {
-    const signed = await onSignDebtContract(form);
-
-    if (signed && form.contractType !== "evil") {
-      showDebtSignedImage();
-    }
-
-    return signed;
-  }
-
-  async function handleDebtSign() {
-    await signDebtContract({
-      debtAmount: Number(debtAmount),
-      durationPeriods: Number(debtDuration),
-      periodType: debtPeriodType,
-      petName: debtPetName,
-    });
-  }
-
-  async function handleEvilDebtImages(files: FileList | null) {
-    setEvilImageError("");
-    const selectedFiles = Array.from(files ?? []).slice(0, 8);
-
-    if (selectedFiles.length === 0) {
-      setEvilImageUrls([]);
-      return;
-    }
-
-    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
-      setEvilImageError("Only image files are accepted.");
-      return;
-    }
-
-    if (selectedFiles.some((file) => file.size > EVIL_DEBT_IMAGE_MAX_BYTES)) {
-      setEvilImageError("Each image must be 4MB or smaller.");
-      return;
-    }
-
-    try {
-      setEvilImageUrls(await Promise.all(selectedFiles.map(fileToDataUrl)));
-    } catch {
-      setEvilImageError("Images failed to load.");
-    }
-  }
-
-  async function handleEvilDebtSign() {
-    if (
-      !(await confirmDialog({
-        title: "Evil Debt Contract",
-        message: "Are you absolutely sure you want to sign the Evil Debt Contract?",
-        confirmLabel: "Sign",
-        tone: "danger",
-      }))
-    ) {
-      return;
-    }
-
-    await signDebtContract({
-      age: evilAge,
-      consentPrimary: evilConsentPrimary.trim() === EVIL_CONSENT_PRIMARY_TEXT,
-      consentPrimaryText: evilConsentPrimary.trim(),
-      consentSecondary: evilConsentSecondary.trim() === EVIL_CONSENT_SECONDARY_TEXT,
-      consentSecondaryText: evilConsentSecondary.trim(),
-      contractType: "evil",
-      debtAmount: Number(debtAmount),
-      durationPeriods: Number(debtDuration),
-      fullName: evilFullName,
-      customNote: evilCustomNote,
-      imageUrls: evilImageUrls,
-      periodType: debtPeriodType,
-      petName: "Evil Debt Contract",
-      timezone: evilTimezone,
-    });
-  }
-
-  async function handleRandomDebtSign() {
-    const draft = getRandomDebtDraft();
-    const petName = randomPetName();
-
-    setDebtPetName(petName);
-    setDebtAmount(String(draft.amount));
-    setDebtDuration(String(draft.duration));
-    setDebtPeriodType(draft.periodType);
-    await signDebtContract({
-      debtAmount: draft.amount,
-      durationPeriods: draft.duration,
-      randomGenerated: true,
-      periodType: draft.periodType,
-      petName,
-    });
   }
 
   function handleRandomWebsiteOpen() {
@@ -1707,7 +1419,7 @@ export function PetSection({
 {task.kind === "worship" && (
                     <div className={ui.stage}>
                       {worshipImagePath ? (
-                        <img
+                        <Image unoptimized width={256} height={256} loading="eager"
                           alt={`Worship: ${worshipCategory ?? ""}`}
                           className="h-64 w-full select-none rounded-2xl border border-red-200/15 bg-black/40 object-contain"
                           draggable={false}
@@ -2290,6 +2002,7 @@ export function PetSection({
                       {throneProofImage && (
                         <div className="hidden overflow-hidden rounded-2xl border border-pink-200/15 bg-black/40">
                           {/* Keep the screenshot visible so users can verify what will be submitted. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element -- User proof uploads keep their unknown natural aspect ratio and direct private/data URL. */}
                           <img
                             alt="Selected Throne proof"
                             className="max-h-56 w-full object-contain"
@@ -2689,47 +2402,5 @@ export function PetSection({
         </div>
       </div>
     </section>
-  );
-}
-
-function AutoPaymentSwitch({
-  disabled = false,
-  enabled,
-  onChange,
-}: {
-  disabled?: boolean;
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
-}) {
-  return (
-    <button
-      aria-pressed={enabled}
-      className="flex w-full items-center gap-3 text-left"
-      onClick={() => onChange(!enabled)}
-      disabled={disabled}
-      type="button"
-    >
-      <span className="min-w-0 flex-1">Auto payment</span>
-      <span className="ml-auto inline-flex items-center gap-2">
-        <span
-          className={`relative h-7 w-14 rounded-full border transition ${
-            enabled
-              ? "border-emerald-200/40 bg-emerald-400/25"
-              : "border-red-200/25 bg-black/55"
-          }`}
-        >
-        <span
-          className={`absolute top-1 h-5 w-5 rounded-full transition ${
-            enabled
-              ? "left-7 bg-emerald-100 shadow-[0_0_14px_rgba(110,231,183,0.55)]"
-              : "left-1 bg-red-100/80"
-          }`}
-        />
-        </span>
-        <span className={enabled ? "text-emerald-100" : "text-red-100/80"}>
-          {enabled ? "ON" : "OFF"}
-        </span>
-      </span>
-    </button>
   );
 }

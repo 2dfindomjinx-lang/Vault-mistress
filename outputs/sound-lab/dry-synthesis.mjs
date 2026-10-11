@@ -12,7 +12,7 @@ export class Scene extends OriginalScene {
     this.cleanPlucks = 0;
     this.materialGrains = 0;
   }
-  friction(_at, duration, _gain, _options = {}) {
+  friction(_at, duration) {
     // Deliberately omit this stem entirely, including the old short hiss attacks.
     // Consume the same RNG draws so later independent layers retain their seed.
     for (let i = 0; i < frames(duration); i++) this.random();

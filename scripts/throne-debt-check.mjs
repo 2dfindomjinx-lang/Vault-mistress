@@ -59,7 +59,7 @@ try {
   const migration=await sql("202609110003_throne_debt_auto_payments.sql");
   await db.exec(migration);
   await db.exec(migration);
-  assert.deepEqual((await installments(legacy)).map(({webhook_paid_usd,...row})=>row),before,"Migration preserves existing amounts and approvals");
+  assert.deepEqual((await installments(legacy)).map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=="webhook_paid_usd"))),before,"Migration preserves existing amounts and approvals");
   const a=await debt();
   let result=await pay(a,1800);
   assert.equal(result.applied,18);
@@ -166,4 +166,3 @@ try {
   console.log("Contract upgrade passed: 18.75 approval preserved, 0.25 waived once, whole-dollar replan, PM ownership/balance/idempotency, mixed payments, full settlement, review guard, rollback and RLS.");
   console.log("Throne debt checks passed: exact whole-dollar schedules, partial/carry payments, legacy approvals, historical cutoff, manual overlap, completion, overpayment audit, atomic rollback/retry, permissions and unchanged balances.");
 } finally { await db.close(); }
-

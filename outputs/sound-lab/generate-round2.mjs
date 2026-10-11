@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Scene, finish, wav, loudness, SR, TAU, seedOf, frames, fade, random, DRY_REVISION, dryMaterial, dryFireLoop } from './dry-synthesis.mjs';
+import { Scene, finish, wav, loudness, SR, seedOf, random, DRY_REVISION, dryMaterial, dryFireLoop } from './dry-synthesis.mjs';
 import { buttonCatalog, eventCatalog, auditNotes } from './round2-catalog.mjs';
 
 const OUT = dirname(fileURLToPath(import.meta.url)), ROOT = resolve(OUT,'../..');
@@ -88,22 +88,22 @@ function eventSound(event,version) {
     case 'card_flip':breath(s,0,.19,.5,bright);s.friction(.11,.095,.23,{low:bright?1700:700,high:4400,decay:40});break;
     case 'round_correct':chime(s,0,bright?[880,1174.66]:[440,659.25],.26,step,bright);break;
     case 'life_lost':s.tone(0,bright?392:220,.26,.45,{end:bright?196:110,decay:15,fm:bright?.6:0});s.friction(.04,.065,.17,{low:250,high:1800,decay:40});break;
-    case 'countdown_tick':bright?ceramic(s,0,880,.35,0,.14):wood(s,0,390,.6,0,.15);break;
+    case 'countdown_tick':if (bright) { ceramic(s,0,880,.35,0,.14); } else { wood(s,0,390,.6,0,.15); }break;
     case 'countdown_go':s.tone(0,bright?880:440,.31,.3,{end:bright?1320:660,decay:13,fm:bright?.6:0});wood(s,.07,240,.18,0,.14);break;
     case 'guard_parry':s.impact(0,bright?280:140,.63);s.modal(.008,bright?1250:630,.33,.29,{metal:true,muted:!bright});s.friction(.018,.16,.27,{low:1100,high:4600,swell:true});break;
     case 'slot_stop':wood(s,0,bright?370:190,.64,0,.2);s.modal(.025,bright?1020:590,.16,.20,{metal:true,muted:true});wood(s,.065,275,.18,0,.11);break;
     case 'dice_roll':rattle(s,0,.60,seedOf(version+'dice'),'wood',9);ceramic(s,.60,bright?1150:700,.19,.23,.18);break;
     case 'roulette_roll':{
       const d=2.96;breath(s,0,d,bright?.14:.10,bright);
-      let t=.03,i=0;while(t<d) {const progress=t/d,g=.12+progress*.10;bright?ceramic(s,t,1050-i%3*90,g,Math.sin(t*4)*.28,.09):wood(s,t,620+i%3*70,g,Math.sin(t*4)*.28,.085);t+=.055+progress**2*.23;i++;}
+      let t=.03,i=0;while(t<d) {const progress=t/d,g=.12+progress*.10;if (bright) { ceramic(s,t,1050-i%3*90,g,Math.sin(t*4)*.28,.09); } else { wood(s,t,620+i%3*70,g,Math.sin(t*4)*.28,.085); }t+=.055+progress**2*.23;i++;}
       wood(s,3.06,bright?450:260,.42,0,.24);break;
     }
-    case 'plinko_hit':bright?s.modal(0,1680,.09,.4,{muted:true,metal:true}):ceramic(s,0,960,.4,0,.09);break;
+    case 'plinko_hit':if (bright) { s.modal(0,1680,.09,.4,{muted:true,metal:true}); } else { ceramic(s,0,960,.4,0,.09); }break;
     case 'gem_found':wood(s,0,340,.24,0,.12);glass(s,.065,bright?1174.66:783.99,.25,0,.37);break;
     case 'mine_bust':s.impact(0,bright?110:83,.94);s.friction(.006,.31,.48,{low:bright?1100:280,high:bright?5400:2800,decay:11});s.tone(.035,370,.54,.19,{end:90,decay:8,fm:bright?.6:0});break;
     case 'casino_cashout':rattle(s,0,.27,seedOf('cashout'+version),bright?'metal':'wood',5);chime(s,.19,bright?[880,1174.66]:[440,659.25],.22,.12,bright);break;
     case 'crash_break':breath(s,0,.22,.47,bright);s.tone(.12,300,.63,.7,{end:65,decay:7,fm:bright?1.1:.1});s.friction(.15,.42,.32,{low:bright?1300:500,high:4500,decay:9});break;
-    case 'wheel_tick':bright?s.modal(0,900,.09,.35,{metal:true,muted:true}):wood(s,0,560,.56,0,.09);wood(s,.019,bright?480:290,.2,0,.07);break;
+    case 'wheel_tick':if (bright) { s.modal(0,900,.09,.35,{metal:true,muted:true}); } else { wood(s,0,560,.56,0,.09); }wood(s,.019,bright?480:290,.2,0,.07);break;
     case 'wheel_verdict':s.impact(0,bright?130:98,.72);s.modal(.03,bright?660:330,.71,.25,{metal:true});s.pad(.10,[146.83,220],.74,.15,{attack:.07});break;
     case 'timeout_lock':s.friction(0,.15,.24,{low:500,high:3500,swell:true});s.impact(.09,bright?180:95,.67);s.modal(.15,bright?860:490,.32,.22,{metal:true,muted:true});wood(s,.25,230,.25,0,.19);break;
     case 'timeout_release':s.modal(0,bright?1050:580,.21,.22,{metal:true,muted:true});s.impact(.10,240,.25);chime(s,.19,bright?[659.25,880]:[329.63,440],.19,.09,bright);break;
@@ -120,16 +120,16 @@ function eventSound(event,version) {
     case 'sacrifice_resolve':s.modal(0,bright?493.88:246.94,.85,.29,{metal:!bright});s.tone(.12,220,.74,.30,{end:82.41,decay:5});breath(s,.15,.62,.23,bright);break;
     case 'daily_reward':rattle(s,0,.24,seedOf('daily'+version),'metal',4);chime(s,.16,bright?[783.99,1174.66]:[392,587.33],.24,.12,bright);break;
     case 'money_convert':wood(s,0,220,.38,0,.17);breath(s,.02,.29,.3,bright);[0,.08,.14,.19].forEach((t,i)=>glass(s,.18+t,(bright?880:659.25)*(i%2?1.5:1),.22-i*.035,-.26+i*.17,.53));break;
-    case 'item_equip':breath(s,0,.26,.45,bright);bright?ceramic(s,.14,1174.66,.24,0,.27):wood(s,.13,510,.42,0,.21);break;
+    case 'item_equip':breath(s,0,.26,.45,bright);if (bright) { ceramic(s,.14,1174.66,.24,0,.27); } else { wood(s,.13,510,.42,0,.21); }break;
     case 'item_sell':breath(s,0,.24,.24,bright);chime(s,.12,bright?[880,587.33]:[440,293.66],.24,.14,bright);wood(s,.30,190,.25,0,.21);break;
     case 'debt_installment':s.friction(0,.18,.18,{low:1300,high:4400,swell:true,flutter:27});s.impact(.19,bright?220:135,.64);glass(s,.26,bright?880:440,.17,0,.47);break;
     case 'debt_completed':wood(s,0,170,.7,0,.28);s.impact(.15,98,.58);s.modal(.20,bright?880:440,.63,.16,{metal:true});chime(s,.40,bright?[587.33,880,1174.66]:[293.66,440,587.33],.22,.15,bright);s.pad(.41,[146.83,220],1.01,.13);break;
     case 'notification_received':chime(s,0,bright?[880,1174.66]:[440,659.25],.22,.18,bright);break;
-    case 'runway_vote':bright?glass(s,0,1046.50,.27,0,.5):s.pluck(0,698.46,.5,.75,0,.62);breath(s,.03,.20,.10,bright);break;
+    case 'runway_vote':if (bright) { glass(s,0,1046.50,.27,0,.5); } else { s.pluck(0,698.46,.5,.75,0,.62); }breath(s,.03,.20,.10,bright);break;
     case 'runway_supervote':chime(s,0,bright?[783.99,1046.50,1567.98]:[392,523.25,783.99],.24,.12,bright);breath(s,.19,.43,.16,bright);break;
     case 'loyalty_milestone':chime(s,0,bright?[587.33,783.99,880,1174.66]:[293.66,392,440,587.33],.25,.14,bright);s.pad(.14,[196,293.66,392],1.05,.18);break;
     case 'crawl_contact':wood(s,0,bright?250:165,.43,-.08,.13);s.friction(.018,.20,.34,{low:bright?600:220,high:bright?3100:1700,swell:true,pan:.08});wood(s,.135,bright?370:210,.16,.08,.11);break;
-    case 'jigsaw_reveal':s.friction(0,.28,.49,{low:bright?1500:800,high:4800,swell:true,flutter:24});wood(s,.15,bright?510:300,.27,0,.18);bright?glass(s,.25,1046.50,.19,0,.49):s.pluck(.24,523.25,.5,.51,0,.67);break;
+    case 'jigsaw_reveal':s.friction(0,.28,.49,{low:bright?1500:800,high:4800,swell:true,flutter:24});wood(s,.15,bright?510:300,.27,0,.18);if (bright) { glass(s,.25,1046.50,.19,0,.49); } else { s.pluck(.24,523.25,.5,.51,0,.67); }break;
     default:throw new Error(`Unrendered event ${event.id}`);
   }
   if(event.seconds>.4 && !['furnace_note','dice_roll','roulette_roll','furnace_ignite','furnace_ash'].includes(event.id))s.room(bright?.12:.17,.95);

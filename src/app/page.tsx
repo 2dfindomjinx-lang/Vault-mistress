@@ -16,7 +16,6 @@ import { visibleGalleryItems, secretGalleryItem, sacrificeGalleryItems } from "@
 import {COIN_TRIBUTE_AFFECTION} from "@/lib/economy-rules";
 import { postEconomyAction } from "@/lib/economy-client";
 
-
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
@@ -37,7 +36,6 @@ import { CommunityGoalWidget } from "@/components/CommunityGoalWidget";
 import { CourtChamberIntro } from "@/components/CourtChamberIntro";
 import { CourtHomeStage } from "@/components/CourtHomeStage";
 import { GamesWorkspace } from "@/components/GamesWorkspace";
-
 
 import { LinkifiedText } from "@/components/LinkifiedText";
 import type { CrateDefinition, CrateInventoryItem } from "@/components/CratesPanel";
@@ -153,7 +151,6 @@ import {
   cosmeticItems,
   getCosmeticItem,
   isCosmeticAvailableForAddressTerm,
-  getTitleItem,
   getTitleItemsForAddressTerm,
   getSpendBadge,
   getUnlockedCrateTitleIds,
@@ -259,7 +256,7 @@ import {
   PET_WORSHIP_MIN_AMOUNT,
 } from "@/lib/pet-tasks-content";
 import { getDailyTypingSentence } from "@/lib/typing-sentences";
-import { ownsPlush } from "@/lib/birthday-plush";
+
 import { getTimeoutClearFee, PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, roundRewardToNearestFive, TIMEOUT_CLEAR_FEE_PER_HOUR } from "@/lib/server-game-rules";
 import {
   getDailyGmt3CooldownUntil,
@@ -384,8 +381,6 @@ function resolveProfileDisplayName(profile: Partial<Profile>) {
   return undefined;
 }
 
-
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 const PET_WEEKLY_TAX_MIN_COST = 2500;
@@ -426,10 +421,9 @@ const MAX_TIMEOUT_DAYS = 1;
 const TIMEOUT_RISK_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const TIMEOUT_RISK_DAILY_SAFE_LIMIT = 2;
 const SAFE_REWARD = 125;
-const BEG_REWARD = 50;
-const SACRIFICE_COST = 500;
+
 const SACRIFICE_SUCCESS_COOLDOWN_MS = 60 * 60 * 1000;
-const SUPPORT_COST = 2500;
+
 const TIMEOUT_RISK_CHANCE = 0.2;
 const OWNER_LIKENESS_PROTECTED_USERNAME = "vmprincipessa";
 const STREAK_BONUSES = [
@@ -626,54 +620,6 @@ const affectionMoodLines = [
   { min: 95, text: "Principessa is indulgent now, but only because you have proven useful." },
   { min: 100, text: "Principessa is fully pleased. The secret reward reveals itself." }
 ];
-
-const begIgnoredLines = [
-  "Principessa is ignoring you right now. You're not even worth her time.",
-  "Ignored again... how does it feel being this forgettable?",
-  "Principessa has better things to do than waste attention on a loser like you.",
-  "She sees you... and still chooses to ignore you. Embarrassing.",
-  "No response. How humbling.",
-];
-
-const begRewardLines = [
-  "Your desperate begging entertained me, so I threw you a small reward.",
-  "I pitied your begging and gave you something. Say thank you.",
-  "I decided to reward your desperation. How humiliating for you.",
-  "Fine. A small gift, because the silence was getting boring.",
-];
-
-const sacrificeFailureLines = [
-  "You sacrificed all those coins for nothing. How pathetic.",
-  "Your coins are gone and I still don't care about you.",
-  "All that sacrifice... completely worthless. Just like you.",
-  "I watched you throw away your coins and laughed.",
-];
-
-function getSacrificeSuccessLines(term: AddressTerm) {
-  return [
-    `Your sacrifice pleased me. ${goodAddressPhrase(term)}.`,
-    "I took your offering. You may thank me properly.",
-    "I liked your sacrifice. You earned a small mercy.",
-    "Successful sacrifice. I'm marginally impressed.",
-  ];
-}
-
-function getSupportLines(term: AddressTerm) {
-  return [
-    "Principessa took your coins without a single word. You're nothing to her.",
-    "Coins gone. She still doesn't care about you.",
-    "A worthless pig sent money and got ignored. Shocking.",
-    "Your support was accepted. Your dignity was not.",
-    "She drained you again and remains completely indifferent.",
-    "Pathetic. Even your coins can't make her respect you.",
-    "The vault swallowed your offering. Principessa is bored.",
-    "You paid like a good little loser. Still irrelevant.",
-    "Support recorded. Principessa thinks you're laughable.",
-    term === "femsub"
-      ? "Your coins were taken. You remain a disgusting bimbo."
-      : "Your coins were taken. You remain a disgusting beta.",
-  ];
-}
 
 function getSmallTributeResult(term: AddressTerm) {
   if (term === "femsub") {
@@ -1181,8 +1127,6 @@ function sampleDistinctIndices(size: number, count: number) {
   return picked;
 }
 
-
-
 function formatLongTimeoutDuration(milliseconds: number) {
   const totalDays = Math.max(0, Math.ceil(milliseconds / DAY_MS));
   const years = Math.floor(totalDays / 365);
@@ -1366,8 +1310,6 @@ function getTaskMetadataString(
   const value = metadata?.[key];
   return typeof value === "string" ? value : null;
 }
-
-
 
 function buildTasksFromRows(
   rows: UserTaskRow[],
@@ -1605,24 +1547,7 @@ function buildMechanicsFromRows(
   };
 }
 
-function getGalleryMechanicState(unlockedIds: string[]) {
-  const sacrificeUnlockedCount = sacrificeGalleryItems.filter((item) =>
-    unlockedIds.includes(item.id),
-  ).length;
-  const normalGalleryComplete = [...visibleGalleryItems, secretGalleryItem].every((item) =>
-    unlockedIds.includes(item.id),
-  );
-  const sacrificeComplete = sacrificeUnlockedCount >= sacrificeGalleryItems.length;
-  const allGalleryComplete = normalGalleryComplete && sacrificeComplete;
 
-  return {
-    allGalleryComplete,
-    sacrificeComplete,
-    sacrificeTotal: sacrificeGalleryItems.length,
-    sacrificeUnlockedCount,
-    supportUnlocked: allGalleryComplete,
-  };
-}
 
 export default function Home({ initialPanel = "home" }: { initialPanel?: DashboardPage } = {}) {
   const mobileLayout = useMobileCourtLayout();
@@ -1796,8 +1721,8 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
   const [leadershipTop, setLeadershipTop] = useState<LeadershipEntry[]>([]);
   const [shameTop, setShameTop] = useState<ShameEntry[]>([]);
   const [petScoreLeaders, setPetScoreLeaders] = useState<PetScoreLeaderboardEntry[]>([]);
-  const [petScoreLeaderboardLoading, setPetScoreLeaderboardLoading] = useState(false);
-  const [petScoreLeaderboardError, setPetScoreLeaderboardError] = useState("");
+  const [, setPetScoreLeaderboardLoading] = useState(false);
+  const [, setPetScoreLeaderboardError] = useState("");
   const [devotionPeriod, setDevotionPeriod] = useState<DevotionPeriod>("all_time");
   const [homeLeaderboardTab, setHomeLeaderboardTab] = useState<"devotion" | "pet" | "leadership" | "shame" | "inventory">("devotion");
   const [devotionLeaders, setDevotionLeaders] = useState<DevotionLeaderboardEntry[]>([]);
@@ -1970,7 +1895,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     uiEnabled: true,
   });
   const [, setAffectionStageRevealToken] = useState(0);
-  const [mechanics, setMechanics] = useState<MechanicsState>({
+  const [, setMechanics] = useState<MechanicsState>({
     supportUnlocked: false,
     sacrificeUnlockedCount: 0,
     sacrificeTotal: sacrificeGalleryItems.length,
@@ -2575,13 +2500,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
         .filter((itemId) => !seenShrineMemoryIds.includes(itemId)),
     [seenShrineMemoryIds, shrineBonusGalleryItems, shrineGalleryItems],
   );
-  const displayMechanics = useMemo(
-    () => ({
-      ...mechanics,
-      ...getGalleryMechanicState(unlockedGalleryIds),
-    }),
-    [mechanics, unlockedGalleryIds],
-  );
+
   const getNextTributeTotal = useCallback(
     (spentCoins: number) => tributeTotal + Math.max(0, spentCoins),
     [tributeTotal],
@@ -2618,7 +2537,7 @@ export default function Home({ initialPanel = "home" }: { initialPanel?: Dashboa
     [getEventMultiplier],
   );
   const highLowWinMultiplier = getEventMultiplier("high_low_bonus", 2);
-  const eventBegReward = getEventTaskReward(BEG_REWARD);
+
   const eventFavorCoinReward = getEventTaskReward(PET_FAVOR_ROULETTE_COIN_REWARD);
 const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const eventSafeReward = getEventTaskReward(SAFE_REWARD);
@@ -2874,7 +2793,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     ? new Date(new Date(lastPetTaxAt ?? petUnlockedAt).getTime() + WEEK_MS).toISOString()
     : null;
 
-  const blockIfTimedOut = (options?: { allowWhileTimedOut?: boolean }) => {
+  const blockIfTimedOut = useCallback((options?: { allowWhileTimedOut?: boolean }) => {
     if (isPreviewRestricted) {
       setAvatarMistressReply("Sign in to unlock this feature. Preview Mode is read-only.");
       return true;
@@ -2906,7 +2825,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     setAvatarMistressReply("Timeout active. Stay denied like the pathetic loser you are or pay to unlock.");
     return true;
-  };
+  }, [authUserId, isGuestMode, isLoggedIn, isPreviewRestricted, isProfileVerified, setAvatarMistressReply]);
 
   useEffect(() => {
     coinsRef.current = coins;
@@ -3452,17 +3371,19 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } catch (error) {
       console.error("Failed to load crate data", error);
     }
-  }, [isPreviewMode, isGuestMode, authUserId]);
+  }, [isPreviewMode, isGuestMode]);
 
   useEffect(() => {
+    // Keep the ref object: cleanup must invalidate the latest version, not a captured number.
+    const readVersion = crateReadVersion;
     const queue = createRefreshQueue(loadCratesData);
     crateRefreshQueue.current = queue;
     return () => {
       queue.dispose();
       crateRefreshQueue.current = null;
-      crateReadVersion.current++;
+      readVersion.current++;
     };
-  }, [loadCratesData]);
+  }, [loadCratesData, authUserId]);
 
   const handleOpenCrate = async (crateType: string, quantity = 1) => {
     if (crateMutationBusy.current) return { success: false };
@@ -4028,7 +3949,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     // Fetch-on-panel-activation; the setState happens inside loadDevotionLeaderboard
     // itself (a useCallback), not directly here. Restructuring this data load risks
     // breaking real leaderboard fetch timing in production.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-when-panel-active data load, not a derivable value
+
     // eslint-disable-next-line react-hooks/set-state-in-effect -- start external leaderboard request with a loading indicator
     void loadDevotionLeaderboard(devotionPeriod);
   }, [activePanel, devotionPeriod, loadDevotionLeaderboard]);
@@ -4057,7 +3978,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     if (devotionRefreshBoundaryRef.current !== nextBoundaryIso) {
       devotionRefreshBoundaryRef.current = nextBoundaryIso;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- start external leaderboard request with a loading indicator
+
     void loadDevotionLeaderboard(devotionPeriod);
     }
   }, [activePanel, currentTime, devotionPeriod, isGuestMode, isLoggedIn, isPreviewMode, loadDevotionLeaderboard]);
@@ -4152,7 +4073,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       window.removeEventListener("focus", refreshRecentTributes);
       window.removeEventListener("storage", refreshRecentTributes);
     };
-  }, [isGuestMode, isLoggedIn, isPreviewMode, loadCratesData, loadRecentTributes]);
+  }, [authUserId, isGuestMode, isLoggedIn, isPreviewMode, loadCratesData, loadRecentTributes]);
 
   const persistGalleryUnlocks = useCallback(async (itemIds: string[]) => {
     if (!authUserId || itemIds.length === 0 || isGuestMode) {
@@ -4562,9 +4483,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     crateInventory,
     loadLeadershipTop,
     loadShameTop,
-    refreshDisplayName,
-    setAvatarMistressReply,
-    unlockProgressionTitles,
   ]);
 
   const handleMoneyConvert = useCallback(async (amount: number) => {
@@ -5470,7 +5388,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       }),
     );
     return data as Profile;
-  }, []);
+  }, [setAvatarMistressReply]);
 
   const handleStreakRansom = async () => {
     if (isStreakRansomPending) return;
@@ -7471,293 +7389,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       finishTaskAction(actionId);
     }
-  };
-
-  const handleBeg = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-    if (!authUserId) {
-      return;
-    }
-
-    const cooldownActive =
-      Boolean(displayMechanics.begCooldownUntil) &&
-      new Date(displayMechanics.begCooldownUntil ?? "").getTime() > new Date().getTime();
-
-    if (cooldownActive) {
-      return;
-    }
-
-    const actionId = "beg";
-
-    if (!beginTaskAction(actionId)) {
-      return;
-    }
-
-    const now = new Date().toISOString();
-      const reward = randomChance(0.07) ? eventBegReward : 0;
-
-      try {
-        // Always go through profile-progress for beg (even 0-reward): the route validates
-        // cooldown/delta then on success does the server-side task row side-effect (lastBegAt etc).
-        // This ensures state (cooldown) is only recorded if/after the action "grant" (0 or +) succeeds.
-        // Pre-persist removed to prevent marking cooldown without the (profile) grant path succeeding.
-        if (!isGuestMode) {
-          await persistProfileProgress(
-            { coins: coinsRef.current + reward, affection },
-            "beg",
-          );
-        }
-
-      setMechanics((current) => ({
-        ...current,
-        begCooldownUntil: getCooldownUntil(now, getEventCooldownMs(60 * 1000)),
-      }));
-      setAvatarMistressReply(
-        reward > 0
-          ? `${randomFrom(begRewardLines)} +${reward} coins.`
-          : randomFrom(begIgnoredLines),
-      );
-      emitSoundEvent(reward > 0 ? "task_completion" : "task_fail");
-    } catch (error) {
-      console.error("Failed to complete beg mechanic", error);
-      emitSoundEvent("error");
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The vault ignored the request. Try again.");
-      void resyncAuthenticatedProfile("Failed to complete beg").catch((resyncError) => {
-        console.error("[profile-resync] failed after beg error", resyncError);
-      });
-    } finally {
-      finishTaskAction(actionId);
-    }
-  };
-
-  const handleSacrifice = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-    if (!authUserId || displayMechanics.sacrificeComplete) {
-      return;
-    }
-
-    const cooldownActive =
-      Boolean(displayMechanics.sacrificeCooldownUntil) &&
-      new Date(displayMechanics.sacrificeCooldownUntil ?? "").getTime() > new Date().getTime();
-
-    if (cooldownActive) {
-      return;
-    }
-
-    if (coinsRef.current < SACRIFICE_COST) {
-      setAvatarMistressReply(
-        `The sacrifice requires ${SACRIFICE_COST} coins. Principessa is not impressed.`,
-      );
-      return;
-    }
-
-    const remainingItems = sacrificeGalleryItems.filter(
-      (item) => !unlockedGalleryIds.includes(item.id),
-    );
-
-    if (remainingItems.length === 0) {
-      setMechanics((current) => ({
-        ...current,
-        sacrificeComplete: true,
-      }));
-      setAvatarMistressReply("The Sacrifice Collection is already complete.");
-      return;
-    }
-
-    const actionId = "sacrifice";
-
-    if (!beginTaskAction(actionId)) {
-      return;
-    }
-
-    const now = new Date().toISOString();
-
-    try {
-      // The coin charge, the 35% roll, and the resulting unlock all happen
-      // server-side in one atomic transaction - the client never reports its
-      // own roll outcome (that used to be trust-the-client and was
-      // trivially exploitable).
-      const response = await fetch("/api/user/gallery-unlocks", {
-        body: JSON.stringify({ action: "sacrifice" }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        won?: boolean;
-        itemId?: string | null;
-        coins?: number;
-        completed?: boolean;
-      };
-
-      if (!response.ok) {
-        throw createApiError("/api/user/gallery-unlocks", response, payload);
-      }
-
-      if (payload.completed) {
-        setMechanics((current) => ({ ...current, sacrificeComplete: true }));
-        setAvatarMistressReply("The Sacrifice Collection is already complete.");
-        return;
-      }
-
-      const won = Boolean(payload.won);
-      const unlockedItem = won && payload.itemId
-        ? remainingItems.find((item) => item.id === payload.itemId) ?? null
-        : null;
-      const lastResult = unlockedItem
-        ? `Unlocked ${unlockedItem.title}.`
-        : "The offering burned away.";
-
-      if (typeof payload.coins === "number") {
-        setCoins(payload.coins);
-      }
-      const nextTributeTotal = getNextTributeTotal(SACRIFICE_COST);
-      setTributeTotal(nextTributeTotal);
-      unlockProgressionTitles(nextTributeTotal);
-      void loadLeadershipTop();
-      void loadCommunityStatus();
-
-      if (unlockedItem) {
-        setUnlockedGalleryIds((current) =>
-          current.includes(unlockedItem.id) ? current : [...current, unlockedItem.id],
-        );
-      }
-
-      if (!isGuestMode) {
-        await persistUserTask({
-            task_id: "sacrifice",
-            completed_at: now,
-            claimed_at: unlockedItem ? now : null,
-            reward_coins: unlockedItem ? 1 : 0,
-            metadata: {
-              won,
-              unlockedItemId: unlockedItem?.id ?? null,
-              lastResult,
-            },
-          });
-      }
-
-      setMechanics((current) => ({
-        ...current,
-        sacrificeCooldownUntil: unlockedItem
-          ? getCooldownUntil(now, getEventCooldownMs(SACRIFICE_SUCCESS_COOLDOWN_MS))
-          : null,
-        sacrificeLastResult: lastResult,
-      }));
-      setAvatarMistressReply(
-        unlockedItem
-          ? `${randomFrom(getSacrificeSuccessLines(addressTerm))} ${unlockedItem.title} joins the collection.`
-          : randomFrom(sacrificeFailureLines),
-      );
-      emitSoundEvent(unlockedItem ? "gallery_unlock" : "sacrifice_resolve");
-    } catch (error) {
-      console.error("Failed to complete sacrifice mechanic", error);
-      emitSoundEvent("error");
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The sacrifice ledger failed. Try again.");
-      void resyncAuthenticatedProfile("Failed sacrifice").catch((resyncError) => {
-        console.error("[profile-resync] failed after sacrifice error", resyncError);
-      });
-    } finally {
-      finishTaskAction(actionId);
-    }
-  };
-
-  const handleSupport = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-    if (!authUserId || !displayMechanics.supportUnlocked) {
-      return;
-    }
-
-    if (coinsRef.current < SUPPORT_COST) {
-      setAvatarMistressReply(`Support costs ${SUPPORT_COST} coins. The vault waits.`);
-      return;
-    }
-
-    const actionId = "support";
-
-    if (!beginTaskAction(actionId)) {
-      return;
-    }
-
-    const now = new Date().toISOString();
-    const message = randomFrom(getSupportLines(addressTerm));
-
-    try {
-      await persistProfileProgress(
-        {
-          coins: coinsRef.current - SUPPORT_COST,
-          affection,
-          tribute_total: getNextTributeTotal(SUPPORT_COST),
-        },
-        "tribute:support",
-        {
-          prestigeSource: "support",
-          spendAmount: SUPPORT_COST,
-        },
-      );
-      if (!isGuestMode) {
-        await persistUserTask({
-            task_id: "support",
-            completed_at: now,
-            reward_coins: -SUPPORT_COST,
-            metadata: {
-              lastUsedAt: now,
-              lastResult: message,
-            },
-          });
-      }
-
-      setMechanics((current) => ({
-        ...current,
-        supportLastResult: message,
-      }));
-      setAvatarMistressReply(message);
-      emitSoundEvent("tribute_sent");
-    } catch (error) {
-      console.error("Failed to complete support mechanic", error);
-      emitSoundEvent("error");
-      setAuthError(describeError(error));
-      setAvatarMistressReply("The support ledger failed. Try again.");
-      void resyncAuthenticatedProfile("Failed support").catch((resyncError) => {
-        console.error("[profile-resync] failed after support error", resyncError);
-      });
-    } finally {
-      finishTaskAction(actionId);
-    }
-  };
-
-  const handleRebrandProfile = async () => {
-    if (blockIfTimedOut()) {
-      return;
-    }
-
-    if (isGuestMode) {
-      setAvatarMistressReply("Preview mode cannot edit an X profile.");
-      return;
-    }
-
-    if (!authUserId) {
-      setAvatarMistressReply("Sign in with X before requesting a profile rebrand.");
-      return;
-    }
-
-    const actionId = "rebrand-profile";
-
-    if (!beginTaskAction(actionId)) {
-      return;
-    }
-
-    setAvatarMistressReply("Opening X authorization for the rebrand...");
-    finishTaskAction(actionId);
-    window.location.href = "/api/user/rebrand-x/start";
   };
 
   const handleSignInWithX = async () => {
@@ -10110,7 +9741,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const handleCooldownAttempt = useCallback((message: string) => {
     const avatarId = resolveSpeechAvatarIdForMessage();
     setSpeechBubbleReply(getSpeechBubbleResponseMessage(avatarId, "cooldown", message));
-  }, [equippedSpeechAvatar?.id, setSpeechBubbleReply]);
+  }, [getSpeechBubbleResponseMessage, resolveSpeechAvatarIdForMessage, setSpeechBubbleReply]);
 
   const applyVerticalMotionTaskRow = useCallback((row: UserTaskRow) => {
     const rawState = getTaskMetadataString(row.metadata, "state");
@@ -10191,7 +9822,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         );
       }
     }
-  }, [applyVerticalMotionTaskRow, equippedSpeechAvatar?.id]);
+  }, [applyVerticalMotionTaskRow, getSpeechBubbleResponseMessage, resolveSpeechAvatarIdForMessage, setAvatarMistressReply]);
 
   const handleVerticalMotionStart = useCallback(() => {
     if (!beginTaskAction("vertical-motion")) {

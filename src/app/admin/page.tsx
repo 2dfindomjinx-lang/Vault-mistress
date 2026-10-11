@@ -3,7 +3,7 @@ import { confirmDialog } from "@/lib/confirm-dialog";
 import { EconomyReviewPanel } from "@/components/admin/EconomyReviewPanel";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FloatingDefneBubble } from "@/components/FloatingDefneBubble";
 import { WheelSpinsPanel } from "@/components/admin/WheelSpinsPanel";
 import { EVENT_TEMPLATES, FIRST_DAY_EVENT_TEMPLATE, type RandomEvent } from "@/lib/events";
@@ -489,12 +489,12 @@ export default function AdminPage() {
       return Math.max(0, current - 1);
     });
   };
-  const setSectionLoading = (key: AdminLoadKey, next: boolean) => {
+  const setSectionLoading = useCallback((key: AdminLoadKey, next: boolean) => {
     setLoadingSections((current) => ({ ...current, [key]: next }));
-  };
-  const markSectionLoaded = (key: AdminLoadKey) => {
+  }, []);
+  const markSectionLoaded = useCallback((key: AdminLoadKey) => {
     setLoadedSections((current) => ({ ...current, [key]: true }));
-  };
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setAdminNow(Date.now()), 1000);
@@ -502,7 +502,7 @@ export default function AdminPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const loadIrlTasks = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+  const loadIrlTasks = useCallback(async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
     if (!isAdmin) {
       return;
     }
@@ -534,9 +534,9 @@ export default function AdminPage() {
     } finally {
       setSectionLoading("irlTasks", false);
     }
-  };
+  }, [isAdmin, markSectionLoaded, setSectionLoading]);
 
-  const loadTimeouts = async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
+  const loadTimeouts = useCallback(async ({ keepStatus = false }: { keepStatus?: boolean } = {}) => {
     if (!isAdmin) {
       return;
     }
@@ -568,7 +568,7 @@ export default function AdminPage() {
     } finally {
       setSectionLoading("timeouts", false);
     }
-  };
+  }, [isAdmin, markSectionLoaded, setSectionLoading]);
 
   const loadMaxAffectionUsers = async ({
     keepStatus = false,
@@ -1352,7 +1352,7 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, activeTab]);
 
-  const handleRunCommand = async () => {
+  const handleRunCommand = useCallback(async () => {
     if (!isAdmin) {
       setStatus("Admin access required.");
       return;
@@ -1435,7 +1435,7 @@ export default function AdminPage() {
     } finally {
       setIsBusy(false);
     }
-  };
+  }, [command, isAdmin, loadIrlTasks, loadTimeouts]);
 
   const matchedConsoleCommand = getMatchedConsoleCommand(command);
   const isTypingCommandName = !matchedConsoleCommand || !command.startsWith(`${matchedConsoleCommand.name} `);
@@ -2932,6 +2932,7 @@ export default function AdminPage() {
                                       onClick={() => setPreviewDebtImage(imageUrl)}
                                       type="button"
                                     >
+                                      {/* eslint-disable-next-line @next/next/no-img-element -- User proof uploads keep their unknown natural aspect ratio and direct private/data URL. */}
                                       <img
                                         alt={`Evil debt upload ${index + 1}`}
                                         className="aspect-square w-full object-cover"
@@ -3530,6 +3531,7 @@ export default function AdminPage() {
                                   onClick={() => setPreviewDebtImage(proofImage)}
                                   type="button"
                                 >
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- User proof uploads keep their unknown natural aspect ratio and direct private/data URL. */}
                                   <img
                                     alt="Pet Throne proof"
                                     className="max-h-64 w-full object-contain"
@@ -3748,6 +3750,7 @@ export default function AdminPage() {
           onClick={() => setPreviewDebtImage(null)}
           type="button"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- User proof uploads keep their unknown natural aspect ratio and direct private/data URL. */}
           <img
             alt="Expanded admin proof upload"
             className="max-h-[90vh] max-w-[90vw] rounded-2xl border border-red-200/25 object-contain shadow-[0_0_40px_rgba(248,113,113,0.28)]"
