@@ -1,7 +1,7 @@
 "use client";
 
 import styles from "./CollectionSurfaces.module.css";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 type Entry = {
   id: string;
   amount: number;
@@ -30,9 +30,25 @@ function label(reason: string | null) {
 }
 export function TransactionHistory({
   previewMode = false,
+  userId,
 }: {
   previewMode?: boolean;
+  userId?: string;
 }) {
+  const panelId = useId();
+  const preferenceKey = `vault:transaction-history:${userId ?? "guest"}:collapsed`;
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restore a preference from browser storage after hydration/account changes
+      setCollapsed(localStorage.getItem(preferenceKey) === "true");
+    } catch { /* Storage can be disabled; the panel still works for this visit. */ }
+  }, [preferenceKey]);
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem(preferenceKey, String(next)); } catch { /* Optional persistence. */ }
+  };
   const [currency, setCurrency] = useState("Coin");
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [error, setError] = useState("");
@@ -61,12 +77,15 @@ export function TransactionHistory({
     return () => controller.abort();
   }, [currency, previewMode, revision]);
   return (
-    <section className={`${styles.surface} ${styles.ledger}`} data-collection-surface="ledger" aria-label="Transaction history">
+    <section className={`${styles.surface} ${styles.ledger}`} data-collection-surface="ledger" data-collapsed={collapsed} aria-label="Transaction history">
       <div className={styles.header}>
         <div>
           <p className="court-eyebrow">Your account</p>
           <h2 className="text-xl font-semibold text-amber-50">
-            Transaction history
+            <button type="button" className={styles.ledgerToggle} aria-expanded={!collapsed} aria-controls={panelId} onClick={toggle}>
+              Transaction history
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d={collapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"}/></svg>
+            </button>
           </h2>
         </div>
         <div className={styles.currencyTabs}>
@@ -89,6 +108,7 @@ export function TransactionHistory({
           ))}
         </div>
       </div>
+      <div id={panelId} hidden={collapsed}>
       <p className="mt-2 text-sm text-zinc-400">
         Every purchase. Every reward. Your account, recorded.
       </p>
@@ -182,6 +202,7 @@ export function TransactionHistory({
           )}
         </>
       )}
+      </div>
     </section>
   );
 }

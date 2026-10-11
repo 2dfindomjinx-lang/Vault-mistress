@@ -1,5 +1,19 @@
 # Database changes
 
+11 October security, economy and performance update: **before deploying, run these three new files in order**:
+
+1. `202610110001_pet_authority.sql`
+2. `202610110002_wallet_shrine.sql`
+3. `202610110003_crate_keys.sql`
+
+For an up-to-date installation, only these three are new. They require the existing Pet/profile/Devotion tables and Devotion trigger, `202610060001_paid_operation_receipts.sql`, existing Furnace, and `2026-10-03-crate-safety.sql` plus community-goal opening grants and inventory `pm_quantity`. `tribute-furnace.sql` is now tracked for reproducible tests and initial installations; **do not replay that older base file on the live site**, because the later September leaderboard filter must remain installed.
+
+0001 moves Pet rewards, progress, maintenance and weekly tax into service-only transactions. Clients cannot patch profile fields, approve review tasks, choose Favor results, advance writing counters arbitrarily, or set task timestamps. Rewards and daily eligibility commit together. Writing accepts the current day's sentence with the existing apostrophe normalization. 0002 adds permanent request receipts for PM conversion, Furnace and Shrine; balance, ledgers and Shrine Devotion commit together. The Shrine returns a database aggregate and three eligible leaders instead of transferring raw ledger history subject to row caps. 0003 makes free-key consumption atomic with opening, and all four inventory sale operations atomic with Coins and history. Existing prices, PM conversion bonus tiers, balances, approvals and historical rewards are not rewritten by installing these files. Reapplying is safe; don't expire paid-operation receipts in retention jobs.
+
+Deploy the updated website after SQL, then refresh open tabs. The updated routes deliberately fail closed if an RPC is missing; they do not fall back to the unsafe legacy writes. No SQL has been run on production here. The migration adds a partial Shrine ledger index, which can take time and briefly block ledger writes on a large database; use a quiet deployment window.
+
+The application also adjusts Golden Key discounts to prevent repeated opening/selling from minting Coins after pity and simultaneous Lucky Key are included: Principessa/Cosplay 5%, Premium/Kitten/Obedience 10%, Couture 15%. Duplicate discounts do not compound. Normal case prices, drop pools, pity guarantee, free keys and Gamble Hall payouts are unchanged. `npm run test:crate-economy` checks all six cases across normal, discount, Lucky, combined and duplicate-event scenarios. `npm run test:security`, `node scripts/crate-safety-check.mjs` and `node scripts/paid-route-check.mjs` check actual handlers and isolated PostgreSQL, not production or independent concurrent database connections.
+
 9 October request latency improvements: run **`202610090001_request_latency.sql` before deploying**. Prerequisites are the existing Gamble Hall, Court gameplay, rate-limit function, and `202609130001_gamble_cashout_receipt.sql`. Only 202610090001 is new for an up-to-date database. It adds an authenticated, RLS-constrained Throne coin aggregate and a service-role-only wrapper for rate limiting, game settlement, and the resulting profile in one database request. Existing odds, receipt-time cashouts, balances, and historical rounds are unchanged. Reapplying is safe. If the new RPC is absent during rollout, the API uses the old limited path; it never retries a mutation after an ambiguous network failure. Crawl bets retain their existing path because they first read stored odds.
 
 `npm run test:request-latency` checks the migration in isolated PostgreSQL plus API/client fixtures (not the live database). Vercel regions are intentionally unchanged: verify the production Supabase region before choosing a matching Function region and redeploying.

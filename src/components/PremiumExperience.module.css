@@ -13,3 +13,14 @@
 @keyframes object-arrives { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }@keyframes acquisition { from { opacity:.2; transform:scale(.84); } 55% { opacity:1; transform:scale(1.025); } to { transform:scale(1); } }@keyframes seal-light { from { opacity:0; } 35% { opacity:1; } to { opacity:0; } }@keyframes stamp { from { opacity:0; transform:scale(1.4) rotate(-16deg); } to { opacity:1; transform:scale(1) rotate(0); } }@keyframes offering-received { to { transform:translateY(-8px) scale(.92); } }@keyframes memory-unseal { from { opacity:0; clip-path:inset(50% 0); } to { opacity:1; clip-path:inset(0); } }@keyframes energy-transfer { from { transform:translateX(-10%) scaleX(.2); opacity:0; } 30% { opacity:1; } to { transform:translateX(90%) scaleX(.5); opacity:0; } }@keyframes source-breathe { to { opacity:.45; transform:scale(.96); } }@keyframes item-dissolve { to { opacity:0; transform:translateY(18px) scale(.85); } }@keyframes total-land { from { transform:translateY(4px); } to { transform:translateY(0); } }@keyframes value-flight { from { opacity:0; transform:translate(-50%,55px); } 30% { opacity:1; } to { opacity:0; transform:translate(-50%,-15px); } }@keyframes case-unlock { 35% { transform:rotate(-7deg); } 70% { transform:rotate(5deg); } to { transform:translateY(-3px); } }
 @media(max-width:700px) { .vitrineLayout { grid-template-columns:1fr; }.vitrine { min-height:300px; }.vitrineObject { top:32px; bottom:50px; }.vitrineDetails { padding:20px; gap:12px; }.dialogHeader { padding:12px 16px; }.dialogHeader h3 { font-size:22px; }.offeringArt { height:88px; }.upgradeStage[data-phase=spinning]::after { top:25%; } }
 @media(prefers-reduced-motion:reduce) { .dialog *, .upgradeStage *, .upgradeStage::after,.haul>div,.caseSeal img,.newDiscovery,.leadCrown { animation:none!important; transition:none!important; }.upgradeCard[data-state=lost] img { opacity:0; }.valueFlight { display:none; } }
+
+/* Consistent program anatomy: description, film, licence, then download. */
+.programGrid { align-items:stretch; }
+.programGrid > .programCard { height:100%; }
+.programDescription { min-height:60px; font-size:11px; line-height:20px; color:#a1a1aa; }
+.programLicense { margin-top:auto; }
+.programCard > a:last-child { margin-top:0; display:flex; align-items:center; justify-content:center; min-height:40px; }
+@supports (grid-template-rows: subgrid) {
+  .programGrid > .programCard { display:grid; grid-template-rows:subgrid; grid-row:span 5; }
+  .programLicense { align-self:end; }
+}

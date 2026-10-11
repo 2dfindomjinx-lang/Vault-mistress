@@ -98,7 +98,7 @@ export const EVENT_TEMPLATES: EventTemplate[] = [
     key: "golden-key",
     name: "Golden Key",
     description:
-      "Cases cost less to open. The cut is per case: 25% off Principessa and Kitten, 20% off Premium and Couture, 15% off Obedience, 5% off Cosplay. Cheaper cases get the deeper discount; the guaranteed-legendary Cosplay Case barely moves.",
+      "Cases cost less to open: 5% off Principessa and Cosplay, 10% off Premium, Kitten and Obedience, and 15% off Couture.",
     effect: { type: "crate_cost_discount", multiplier: 0.6, crateEventKey: "golden_key" },
   },
   {

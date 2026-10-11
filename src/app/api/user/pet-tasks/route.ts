@@ -1,214 +1,43 @@
-import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { sendAdminMobilePush } from "@/lib/admin-mobile-push";
-// Shared with the client and the reward validator on purpose - these three
-// copies drifted apart in 1.14 and broke every pet task for five days.
-import { PET_TASK_REWARD as DEFAULT_PET_TASK_REWARD, PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isRecord, PET_REVIEW_TASKS, PET_REWARD_TASKS, validPetWriting } from "@/lib/pet-action-validation";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEK_MS = 7 * DAY_MS;
-const allowedTaskIds = new Set([
-  "pet-confession-dm",
-  "pet-ownership-oath",
-  "pet-daily-report",
-  "pet-twitter-post",
-  "pet-weekly-throne-tax",
-  "pet-throne-tribute",
-  "pet-voice-proof",
-  "pet-perfect-writing",
-  "pet-case-opening",
-  "pet-evil-wait",
-  "pet-false-hope",
-  "pet-favor-roulette",
-  "pet-debt-contract",
-  "pet-affection-claim",
-]);
-const allowedStatuses = new Set(["available", "pending", "approved", "failed"]);
-
-type Body = {
-  completed_at?: string | null;
-  metadata?: Record<string, unknown>;
-  reviewed_at?: string | null;
-  reward_score?: number;
-  status?: string;
-  task_id?: string;
-};
-
-function jsonError(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
-
-function getTaskCooldownMs(taskId: string) {
-  if (taskId === "pet-weekly-throne-tax") {
-    return WEEK_MS;
-  }
-
-  return DAY_MS;
-}
-
-function getGmt3DateKey(value?: string | null) {
-  const base = value ? new Date(value) : new Date();
-
-  if (Number.isNaN(base.getTime())) {
-    return null;
-  }
-
-  return new Date(base.getTime() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function isDuplicateReviewedTask(
-  taskId: string,
-  completedAt: string | null,
-  reviewedAt: string | null,
-  metadata: Record<string, unknown> | null,
-) {
-  if (taskId === "pet-throne-tribute") {
-    return false;
-  }
-
-  if (taskId === "pet-affection-claim") {
-    const date = typeof metadata?.date === "string" ? metadata.date : null;
-    const today = getGmt3DateKey();
-
-    return date === today;
-  }
-
-  const cooldownAnchor = reviewedAt ?? completedAt;
-
-  if (!cooldownAnchor) {
-    return false;
-  }
-
-  if (taskId === "pet-weekly-throne-tax") {
-    const completedMs = new Date(cooldownAnchor).getTime();
-
-    return Number.isFinite(completedMs) && Date.now() - completedMs < getTaskCooldownMs(taskId);
-  }
-
-  const today = getGmt3DateKey();
-  const cooldownDate = getGmt3DateKey(cooldownAnchor);
-
-  return Boolean(today && cooldownDate && today === cooldownDate);
-}
-
+const error = (message: string, status = 422) => Response.json({ error: message }, { status });
 export async function POST(request: Request) {
-  if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
+  if (!isSupabaseAdminConfigured) return error("Service unavailable.", 503);
+  const auth = await createClient();
+  const { data, error: authError } = await auth.auth.getUser();
+  if (authError || !data.user) return error("Authentication required.", 401);
+  const body: unknown = await request.json().catch(() => null);
+  if (!isRecord(body) || typeof body.task_id !== "string" || typeof body.status !== "string") return error("Invalid Pet task.");
+  const taskId = body.task_id, status = body.status;
+  if (!PET_REVIEW_TASKS.has(taskId) && !PET_REWARD_TASKS.has(taskId) && taskId !== "pet-weekly-throne-tax") return error("Use this task's own action.");
+  if (!["available", "pending", "approved", "failed"].includes(status)) return error("Invalid task status.");
+  const db = createSupabaseAdminClient();
+  const limit = await checkRateLimit(db, `pet-progress:${data.user.id}:${taskId}`, taskId === "pet-false-hope" ? 300 : 90, 60);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+  const supplied = isRecord(body.metadata) ? body.metadata : {};
+  let metadata: Record<string, unknown> = {};
+  if (status === "available" && ["pet-confession-dm", "pet-ownership-oath"].includes(taskId)) {
+    if (!Number.isInteger(supplied.count) || Number(supplied.count) < 1 || Number(supplied.count) > 24) return error("Invalid writing progress.");
+    const { data: profile, error: readError } = await db.from("profiles").select("address_term").eq("id", data.user.id).single();
+    if (readError || !profile) return error("Profile unavailable.", 503);
+    if (!validPetWriting(taskId, supplied.text, profile.address_term)) return error("The words do not match today's sentence.");
+    metadata = { count: supplied.count };
+  } else if (taskId === "pet-false-hope" && status === "available") {
+    if (supplied.key !== "a" && supplied.key !== "d") return error("Invalid sequence key.");
+    if (!Number.isInteger(supplied.expectedProgress) || Number(supplied.expectedProgress) < 0 || Number(supplied.expectedProgress) > 99 || ![1, 2].includes(Number(supplied.expectedStage))) return error("Invalid sequence progress.");
+    metadata = { key: supplied.key, expectedProgress: supplied.expectedProgress, expectedStage: supplied.expectedStage };
+  } else if (PET_REVIEW_TASKS.has(taskId) && status === "pending") {
+    for (const key of ["proofImage", "proofText", "proofUrl", "throneAmount", "note"]) if (typeof supplied[key] === "string" || typeof supplied[key] === "number") metadata[key] = supplied[key];
+    if (JSON.stringify(metadata).length > 2_000_000) return error("Proof is too large.");
+    if (taskId === "pet-throne-tribute" && (typeof metadata.throneAmount !== "number" || !Number.isFinite(metadata.throneAmount) || metadata.throneAmount <= 0 || metadata.throneAmount > 10000)) return error("Invalid tribute amount.");
   }
-
-  const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
-
-  if (authError || !authData.user) {
-    return jsonError(authError?.message ?? "Authentication required.", 401);
-  }
-
-  const body = (await request.json().catch(() => null)) as Body | null;
-  const taskId = body?.task_id?.trim();
-  const status = body?.status?.trim();
-  const rewardScore = body?.reward_score;
-
-  if (!body || !taskId || !allowedTaskIds.has(taskId) || !status || !allowedStatuses.has(status)) {
-    return jsonError("Invalid Pet task payload.");
-  }
-
-  const expectedRewardScore = taskId === "pet-weekly-throne-tax"
-    ? PET_WEEKLY_TAX_REWARD
-    : DEFAULT_PET_TASK_REWARD;
-
-  if (!Number.isInteger(rewardScore) || rewardScore !== expectedRewardScore) {
-    return jsonError("Invalid Pet task reward.", 422);
-  }
-
-  const payload = body;
-
-  const supabase = createSupabaseAdminClient();
-  const { data: existingTask, error: existingTaskError } = await supabase
-    .from("user_pet_tasks")
-    .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
-    .eq("user_id", authData.user.id)
-    .eq("task_id", taskId)
-    .maybeSingle();
-
-  if (existingTaskError) {
-    console.error("[pet-tasks] Supabase error reading existing pet task", {
-      code: existingTaskError.code,
-      message: existingTaskError.message,
-      details: existingTaskError.details,
-      hint: existingTaskError.hint,
-      taskId,
-      userId: authData.user.id,
-    });
-    return jsonError(existingTaskError.message, 500);
-  }
-
-  const mergedMetadata = {
-    ...((existingTask?.metadata as Record<string, unknown> | null) ?? {}),
-    ...(payload.metadata ?? {}),
-  };
-
-  if (
-    status === "pending" &&
-    existingTask?.reviewed_at &&
-    isDuplicateReviewedTask(
-      taskId,
-      existingTask.completed_at,
-      existingTask.reviewed_at,
-      existingTask.metadata as Record<string, unknown> | null,
-    )
-  ) {
-    return Response.json({ task: existingTask });
-  }
-
-  const { data, error } = await supabase
-    .from("user_pet_tasks")
-    .upsert(
-      {
-        completed_at: payload.completed_at ?? null,
-        metadata: mergedMetadata,
-        reviewed_at: payload.reviewed_at ?? null,
-        reward_score: rewardScore,
-        status,
-        task_id: taskId,
-        user_id: authData.user.id,
-        // (user_id, task_id) is unique, so this row is reused across resubmissions.
-        // Refresh created_at on every new "pending" submission so the admin review
-        // queue shows when the task was actually submitted, not the row's original
-        // insertion date from days/weeks ago.
-        ...(status === "pending" ? { created_at: new Date().toISOString() } : {}),
-      },
-      { onConflict: "user_id,task_id" },
-    )
-    .select("task_id, completed_at, reward_score, status, reviewed_at, metadata")
-    .single();
-
-  if (error || !data) {
-    console.error("[pet-tasks] Supabase error upserting pet task state", {
-      code: error?.code,
-      message: error?.message,
-      details: error?.details,
-      hint: error?.hint,
-      taskId,
-      userId: authData.user.id,
-      payload,
-    });
-    return jsonError(error?.message ?? "Pet task update failed.", 500);
-  }
-
-  if (status === "pending") {
-    sendAdminMobilePush({
-      title: "New pet task",
-      body: `${taskId} is waiting for approval.`,
-      type: "pet_task",
-      important: true,
-    }).catch((pushError) => {
-      console.error("[pet-tasks] admin mobile push failed", pushError);
-    });
-  }
-
-  return Response.json({ task: data });
+  const { data: result, error: rpcError } = await db.rpc("save_pet_task_progress", { p_user_id: data.user.id, p_task_id: taskId, p_status: status, p_metadata: metadata });
+  if (rpcError || !result) { console.error("[pet-progress] transaction failed", rpcError); return error("Pet task could not be saved.", 503); }
+  if (result.error) return error("This task cannot be changed in its current state.", 409);
+  if (result.submitted) void sendAdminMobilePush({ title: "New pet task", body: taskId + " is waiting for approval.", type: "pet_task", important: true }).catch(e => console.error("[pet-progress] notification failed", e));
+  return Response.json({ task: result.task }, { headers: { "Cache-Control": "private, no-store" } });
 }

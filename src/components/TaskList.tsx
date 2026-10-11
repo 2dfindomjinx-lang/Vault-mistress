@@ -1,3 +1,5 @@
+import { StrengthenPrincipessa } from "./StrengthenPrincipessa";
+import { getUserLevelFloorXp } from "@/lib/levels";
 import ui from "./TaskExperience.module.css";
 import { TaskExperienceCard, TaskProgress, TaskWaitDial, TaskInputSignal, taskExperienceState } from "./TaskExperience";
 import { normalizeWritingText as normalizeWritingPreview } from "@/lib/writing-comparison";
@@ -6,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {arrangeTaskCards} from "./task-layout";
 import { CourtGlyph, WritingLine } from "@/components/court/CourtVisuals";
-import { LevelDrainTransfer, type DrainVisualResult } from "@/components/court/LevelDrainTransfer";
+import { type DrainVisualResult } from "@/components/court/LevelDrainTransfer";
 import { CoinAmount } from "@/components/CoinAmount";
 import { DisplayNameWithUsername } from "@/components/DisplayNameWithUsername";
 import { DEFAULT_ADDRESS_TERM, type AddressTerm } from "@/lib/address-term";
@@ -33,7 +35,6 @@ const MOVEMENT_STAGE_IMAGES = [
 ];
 const MOVEMENT_COMPLETE_IMAGE = "/tasks/daily-motion/motion-complete.webp";
 const MOVEMENT_STROKE_DISTANCE_PX = 80;
-const GMT3_OFFSET_MS = 3 * 60 * 60 * 1000;
 const CASE_OPEN_REEL_ITEM_WIDTH = 88;
 const CASE_OPEN_REEL_ITEM_GAP = 10;
 const CASE_OPEN_REEL_VISIBLE_COUNT = 5;
@@ -66,19 +67,6 @@ function buildCaseOpenTape(finalReward: number) {
   }
 
   return tape;
-}
-
-function getNextGmt3MonthlyResetMs(now: number) {
-  if (now <= 0) {
-    return 0;
-  }
-
-  const shifted = new Date(now + GMT3_OFFSET_MS);
-  const nextResetUtc =
-    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, 1, 0, 0, 0) -
-    GMT3_OFFSET_MS;
-
-  return Math.max(0, nextResetUtc - now);
 }
 
 function isTaskKind(kind: TaskItem["kind"], expected: TaskItem["kind"]): boolean {
@@ -151,6 +139,7 @@ type TaskListProps = {
   userLevel: number;
   userLevelProgressPercent: number;
   userXpIntoLevel: number;
+  userTotalXp?: number;
   userXpRequiredForNext: number | null;
   onClaim: (taskId: string) => void;
   onCaseOpen: () => Promise<number | null> | number | null;
@@ -259,9 +248,8 @@ export function TaskList({
   timeoutRiskTimeoutHours,
   timeoutRiskReward,
   userLevel,
-  userLevelProgressPercent,
   userXpIntoLevel,
-  userXpRequiredForNext,
+  userTotalXp,
   onWaitObedientlyComplete,
   onWaitObedientlyFail,
   onWaitObedientlyStart,
@@ -286,7 +274,6 @@ export function TaskList({
     30_000,
   );
   const [typingValue, setTypingValue] = useState("");
-  const [drainVisual,setDrainVisual] = useState<(DrainVisualResult & {key:number}) | null>(null);
   // Risk My Freedom coin. "spin" while the server decides, then the coin lands
   // on the face the ledger actually recorded - never on a guess.
   const [riskFlip, setRiskFlip] = useState<"idle" | "spin" | "safe" | "timeout">("idle");
@@ -317,7 +304,6 @@ export function TaskList({
     (actionId: string) => pendingTaskActionIds.includes(actionId),
     [pendingTaskActionIds],
   );
-  const monthlyResetRemaining = getNextGmt3MonthlyResetMs(now);
   const isClaimPending = (taskId: string) => isTaskActionPending(`claim:${taskId}`);
   const isCaseOpenPending = isTaskActionPending("case-opening");
   const caseOpenSlotSize = CASE_OPEN_REEL_ITEM_WIDTH + CASE_OPEN_REEL_ITEM_GAP;
@@ -705,22 +691,12 @@ export function TaskList({
         </div>
       </div>
 
-      <TaskExperienceCard kind="level-drain" taskId="level-drain" title="Strengthen Principessa" state={drainVisual ? "complete" : isTaskActionPending("level-drain") ? "busy" : "ready"}>
-<div className={ui.strength}>
-          <div className={ui.strengthArt}><Image src="/principessa-ui/atelier/v4/strength_v4.webp" alt="Golden XP gathers in Principessa’s hand" fill sizes="(max-width:700px) 90vw, 38vw" unoptimized/><span>Yours, made hers.</span></div>
-          <div className={ui.strengthBody}>
-            <p className={ui.strengthLead}>Your devotion. Her power.</p>
-            <p className={ui.strengthDescription}>Give her all your current XP. She receives one quarter.</p>
-            <div className={ui.strengthTransfer}>
-              <div><small>Your level</small><strong>{userLevel}</strong><span>{userXpRequiredForNext === null ? "MAX" : Math.floor(userXpIntoLevel).toLocaleString()+" / "+userXpRequiredForNext.toLocaleString()+" XP"}</span><div className={ui.strengthMeter}><i style={{width:userLevelProgressPercent+"%"}}/></div></div>
-              <span className={ui.strengthArrow} aria-hidden="true">↗</span>
-              <div><small>Principessa’s level</small><strong>{globalPrincipessaLevel}</strong><span>{globalPrincipessaRequirement === null ? "MAX" : globalPrincipessaXp.toLocaleString()+" / "+globalPrincipessaRequirement.toLocaleString()+" XP"}</span><div className={ui.strengthMeter}><i style={{width:globalPrincipessaProgressPercent+"%"}}/></div></div>
-            </div>
-            <div className={ui.strengthFooter}><button className={ui.strengthButton} disabled={disabled || userLevel < 2 || isTaskActionPending("level-drain")} onClick={async () => {emitSoundEvent("button_click");setDrainVisual(null);const result=await onLevelDrain();if(result)setDrainVisual({...result,key:Date.now()});}} type="button">{isTaskActionPending("level-drain") ? "Draining…" : userLevel < 2 ? "Requires Level 2" : "Give her all your XP"}<span aria-hidden="true">↗</span></button><span>Monthly reset <strong>{formatRemaining(monthlyResetRemaining)}</strong></span></div>
-          </div>
-        </div>
-{drainVisual && <LevelDrainTransfer key={drainVisual.key} result={drainVisual}/>}
-</TaskExperienceCard>
+      <StrengthenPrincipessa
+        level={globalPrincipessaLevel} xp={globalPrincipessaXp}
+        requiredXp={globalPrincipessaRequirement} progress={globalPrincipessaProgressPercent}
+        userLevel={userLevel} userXp={userTotalXp ?? getUserLevelFloorXp(userLevel) + userXpIntoLevel}
+        disabled={disabled} pending={isTaskActionPending("level-drain")} onGive={onLevelDrain}
+      />
 
       <div className={ui.grid}>
         {arrangeTaskCards(visibleTasks).map((task) => {

@@ -2434,9 +2434,7 @@ export function PetSection({
 <p className="mt-3 text-xs font-bold text-red-100">
                   Verified Throne gifts are credited automatically with both bonuses. If automation fails, DM Principessa with your receipt.
                 </p>
-<button className="mt-3 w-full rounded-2xl border border-pink-200/30 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/25" onClick={() => setShowThroneCode(true)} type="button">
-                  Open Throne &amp; Show Pet Code
-                </button>
+
 <div className={ui.stage}>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {PET_THRONE_AMOUNTS.map((amount) => {
@@ -2558,6 +2556,11 @@ export function PetSection({
                     </button>
                   </div>
                 </div>
+<footer className={ui.action}>
+<button className="mt-3 w-full rounded-2xl border border-pink-200/30 bg-pink-500/15 px-4 py-3 text-sm font-black text-pink-50 transition hover:border-pink-200/60 hover:bg-pink-500/25" onClick={() => setShowThroneCode(true)} type="button">
+                  Open Throne &amp; Show Pet Code
+                </button>
+</footer>
 </TaskExperienceCard>
 {dailyClickTask && (<TaskExperienceCard kind="daily-click" taskId={dailyClickTask.id} title={dailyClickTask.title} rules={dailyClickTask.description} reward={<p className="mt-3 text-xs font-bold text-red-100">
                     Completion reward: +{dailyClickTask.reward} Pet Score. Click reward: up to 200 Coins.

@@ -313,9 +313,9 @@ try {
   );
   await page.screenshot({ path: "tmp/visual-royal-guard.png", fullPage: true });
   await page.getByRole("button", { name: "Drain fixture" }).click();
-  await page.getByRole("button", { name: "Drain All Your XP" }).click();
+  await page.getByRole("button", { name: "Give her all your XP" }).click();
   await page.clock.runFor(1500);
-  await page.getByText("800 XP offered · 200 XP received (25%)").waitFor();
+  await page.getByRole("status").filter({ hasText: "800 XP given" }).waitFor();
   await page.screenshot({ path: "tmp/visual-level-drain.png", fullPage: true });
   await page.getByRole("button", { name: "Gamble fixture" }).click();
   for (const [name, id, action, ms] of [

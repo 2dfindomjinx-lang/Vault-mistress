@@ -190,8 +190,11 @@ export function MoneyShopPanel({
                     <span className="absolute left-2 top-2 rounded-full border border-amber-300/40 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200">
                       {item.rarity}
                     </span>
+                    <span className={styles.previewMark} aria-hidden="true" title="Preview item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 9V4a1 1 0 0 1 1-1h5m6 0h5a1 1 0 0 1 1 1v5m0 6v5a1 1 0 0 1-1 1h-5m-6 0H4a1 1 0 0 1-1-1v-5"/><path d="m8 12 4-3 4 3-4 3-4-3Z"/></svg>
+                    </span>
                     {item.ownedFromShop > 0 ? (
-                      <span className="absolute right-2 top-2 rounded-full border border-emerald-300/40 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-200">
+                      <span className="absolute right-2 bottom-2 rounded-full border border-emerald-300/40 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-200">
                         Owned {item.ownedFromShop}
                       </span>
                     ) : null}

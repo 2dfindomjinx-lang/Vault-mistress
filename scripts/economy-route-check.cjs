@@ -23,8 +23,17 @@ const state = {
   app_activation_events: [],
 };
 const clone = (x) => JSON.parse(JSON.stringify(x));
+let petDatabase;
+const petUser = "00000000-0000-0000-0000-000000000011";
 const db = {
   async rpc(name, args) {
+    if (name === "apply_pet_action" || name === "save_pet_task_progress") {
+      const params = name === "apply_pet_action" ? [petUser,args.p_action,args.p_coin_reward,args.p_proof] : [petUser,args.p_task_id,args.p_status,args.p_metadata];
+      const result = (await petDatabase.query(`select ${name}($1,$2,$3,$4) result`,params)).rows[0].result;
+      Object.assign(state.profiles[0], (await petDatabase.query("select * from profiles where id=$1",[petUser])).rows[0], {id:"audit-user"});
+      state.user_pet_tasks = (await petDatabase.query("select * from user_pet_tasks where user_id=$1",[petUser])).rows.map(row=>({...row,user_id:"audit-user"}));
+      return {data:result,error:null};
+    }
     if (name !== "commit_economy_action") throw Error("Unexpected RPC " + name);
     Object.assign(state.profiles[0], args.p_profile_patch);
     if (args.p_task_patch) {
@@ -132,6 +141,7 @@ const mocks = {
   "@/lib/supabase/server": {
     createClient: async () => ({
       auth: {
+        getClaims: async () => ({ data: { claims: { sub: "audit-user" } }, error: null }),
         getUser: async () => ({
           data: { user: { id: "audit-user" } },
           error: null,
@@ -169,6 +179,7 @@ function load(file) {
     (id) => {
       if (mocks[id]) return mocks[id];
       if (id.startsWith("@/")) return load("src/" + id.slice(2) + ".ts");
+      if (id.startsWith(".")) return load(path.resolve(path.dirname(full),id)+".ts");
       return require(id);
     },
     m,
@@ -434,6 +445,9 @@ async function call(handler, body) {
 
   // Run the actual page submit handlers against actual route handlers. The
   // database is isolated; this catches API rejections that green letters miss.
+  petDatabase = await (await import("./security-economy-fixture.mjs")).createSecurityFixture();
+  await petDatabase.query("insert into profiles(id,coins) values($1,$2)",[petUser,state.profiles[0].coins]);
+  const petContent = load("src/lib/pet-tasks-content.ts");
   const petTasks = load("src/app/api/user/pet-tasks/route.ts");
   const petProfile = load("src/app/api/user/pet-profile-patch/route.ts");
   const pageSource = fs.readFileSync("src/app/page.tsx", "utf8");
@@ -453,12 +467,15 @@ async function call(handler, body) {
   ]) {
     assert.ok(clientCode[handlerName] && clientCode.writingEquals);
     Object.assign(state.profiles[0], {pet_score:0,owner_likeness:100,pet_unlocked_at:new Date().toISOString(),last_pet_tax_at:null,last_owner_likeness_at:null});
+    await petDatabase.query("update profiles set pet_score=0 where id=$1",[petUser]);
     const coinStart = state.profiles[0].coins;
-    const taskRef = {current:[{id:taskId,sentence:"I’m Principessa’s devoted pet.",reward:10,[countKey]:0}]};
+    const sentence = (taskId === "pet-confession-dm" ? petContent.getDailyPetConfessionSentence : petContent.getDailyPetOwnershipOathSentence)("sub");
+    const straight = sentence.replace(/[‘’]/g, "'");
+    const taskRef = {current:[{id:taskId,sentence,reward:10,[countKey]:0}]};
     const failures = [], requests = [];
     const scope = {
       blockIfTimedOut:()=>false,petTaskStateRef:taskRef,petScore:0,
-      isGuestMode:false,authUserId:"audit-user",coinsRef:{current:coinStart},eventPetTaskCoinReward:0,
+      isGuestMode:false,authUserId:"audit-user",coinsRef:{current:coinStart},eventPetTaskCoinReward:200,
       PET_OWNERSHIP_OATH_REPEAT_COUNT:25,
       normalizeWritingComparisonText:writing.normalizeWritingText,
       setAuthError:error=>failures.push(error),describeError:String,
@@ -466,9 +483,9 @@ async function call(handler, body) {
       setPetTaskStateOptimistic:fn=>{taskRef.current=fn(taskRef.current);},
       getPetTaskCooldownUntil:()=>new Date(Date.now()+86400000).toISOString(),
       getTaskMetadataNumber:(metadata,key,fallback)=>metadata?.[key]??fallback,
-      persistPetProfilePatch:async(patch,reason)=>{
+      persistPetProfilePatch:async(patch,reason,metadata)=>{
         requests.push(reason);
-        const result=await call(petProfile.POST,{patch,reason});
+        const result=await call(petProfile.POST,{patch,reason,metadata});
         assert.equal(result.status,200,JSON.stringify(result.body));
         return result.body.profile;
       },
@@ -484,25 +501,29 @@ async function call(handler, body) {
     await submit("I'm Principessa's devotex pet.");
     assert.equal(requests.length,0,"Real spelling mistakes never submit progress");
     for (let i=1;i<=repeatCount;i++) {
-      await submit(i%2 ? "I'm Principessa's devoted pet." : "I’m Principessa’s devoted pet.");
+      await submit(i%2 ? straight : sentence);
       assert.deepEqual(failures,[],`${taskId} submission must be accepted`);
       assert.equal(taskRef.current[0][countKey],i);
       assert.equal(state.user_pet_tasks.find(row=>row.task_id===taskId).metadata.count,i);
       assert.equal(state.profiles[0].pet_score,i===repeatCount?10:0);
     }
     assert.equal(state.user_pet_tasks.find(row=>row.task_id===taskId).status,"approved");
-    assert.equal(state.profiles[0].coins,coinStart,"Pet writing does not mint coins");
+    assert.equal(state.profiles[0].coins,coinStart+200,"Writing awards the configured coins exactly once");
     const completedRequests=requests.length;
     await submit("I'm Principessa's devoted pet.");
     assert.equal(requests.length,completedRequests,"Completed writing stays on cooldown");
     assert.equal(requests.filter(value=>typeof value==="string").length,1,"Only one reward request");
   }
   assert.ok(!state.user_pet_tasks.some(row=>row.task_id==="pet-confession"),"Reward and progress use the same task ID");
-  assert.equal((await call(petTasks.POST,{task_id:"invented-pet-task",status:"available",reward_score:10})).status,400);
+  assert.equal((await call(petTasks.POST,{task_id:"invented-pet-task",status:"available",reward_score:10})).status,422);
   assert.equal((await call(petTasks.POST,{task_id:"pet-ownership-oath",status:"available",reward_score:999})).status,422);
-  const oldConfessionReward=await call(petProfile.POST,{reason:"reward:pet-confession",patch:{pet_score:state.profiles[0].pet_score+10}});
+  const oldConfessionReward=await call(petProfile.POST,{reason:"reward:pet-confession",patch:{pet_score:state.profiles[0].pet_score+10},metadata:{text:petContent.getDailyPetConfessionSentence("sub")}});
   assert.equal(oldConfessionReward.status,200);
   assert.ok(!state.user_pet_tasks.some(row=>row.task_id==="pet-confession"),"Old clients also resolve to the canonical task ID");
+  assert.equal((await call(petProfile.POST,{reason:"pet:maintenance",patch:{principessa_money:99999}})).status,422,"Unknown balance fields are rejected");
+  assert.equal((await call(petProfile.POST,{reason:"reward:pet-invented",patch:{coins:99999}})).status,422);
+  assert.equal((await call(petTasks.POST,{task_id:"pet-daily-report",status:"approved"})).status,409,"Review tasks cannot be self-approved");
+  await petDatabase.close(); petDatabase=null;
   console.log("Pet writing submission passed: actual client and API handlers, straight/curly apostrophes, 5/25 repetitions, rewards, cooldown and invalid payload rejection.");
 
   const licenses = load("src/lib/app-licenses.ts");
@@ -544,7 +565,8 @@ async function call(handler, body) {
   console.log(
     "Route regressions passed: dedicated games cannot sync/claim/reward indirectly; affection is server-derived; login pays once; affection gate enforced.",
   );
-})().catch((e) => {
+})().catch(async (e) => {
+  if (petDatabase) await petDatabase.close();
   console.error(e);
   process.exit(1);
 });

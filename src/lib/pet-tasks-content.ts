@@ -6,7 +6,7 @@ import { PET_THRONE_TASK_ID, PET_THRONE_URL } from "@/lib/pet-throne";
 import type { PetTaskItem } from "@/lib/types";
 import { getGmt3DayIndex } from "@/lib/time";
 
-// Pet tasks award Pet Score directly; they no longer mint spendable coins.
+// Pet Score rewards. Coin rewards are defined in server-game-rules.ts.
 export const PET_TASK_REWARD = 10;
 export const PET_WEEKLY_TAX_REWARD = 20;
 export const PET_OWNERSHIP_OATH_REPEAT_COUNT = 25;

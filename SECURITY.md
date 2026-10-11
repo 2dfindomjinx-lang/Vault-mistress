@@ -1,5 +1,19 @@
 # Vault Mistress - Security Notes
 
+## 11 October 2026 source audit and fixes
+
+The Pet profile endpoint previously spread an untrusted JSON patch into a service-role profile update. Its reward checks did not prove task completion or enforce a single daily settlement, and the task endpoint accepted client approval/timestamps. Those routes now expose bounded actions: the server validates writing and generates Favor rolls; service-only SQL locks the profile, validates stored progress and commits the task, reward and Devotion together. Daily replay returns the original task. Maintenance and weekly tax derive amounts/timestamps from stored state. Review remains an admin action. This is a confirmed code vulnerability; it is not evidence that a particular user exploited it.
+
+PM conversion previously wrote two balances and ledgers across separate HTTP calls. Shrine and inventory sales also relied on compensating writes after partial failures. Conversion, Furnace, Shrine and inventory sales now settle atomically. Conversion/Furnace/Shrine use user-scoped permanent receipt IDs, retained by the browser after ambiguous failures. Crate keys now commit with the opening rather than being consumed first and manually restored; no key restoration is attempted after a lost response. Catalog preparation writes only winning definitions, preserving existing records. Independent case-pricing reads run in parallel, and Shrine reads return aggregate totals/three leaders rather than unbounded history. The Shrine SQL still aggregates its indexed ledger; it is not a constant-cost rollup or a claimed live latency benchmark.
+
+Economic calculations include the Principessa pity renewal cycle. Previously its Golden Key sell-back return was 118.19%, or 123.39% with Lucky Key. Combined events also pushed Premium, Kitten, Couture and Obedience above 100%. Revised per-case discounts keep paid case returns below 98% in the checked scenarios (highest 97.42%). Normal-case returns range 64.13–88.64%; Upgrade stays at or below its 90% target. The existing Gamble Hall model passes its 82% maximum return budget. These are mathematical sell-back expectations, not observed player winnings, cash returns, or proof of a stable economy under real usage. Free rewards, supply distribution and player behavior still affect inflation.
+
+Validation: actual route/client writing handlers, isolated PostgreSQL migration reapplication, duplicate claims, forged approvals/counters/timers, full Obedience Sequence, favor-loss replay, tax eligibility, conversion tiers, lost-response behavior, private leaderboard exclusions, a 1,200-row Shrine history, transaction fault injection, PM-copy protection and RPC/table grants. The production dependency audit reported zero known vulnerabilities. No production database, real-user balances, Vercel region/usage dashboard, real browser session or separate-connection contention was tested. These checks are a scoped audit, not a security certification. Install the three new migrations in the order in `supabase/README.md` before deploying the matching routes.
+
+Writing/key validation is not proof of human play; the server validates the submitted sequence and caps daily payouts. The normal Turbopack build encountered a local Windows PostCSS-worker startup error; the fallback Webpack build also exposed pre-existing document-level selectors in a CSS Module. Those eight rules were moved unchanged into global CSS, preserving the mobile portal selectors. The bundler choice in package scripts/deployment configuration is unchanged.
+
+Final verification: `npm run build -- --webpack` completed successfully, including TypeScript and all 157 generated static pages. Changed server modules passed targeted ESLint checks; `git diff --check` passed. The default local Turbopack build has not been validated successfully, and Webpack completion does not establish Vercel deployment/runtime behavior.
+
 ## Critical: Service Role Key
 - `SUPABASE_SERVICE_ROLE_KEY` gives full database access (bypasses ALL RLS).
 - It is **only** imported in server-side code (`src/lib/supabase/admin.ts` and routes that use `createSupabaseAdminClient`).
@@ -45,7 +59,7 @@
 - Keep running the security linter as part of CI if possible.
 - Review any new game mechanics for "trust client for reward value" mistakes.
 
-Last reviewed: 2026-06-14 (Grok security pass)
+Last reviewed: 2026-10-11 (scoped source, dependency and isolated transaction audit; see limitations above).
 
 ## Safe local checks (September 2026)
 

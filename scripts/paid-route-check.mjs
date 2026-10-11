@@ -69,3 +69,26 @@ if(process.argv[2]) {
   assert.equal(payload.segmentIndex,receipt.segmentIndex);assert.equal(payload.label,receipt.segment.label);assert.equal(payload.days,30);
 }
 console.log('Paid API handlers: trusted prices, required receipts, current inventory on replay, ambiguous failure, auth, original wheel result in both clients passed. HTTP/DB fixtures only.');
+
+for (const [file,operation,amount] of [
+  ['src/app/api/user/money/convert/route.ts','money-convert',20],
+  ['src/app/api/user/furnace/route.ts','furnace',10],
+  ['src/app/api/user/shrine/route.ts','shrine',5000],
+]) {
+  const route=await load(file,'src',operation);
+  const input={amount,requestId:randomUUID(),coins:999999,principessa_money:999999};
+  calls=[]; rpcError=null;
+  rpcResult={success:true,replayed:true,breakdown:{totalCoins:23000},burned:10,burnedTotal:30,totalSpent:5000,topWorshippers:[],addressTerm:'sub'};
+  assert.equal((await route.POST(request({...input,requestId:undefined}))).status,422);
+  assert.equal(calls.length,0,'Missing receipt never reaches a mutation');
+  globalThis.auditAuth=false;assert.equal((await route.POST(request(input))).status,401);globalThis.auditAuth=true;
+  const response=await route.POST(request(input));const payload=await response.json();
+  assert.equal(response.status,200,JSON.stringify(payload));assert.equal(payload.profile.principessa_money,901);
+  assert.equal(calls[0].name,'execute_wallet_action');
+  assert.deepEqual(calls[0].args,{p_user_id:'audit-user',p_request_id:input.requestId,p_operation:operation,p_amount:amount});
+  calls=[];rpcError={message:'response lost'};
+  assert.equal((await route.POST(request(input))).status,503);
+  assert.equal(calls.length,1,'No legacy or automatic mutation retry after a network failure');
+}
+rpcError=null;
+console.log('Wallet API handlers: conversion, Furnace and Shrine require receipts, ignore client balances, enforce auth and fail safely on ambiguous results.');

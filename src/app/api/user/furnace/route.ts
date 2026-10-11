@@ -1,4 +1,4 @@
-import { profileSelect } from "@/lib/profile-columns";
+import { executeWalletAction, validWalletRequestId } from "@/lib/wallet-action";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { FURNACE_MAX_BURN, FURNACE_MIN_BURN, isValidBurnAmount } from "@/lib/tribute-furnace";
 import {
@@ -27,8 +27,9 @@ export async function POST(request: Request) {
   }
   const userId = authData.user.id;
 
-  const body = (await request.json().catch(() => null)) as { amount?: number } | null;
-  const amount = Math.floor(Number(body?.amount));
+  const body = (await request.json().catch(() => null)) as { amount?: number; requestId?: string } | null;
+  const amount = Number(body?.amount);
+  if (!validWalletRequestId(body?.requestId)) return jsonError("Refresh before using the furnace.", 422);
   if (!isValidBurnAmount(amount)) {
     return jsonError(`Burn between ${FURNACE_MIN_BURN} and ${FURNACE_MAX_BURN} Principessa Money.`);
   }
@@ -40,36 +41,7 @@ export async function POST(request: Request) {
   const limit = await checkRateLimit(supabase, `furnace-burn:${userId}`, 6, 60);
   if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
 
-  // The RPC locks the row and moves both columns together, so there is no
-  // read-then-write window for a concurrent spend to slip through.
-  const { data, error } = await supabase.rpc("burn_tribute_money", {
-    p_amount: amount,
-    p_user_id: userId,
-  });
-
-  if (error) {
-    console.error("[furnace] burn failed", error);
-    return jsonError("The furnace would not take it. Try again.", 500);
-  }
-
-  const result = (data ?? {}) as { burnedTotal?: number; error?: string; money?: number };
-
-  if (result.error === "insufficient_money") {
-    return jsonError(`You only have ${(result.money ?? 0).toLocaleString()} Principessa Money.`, 402);
-  }
-  if (result.error) {
-    return jsonError("The furnace would not take it.", 400);
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(profileSelect)
-    .eq("id", userId)
-    .single();
-
-  return Response.json({
-    burned: amount,
-    burnedTotal: result.burnedTotal ?? 0,
-    profile,
-  });
+  const action = await executeWalletAction(supabase, userId, body.requestId, "furnace", amount);
+  if (action.response) return action.response;
+  return Response.json({ ...action.result, profile: action.profile }, { headers: { "Cache-Control": "private, no-store" } });
 }

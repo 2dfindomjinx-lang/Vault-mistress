@@ -81,7 +81,6 @@ const CratesPanel = dynamic(() => import("@/components/CratesPanel").then((modul
 const CrateDuels = dynamic(() => import("@/components/CrateDuels").then((module) => module.CrateDuels), { loading: VaultPanelLoading });
 const CourtGames = dynamic(() => import("@/components/CourtGames").then((module) => module.CourtGames), { loading: VaultPanelLoading });
 const FindomWheels = dynamic(() => import("@/components/FindomWheels").then((module) => module.FindomWheels), { loading: VaultPanelLoading });
-const TributeDuels = dynamic(() => import("@/components/TributeDuels").then((module) => module.TributeDuels), { loading: VaultPanelLoading });
 const GambleHall = dynamic(() => import("@/components/GambleHall").then((module) => module.GambleHall), { loading: VaultPanelLoading });
 const DebtSection = dynamic(() => import("@/components/DebtSection").then((module) => module.DebtSection), { loading: VaultPanelLoading });
 const DevotionLeaderboard = dynamic(() => import("@/components/DevotionLeaderboard").then((module) => module.DevotionLeaderboard), { loading: VaultPanelLoading });
@@ -4571,8 +4570,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
   const handleMoneyConvert = useCallback(async (amount: number) => {
     setMoneyConverting(true);
     try {
+      const scope = `money-convert:${authUserId}:${amount}`;
       const response = await fetch("/api/user/money/convert", {
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, requestId: paidRequestId(scope) }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -4580,8 +4580,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         | { breakdown?: { totalCoins: number }; error?: string; profile?: Profile }
         | null;
       if (!response.ok || !payload?.profile) {
+        if (isDefinitiveRejection(response.status)) finishPaidRequest(scope);
         throw new Error(payload?.error ?? "Conversion failed.");
       }
+      finishPaidRequest(scope);
       applyProfileStats(payload.profile);
       coinsRef.current = payload.profile.coins;
       setMoneyShopError("");
@@ -4591,7 +4593,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setMoneyConverting(false);
     }
-  }, [applyProfileStats]);
+  }, [applyProfileStats, authUserId]);
 
   // Returns whether the burn landed: the furnace animation must not play its
   // ash beat for a burn the server refused.
@@ -4599,8 +4601,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     setFurnaceBurning(true);
     setFurnaceError("");
     try {
+      const scope = `furnace:${authUserId}:${amount}`;
       const response = await fetch("/api/user/furnace", {
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, requestId: paidRequestId(scope) }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -4608,8 +4611,10 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         | { burnedTotal?: number; error?: string; profile?: Profile }
         | null;
       if (!response.ok || !payload?.profile) {
+        if (isDefinitiveRejection(response.status)) finishPaidRequest(scope);
         throw new Error(payload?.error ?? "The furnace would not take it.");
       }
+      finishPaidRequest(scope);
       applyProfileStats(payload.profile);
       setBurnedTotal(payload.burnedTotal ?? 0);
       return true;
@@ -4619,7 +4624,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     } finally {
       setFurnaceBurning(false);
     }
-  }, [applyProfileStats]);
+  }, [applyProfileStats, authUserId]);
 
   const handleMoneyShopAction = useCallback(async (itemId: string, action: "buy" | "sell") => {
     if (moneyShopInFlight.current || !authUserId) return;
@@ -8135,8 +8140,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         return nextShrineStatus;
       }
 
+      const scope = `shrine:${authUserId}:${amount}`;
       const response = await fetch("/api/user/shrine", {
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, requestId: paidRequestId(scope) }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -8147,10 +8153,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
       } | null;
 
       if (!response.ok || !payload?.profile || !payload?.shrine) {
+        if (isDefinitiveRejection(response.status)) finishPaidRequest(scope);
         throw createApiError("/api/user/shrine", response, payload ?? {});
       }
 
       const previousUnlockedCount = shrineStatus?.unlockedImageCount ?? 0;
+      finishPaidRequest(scope);
       applyProfileStats(payload.profile);
       setShrineStatus(payload.shrine);
       unlockProgressionTitles(payload.profile.tribute_total ?? tributeTotal + amount);
@@ -9229,6 +9237,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         await persistPetProfilePatch(
           { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
           "reward:pet-perfect-writing",
+          { text: value },
         );
       } catch (error) {
         emitSoundEvent("error");
@@ -9324,6 +9333,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           await persistPetProfilePatch(
             { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
             `reward:${task.id}`,
+            { text: value },
           );
         } catch (error) {
           setAuthError(describeError(error));
@@ -9342,6 +9352,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           reviewed_at: completed ? now : null,
           metadata: {
             count: nextCount,
+            text: value,
           },
         },
         );
@@ -9426,6 +9437,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           await persistPetProfilePatch(
             { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
             `reward:${task.id}`,
+            { text: value },
           );
         } catch (error) {
           setAuthError(describeError(error));
@@ -9444,6 +9456,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           reviewed_at: completed ? now : null,
           metadata: {
             count: nextCount,
+            text: value,
           },
         },
         );
@@ -10383,12 +10396,12 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     }
 
     const now = new Date();
-    const countdownEndsAt = new Date(now.getTime() + 3000).toISOString();
-    const waitEndsAt = new Date(now.getTime() + 3000 + PET_EVIL_WAIT_MS).toISOString();
+    let countdownEndsAt = new Date(now.getTime() + 3000).toISOString();
+    let waitEndsAt = new Date(now.getTime() + 3000 + PET_EVIL_WAIT_MS).toISOString();
 
     if (!isGuestMode && authUserId) {
       try {
-        await persistPetTask(
+        const savedTask = await persistPetTask(
         {
           task_id: task.id,
           completed_at: null,
@@ -10402,6 +10415,8 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           },
         },
         );
+        countdownEndsAt = getTaskMetadataString(savedTask.metadata, "countdownEndsAt") ?? countdownEndsAt;
+        waitEndsAt = getTaskMetadataString(savedTask.metadata, "waitEndsAt") ?? waitEndsAt;
       } catch (error) {
         console.error("Failed to persist Pet evil wait start", error);
         setAuthError(describeError(error));
@@ -10606,6 +10621,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
         await persistPetProfilePatch(
           { coins: coinsRef.current + eventPetTaskCoinReward, pet_score: nextPetScore },
           "reward:pet-false-hope",
+          { key },
         );
       }
 
@@ -10617,6 +10633,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           status: completed ? "approved" : failed ? "failed" : "available",
           reviewed_at: completed || failed ? now : null,
           metadata: {
+            key,
+            expectedProgress: currentProgress,
+            expectedStage: currentStage,
             expectedKey: nextExpectedKey,
             progress: nextProgress,
             stage: nextStage,
@@ -10664,9 +10683,9 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
 
     const now = new Date().toISOString();
     const emptyDay = randomChance(PET_FAVOR_EMPTY_DAY_CHANCE);
-    const winningIndices = emptyDay ? [] : sampleDistinctIndices(5, pickFavorCardCount(PET_FAVOR_CARD_COUNT_WEIGHTS));
-    const won = !emptyDay && winningIndices.includes(pickedIndex);
-    const result: NonNullable<PetTaskItem["favorResult"]> = emptyDay
+    let winningIndices = emptyDay ? [] : sampleDistinctIndices(5, pickFavorCardCount(PET_FAVOR_CARD_COUNT_WEIGHTS));
+    let won = !emptyDay && winningIndices.includes(pickedIndex);
+    let result: NonNullable<PetTaskItem["favorResult"]> = emptyDay
       ? "empty-day"
       : won
         ? "win"
@@ -10674,43 +10693,20 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
     const nextPetScore = won ? petScore + task.reward : petScore;
 
     if (!isGuestMode && authUserId) {
-      if (won) {
-        try {
-          await persistPetProfilePatch(
-            {
-              coins: coinsRef.current + eventFavorCoinReward,
-              pet_score: nextPetScore,
-            },
-            "reward:pet-favor-roulette",
-          );
-        } catch (error) {
-          emitSoundEvent("error");
-          setAuthError(describeError(error));
-          return;
-        }
-      }
-
       try {
-        await persistPetTask(
-        {
-          task_id: task.id,
-          completed_at: now,
-          reward_score: task.reward,
-          status: won ? "approved" : "failed",
-          reviewed_at: now,
-          metadata: {
-            emptyDay,
-            pickedIndex,
-            result,
-            winningIndices,
-          },
-        },
-        );
+        const response = await fetch("/api/user/pet-profile-patch", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patch: {}, reason: "reward:pet-favor-roulette", metadata: { pickedIndex } }),
+        });
+        const payload = await response.json() as { error?: string; profile?: Profile; task?: UserPetTaskRow };
+        if (!response.ok || !payload.profile || !payload.task) throw createApiError("/api/user/pet-profile-patch", response, payload);
+        applyProfileStats(payload.profile);
+        result = payload.task.metadata?.result as NonNullable<PetTaskItem["favorResult"]>;
+        winningIndices = payload.task.metadata?.winningIndices as number[];
+        pickedIndex = Number(payload.task.metadata?.pickedIndex ?? pickedIndex);
+        won = result === "win";
       } catch (error) {
-        console.error("Failed to persist Pet favor roulette", error);
-        emitSoundEvent("error");
-        setAuthError(describeError(error));
-        return;
+        emitSoundEvent("error"); setAuthError(describeError(error)); return;
       }
     } else if (won) {
       setCoins((current) => current + eventFavorCoinReward);
@@ -11947,11 +11943,6 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
                 disabled={isTimeoutActive || isPreviewRestricted}
                 onProfile={(profile) => applyProfileStats(profile as Profile)}
               />
-              <TributeDuels
-                previewMode={isPreviewMode || isGuestMode}
-                disabled={isTimeoutActive || isPreviewRestricted}
-                onProfile={(profile) => applyProfileStats(profile as Profile)}
-              />
             </GambleWheelsLobby>
           )}
           {activePanel === "tasks" && <GamesWorkspace mobileLayout={mobileLayout} courtGames={(
@@ -12007,6 +11998,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
               globalPrincipessaProgressPercent={globalPrincipessaProgressPercent}
               globalPrincipessaRequirement={globalPrincipessaRequirement}
               globalPrincipessaXp={globalPrincipessa.xp}
+              userTotalXp={userXp}
               currentUsername={effectiveDisplayName ?? username}
               pendingTaskActionIds={pendingTaskActionIds}
               tasks={tasks}
@@ -12182,7 +12174,7 @@ const eventPetTaskCoinReward = getEventTaskReward(PET_TASK_COIN_REWARD);
           )}
           {activePanel === "profile" && (
             <div className="flex min-w-0 flex-col gap-6">
-              <TransactionHistory previewMode={isGuestMode || isPreviewMode} />
+              <TransactionHistory previewMode={isGuestMode || isPreviewMode} userId={authUserId ?? undefined} />
               <TitleCollection
                 disabled={isTimeoutActive || isPreviewRestricted}
                 equippedTitleId={equippedTitleId}

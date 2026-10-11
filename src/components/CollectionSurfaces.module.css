@@ -139,6 +139,13 @@
 .ledger { --collection-accent: #b7c2d0; padding: 24px; background: #121319; }
 .ledger .header { padding-bottom: 18px; }
 .ledger .header h2 { font-size: 28px; }
+.ledgerToggle { display:flex; align-items:center; gap:12px; text-align:left; color:inherit; font:inherit; cursor:pointer; }
+.ledgerToggle svg { width:20px; height:20px; flex-shrink:0; color:#bbc4d3; }
+.ledgerToggle:focus-visible { outline:2px solid #e9b0cc; outline-offset:5px; border-radius:4px; }
+.ledger[data-collapsed=true] .header { padding-bottom:0; border-bottom:0; }
+.previewMark { position:absolute; top:9px; right:9px; display:grid; place-items:center; width:29px; height:29px; border:1px solid #ebc98f70; border-radius:8px; background:#130d16ed; color:#f3d49e; pointer-events:none; }
+.previewMark svg { width:17px; height:17px; }
+.moneyArt:hover .previewMark,.moneyArt:focus-visible .previewMark { background:#edb4cf; border-color:#edb4cf; color:#28121e; }
 .currencyTabs { display: flex; padding: 4px; gap: 3px; border-radius: 7px; background: #080a0d; border: 1px solid #b7c2d026; }
 .currencyTabs button { border: 0; border-radius: 4px; background: transparent; color: #b7c2d0; min-width: 52px; }
 .currencyTabs button[aria-pressed="true"] { color: #101217; background: #c5cfdb; }

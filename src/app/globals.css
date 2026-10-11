@@ -919,3 +919,13 @@ button:disabled {
   .court-profile-layout { grid-template-columns: 104px minmax(0, 1fr); padding: 16px; gap: 14px; }
   .court-profile-name { font-size: 22px; }
 }
+
+/* Mobile portal rules target document-level elements, outside CSS Module scope. */
+body:has([data-mobile-court=true]) [data-court-chat] { right:max(12px,calc((100vw - 1024px)/2 + 12px)); }
+body:has([data-mobile-court=true]) dialog[data-court-game] { max-height:calc(100dvh - 16px); overscroll-behavior:contain; }
+body:has(dialog[aria-label="Mobile court directory"][open]) .court-floating-character { visibility:hidden; }
+body:has([data-mobile-court=true]) .court-floating-character { bottom:calc(90px + env(safe-area-inset-bottom)); right:max(12px,calc((100vw - 1024px)/2 + 12px)); }
+body:has([data-mobile-court=true]):has(dialog[data-court-game][open]) .court-floating-character { bottom:calc(12px + env(safe-area-inset-bottom)); }
+body:has([data-mobile-court=true]) .court-floating-character[data-speaking=false] { display:none; }
+body:has([data-mobile-court=true]) .court-floating-character[data-speaking=true]:popover-open { display:flex; }
+body:has([data-mobile-court=true]) .court-floating-character>button { width:44px; height:44px; }

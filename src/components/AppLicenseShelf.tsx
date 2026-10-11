@@ -167,7 +167,7 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
           Loading her programs...
         </p>
       ) : (
-        <div className="court-grid mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`${ui.programGrid} court-grid mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3`}>
           {programs.map((program) => {
             const isPending = pendingSlug === program.slug;
             const canAfford = money >= program.pricePm;
@@ -176,7 +176,7 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
 
             return (
               <article
-                className="court-grid-card court-grid-card--gold flex min-w-0 flex-col gap-3 overflow-hidden rounded-[1.25rem] border border-[#c89a55]/20 bg-[linear-gradient(155deg,rgba(120,53,15,0.22),rgba(0,0,0,0.55))] p-4"
+                className={`${ui.programCard} court-grid-card court-grid-card--gold flex min-w-0 flex-col gap-3 overflow-hidden rounded-[1.25rem] border border-[#c89a55]/20 bg-[linear-gradient(155deg,rgba(120,53,15,0.22),rgba(0,0,0,0.55))] p-4`}
                 key={program.slug}
               >
                 <div className="flex items-center gap-3">
@@ -192,14 +192,11 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                   </div>
                 </div>
 
-                <p className="text-[11px] leading-5 text-zinc-400">{techdom ? "Keep Principessa on your desktop for free. Unlock timed Techdom sessions when you want more." : program.description}</p>
-                {techdom && <ul className="space-y-1 text-[11px] leading-5 text-zinc-400">
-                  <li>Choose session duration &amp; intensity</li>
-                  <li>Choose apps for access, window &amp; audio control</li>
-                </ul>}
+                <p className={ui.programDescription}>{techdom ? "A free desktop companion. Unlock timed sessions with app, window and audio control." : program.description}</p>
                 {art && <button type="button" className={ui.programPoster} onClick={() => setFilm(program)} aria-label={`Watch ${program.title} preview`}><Image alt="" src={`/programs/${mediaSlug(program.slug)}-poster.webp`} fill sizes="(max-width:640px) 85vw,(max-width:1024px) 45vw,30vw"/><span>▶ Watch preview</span></button>}
 
-                {techdom && <><a className="rounded-xl border border-[#c89a55]/30 bg-[#e6ba73]/15 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#fff0d2] transition hover:border-[#c89a55]/60" href={program.link} rel="noopener noreferrer" target="_blank">Download free desktop pet</a><p className="text-[10px] text-zinc-500">Windows · No activation code needed for the pet.</p><div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#c89a55]/20 pt-3"><p className="text-xs font-bold text-[#fff0d2]">Optional Techdom sessions</p><span className="flex items-center gap-1.5 text-xs font-bold text-[#fff0d2]">{program.code ? "Unlocked" : <><MoneyIcon height={13}/>{program.pricePm.toLocaleString()} PM</>}</span></div></>}
+                <div className={ui.programLicense}>
+                {techdom && <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-zinc-400"><span>Optional Techdom sessions</span><span className="flex items-center gap-1 text-amber-100">{program.code ? "Unlocked" : <><MoneyIcon height={12}/>{program.pricePm.toLocaleString()} PM</>}</span></div>}
 
                 {program.code ? (
                   <div className="rounded-xl border border-[#c89a55]/25 bg-[#e6ba73]/[0.07] p-3">
@@ -221,8 +218,8 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                     <p className="mt-2 text-[10px] leading-4 text-zinc-500">
                       {techdom
                         ? program.bound
-                          ? `Activated on ${program.deviceName ?? "a PC"}. Restore on a new PC with the purchasing X account.`
-                          : "Enter this code in the Windows app to unlock Techdom sessions. Your desktop pet is always free."
+                          ? `On ${program.deviceName ?? "your PC"}. Restore with your purchasing X account.`
+                          : "Use this code for Techdom sessions. The desktop pet stays free."
                         : program.bound
                         ? `Already redeemed on ${program.deviceName ?? "your device"}. It stays with that phone.`
                         : "Enter it once in the app. It locks to that phone and cannot be moved."}
@@ -239,14 +236,15 @@ export function AppLicenseShelf({ previewMode = false, disabled = false, money, 
                   </button>
                 )}
 
-                {!techdom && <a
+                </div>
+                <a
                   className="mt-auto rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-300 transition hover:border-white/25"
                   href={program.link}
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  Download the app
-                </a>}
+                  {techdom ? "Download free desktop pet" : "Download the app"}
+                </a>
               </article>
             );
           })}

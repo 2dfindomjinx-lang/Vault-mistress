@@ -71,3 +71,7 @@ next-env.d.ts
 !/supabase/202610060002_private_media.sql
 !/supabase/202610090001_request_latency.sql
 !/supabase/202609130001_gamble_cashout_receipt.sql
+!/supabase/202610110001_pet_authority.sql
+!/supabase/202610110002_wallet_shrine.sql
+!/supabase/202610110003_crate_keys.sql
+!/supabase/tribute-furnace.sql

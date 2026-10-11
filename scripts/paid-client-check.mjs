@@ -43,3 +43,33 @@ for(const file of files){
   timerCallbacks.splice(0).forEach(fn=>fn());
 }
 console.log('Both real wheel handlers: lost response retry, unchanged request ID, click guard and deliberate new spin passed.');
+
+// Also exercise the actual conversion/Furnace hooks. A retry after a lost reply
+// must reuse its receipt, while the next intentional operation gets a new one.
+const { default: ts } = await import('typescript');
+const page=await readFile('src/app/page.tsx','utf8');
+const ast=ts.createSourceFile('page.tsx',page,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+const handlers=new Map();
+function visit(node) {
+  if(ts.isVariableDeclaration(node)&&['handleMoneyConvert','handleFurnaceBurn'].includes(node.name.getText(ast))) handlers.set(node.name.getText(ast),node.initializer.arguments[0].getText(ast));
+  ts.forEachChild(node,visit);
+}
+visit(ast);
+for(const [name,handler] of handlers) {
+  const built=await transform(`export function fixture(d) {
+    const {paidRequestId,finishPaidRequest,isDefinitiveRejection,fetch}=d;
+    const authUserId='wallet-fixture', coinsRef={current:0};
+    const setMoneyConverting=()=>{},setFurnaceBurning=()=>{},setFurnaceError=()=>{},setMoneyShopError=()=>{},applyProfileStats=()=>{},emitSoundEvent=()=>{},setBurnedTotal=()=>{};
+    return ${handler};
+  }`,{loader:'ts',format:'esm'});
+  const {fixture}=await import('data:text/javascript;base64,'+Buffer.from(built.code).toString('base64'));
+  let fail=true;const calls=[];
+  const run=fixture({paidRequestId,finishPaidRequest,isDefinitiveRejection,fetch:async(_url,init)=>{
+    calls.push(JSON.parse(init.body));if(fail)throw Error('lost reply');return Response.json({profile:{coins:10},burnedTotal:1});
+  }});
+  await run(20);fail=false;await run(20);await run(20);
+  assert.equal(calls[0].requestId,calls[1].requestId,name+' retries the same receipt');
+  assert.notEqual(calls[1].requestId,calls[2].requestId,name+' creates the next receipt after success');
+}
+assert.equal(handlers.size,2);
+console.log('Actual PM conversion and Furnace client handlers preserve ambiguous requests and start new receipts only after success.');

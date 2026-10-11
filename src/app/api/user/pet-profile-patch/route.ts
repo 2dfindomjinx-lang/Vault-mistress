@@ -1,454 +1,49 @@
+import { randomInt } from "node:crypto";
 import { profileSelect } from "@/lib/profile-columns";
-import { PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD } from "@/lib/server-game-rules";
-// Same constants the client rewards from. Re-declaring them here is what let
-// 1.14 move one side without the other and break every pet task for five days.
-import { PET_TASK_REWARD, PET_WEEKLY_TAX_REWARD } from "@/lib/pet-tasks-content";
-import {
-  createSupabaseAdminClient,
-  getSupabaseAdminConfigErrors,
-  isSupabaseAdminConfigured,
-} from "@/lib/supabase/admin";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { awardDevotion, DEVOTION_REWARD_PET_TASK } from "@/lib/devotion";
-import { getGmt3DateKey } from "@/lib/time";
+import { PET_FAVOR_ROULETTE_COIN_REWARD, PET_TASK_COIN_REWARD, roundRewardToNearestFive } from "@/lib/server-game-rules";
+import { getActiveEventMultipliers } from "@/lib/server-task-actions";
+import { isRecord, PET_PROFILE_FIELDS, PET_REWARD_TASKS, rollPetFavor, validPetWriting } from "@/lib/pet-action-validation";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-
-type Body = {
-  metadata?: Record<string, unknown>;
-  patch?: {
-    affection?: number;
-    coins?: number;
-    last_pet_tax_at?: string | null;
-    last_owner_likeness_at?: string | null;
-    owner_likeness?: number;
-    pet_unlocked_at?: string | null;
-    pet_score?: number;
-    tribute_total?: number;
-  };
-  reason?: string;
-};
-
-type ProfileRow = {
-  id: string;
-  coins: number;
-  affection: number;
-  last_owner_likeness_at: string | null;
-  last_pet_tax_at: string | null;
-  owner_likeness: number;
-  pet_unlocked_at: string | null;
-  pet_score: number;
-  tribute_total: number;
-};
-
-
-function buildPetTransactionMetadata(reason: string, coinDelta: number) {
-  return {
-    reward: coinDelta,
-    source: reason,
-  };
-}
-
-function jsonError(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
-
-function numberFromMetadata(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
-  const value = metadata?.[key];
-  return typeof value === "string" ? value : null;
-}
-
-function getAllowedPetCoinRewards(reason: string) {
-  const baseReward =
-    reason === "reward:pet-favor-roulette"
-      ? PET_FAVOR_ROULETTE_COIN_REWARD
-      : PET_TASK_COIN_REWARD;
-
-  return Array.from(
-    new Set([
-      0,
-      baseReward,
-      Math.round((baseReward * 1.5) / 5) * 5,
-      baseReward * 2,
-    ]),
-  );
-}
-
-function isPetTaskApprovedToday(row: {
-  completed_at: string | null;
-  metadata: Record<string, unknown> | null;
-  reviewed_at: string | null;
-  status: string | null;
-  task_id: string | null;
-}) {
-  if (row.task_id === "pet-affection-claim" || row.status !== "approved") {
-    return false;
-  }
-
-  const today = getGmt3DateKey();
-  const completedDate = row.completed_at ? getGmt3DateKey(row.completed_at) : null;
-  const reviewedDate = row.reviewed_at ? getGmt3DateKey(row.reviewed_at) : null;
-  const taskDate =
-    metadataString(row.metadata, "date") ??
-    metadataString(row.metadata, "completedDate") ??
-    null;
-
-  return completedDate === today || reviewedDate === today || taskDate === today;
-}
-
-function validatePatch(
-  current: ProfileRow,
-  patch: NonNullable<Body["patch"]>,
-  reason: string,
-  metadata: Record<string, unknown>,
-) {
-  const nextCoins = typeof patch.coins === "number" ? patch.coins : current.coins;
-  const nextAffection = typeof patch.affection === "number" ? patch.affection : current.affection;
-  const nextOwnerLikeness = typeof patch.owner_likeness === "number" ? patch.owner_likeness : current.owner_likeness;
-  const nextPetScore = typeof patch.pet_score === "number" ? patch.pet_score : current.pet_score;
-  const nextTributeTotal = typeof patch.tribute_total === "number"
-    ? patch.tribute_total
-    : current.tribute_total;
-  const coinDelta = nextCoins - current.coins;
-  const petScoreDelta = nextPetScore - current.pet_score;
-  const tributeDelta = nextTributeTotal - current.tribute_total;
-  const rewardPetScoreDelta = PET_TASK_REWARD;
-
-  if (
-    !Number.isInteger(nextCoins) ||
-    !Number.isInteger(nextAffection) ||
-    !Number.isInteger(nextOwnerLikeness) ||
-    !Number.isInteger(nextPetScore) ||
-    nextAffection < 0 ||
-    nextAffection > 100 ||
-    nextOwnerLikeness < 0 ||
-    nextOwnerLikeness > 100 ||
-    nextPetScore < 0
-  ) {
-    return "Invalid Pet profile values.";
-  }
-
-  if (reason === "pet:unlock") {
-    if (
-      current.pet_unlocked_at ||
-      current.affection < 100 ||
-      nextOwnerLikeness !== 100 ||
-      nextAffection !== current.affection ||
-      coinDelta !== 0 ||
-      petScoreDelta !== 0 ||
-      tributeDelta !== 0 ||
-      typeof patch.pet_unlocked_at !== "string" ||
-      typeof patch.last_owner_likeness_at !== "string" ||
-      typeof patch.last_pet_tax_at !== "string"
-    ) {
-      return "Pet unlock patch is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "pet:maintenance") {
-    if (coinDelta !== 0 || petScoreDelta !== 0 || tributeDelta !== 0) {
-      return "Pet maintenance cannot change coins, score, or tribute.";
-    }
-
-    if (Math.abs(nextOwnerLikeness - current.owner_likeness) > 25 && nextOwnerLikeness !== 100) {
-      return "Pet maintenance owner likeness delta is invalid.";
-    }
-
-    if (current.affection - nextAffection > 30 || nextAffection > current.affection) {
-      return "Pet maintenance affection delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "tribute:debt-contract") {
-    const spendAmount = numberFromMetadata(metadata, "spendAmount");
-
-    if (!spendAmount || coinDelta !== -spendAmount || tributeDelta !== spendAmount) {
-      return "Debt contract profile delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason === "spend:pet-weekly-tax") {
-    const spendAmount = numberFromMetadata(metadata, "spendAmount");
-    const rewardCoins = numberFromMetadata(metadata, "rewardCoins");
-    const weeklyTaxPetScoreDelta = PET_WEEKLY_TAX_REWARD;
-
-    if (
-      !spendAmount ||
-      typeof rewardCoins !== "number" ||
-      coinDelta !== rewardCoins - spendAmount ||
-      petScoreDelta !== weeklyTaxPetScoreDelta
-    ) {
-      return "Weekly tax profile delta is invalid.";
-    }
-
-    return null;
-  }
-
-  if (reason.startsWith("reward:pet-")) {
-    const petCoinAllowed = getAllowedPetCoinRewards(reason);
-
-    if (
-      reason === "reward:pet-case-opening" &&
-      (!Number.isInteger(coinDelta) ||
-        coinDelta < 0 ||
-        coinDelta > 5000 ||
-        petScoreDelta !== rewardPetScoreDelta ||
-        tributeDelta !== 0)
-    ) {
-      return "Pet case profile delta is invalid.";
-    }
-
-    if (
-      reason === "reward:pet-affection-claim" &&
-      (coinDelta !== 0 || petScoreDelta !== rewardPetScoreDelta || tributeDelta !== 0)
-    ) {
-      return "Pet affection claim profile delta is invalid.";
-    }
-
-    if (
-      reason !== "reward:pet-case-opening" &&
-      reason !== "reward:pet-affection-claim" &&
-      (!petCoinAllowed.includes(coinDelta) || petScoreDelta !== rewardPetScoreDelta || tributeDelta !== 0)
-    ) {
-      return "Pet reward profile delta is invalid.";
-    }
-
-    return null;
-  }
-
-  return `Unsupported Pet profile mutation reason: ${reason}`;
-}
-
+const error = (message: string, status = 422) => Response.json({ error: message }, { status });
 export async function POST(request: Request) {
-  if (!isSupabaseAdminConfigured) {
-    return jsonError(`Supabase admin environment is not configured: ${getSupabaseAdminConfigErrors().join(", ")}`, 500);
-  }
-
-  const authSupabase = await createSupabaseServerClient();
-  const { data: authData, error: authError } = await authSupabase.auth.getUser();
-
-  if (authError || !authData.user) {
-    return jsonError(authError?.message ?? "Authentication required.", 401);
-  }
-
-  const body = (await request.json().catch(() => null)) as Body | null;
-  const reason = body?.reason?.trim();
-  const patch = body?.patch;
-  const metadata = body?.metadata ?? {};
-
-  if (!reason || !patch) {
-    return jsonError("Invalid Pet profile patch payload.");
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: currentProfile, error: currentError } = await supabase
-    .from("profiles")
-    .select("id, coins, affection, pet_score, owner_likeness, pet_unlocked_at, tribute_total, last_pet_tax_at, last_owner_likeness_at")
-    .eq("id", authData.user.id)
-    .single();
-
-  if (currentError || !currentProfile) {
-    console.error("[pet-profile-patch] Supabase error reading current profile", {
-      code: currentError?.code,
-      message: currentError?.message,
-      details: currentError?.details,
-      hint: currentError?.hint,
-      userId: authData.user.id,
-      reason,
-    });
-    return jsonError(currentError?.message ?? "Profile not found.", 404);
-  }
-
-  const validationError = validatePatch(currentProfile as ProfileRow, patch, reason, metadata);
-
-  if (validationError) {
-    return jsonError(validationError, 422);
-  }
-
-  const now = new Date().toISOString();
-
-  if (reason === "reward:pet-affection-claim") {
-    const { data: petTasks, error: petTasksError } = await supabase
-      .from("user_pet_tasks")
-      .select("task_id, completed_at, status, reviewed_at, metadata")
-      .eq("user_id", authData.user.id);
-
-    if (petTasksError) {
-      console.error("Pet milestone eligibility lookup failed", petTasksError);
-      return jsonError("Pet milestone eligibility lookup failed.", 500);
-    }
-
-    const approvedTodayCount = ((petTasks ?? []) as Array<{
-      completed_at: string | null;
-      metadata: Record<string, unknown> | null;
-      reviewed_at: string | null;
-      status: string | null;
-      task_id: string | null;
-    }>).filter(isPetTaskApprovedToday).length;
-
-    if (approvedTodayCount < 5) {
-      return jsonError("Pet milestone requires 5 approved Pet tasks today.", 422);
+  if (!isSupabaseAdminConfigured) return error("Service unavailable.", 503);
+  const auth = await createClient();
+  const { data, error: authError } = await auth.auth.getUser();
+  if (authError || !data.user) return error("Authentication required.", 401);
+  const body: unknown = await request.json().catch(() => null);
+  if (!isRecord(body) || typeof body.reason !== "string" || !isRecord(body.patch) || Object.keys(body.patch).some(key => !PET_PROFILE_FIELDS.has(key))) return error("Invalid Pet action.");
+  const reason = body.reason;
+  const taskId = reason === "reward:pet-confession" ? "pet-confession-dm" : reason.replace(/^reward:/, "");
+  if (!["pet:maintenance", "pet:unlock", "spend:pet-weekly-tax"].includes(reason) && !(reason.startsWith("reward:") && PET_REWARD_TASKS.has(taskId))) return error("Use this task's own action to complete it.");
+  const db = createSupabaseAdminClient();
+  const limit = await checkRateLimit(db, "pet-action:" + data.user.id, 40, 60);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfterSeconds);
+  const metadata = isRecord(body.metadata) ? body.metadata : {};
+  let proof: Record<string, unknown> = {};
+  let reward = 0;
+  if (reason.startsWith("reward:")) {
+    const { data: profile, error: readError } = await db.from("profiles").select("address_term").eq("id", data.user.id).single();
+    if (readError || !profile) return error("Profile unavailable.", 503);
+    if (!validPetWriting(taskId, metadata.text, profile.address_term)) return error("The words do not match today's sentence.");
+    const multipliers = await getActiveEventMultipliers(db, ["task_reward_multiplier"]);
+    const multiplier = Math.max(1, Math.min(2, multipliers.task_reward_multiplier ?? 1));
+    reward = taskId === "pet-affection-claim" ? 0 : roundRewardToNearestFive((taskId === "pet-favor-roulette" ? PET_FAVOR_ROULETTE_COIN_REWARD : PET_TASK_COIN_REWARD) * multiplier);
+    if (taskId === "pet-favor-roulette") {
+      if (!Number.isInteger(metadata.pickedIndex) || Number(metadata.pickedIndex) < 0 || Number(metadata.pickedIndex) > 4) return error("Pick a card.");
+      proof = rollPetFavor(Number(metadata.pickedIndex), max => randomInt(max));
+    } else if (taskId === "pet-false-hope") {
+      if (metadata.key !== "a" && metadata.key !== "d") return error("Invalid sequence key.");
+      proof = { key: metadata.key };
     }
   }
-
-  const { data: updatedProfile, error: updateError } = await supabase
-    .from("profiles")
-    .update({
-      ...patch,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", authData.user.id)
-    .eq("coins", (currentProfile as ProfileRow).coins)
-    .eq("affection", (currentProfile as ProfileRow).affection)
-    .eq("owner_likeness", (currentProfile as ProfileRow).owner_likeness)
-    .eq("pet_score", (currentProfile as ProfileRow).pet_score)
-    .eq("tribute_total", (currentProfile as ProfileRow).tribute_total)
-    .select(profileSelect)
-    .maybeSingle();
-
-  if (updateError || !updatedProfile) {
-    console.error("[pet-profile-patch] Supabase error updating pet profile", {
-      code: updateError?.code,
-      message: updateError?.message,
-      details: updateError?.details,
-      hint: updateError?.hint,
-      userId: authData.user.id,
-      reason,
-      patch,
-    });
-    return jsonError(updateError?.message ?? "Pet profile update was stale or duplicated.", updateError ? 500 : 409);
-  }
-
-  const coinDelta = Number(updatedProfile.coins ?? 0) - Number((currentProfile as ProfileRow).coins ?? 0);
-
-  if (coinDelta !== 0) {
-    const { error: transactionError } = await supabase.from("coin_transactions").insert({
-      amount: coinDelta,
-      balance_after: updatedProfile.coins,
-      balance_before: (currentProfile as ProfileRow).coins,
-      metadata: buildPetTransactionMetadata(reason, coinDelta),
-      reason,
-      user_id: authData.user.id,
-    });
-
-    if (transactionError) {
-      console.error("[pet-profile-patch] Supabase error inserting coin transaction", {
-        code: transactionError.code,
-        message: transactionError.message,
-        details: transactionError.details,
-        hint: transactionError.hint,
-        userId: authData.user.id,
-        reason,
-        coinDelta,
-      });
-      const { error: rollbackError } = await supabase
-        .from("profiles")
-        .update({
-          affection: currentProfile.affection,
-          coins: currentProfile.coins,
-          last_owner_likeness_at: currentProfile.last_owner_likeness_at,
-          last_pet_tax_at: currentProfile.last_pet_tax_at,
-          owner_likeness: currentProfile.owner_likeness,
-          pet_score: currentProfile.pet_score,
-          pet_unlocked_at: currentProfile.pet_unlocked_at,
-          tribute_total: currentProfile.tribute_total,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", authData.user.id);
-
-      if (rollbackError) {
-        console.error("[pet-profile-patch] Pet profile rollback failed after tx error", {
-          code: rollbackError.code,
-          message: rollbackError.message,
-          userId: authData.user.id,
-          reason,
-        });
-      }
-
-      return jsonError("Pet profile coin logging failed.", 500);
-    }
-  }
-
-  // Side-effect: mark the corresponding pet task approved/completed ONLY after reward grant + tx succeeded.
-  // This ensures pet task progress (for reward cases) is not recorded unless coins/pet_score were granted.
-  // Client may still call persistPetTask after (for count/meta), but side guarantees the record on reward path.
-  if (reason.startsWith("reward:pet-")) {
-    // Older clients used a reward alias which is not the persisted task ID.
-    const taskId = reason === "reward:pet-confession"
-      ? "pet-confession-dm"
-      : reason.replace("reward:", "");
-    const isAffectionClaim = reason === "reward:pet-affection-claim";
-    const isCase = reason === "reward:pet-case-opening";
-    const rewardScore = PET_TASK_REWARD;
-    const meta: Record<string, unknown> = { ...((body?.metadata as Record<string, unknown>) ?? {}) };
-    if (isAffectionClaim || isCase) {
-      meta.date = new Date().toISOString().slice(0, 10);
-    }
-    const { data: existingPetTask } = await supabase
-      .from("user_pet_tasks")
-      .select("metadata")
-      .eq("user_id", authData.user.id)
-      .eq("task_id", taskId)
-      .maybeSingle();
-    const mergedMeta = {
-      ...((existingPetTask?.metadata as Record<string, unknown> | null) ?? {}),
-      ...meta,
-    };
-    const { error: sidePetErr } = await supabase
-      .from("user_pet_tasks")
-      .upsert(
-        {
-          user_id: authData.user.id,
-          task_id: taskId,
-          completed_at: now,
-          reviewed_at: now,
-          reward_score: rewardScore,
-          status: "approved",
-          metadata: mergedMeta,
-        },
-        { onConflict: "user_id,task_id" },
-      );
-    if (sidePetErr) {
-      console.error("[pet-profile-patch] Side pet task mark (post-reward) failed", {
-        code: sidePetErr.code,
-        message: sidePetErr.message,
-        details: sidePetErr.details,
-        hint: sidePetErr.hint,
-        userId: authData.user.id,
-        reason,
-        taskId,
-      });
-    }
-
-    try {
-      await awardDevotion(supabase, {
-        amount: DEVOTION_REWARD_PET_TASK,
-        metadata: {
-          reason,
-          taskId,
-        },
-        source: "pet_reward",
-        sourceKey: `pet-profile-patch:${taskId}:${now}`,
-        userId: authData.user.id,
-      });
-    } catch (devotionError) {
-      console.error("[pet-profile-patch] devotion award failed", {
-        devotionError,
-        reason,
-        userId: authData.user.id,
-      });
-    }
-  }
-
-  return Response.json({ profile: updatedProfile });
+  // No client profile values, timestamps or reward amounts reach SQL.
+  const { data: result, error: rpcError } = await db.rpc("apply_pet_action", { p_user_id: data.user.id, p_action: reason.startsWith("reward:") ? "reward:" + taskId : reason, p_coin_reward: reward, p_proof: proof });
+  if (rpcError || !result) { console.error("[pet-action] transaction failed", rpcError); return error("Pet action could not be confirmed. Refresh and try again.", 503); }
+  if (result.error) return error(result.error === "task_not_ready" ? "Complete the task before claiming its reward." : result.error === "pet_locked" ? "Pet tasks unlock at 100 Affection." : result.error === "timeout_active" ? "This action is locked during your timeout." : "This task is not available yet.", 409);
+  const { data: profile, error: profileError } = await db.from("profiles").select(profileSelect).eq("id", data.user.id).single();
+  if (profileError || !profile) return error("Your action was recorded. Refresh to see it.", 503);
+  return Response.json({ profile, task: result.task ?? null, replayed: Boolean(result.replayed) }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -240,11 +240,23 @@
 /* Matched pairs share their row height; footer controls remain aligned. */
 .grid { align-items:stretch; }.grid>.card { height:100%; }.grid>.card>.cardBody { flex:1; }.grid>.card>.rules { margin-top:auto; }
 
-.card[data-task-kind="level-drain"] .strength { display:grid; grid-template-columns:minmax(220px,.8fr) minmax(0,1fr); gap:0; align-items:stretch; }.strengthArt { position:relative; min-height:280px; border:1px solid #c89a5526; border-radius:9px; overflow:hidden; }.strengthArt img { object-fit:cover; object-position:66% center; }.strengthArt::after { content:""; position:absolute; inset:0; background:linear-gradient(0deg,#190d12dc,transparent 65%); }.strengthArt>span { position:absolute; z-index:1; bottom:18px; left:20px; font:italic 22px Georgia,serif; color:#f5d8a9; }.strengthBody { min-width:0; padding:14px 0 10px 28px; }.strengthLead { font:26px/1.25 Georgia,serif; color:#fae4c0; }.strengthDescription { margin-top:8px; color:#bca1a2; font-size:12px; line-height:1.7; }.strengthTransfer { display:grid; grid-template-columns:1fr 27px 1fr; gap:10px; align-items:center; margin:24px 0; }.strengthTransfer>div>small { display:block; color:#bc9b9f; font-size:10px; }.strengthTransfer strong { display:block; margin:9px 0; font:38px/1 Georgia,serif; color:#efd5ad; }.strengthTransfer>div>span { font-size:10px; color:#bda197; }.strengthArrow { color:#c99f69; font-size:25px; }.strengthMeter { height:3px; margin-top:10px; background:#c89a5522; border-radius:3px; overflow:hidden; }.strengthMeter>i { height:100%; display:block; background:linear-gradient(90deg,#a8637f,#e2b477); }.strengthFooter { display:flex; align-items:center; gap:20px; flex-wrap:wrap; }.strengthButton { display:flex; justify-content:space-between; align-items:center; gap:22px; padding:12px 17px; border:1px solid #d3aa67; border-radius:6px; background:#d3aa67; color:#211218; font-size:12px; font-weight:600; }.strengthButton:disabled { opacity:.4; }.strengthFooter>span { color:#a68888; font-size:9px; }.strengthFooter>span>strong { display:block; margin-top:5px; color:#c6a78c; font-size:10px; font-weight:500; }
-@media(max-width:760px) { .card[data-task-kind="level-drain"] .strength { grid-template-columns:1fr; }.strengthArt { min-height:185px; }.strengthBody { padding:20px 0 0; }.strengthLead { font-size:23px; }.strengthTransfer { margin:20px 0; }.strengthTransfer strong { font-size:32px; }.strengthFooter { gap:14px; }.strengthButton { flex:1; padding:12px; font-size:11px; } }
 
 .numberChoice { justify-content:stretch; }
 
 /* Consistent court controls, independent of each game accent. */
 .card .action > button, .card .stage > button:last-of-type { background:#edb4cf; border-color:#edb4cf; color:#000; }
 .card .action > button *, .card .stage > button:last-of-type * { color:inherit; }
+
+/* Grow the content, not the buttons; primary actions share the row baseline.
+   Descendant selectors also cover the risk/wheel display:contents wrappers. */
+.grid .card:not([data-mobile-task]) { height:100%; }
+.grid .card:not([data-mobile-task]) > .cardBody { flex:1; }
+.grid .card:not([data-mobile-task]) > .cardBody > :is(.stage,.claimStage) { flex:1; }
+.grid .card:not([data-mobile-task]) .stage > button:last-of-type,
+.grid .card:not([data-mobile-task]) .claimStage > .action,
+.grid .card:not([data-mobile-task]) > .cardBody > button:last-child { margin-top:auto; }
+.grid .card .stage > button:last-of-type { min-height:44px; flex-shrink:0; }
+
+.grid .card:not([data-mobile-task]) .stage > .numberTable { margin-top:auto; margin-bottom:0; }
+.grid .card:not([data-mobile-task]) .claimStage { padding-bottom:15px; }
+@media(max-width:700px) { .grid .card:not([data-mobile-task]) .claimStage { padding-bottom:12px; } }

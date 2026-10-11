@@ -67,6 +67,8 @@ function remainingLabel(expiresAt: string, now: number) {
   return `${minutes}m left to accept`;
 }
 
+const HISTORY_PAGE_SIZE = 3;
+
 const ENABLED_CRATES = Object.entries(CRATE_TYPES).filter(([, crate]) => crate.enabled);
 
 export function CrateDuels({
@@ -83,6 +85,8 @@ export function CrateDuels({
   const [pending, setPending] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [showRules, setShowRules] = useState(false);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [unwatchedPage, setUnwatchedPage] = useState(0);
   const [picks, setPicks] = useState<Record<string, number>>({});
   const [animatingDuel, setAnimatingDuel] = useState<Duel | null>(null);
 
@@ -190,8 +194,10 @@ export function CrateDuels({
     });
   const live = state?.myLiveDuel ?? null;
   const openDuels = (state?.duels ?? []).filter((duel) => duel.status === "open");
-  const revealed = (state?.duels ?? []).filter((duel) => duel.status === "revealed").slice(0, 6);
+  const revealed = (state?.duels ?? []).filter((duel) => duel.status === "revealed");
   const unwatched = (state?.duels ?? []).filter((duel) => duel.isMine && duel.status === "revealed" && !duel.seenByMe);
+  const resultPage = Math.min(historyPage, Math.max(0, Math.ceil(revealed.length / HISTORY_PAGE_SIZE) - 1));
+  const watchPage = Math.min(unwatchedPage, Math.max(0, Math.ceil(unwatched.length / HISTORY_PAGE_SIZE) - 1));
 
   return (
     <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-amber-300/25 bg-[radial-gradient(circle_at_8%_0%,rgba(245,158,11,.19),transparent_32%),radial-gradient(circle_at_88%_8%,rgba(236,72,153,.28),transparent_34%),linear-gradient(145deg,rgba(31,8,19,.98),rgba(4,2,7,.98))] p-5 shadow-[0_24px_80px_rgba(109,35,8,.18)]">
@@ -230,7 +236,7 @@ export function CrateDuels({
 
       {animatingDuel ? <CrateDuelBattle duel={animatingDuel} onClose={() => setAnimatingDuel(null)} /> : null}
 
-      {unwatched.map((duel) => {
+      {unwatched.slice(watchPage * HISTORY_PAGE_SIZE, (watchPage + 1) * HISTORY_PAGE_SIZE).map((duel) => {
         const rival = duel.isMyChallenge ? duel.opponent : duel.challenger;
         return (
           <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#c89a55]/35 bg-[#c89a55]/10 px-4 py-3" key={duel.id}>
@@ -251,6 +257,8 @@ export function CrateDuels({
           </div>
         );
       })}
+
+      <DuelHistoryPages label="Unwatched duels" total={unwatched.length} page={watchPage} onPage={setUnwatchedPage} />
 
       {/* Keep a live challenge visible without letting it crowd the public lobby. */}
       {live ? (
@@ -434,7 +442,7 @@ export function CrateDuels({
                 No results yet.
               </p>
             ) : (
-              revealed.map((duel) => (
+              revealed.slice(resultPage * HISTORY_PAGE_SIZE, (resultPage + 1) * HISTORY_PAGE_SIZE).map((duel) => (
                 <div className="court-duel-reveal rounded-2xl border border-white/10 bg-black/30 px-3.5 py-3" key={duel.id}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
@@ -478,8 +486,19 @@ export function CrateDuels({
               ))
             )}
           </div>
+          <DuelHistoryPages label="Duel results" total={revealed.length} page={resultPage} onPage={setHistoryPage} />
         </div>
       </div>
     </section>
   );
+}
+
+function DuelHistoryPages({ label, total, page, onPage }: { label: string; total: number; page: number; onPage: (page: number) => void }) {
+  const pages = Math.ceil(total / HISTORY_PAGE_SIZE);
+  if (pages <= 1) return null;
+  return <nav aria-label={label} className="mt-3 flex items-center justify-between gap-2 text-[11px] text-zinc-400">
+    <button type="button" className="rounded-lg border border-white/15 px-3 py-2 disabled:opacity-35" disabled={page === 0} onClick={() => onPage(page - 1)}>Newer</button>
+    <span aria-live="polite">{page + 1} / {pages}</span>
+    <button type="button" className="rounded-lg border border-white/15 px-3 py-2 disabled:opacity-35" disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>Older</button>
+  </nav>;
 }

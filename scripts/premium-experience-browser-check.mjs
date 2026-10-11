@@ -86,7 +86,7 @@ try {
       assert.equal(await page.locator('.court-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),width>=1024?3:width>=640?2:1);
       assert.equal(await page.locator('article').count(),3);
       assert.ok(await page.locator('article img').evaluateAll(images=>images.every(img=>img.complete&&img.naturalWidth>0)),'Program media loads');
-      assert.ok(await page.locator('article').last().getByText(/Restore on a new PC/).isVisible());
+      assert.ok(await page.locator('article').last().getByText(/Restore with your purchasing X account/).isVisible());
       assert.ok(await page.getByRole('link',{name:'Download free desktop pet'}).isVisible());
       assert.equal(media.length,0,'No eager video download');
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow');

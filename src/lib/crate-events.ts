@@ -15,19 +15,15 @@ function getActiveCrateEvents(activeEvents: Array<{ effect: EventEffect }>) {
   );
 }
 
-// Golden Key: discount varies per crate instead of one flat rate. Cheaper/lower-stakes
-// cases get a bigger cut; the guaranteed-legendary Cosplay Case barely moves since a
-// big discount there would make near-guaranteed legendaries too cheap.
-//
-// Every crate must be listed. A missing entry silently falls through to the
-// event's own multiplier (0.6 = 40% off), which is a deeper discount than any
-// crate is meant to get and pushes that crate's EV above its cost.
+// Includes the five-open Principessa pity cycle and concurrent Lucky Key odds.
+// Every paid case remains below 98% long-run sell-back EV even with both events.
+// A new case gets no discount until its economy has been checked.
 const GOLDEN_KEY_CRATE_MULTIPLIERS: Record<string, number> = {
-  principessa_case: 0.75, // 25% off
-  premium_case: 0.8, // 20% off
-  cat_case: 0.75, // 25% off
-  couture_case: 0.8, // 20% off
-  cosplay_case: 0.85, // 15% off
+  principessa_case: 0.95, // 5% off
+  premium_case: 0.9, // 10% off
+  cat_case: 0.9, // 10% off
+  couture_case: 0.85, // 15% off
+  cosplay_case: 0.9, // 10% off
   cosplay_pure_case: 0.95, // 5% off
 };
 
@@ -41,7 +37,8 @@ export function getCrateCostMultiplier(
     }
 
     const perCrateMultiplier = crateType ? GOLDEN_KEY_CRATE_MULTIPLIERS[crateType] : undefined;
-    return multiplier * (perCrateMultiplier ?? event.effect.multiplier ?? 1);
+    // Overlapping/duplicate events do not compound a paid-case discount.
+    return Math.min(multiplier, perCrateMultiplier ?? 1);
   }, 1);
 }
 

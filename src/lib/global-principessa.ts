@@ -9,21 +9,6 @@ export type GlobalPrincipessaProgress = {
   updated_at?: string | null;
 };
 
-export type GlobalPrincipessaVisualTier =
-  | "normal"
-  | "subtle-glow"
-  | "strong-glow"
-  | "pulse"
-  | "neon-border"
-  | "particles"
-  | "energy"
-  | "spark"
-  | "fire"
-  | "burning-border"
-  | "heavy-fire"
-  | "boss-fire"
-  | "maximum";
-
 export function getGlobalPrincipessaXpRequirement(level: number) {
   if (level < 1 || level >= GLOBAL_PRINCIPESSA_MAX_LEVEL) {
     return null;
@@ -58,20 +43,4 @@ export function getGlobalPrincipessaProgressPercent(level: number, xp: number) {
   }
 
   return Math.min(100, Math.max(0, (Math.max(0, xp) / requirement) * 100));
-}
-
-export function getGlobalPrincipessaVisualTier(level: number): GlobalPrincipessaVisualTier {
-  if (level >= 100) return "maximum";
-  if (level >= 90) return "boss-fire";
-  if (level >= 80) return "heavy-fire";
-  if (level >= 70) return "burning-border";
-  if (level >= 60) return "fire";
-  if (level >= 50) return "spark";
-  if (level >= 40) return "energy";
-  if (level >= 30) return "particles";
-  if (level >= 20) return "neon-border";
-  if (level >= 15) return "pulse";
-  if (level >= 10) return "strong-glow";
-  if (level >= 5) return "subtle-glow";
-  return "normal";
 }
