@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { CourtActivityFeed } from "./CourtActivityFeed";
+import { ColorModeToggle } from "./ColorModeToggle";
 import styles from "./CourtChrome.module.css";
 
 type LoginScreenProps = {
@@ -14,6 +15,7 @@ type LoginScreenProps = {
 export function LoginScreen({ error, isBusy = false, onEnterPreviewMode, onSignInWithX }: LoginScreenProps) {
   return (
     <main className={styles.login}>
+      <div className="bb-login-mode"><ColorModeToggle /></div>
       <section className={styles.loginStage}>
         <div className={styles.loginBrand}>
           <Image src="/brand/vault-mistress-mark.svg" alt="" width={35} height={40} />

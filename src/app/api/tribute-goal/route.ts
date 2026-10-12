@@ -21,15 +21,15 @@ export async function GET() {
   }
 
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { goal_usd: number | string; raised_usd: number | string }
+    | { goal_floor_usd?: number | string | null; goal_usd: number | string; raised_usd: number | string }
     | undefined;
 
   if (!row) {
-    return Response.json({ goalUsd: 0, raisedUsd: 0 }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ goalFloorUsd: 0, goalUsd: 0, raisedUsd: 0 }, { headers: { "Cache-Control": "no-store" } });
   }
 
   return Response.json(
-    { goalUsd: Number(row.goal_usd ?? 0), raisedUsd: Number(row.raised_usd ?? 0) },
+    { goalFloorUsd: Number(row.goal_floor_usd ?? 0), goalUsd: Number(row.goal_usd ?? 0), raisedUsd: Number(row.raised_usd ?? 0) },
     { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" } },
   );
 }

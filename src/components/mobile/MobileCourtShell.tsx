@@ -10,6 +10,7 @@ import { LiveChatWidget } from "@/components/LiveChatWidget";
 import { getPathForPanel } from "@/components/SidebarNav";
 import type { DashboardPage, SidebarNavItem } from "@/components/SidebarNav";
 import { MobileGlyph } from "./MobileGlyph";
+import { ColorModeToggle } from "../ColorModeToggle";
 import styles from "./MobileCourt.module.css";
 
 const primary: DashboardPage[] = ["home", "tasks", "crates", "tribute"];
@@ -60,7 +61,7 @@ export function MobileCourtShell({ activePage, children, coins = 0, guestMode = 
     <header className={styles.header}>
       {activePage === "home" ? <div className={styles.brand}><Image alt="" src="/brand/vault-mistress-mark.svg" width={28} height={34}/><div><strong>Vault Mistress</strong><small>Principessa’s court</small></div></div>
         : <div className={styles.pageHeading}><button type="button" aria-label="Return to Home" onClick={() => onNavigate("home")}><MobileGlyph name="back"/></button><div><small>Principessa’s court</small><h1>{pageTitle}</h1></div></div>}
-      <div className={styles.headerActions}>{mobileNotifications}<button className={styles.account} type="button" aria-label="Your profile" onClick={() => onNavigate("profile")}>{mobileAccount ?? <MobileGlyph name="profile"/>}</button></div>
+      <div className={styles.headerActions}><ColorModeToggle />{mobileNotifications}<button className={styles.account} type="button" aria-label="Your profile" onClick={() => onNavigate("profile")}>{mobileAccount ?? <MobileGlyph name="profile"/>}</button></div>
     </header>
     {activePage !== "home" && <div className={styles.miniWallet}><span><i/> {money.toLocaleString()} <small>PM</small></span><span>{coins.toLocaleString()} <small>Coins</small></span><button type="button" onClick={onAddMoney} aria-label="Add Money"><MobileGlyph name="plus"/></button></div>}
     {!online && <aside className={styles.offline} role="status">You’re offline. Reconnect to play and refresh your balance.</aside>}

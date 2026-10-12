@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./court-redesign.css";
+import "./bubblegum-legacy.css";
+import "./bubblegum.css";
+import "./bubblegum-palette.css";
+import { colorModeBootstrap } from "@/lib/color-mode";
 import { ConfirmDialogHost } from "@/components/ConfirmDialogHost";
 
 const geistSans = Geist({
@@ -19,7 +23,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
-  themeColor: "#080508",
+  themeColor: "#d7eef0",
 };
 
 export const metadata: Metadata = {
@@ -67,9 +71,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="court-theme min-h-full flex flex-col">
+      <head><script dangerouslySetInnerHTML={{ __html: colorModeBootstrap }} /></head>
+      <body className="court-theme bubblegum-theme min-h-full flex flex-col">
         {children}
         <ConfirmDialogHost />
       </body>

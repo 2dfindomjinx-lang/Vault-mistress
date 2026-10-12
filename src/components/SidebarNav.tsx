@@ -101,10 +101,10 @@ export function SidebarNav({ activePage, coins = 0, items, money = 0, onAddMoney
   const renderItem = (item: SidebarNavItem, mobile = false) => <button key={item.key} className={styles.navItem} aria-current={activePage === item.key ? "page" : undefined} disabled={item.disabled} onClick={() => { if (mobile) setDirectoryOpen(false); onSelect(item.key); }} onFocus={item.onHover} onMouseEnter={item.onHover} type="button"><span className={styles.glyph} aria-hidden="true">{navigationMeta[item.key].glyph}</span><span>{item.label}</span>{item.hasIndicator && <i className={styles.indicator} />}{item.badge && <small className={styles.badge}>{item.badge}</small>}</button>;
   return <aside className={styles.sidebar}>
     <div className={styles.desktop}>
-      <div className={styles.brand}><Image src="/brand/vault-mistress-mark.svg" alt="" width={40} height={48} /><div><strong>Principessa</strong><small>Her private court</small></div></div>
+      <div className={styles.brand}><Image src="/bubblegum/principessa-icon.webp" alt="" width={40} height={48} /><div><strong>Vault Mistress</strong><small>Principessa’s desktop ♡</small></div></div>
       <div className={styles.wallet}><div className={styles.balance}><MoneyIcon height={14}/><strong>{money.toLocaleString()}</strong><small>PM</small><button aria-label="Add Money" title="Add Money" onClick={onAddMoney} type="button">+</button></div><div className={styles.walletCoins}><span>Coins</span><strong>{coins.toLocaleString()}</strong></div></div>
       <nav className={styles.directory} aria-label="Court navigation">{items.map(item => renderItem(item))}</nav>
-      <div className={styles.sidebarFooter}>Her court. Her rules.</div>
+      <div className={styles.sidebarFooter}>♡ Your favourite distraction.</div>
     </div>
     <nav className={styles.mobileNav} aria-label="Main navigation">
       {primaryItems.map(item => <button key={item.key} type="button" aria-current={activePage === item.key ? "page" : undefined} aria-label={item.label} disabled={item.disabled} onClick={() => onSelect(item.key)}><span aria-hidden="true">{navigationMeta[item.key].glyph}</span>{item.key === "tribute" ? "Shrine" : item.label}{item.hasIndicator && <i className={styles.indicator} />}</button>)}

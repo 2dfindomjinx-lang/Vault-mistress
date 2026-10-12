@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { ColorModeToggle } from "../ColorModeToggle";
 import styles from "./MobileCourt.module.css";
 
 export function MobileCourtWelcome({ error, isBusy, onEnterPreviewMode, onSignInWithX }: {
   error: string; isBusy: boolean; onEnterPreviewMode: () => void; onSignInWithX: () => void;
 }) {
   return <main className={styles.welcome} data-mobile-court="true">
+    <div className="bb-login-mode"><ColorModeToggle /></div>
     <div className={styles.welcomeArt}><Image alt="Principessa" src="/principessa-ui/atelier/v4/games_v4.webp" fill sizes="600px" priority unoptimized/><span/></div>
     <div className={styles.welcomeBrand}><Image alt="" src="/brand/vault-mistress-mark.svg" width={30} height={38}/><span>VAULT MISTRESS</span></div>
     <div className={styles.welcomeCopy}><p>Principessa’s private court</p><h1>All hers.<br/><em>Including you.</em></h1><span>Play. Collect. Devote.</span>

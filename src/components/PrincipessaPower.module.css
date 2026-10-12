@@ -1,9 +1,9 @@
-.portrait { --power-accent:#dda4bf; position:relative; display:block; flex-shrink:0; width:104px; height:auto; aspect-ratio:120/154; color:var(--power-accent); }
-.image { position:absolute; inset:18.18% 18.33% auto; height:49.35%; overflow:hidden; border-radius:50%; background:#2b1421; border:1px solid var(--power-accent); }
+.portrait { --power-accent:var(--bb-c-730461a593, hsla(332,32%,36%,1.000)); position:relative; display:block; flex-shrink:0; width:104px; height:auto; aspect-ratio:120/154; color:var(--power-accent); }
+.image { position:absolute; inset:18.18% 18.33% auto; height:49.35%; overflow:hidden; border-radius:50%; background:var(--bb-c-f8dbd2a2b2, #f2eaff); border:1px solid var(--power-accent); }
 .insignia { position:absolute; top:0; left:0; width:100%; height:auto; overflow:visible; pointer-events:none; }
-.level { position:absolute; top:75%; left:50%; transform:translateX(-50%); white-space:nowrap; padding:3px 9px; border:1px solid var(--power-accent); border-radius:5px; background:#1c111b; color:#fff0e3; font:600 10px/1.3 var(--font-geist-sans,Arial),sans-serif; font-variant-numeric:tabular-nums; }
+.level { position:absolute; top:75%; left:50%; transform:translateX(-50%); white-space:nowrap; padding:3px 9px; border:1px solid var(--power-accent); border-radius:5px; background:var(--bb-c-f8dbd2a2b2, #f2eaff); color:var(--bb-c-a54c1bddfd, #3e315b); font:600 10px/1.3 var(--font-geist-sans,Arial),sans-serif; font-variant-numeric:tabular-nums; }
 .rank { position:absolute; bottom:0; left:0; right:0; text-align:center; font:600 8px/1.3 var(--font-geist-sans,Arial),sans-serif; letter-spacing:.1em; text-transform:uppercase; }
-.portrait[data-rank="4"] .image { box-shadow:0 0 0 4px #ae35554a; }
-.portrait[data-rank="5"] .image { box-shadow:0 0 0 4px #baa0d748,0 0 18px #c7a2ee30; }
-.portrait[data-rank="6"] .image { box-shadow:0 0 0 4px #d7ae6248,0 0 22px #e3b45c38; }
+.portrait[data-rank="4"] .image { box-shadow:0 0 0 4px var(--bb-c-c0909634a0, rgba(97,70,140,0.160)); }
+.portrait[data-rank="5"] .image { box-shadow:0 0 0 4px var(--bb-c-c0909634a0, rgba(97,70,140,0.160)),0 0 18px var(--bb-c-c0909634a0, rgba(97,70,140,0.160)); }
+.portrait[data-rank="6"] .image { box-shadow:0 0 0 4px var(--bb-c-c0909634a0, rgba(97,70,140,0.160)),0 0 22px var(--bb-c-c0909634a0, rgba(97,70,140,0.160)); }
 @media(max-width:1023px) { .portrait { width:80px; }.level { top:72%; padding:2px 7px; font-size:9px; }.rank { font-size:7px; letter-spacing:.03em; } }

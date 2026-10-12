@@ -1,5 +1,5 @@
 import Link from "next/link";
-import styles from "./CourtChrome.module.css";
+import { ColorModeToggle } from "./ColorModeToggle";
 export function TopLevelNav({ active }: { active: "feed" | "main" }) {
- return <nav className={styles.topbar} aria-label="Court and social"><span className={styles.topIdentity}>All eyes on her.</span><div className={styles.topLinks}><Link href="/" aria-current={active === "main" ? "page" : undefined}>The Court</Link><Link href="/principessa-feed" aria-current={active === "feed" ? "page" : undefined}>Principessa Social ↗</Link></div></nav>;
+ return <nav className="bb-system-bar" aria-label="Court and social"><span className="bb-system-name"><span aria-hidden="true">✧</span> Vault Mistress <small>Bubblegum OS</small></span><div><Link href="/" aria-current={active === "main" ? "page" : undefined}>My desktop</Link><Link href="/principessa-feed" aria-current={active === "feed" ? "page" : undefined}>Principessa Social ↗</Link><ColorModeToggle /></div></nav>;
 }

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault Mistress · Home concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;700;800;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<!--
+  Design explorations for the Vault Mistress HOME page. Standalone: nothing in
+  the real site imports this file. Images load from ../public (open this file
+  from the design-concepts folder inside the project). Keys 1-7 or arrows
+  switch concept; "Phone" previews the narrow layout.
+-->
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#050305;color:#eee;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- switcher ---------- */
+.bar{position:fixed;z-index:1000;top:0;left:0;right:0;height:46px;display:flex;align-items:center;gap:6px;padding:0 12px;background:#000d;backdrop-filter:blur(10px);border-bottom:1px solid #fff2;overflow-x:auto;scrollbar-width:none}
+.bar::-webkit-scrollbar{display:none}
+.bar b{font:700 11px/1 Inter;letter-spacing:.18em;text-transform:uppercase;color:#ffffff88;margin-right:8px;white-space:nowrap}
+.bar button{flex:none;font:600 12px/1 Inter;color:#fffc;background:#ffffff0f;border:1px solid #ffffff1c;border-radius:99px;padding:8px 13px;cursor:pointer;white-space:nowrap}
+.bar button:hover{background:#ffffff1f}
+.bar button.on{background:#fff;color:#000;border-color:#fff}
+.bar .sp{flex:1}
+.stagewrap{padding-top:46px;min-height:100%;display:flex;justify-content:center;background:#050305}
+.stage{container-type:inline-size;container-name:st;width:100%;max-width:1480px}
+.stage.phone{width:390px;margin:18px 0;border-radius:34px;overflow:hidden;box-shadow:0 0 0 10px #15111a,0 30px 80px #000}
+.v{display:none;min-height:calc(100vh - 46px)}
+.v.on{display:block}
+
+/* ---------- shared component engine (variants set the variables) ---------- */
+.v{--bg:#080508;--panel:#150d14;--panel2:#1d121c;--line:#ffffff17;--text:#f5e6d3;--muted:#a58f9a;--acc:#e6ba73;--acc2:#ec4899;--r:18px;--fh:"Playfair Display",serif;--fb:Inter,sans-serif;--fill:linear-gradient(90deg,var(--acc2),var(--acc));
+ background:var(--bg);color:var(--text);font-family:var(--fb);position:relative;overflow:hidden}
+.v .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;position:relative}
+.v .eyebrow{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.v h1,.v h2,.v h3,.v .h{font-family:var(--fh);font-weight:600;line-height:1.05}
+.v .muted{color:var(--muted)}
+.v .row{display:flex;align-items:center;gap:10px}
+.v .btn{display:inline-flex;align-items:center;gap:8px;border:0;cursor:pointer;font:800 11px/1 var(--fb);letter-spacing:.14em;text-transform:uppercase;padding:12px 16px;border-radius:calc(var(--r)*.7);background:var(--acc);color:#1a0f08}
+.v .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.v .pill{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.v .pill.live::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80}
+.v .tile{display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);position:relative;overflow:hidden;transition:transform .2s,border-color .2s}
+.v .tile:hover{transform:translateY(-3px);border-color:var(--acc)}
+.v .tile i{font-size:22px;color:var(--acc);display:flex}
+.v .tile b{font:700 15px var(--fb)}
+.v .tile span{font-size:12px;color:var(--muted);line-height:1.4}
+.v .stat b{display:block;font:700 26px/1 var(--fh);font-variant-numeric:tabular-nums}
+.v .stat span{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:800}
+.v .goal .t{height:10px;border-radius:99px;background:#ffffff12;overflow:hidden;box-shadow:inset 0 1px 3px #0008}
+.v .goal .f{height:100%;width:41%;border-radius:inherit;background:var(--fill);background-size:260px 100%;position:relative;animation:flow 5.5s linear infinite}
+.v .goal .f::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(100deg,transparent,#fff6,transparent);background-size:55% 100%;background-repeat:no-repeat;animation:sweep 3.6s ease-in-out infinite}
+.v .goal .ends{display:flex;justify-content:space-between;margin-top:7px;font-size:11px;font-weight:700;color:var(--muted)}
+.v .goal .ends b{color:var(--text)}
+@keyframes flow{to{background-position:260px 0}}
+@keyframes sweep{0%{background-position:-140% 0}55%,100%{background-position:240% 0}}
+.v .list{display:grid;gap:7px}
+.v .li{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:calc(var(--r)*.65);background:#ffffff08;font-size:13px}
+.v .li .av{width:28px;height:28px;border-radius:50%;background:var(--acc);color:#1a0f08;display:grid;place-items:center;font:800 11px var(--fb);flex:none}
+.v .li .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.v .li .am{font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
+.v .li .rk{width:18px;font-weight:800;color:var(--muted);font-size:12px}
+.v .opens{display:flex;gap:8px;overflow:hidden}
+.v .open{flex:none;width:74px;padding:8px;border-radius:calc(var(--r)*.65);background:#ffffff08;border:1px solid var(--line);text-align:center;font-size:10px;color:var(--muted)}
+.v .open img{width:44px;height:44px;object-fit:contain;display:block;margin:0 auto 4px}
+.v .open.r-l{border-color:#f59e0b}.v .open.r-e{border-color:#a855f7}.v .open.r-r{border-color:#3b82f6}
+.v .duel{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);background:var(--panel2);border:1px solid var(--line)}
+.v .duel i{font-size:24px;color:var(--acc2);display:flex}
+.v .duel div{flex:1;min-width:0}
+.v .duel b{display:block;font:700 14px var(--fb)}
+.v .duel span{font-size:11px;color:var(--muted)}
+.v .coins{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-variant-numeric:tabular-nums}
+.v .av-lg{position:relative;overflow:hidden}
+.v .av-lg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%}
+.v .chat{position:absolute;right:18px;bottom:18px;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:99px;background:var(--panel2);border:1px solid var(--acc);font-size:12px;font-weight:700}
+
+/* ---------- 1 · VELVET COURT (the current look, refined) ---------- */
+.v1{--bg:#0a0509;--panel:#170c15;--panel2:#1f111c;--line:#e6ba7322;--acc:#e6ba73;--acc2:#d6407f;--r:16px}
+.v1 .shell{display:grid;grid-template-columns:232px 1fr;min-height:calc(100vh - 46px)}
+.v1 .side{padding:20px 14px;border-right:1px solid var(--line);background:#0c060b;display:flex;flex-direction:column;gap:4px}
+.v1 .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 18px;font:600 20px var(--fh)}
+.v1 .brand em{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);font-style:normal;font-size:15px}
+.v1 .wallet{margin:0 4px 12px;padding:10px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;justify-content:space-between;font-size:12px}
+.v1 .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-size:13px;color:#cdb9c2}
+.v1 .nav a i{display:flex;font-size:16px;color:var(--muted)}
+.v1 .nav a.on,.v1 .nav a:hover{background:#e6ba7316;color:#fff}
+.v1 .nav a.on i{color:var(--acc)}
+.v1 .main{padding:22px 28px 90px;display:grid;gap:18px;align-content:start}
+.v1 .hero{display:grid;grid-template-columns:200px 1fr;gap:22px;padding:20px;background:radial-gradient(circle at 85% 0,#d6407f33,transparent 55%),var(--panel)}
+.v1 .hero .av-lg{border-radius:14px;min-height:240px;border:1px solid var(--line)}
+.v1 .hero h1{font-size:38px;margin:6px 0 4px}
+.v1 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+.v1 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.v1 .two{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+
+/* ---------- 2 · NEON NOIR (top nav, glowing bento) ---------- */
+.v2{--bg:#05060c;--panel:#0b0d18;--panel2:#10132200;--line:#7c5cff44;--text:#e9ecff;--muted:#7f86b3;--acc:#22d3ee;--acc2:#ff2bd6;--r:14px;--fh:"Space Grotesk",sans-serif;--fill:linear-gradient(90deg,#ff2bd6,#7c5cff,#22d3ee)}
+.v2::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 40% at 20% 0,#ff2bd633,transparent),radial-gradient(50% 40% at 90% 10%,#22d3ee26,transparent),linear-gradient(#ffffff06 1px,transparent 1px) 0 0/100% 44px,linear-gradient(90deg,#ffffff06 1px,transparent 1px) 0 0/44px 100%;pointer-events:none}
+.v2 .top{position:relative;display:flex;align-items:center;gap:6px;padding:14px 26px;border-bottom:1px solid var(--line);backdrop-filter:blur(6px)}
+.v2 .brand{font:700 18px var(--fh);letter-spacing:.06em;margin-right:18px;text-shadow:0 0 18px var(--acc2)}
+.v2 .top nav{display:flex;gap:4px;flex:1;overflow:hidden}
+.v2 .top nav a{padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
+.v2 .top nav a.on{color:#fff;background:#7c5cff30;box-shadow:inset 0 0 0 1px #7c5cff80}
+.v2 .bento{position:relative;display:grid;grid-template-columns:repeat(12,1fr);gap:14px;padding:22px 26px 90px}
+.v2 .card,.v2 .tile{box-shadow:0 0 0 1px #7c5cff22,0 0 28px #7c5cff12 inset}
+.v2 .hero{grid-column:span 7;grid-row:span 2;display:grid;grid-template-columns:1fr 210px;gap:10px;background:linear-gradient(135deg,#1a0b2e,#0b0d18);border-color:#ff2bd655}
+.v2 .hero h1{font-size:54px;line-height:.95;text-transform:uppercase;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#ff8be9);-webkit-background-clip:text;color:transparent}
+.v2 .hero .av-lg{border-radius:12px;box-shadow:0 0 40px #ff2bd655}
+.v2 .w{grid-column:span 5}
+.v2 .t{grid-column:span 3}
+.v2 .g{grid-column:span 4}
+.v2 .stat b{font-family:var(--fh);color:var(--acc);text-shadow:0 0 14px #22d3ee66}
+.v2 .tile i{color:var(--acc2);text-shadow:0 0 12px var(--acc2)}
+.v2 .btn{background:linear-gradient(90deg,var(--acc2),#7c5cff);color:#fff}
+
+/* ---------- 3 · IVORY BOUDOIR (light, editorial) ---------- */
+.v3{--bg:#f6efe6;--panel:#fffaf3;--panel2:#f0e4d6;--line:#2a1a1a22;--text:#2a1a1f;--muted:#8a7378;--acc:#b0304f;--acc2:#b8893c;--r:2px;--fh:"Cormorant Garamond",serif;--fill:linear-gradient(90deg,#b0304f,#d98aa0,#b8893c)}
+.v3 .btn{color:#fff;background:var(--acc)}
+.v3 .mast{display:flex;align-items:baseline;justify-content:space-between;padding:20px 48px 12px;border-bottom:3px double var(--text)}
+.v3 .mast h2{font-size:34px;letter-spacing:.04em;font-style:italic}
+.v3 .mast nav{display:flex;gap:22px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:700}
+.v3 .mast nav a.on{color:var(--acc);border-bottom:1px solid var(--acc)}
+.v3 .body{padding:34px 48px 90px;display:grid;grid-template-columns:1.5fr 1fr;gap:44px}
+.v3 .kicker{font:700 11px var(--fb);letter-spacing:.3em;text-transform:uppercase;color:var(--acc)}
+.v3 .big{font-size:clamp(54px,8cqw,108px);line-height:.92;font-weight:500;margin:10px 0 18px}
+.v3 .big em{color:var(--acc)}
+.v3 .lede{font:500 20px/1.5 var(--fh);max-width:34ch;color:#5b4249}
+.v3 .portrait{height:420px;border-radius:200px 200px 2px 2px;border:1px solid var(--line);box-shadow:12px 12px 0 var(--panel2)}
+.v3 .contents{display:grid;gap:0;margin-top:26px;border-top:1px solid var(--text)}
+.v3 .tile{flex-direction:row;align-items:baseline;gap:14px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:14px 4px}
+.v3 .tile:hover{transform:none;background:#b0304f0d}
+.v3 .tile i{display:none}
+.v3 .tile b{font:600 22px var(--fh);min-width:150px}
+.v3 .tile span{flex:1}
+.v3 .tile::after{content:attr(data-n);font:italic 500 18px var(--fh);color:var(--acc)}
+.v3 .card{border-radius:2px;background:var(--panel)}
+.v3 .li{background:transparent;border-bottom:1px dotted var(--line);border-radius:0;padding:8px 2px}
+.v3 .li .av{background:var(--acc);color:#fff}
+.v3 .stat b{font-size:34px}
+.v3 .duel{background:#2a1a1f;color:#f6efe6;border-radius:2px}
+.v3 .duel span{color:#d8c3c9}
+.v3 .goal .t{background:#2a1a1f18}
+.v3 .open{background:var(--panel);color:var(--muted)}
+
+/* ---------- 4 · ROYAL VIOLET (floating dock, soft bento) ---------- */
+.v4{--bg:#0d0a1f;--panel:#17133a;--panel2:#1e1950;--line:#a78bfa26;--text:#efeaff;--muted:#9a93c9;--acc:#c4b5fd;--acc2:#f0abfc;--r:26px;--fh:"Space Grotesk",sans-serif;--fill:linear-gradient(90deg,#8b5cf6,#c084fc,#f0abfc)}
+.v4::before{content:"";position:absolute;inset:-20% -10% auto;height:70%;background:radial-gradient(40% 50% at 30% 30%,#7c3aed55,transparent),radial-gradient(35% 45% at 75% 20%,#db2777333,transparent);filter:blur(30px);pointer-events:none}
+.v4 .wrap{position:relative;padding:28px 34px 140px;display:grid;gap:18px;grid-template-columns:repeat(6,1fr)}
+.v4 .head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between}
+.v4 .head h1{font-size:34px}
+.v4 .hero{grid-column:span 4;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;padding:26px;background:linear-gradient(180deg,#0000 30%,#0d0a1fe6),var(--img) 50% 18%/cover;border:0}
+.v4 .hero h2{font-size:42px}
+.v4 .wal{grid-column:span 2;display:grid;gap:12px;align-content:space-between;background:linear-gradient(160deg,#6d28d9,#a21caf);border:0}
+.v4 .wal .eyebrow{color:#fff9}
+.v4 .tiles{grid-column:1/-1;display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.v4 .tile{align-items:center;text-align:center;padding:22px 10px;background:var(--panel2);border-radius:24px}
+.v4 .tile i{font-size:28px;width:54px;height:54px;border-radius:18px;background:#ffffff12;align-items:center;justify-content:center}
+.v4 .a{grid-column:span 3}.v4 .b{grid-column:span 3}
+.v4 .dock{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:6px;padding:10px;border-radius:26px;background:#17133acc;backdrop-filter:blur(14px);border:1px solid var(--line);box-shadow:0 18px 50px #000a;z-index:6}
+.v4 .dock a{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;font-size:20px;color:var(--muted)}
+.v4 .dock a.on{background:var(--acc);color:#1b1140}
+.v4 .btn{background:#fff;color:#2b1a6b}
+
+/* ---------- 5 · EMERALD CASINO LOBBY ---------- */
+.v5{--bg:#04100c;--panel:#0a1f17;--panel2:#0e2a1f;--line:#d4a94a33;--text:#f3ecd6;--muted:#8fb3a1;--acc:#e0b64d;--acc2:#16a34a;--r:12px;--fh:"Bebas Neue",sans-serif;--fill:linear-gradient(90deg,#16a34a,#e0b64d)}
+.v5 .h,.v5 h1,.v5 h2,.v5 h3{font-weight:400;letter-spacing:.02em}
+.v5 .ticker{display:flex;gap:34px;padding:9px 0;overflow:hidden;white-space:nowrap;background:#e0b64d;color:#1a1204;font:700 12px var(--fb);letter-spacing:.08em;text-transform:uppercase}
+.v5 .ticker span{animation:mq 28s linear infinite;display:inline-flex;gap:34px;padding-left:34px}
+@keyframes mq{to{transform:translateX(-100%)}}
+.v5 .nav{display:flex;align-items:center;gap:6px;padding:14px 30px;border-bottom:1px solid var(--line)}
+.v5 .nav .brand{font:400 30px var(--fh);color:var(--acc);margin-right:22px;letter-spacing:.06em;white-space:nowrap}
+.v5 .nav a{padding:9px 14px;font:600 12px var(--fb);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.v5 .nav a.on{color:#1a1204;background:var(--acc);border-radius:99px}
+.v5 .banner{position:relative;min-height:340px;margin:22px 30px 0;border-radius:var(--r);overflow:hidden;background:linear-gradient(90deg,#04100cf2 25%,#04100c33 70%),url(../public/gamble/principessa-casino-hero.webp) 70% 40%/cover;border:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;padding:0 44px}
+.v5 .banner h1{font-size:clamp(56px,7cqw,104px);line-height:.9;color:var(--acc)}
+.v5 .banner p{max-width:38ch;color:#cfe0d5;margin:12px 0 20px;font-size:15px}
+.v5 .sec{padding:26px 30px 0}
+.v5 .sec h3{font-size:30px;margin-bottom:12px}
+.v5 .posters{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.v5 .tile{min-height:210px;justify-content:flex-end;background:linear-gradient(0deg,#04100cf0 20%,#04100c22),var(--img,none) center/cover,var(--panel);border-color:var(--line)}
+.v5 .tile b{font:400 28px var(--fh);letter-spacing:.03em;color:var(--acc)}
+.v5 .tile i{position:absolute;top:14px;left:14px;font-size:20px}
+.v5 .cols{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;padding:26px 30px 90px}
+.v5 .btn{background:var(--acc)}
+
+/* ---------- 6 · AURORA GLASS (rainbow, rail) ---------- */
+.v6{--bg:#0a0714;--panel:#ffffff12;--panel2:#ffffff1c;--line:#ffffff26;--text:#fbf7ff;--muted:#bdb2d6;--acc:#ffd9a0;--acc2:#ff5d9f;--r:22px;--fh:"Playfair Display",serif;--fill:linear-gradient(90deg,#ff5d9f,#ff8c69,#e9b95e,#7ddba3,#68c7d6,#8ea3ff,#b98cff,#ff5d9f)}
+.v6::before{content:"";position:absolute;inset:0;background:radial-gradient(40% 50% at 10% 10%,#ff5d9f55,transparent),radial-gradient(40% 50% at 90% 15%,#68c7d655,transparent),radial-gradient(50% 50% at 60% 100%,#b98cff55,transparent),radial-gradient(35% 40% at 20% 85%,#e9b95e33,transparent);pointer-events:none}
+.v6 .card,.v6 .tile,.v6 .duel{backdrop-filter:blur(18px);box-shadow:0 10px 40px #0005,inset 0 1px #fff2}
+.v6 .grid{position:relative;display:grid;grid-template-columns:1fr 330px;gap:20px;padding:26px 30px 90px}
+.v6 .center{display:grid;gap:18px;align-content:start}
+.v6 .rail{display:grid;gap:18px;align-content:start}
+.v6 .nav{position:relative;display:flex;align-items:center;gap:8px;padding:16px 30px}
+.v6 .nav .brand{font:600 22px var(--fh);margin-right:auto}
+.v6 .nav a{padding:8px 14px;border-radius:99px;font-size:12px;font-weight:600;color:var(--muted)}
+.v6 .nav a.on{background:#ffffff26;color:#fff}
+.v6 .hero{display:grid;grid-template-columns:1fr 220px;gap:20px;min-height:260px}
+.v6 .hero h1{font-size:50px;font-style:italic;background:var(--fill);background-size:300px 100%;-webkit-background-clip:text;color:transparent;animation:flow 6s linear infinite}
+.v6 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.v6 .btn{background:linear-gradient(90deg,#ff5d9f,#b98cff);color:#fff}
+
+/* ---------- 7 · BONE & BLOOD (brutalist poster) ---------- */
+.v7{--bg:#0b0b0b;--panel:#111;--panel2:#161616;--line:#f2ede4;--text:#f2ede4;--muted:#9c958a;--acc:#e11d2e;--acc2:#e11d2e;--r:0;--fh:"Bebas Neue",sans-serif;--fb:"DM Mono",monospace;--fill:repeating-linear-gradient(45deg,#e11d2e 0 10px,#b1101f 10px 20px)}
+.v7 .h,.v7 h1,.v7 h2,.v7 h3{font-weight:400}
+.v7 .card,.v7 .tile,.v7 .duel,.v7 .btn{border-radius:0;border:2px solid var(--line)}
+.v7 .card{box-shadow:6px 6px 0 var(--acc)}
+.v7 .tile:hover{background:var(--acc);color:#fff;transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--line)}
+.v7 .tile:hover i,.v7 .tile:hover span{color:#fff}
+.v7 .btn{background:var(--acc);color:#fff;border-color:var(--line)}
+.v7 .head{display:flex;border-bottom:2px solid var(--line)}
+.v7 .head .brand{padding:14px 22px;font:400 30px var(--fh);background:var(--acc);letter-spacing:.04em}
+.v7 .head nav{display:flex;flex:1;overflow:hidden}
+.v7 .head nav a{padding:20px 18px;border-left:2px solid var(--line);font:500 12px var(--fb);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.v7 .head nav a.on{background:var(--text);color:#000}
+.v7 .poster{position:relative;display:grid;grid-template-columns:1.4fr 1fr;border-bottom:2px solid var(--line)}
+.v7 .poster .txt{padding:34px 34px 30px;border-right:2px solid var(--line)}
+.v7 .poster h1{font-size:clamp(90px,15cqw,230px);line-height:.82;letter-spacing:-.01em}
+.v7 .poster h1 span{color:var(--acc);display:block}
+.v7 .poster .av-lg{min-height:360px;filter:grayscale(1) contrast(1.15)}
+.v7 .poster .av-lg::after{content:"";position:absolute;inset:0;background:var(--acc);mix-blend-mode:multiply;opacity:.55}
+.v7 .strip{display:flex;gap:0;overflow:hidden;border-bottom:2px solid var(--line);background:var(--text);color:#000;font:400 28px var(--fh);white-space:nowrap}
+.v7 .strip span{animation:mq 24s linear infinite;display:inline-flex;gap:26px;padding:6px 0 6px 26px}
+.v7 .body{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:26px 28px 90px}
+.v7 .tilegrid{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.v7 .span2{grid-column:span 2}
+.v7 .goal .t{border-radius:0;border:2px solid var(--line);height:18px;background:#000}
+.v7 .goal .f{background-size:auto}
+.v7 .li{border-radius:0;background:transparent;border-bottom:1px solid #f2ede433}
+.v7 .li .av{border-radius:0;background:var(--text);color:#000}
+
+/* grid/flex children must be allowed to shrink or wide content (tickers, strips) blows the layout out */
+.v .main>*,.v .wrap>*,.v .bento>*,.v .grid>*,.v .center>*,.v .rail>*,.v .cols>*,.v .body>*,.v .two>*,.v .hero>*,.v .shell>*,.v .posters>*,.v .tiles>*,.v .tilegrid>*,.v .card,.v .tile,.v .duel,.v .list,.v .li,.v .poster>*{min-width:0}
+.v5 .nav,.v1 .shell,.v4 .head{min-width:0}
+.v5 .nav{overflow:hidden}
+
+/* ---------- narrow / phone (container queries so the Phone toggle works) ---------- */
+@container st (max-width:900px){
+ .v1 .shell{grid-template-columns:1fr}.v1 .side{display:none}.v1 .tiles{grid-template-columns:repeat(2,1fr)}.v1 .two,.v1 .hero{grid-template-columns:1fr}.v1 .hero .av-lg{min-height:200px}.v1 .stats{grid-template-columns:repeat(2,1fr)}.v1 .main{padding:16px 16px 90px}
+ .v2 .top nav{display:none}.v2 .hero,.v2 .w,.v2 .t,.v2 .g{grid-column:1/-1}.v2 .hero{grid-template-columns:1fr}.v2 .hero h1{font-size:42px}.v2 .t{grid-column:span 6}.v2 .bento{padding:16px 16px 90px}
+ .v3 .body{grid-template-columns:1fr;padding:22px 20px 90px;gap:28px}.v3 .mast{padding:16px 20px}.v3 .mast nav{display:none}.v3 .portrait{height:300px}.v3 .tile b{min-width:110px;font-size:19px}.v3 .tile span{display:none}
+ .v4 .hero,.v4 .wal,.v4 .a,.v4 .b{grid-column:1/-1}.v4 .tiles{grid-template-columns:repeat(3,1fr)}.v4 .wrap{padding:18px 16px 130px}.v4 .dock a{width:40px;height:40px}
+ .v5 .posters{grid-template-columns:repeat(2,1fr)}.v5 .cols{grid-template-columns:1fr}.v5 .banner{margin:14px;padding:0 22px}.v5 .nav a:not(.on){display:none}.v5 .sec,.v5 .cols{padding-left:14px;padding-right:14px}
+ .v6 .hero .av-lg{min-height:220px}.v6 .grid{grid-template-columns:1fr;padding:14px 14px 90px}.v6 .nav a{display:none}.v6 .hero{grid-template-columns:1fr}.v6 .tiles{grid-template-columns:repeat(2,1fr)}.v6 .nav{padding:14px}
+ .v7 .poster{grid-template-columns:1fr}.v7 .poster .txt{border-right:0}.v7 .body,.v7 .tilegrid{grid-template-columns:repeat(2,1fr)}.v7 .span2{grid-column:1/-1}.v7 .head nav a:not(.on){display:none}
+}
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+<div class="stagewrap"><div class="stage" id="stage"></div></div>
+
+<script>
+/* ---------- shared sample data (same on every concept) ---------- */
+const P={
+ home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+ star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+ crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+ dice:'<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/>',
+ wheel:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 3v7M12 14v7M3 12h7M14 12h7"/>',
+ paw:'<circle cx="7" cy="10" r="2"/><circle cx="17" cy="10" r="2"/><circle cx="10" cy="6" r="2"/><circle cx="14" cy="6" r="2"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2 5 2s5 0 5-2c0-2-2-5-5-5z"/>',
+ bag:'<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+ cart:'<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M3 4h3l2.5 11h10L21 8H7"/>',
+ box:'<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+ file:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+ image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-4 3-6 6.5-6s6.5 2 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 6.5M18 14c2.5.5 3.5 2.5 3.5 6"/>',
+ coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.5-2.5 1.7-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.5 2.5-1.5"/>',
+ swords:'<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/>',
+ arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ chat:'<path d="M4 5h16v11H9l-5 4z"/>',
+ flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 2 2 2 0-3-1-5 1-8z"/>',
+ heart:'<path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z"/>'
+};
+const ic=n=>`<svg class="ic" viewBox="0 0 24 24">${P[n]}</svg>`;
+const D={
+ user:'Preview User',coins:'12,480',pm:'25',aff:62,dev:'4,210',streak:6,pet:'340',
+ nav:[['home','Home'],['star','Runway'],['crown','Shrine of Principessa'],['dice','Games'],['wheel','Gamble & Wheels'],['paw','Principessa Pet'],['bag','Money Shop'],['cart','Shop'],['box','Cases'],['file','Debt Contracts'],['image','Gallery'],['users','Invite']],
+ tiles:[
+  ['dice','Gamble Hall','Seven tables. Set your stake and meet her odds.','../public/gamble/principessa-reels-dice.webp'],
+  ['box','Cases','Open, upgrade, duel. Find your next piece.','../public/gamble/principessa-risk-table.webp'],
+  ['crown','Shrine','Make an offering. Discover her memories.','../public/home-principessa-court.png'],
+  ['bag','Money Shop','Spend Principessa Money on something worth keeping.','../public/gamble/principessa-wheel-chamber.webp'],
+  ['file','Debt Contracts','Your terms. Your promise. Her signature.','../public/evil-principessa.webp'],
+  ['paw','Pet','Train, tease and be ranked.','../public/pet-wait-reveal.webp'],
+  ['star','Runway','Dress for her. Be judged by the court.','../public/character.webp'],
+  ['image','Gallery','Memories you have earned.','../public/home-principessa-court.png']],
+ tributes:[['velvetthrall','$50'],['miss_obedient','$25'],['kneel4her','$100'],['lowercase_sub','$10'],['gilded_pet','$75']],
+ board:[['kneel4her','12,840'],['velvetthrall','10,115'],['gilded_pet','9,402'],['miss_obedient','7,988'],['lowercase_sub','6,310']],
+ opens:[['principessa-case','Plush','l'],['premium-case','Collar','r'],['principessa-case','Ears','e'],['cat_case','Tail',''],['cosplay_case','Bra','r'],['principessa-case','Tag','']]
+};
+const av=n=>`<span class="av">${n[0].toUpperCase()}</span>`;
+const tile=(t,i)=>`<a class="tile" data-n="0${i+1}" style="--img:url(${t[3]})"><i>${ic(t[0])}</i><b>${t[1]}</b><span>${t[2]}</span></a>`;
+const tiles=n=>D.tiles.slice(0,n).map(tile).join('');
+const goal=()=>`<div class="goal"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="eyebrow">All-time tributed</span><b style="font-size:13px">$3,706 <span class="muted" style="font-weight:700">/ $4,000</span></b></div><div class="t" style="margin-top:12px"><div class="f"></div></div><div class="ends"><span><b>$3,500</b> last target</span><span>41% · <b>$294</b> to go</span></div></div>`;
+const tribs=()=>`<div class="list">${D.tributes.map(t=>`<div class="li">${av(t[0])}<span class="nm">@${t[0]}</span><span class="am">${t[1]}</span></div>`).join('')}</div>`;
+const board=()=>`<div class="list">${D.board.map((t,i)=>`<div class="li"><span class="rk">${i+1}</span>${av(t[0])}<span class="nm">@${t[0]}</span><span class="am">${t[1]}</span></div>`).join('')}</div>`;
+const opens=()=>`<div class="opens">${D.opens.map(o=>`<div class="open r-${o[2]}"><img src="../public/crate-icons/${o[0]}.webp" alt="">${o[1]}</div>`).join('')}</div>`;
+const duels=()=>`<div class="duel"><i>${ic('swords')}</i><div><b>2 challengers want a rival</b><span>Tribute duel · free to accept</span></div><a class="btn">Take it</a></div><div class="duel"><i>${ic('box')}</i><div><b>3 sealed hauls are waiting</b><span>Crate duel · highest total takes both</span></div><a class="btn">Open</a></div>`;
+const stats=()=>`<div class="stat"><b>${D.coins}</b><span>Coins</span></div><div class="stat"><b>${D.dev}</b><span>Devotion</span></div><div class="stat"><b>${D.pet}</b><span>Pet score</span></div><div class="stat"><b>${D.streak} days</b><span>Streak</span></div>`;
+const chat=()=>`<div class="chat">${ic('chat')} Live Chat</div>`;
+const navItems=(sel='a')=>D.nav.map((n,i)=>`<a class="${i===0?'on':''}">${ic(n[0])}${n[1]}</a>`).join('');
+
+/* ---------- the seven concepts ---------- */
+const V=[
+['Velvet Court','Refined current look: wine, black, gold. Sidebar.',()=>`
+<div class="v v1"><div class="shell">
+ <aside class="side"><div class="brand"><em>V</em>Vault Mistress</div>
+  <div class="wallet"><span class="coins">${ic('coin')} ${D.coins}</span><span class="muted">PM ${D.pm}</span></div>
+  <nav class="nav">${navItems()}</nav></aside>
+ <main class="main">
+  <div class="row" style="justify-content:space-between"><h2 class="h" style="font-size:24px;font-style:italic">All eyes on her.</h2><span class="pill live">Live</span></div>
+  <div class="hero card"><div class="av-lg"><img src="../public/character.webp" alt=""></div>
+   <div><span class="eyebrow">Your court</span><h1>${D.user}</h1><span class="muted" style="font-size:13px">Level 1 · Devoted pet</span>
+    <div class="stats">${stats()}</div>
+    <div class="row" style="margin-top:18px;gap:10px"><a class="btn">Make her notice</a><a class="btn ghost">Daily rewards</a></div></div></div>
+  ${duels()}
+  <div class="tiles">${tiles(8)}</div>
+  <div class="two"><div class="card"><div class="eyebrow" style="margin-bottom:12px">Recent tributes</div>${tribs()}<div style="margin-top:16px">${goal()}</div></div>
+   <div class="card"><div class="eyebrow" style="margin-bottom:12px">Devotion standings</div>${board()}<div class="eyebrow" style="margin:16px 0 10px">Recent openings</div>${opens()}</div></div>
+ </main></div>${chat()}</div>`],
+
+['Neon Noir','Black glass, magenta and cyan. Top nav, bento grid.',()=>`
+<div class="v v2"><header class="top"><div class="brand">VAULT//MISTRESS</div><nav>${D.nav.slice(0,8).map((n,i)=>`<a class="${i===0?'on':''}">${n[1]}</a>`).join('')}</nav><span class="coins">${ic('coin')} ${D.coins}</span></header>
+ <div class="bento">
+  <div class="card hero"><div><span class="eyebrow">Private court</span><h1>All hers.<br>Including you.</h1><p class="muted" style="margin:14px 0 20px;max-width:34ch;font-size:14px">Play. Collect. Devote. Your standing moves every time you do.</p><div class="row"><a class="btn">Enter the floor</a><a class="btn ghost">Daily rewards</a></div></div><div class="av-lg" style="min-height:280px"><img src="../public/character.webp" alt=""></div></div>
+  <div class="card w"><div class="stats" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">${stats()}</div></div>
+  <div class="card w" style="display:grid;gap:10px">${duels()}</div>
+  ${D.tiles.slice(0,4).map(t=>`<div class="t">${tile(t,0).replace('class="tile"','class="tile" style="height:100%"')}</div>`).join('')}
+  <div class="card g">${goal()}</div><div class="card g"><div class="eyebrow" style="margin-bottom:10px">Recent tributes</div>${tribs()}</div><div class="card g"><div class="eyebrow" style="margin-bottom:10px">Standings</div>${board()}</div>
+ </div>${chat()}</div>`],
+
+['Ivory Boudoir','Light, editorial, serif. Magazine layout with a contents list.',()=>`
+<div class="v v3"><header class="mast"><h2>Vault Mistress</h2><nav>${D.nav.slice(0,6).map((n,i)=>`<a class="${i===0?'on':''}">${n[1]}</a>`).join('')}</nav><span class="coins">${ic('coin')} ${D.coins}</span></header>
+ <div class="body">
+  <section><span class="kicker">Principessa's private court</span><h1 class="h big">All hers.<br><em>Including you.</em></h1><p class="lede">Play. Collect. Devote. Every offering is remembered, every rank is earned in public.</p>
+   <div class="row" style="margin:22px 0 8px"><a class="btn">Make her notice</a><a class="btn ghost">Daily rewards</a></div>
+   <div class="contents">${tiles(8)}</div></section>
+  <aside style="display:grid;gap:22px;align-content:start"><div class="av-lg portrait"><img src="../public/character.webp" alt=""></div>
+   <div class="card"><div class="stats" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">${stats()}</div></div>
+   ${duels()}<div class="card"><div class="eyebrow" style="margin-bottom:10px">Recent tributes</div>${tribs()}<div style="margin-top:16px">${goal()}</div></div></aside>
+ </div></div>`],
+
+['Royal Violet','Indigo and lilac, huge radii, floating dock instead of a sidebar.',()=>`
+<div class="v v4"><div class="wrap">
+ <div class="head"><div><span class="eyebrow">Good evening</span><h1 class="h">${D.user}</h1></div><span class="pill live">Live</span></div>
+ <div class="card hero" style="--img:url(../public/home-principessa-court.png)"><span class="eyebrow">Make her notice</span><h2 class="h">All hers.<br>Including you.</h2><div class="row" style="margin-top:16px"><a class="btn">Enter</a><a class="btn ghost">Daily rewards</a></div></div>
+ <div class="card wal"><div><span class="eyebrow">Coins</span><b class="h" style="font-size:40px;display:block">${D.coins}</b></div><div class="row" style="justify-content:space-between"><span class="coins">PM ${D.pm}</span><a class="btn">${ic('plus')} Add</a></div></div>
+ <div class="tiles">${D.tiles.slice(0,6).map(tile).join('')}</div>
+ <div class="card a">${goal()}<div style="margin-top:18px">${duels().split('</div><div class="duel">')[0]}</div></div></div>
+ <div class="card b"><div class="eyebrow" style="margin-bottom:10px">Devotion standings</div>${board()}</div>
+ <div class="dock">${D.nav.slice(0,7).map((n,i)=>`<a class="${i===0?'on':''}">${ic(n[0])}</a>`).join('')}</div>${chat()}</div></div>`],
+
+['Emerald Lobby','Casino-lobby: felt green and gold, big poster cards, ticker.',()=>`
+<div class="v v5"><div class="ticker"><span>${D.tributes.map(t=>`@${t[0]} offered ${t[1]}`).join(' ✦ ')} ✦ ${D.tributes.map(t=>`@${t[0]} offered ${t[1]}`).join(' ✦ ')}</span></div>
+ <div class="nav"><span class="brand">VAULT MISTRESS</span>${[['','Home'],['','Runway'],['','Shrine'],['','Games'],['','Gamble'],['','Pet'],['','Shop']].map((n,i)=>`<a class="${i===0?'on':''}">${n[1]}</a>`).join('')}<span style="flex:1"></span><span class="coins">${ic('coin')} ${D.coins}</span></div>
+ <div class="banner"><span class="eyebrow" style="color:var(--acc)">Tonight at the tables</span><h1 class="h">Seven tables.<br>One house.</h1><p>Set your stake and meet her odds. The higher your devotion, the warmer the room.</p><div class="row"><a class="btn">Enter Gamble Hall</a><a class="btn ghost">Daily rewards</a></div></div>
+ <div class="sec"><h3 class="h">The floor</h3><div class="posters">${D.tiles.slice(0,4).map(tile).join('')}</div></div>
+ <div class="sec"><div class="posters">${D.tiles.slice(4,8).map(tile).join('')}</div></div>
+ <div class="cols"><div class="card"><div class="eyebrow" style="margin-bottom:10px">Standings</div>${board()}</div><div class="card"><div class="eyebrow" style="margin-bottom:10px">Open tables</div><div class="list" style="gap:10px">${duels()}</div></div><div class="card">${goal()}<div class="eyebrow" style="margin:18px 0 10px">Recent openings</div>${opens()}</div></div>${chat()}</div>`],
+
+['Aurora Glass','Mesh gradient, frosted glass, the flowing rainbow from the court site.',()=>`
+<div class="v v6"><header class="nav"><span class="brand">Vault Mistress</span>${D.nav.slice(0,6).map((n,i)=>`<a class="${i===0?'on':''}">${n[1]}</a>`).join('')}<span class="coins" style="margin-left:10px">${ic('coin')} ${D.coins}</span></header>
+ <div class="grid"><div class="center">
+  <div class="card hero"><div style="align-self:end"><span class="eyebrow">Principessa's court</span><h1 class="h" style="margin:8px 0 12px">All hers.<br>Including you.</h1><div class="row"><a class="btn">Enter</a><a class="btn ghost">Daily rewards</a></div></div><div class="av-lg" style="border-radius:18px"><img src="../public/character.webp" alt=""></div></div>
+  <div class="tiles">${tiles(8)}</div>
+  <div class="card"><div class="stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">${stats()}</div></div></div>
+  <div class="rail">${duels()}<div class="card">${goal()}</div><div class="card"><div class="eyebrow" style="margin-bottom:10px">Recent tributes</div>${tribs()}</div><div class="card"><div class="eyebrow" style="margin-bottom:10px">Devotion</div>${board()}</div></div>
+ </div>${chat()}</div>`],
+
+['Bone & Blood','Brutalist poster: bone white, blood red, hard shadows, mono type.',()=>`
+<div class="v v7"><header class="head"><div class="brand">VAULT MISTRESS</div><nav>${D.nav.slice(0,7).map((n,i)=>`<a class="${i===0?'on':''}">${n[1]}</a>`).join('')}</nav><div class="coins" style="padding:0 20px;border-left:2px solid var(--line)">${D.coins} ¢</div></header>
+ <section class="poster"><div class="txt"><span class="eyebrow">Principessa's private court</span><h1 class="h">ALL HERS.<span>INCLUDING YOU.</span></h1><div class="row" style="margin-top:22px"><a class="btn">Enter</a><a class="btn ghost">Daily rewards</a></div></div><div class="av-lg"><img src="../public/character.webp" alt=""></div></section>
+ <div class="strip"><span>${Array(8).fill('PLAY · COLLECT · DEVOTE ·').join(' ')}</span><span>${Array(8).fill('PLAY · COLLECT · DEVOTE ·').join(' ')}</span></div>
+ <div class="body"><div class="tilegrid">${tiles(4)}</div>
+  <div class="card span2"><div class="eyebrow" style="margin-bottom:12px">Standings</div>${board()}</div>
+  <div class="card span2">${goal()}<div style="margin-top:18px;display:grid;gap:10px">${duels()}</div></div>
+  <div class="tilegrid">${D.tiles.slice(4,8).map(tile).join('')}</div></div>${chat()}</div>`]
+];
+
+/* ---------- switcher ---------- */
+const bar=document.getElementById('bar'),stage=document.getElementById('stage');
+let cur=Math.max(0,Math.min(V.length-1,(parseInt(location.hash.slice(1))||1)-1)),phone=false;
+function paint(){
+ bar.innerHTML='<b>Home concepts</b>'+V.map((v,i)=>`<button class="${i===cur?'on':''}" data-i="${i}" title="${v[1]}">${i+1} · ${v[0]}</button>`).join('')+'<span class="sp"></span><button data-phone>'+(phone?'Desktop':'Phone')+'</button>';
+ stage.className='stage'+(phone?' phone':'');
+ stage.innerHTML=V[cur][2]().replace('class="v ','class="v on ');
+ history.replaceState(null,'','#'+(cur+1));
+}
+bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if('phone' in b.dataset)phone=!phone;else cur=+b.dataset.i;paint()});
+addEventListener('keydown',e=>{if(e.key==='ArrowRight')cur=(cur+1)%V.length;else if(e.key==='ArrowLeft')cur=(cur+V.length-1)%V.length;else if(/^[1-7]$/.test(e.key))cur=+e.key-1;else return;paint()});
+paint();
+</script>
+</body>
+</html>

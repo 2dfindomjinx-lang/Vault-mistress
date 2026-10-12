@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vault Mistress · Emerald Lobby (home concept)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!--
+  Standalone design concept for the Vault Mistress HOME page: "Emerald Lobby".
+  Nothing in the real site imports this file. Images load from ../public, so
+  open it from the design-concepts folder inside the project.
+-->
+<style>
+:root{
+  --bg:#030d09;--bg2:#06150e;--panel:#0a1f16;--panel2:#0e2a1e;--panel3:#123325;
+  --line:rgba(224,182,77,.22);--line2:rgba(255,255,255,.07);
+  --gold:#e0b64d;--gold2:#f6dd94;--gold3:#9a7424;
+  --cream:#f3ecd6;--muted:#8fb3a1;--dim:#5f8271;
+  --ruby:#e11d48;--emerald:#34d399;
+  --head:"Bebas Neue",Impact,sans-serif;--body:Inter,system-ui,sans-serif;--ital:"Cormorant Garamond",Georgia,serif;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--cream);font:400 14px/1.5 var(--body);-webkit-font-smoothing:antialiased;min-height:100vh;
+  background-image:radial-gradient(900px 500px at 15% -5%,rgba(52,211,153,.10),transparent 60%),radial-gradient(700px 500px at 100% 10%,rgba(224,182,77,.07),transparent 60%),
+  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .2  0 0 0 0 .5  0 0 0 0 .35  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");}
+a{color:inherit;text-decoration:none;cursor:pointer}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+img{display:block;max-width:100%}
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.tab{font-variant-numeric:tabular-nums}
+.eyebrow{font:800 10px/1 var(--body);letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- buttons / chips ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:10px;font:800 11px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;transition:transform .15s,filter .15s,background .15s;white-space:nowrap}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,var(--gold3));color:#1c1405;box-shadow:0 6px 20px rgba(224,182,77,.25),inset 0 1px rgba(255,255,255,.5)}
+.btn.ruby{background:linear-gradient(180deg,#fb5b7d,var(--ruby));color:#fff;box-shadow:0 6px 20px rgba(225,29,72,.3)}
+.btn.line{border:1px solid var(--line);color:var(--cream);background:rgba(255,255,255,.03)}
+.btn.line:hover{border-color:var(--gold);background:rgba(224,182,77,.08)}
+.btn.sm{padding:9px 13px;font-size:10px}
+.chip{padding:8px 15px;border-radius:99px;border:1px solid var(--line2);font:700 11px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:rgba(255,255,255,.03);transition:.15s}
+.chip:hover{color:var(--cream);border-color:var(--line)}
+.chip.on{background:var(--gold);color:#1c1405;border-color:var(--gold)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:6px;font:800 9px/1 var(--body);letter-spacing:.14em;text-transform:uppercase}
+.tag.hot{background:var(--ruby);color:#fff}
+.tag.new{background:var(--emerald);color:#04241a}
+.tag.live{background:rgba(52,211,153,.14);color:var(--emerald);border:1px solid rgba(52,211,153,.3)}
+.tag.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.35}}
+
+/* ---------- ticker + header ---------- */
+.ticker{overflow:hidden;white-space:nowrap;background:linear-gradient(90deg,var(--gold3),var(--gold),var(--gold3));color:#1c1405;font:800 11px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;padding:9px 0}
+.ticker div{display:inline-flex;gap:38px;padding-left:38px;animation:mq 40s linear infinite}
+.ticker span::before{content:"✦";margin-right:38px;opacity:.5}
+@keyframes mq{to{transform:translateX(-50%)}}
+header{position:sticky;top:0;z-index:50;background:rgba(3,13,9,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.hd{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:22px;padding:12px 24px}
+.brand{display:flex;align-items:center;gap:11px;flex:none}
+.crest{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 30% 25%,var(--gold2),var(--gold3));color:#1c1405;font:400 22px var(--head);box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--gold),0 0 20px rgba(224,182,77,.35)}
+.brand b{display:block;font:400 26px/1 var(--head);letter-spacing:.07em;color:var(--gold2)}
+.brand small{display:block;font:italic 600 13px/1 var(--ital);color:var(--muted);margin-top:2px}
+nav.main{display:flex;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+nav.main::-webkit-scrollbar{display:none}
+nav.main a{padding:10px 14px;border-radius:99px;font:700 12px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:8px}
+nav.main a:hover{color:var(--cream)}
+nav.main a.on{background:var(--gold);color:#1c1405}
+.wallet{display:flex;align-items:center;gap:8px;flex:none}
+.pill{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:99px;background:var(--panel);border:1px solid var(--line);font:800 14px/1 var(--body)}
+.pill small{font:700 9px/1 var(--body);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.pill .plus{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#1c1405;font-size:14px}
+.me{display:flex;align-items:center;gap:10px;padding:4px 12px 4px 4px;border-radius:99px;border:1px solid var(--line2);background:var(--panel)}
+.me img{width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid var(--gold)}
+.me b{display:block;font-size:12px;line-height:1.1}.me small{font-size:10px;color:var(--muted)}
+
+/* ---------- page grid ---------- */
+.page{max-width:1400px;margin:0 auto;padding:22px 24px 80px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:24px;align-items:start}
+.main-col{display:grid;grid-template-columns:minmax(0,1fr);gap:26px;min-width:0}
+.aside{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;position:sticky;top:84px;min-width:0}
+.panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:var(--r);position:relative}
+.panel>.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px 0}
+.panel>.ph h3{font:400 22px/1 var(--head);letter-spacing:.06em;color:var(--gold2)}
+.sec-h{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.sec-h h2{font:400 38px/.95 var(--head);letter-spacing:.04em;color:var(--cream)}
+.sec-h h2 em{font:italic 600 22px var(--ital);color:var(--gold);letter-spacing:0;margin-left:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ---------- welcome strip ---------- */
+.welcome{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:14px 18px}
+.welcome .av{width:54px;height:54px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid var(--gold);box-shadow:0 0 0 4px rgba(224,182,77,.12)}
+.welcome h1{font:400 30px/1 var(--head);letter-spacing:.05em}
+.welcome h1 em{font:italic 600 24px var(--ital);color:var(--gold);letter-spacing:0}
+.aff{display:flex;align-items:center;gap:10px;margin-top:7px;font-size:11px;color:var(--muted)}
+.aff .bar{flex:1;max-width:240px;height:6px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden}
+.aff .bar i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--ruby),var(--gold));border-radius:inherit}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.stat{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.stat i{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:rgba(224,182,77,.1);color:var(--gold);font-size:19px;flex:none}
+.stat b{display:block;font:700 20px/1.1 var(--body)}
+.stat small{font:700 9px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- hero ---------- */
+.hero-row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr);gap:16px}
+.hero{position:relative;min-height:410px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#000;isolation:isolate}
+.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:75% 40%;z-index:-2;transition:transform 8s ease}
+.hero:hover>img{transform:scale(1.04)}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(3,13,9,.96) 8%,rgba(3,13,9,.65) 42%,rgba(3,13,9,.05) 75%),linear-gradient(0deg,rgba(3,13,9,.85),transparent 40%)}
+.bulbs{position:absolute;inset:0;pointer-events:none;padding:9px;border-radius:inherit}
+.bulbs::before,.bulbs::after{content:"";position:absolute;inset:9px;border-radius:12px;background:radial-gradient(circle,#ffe8a0 0 2.3px,transparent 3.4px) 0 0/24px 24px;filter:drop-shadow(0 0 4px #ffcf5a);
+  -webkit-mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);padding:0 0 0 0;border:5px solid transparent}
+.bulbs::before{animation:bulb 1.4s steps(1) infinite}
+.bulbs::after{background-position:12px 12px;animation:bulb 1.4s steps(1) infinite reverse}
+@keyframes bulb{50%{opacity:.25}}
+.hero .in{position:absolute;left:0;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:34px 42px;max-width:600px}
+.hero h1{font:400 clamp(54px,7.2vw,98px)/.88 var(--head);letter-spacing:.02em;background:linear-gradient(180deg,var(--gold2),var(--gold) 60%,var(--gold3));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(0,0,0,.6))}
+.hero p{color:#cfe2d6;max-width:36ch;font-size:15px}
+.stakes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stakes span{font:700 10px/1 var(--body);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.stakes button{min-width:54px;padding:9px 12px;border-radius:99px;border:1px solid var(--line);background:rgba(0,0,0,.4);font:800 12px/1 var(--body)}
+.stakes button.on{background:var(--gold);color:#1c1405;border-color:var(--gold)}
+.hero .meta{position:absolute;right:20px;bottom:16px;display:flex;gap:8px}
+.side-stack{display:grid;gap:16px;grid-template-rows:auto 1fr}
+.daily{padding:16px}
+.daily h3,.jack h3{font:400 24px/1 var(--head);letter-spacing:.05em;color:var(--gold2);margin:8px 0 12px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:14px}
+.day{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font:800 11px var(--body);border:1px solid var(--line2);color:var(--dim);background:rgba(255,255,255,.03)}
+.day.done{background:rgba(224,182,77,.16);color:var(--gold);border-color:var(--line)}
+.day.now{background:var(--gold);color:#1c1405;border-color:var(--gold);box-shadow:0 0 0 4px rgba(224,182,77,.2);animation:pulse 2s infinite}
+.day.gift{color:var(--ruby);border-color:rgba(225,29,72,.4)}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(224,182,77,0)}}
+.jack{padding:16px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(120% 100% at 100% 0,rgba(224,182,77,.12),transparent 60%),linear-gradient(180deg,var(--panel),var(--bg2))}
+.jack .big{font:400 48px/1 var(--head);letter-spacing:.03em;color:var(--cream)}
+.jack .big small{font:600 15px var(--body);color:var(--muted);letter-spacing:0;margin-left:6px}
+.goal .t{height:12px;border-radius:99px;background:rgba(255,255,255,.08);box-shadow:inset 0 1px 4px rgba(0,0,0,.6),0 0 0 1px rgba(232,201,145,.1);overflow:hidden;margin-top:14px;position:relative}
+.goal .f{display:block;height:100%;width:41%;border-radius:inherit;background-image:linear-gradient(90deg,#ff5d9f,#ff8c69,#e9b95e,#7ddba3,#68c7d6,#8ea3ff,#b98cff,#ff5d9f);background-size:260px 100%;box-shadow:0 0 14px rgba(255,122,177,.4);animation:flow 5.5s linear infinite;position:relative}
+.goal .f::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent) -140% 0/55% 100% no-repeat;animation:sweep 3.6s ease-in-out infinite}
+@keyframes flow{to{background-position:260px 0}}
+@keyframes sweep{0%{background-position:-140% 0}55%,100%{background-position:240% 0}}
+.goal .ends{display:flex;justify-content:space-between;margin-top:8px;font:700 11px var(--body);color:var(--muted)}
+.goal .ends b{color:var(--cream)}
+
+/* ---------- floor (game grid) ---------- */
+.games{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.game{position:relative;display:flex;flex-direction:column;border-radius:var(--r);overflow:hidden;background:var(--panel);border:1px solid var(--line2);transition:transform .22s,border-color .22s,box-shadow .22s}
+.game:hover{transform:translateY(-5px);border-color:var(--gold);box-shadow:0 18px 40px rgba(0,0,0,.5),0 0 0 1px rgba(224,182,77,.25)}
+.game .art{position:relative;aspect-ratio:3/2;overflow:hidden}
+.game .art img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+.game:hover .art img{transform:scale(1.08)}
+.game .art::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--panel) 0,transparent 55%)}
+.game .tags{position:absolute;top:10px;left:10px;display:flex;gap:6px;z-index:2}
+.game .play{position:absolute;z-index:2;left:50%;top:44%;transform:translate(-50%,10px);opacity:0;transition:.2s}
+.game:hover .play{opacity:1;transform:translate(-50%,0)}
+.game .body{padding:2px 14px 14px;display:grid;gap:6px}
+.game h3{font:400 25px/1 var(--head);letter-spacing:.05em;color:var(--gold2)}
+.game p{font-size:12px;color:var(--muted);min-height:34px}
+.game .foot{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--line2);font:700 11px var(--body);color:var(--muted)}
+.game .foot b{color:var(--cream)}
+.game .foot span{display:flex;align-items:center;gap:6px}
+.game.hide{display:none}
+.game.more{align-items:center;justify-content:center;text-align:center;gap:10px;padding:20px;background:repeating-linear-gradient(45deg,rgba(224,182,77,.05) 0 10px,transparent 10px 20px),var(--panel);border-style:dashed;border-color:var(--line)}
+.game.more h3{font-size:30px}
+
+/* ---------- services ---------- */
+.services{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.svc{position:relative;display:grid;grid-template-columns:1fr 112px;align-items:center;min-height:150px;padding:18px 8px 18px 18px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line2);background:radial-gradient(110% 120% at 100% 100%,rgba(52,211,153,.14),transparent 60%),linear-gradient(135deg,var(--panel2),var(--bg2));transition:.2s}
+.svc:hover{border-color:var(--gold);transform:translateY(-3px)}
+.svc h3{font:400 26px/1 var(--head);letter-spacing:.05em;color:var(--gold2)}
+.svc p{font-size:12px;color:var(--muted);margin:6px 0 12px;max-width:24ch}
+.svc img{width:112px;height:130px;object-fit:contain;object-position:50% 100%;filter:drop-shadow(0 10px 14px rgba(0,0,0,.55))}
+.svc .go{display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.svc .badge{position:absolute;top:12px;right:12px}
+
+/* ---------- duel lobby ---------- */
+.lobby{overflow:hidden}
+.lobby .head,.lobby .row{display:grid;grid-template-columns:70px minmax(0,1.5fr) 120px 150px 130px;gap:14px;align-items:center;padding:0 18px}
+.lobby .head{padding-top:12px;padding-bottom:12px;background:rgba(0,0,0,.25);font:800 9px/1 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line2)}
+.lobby .row{min-height:84px;border-bottom:1px solid var(--line2);transition:background .15s}
+.lobby .row:last-child{border-bottom:0}
+.lobby .row:hover{background:rgba(224,182,77,.05)}
+.hex{width:46px;height:52px;display:grid;place-items:center;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);background:linear-gradient(160deg,var(--gold2),var(--gold3));color:#1c1405;font:400 24px var(--head)}
+.hex.sw{background:linear-gradient(160deg,#fb5b7d,#9f1239);color:#fff;font-size:22px}
+.hex svg{width:22px;height:22px}
+.crates{display:flex;align-items:center;gap:10px;min-width:0}
+.crates .ci{display:flex;flex:none}
+.crates .ci div{position:relative;margin-right:-8px;flex:none}
+.crates .ci img{width:52px;height:52px;object-fit:contain;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid var(--line2);padding:3px}
+.crates .ci em{position:absolute;right:-2px;bottom:-4px;padding:2px 5px;border-radius:5px;background:var(--gold);color:#1c1405;font:800 9px/1 var(--body);font-style:normal}
+.crates .t b{display:block;font:700 13px var(--body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crates .t small{font-size:11px;color:var(--muted)}
+.val{font:800 13px var(--body);color:var(--gold2);padding:7px 11px;border-radius:8px;background:rgba(224,182,77,.1);border:1px solid var(--line);display:inline-flex;gap:7px;align-items:center;width:max-content}
+.slots{display:flex;gap:7px;align-items:center}
+.slots img{width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:50% 15%;border:2px solid var(--gold)}
+.slots span{width:38px;height:38px;border-radius:50%;border:1.5px dashed rgba(224,182,77,.5);display:grid;place-items:center;color:var(--gold);font-size:16px}
+.lobby .act{display:grid;gap:5px;justify-items:end;text-align:right}
+.lobby .act small{font-size:10px;color:var(--muted)}
+
+/* ---------- openings ---------- */
+.reel{display:flex;gap:10px;overflow:hidden;padding:16px;-webkit-mask:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);mask:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.drop{flex:none;width:118px;padding:12px 8px 10px;text-align:center;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);position:relative;overflow:hidden}
+.drop::before{content:"";position:absolute;inset:auto 0 0;height:3px;background:var(--rc,#64748b)}
+.drop::after{content:"";position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 35%,var(--rc,#64748b),transparent 70%);opacity:.18}
+.drop img{width:62px;height:62px;object-fit:contain;margin:0 auto 6px;position:relative;z-index:1}
+.drop b{display:block;font:700 12px var(--body);position:relative;z-index:1}
+.drop small{font-size:10px;color:var(--muted);position:relative;z-index:1}
+
+/* ---------- aside ---------- */
+.chat .msgs{display:grid;gap:10px;padding:14px 16px;max-height:262px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--gold3) transparent}
+.msg{display:grid;grid-template-columns:30px 1fr;gap:10px;font-size:12px}
+.msg .a{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--panel3);color:var(--gold);font:800 11px var(--body);border:1px solid var(--line)}
+.msg b{font-weight:700;color:var(--gold2);margin-right:6px}
+.msg.owner b{color:#ff8fb1}
+.msg.owner .a{background:linear-gradient(160deg,#fb5b7d,#9f1239);color:#fff;border-color:transparent}
+.msg span{color:#cfe2d6}
+.chat form{display:flex;gap:8px;padding:0 16px 16px}
+.chat input{flex:1;min-width:0;padding:11px 14px;border-radius:10px;border:1px solid var(--line2);background:rgba(0,0,0,.35);color:var(--cream);font:500 13px var(--body);outline:0}
+.chat input:focus{border-color:var(--gold)}
+.rank{display:grid;gap:4px;padding:10px 12px 14px}
+.rk{display:grid;grid-template-columns:26px 32px 1fr auto;gap:10px;align-items:center;padding:8px 6px;border-radius:10px;font-size:13px}
+.rk:hover{background:rgba(255,255,255,.04)}
+.rk .n{font:400 22px var(--head);color:var(--dim);text-align:center}
+.rk:nth-child(1) .n{color:#f6dd94}.rk:nth-child(2) .n{color:#cbd5e1}.rk:nth-child(3) .n{color:#d99a66}
+.rk .a{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--panel3);border:1px solid var(--line);font:800 11px var(--body);color:var(--gold)}
+.rk:nth-child(1) .a{border-color:#f6dd94;box-shadow:0 0 12px rgba(246,221,148,.35)}
+.rk b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk em{font:800 12px var(--body);font-style:normal;color:var(--gold2)}
+.feed{display:grid;gap:2px;padding:8px 12px 14px}
+.feed div{display:flex;justify-content:space-between;gap:10px;padding:9px 6px;border-bottom:1px dashed var(--line2);font-size:12px}
+.feed div:last-child{border:0}
+.feed b{color:var(--gold2)}
+.notice{padding:16px;font-size:12px;color:var(--muted);background:linear-gradient(135deg,rgba(225,29,72,.14),transparent 70%),var(--panel);border-color:rgba(225,29,72,.3)}
+.notice b{display:block;color:var(--cream);font:400 20px var(--head);letter-spacing:.06em;margin-bottom:4px}
+
+/* ---------- footer + mobile bar ---------- */
+footer{border-top:1px solid var(--line);padding:26px 24px 110px;text-align:center;font-size:12px;color:var(--dim)}
+footer b{font:400 20px var(--head);letter-spacing:.1em;color:var(--gold)}
+.tabbar{display:none}
+
+/* ---------- responsive ---------- */
+@media (max-width:1240px){
+  .page{grid-template-columns:minmax(0,1fr)}
+  .aside{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .aside .chat{grid-row:span 2}
+  .games{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .services{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .me div{display:none}
+}
+@media (max-width:980px){
+  .hero-row{grid-template-columns:1fr}
+  .side-stack{grid-template-columns:1fr 1fr;grid-template-rows:none}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lobby .head{display:none}
+  .lobby .row{grid-template-columns:56px minmax(0,1fr) auto;grid-template-areas:"hex crates act" "hex val slots";padding:12px 14px;row-gap:8px;min-height:0}
+  .lobby .row>:nth-child(1){grid-area:hex}.lobby .row>:nth-child(2){grid-area:crates}.lobby .row>:nth-child(3){grid-area:val}.lobby .row>:nth-child(4){grid-area:slots;justify-self:end}.lobby .row>:nth-child(5){grid-area:act}
+  nav.main{display:none}
+}
+@media (max-width:720px){
+  .hd{padding:10px 14px;gap:10px}
+  .brand small,.pill small{display:none}
+  .wallet .pill:nth-child(2){display:none}
+  .brand b{font-size:21px}
+  .me{display:none}
+  .page{padding:14px 14px 80px;gap:18px}
+  .main-col{gap:22px}
+  .welcome{grid-template-columns:auto 1fr}
+  .welcome .btns{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hero{min-height:440px}
+  .hero .in{padding:24px 22px;max-width:none;justify-content:flex-end}
+  .hero::before{background:linear-gradient(0deg,rgba(3,13,9,.97) 12%,rgba(3,13,9,.55) 58%,rgba(3,13,9,.1))}
+  .hero .meta{display:none}
+  .crates .ci img{width:42px;height:42px}
+  .side-stack{grid-template-columns:1fr}
+  .games{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .game p{display:none}.game h3{font-size:21px}.game .foot{font-size:10px}.game .play{display:none}
+  .services{grid-template-columns:1fr}
+  .aside{grid-template-columns:1fr}.aside .chat{grid-row:auto}
+  .sec-h h2{font-size:32px}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;z-index:60;left:0;right:0;bottom:0;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:rgba(3,13,9,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+  .tabbar a{display:grid;justify-items:center;gap:3px;font:700 10px var(--body);color:var(--muted);padding:4px}
+  .tabbar a i{font-size:21px;display:flex}
+  .tabbar a.on{color:var(--gold)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="ticker"><div id="ticker"></div></div>
+<header><div class="hd">
+  <a class="brand"><span class="crest">V</span><span><b>VAULT MISTRESS</b><small>Principessa's court</small></span></a>
+  <nav class="main" id="nav"></nav>
+  <div class="wallet">
+    <div class="pill tab"><span><small>Coins</small><br><span id="coins">12,480</span></span><span class="plus" id="plus"></span></div>
+    <div class="pill tab"><span><small>PM</small><br>25</span></div>
+    <a class="me"><img src="../public/character-icon.webp" alt=""><div><b>Preview User</b><small>Level 1</small></div></a>
+  </div>
+</div></header>
+
+<div class="page">
+ <main class="main-col">
+
+  <section class="panel welcome">
+    <img class="av" src="../public/character-icon.webp" alt="">
+    <div>
+      <h1>Good evening, <em>Preview User</em></h1>
+      <div class="aff"><span>Her affection</span><span class="bar"><i></i></span><b class="tab" style="color:var(--cream)">62 / 100</b></div>
+    </div>
+    <div class="btns row" style="display:flex;gap:8px"><a class="btn gold">Make her notice</a><a class="btn line">Court notice</a></div>
+  </section>
+
+  <section class="stats" id="stats"></section>
+
+  <section class="hero-row">
+    <article class="hero" id="hero">
+      <img id="heroImg" src="../public/gamble/v5/roulette.webp" alt="">
+      <div class="bulbs"></div>
+      <div class="in">
+        <div class="row" style="display:flex;gap:8px"><span class="tag hot">Featured table</span><span class="tag live" id="heroPlaying">1,284 playing</span></div>
+        <h1 id="heroTitle">Roulette Chamber</h1>
+        <p id="heroText">Spin her wheel. Red or black, she decides who leaves richer.</p>
+        <div class="stakes"><span>Stake</span><button>10</button><button class="on">50</button><button>100</button><button>500</button></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn ruby">Take a seat</a><a class="btn line">All seven tables</a></div>
+      </div>
+    </article>
+    <div class="side-stack">
+      <section class="panel daily">
+        <span class="eyebrow">Daily rewards</span>
+        <h3>Day 6 of 7</h3>
+        <div class="days" id="days"></div>
+        <a class="btn gold" style="width:100%">Claim today's 500</a>
+      </section>
+      <section class="panel jack">
+        <div><span class="eyebrow">Tribute jackpot</span><h3>All-time tributed</h3>
+          <div class="big tab">$3,706<small>/ $4,000</small></div></div>
+        <div class="goal"><div class="t"><span class="f"></span></div><div class="ends"><span><b>$3,500</b> last target</span><span>41% · <b>$294</b> to go</span></div></div>
+      </section>
+    </div>
+  </section>
+
+  <section id="floor">
+    <div class="sec-h"><h2>The floor<em>Gamble Hall</em></h2>
+      <div class="chips" id="chips"></div></div>
+    <div class="games" id="games"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>Court services<em>everything else she offers</em></h2></div>
+    <div class="services" id="services"></div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>Open duels<em>a stranger is waiting</em></h2><a class="btn line sm">See all duels</a></div>
+    <div class="panel lobby">
+      <div class="head"><span>Rounds</span><span>Crates</span><span>Value</span><span>Players</span><span></span></div>
+      <div id="duels"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>Fresh from the crates<em>recent openings</em></h2></div>
+    <div class="panel"><div class="reel" id="reel"></div></div>
+  </section>
+ </main>
+
+ <aside class="aside">
+  <section class="panel chat">
+    <div class="ph"><h3>Live chat</h3><span class="tag live">214 online</span></div>
+    <div class="msgs" id="msgs"></div>
+    <form id="chatForm"><input id="chatInput" placeholder="Say something to the court…" autocomplete="off"><button class="btn gold sm" type="submit">Send</button></form>
+  </section>
+  <section class="panel">
+    <div class="ph"><h3>High rollers</h3><span class="eyebrow">Devotion</span></div>
+    <div class="rank" id="rank"></div>
+  </section>
+  <section class="panel">
+    <div class="ph"><h3>Recent tributes</h3><span class="tag live">Live</span></div>
+    <div class="feed" id="feed"></div>
+  </section>
+  <section class="panel notice"><b>Court notice</b>Higher or Lower and Case Opening have new task positions. Check the task list before you play.</section>
+ </aside>
+</div>
+
+<footer><b>VAULT MISTRESS</b><br>18+ · Her court. Her rules.</footer>
+<nav class="tabbar" id="tabbar"></nav>
+
+<script>
+const P={
+ home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+ dice:'<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/>',
+ box:'<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+ crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+ bag:'<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+ menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+ coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.5-2.5 1.7-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.5 2.5-1.5"/>',
+ flame:'<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 2 2 2 0-3-1-5 1-8z"/>',
+ paw:'<circle cx="7" cy="10" r="2"/><circle cx="17" cy="10" r="2"/><circle cx="10" cy="6" r="2"/><circle cx="14" cy="6" r="2"/><path d="M12 12c-3 0-5 3-5 5 0 2 2 2 5 2s5 0 5-2c0-2-2-5-5-5z"/>',
+ swords:'<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/>',
+ arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-4 3-6 6.5-6s6.5 2 6.5 6"/>',
+ star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+ play:'<path d="M7 4l13 8-13 8z"/>'
+};
+const ic=n=>`<svg class="ic" viewBox="0 0 24 24">${P[n]}</svg>`;
+const $=id=>document.getElementById(id);
+const pub='../public/';
+
+/* ticker */
+const wins=['@kneel4her offered $100','@velvetthrall won 4,200 on Roulette','@gilded_pet pulled a Legendary','@miss_obedient offered $25','@lowercase_sub won 1,850 on Crash','@kneel4her opened 5 Principessa Cases'];
+$('ticker').innerHTML=[...wins,...wins].map(w=>`<span>${w}</span>`).join('');
+
+/* header */
+const navItems=['Home','Gamble Hall','Cases','Duels','Shrine','Shop','Contracts','Pet','Runway'];
+$('nav').innerHTML=navItems.map((n,i)=>`<a class="${i===0?'on':''}">${n}</a>`).join('');
+$('plus').innerHTML=ic('plus');
+
+/* stats */
+const stats=[['coin','12,480','Coins'],['crown','4,210','Devotion'],['paw','340','Pet score'],['flame','6 days','Streak']];
+$('stats').innerHTML=stats.map(s=>`<div class="panel stat"><i>${ic(s[0])}</i><div><b class="tab">${s[1]}</b><small>${s[2]}</small></div></div>`).join('');
+
+/* daily rewards */
+$('days').innerHTML=[1,2,3,4,5,6,7].map(d=>`<span class="day ${d<6?'done':d===6?'now':'gift'}">${d<6?'✓':d===6?'6':'🎁'}</span>`).join('');
+
+/* games (the seven Gamble Hall tables + the wheels) */
+const games=[
+ ['roulette','Roulette Chamber','table','Spin her wheel. Red or black.','hot',10,'1,284','roulette.webp','Spin her wheel. Red or black, she decides who leaves richer.'],
+ ['slots','Crown Slots','instant','Line up the crowns and roses.','',5,'612','slots.webp','Three reels, one queen. Line up the crowns.'],
+ ['dice','Her Dice','table','Roll high. She rolls higher.','',10,'398','dice.webp','Roll against her. High number takes the pot.'],
+ ['mines','Velvet Mines','skill','Uncover emeralds. Avoid the trap.','',10,'275','mines.webp','Pick your tiles. One wrong click ends it.'],
+ ['plinko','Plinko Pyramid','instant','Drop the ball. Chase the edge.','new',5,'441','plinko.webp','Drop the ball and chase the glowing edge.'],
+ ['crash','Crash Hourglass','skill','Cash out before the sand runs out.','hot',10,'903','crash.webp','The multiplier climbs until the sand runs out.'],
+ ['crawl','Royal Crawl','skill','Cross the glass floor, step by step.','',10,'187','crawl.webp','Cross the glass floor. Cash out any time.']
+];
+const cats=[['all','All'],['table','Tables'],['skill','Skill'],['instant','Instant']];
+$('chips').innerHTML=cats.map((c,i)=>`<button class="chip ${i===0?'on':''}" data-c="${c[0]}">${c[1]}</button>`).join('');
+$('games').innerHTML=games.map(g=>`
+ <a class="game" data-c="${g[2]}" data-t="${g[1]}" data-d="${g[8]}" data-p="${g[6]}" data-i="${g[7]}">
+  <div class="art"><img src="${pub}gamble/v5/${g[7]}" alt="" loading="lazy">
+   <div class="tags">${g[4]?`<span class="tag ${g[4]}">${g[4]}</span>`:''}<span class="tag live" style="background:rgba(3,13,9,.7)">${g[6]}</span></div>
+   <span class="btn gold sm play">${ic('play')} Play</span></div>
+  <div class="body"><h3>${g[1]}</h3><p>${g[3]}</p>
+   <div class="foot"><span>${ic('coin')} Min <b>${g[5]}</b></span><span>${ic('users')} <b>${g[6]}</b></span></div></div>
+ </a>`).join('')+`
+ <a class="game more" data-c="all"><h3>Wheels</h3><p>Seven wheels of fate. Set your stake and spin.</p><span class="btn line sm">Enter ${ic('arrow')}</span></a>`;
+document.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x===b));
+ const c=b.dataset.c;
+ document.querySelectorAll('.game').forEach(g=>g.classList.toggle('hide',c!=='all'&&(g.classList.contains('more')||g.dataset.c!==c)));
+}));
+/* hovering a table card previews it in the hero */
+document.querySelectorAll('.game[data-t]').forEach(g=>g.addEventListener('click',()=>{
+ $('heroImg').src=pub+'gamble/v5/'+g.dataset.i;$('heroTitle').textContent=g.dataset.t;$('heroText').textContent=g.dataset.d;$('heroPlaying').textContent=g.dataset.p+' playing';
+ scrollTo({top:0,behavior:'smooth'});
+}));
+document.querySelectorAll('.stakes button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.stakes button').forEach(x=>x.classList.toggle('on',x===b))}));
+
+/* services */
+const svc=[
+ ['Cases','Open, upgrade and duel for pieces of her collection.','principessa-case-present.webp','New duels'],
+ ['Debt Contracts','Your terms. Your promise. Her signature.','principessa-debt-contract.webp',''],
+ ['Shrine','Make an offering and uncover her memories.','../ritual/offering.webp',''],
+ ['Pet','Wear the collar. Climb the ranks.','principessa-pet-collar.webp',''],
+ ['Devotion ledger','Every offering is written down. Check your standing.','principessa-devotion-ledger.webp',''],
+ ['Gallery','The frames you have earned the right to see.','principessa-gallery-frame.webp','']
+];
+$('services').innerHTML=svc.map(s=>`<a class="svc"><div><h3>${s[0]}</h3><p>${s[1]}</p><span class="go">Enter ${ic('arrow')}</span></div><img src="${pub}principessa-ui/${s[2].startsWith('../')?s[2].slice(3):'generated/'+s[2]}" alt="">${s[3]?`<span class="tag hot badge">${s[3]}</span>`:''}</a>`).join('');
+
+/* open duels */
+const crate=(k,n)=>`<div><img src="${pub}crate-icons/${k}.webp" alt="">${n>1?`<em>×${n}</em>`:''}</div>`;
+const duels=[
+ [5,'sw0',[['principessa-case',3],['premium-case',2]],'3x Principessa + 2x Premium','Crate duel · 39h left','3,500','v'],
+ [10,'sw0',[['premium-case',10]],'10x Premium Case','Crate duel · 12h left','5,000','v'],
+ [1,'sw0',[['principessa-case',1]],'1x Principessa Case','Crate duel · 4h left','500','v'],
+ ['SW','sw',null,'Tribute duel','Free to accept · highest Throne tribute wins','Free','t']
+];
+$('duels').innerHTML=duels.map(d=>`
+ <div class="row"><div class="hex ${d[6]==='t'?'sw':''}">${d[0]==='SW'?ic('swords'):d[0]}</div>
+  <div class="crates">${d[2]?`<div class="ci">${d[2].map(c=>crate(c[0],c[1])).join('')}</div>`:''}<div class="t"><b>${d[3]}</b><small>${d[4]}</small></div></div>
+  <div><span class="val tab">${d[6]==='t'?'':ic('coin')}${d[5]}</span></div>
+  <div class="slots"><img src="${pub}character-icon.webp" alt=""><span>+</span></div>
+  <div class="act"><a class="btn ${d[6]==='t'?'ruby':'gold'} sm">Join duel</a></div></div>`).join('');
+
+/* recent openings */
+const rc={l:'#f59e0b',e:'#a855f7',r:'#3b82f6',u:'#22c55e',c:'#64748b'};
+const drops=[['principessa-case','Fatass Plush','l'],['premium-case','Pink Collar','r'],['principessa-case','Cute Ears','e'],['cat_case','Owned Tag','u'],['cosplay_case','Classic Bra','c'],['principessa-case','Pet Tag','c'],['premium-case','Boxer','c'],['principessa-case','Cute Choker','u'],['cat_case','Maid Outfit','e'],['principessa-case','Ballgag','c']];
+$('reel').innerHTML=[...drops,...drops].map(d=>`<div class="drop" style="--rc:${rc[d[2]]}"><img src="${pub}crate-icons/${d[0]}.webp" alt=""><b>${d[1]}</b><small>@${['kneel4her','gilded_pet','velvetthrall'][d[1].length%3]}</small></div>`).join('');
+
+/* aside */
+const msgs=[['velvetthrall','good evening everyone'],['Principessa','Behave. I am watching.','o'],['kneel4her','just hit 5 cases in a row'],['gilded_pet','roulette is rigged for HER, as it should be'],['miss_obedient','who wants to take my duel?']];
+const paint=()=>{ $('msgs').innerHTML=msgs.map(m=>`<div class="msg ${m[2]==='o'?'owner':''}"><span class="a">${m[0][0].toUpperCase()}</span><div><b>${m[0]}</b><span>${m[1]}</span></div></div>`).join(''); $('msgs').scrollTop=1e5; };
+paint();
+$('chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('chatInput').value.trim();if(!v)return;msgs.push(['you',v.slice(0,120)]);$('chatInput').value='';paint()});
+const board=[['kneel4her','12,840'],['velvetthrall','10,115'],['gilded_pet','9,402'],['miss_obedient','7,988'],['lowercase_sub','6,310']];
+$('rank').innerHTML=board.map((b,i)=>`<div class="rk"><span class="n">${i+1}</span><span class="a">${b[0][0].toUpperCase()}</span><b>@${b[0]}</b><em class="tab">${b[1]}</em></div>`).join('');
+$('feed').innerHTML=[['kneel4her','$100'],['gilded_pet','$75'],['velvetthrall','$50'],['miss_obedient','$25'],['lowercase_sub','$10']].map(f=>`<div><span>@${f[0]}</span><b class="tab">${f[1]}</b></div>`).join('');
+
+/* phone tab bar */
+$('tabbar').innerHTML=[['home','Home',1],['dice','Games'],['box','Cases'],['crown','Shrine'],['menu','More']].map(t=>`<a class="${t[2]?'on':''}"><i>${ic(t[0])}</i>${t[1]}</a>`).join('');
+</script>
+</body>
+</html>

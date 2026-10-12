@@ -17,3 +17,9 @@
 @media(prefers-reduced-motion:reduce) { .furnace *, .furnace *::after { animation:none!important; transition:none!important; }.furnace[data-furnace-phase=burning] .note:first-child { opacity:.7; transform:translateY(40px); } }
 
 .heatHaze { position:absolute; inset:20% 30% 31%; z-index:6; pointer-events:none; opacity:0; border-radius:40%; background:repeating-linear-gradient(0deg,transparent 0 16px,#ffce7630 18px,transparent 22px); }.furnace[data-furnace-phase=burning] .heatHaze { animation:heat-shimmer 1.2s ease-in-out infinite alternate; }.furnace[data-furnace-phase=burning] .ashPile i { opacity:var(--burn-progress); transform:scaleY(var(--burn-progress)); transform-origin:bottom; }.note i { box-shadow:0 -3px 9px #ff931e,0 -1px 2px #fff2ab; background:linear-gradient(0deg,#a83814,#ffb54b,#fff3b3); }@keyframes heat-shimmer { from { opacity:.1; transform:skewX(-3deg) translateY(0); } to { opacity:.35; transform:skewX(3deg) translateY(-12px); } }@media(prefers-reduced-motion:reduce) { .heatHaze { display:none; } }
+
+/* Stable theme hooks, independent of the bundler class-name format. */
+.furnace { composes: bb-TributeFurnace-furnace from global; }
+.header { composes: bb-TributeFurnace-header from global; }
+.ledger { composes: bb-TributeFurnace-ledger from global; }
+.machine { composes: bb-TributeFurnace-machine from global; }

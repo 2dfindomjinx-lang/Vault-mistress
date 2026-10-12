@@ -62,12 +62,10 @@ import { TopLevelNav } from "@/components/TopLevelNav";
 import { getPanelForPath, getPathForPanel, type DashboardPage, type SidebarNavItem } from "@/components/SidebarNav";
 
 function VaultPanelLoading() {
-  return <div aria-live="polite" className="fixed inset-0 z-40 flex items-center justify-center bg-[#06030a]/82 px-6 backdrop-blur-md lg:left-[280px]" role="status">
-    <div className="rounded-[2rem] border border-fuchsia-200/20 bg-[linear-gradient(145deg,rgba(33,8,35,.96),rgba(7,4,10,.98))] px-10 py-8 text-center shadow-[0_0_70px_rgba(236,72,153,.2)]">
-      <div className="relative mx-auto h-14 w-14"><div className="absolute inset-0 animate-ping rounded-full bg-pink-500/15" /><div className="absolute inset-1 animate-spin rounded-full border-2 border-pink-200/15 border-t-pink-400 border-r-fuchsia-400 shadow-[0_0_22px_rgba(236,72,153,.35)]" /><div className="absolute inset-[1.15rem] rounded-full bg-pink-300 shadow-[0_0_14px_#f9a8d4]" /></div>
-      <p className="mt-5 font-serif text-xl text-[#ffe4b5]">Opening the Vault</p>
-      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-pink-200/50">Preparing your page...</p>
-    </div>
+  return <div className="bb-panel-loading" role="status" aria-live="polite">
+    <Image src="/bubblegum/principessa-icon.webp" alt="" width={40} height={40} unoptimized />
+    <span>Just a moment…</span>
+    <span className="bb-panel-loading-dots" aria-hidden="true"><i /><i /><i /></span>
   </div>;
 }
 
