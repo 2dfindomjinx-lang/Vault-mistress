@@ -1085,7 +1085,7 @@ export function CratesPanel({
                 return (
                   <button
                     aria-pressed={active}
-                    className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
+                    className={`${!active ? `vm-rarity-${rarity} vm-rarity-text` : ""} rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] transition ${
                       active ? "border-white/35 bg-white/10 text-white" : "border-white/10 bg-black/30 text-zinc-500 hover:text-zinc-300"
                     }`}
                     key={rarity}
@@ -1136,7 +1136,7 @@ export function CratesPanel({
                   >
                     {mobile && <summary className="mobile-inventory-summary">
                       <Image unoptimized alt="" src={getCrateItemImageUrl(item.item_id,item.image_url ?? null) ?? ""} width={36} height={36} loading="lazy"/>
-                      <span><strong>{item.name}</strong><small style={{color:RARITY_HEX[item.rarity]}}>{item.rarity} · ×{item.quantity}</small></span><b aria-hidden="true">+</b>
+                      <span><strong>{item.name}</strong><small className="vm-rarity-text">{item.rarity} · ×{item.quantity}</small></span><b aria-hidden="true">+</b>
                     </summary>}
                     <div className="flex items-start gap-3">
                       <div className={`relative mt-0.5 h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 shadow-lg ${getRarityColor(item.rarity)}`}>

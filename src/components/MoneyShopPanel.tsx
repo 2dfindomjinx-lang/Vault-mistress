@@ -187,7 +187,7 @@ export function MoneyShopPanel({
                     ) : (
                       <div className="flex h-full items-center justify-center text-xs text-zinc-600">No image</div>
                     )}
-                    <span className="absolute left-2 top-2 rounded-full border border-amber-300/40 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200">
+                    <span className={`vm-rarity-${item.rarity} vm-rarity-surface absolute left-2 top-2 rounded-full border border-amber-300/40 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-200`}>
                       {item.rarity}
                     </span>
                     <span className={styles.previewMark} aria-hidden="true" title="Preview item">

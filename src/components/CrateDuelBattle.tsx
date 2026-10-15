@@ -190,11 +190,10 @@ function BattleReel({ cards, jitter, instant = false, onComplete }: { cards: Str
       <div className="absolute left-1/2 top-0 flex -translate-x-1/2 flex-col will-change-transform" ref={stripRef} style={{ gap: GAP }}>
         {cards.map((card, index) => (
           <div
-            className="flex shrink-0 items-center justify-center rounded-xl border bg-black/60"
+            className={`vm-rarity-${card.rarity} vm-rarity-surface flex shrink-0 items-center justify-center rounded-xl border-2 bg-black/60`}
             key={index}
             style={{
               borderColor: `${RARITY_HEX[card.rarity]}55`,
-              boxShadow: `inset 0 -18px 30px -18px ${RARITY_HEX[card.rarity]}55`,
               height: CARD,
               width: CARD,
             }}
@@ -387,10 +386,13 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                 <div className={`mt-2 h-10 ${index === 1 ? "text-right" : ""}`}>
                   {landedItem ? (
                     <>
-                      <p className="truncate text-xs font-black" style={{ color: landedItem.rarity ? RARITY_HEX[landedItem.rarity] : "#fff" }}>
+                      <p className={`vm-rarity-${landedItem.rarity ?? "common"} vm-rarity-text truncate text-xs font-black`}>
                         {landedItem.name}
                       </p>
-                      <CoinAmount amount={landedItem.sellValue} className="text-[11px] font-black text-zinc-300" iconSize={11} label="" prefix="+" />
+                      <div className={`flex flex-wrap items-center gap-x-2 ${index === 1 ? "justify-end" : ""}`}>
+                        {landedItem.rarity && <span className={`vm-rarity-${landedItem.rarity} vm-rarity-text text-[9px] font-black uppercase tracking-wide`}>{landedItem.rarity}</span>}
+                        <CoinAmount amount={landedItem.sellValue} className="text-[11px] font-black text-zinc-300" iconSize={11} label="" prefix="+" />
+                      </div>
                     </>
                   ) : (
                     <p className="text-[11px] font-black uppercase tracking-[0.14em] text-zinc-600">Opening...</p>
@@ -403,10 +405,10 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
                     const current = itemIndex === round && !shown;
                     return (
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-md border bg-black/50 ${current ? "animate-pulse" : ""}`}
+                        className={`flex h-8 w-8 items-center justify-center rounded-md border-2 bg-black/50 ${shown && item.rarity ? `vm-rarity-${item.rarity} vm-rarity-surface` : ""} ${current ? "animate-pulse" : ""}`}
                         key={itemIndex}
                         style={{ borderColor: shown && item.rarity ? `${RARITY_HEX[item.rarity]}aa` : "rgba(255,255,255,.08)" }}
-                        title={shown ? `${item.name} · ${item.sellValue}` : undefined}
+                        title={shown ? `${item.name} · ${item.rarity ?? ""} · ${item.sellValue}` : undefined}
                       >
                         {shown && item.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -467,7 +469,7 @@ export function CrateDuelBattle({ duel, onClose }: { duel: BattleDuel; onClose: 
               </>
             )}
             <div className={experience.haul} aria-label={winnerIndex === -1 ? "Each player keeps their own items" : "Winner’s collection"}>
-              {sides.flatMap((side, sideIndex) => side.items.map((item, itemIndex) => <div key={side.key + itemIndex} title={item.name + (winnerIndex === -1 ? " · " + side.name : "")} style={{ borderColor: item.rarity ? RARITY_HEX[item.rarity] : undefined, animationDelay: Math.min(itemIndex + sideIndex * rounds, 10) * 35 + "ms" }}>
+              {sides.flatMap((side, sideIndex) => side.items.map((item, itemIndex) => <div className={item.rarity ? `vm-rarity-${item.rarity} vm-rarity-surface` : undefined} key={side.key + itemIndex} title={item.name + (item.rarity ? " · " + item.rarity : "") + (winnerIndex === -1 ? " · " + side.name : "")} style={{ borderColor: item.rarity ? RARITY_HEX[item.rarity] : undefined, animationDelay: Math.min(itemIndex + sideIndex * rounds, 10) * 35 + "ms" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {item.imageUrl ? <img alt={item.name} src={item.imageUrl} className="h-full w-full" /> : <span>♛</span>}
               </div>))}

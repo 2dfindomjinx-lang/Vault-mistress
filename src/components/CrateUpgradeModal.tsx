@@ -134,7 +134,7 @@ function DiamondCard({
           {value !== null ? <CoinAmount amount={value} className="shrink-0 text-xs font-black text-[#ffe2ad]" iconSize={12} label="" /> : null}
         </div>
         <div className="mt-0.5 flex items-baseline justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: hex }}>
+          <p className={`vm-rarity-${rarity ?? "common"} vm-rarity-text text-[10px] font-black uppercase tracking-[0.12em]`}>
             {rarity ?? ""}
           </p>
           {extra ? <p className="text-[10px] font-black text-[#e6ba73]">{extra}</p> : null}
@@ -470,7 +470,7 @@ export function CrateUpgradeModal({ disabled = false, item, onClose, onNotice, o
               <div className="flex flex-wrap gap-1.5">
                 {RARITY_FILTERS.map((value) => (
                   <button
-                    className={`rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition ${
+                    className={`${value !== "all" && rarityFilter !== value ? `vm-rarity-${value} vm-rarity-text` : ""} rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition ${
                       rarityFilter === value ? "border-white/30 bg-white/10 text-white" : "border-white/[0.07] bg-black/30 text-zinc-500 hover:text-zinc-300"
                     }`}
                     key={value}

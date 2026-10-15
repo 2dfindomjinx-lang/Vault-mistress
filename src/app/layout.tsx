@@ -5,6 +5,7 @@ import "./court-redesign.css";
 import "./bubblegum-legacy.css";
 import "./bubblegum.css";
 import "./bubblegum-palette.css";
+import "./item-rarity.css";
 import { colorModeBootstrap } from "@/lib/color-mode";
 import { ConfirmDialogHost } from "@/components/ConfirmDialogHost";
 

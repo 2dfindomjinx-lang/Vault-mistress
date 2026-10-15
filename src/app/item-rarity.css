@@ -1,0 +1,23 @@
+/* Item metadata is not theme chrome. Keep these semantic hues out of palette remapping. */
+.bubblegum-theme .vm-rarity-common { --item-accent: #64748b; --item-ink: #475569; }
+.bubblegum-theme .vm-rarity-uncommon { --item-accent: #059669; --item-ink: #065f46; }
+.bubblegum-theme .vm-rarity-rare { --item-accent: #0284c7; --item-ink: #075985; }
+.bubblegum-theme .vm-rarity-epic { --item-accent: #7c3aed; --item-ink: #6d28d9; }
+.bubblegum-theme .vm-rarity-legendary { --item-accent: #ca8a04; --item-ink: #92400e; }
+.bubblegum-theme .vm-rarity-ultimate { --item-accent: #c026d3; --item-ink: #a21caf; }
+
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-common { --item-accent: #a1a1aa; --item-ink: #d4d4d8; }
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-uncommon { --item-accent: #34d399; --item-ink: #6ee7b7; }
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-rare { --item-accent: #38bdf8; --item-ink: #7dd3fc; }
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-epic { --item-accent: #a78bfa; --item-ink: #c4b5fd; }
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-legendary { --item-accent: #fcd34d; --item-ink: #fde68a; }
+:root[data-color-mode="dark"] .bubblegum-theme .vm-rarity-ultimate { --item-accent: #e879f9; --item-ink: #f0abfc; }
+
+/* Explicitly marked item surfaces only; leave win/loss, selection and focus rings intact. */
+.bubblegum-theme .vm-rarity-surface {
+  border-color: var(--item-accent) !important;
+  background: color-mix(in srgb, var(--item-accent) 12%, var(--bb-paper)) !important;
+  color: var(--item-ink) !important;
+  box-shadow: inset 0 -3px 0 var(--item-accent);
+}
+.bubblegum-theme .vm-rarity-text { color: var(--item-ink) !important; }

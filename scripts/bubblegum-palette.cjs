@@ -7,7 +7,7 @@ const postcss = require('postcss');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'src/app/bubblegum-palette.css');
 const walk = dir => fs.readdirSync(dir, {withFileTypes:true}).flatMap(e => e.isDirectory() ? walk(path.join(dir,e.name)) : [path.join(dir,e.name)]);
-const files = walk(path.join(root,'src')).filter(f => f.endsWith('.css') && f !== output && !/AnimeBorderArtwork|EquippedToyEffect|TributeFurnace/.test(f));
+const files = walk(path.join(root,'src')).filter(f => f.endsWith('.css') && f !== output && !/AnimeBorderArtwork|EquippedToyEffect|TributeFurnace|TributeGoalBar|item-rarity/.test(f));
 const tokens = new Map();
 if (fs.existsSync(output)) {
   const old = postcss.parse(fs.readFileSync(output,'utf8'));

@@ -5,9 +5,9 @@ import styles from "./DebtContracts.module.css";
 
 type ContractKind = "coin" | "evil" | "throne";
 const editions = {
-  coin: { number: "01", title: "Coin Debt", subtitle: "A promise, paid in devotion.", currency: "COIN AGREEMENT" },
-  evil: { number: "02", title: "Evil Debt", subtitle: "Her terms. Your signature.", currency: "PERSONAL AGREEMENT" },
-  throne: { number: "03", title: "Throne Debt", subtitle: "Your commitment, written in gold.", currency: "PM & THRONE AGREEMENT" },
+  coin: { number: "01", title: "Coin Debt", subtitle: "Coins · Weekly or monthly payments", currency: "COIN AGREEMENT" },
+  evil: { number: "02", title: "Evil Debt", subtitle: "Personal terms · Subject to approval", currency: "PERSONAL AGREEMENT" },
+  throne: { number: "03", title: "Throne Debt", subtitle: "PM or Throne · Scheduled payments", currency: "PM & THRONE AGREEMENT" },
 };
 
 export function ContractDocument({kind,status,recorded=false,children}:{kind:ContractKind;status:string;recorded?:boolean;children:ReactNode}) {
@@ -15,9 +15,8 @@ export function ContractDocument({kind,status,recorded=false,children}:{kind:Con
   return <article id={kind+"-agreement"} className={styles.document+" "+styles[kind]} data-contract={kind} data-contract-state={recorded ? "recorded" : "draft"}>
     <header className={styles.contractHeading}>
       <div className={styles.contractEdition}><span>{edition.number}</span><small>{edition.currency}</small><span aria-hidden="true">♛</span></div>
-      <h3>{edition.title}<em>{recorded ? "Agreement" : "Create your agreement"}</em></h3>
+      <div className={styles.contractTitleRow}><h3>{edition.title}</h3><span className={styles.contractStatus}>{status}</span></div>
       <p>{edition.subtitle}</p>
-      <span className={styles.contractStatus}>{status}</span>
     </header>
     <div className={styles.body}>{children}</div>
   </article>;
@@ -57,8 +56,10 @@ export function CoinContractSummary({ amount, duration, period, contract, remain
     </dl>
     <div className={styles.installmentStrip} aria-label="Installment progress">{Array.from({length: hasPlan ? Math.min(12,periods) : 6},(_,i)=><span key={i} data-paid={hasPlan && i < Math.floor(paid / periods * Math.min(12,periods))}/>)}</div>
     <p className={styles.scheduleNote}>{contract?.status === "pending" ? "Awaiting Principessa’s approval. Payments open after approval." : active ? "Only the current period is payable. Future installments open on their scheduled dates." : "This is a preview. Your payment dates are set when the contract begins."}</p>
+    <details className={styles.disclosure}><summary>Agreement terms</summary>
     <div className={styles.scheduleRule}><span>01</span><p>Coin payments only. PM and Throne payments belong to the separate Throne agreement.</p></div>
     <div className={styles.scheduleRule}><span>02</span><p>Coin Debt and Evil Debt share one contract slot. Only one may be active or awaiting approval.</p></div>
     <div className={styles.scheduleRule}><span>03</span><p>A missed payment has a 48-hour grace period. Any debt timeout requires admin review.</p></div>
+    </details>
   </aside>;
 }

@@ -19,6 +19,7 @@ export function StrengthenPrincipessa({ level, xp, requiredXp, progress, userLev
   const busy = useRef(false);
   const available = userLevel >= 2;
   const transfer = available ? Math.max(1, Math.floor(userXp * .25)) : 0;
+  const showReceipt = receipt !== null && !available;
   const give = async () => {
     if (busy.current || pending || disabled || !available) return;
     busy.current = true;
@@ -52,7 +53,11 @@ export function StrengthenPrincipessa({ level, xp, requiredXp, progress, userLev
     </div>
 
     <footer className={styles.footer}>
-      <div className={styles.offering}><div><span>You give</span><strong>{Math.floor(userXp).toLocaleString()} XP</strong><small>{available ? `Level ${userLevel} → Level 1` : "Available from Level 2"}</small></div><span aria-hidden="true">→</span><div><span>She receives</span><strong>+{transfer.toLocaleString()} XP</strong><small>25% of your XP</small></div></div>
+      <div className={styles.offering}>
+        <div><span>{showReceipt ? "You gave" : "You give"}</span><strong>{Math.floor(showReceipt ? receipt.drainedUserXp ?? 0 : userXp).toLocaleString()} XP</strong><small>{showReceipt ? "Offering complete · Level 1" : available ? `Level ${userLevel} → Level 1` : "Available from Level 2"}</small></div>
+        <span aria-hidden="true">→</span>
+        <div><span>{showReceipt ? "She received" : "She receives"}</span><strong>+{(showReceipt ? receipt.transferredXp ?? 0 : transfer).toLocaleString()} XP</strong><small>{showReceipt ? "Added to Principessa’s XP" : "25% of your XP"}</small></div>
+      </div>
       <button type="button" disabled={disabled || !available || pending || sending} onClick={() => void give()}>{pending || sending ? "Giving…" : available ? "Give her all your XP" : "Requires Level 2"}<span aria-hidden="true">↗</span></button>
     </footer>
     <p className={styles.receipt} role="status" aria-live="polite">{receipt ? `${(receipt.drainedUserXp ?? 0).toLocaleString()} XP given · +${(receipt.transferredXp ?? 0).toLocaleString()} XP received by Principessa.` : "Shared by the whole court. Your offering returns your level to 1."}</p>

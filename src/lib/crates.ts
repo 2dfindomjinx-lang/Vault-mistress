@@ -44,12 +44,12 @@ export type UserCrateInventoryItem = {
 };
 
 export const RARITY_COLORS: Record<CrateRarity, string> = {
-  common: "border-zinc-400 text-zinc-300 bg-zinc-900/60",
-  uncommon: "border-emerald-400 text-emerald-300 bg-emerald-950/60",
-  rare: "border-sky-400 text-sky-300 bg-sky-950/60",
-  epic: "border-violet-400 text-violet-300 bg-violet-950/60",
-  legendary: "border-amber-300 text-amber-200 bg-amber-950/70",
-  ultimate: "border-fuchsia-300 text-fuchsia-100 bg-fuchsia-950/70",
+  common: "vm-rarity-common vm-rarity-surface border-zinc-400 text-zinc-300 bg-zinc-900/60",
+  uncommon: "vm-rarity-uncommon vm-rarity-surface border-emerald-400 text-emerald-300 bg-emerald-950/60",
+  rare: "vm-rarity-rare vm-rarity-surface border-sky-400 text-sky-300 bg-sky-950/60",
+  epic: "vm-rarity-epic vm-rarity-surface border-violet-400 text-violet-300 bg-violet-950/60",
+  legendary: "vm-rarity-legendary vm-rarity-surface border-amber-300 text-amber-200 bg-amber-950/70",
+  ultimate: "vm-rarity-ultimate vm-rarity-surface border-fuchsia-300 text-fuchsia-100 bg-fuchsia-950/70",
 };
 
 // Principessa Case Bad Luck Protection. Shared by the crate-open route and

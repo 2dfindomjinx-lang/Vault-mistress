@@ -493,7 +493,7 @@ export function RecentCaseOpenings() {
           >
             {recentCaseOpenings.map((opening, openingIndex) => (
               <article
-                className={`${openingStyles.card} recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${openingIndex >= RECENT_OPENINGS_MOBILE ? "hidden md:block" : ""} ${getRarityGlowClass(opening.itemRarity)}`}
+                className={`vm-rarity-${opening.itemRarity === "unknown" ? "common" : opening.itemRarity} ${openingStyles.card} recent-opening-card group relative h-[210px] w-[188px] shrink-0 [perspective:1000px] ${openingIndex >= RECENT_OPENINGS_MOBILE ? "hidden md:block" : ""} ${getRarityGlowClass(opening.itemRarity)}`}
                 key={opening.id}
                 tabIndex={0}
                 role="button"
@@ -513,7 +513,7 @@ export function RecentCaseOpenings() {
                 title={`${opening.crateName} • ${formatChancePercent(opening.itemChancePercent) ?? "Unknown chance"} • ${getDisplayNameOrUsername(opening.openerDisplayName, opening.openerRawUsername)}`}
               >
                 <div className={`${openingStyles.faces} relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d]`}>
-                  <div className={`absolute inset-0 flex flex-col gap-2 overflow-hidden rounded-2xl border p-2 ${getRarityGlowClass(opening.itemRarity)} [backface-visibility:hidden]`}>
+                  <div className={`vm-rarity-surface absolute inset-0 flex flex-col gap-2 overflow-hidden rounded-2xl border-2 p-2 ${getRarityGlowClass(opening.itemRarity)} [backface-visibility:hidden]`}>
                     <div className="flex h-[116px] items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/25 p-2">
                       {opening.itemImageUrl ? (
                         // Static crate item images are local and can be rendered with a plain img for simplicity.
@@ -533,7 +533,7 @@ export function RecentCaseOpenings() {
                       <p className="line-clamp-2 text-[12px] font-black leading-tight text-white">
                         {opening.itemName}
                       </p>
-                      <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${getRarityLabelClass(opening.itemRarity)}`}>
+                      <p className={`vm-rarity-text text-[10px] font-black uppercase tracking-[0.18em] ${getRarityLabelClass(opening.itemRarity)}`}>
                         {opening.itemRarity}
                       </p>
                     </div>

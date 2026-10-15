@@ -558,7 +558,7 @@ export function DebtSection({
         remainingDebtBalance={remainingDebtBalance}
         now={now}
       /></div>
-      {hasOpenDebtContract && petDebtContract && <aside className={styles.commitmentColumn} aria-label="Recorded commitments">
+      {hasOpenDebtContract && petDebtContract && (contractVisible("coin") || contractVisible("evil")) && <aside className={styles.commitmentColumn} aria-label="Recorded commitments">
         {(contractVisible("coin") || contractVisible("evil")) && <CoinContractSummary amount="" duration="" period={petDebtContract.period_type} contract={petDebtContract} remaining={remainingDebtBalance}/>}
         {contractVisible("throne") && throneSummary && ["active","overdue","timeout","paused"].includes(throneSummary.status) && <div className={styles.schedule}>
           <p className={styles.edition}>RECORDED COMMITMENT · THRONE</p><h4>The Throne account</h4>
@@ -746,21 +746,22 @@ function ThroneDebtCard({
           <div><dt>Remaining balance</dt><dd>{usd(remainingUsd)}</dd></div>
         </dl>
         <div className="throne-agreement__progress" role="progressbar" aria-label="Contract settled" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1-remainingUsd/activeContract.total_amount_usd)*100)}><span style={{width:Math.max(0,Math.min(100,(1-remainingUsd/activeContract.total_amount_usd)*100))+"%"}}/></div>
-        <div className="throne-agreement__terms"><p><strong>01 / The commitment</strong> Approved {date(activeContract.approved_at)}. {activeContract.contract_length_weeks} weeks · {activeContract.repayment_frequency === "weekly" ? "Every week" : activeContract.repayment_frequency === "bi_weekly" ? "Every 2 weeks" : "Every 4 weeks"} · {activeContract.installment_count} installments.</p><p><strong>02 / Accepted payment</strong> Pay with PM at 1 PM = $1, or include <b>{activeContract.debt_code}</b> in your Throne payment message. TD payments reduce this debt and do not add PM. Payments cover the earliest unpaid installment first; you may pay ahead or settle the full balance.</p><p><strong>03 / Due dates & review</strong> Partial payments reduce the amount due but do not postpone its date. Unmatched payments need review. Overdue payments may lead to account timeout; timeout redemption is a separate, manually reviewed process.</p></div>
+
         {activeContract.schedule_adjusted_at ? <div className="throne-agreement__amendment"><strong>Schedule amendment · {date(activeContract.schedule_adjusted_at)}</strong><p>Unpaid amounts were redistributed into whole-dollar payments. {usd(activeContract.rounding_waived_usd ?? 0)} was waived, not added to a future installment. Previous approvals and due dates remain valid. “Settled” includes manual approvals; the actual cash received for older approvals was not recorded.</p></div> : null}
         {activeContract.status === "pending_review" ? <p className="throne-agreement__notice">Pending manual admin approval. Your dated schedule will appear after approval.</p> : null}
         <div className="throne-agreement__columns">
+          <aside className="throne-agreement__payment"><h4>Honor your agreement</h4><p>Your balance: <strong>{money === null ? "Loading…" : money + " PM"}</strong></p>
+            {canPay && payable.length ? <><label>Pay installments through<select aria-label="Pay installments through" value={through} disabled={isBusy} onChange={event => setPaymentThrough(Number(event.target.value))}>{payable.map(item => <option key={item.id} value={item.installment_number}>{item.installment_number === payable[0].installment_number ? "Next installment" : item.installment_number === payable[payable.length-1].installment_number ? "Full remaining balance" : "Through installment #"+item.installment_number} · {usd(payable.filter(row=>row.installment_number<=item.installment_number).reduce((sum,row)=>sum+getThroneDebtInstallmentRemaining(row),0))}</option>)}</select></label><p className="throne-agreement__quote">{pmCost} PM <span>reduces your debt by {usd(pmCost)}</span></p><p>Balance after payment: {money === null ? "—" : Math.max(0,money-pmCost)+" PM"}</p>{includesEarlyPayment ? <h4>Want to pay early?</h4> : null}<button type="button" disabled={disabled || isBusy || money === null || money<pmCost || !Number.isInteger(pmCost)} onClick={()=>void payPm()}>{isBusy ? "Processing…" : (includesEarlyPayment ? "Pay early · " : "Pay ")+pmCost+" PM"}</button>{money !== null && money<pmCost ? <p>Not enough PM for this payment.</p> : null}{!Number.isInteger(pmCost) ? <p>This payment contains cents. Use Throne or request a manual review.</p> : null}</> : <p>{hasReview ? "A payment is awaiting review. Please wait before paying again." : activeContract.status === "completed" ? "Your agreement is fulfilled. No balance remains." : "PM payments are available for active and overdue contracts."}</p>}
+            <div className="throne-agreement__throne"><strong>Prefer Throne?</strong><p>Include this exact code in your message:</p><code>{activeContract.debt_code}</code><p>Extra funds cover future installments. Any excess after the final installment is recorded separately and does not become PM.</p></div>
+          </aside>
           <section><h4>Schedule of payments</h4><p className="throne-agreement__caption">{installments.filter(item => item.status === "approved_paid").length} of {activeContract.installment_count} installments settled</p>
             <div className="throne-agreement__schedule">{installments.map(item => <div className="throne-agreement__installment" key={item.id}>
               <div><strong>No. {String(item.installment_number).padStart(2,"0")}</strong><small>Due {date(item.due_date)}</small><span className={item.status === "approved_paid" ? "throne-agreement__paid" : ""}>{THRONE_DEBT_INSTALLMENT_LABELS[item.status]}</span></div>
               <div className="throne-agreement__amount"><strong>{usd(getThroneDebtInstallmentRemaining(item))} due</strong><small>Scheduled {usd(item.amount_usd)}</small>{item.original_amount_usd != null && item.original_amount_usd !== item.amount_usd ? <small>Originally {usd(item.original_amount_usd)}</small> : null}<small>Throne credits {usd(item.webhook_paid_usd ?? 0)} · PM {usd(item.pm_paid_usd ?? 0)}</small>{item.status === "approved_paid" && Number(item.webhook_paid_usd ?? 0)+Number(item.pm_paid_usd ?? 0)<Number(item.amount_usd) ? <small>Includes manual settlement</small> : null}{item.paid_at ? <small>Settled {date(item.paid_at)}</small> : null}</div>
             </div>)}</div>
           </section>
-          <aside className="throne-agreement__payment"><h4>Honor your agreement</h4><p>Your balance: <strong>{money === null ? "Loading…" : money + " PM"}</strong></p>
-            {canPay && payable.length ? <><label>Pay installments through<select aria-label="Pay installments through" value={through} disabled={isBusy} onChange={event => setPaymentThrough(Number(event.target.value))}>{payable.map(item => <option key={item.id} value={item.installment_number}>{item.installment_number === payable[0].installment_number ? "Next installment" : item.installment_number === payable[payable.length-1].installment_number ? "Full remaining balance" : "Through installment #"+item.installment_number} · {usd(payable.filter(row=>row.installment_number<=item.installment_number).reduce((sum,row)=>sum+getThroneDebtInstallmentRemaining(row),0))}</option>)}</select></label><p className="throne-agreement__quote">{pmCost} PM <span>reduces your debt by {usd(pmCost)}</span></p><p>Balance after payment: {money === null ? "—" : Math.max(0,money-pmCost)+" PM"}</p>{includesEarlyPayment ? <h4>Want to pay early?</h4> : null}<button type="button" disabled={disabled || isBusy || money === null || money<pmCost || !Number.isInteger(pmCost)} onClick={()=>void payPm()}>{isBusy ? "Processing…" : (includesEarlyPayment ? "Pay early · " : "Pay ")+pmCost+" PM"}</button>{money !== null && money<pmCost ? <p>Not enough PM for this payment.</p> : null}{!Number.isInteger(pmCost) ? <p>This payment contains cents. Use Throne or request a manual review.</p> : null}</> : <p>{hasReview ? "A payment is awaiting review. Please wait before paying again." : activeContract.status === "completed" ? "Your agreement is fulfilled. No balance remains." : "PM payments are available for active and overdue contracts."}</p>}
-            <div className="throne-agreement__throne"><strong>Prefer Throne?</strong><p>Include this exact code in your message:</p><code>{activeContract.debt_code}</code><p>Extra funds cover future installments. Any excess after the final installment is recorded separately and does not become PM.</p></div>
-          </aside>
         </div>
+        <details className={styles.disclosure}><summary>Agreement terms & payment rules</summary><div className="throne-agreement__terms"><p><strong>01 / The commitment</strong> Approved {date(activeContract.approved_at)}. {activeContract.contract_length_weeks} weeks · {activeContract.repayment_frequency === "weekly" ? "Every week" : activeContract.repayment_frequency === "bi_weekly" ? "Every 2 weeks" : "Every 4 weeks"} · {activeContract.installment_count} installments.</p><p><strong>02 / Accepted payment</strong> Pay with PM at 1 PM = $1, or include <b>{activeContract.debt_code}</b> in your Throne payment message. TD payments reduce this debt and do not add PM. Payments cover the earliest unpaid installment first; you may pay ahead or settle the full balance.</p><p><strong>03 / Due dates & review</strong> Partial payments reduce the amount due but do not postpone its date. Unmatched payments need review. Overdue payments may lead to account timeout; timeout redemption is a separate, manually reviewed process.</p></div></details>
         <details className="throne-agreement__details"><summary>Payment record & manual review</summary>
           {(activeContract.payments ?? []).map(payment => <p key={payment.event_id}>{date(payment.created_at)} · Throne {usd(payment.amount_usd)} · Applied {usd(payment.applied_usd)}{payment.status === "needs_review" ? " · Awaiting review" : ""}{payment.amount_usd > payment.applied_usd ? " · Unapplied " + usd(payment.amount_usd-payment.applied_usd) : ""}</p>)}
           {(activeContract.pm_payments ?? []).map(payment => <p key={payment.id}>{date(payment.created_at)} · {payment.amount_pm} PM · {payment.allocations.map(part=>"#"+part.installment+": "+usd(part.amount)).join(" / ")}</p>)}
@@ -773,7 +774,7 @@ function ThroneDebtCard({
       </> : null}
       {!openContract ? <details open={!activeContract || showingDraft} onToggle={event => { if (activeContract && !openContract) setIsDrafting(event.currentTarget.open); }} className="throne-agreement__request"><summary>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>$10–${THRONE_DEBT_MAX_WEEKLY_USD} per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
         <div className={styles.draftForm}><div className={styles.form}>
-        <ContractClause number="I" title="The terms of your promise">
+        <ContractClause number="I" title="Payment terms">
         <div className="throne-agreement__draft">
           <label>Total commitment (USD)<input placeholder="Total USD" inputMode="numeric" disabled={disabled || isBusy || isTimeoutActive} value={totalAmountUsd} onChange={event=>setTotalAmountUsd(event.target.value)}/></label>
           <label>Repayment frequency<select disabled={disabled || isBusy || isTimeoutActive} value={repaymentFrequency} onChange={event=>setRepaymentFrequency(event.target.value as ThroneDebtFrequency)}><option value="weekly">Every week</option><option value="bi_weekly">Every 2 weeks</option><option value="monthly">Every 4 weeks</option></select></label>
@@ -787,7 +788,7 @@ function ThroneDebtCard({
         <p className={styles.hint}>1 PM = $1. Throne payments with your TD code settle this agreement without adding PM. Payment dates are set after approval.</p>
         </ContractClause>
         {hasPlanInputs && !planValid ? <p role="alert" className={styles.note}>{planValidation.error}</p> : null}
-        <ContractClause number="II" title="A note with your promise"><label className={styles.field}>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label></ContractClause>
+        <details className={styles.disclosure}><summary>Add a note (optional)</summary><label className={styles.field}>Your note (optional)<textarea maxLength={500} disabled={disabled || isBusy || isTimeoutActive} value={userNote} onChange={event=>setUserNote(event.target.value)}/></label></details>
         <div className={styles.signing}><p>Submit these terms for Principessa’s approval.</p><button className={styles.primary} type="button" disabled={disabled || isBusy || isTimeoutActive || !planValid} onClick={()=>void createThroneDebt()}>Submit Throne Debt Request</button></div>
         {isTimeoutActive ? <p>You cannot create new debt while your account is in timeout.</p> : null}
         </div></div>
@@ -884,7 +885,7 @@ function DebtCard(props: {
       {hasOpenDebtContract && active && petDebtContract ? <CoinAccount contract={petDebtContract} now={now} installmentNumber={debtInstallmentNumber} remaining={remainingDebtBalance} due={debtPaymentDue} missed={hasMissedInstallment} disabled={activeDebtControlsDisabled} busy={isPetActionPending("pet-debt-contract")} autoPay={isDebtAutoPayEnabled} onAutoPay={onDebtAutoPayChange} onPay={onPayDebtPeriod}/> : showLockedState ? <LockedDebtState accent="normal" blockingContractMessage={blockingContractMessage} petDebtContract={petDebtContract}/> : <>
         <div className={styles.draftForm}>
           <div className={styles.form}>
-            <ContractClause number="I" title="The terms of your promise">
+            <ContractClause number="I" title="Payment terms">
               <div className={styles.fields}>
                 <ContractField label="Your contracted name"><select aria-label="Your contracted name" value={normalPetName} onChange={e=>onNormalPetNameChange(e.target.value)} disabled={contractCreationDisabled}>{DEBT_PET_NAMES.map(name=><option key={name}>{name}</option>)}</select></ContractField>
                 <ContractField label="Repayment period"><select aria-label="Coin repayment period" value={normalDebtPeriodType} onChange={e=>onNormalDebtPeriodTypeChange(e.target.value as "weekly" | "monthly")} disabled={contractCreationDisabled}><option value="weekly">Weekly · every 7 days</option><option value="monthly">Monthly · every 30 days</option></select></ContractField>
@@ -893,7 +894,7 @@ function DebtCard(props: {
               </div>
               <p className={styles.hint}>Minimum {normalDebtMinimumPayment.toLocaleString()} Coins per {normalDebtPeriodType === "weekly" ? "week" : "month"}. Your first payment opens after one period.</p>
             </ContractClause>
-            <ContractClause number="II" title="Your payment preferences">
+            <ContractClause number="II" title="Payment preferences">
               <PurchasePledgeCheckbox checked={normalPurchasePledge} disabled={contractCreationDisabled} onChange={onNormalPurchasePledgeChange}/>
               <div className={styles.autopay}><AutoPaymentSwitch disabled={contractControlsDisabled || hasOpenDebtContract} enabled={isDebtAutoPayEnabled} onChange={onDebtAutoPayChange}/><p className={styles.hint}>Optional. After the 48-hour grace period, auto payment can collect a full outstanding installment when your balance covers it.</p></div>
             </ContractClause>
@@ -1015,7 +1016,7 @@ function EvilDebtCard(props: {
       {hasOpenDebtContract && active && petDebtContract ? <CoinAccount contract={petDebtContract} now={now} installmentNumber={debtInstallmentNumber} remaining={remainingDebtBalance} due={debtPaymentDue} missed={hasMissedInstallment} disabled={activeDebtControlsDisabled} busy={isPetActionPending("pet-debt-contract")} autoPay={isDebtAutoPayEnabled} onAutoPay={onDebtAutoPayChange} onPay={onPayDebtPeriod}/> : showLockedState ? <LockedDebtState accent="evil" blockingContractMessage={blockingContractMessage} petDebtContract={petDebtContract}/> : <>
         <div className={styles.draftForm}>
           <div className={styles.form}>
-            <ContractClause number="I" title="The person making the promise">
+            <ContractClause number="I" title="Your details">
               <div className={styles.fields}>
                 <ContractField label="Full name"><input aria-label="Full name" placeholder="Name on your contract" value={evilFullName} onChange={e=>onEvilFullNameChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
                 <ContractField label="Age"><input aria-label="Age" type="number" min={18} max={120} value={evilAge} onChange={e=>onEvilAgeChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
@@ -1023,7 +1024,7 @@ function EvilDebtCard(props: {
                 <ContractField label="Personal note · optional"><textarea aria-label="Evil contract note" maxLength={240} placeholder="A note for Principessa" value={evilCustomNote} onChange={e=>onEvilCustomNoteChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
               </div>
             </ContractClause>
-            <ContractClause number="II" title="The obligation you accept">
+            <ContractClause number="II" title="Payment terms">
               <div className={styles.fields}>
                 <ContractField label="Repayment period"><select aria-label="Evil repayment period" value={evilDebtPeriodType} onChange={e=>onEvilDebtPeriodTypeChange(e.target.value as "weekly" | "monthly")} disabled={contractCreationDisabled}><option value="weekly">Weekly · every 7 days</option><option value="monthly">Monthly · every 30 days</option></select></ContractField>
                 <ContractField label="Coins per installment"><input aria-label="Evil installment amount" inputMode="numeric" min={evilDebtMinimumPayment} step={5000} placeholder={"Min "+evilDebtMinimumPayment.toLocaleString()} value={evilDebtAmount} onChange={e=>onEvilDebtAmountChange(e.target.value)} disabled={contractCreationDisabled}/></ContractField>
@@ -1031,14 +1032,14 @@ function EvilDebtCard(props: {
               </div>
               <p className={styles.hint}>Minimum {evilDebtMinimumPayment.toLocaleString()} Coins per {evilDebtPeriodType === "weekly" ? "week" : "month"}. Principessa reviews this agreement before it begins.</p>
             </ContractClause>
-            <ContractClause number="III" title="Your attachments & declarations">
+            <ContractClause number="III" title="Attachments & declarations">
               <label className={styles.upload}>Contract attachments · 1–8 BM images<input aria-label="Contract attachments" type="file" accept="image/*" multiple onChange={e=>void onEvilDebtImagesChange(e.target.files)} disabled={contractCreationDisabled}/><span className={styles.hint}>Up to 4 MB per image.</span></label>
               {evilImageError ? <p role="alert" className={styles.note}>{evilImageError}</p> : null}
               {evilImageUrls.length ? <div className={styles.uploads}>{evilImageUrls.map((url,i)=><Image unoptimized width={160} height={160} src={url} alt={"Contract attachment "+(i+1)} key={url.slice(0,32)+i}/>)}</div> : null}
               <div className={styles.consent}><p>Declaration 1 · Type this statement exactly:</p><p>{EVIL_CONSENT_PRIMARY_TEXT}</p><textarea aria-label="First consent statement" placeholder="Type declaration 1 here" value={evilConsentPrimary} onChange={e=>onEvilConsentPrimaryChange(e.target.value)} disabled={contractCreationDisabled}/></div>
               <div className={styles.consent}><p>Declaration 2 · Type this statement exactly:</p><p>{EVIL_CONSENT_SECONDARY_TEXT}</p><textarea aria-label="Second consent statement" placeholder="Type declaration 2 here" value={evilConsentSecondary} onChange={e=>onEvilConsentSecondaryChange(e.target.value)} disabled={contractCreationDisabled}/></div>
             </ContractClause>
-            <ContractClause number="IV" title="Your payment preferences"><PurchasePledgeCheckbox checked={evilPurchasePledge} disabled={contractCreationDisabled} onChange={onEvilPurchasePledgeChange}/><div className={styles.autopay}><AutoPaymentSwitch disabled={contractControlsDisabled || hasOpenDebtContract} enabled={isDebtAutoPayEnabled} onChange={onDebtAutoPayChange}/><p className={styles.hint}>Optional. After the 48-hour grace period, auto payment can collect a full outstanding installment when your balance covers it.</p></div></ContractClause>
+            <ContractClause number="IV" title="Payment preferences"><PurchasePledgeCheckbox checked={evilPurchasePledge} disabled={contractCreationDisabled} onChange={onEvilPurchasePledgeChange}/><div className={styles.autopay}><AutoPaymentSwitch disabled={contractControlsDisabled || hasOpenDebtContract} enabled={isDebtAutoPayEnabled} onChange={onDebtAutoPayChange}/><p className={styles.hint}>Optional. After the 48-hour grace period, auto payment can collect a full outstanding installment when your balance covers it.</p></div></ContractClause>
             <DebtCapacitySummary amount={evilDebtAmount} duration={evilDebtDuration} capacity={capacityPreview} error={capacityPreviewError}/>
             <div className={styles.signing}><p>Review every declaration. Signing asks for final confirmation, then sends the agreement for approval.</p><button type="button" className={styles.primary} onClick={onSign} disabled={contractCreationDisabled || isPetActionPending("pet-debt-contract")}>Sign Evil Debt Contract</button></div>
           </div>
@@ -1058,17 +1059,7 @@ function CoinAccount({ contract, now, installmentNumber, due, missed, disabled, 
   return <>
     <div className={styles.columns}>
       <div className={styles.form}>
-        <ContractClause number="I" title="Your recorded agreement">
-          <dl className={styles.record}>
-            <div><dt>Contracted name</dt><dd>{contract.pet_name}</dd></div>
-            <div><dt>Reference</dt><dd>{contract.id.slice(0,8).toUpperCase()}</dd></div>
-            <div><dt>Signed</dt><dd>{date(contract.created_at)}</dd></div>
-            <div><dt>Repayment</dt><dd>Every {contract.period_type === "weekly" ? "7" : "30"} days</dd></div>
-            {contract.contract_type === "evil" ? <><div><dt>Full name</dt><dd>{contract.full_name ?? "Recorded"}</dd></div><div><dt>Timezone</dt><dd>{contract.timezone ?? "Recorded"}</dd></div></> : null}
-          </dl>
-          {pending ? <p className={styles.note}>Your agreement is awaiting Principessa’s approval. The repayment schedule begins after approval.</p> : <p className={styles.hint}>Contract period: {date(contract.started_at)} – {date(contract.ends_at)}.</p>}
-        </ContractClause>
-        <ContractClause number="II" title={pending ? "Awaiting the court" : "Your current installment"}>
+        <ContractClause number="I" title={pending ? "Awaiting the court" : "Your current installment"}>
           {pending ? <p className={styles.hint}>Your submission is recorded. Payment controls will appear when the agreement is approved.</p> : <>
             <dl className={styles.record}>
               <div><dt>Installment</dt><dd>{installmentNumber} of {contract.duration_periods}</dd></div>
@@ -1081,6 +1072,16 @@ function CoinAccount({ contract, now, installmentNumber, due, missed, disabled, 
             <div className={styles.signing}><p>{due ? "Apply your available Coins to this installment." : "Future installments remain locked until their scheduled date."}</p><button className={styles.primary} type="button" disabled={disabled || !due || busy} onClick={onPay}>{busy ? "Saving…" : !due ? "Next installment locked" : missed ? "Catch up missed installment" : "Pay current installment"}</button></div>
           </>}
         </ContractClause>
+        <details className={styles.disclosure}><summary>Signed agreement details</summary>
+          <dl className={styles.record}>
+            <div><dt>Contracted name</dt><dd>{contract.pet_name}</dd></div>
+            <div><dt>Reference</dt><dd>{contract.id.slice(0,8).toUpperCase()}</dd></div>
+            <div><dt>Signed</dt><dd>{date(contract.created_at)}</dd></div>
+            <div><dt>Repayment</dt><dd>Every {contract.period_type === "weekly" ? "7" : "30"} days</dd></div>
+            {contract.contract_type === "evil" ? <><div><dt>Full name</dt><dd>{contract.full_name ?? "Recorded"}</dd></div><div><dt>Timezone</dt><dd>{contract.timezone ?? "Recorded"}</dd></div></> : null}
+          </dl>
+          {pending ? <p className={styles.note}>Your agreement is awaiting Principessa’s approval. The repayment schedule begins after approval.</p> : <p className={styles.hint}>Contract period: {date(contract.started_at)} – {date(contract.ends_at)}.</p>}
+        </details>
         {contract.custom_note ? <p className={styles.note}>{contract.custom_note}</p> : null}
       </div>
 
