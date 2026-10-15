@@ -40,17 +40,42 @@ const out = path.resolve('../vault-mistress-presentation-check');
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, locale: 'en-US' });
   const errors = [];page.on('pageerror', e => errors.push(e.message));
+  let debtStatus = process.env.THRONE_DRAFT_ONLY ? 'completed' : 'active';
+  let debtId = 'fixture-throne';
   try {
     const html = await (await page.request.get(base)).text();
     const sheets = (html.match(/<link[^>]+>/g) || []).filter(s => s.includes('rel="stylesheet"')).join('');
-    await page.route('**/api/**', r => r.fulfill({ json: { money: 500, contracts: [{ id: 'fixture-throne', debt_code: 'TD-FIXTURE', status: 'active', total_amount_usd: 200, installment_count: 4, contract_length_weeks: 4, repayment_frequency: 'weekly', approved_at: '2026-10-01', installments: Array.from({ length: 4 }, (_, i) => ({ id: 'p' + i, installment_number: i + 1, amount_usd: 50, status: i ? 'pending' : 'approved_paid', due_date: '2026-10-' + (8 + i * 7), pm_paid_usd: i ? 0 : 50 })) }] } }));
+    await page.route('**/api/**', r => r.fulfill({ json: { money: 500, contracts: [{ id: debtId, user_id: 'fixture-user', debt_code: 'TD-FIXTURE', status: debtStatus, total_amount_usd: 200, installment_count: 4, contract_length_weeks: 4, repayment_frequency: 'weekly', approved_at: '2026-10-01', installments: Array.from({ length: 4 }, (_, i) => ({ id: 'p' + i, installment_number: i + 1, amount_usd: 50, status: debtStatus === 'completed' || !i ? 'approved_paid' : 'pending', due_date: '2026-10-' + (8 + i * 7), pm_paid_usd: debtStatus === 'completed' || !i ? 50 : 0 })) }] } }));
     await page.route('**/__presentation-check', r => r.fulfill({ contentType: 'text/html', body: '<html><head>'+sheets+'<style>body{margin:0;--font-geist-sans:Arial;--font-geist-mono:Consolas}#fixture{max-width:1160px;margin:24px auto;padding:12px}*{box-sizing:border-box}</style></head><body class="court-theme bubblegum-theme"><main id="fixture"></main></body></html>' }));
     await page.goto(base + '/__presentation-check');
-    for (const file of bundle.outputFiles) {
+    const mount = async () => { for (const file of bundle.outputFiles) {
       if (file.path.endsWith('.css')) await page.addStyleTag({ content: file.text });
       else await page.addScriptTag({ content: file.text });
-    }
+    } };
+    await mount();
     const show = async name => { await page.evaluate(n => window.fixture.show(n), name); await page.waitForTimeout(100); };
+    if (process.env.THRONE_DRAFT_ONLY) {
+      const request = page.locator('.throne-agreement__request > summary');
+      const form = page.getByPlaceholder('Total USD',{exact:true});
+      const reload = async () => { await page.reload(); await mount(); await show('debt-completed'); };
+      await show('debt-completed');
+      await page.getByText('Request another debt contract',{exact:true}).waitFor();
+      await request.click(); await form.waitFor();
+      await reload(); await form.waitFor();
+      assert.equal(await page.locator('.throne-agreement__figures').count(),0,'Completed screen stays dismissed after reload');
+      await request.click(); await page.getByText('Request another debt contract',{exact:true}).waitFor();
+      await reload(); await page.getByText('Request another debt contract',{exact:true}).waitFor();
+      assert.equal(await form.isVisible(),false,'Explicit return to completed view is remembered');
+      await request.click(); await form.waitFor();
+      debtStatus='active'; await reload(); await page.locator('.throne-agreement__payment').waitFor();
+      assert.equal(await form.count(),0,'An active agreement always takes priority');
+      debtStatus='completed';debtId='another-contract';await reload();
+      await page.getByText('Request another debt contract',{exact:true}).waitFor();
+      assert.equal(await form.isVisible(),false,'Preference does not leak to another contract');
+      assert.deepEqual(errors,[]);
+      console.log('Passed: new agreement view survives reload, explicit close persists, active agreement takes priority, separate contract unaffected.');
+      return;
+    }
     const noOverflow = async () => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow');
     const colors = [];
     for (const mode of ['light','dark']) {

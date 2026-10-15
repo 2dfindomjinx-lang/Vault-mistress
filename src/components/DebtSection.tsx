@@ -572,6 +572,10 @@ export function DebtSection({
   );
 }
 
+function throneDebtViewKey(contract: ThroneDebtContract | undefined) {
+  return contract ? `vault:throne-debt:draft:${contract.user_id}:${contract.id}` : null;
+}
+
 function ThroneDebtCard({
   onContractChange,
   onMoneyChange,
@@ -588,6 +592,7 @@ function ThroneDebtCard({
   const [money, setMoney] = useState<number | null>(null);
   const [historyId, setHistoryId] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
+  const restoredViewKey = useRef<string | null>(null);
   const [paymentThrough, setPaymentThrough] = useState(0);
   const pmRequest = useRef<{id: string; key: string} | null>(null);
   const [contracts, setContracts] = useState<ThroneDebtContract[]>([]);
@@ -607,6 +612,15 @@ function ThroneDebtCard({
   ) ?? null;
   const showingDraft = isDrafting && !openContract;
   const activeContract = contracts.find(contract => contract.id === historyId) ?? openContract ?? contracts[0] ?? null;
+  const changeDraftView = (drafting: boolean) => {
+    setIsDrafting(drafting);
+    const key = throneDebtViewKey(contracts[0]);
+    if (!key) return;
+    try {
+      if (drafting) localStorage.setItem(key, "draft");
+      else localStorage.removeItem(key);
+    } catch { /* Storage may be unavailable; keep the current view usable. */ }
+  };
   useEffect(() => { onContractChange?.(openContract); }, [openContract, onContractChange]);
   const cleanLengthWeeks = contractLengthWeeks === "custom"
     ? Math.floor(Number(customLengthWeeks))
@@ -648,7 +662,16 @@ function ThroneDebtCard({
         throw new Error(payload.error ?? "Throne Debt could not be loaded.");
       }
 
-      setContracts(payload.contracts ?? []);
+      const loadedContracts = payload.contracts ?? [];
+      const viewKey = throneDebtViewKey(loadedContracts[0]);
+      // Restore only for this account's latest contract, not on every background refresh.
+      if (viewKey !== restoredViewKey.current) {
+        let drafting = false;
+        try { drafting = viewKey !== null && localStorage.getItem(viewKey) === "draft"; } catch { /* Optional preference. */ }
+        setIsDrafting(drafting);
+        restoredViewKey.current = viewKey;
+      }
+      setContracts(loadedContracts);
       if (typeof payload.money === "number") setMoney(payload.money);
       setStatusText("");
       return payload.contracts ?? [];
@@ -690,7 +713,7 @@ function ThroneDebtCard({
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "Request failed.");
       setHistoryId(payload.contract.id);
-      setIsDrafting(false);
+      changeDraftView(false);
       await loadThroneDebts(); setUserNote(""); setStatusText("Your request is awaiting approval.");
     } catch(error) {setStatusText(error instanceof Error ? error.message : "Request failed.");}
     finally {setIsBusy(false);}
@@ -736,7 +759,7 @@ function ThroneDebtCard({
   return (
     <ContractDocument kind="throne" recorded={Boolean(activeContract) && !showingDraft} status={activeContract && !showingDraft ? label(activeContract.status) : "Draft · Not signed"}>
       <div className="throne-agreement__body">
-      {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {setIsDrafting(false);setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
+      {contracts.length > 1 ? <label className="throne-agreement__history">Contract archive<select value={activeContract?.id ?? ""} onChange={event => {changeDraftView(false);setHistoryId(event.target.value);setPaymentThrough(0);setSelectedInstallmentId("");}}>{contracts.map(contract => <option key={contract.id} value={contract.id}>{contract.debt_code} · {label(contract.status)}</option>)}</select></label> : null}
       {activeContract && !showingDraft ? <>
         <div className="throne-agreement__reference"><div><small>CONTRACT REFERENCE</small><strong>{activeContract.debt_code}</strong></div><span className="throne-agreement__status">{label(activeContract.status)}</span></div>
         <dl className="throne-agreement__figures">
@@ -772,7 +795,7 @@ function ThroneDebtCard({
         {activeContract.user_note ? <p><strong>Your note:</strong> {activeContract.user_note}</p> : null}{activeContract.admin_note ? <p><strong>Principessa’s note:</strong> {activeContract.admin_note}</p> : null}
         <footer className="throne-agreement__signature"><span>Principessa<small>THE COURT</small></span><span>{activeContract.debt_code}<small>{activeContract.approved_at ? "APPROVED · "+date(activeContract.approved_at) : "AWAITING APPROVAL"}</small></span></footer>
       </> : null}
-      {!openContract ? <details open={!activeContract || showingDraft} onToggle={event => { if (activeContract && !openContract) setIsDrafting(event.currentTarget.open); }} className="throne-agreement__request"><summary>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>$10–${THRONE_DEBT_MAX_WEEKLY_USD} per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
+      {!openContract ? <details open={!activeContract || showingDraft} className="throne-agreement__request"><summary onClick={event => { event.preventDefault(); if (activeContract) changeDraftView(!showingDraft); }}>{activeContract && !showingDraft ? "Request another debt contract" : "Draft your agreement"}</summary><p>$10–${THRONE_DEBT_MAX_WEEKLY_USD} per week. Your request is reviewed before a contract begins. Pay approved installments with PM or Throne.</p>
         <div className={styles.draftForm}><div className={styles.form}>
         <ContractClause number="I" title="Payment terms">
         <div className="throne-agreement__draft">
